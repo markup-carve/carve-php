@@ -1,0 +1,62 @@
+{
+    "name": "markup-carve/carve-php",
+    "description": "PHP parser for Carve, a human-centered lightweight markup language derived from djot-php.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "carve",
+        "markup",
+        "parser",
+        "djot"
+    ],
+    "homepage": "https://github.com/markup-carve/carve-php",
+    "authors": [
+        {
+            "name": "Mark Scherer",
+            "homepage": "https://github.com/dereuromark"
+        },
+        {
+            "name": "PHP Collective (djot-php, upstream)",
+            "homepage": "https://github.com/php-collective"
+        }
+    ],
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "nikic/php-fuzzer": "^0.0.11",
+        "php-collective/code-sniffer": "dev-master",
+        "phpstan/phpstan": "^2.1.32",
+        "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Carve\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Carve\\Test\\": "tests/"
+        }
+    },
+    "scripts": {
+        "check": [
+            "@cs-check",
+            "@test"
+        ],
+        "cs-check": "phpcs --colors --parallel=16",
+        "cs-fix": "phpcbf --colors --parallel=16",
+        "fuzz": "php-fuzzer fuzz fuzz/target.php fuzz/corpus/",
+        "fuzz-strict": "php-fuzzer fuzz fuzz/target-strict.php fuzz/corpus/",
+        "stan": "phpstan analyze",
+        "test": "phpunit"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "bin": [
+        "bin/carve"
+    ]
+}

@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Carve\Node\Inline;
+
+use Carve\Node\ContentNodeInterface;
+
+/**
+ * Raw inline content (pass-through to specific format)
+ */
+class RawInline extends InlineNode implements ContentNodeInterface
+{
+    public function __construct(
+        protected string $content = '',
+        protected string $format = '',
+    ) {
+    }
+
+    public function getContent(): string
+    {
+        return $this->content;
+    }
+
+    public function setContent(string $content): void
+    {
+        $this->content = $content;
+    }
+
+    public function getFormat(): string
+    {
+        return $this->format;
+    }
+
+    public function setFormat(string $format): void
+    {
+        $this->format = $format;
+    }
+
+    public function getType(): string
+    {
+        return 'raw_inline';
+    }
+}

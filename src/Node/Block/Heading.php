@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Carve\Node\Block;
+
+/**
+ * Heading block (h1-h6)
+ */
+class Heading extends BlockNode
+{
+    public function __construct(protected int $level = 1)
+    {
+    }
+
+    public function getLevel(): int
+    {
+        return $this->level;
+    }
+
+    public function setLevel(int $level): void
+    {
+        $this->level = max(1, min(6, $level));
+    }
+
+    public function getType(): string
+    {
+        return 'heading';
+    }
+}
