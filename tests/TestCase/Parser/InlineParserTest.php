@@ -66,7 +66,7 @@ class InlineParserTest extends TestCase
 
     public function testParseEmphasis(): void
     {
-        $para = $this->parseInline('_emphasized_');
+        $para = $this->parseInline('/emphasized/');
 
         $this->assertCount(1, $para->getChildren());
         $em = $this->getFirstChild($para);
@@ -149,7 +149,7 @@ class InlineParserTest extends TestCase
 
     public function testParseSubscript(): void
     {
-        $para = $this->parseInline('H~2~O');
+        $para = $this->parseInline('H,,2,,O');
 
         $children = $para->getChildren();
         $this->assertCount(3, $children);
@@ -362,7 +362,7 @@ class InlineParserTest extends TestCase
 
     public function testNestedEmphasis(): void
     {
-        $para = $this->parseInline('*_nested_*');
+        $para = $this->parseInline('*/nested/*');
 
         $strong = $this->getFirstChild($para);
         $this->assertInstanceOf(Strong::class, $strong);
@@ -398,7 +398,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithUnderscoreInLinkDestination(): void
     {
-        $para = $this->parseInline('_[link](http://example.com?foo_bar=1), more text_');
+        $para = $this->parseInline('/[link](http://example.com?foo_bar=1), more text/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -420,7 +420,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithUnderscoreInSimplePath(): void
     {
-        $para = $this->parseInline('_hello [link](a_b) world_');
+        $para = $this->parseInline('/hello [link](a_b) world/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -456,7 +456,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithMultipleUnderscoresInDestination(): void
     {
-        $para = $this->parseInline('_[link](path/to_file_name_here)_');
+        $para = $this->parseInline('/[link](path/to_file_name_here)/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -472,7 +472,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithNestedParensInDestination(): void
     {
-        $para = $this->parseInline('_[wiki](http://en.wikipedia.org/wiki/Foo_(bar))_');
+        $para = $this->parseInline('/[wiki](http://en.wikipedia.org/wiki/Foo_(bar))/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -488,7 +488,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithEscapedUnderscoreInDestination(): void
     {
-        $para = $this->parseInline('_[link](path/to\_file)_');
+        $para = $this->parseInline('/[link](path/to\_file)/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -505,7 +505,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithUnderscoreInImageDestination(): void
     {
-        $para = $this->parseInline('_![alt](image_file.png)_');
+        $para = $this->parseInline('/![alt](image_file.png)/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -521,7 +521,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithMultipleLinksWithUnderscores(): void
     {
-        $para = $this->parseInline('_[a](x_y) and [b](p_q)_');
+        $para = $this->parseInline('/[a](x_y) and [b](p_q)/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -544,7 +544,7 @@ class InlineParserTest extends TestCase
      */
     public function testUnderscoreInLinkTextStillTriggersEmphasis(): void
     {
-        $para = $this->parseInline('_[bar_](url)');
+        $para = $this->parseInline('/[bar/](url)');
 
         $children = $para->getChildren();
         // The _ inside [bar_] closes the emphasis started at the beginning
@@ -566,7 +566,7 @@ class InlineParserTest extends TestCase
     public function testEmphasisWithUnclosedLinkDestination(): void
     {
         // [foo](_bar is not a complete link, so emphasis should still work
-        $para = $this->parseInline('_text [foo](_bar more_');
+        $para = $this->parseInline('/text [foo](/bar more/');
 
         $children = $para->getChildren();
         // This is complex - the [foo]( triggers unclosed link handling
@@ -575,19 +575,26 @@ class InlineParserTest extends TestCase
     }
 
     /**
-     * Test: Link destination without preceding bracket should not affect emphasis
+     * Test: an inner italic delimiter between alphanumerics is not a closer
+     *
+     * In Carve the intraword rule applies to the italic delimiter: a '/'
+     * immediately followed by an alphanumeric cannot close emphasis, so
+     * the span runs to the final '/' and the inner slash stays literal.
      */
-    public function testEmphasisWithParensNotPrecededByBracket(): void
+    public function testEmphasisInnerSlashBetweenAlnumIsLiteral(): void
     {
-        // Just (a_b) without [] before it - underscore should close emphasis
-        $para = $this->parseInline('_foo (a_b) bar_');
+        $para = $this->parseInline('/foo (a/b) bar/');
 
         $children = $para->getChildren();
-        // The _ in (a_b) closes emphasis because there's no ]( pattern
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Emphasis::class, $children[0]);
-        $emChildren = $children[0]->getChildren();
-        $this->assertInstanceOf(Text::class, $emChildren[0]);
-        $this->assertSame('foo (a', $emChildren[0]->getContent());
+
+        $text = '';
+        foreach ($children[0]->getChildren() as $child) {
+            $this->assertInstanceOf(Text::class, $child);
+            $text .= $child->getContent();
+        }
+        $this->assertSame('foo (a/b) bar', $text);
     }
 
     /**
@@ -595,7 +602,7 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithComplexQueryString(): void
     {
-        $para = $this->parseInline('_Check [this API](https://api.example.com/v1/users?sort_by=name&filter_type=active) for details_');
+        $para = $this->parseInline('/Check [this API](https://api.example.com/v1/users?sort_by=name&filter_type=active) for details/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
@@ -739,7 +746,7 @@ class InlineParserTest extends TestCase
 
     public function testEmphasisWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('_emphasized text_{.highlight}');
+        $para = $this->parseInline('/emphasized text/{.highlight}');
 
         $em = $this->getFirstChild($para);
         $this->assertInstanceOf(Emphasis::class, $em);
@@ -786,7 +793,7 @@ class InlineParserTest extends TestCase
 
     public function testSubscriptWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('~2~{.chemical}');
+        $para = $this->parseInline(',,2,,{.chemical}');
 
         $sub = $this->getFirstChild($para);
         $this->assertInstanceOf(Subscript::class, $sub);
@@ -872,7 +879,7 @@ class InlineParserTest extends TestCase
 
     public function testTrailingAttributesDoNotAffectFollowingText(): void
     {
-        $para = $this->parseInline('_text_{.cls} more text');
+        $para = $this->parseInline('/text/{.cls} more text');
 
         $children = $para->getChildren();
         $this->assertCount(2, $children);
@@ -888,7 +895,7 @@ class InlineParserTest extends TestCase
 
     public function testMultipleInlineElementsWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('_em_{.a} and *strong*{.b}');
+        $para = $this->parseInline('/em/{.a} and *strong*{.b}');
 
         $children = $para->getChildren();
         $this->assertCount(3, $children);
@@ -904,7 +911,7 @@ class InlineParserTest extends TestCase
 
     public function testNestedEmphasisWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('_outer *inner*_{.outer-class}');
+        $para = $this->parseInline('/outer *inner*/{.outer-class}');
 
         $em = $this->getFirstChild($para);
         $this->assertInstanceOf(Emphasis::class, $em);
@@ -913,7 +920,7 @@ class InlineParserTest extends TestCase
 
     public function testInlineElementWithoutTrailingAttributesStillWorks(): void
     {
-        $para = $this->parseInline('_plain emphasis_ text');
+        $para = $this->parseInline('/plain emphasis/ text');
 
         $em = $this->getFirstChild($para);
         $this->assertInstanceOf(Emphasis::class, $em);

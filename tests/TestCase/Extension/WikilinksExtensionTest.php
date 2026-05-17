@@ -207,7 +207,7 @@ class WikilinksExtensionTest extends TestCase
         $converter = new CarveConverter();
         $converter->addExtension(new WikilinksExtension());
 
-        $html = $converter->convert('_Check out [[Tigers]]_');
+        $html = $converter->convert('/Check out [[Tigers]]/');
 
         $this->assertStringContainsString('<em>', $html);
         $this->assertStringContainsString('href="tigers"', $html);

@@ -607,7 +607,7 @@ class AttributeParserTest extends TestCase
 
     public function testMultipleAttributeBlocksOnEmphasis(): void
     {
-        $result = $this->converter->convert('_italic_{.foo}{.bar}');
+        $result = $this->converter->convert('/italic/{.foo}{.bar}');
 
         $this->assertStringContainsString('<em class="foo bar">italic</em>', $result);
     }

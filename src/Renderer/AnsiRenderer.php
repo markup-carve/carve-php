@@ -40,11 +40,13 @@ use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
+use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
 
 /**
@@ -401,6 +403,8 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
+            $node instanceof Underline => $this->renderUnderline($node),
+            $node instanceof Strike => $this->renderStrike($node),
             $node instanceof Code => $this->renderCode($node),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
@@ -826,6 +830,16 @@ class AnsiRenderer implements RendererInterface
     protected function renderDelete(Delete $node): string
     {
         return $this->style($this->renderChildren($node), self::STRIKETHROUGH . self::FG_RED);
+    }
+
+    protected function renderUnderline(Underline $node): string
+    {
+        return $this->style($this->renderChildren($node), self::UNDERLINE);
+    }
+
+    protected function renderStrike(Strike $node): string
+    {
+        return $this->style($this->renderChildren($node), self::STRIKETHROUGH);
     }
 
     protected function renderMath(Math $node): string

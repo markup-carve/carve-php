@@ -33,7 +33,7 @@ class AnsiRendererTest extends TestCase
 
     public function testRenderEmphasisAndStrong(): void
     {
-        $doc = $this->converter->parse('This is _emphasized_ and *strong* text.');
+        $doc = $this->converter->parse('This is /emphasized/ and *strong* text.');
         $output = $this->renderer->render($doc);
 
         $this->assertStringContainsString('emphasized', $output);
