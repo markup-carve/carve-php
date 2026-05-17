@@ -538,6 +538,16 @@ class HtmlRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         $attrs = $this->renderAttributes($node);
+
+        // A paragraph whose only content is a single image renders the
+        // image as a bare block element (no <p> wrapper), per Carve.
+        $children = $node->getChildren();
+        if ($attrs === '' && count($children) === 1 && $children[0] instanceof Image) {
+            // Route through renderNode so render-time extensions
+            // (e.g. DefaultAttributesExtension) still fire on the image.
+            return rtrim($this->renderNode($children[0]), "\n") . "\n";
+        }
+
         $content = rtrim($this->renderChildren($node), " \t");
 
         return '<p' . $attrs . '>' . $content . "</p>\n";
@@ -685,18 +695,33 @@ class HtmlRenderer implements RendererInterface
         return '<blockquote' . $attrs . ">\n" . $this->renderChildren($node) . "</blockquote>\n";
     }
 
+    /**
+     * Prefix every non-empty line of $html with $spaces spaces.
+     */
+    protected function indentBlock(string $html, int $spaces): string
+    {
+        $pad = str_repeat(' ', $spaces);
+        $lines = explode("\n", $html);
+        foreach ($lines as $i => $line) {
+            if ($line !== '') {
+                $lines[$i] = $pad . $line;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     protected function renderList(ListBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
         $tight = $node->isTight();
 
-        // Render children with tight parameter
-        $html = '';
+        $items = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
-                $html .= $this->renderListItem($child, $tight);
+                $items .= $this->indentBlock($this->renderListItem($child, $tight), 2) . "\n";
             } else {
-                $html .= $this->renderNode($child);
+                $items .= $this->indentBlock(rtrim($this->renderNode($child), "\n"), 2) . "\n";
             }
         }
 
@@ -706,60 +731,58 @@ class HtmlRenderer implements RendererInterface
             $style = $node->getStyle();
             $marker = $node->getMarker();
 
-            // Order: start, then type, then other attrs
             if ($start !== 1) {
                 $olAttrs .= ' start="' . $start . '"';
             }
             if ($style !== null) {
                 $olAttrs .= ' type="' . $style . '"';
             }
-            // Preserve marker for round-trip (only if non-default and round-trip mode enabled)
             if ($this->roundTripMode && $marker !== null && $marker !== '.') {
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }
 
-            return '<ol' . $olAttrs . $this->renderAttributeArray($attrs) . ">\n" . $html . "</ol>\n";
+            return '<ol' . $olAttrs . $this->renderAttributeArray($attrs) . ">\n" . $items . "</ol>\n";
         }
 
-        if ($node->getListType() === ListBlock::TYPE_TASK) {
-            $attrs = $this->mergeAttribute($attrs, 'class', 'task-list');
-        }
-
-        // Preserve marker for round-trip (only if non-default and round-trip mode enabled)
         $marker = $node->getMarker();
         $markerAttr = '';
         if ($this->roundTripMode && $marker !== null && $marker !== '-') {
             $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
-        return '<ul' . $markerAttr . $this->renderAttributeArray($attrs) . ">\n" . $html . "</ul>\n";
+        return '<ul' . $markerAttr . $this->renderAttributeArray($attrs) . ">\n" . $items . "</ul>\n";
     }
 
     protected function renderListItem(ListItem $node, bool $tight = true): string
     {
         $attrs = $this->renderAttributes($node);
-        $content = $this->renderChildren($node);
+        $content = rtrim($this->renderChildren($node), "\n");
 
-        if ($tight) {
-            // For tight lists, strip paragraph wrapper from content
-            // This handles both:
-            // 1. Single paragraph: <p>text</p> -> text
-            // 2. Paragraph followed by nested list: <p>text</p>\n<ul>... -> text\n<ul>...
-            $content = preg_replace('/^<p>(.+?)<\/p>(\n)?/s', '$1$2', $content) ?? $content;
-        }
-
-        // Handle task list items
-        if ($node->isTask()) {
-            $checked = $node->getChecked() ? ' checked=""' : '';
-            // Always use xhtml-style format for task list checkboxes
-            $checkbox = '<input disabled="" type="checkbox"' . $checked . "/>\n";
-            $content = $checkbox . rtrim($content);
+        // Separate a leading paragraph from any following block content
+        // (typically a nested list). Tight items inline the lead paragraph
+        // without a <p> wrapper; loose items keep it.
+        $lead = '';
+        $rest = '';
+        if (preg_match('/^<p>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
+            $lead = $tight ? $m[1] : '<p>' . $m[1] . '</p>';
+            $rest = isset($m[2]) ? trim($m[2], "\n") : '';
         } else {
-            $content = rtrim($content);
+            $lead = $content;
         }
 
-        // In djot, list item content is always on its own line
-        return '<li' . $attrs . ">\n" . $content . "\n</li>\n";
+        if ($node->isTask()) {
+            $checked = $node->getChecked() ? ' checked' : '';
+            $close = $this->xhtml ? ' />' : '>';
+            $lead = '<input type="checkbox"' . $checked . ' disabled' . $close . ' ' . $lead;
+        }
+
+        if ($rest === '') {
+            return '<li' . $attrs . '>' . $lead . '</li>';
+        }
+
+        return '<li' . $attrs . '>' . $lead . "\n"
+            . $this->indentBlock($rest, 2) . "\n"
+            . '</li>';
     }
 
     protected function renderThematicBreak(ThematicBreak $node): string
@@ -773,8 +796,38 @@ class HtmlRenderer implements RendererInterface
         return $this->xhtml ? '<hr' . $attrs . " />\n" : '<hr' . $attrs . ">\n";
     }
 
+    /**
+     * @var list<string>
+     */
+    protected const ADMONITION_TYPES = ['note', 'tip', 'important', 'warning', 'caution', 'danger', 'info'];
+
     protected function renderDiv(Div $node): string
     {
+        $class = $node->getAttribute('class');
+        $classes = is_string($class) && $class !== ''
+            ? preg_split('/\s+/', trim($class)) ?: []
+            : [];
+        $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
+
+        // A fenced div carrying a known admonition type renders as a
+        // semantic <aside class="admonition …">. Any extra classes and
+        // all other node attributes (id, data-*, …) are preserved.
+        if ($types !== []) {
+            // Drop type tokens and any pre-existing "admonition" so the
+            // prefix is emitted exactly once.
+            $others = array_values(array_filter(
+                $classes,
+                static fn (string $c): bool => $c !== 'admonition'
+                    && !in_array($c, self::ADMONITION_TYPES, true),
+            ));
+            $attrs = $this->getRenderableAttributes($node);
+            $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
+            $body = rtrim($this->renderChildren($node), "\n");
+
+            return '<aside' . $this->renderAttributeArray($attrs) . ">\n"
+                . $this->indentBlock($body, 2) . "\n</aside>\n";
+        }
+
         $attrs = $this->renderAttributes($node);
 
         return '<div' . $attrs . ">\n" . $this->renderChildren($node) . "</div>\n";
@@ -791,22 +844,19 @@ class HtmlRenderer implements RendererInterface
     protected function renderFigure(Figure $node): string
     {
         $attrs = $this->renderAttributes($node);
-        $html = '<figure' . $attrs . ">\n";
+        $body = '';
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                // Caption becomes figcaption
-                $html .= '<figcaption>' . rtrim($this->renderChildren($child)) . "</figcaption>\n";
+                $body .= '<figcaption>' . rtrim($this->renderChildren($child)) . "</figcaption>\n";
             } elseif ($child instanceof Image) {
-                // Image rendered directly (not wrapped in p)
-                $html .= $this->renderImage($child);
+                $body .= $this->renderImage($child) . "\n";
             } else {
-                // Other content (blockquote, etc.)
-                $html .= $this->renderNode($child);
+                $body .= rtrim($this->renderNode($child), "\n") . "\n";
             }
         }
 
-        return $html . "</figure>\n";
+        return '<figure' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";
     }
 
     protected function renderCaption(Caption $node): string
@@ -956,7 +1006,7 @@ class HtmlRenderer implements RendererInterface
             $src = $this->safeMode->sanitizeUrl($src);
         }
 
-        $html = '<img alt="' . $alt . '" src="' . $this->escapeAttribute($src) . '"';
+        $html = '<img src="' . $this->escapeAttribute($src) . '" alt="' . $alt . '"';
         if ($title !== null) {
             $html .= ' title="' . $this->escapeAttribute($title) . '"';
         }

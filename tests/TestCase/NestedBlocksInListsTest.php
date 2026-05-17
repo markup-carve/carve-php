@@ -219,7 +219,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<div class="note">', $result);
+        $this->assertStringContainsString('<aside class="admonition note">', $result);
         $this->assertStringContainsString('This is a note', $result);
     }
 
@@ -236,7 +236,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<ol>', $result);
-        $this->assertStringContainsString('<div class="warning">', $result);
+        $this->assertStringContainsString('<aside class="admonition warning">', $result);
     }
 
     // ==================== Mixed blocks in lists ====================
