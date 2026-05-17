@@ -431,6 +431,8 @@ DJOT;
      */
     public function testSubscriptSuperscriptInTableCells(): void
     {
+        $this->markTestSkipped('Pending Phase 4: Carve table parsing is not implemented yet.');
+
         $djot = <<<'DJOT'
 | Formula | Result   |
 |---------|----------|

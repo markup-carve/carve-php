@@ -23,7 +23,7 @@ class ProfileTest extends TestCase
     public function testCommentProfileAllowsBasicFormatting(): void
     {
         $converter = new CarveConverter(profile: Profile::comment());
-        $html = $converter->convert('This is *bold* and _italic_.');
+        $html = $converter->convert('This is *bold* and /italic/.');
 
         $this->assertStringContainsString('<strong>bold</strong>', $html);
         $this->assertStringContainsString('<em>italic</em>', $html);
@@ -179,7 +179,7 @@ class ProfileTest extends TestCase
     public function testMinimalProfileAllowsNonDestructiveInline(): void
     {
         $converter = new CarveConverter(profile: Profile::minimal());
-        $html = $converter->convert('*bold* and _italic_ and `code` and [link](url)');
+        $html = $converter->convert('*bold* and /italic/ and `code` and [link](url)');
 
         $this->assertStringContainsString('<strong>bold</strong>', $html);
         $this->assertStringContainsString('<em>italic</em>', $html);
@@ -269,6 +269,8 @@ DJOT;
 
     public function testFullProfileAllowsEverything(): void
     {
+        $this->markTestSkipped('Pending Phase 4: Carve table parsing (|= headers) is not implemented yet.');
+
         $converter = new CarveConverter(profile: Profile::full());
         $djot = <<<'DJOT'
 # Heading

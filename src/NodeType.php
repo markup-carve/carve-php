@@ -134,6 +134,16 @@ final class NodeType
     /**
      * @var string
      */
+    public const UNDERLINE = 'underline';
+
+    /**
+     * @var string
+     */
+    public const STRIKE = 'strike';
+
+    /**
+     * @var string
+     */
     public const CODE = 'code';
 
     /**
@@ -255,6 +265,8 @@ final class NodeType
             self::TEXT,
             self::EMPHASIS,
             self::STRONG,
+            self::UNDERLINE,
+            self::STRIKE,
             self::CODE,
             self::LINK,
             self::IMAGE,

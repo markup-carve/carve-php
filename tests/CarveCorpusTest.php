@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Carve\Test;
+
+use Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use function basename;
+use function file_get_contents;
+use function glob;
+use function preg_replace;
+
+/**
+ * Runs the canonical Carve spec corpus (markup-carve/carve, vendored as a
+ * git submodule at tests/spec) against CarveConverter.
+ *
+ * Mirrors the carve-js / carve-rs runners: every NN-slug.crv is paired with
+ * its NN-slug.html and compared after trimming. Only category prefixes in
+ * IMPLEMENTED run as real assertions; everything else is marked incomplete
+ * so the remaining work stays visible without failing CI.
+ *
+ * Carve-php is mid-migration from Djot syntax. Promote a prefix into
+ * IMPLEMENTED once the corresponding parser/renderer work lands.
+ */
+#[Group('corpus')]
+class CarveCorpusTest extends TestCase
+{
+    /**
+     * Category prefixes the parser + renderer can produce byte-identical
+     * HTML for. A prefix covers all its sub-examples (01-emphasis also
+     * covers 01-emphasis-2 … 01-emphasis-7).
+     *
+     * @var array<string>
+     */
+    protected const IMPLEMENTED = [
+        '01-emphasis',
+    ];
+
+    protected CarveConverter $converter;
+
+    protected function setUp(): void
+    {
+        $this->converter = new CarveConverter();
+    }
+
+    /**
+     * @throws \RuntimeException
+     *
+     * @return array<string, array{slug: string, crv: string, html: string}>
+     */
+    public static function corpusProvider(): array
+    {
+        $dir = __DIR__ . '/spec/tests/corpus';
+        $crvFiles = glob($dir . '/*.crv') ?: [];
+        if ($crvFiles === []) {
+            throw new RuntimeException(
+                "Carve spec corpus not found at {$dir}.\n"
+                . "Initialize the submodule:\n  git submodule update --init",
+            );
+        }
+
+        $cases = [];
+        foreach ($crvFiles as $crvPath) {
+            $slug = basename($crvPath, '.crv');
+            $htmlPath = $dir . '/' . $slug . '.html';
+            if (!file_exists($htmlPath)) {
+                continue;
+            }
+            $cases[$slug] = [
+                'slug' => $slug,
+                'crv' => (string)file_get_contents($crvPath),
+                'html' => (string)file_get_contents($htmlPath),
+            ];
+        }
+
+        return $cases;
+    }
+
+    protected static function isImplemented(string $slug): bool
+    {
+        $base = preg_replace('/-\d+$/', '', $slug);
+        foreach (self::IMPLEMENTED as $prefix) {
+            if ($slug === $prefix || $base === $prefix) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    #[DataProvider('corpusProvider')]
+    public function testCorpus(string $slug, string $crv, string $html): void
+    {
+        if (!self::isImplemented($slug)) {
+            $this->markTestIncomplete('Not yet implemented for Carve syntax: ' . $slug);
+        }
+
+        $actual = $this->converter->convert($crv);
+
+        $this->assertSame(
+            $this->normalize($html),
+            $this->normalize($actual),
+            'Corpus mismatch for ' . $slug,
+        );
+    }
+
+    protected function normalize(string $s): string
+    {
+        $s = (string)preg_replace('/[ \t]+$/m', '', $s);
+
+        return rtrim($s, "\n");
+    }
+}

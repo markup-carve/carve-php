@@ -41,11 +41,13 @@ use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
+use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
 use Carve\Renderer\Utility\EventDispatcherTrait;
 use Carve\SafeMode;
@@ -134,6 +136,8 @@ class HtmlRenderer implements RendererInterface
             Text::class => 'renderText',
             Emphasis::class => 'renderEmphasis',
             Strong::class => 'renderStrong',
+            Underline::class => 'renderUnderline',
+            Strike::class => 'renderStrike',
             Link::class => 'renderLink',
             Image::class => 'renderImage',
             Code::class => 'renderCode',
@@ -882,6 +886,20 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
+    }
+
+    protected function renderUnderline(Underline $node): string
+    {
+        $attrs = $this->renderAttributes($node);
+
+        return '<u' . $attrs . '>' . $this->renderChildren($node) . '</u>';
+    }
+
+    protected function renderStrike(Strike $node): string
+    {
+        $attrs = $this->renderAttributes($node);
+
+        return '<s' . $attrs . '>' . $this->renderChildren($node) . '</s>';
     }
 
     protected function renderStrong(Strong $node): string

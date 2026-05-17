@@ -300,7 +300,7 @@ DJOT;
     {
         // Text inside emphasis should still have abbreviations applied
         $input = <<<'DJOT'
-_HTML_ is *important*
+/HTML/ is *important*
 
 *[HTML]: Hyper Text Markup Language
 DJOT;

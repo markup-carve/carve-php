@@ -19,11 +19,13 @@ use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
+use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
 use Carve\Parser\Utility\AttributeParser;
 
@@ -397,11 +399,37 @@ class InlineParser
                 }
             }
 
-            // Emphasis: _text_
+            // Bold-italic: /*text*/ (check before single-char / italic)
+            if ($char === '/' && ($text[$pos + 1] ?? '') === '*') {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $result = $this->parseBoldItalic($text, $pos);
+                if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Italic: /text/
+            if ($char === '/') {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $result = $this->parseDelimited($text, $pos, '/', Emphasis::class);
+                if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Underline: _text_
             if ($char === '_') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '_', Emphasis::class);
+                $result = $this->parseDelimited($text, $pos, '_', Underline::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -423,7 +451,7 @@ class InlineParser
                 }
             }
 
-            // Superscript: ^text^ or {^text^}
+            // Superscript: ^text^
             if ($char === '^') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
@@ -436,11 +464,37 @@ class InlineParser
                 }
             }
 
-            // Subscript: ~text~
+            // Strikethrough: ~text~
             if ($char === '~') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '~', Subscript::class);
+                $result = $this->parseDelimited($text, $pos, '~', Strike::class);
+                if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Subscript: ,,text,,
+            if ($char === ',' && ($text[$pos + 1] ?? '') === ',') {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $result = $this->parseDoubleDelimited($text, $pos, ',,', Subscript::class);
+                if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Highlight: ==text==
+            if ($char === '=' && ($text[$pos + 1] ?? '') === '=') {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $result = $this->parseDoubleDelimited($text, $pos, '==', Highlight::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -1034,6 +1088,18 @@ class InlineParser
             return null;
         }
 
+        // Intraword rule: the italic (/) and underline (_) delimiters cannot
+        // open when preceded by an alphanumeric character. This mirrors
+        // Djot's underscore rule and keeps paths/identifiers literal
+        // (e.g. a/b/c, foo_bar). The strong (*) delimiter is exempt, so
+        // intraword bold like foo*bar*baz still works.
+        if (
+            ($delimiter === '/' || $delimiter === '_')
+            && ($prevChar === '_' || ctype_alnum($prevChar))
+        ) {
+            return null;
+        }
+
         // Find closing delimiter, skipping over attribute blocks and code spans
         // First, check if there are consecutive delimiters (opening run)
         $searchPos = $pos + 1;
@@ -1122,6 +1188,19 @@ class InlineParser
                     // Use the last delimiter in this closing run
                     $actualClose = $runEnd;
 
+                    // Intraword closer rule for / and _: a closer immediately
+                    // followed by an alphanumeric (or _) is not a valid
+                    // closer, so inner delimiters stay literal content
+                    // (e.g. /usr/local/ -> <em>usr/local</em>).
+                    if ($delimiter === '/' || $delimiter === '_') {
+                        $afterRun = $text[$actualClose + 1] ?? '';
+                        if ($afterRun !== '' && ($afterRun === '_' || ctype_alnum($afterRun))) {
+                            $searchPos = $actualClose + 1;
+
+                            continue;
+                        }
+                    }
+
                     // Check content isn't empty
                     $content = substr($text, $pos + 1, $actualClose - $pos - 1);
                     if ($content === '') {
@@ -1145,6 +1224,130 @@ class InlineParser
                         'pos' => $endPos,
                     ];
                 }
+            }
+
+            $searchPos++;
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse a double-character delimited span: ,,sub,, or ==highlight==
+     *
+     * Content must be non-empty and may not begin or end with whitespace.
+     * Inner content is parsed recursively as inlines.
+     *
+     * @param string $text
+     * @param int $pos Position of the first delimiter character
+     * @param string $delimiter Two-character delimiter (e.g. ',,' or '==')
+     * @param class-string<\Carve\Node\Inline\InlineNode> $nodeClass
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|null
+     */
+    protected function parseDoubleDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
+    {
+        $length = strlen($text);
+        $dl = strlen($delimiter);
+        $start = $pos + $dl;
+
+        // Can't open if followed by whitespace.
+        if ($start >= $length || ctype_space($text[$start])) {
+            return null;
+        }
+
+        $searchPos = $start;
+        while ($searchPos + $dl <= $length) {
+            // Skip over code spans so delimiters inside them stay literal.
+            if ($text[$searchPos] === '`') {
+                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
+                if ($codeEnd !== null) {
+                    $searchPos = $codeEnd + 1;
+
+                    continue;
+                }
+            }
+
+            if (substr($text, $searchPos, $dl) === $delimiter) {
+                $content = substr($text, $start, $searchPos - $start);
+                // Closer may not be preceded by whitespace; content non-empty.
+                if ($content === '' || ctype_space($content[strlen($content) - 1])) {
+                    $searchPos++;
+
+                    continue;
+                }
+
+                $node = new $nodeClass();
+                $this->parseInlines($node, $content);
+
+                $endPos = $searchPos + $dl;
+                if ($endPos < $length && $text[$endPos] === '{') {
+                    $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+                }
+
+                return [
+                    'node' => $node,
+                    'pos' => $endPos,
+                ];
+            }
+
+            $searchPos++;
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse the combined bold-italic span /*text*\/, producing a Strong
+     * node wrapping an Emphasis node.
+     *
+     * @param string $text
+     * @param int $pos Position of the opening '/'
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|null
+     */
+    protected function parseBoldItalic(string $text, int $pos): ?array
+    {
+        $length = strlen($text);
+        $start = $pos + 2; // skip '/*'
+
+        if ($start >= $length || ctype_space($text[$start])) {
+            return null;
+        }
+
+        $searchPos = $start;
+        while ($searchPos + 1 < $length) {
+            if ($text[$searchPos] === '`') {
+                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
+                if ($codeEnd !== null) {
+                    $searchPos = $codeEnd + 1;
+
+                    continue;
+                }
+            }
+
+            if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
+                $content = substr($text, $start, $searchPos - $start);
+                if ($content === '' || ctype_space($content[strlen($content) - 1])) {
+                    $searchPos++;
+
+                    continue;
+                }
+
+                $emphasis = new Emphasis();
+                $this->parseInlines($emphasis, $content);
+                $strong = new Strong();
+                $strong->appendChild($emphasis);
+
+                $endPos = $searchPos + 2;
+                if ($endPos < $length && $text[$endPos] === '{') {
+                    $endPos = $this->applyConsecutiveAttributes($strong, $text, $endPos);
+                }
+
+                return [
+                    'node' => $strong,
+                    'pos' => $endPos,
+                ];
             }
 
             $searchPos++;
