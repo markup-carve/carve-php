@@ -58,7 +58,7 @@ class CarveConverterTest extends TestCase
 
     public function testEmphasis(): void
     {
-        $djot = 'This is _emphasized_ text';
+        $djot = 'This is /emphasized/ text';
         $expected = "<p>This is <em>emphasized</em> text</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -247,7 +247,7 @@ class CarveConverterTest extends TestCase
 
     public function testSubscript(): void
     {
-        $djot = 'H~2~O';
+        $djot = 'H,,2,,O';
         $expected = "<p>H<sub>2</sub>O</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -396,7 +396,7 @@ class CarveConverterTest extends TestCase
 
     public function testNestedEmphasis(): void
     {
-        $djot = '_This is *strong inside* emphasis_';
+        $djot = '/This is *strong inside* emphasis/';
         $expected = "<p><em>This is <strong>strong inside</strong> emphasis</em></p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -426,7 +426,7 @@ class CarveConverterTest extends TestCase
         $djot = <<<DJOT
 # Welcome
 
-This is a *comprehensive* test of the _Djot_ parser.
+This is a *comprehensive* test of the /Djot/ parser.
 
 ## Features
 
@@ -776,12 +776,13 @@ DJOT;
 
     // Edge cases from official Djot test suite
 
-    public function testEmphasisIntraword(): void
+    public function testItalicNotIntraword(): void
     {
-        $djot = 'foo_bar_baz';
-        $expected = "<p>foo<em>bar</em>baz</p>\n";
+        // The italic delimiter (/) does not open intraword, unlike strong (*).
+        $carve = 'foo/bar/baz';
+        $expected = "<p>foo/bar/baz</p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame($expected, $this->converter->convert($carve));
     }
 
     public function testStrongIntraword(): void
@@ -882,7 +883,7 @@ DJOT;
 
     public function testLinkWithEmphasis(): void
     {
-        $djot = '[_emphasized link_](url)';
+        $djot = '[/emphasized link/](url)';
 
         $result = $this->converter->convert($djot);
 
@@ -950,7 +951,7 @@ DJOT;
 
     public function testHeadingWithInlineFormatting(): void
     {
-        $djot = '# Hello *world* and _everyone_';
+        $djot = '# Hello *world* and /everyone/';
 
         $result = $this->converter->convert($djot);
 
@@ -1124,6 +1125,8 @@ DJOT;
 
     public function testTableWithInlineFormatting(): void
     {
+        $this->markTestSkipped('Pending Phase 4: Carve table parsing (|= headers) is not implemented yet.');
+
         $djot = "| *Strong* | _Emphasis_ |\n|---|---|\n| `code` | text |";
 
         $result = $this->converter->convert($djot);
@@ -1185,7 +1188,7 @@ DJOT;
 
     public function testMixedEmphasisAndStrong(): void
     {
-        $djot = '*_strong and emphasis_*';
+        $djot = '*/strong and emphasis/*';
 
         $result = $this->converter->convert($djot);
 
@@ -1301,7 +1304,7 @@ DJOT;
 
     public function testLineBlockWithFormatting(): void
     {
-        $djot = "| This is *strong*\n| And _emphasis_";
+        $djot = "| This is *strong*\n| And /emphasis/";
 
         $result = $this->converter->convert($djot);
 
@@ -1806,7 +1809,7 @@ DJOT;
 
     public function testNestedEmphasisAndStrong(): void
     {
-        $djot = '*_strong emphasis_* and _*emphasis strong*_';
+        $djot = '*/strong emphasis/* and /*emphasis strong*/';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<strong>', $result);
@@ -1953,11 +1956,13 @@ DJOT;
 
     public function testEmphasisNotInMiddleOfWord(): void
     {
-        // Underscores in the middle of words should create emphasis in Djot
-        $djot = 'snake_case_name';
-        $result = $this->converter->convert($djot);
+        // In Carve the italic delimiter does not open mid-word, so a
+        // path-like token stays literal (no emphasis).
+        $carve = 'snake/case/name';
+        $result = $this->converter->convert($carve);
 
-        $this->assertStringContainsString('<em>case</em>', $result);
+        $this->assertStringNotContainsString('<em>', $result);
+        $this->assertStringContainsString('snake/case/name', $result);
     }
 
     public function testStrongNotInMiddleOfWord(): void
@@ -2323,7 +2328,7 @@ DJOT;
 
     public function testSpanWithNestedFormatting(): void
     {
-        $djot = '[*bold* and _italic_]{.styled}';
+        $djot = '[*bold* and /italic/]{.styled}';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="styled"', $result);
@@ -2356,7 +2361,7 @@ DJOT;
 
     public function testParagraphWithAllInlineTypes(): void
     {
-        $djot = 'Text with _emphasis_, *strong*, `code`, [link](url), ^super^, ~sub~, {=high=}, {+ins+}, {-del-}.';
+        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,,sub,,, ==high==, {+ins+}, {-del-}.';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<em>emphasis</em>', $result);

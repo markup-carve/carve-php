@@ -431,7 +431,7 @@ DJOT;
     public function testBlockquoteWithOnlyEmphasis(): void
     {
         $djot = <<<'DJOT'
-- > _emphasized_
+- > /emphasized/
 
 - Next item
 DJOT;

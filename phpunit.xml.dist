@@ -8,13 +8,8 @@
     <testsuites>
         <testsuite name="default">
             <directory>tests/</directory>
-        </testsuite>
-        <testsuite name="own">
-            <directory>tests/</directory>
-            <exclude>tests/OfficialTestSuiteTest.php</exclude>
-        </testsuite>
-        <testsuite name="official">
-            <file>tests/OfficialTestSuiteTest.php</file>
+            <!-- markup-carve/carve spec corpus submodule; no PHP tests live there -->
+            <exclude>tests/spec</exclude>
         </testsuite>
     </testsuites>
     <source>

@@ -62,7 +62,7 @@ class InlineFootnotesExtensionTest extends TestCase
 
     public function testInlineFootnoteWithFormatting(): void
     {
-        $djot = 'Text[A footnote with _emphasis_ and `code`]{.fn} here.';
+        $djot = 'Text[A footnote with /emphasis/ and `code`]{.fn} here.';
         $html = $this->converter->convert($djot);
 
         // Check formatting is preserved (djot: _ = emphasis, * = strong)
