@@ -48,6 +48,8 @@ class CarveCorpusTest extends TestCase
     }
 
     /**
+     * @throws \RuntimeException
+     *
      * @return array<string, array{slug: string, crv: string, html: string}>
      */
     public static function corpusProvider(): array
