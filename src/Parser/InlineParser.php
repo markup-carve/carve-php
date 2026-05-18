@@ -817,13 +817,27 @@ class InlineParser
             }
 
             if ($parenDepth === 0) {
-                $url = substr($text, $urlStart, $urlEnd - $urlStart);
-                // Remove newlines from URL (soft breaks are ignored in URLs)
-                $url = str_replace(["\r\n", "\r", "\n"], '', $url);
-                $url = trim($url);
+                $raw = trim(substr($text, $urlStart, $urlEnd - $urlStart));
+
+                // Optional title after the destination, separated by
+                // whitespace (a soft line break counts): "title",
+                // 'title', or (title). Escaped delimiters are allowed
+                // inside the title.
+                $title = null;
+                if (
+                    preg_match('/^([\s\S]*?)\s+"((?:[^"\\\\]|\\\\.)*)"$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?)\s+\'((?:[^\'\\\\]|\\\\.)*)\'$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?)\s+\(((?:[^()\\\\]|\\\\.)*)\)$/', $raw, $tm)
+                ) {
+                    $raw = $tm[1];
+                    $title = preg_replace('/\\\\(.)/', '$1', $tm[2]) ?? $tm[2];
+                }
+
+                // Soft breaks are ignored in the destination itself.
+                $url = trim(str_replace(["\r\n", "\r", "\n"], '', $raw));
                 // Process escape sequences in URL (e.g., \* -> *)
                 $url = preg_replace('/\\\\(.)/', '$1', $url) ?? $url;
-                $link = new Link($url);
+                $link = new Link($url, $title);
                 $this->parseInlines($link, $linkText);
 
                 // Track anchor links for validation
