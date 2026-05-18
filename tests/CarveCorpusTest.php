@@ -57,7 +57,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '03-links-2' => 'Link title syntax [text](url "title") not yet parsed (folds title into href).',
         '05-lists-3' => 'Nested list parsing not yet supported (deeper markers fold as text).',
         '05-lists-4' => 'Nested list parsing not yet supported (mixed ordered/unordered).',
     ];
