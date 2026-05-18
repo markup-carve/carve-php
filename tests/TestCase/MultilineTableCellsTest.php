@@ -402,14 +402,10 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr>
-<td>Test</td>
-<td>First part second part</td>
-</tr>
+  <thead><tr><th>Name</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>Test</td><td>First part second part</td></tr>
+  </tbody>
 </table>
 HTML;
 
@@ -545,14 +541,12 @@ DJOT;
 
     public function testContinuationWithEmphasis(): void
     {
-        $this->markTestSkipped('Pending Phase 4: Carve table parsing (|= headers, + continuation) is not implemented yet.');
-
         // Emphasis that spans across continuation
         $djot = <<<'DJOT'
 | Name | Description   |
 |------|---------------|
-| Test | _emphasis     |
-+      | text_         |
+| Test | /emphasis     |
++      | text/         |
 DJOT;
 
         $doc = $this->converter->parse($djot);

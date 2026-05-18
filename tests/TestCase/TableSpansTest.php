@@ -443,16 +443,11 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-<tr>
-<th colspan="2">A</th>
-</tr>
-<tr>
-<td rowspan="2">1</td>
-<td>2</td>
-</tr>
-<tr>
-<td>3</td>
-</tr>
+  <thead><tr><th colspan="2">A</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2">1</td><td>2</td></tr>
+    <tr><td>3</td></tr>
+  </tbody>
 </table>
 HTML;
 
