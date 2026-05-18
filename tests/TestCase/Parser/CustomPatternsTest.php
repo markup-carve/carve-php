@@ -361,7 +361,7 @@ class CustomPatternsTest extends TestCase
         $djot = "NOTE:\nRemember to contact @support for help.\n\nRegular paragraph with @mention.";
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('class="note"', $result);
+        $this->assertStringContainsString('class="admonition note"', $result);
         $this->assertStringContainsString('href="/u/support"', $result);
         $this->assertStringContainsString('href="/u/mention"', $result);
     }

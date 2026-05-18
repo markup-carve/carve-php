@@ -136,11 +136,18 @@ class AdmonitionExtensionTest extends TestCase
             types: ['custom', 'special'],
         ));
 
+        // A type the extension is configured for gets the enhanced
+        // extension markup (title element, role).
         $html = $converter->convert("::: custom\nContent.\n:::");
         $this->assertStringContainsString('class="admonition custom"', $html);
+        $this->assertStringContainsString('admonition-title', $html);
 
+        // A standard type the extension is NOT configured for falls back
+        // to Carve's built-in simple admonition (renderer-level), not the
+        // enhanced extension form.
         $html = $converter->convert("::: note\nContent.\n:::");
-        $this->assertStringNotContainsString('admonition', $html);
+        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringNotContainsString('admonition-title', $html);
     }
 
     public function testDisableDefaultTitle(): void
