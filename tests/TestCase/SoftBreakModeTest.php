@@ -204,10 +204,11 @@ DJOT;
 
         $result = $converter->convert($djot);
 
-        // Should only have 1 <ul> (nested marker treated as text)
-        $this->assertEquals(1, substr_count($result, '<ul>'));
-        // The "- Nested A" should appear as literal text
-        $this->assertStringContainsString('- Nested A', $result);
+        // Carve nests an indented marker without a blank line: the
+        // "- Nested A" line becomes a child list, not literal text.
+        $this->assertSame(2, substr_count($result, '<ul>'));
+        $this->assertStringNotContainsString('- Nested A', $result);
+        $this->assertStringContainsString('<li>Nested A</li>', $result);
     }
 
     /**

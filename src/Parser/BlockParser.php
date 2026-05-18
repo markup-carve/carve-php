@@ -1438,8 +1438,13 @@ class BlockParser
                 break;
             }
 
-            // Check for indented continuation (after blank line = nested content)
-            if ($lastItemHadBlankAfter && $currentIndent > $baseIndent) {
+            // Indented content belonging to the previous item. Carve
+            // enters this for an indented list marker even with no
+            // preceding blank line (tight nesting); other indented
+            // content still requires the blank line (loose nesting).
+            $indentedListMarker = $currentIndent > $baseIndent
+                && $this->listParser->parseListItemMarker(ltrim($currentLine)) !== null;
+            if (($lastItemHadBlankAfter || $indentedListMarker) && $currentIndent > $baseIndent) {
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
@@ -1631,17 +1636,19 @@ class BlockParser
                     break;
                 }
 
-                // Content at content indent or more is continuation (even if it looks like a list marker)
-                // In djot, "  - b" after "- a" (no blank line) is literal text, not a nested list
-                // Unless significantNewlines is enabled, then indented block markers start nested blocks
+                // Content at content indent or more is continuation.
+                // Carve nests an indented list marker directly (no blank
+                // line required): "- a\n  - b" makes "- b" a child list.
+                // Break out so the outer loop collects it as nested
+                // content. (significantNewlines additionally breaks for
+                // any block starter.)
                 if ($nextIndent >= $contentIndent) {
-                    // Check if significantNewlines mode allows immediate nested blocks
-                    if ($this->significantNewlines) {
-                        // Check for any block starter (list, blockquote, code fence, div)
-                        if ($this->startsNewBlock($nextTrimmed) || $this->listParser->parseListItemMarker($nextTrimmed) !== null) {
-                            // This is a nested block - break out to let normal nesting handle it
-                            break;
-                        }
+                    if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
+                        break;
+                    }
+                    if ($this->significantNewlines && $this->startsNewBlock($nextTrimmed)) {
+                        // Other block starter under significantNewlines.
+                        break;
                     }
                     // Properly indented continuation - include with original indentation relative to content
                     $itemLines[] = IndentationHelper::stripLeadingIndent($nextLine, $contentIndent);
