@@ -269,8 +269,6 @@ DJOT;
 
     public function testFullProfileAllowsEverything(): void
     {
-        $this->markTestSkipped('Pending Phase 4: Carve table parsing (|= headers) is not implemented yet.');
-
         $converter = new CarveConverter(profile: Profile::full());
         $djot = <<<'DJOT'
 # Heading

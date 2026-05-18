@@ -431,13 +431,11 @@ DJOT;
      */
     public function testSubscriptSuperscriptInTableCells(): void
     {
-        $this->markTestSkipped('Pending Phase 4: Carve table parsing is not implemented yet.');
-
         $djot = <<<'DJOT'
 | Formula | Result   |
 |---------|----------|
 | E=mc^2^ | E=mc^2^  |
-| H~2~O   | H~2~O    |
+| H,,2,,O | H,,2,,O  |
 DJOT;
 
         $html = $this->converter->convert($djot);

@@ -2218,8 +2218,24 @@ class BlockParser
                 }
             }
 
+            // Carve header row: every cell is "=" prefixed (|= Header |).
+            // No separator row is used. "==x==" stays a normal cell
+            // (highlight), so "=" must not be followed by another "=".
+            $isHeaderRow = $processedCells !== [];
+            foreach ($processedCells as $cellData) {
+                $content = $cellData['content'];
+                if (
+                    $this->tableParser->isRowspanMarker($content)
+                    || preg_match('/^=([^=]|$)/', $content) !== 1
+                ) {
+                    $isHeaderRow = false;
+
+                    break;
+                }
+            }
+
             // Parse regular row
-            $row = new TableRow(false);
+            $row = new TableRow($isHeaderRow);
             if ($rowAttributes) {
                 $row->setAttributes($rowAttributes);
             }
@@ -2242,11 +2258,15 @@ class BlockParser
                     $colPosition += $colspan;
                 } else {
                     $alignment = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
-                    $cell = new TableCell(false, $alignment, 1, $colspan);
+                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
                     if ($cellData['attributes']) {
                         $cell->setAttributes($cellData['attributes']);
                     }
-                    $trimmedContent = trim($cellData['content']);
+                    // Strip the leading "=" header marker for header cells.
+                    $rawContent = $isHeaderRow
+                        ? substr($cellData['content'], 1)
+                        : $cellData['content'];
+                    $trimmedContent = trim($rawContent);
                     if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                         $cell->appendChild(new Text($trimmedContent));
                     } else {
@@ -3272,7 +3292,9 @@ class BlockParser
             return false;
         }
 
-        // Check for any character that triggers inline parsing
-        return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n') === false;
+        // Check for any character that triggers inline parsing. Includes
+        // Carve's delimiters: / (italic), and , / = (the ,, subscript
+        // and == highlight pairs).
+        return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n/,=') === false;
     }
 }

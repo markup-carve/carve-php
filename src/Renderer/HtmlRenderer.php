@@ -876,24 +876,61 @@ class HtmlRenderer implements RendererInterface
             $attrs .= ' data-djot-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
-        $html = '<table' . $attrs . ">\n";
+        $lines = [];
 
-        // Render caption if present
         if ($node->hasCaption()) {
             /** @var \Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
-            $captionHtml = $this->renderChildren($caption);
-            $html .= '<caption>' . rtrim($captionHtml) . "</caption>\n";
+            $lines[] = '  <caption>' . rtrim($this->renderChildren($caption)) . '</caption>';
         }
 
-        // djot tables don't use thead/tbody - just rows with th or td cells
-        foreach ($node->getChildren() as $row) {
-            if ($row instanceof TableRow) {
-                $html .= $this->renderTableRow($row);
+        // Leading consecutive header rows form <thead>; the rest <tbody>.
+        $rows = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof TableRow) {
+                $rows[] = $child;
+            }
+        }
+        $headerRows = [];
+        $bodyRows = [];
+        $inHeader = true;
+        foreach ($rows as $row) {
+            if ($inHeader && $row->isHeader()) {
+                $headerRows[] = $row;
+            } else {
+                $inHeader = false;
+                $bodyRows[] = $row;
             }
         }
 
-        return $html . "</table>\n";
+        $renderRow = function (TableRow $row): string {
+            $cells = '';
+            foreach ($row->getChildren() as $cell) {
+                if ($cell instanceof TableCell) {
+                    $cells .= rtrim($this->renderTableCell($cell), "\n");
+                }
+            }
+
+            return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
+        };
+
+        if ($headerRows !== []) {
+            $thead = '';
+            foreach ($headerRows as $row) {
+                $thead .= $renderRow($row);
+            }
+            $lines[] = '  <thead>' . $thead . '</thead>';
+        }
+
+        if ($bodyRows !== []) {
+            $tbody = '';
+            foreach ($bodyRows as $row) {
+                $tbody .= '    ' . $renderRow($row) . "\n";
+            }
+            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+        }
+
+        return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
     }
 
     protected function renderTableRow(TableRow $node): string
