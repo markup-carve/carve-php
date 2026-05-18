@@ -130,7 +130,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertSame("<p><img alt=\"A photo\" src=\"photo.jpg\"></p>\n", $result);
+        $this->assertSame("<img src=\"photo.jpg\" alt=\"A photo\">\n", $result);
     }
 
     public function testRenderImageEscapesAttributeValues(): void
@@ -144,7 +144,7 @@ class HtmlRendererTest extends TestCase
         $result = $this->renderer->render($doc);
 
         $this->assertSame(
-            "<p><img alt=\"A &quot;photo&quot;\" src=\"photo.jpg&quot; onerror=&quot;alert(1)\" title=\"Title &quot;quoted&quot;\"></p>\n",
+            "<img src=\"photo.jpg&quot; onerror=&quot;alert(1)\" alt=\"A &quot;photo&quot;\" title=\"Title &quot;quoted&quot;\">\n",
             $result,
         );
     }
