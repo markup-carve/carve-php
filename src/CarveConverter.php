@@ -6,6 +6,7 @@ namespace Carve;
 
 use Carve\Extension\BeforeRenderExtensionInterface;
 use Carve\Extension\ExtensionInterface;
+use Carve\Extension\FrontmatterExtension;
 use Carve\Extension\HeadingReferenceExtension;
 use Carve\Extension\ParsedDocumentExtensionInterface;
 use Carve\Extension\ResettableExtensionInterface;
@@ -179,6 +180,30 @@ class CarveConverter
     }
 
     /**
+     * Frontmatter is part of the Carve language: a leading --- … ---
+     * block is metadata, stripped from rendered output by default
+     * (not a thematic break). Registered lazily on the first parse so
+     * an explicitly configured FrontmatterExtension (e.g.
+     * render-as-comment) takes precedence and the extension list stays
+     * empty until used.
+     *
+     * Contract: configure extensions before the first parse() (the
+     * standard extension lifecycle). A configured FrontmatterExtension
+     * added only after a prior parse() on a reused converter will sit
+     * behind the auto-registered default and not take effect.
+     */
+    private function ensureDefaultFrontmatter(): void
+    {
+        foreach ($this->extensions as $extension) {
+            if ($extension instanceof FrontmatterExtension) {
+                return;
+            }
+        }
+
+        $this->addExtension(new FrontmatterExtension());
+    }
+
+    /**
      * Create a converter with significant newlines mode enabled
      *
      * In this mode:
@@ -293,6 +318,7 @@ class CarveConverter
     public function parse(string $djot): Document
     {
         $this->enforceProfileMaxLength($djot);
+        $this->ensureDefaultFrontmatter();
 
         $document = $this->parser->parse($djot);
 
