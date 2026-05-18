@@ -1125,9 +1125,7 @@ DJOT;
 
     public function testTableWithInlineFormatting(): void
     {
-        $this->markTestSkipped('Pending Phase 4: Carve table parsing (|= headers) is not implemented yet.');
-
-        $djot = "| *Strong* | _Emphasis_ |\n|---|---|\n| `code` | text |";
+        $djot = "|= *Strong* |= /Emphasis/ |\n| `code` | text |";
 
         $result = $this->converter->convert($djot);
 

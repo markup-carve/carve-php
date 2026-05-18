@@ -459,7 +459,7 @@ class HtmlRendererTest extends TestCase
         $result = $this->renderer->render($doc);
 
         $this->assertSame(
-            "<table>\n<tr>\n<td style=\"color:red; text-align: center;\">cell</td>\n</tr>\n</table>\n",
+            "<table>\n  <tbody>\n    <tr><td style=\"color:red; text-align: center;\">cell</td></tr>\n  </tbody>\n</table>\n",
             $result,
         );
     }
