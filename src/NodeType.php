@@ -144,6 +144,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const INLINE_EXTENSION = 'inline_extension';
+
+    /**
+     * @var string
+     */
     public const CODE = 'code';
 
     /**
@@ -267,6 +272,7 @@ final class NodeType
             self::STRONG,
             self::UNDERLINE,
             self::STRIKE,
+            self::INLINE_EXTENSION,
             self::CODE,
             self::LINK,
             self::IMAGE,

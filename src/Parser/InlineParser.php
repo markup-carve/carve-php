@@ -13,6 +13,7 @@ use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineExtension;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -316,6 +317,19 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseCodeSpan($text, $pos);
                 if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Inline extension :type[content] (before :symbol:)
+            if ($char === ':') {
+                $result = $this->parseInlineExtension($text, $pos);
+                if ($result !== null) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -2154,6 +2168,32 @@ class InlineParser
         return [
             'node' => new Math($content, $display),
             'pos' => $closePos + $backtickCount,
+        ];
+    }
+
+    /**
+     * Parse an inline extension :type[content].
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|null
+     */
+    protected function parseInlineExtension(string $text, int $pos): ?array
+    {
+        if (!preg_match('/\G:([a-zA-Z][a-zA-Z0-9_-]*)\[([^\]]*)\]/', $text, $matches, 0, $pos)) {
+            return null;
+        }
+
+        $node = new InlineExtension($matches[1]);
+        $this->parseInlines($node, $matches[2]);
+
+        $endPos = $pos + strlen($matches[0]);
+        $length = strlen($text);
+        if ($endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
+        return [
+            'node' => $node,
+            'pos' => $endPos,
         ];
     }
 

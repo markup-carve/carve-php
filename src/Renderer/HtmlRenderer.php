@@ -35,6 +35,7 @@ use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineExtension;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -152,6 +153,7 @@ class HtmlRenderer implements RendererInterface
             Highlight::class => 'renderHighlight',
             Superscript::class => 'renderSuperscript',
             Subscript::class => 'renderSubscript',
+            InlineExtension::class => 'renderInlineExtension',
             Insert::class => 'renderInsert',
             Delete::class => 'renderDelete',
             Abbreviation::class => 'renderAbbreviation',
@@ -1118,6 +1120,23 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<ins' . $attrs . '>' . $this->renderChildren($node) . '</ins>';
+    }
+
+    protected function renderInlineExtension(InlineExtension $node): string
+    {
+        $type = $node->getExtensionType();
+        $inner = $this->renderChildren($node);
+        $attrs = $this->renderAttributes($node);
+
+        // Known semantic types render as their element; everything else
+        // is a generic span.ext-<type>.
+        if ($type === 'kbd') {
+            return '<kbd' . $attrs . '>' . $inner . '</kbd>';
+        }
+
+        $attrs = $this->mergeAttribute($this->getRenderableAttributes($node), 'class', 'ext-' . $type);
+
+        return '<span' . $this->renderAttributeArray($attrs) . '>' . $inner . '</span>';
     }
 
     protected function renderDelete(Delete $node): string
