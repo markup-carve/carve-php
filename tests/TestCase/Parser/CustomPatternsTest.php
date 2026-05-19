@@ -135,8 +135,9 @@ class CustomPatternsTest extends TestCase
         $parser->addInlinePattern('/@([a-zA-Z0-9_]+)/', fn ($m, $g, $p) => null);
 
         $userResult = $this->converter->convert('Hello @user!');
-        $this->assertStringContainsString('@user', $userResult);
-        $this->assertStringNotContainsString('href=', $userResult);
+        // Custom pattern returned null, so the default Carve mention
+        // (core syntax, on by default) handles @user as a fallback.
+        $this->assertStringContainsString('<a class="mention" href="/users/user">@user</a>', $userResult);
     }
 
     public function testInlinePatternRemove(): void

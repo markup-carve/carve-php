@@ -169,7 +169,7 @@ DJOT;
 | Name  | Contact Info | <     |
 |-------|--------------|-------|
 | Alice | email@test   | x1234 |
-+       | @example.com |       |
++       | example.com  |       |
 DJOT;
 
         $doc = $this->converter->parse($djot);
@@ -177,8 +177,10 @@ DJOT;
 
         // Header should have colspan
         $this->assertStringContainsString('colspan="2"', $html);
-        // Data row should have merged email
-        $this->assertStringContainsString('email@test @example.com', $html);
+        // Data row should have merged cell content. (Plain text used
+        // here so the assertion targets continuation merging, not the
+        // orthogonal @mention behaviour.)
+        $this->assertStringContainsString('email@test example.com', $html);
     }
 
     public function testHeaderRowWithContinuation(): void

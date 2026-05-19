@@ -8,6 +8,7 @@ use Carve\Extension\BeforeRenderExtensionInterface;
 use Carve\Extension\ExtensionInterface;
 use Carve\Extension\FrontmatterExtension;
 use Carve\Extension\HeadingReferenceExtension;
+use Carve\Extension\MentionsExtension;
 use Carve\Extension\ParsedDocumentExtensionInterface;
 use Carve\Extension\ResettableExtensionInterface;
 use Carve\Extension\WikilinksExtension;
@@ -204,6 +205,23 @@ class CarveConverter
     }
 
     /**
+     * @mentions and #tags are core Carve social syntax, enabled by
+     * default. Registered lazily on first parse so an explicitly
+     * configured MentionsExtension takes precedence (same contract as
+     * the default frontmatter extension).
+     */
+    private function ensureDefaultMentions(): void
+    {
+        foreach ($this->extensions as $extension) {
+            if ($extension instanceof MentionsExtension) {
+                return;
+            }
+        }
+
+        $this->addExtension(new MentionsExtension());
+    }
+
+    /**
      * Create a converter with significant newlines mode enabled
      *
      * In this mode:
@@ -319,6 +337,7 @@ class CarveConverter
     {
         $this->enforceProfileMaxLength($djot);
         $this->ensureDefaultFrontmatter();
+        $this->ensureDefaultMentions();
 
         $document = $this->parser->parse($djot);
 
