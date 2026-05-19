@@ -1136,7 +1136,7 @@ class InlineParser
         // intraword bold like foo*bar*baz still works.
         if (
             ($delimiter === '/' || $delimiter === '_')
-            && ($prevChar === '_' || ctype_alnum($prevChar))
+            && ($prevChar === '_' || $prevChar === $delimiter || ctype_alnum($prevChar))
         ) {
             return null;
         }
