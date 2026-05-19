@@ -9,6 +9,7 @@ use Carve\Node\Inline\Code;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\SoftBreak;
+use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
@@ -179,6 +180,10 @@ class HeadingIdTracker
                 $text .= $child->getContent();
             } elseif ($child instanceof Symbol) {
                 $text .= ':' . $child->getName() . ':';
+            } elseif ($child instanceof RawInline) {
+                // Format-specific raw HTML is excluded from heading
+                // text/id (matches PlainTextRenderer behaviour).
+                continue;
             } elseif ($child instanceof Node) {
                 $text .= $this->extractPlainText($child);
             }
