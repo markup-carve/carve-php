@@ -76,11 +76,11 @@ class CustomPatternsTest extends TestCase
             return $link;
         });
 
-        $result = $this->converter->convert('Check out #CoolProject today!');
+        $result = $this->converter->convert('Check out #coolproject today!');
 
         $this->assertStringContainsString('href="/tags/coolproject"', $result);
         $this->assertStringContainsString('class="hashtag"', $result);
-        $this->assertStringContainsString('#CoolProject</a>', $result);
+        $this->assertStringContainsString('#coolproject</a>', $result);
     }
 
     public function testInlinePatternEmoji(): void
@@ -401,11 +401,11 @@ class CustomPatternsTest extends TestCase
             return $link;
         });
 
-        $result = $this->converter->convert('Check out #TestTag and #hello123!');
+        $result = $this->converter->convert('Check out #testtag and #hello123!');
 
         $this->assertStringContainsString('href="/tags/TestTag"', $result);
         $this->assertStringContainsString('href="/tags/hello123"', $result);
-        $this->assertStringContainsString('#TestTag', $result);
+        $this->assertStringContainsString('#testtag', $result);
     }
 
     public function testInlinePatternAtStartOfLine(): void

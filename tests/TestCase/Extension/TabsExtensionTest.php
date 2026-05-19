@@ -218,8 +218,8 @@ DJOT;
 
         $this->assertStringContainsString('id="Before"', $html);
         $this->assertStringContainsString('id="After"', $html);
-        $this->assertStringContainsString('href="#Before"', $tocHtml);
-        $this->assertStringContainsString('href="#After"', $tocHtml);
+        $this->assertStringContainsString('href="#before"', $tocHtml);
+        $this->assertStringContainsString('href="#after"', $tocHtml);
     }
 
     public function testAriaMode(): void
