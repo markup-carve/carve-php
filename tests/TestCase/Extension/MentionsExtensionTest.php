@@ -12,128 +12,107 @@ class MentionsExtensionTest extends TestCase
 {
     public function testUserMention(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('Hello @johndoe!');
 
-        $html = $converter->convert('Hello @johndoe!');
-
-        $this->assertStringContainsString('href="/users/view/johndoe"', $html);
-        $this->assertStringContainsString('@johndoe', $html);
-        $this->assertStringContainsString('class="mention"', $html);
+        $this->assertStringContainsString('<a class="mention" href="/users/johndoe">@johndoe</a>', $html);
     }
 
-    public function testCustomUrlTemplate(): void
+    public function testTag(): void
+    {
+        $html = (new CarveConverter())->convert('See #release-1.0 notes.');
+
+        $this->assertStringContainsString('<a class="tag" href="/tags/release-1.0">#release-1.0</a>', $html);
+    }
+
+    public function testMentionsAndTagsEnabledByDefault(): void
+    {
+        // No explicit addExtension(): both are core Carve syntax.
+        $html = (new CarveConverter())->convert('Hey @alice, see #bug.');
+
+        $this->assertStringContainsString('class="mention" href="/users/alice"', $html);
+        $this->assertStringContainsString('class="tag" href="/tags/bug"', $html);
+    }
+
+    public function testCustomTemplatesAndClasses(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new MentionsExtension(
-            urlTemplate: '/profile/{username}',
+            mentionUrl: 'https://example.com/u/{name}',
+            tagUrl: '/topic/{name}',
+            mentionClass: 'user-link',
+            tagClass: 'topic',
         ));
 
-        $html = $converter->convert('Thanks @alice!');
+        $html = $converter->convert('@alice tagged #php');
 
-        $this->assertStringContainsString('href="/profile/alice"', $html);
-    }
-
-    public function testFullUrlTemplate(): void
-    {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension(
-            urlTemplate: 'https://example.com/users/{username}',
-        ));
-
-        $html = $converter->convert('Contact @support for help.');
-
-        $this->assertStringContainsString('href="https://example.com/users/support"', $html);
-    }
-
-    public function testCustomCssClass(): void
-    {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension(
-            cssClass: 'user-link highlighted',
-        ));
-
-        $html = $converter->convert('Hello @johndoe!');
-
-        $this->assertStringContainsString('class="user-link highlighted"', $html);
+        $this->assertStringContainsString('<a class="user-link" href="https://example.com/u/alice">@alice</a>', $html);
+        $this->assertStringContainsString('<a class="topic" href="/topic/php">#php</a>', $html);
     }
 
     public function testMultipleMentions(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('@alice and @bob discussed the issue.');
 
-        $html = $converter->convert('@alice and @bob discussed the issue.');
-
-        $this->assertStringContainsString('href="/users/view/alice"', $html);
-        $this->assertStringContainsString('href="/users/view/bob"', $html);
+        $this->assertStringContainsString('href="/users/alice"', $html);
+        $this->assertStringContainsString('href="/users/bob"', $html);
     }
 
     public function testMentionWithHyphenAndUnderscore(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('Thanks @john-doe and @jane_doe');
 
-        $html = $converter->convert('Thanks @john-doe and @jane_doe');
-
-        $this->assertStringContainsString('href="/users/view/john-doe"', $html);
-        $this->assertStringContainsString('href="/users/view/jane_doe"', $html);
-    }
-
-    public function testDataAttribute(): void
-    {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
-
-        $html = $converter->convert('@johndoe');
-
-        $this->assertStringContainsString('data-username="johndoe"', $html);
+        $this->assertStringContainsString('href="/users/john-doe"', $html);
+        $this->assertStringContainsString('href="/users/jane_doe"', $html);
     }
 
     public function testMentionAtStartOfText(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('@admin please help');
 
-        $html = $converter->convert('@admin please help');
-
-        $this->assertStringContainsString('href="/users/view/admin"', $html);
+        $this->assertStringContainsString('href="/users/admin"', $html);
     }
 
     public function testMentionAtEndOfText(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('Thanks @helper');
 
-        $html = $converter->convert('Thanks @helper');
+        $this->assertStringContainsString('href="/users/helper"', $html);
+    }
 
-        $this->assertStringContainsString('href="/users/view/helper"', $html);
+    public function testMidWordAtIsNotAMention(): void
+    {
+        // Email-like text must not become a mention.
+        $html = (new CarveConverter())->convert('email a@b.com stays');
+
+        $this->assertStringNotContainsString('class="mention"', $html);
+        $this->assertStringContainsString('a@b.com', $html);
+    }
+
+    public function testTrailingPunctuationNotPartOfTag(): void
+    {
+        $html = (new CarveConverter())->convert('see #release-1.0.');
+
+        $this->assertStringContainsString('href="/tags/release-1.0"', $html);
+        $this->assertStringNotContainsString('release-1.0.', $html);
     }
 
     public function testEscapedMentionNotLinked(): void
     {
-        $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension());
+        $html = (new CarveConverter())->convert('Contact \\@support for help.');
 
-        $html = $converter->convert('Contact \\@support for help.');
-
-        // Escaped @ should be literal, not a link
         $this->assertStringContainsString('@support', $html);
-        $this->assertStringNotContainsString('href="/users/view/support"', $html);
+        $this->assertStringNotContainsString('href="/users/support"', $html);
     }
 
-    public function testRepeatedRenderDoesNotDuplicateMentionClasses(): void
+    public function testRepeatedRenderIsStable(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MentionsExtension(cssClass: 'mention user-link'));
-
         $document = $converter->parse('Hello @johndoe!');
 
         $first = $converter->render($document);
         $second = $converter->render($document);
 
-        $this->assertStringContainsString('class="mention user-link"', $first);
-        $this->assertStringContainsString('class="mention user-link"', $second);
-        $this->assertStringNotContainsString('mention user-link mention user-link', $second);
+        $this->assertSame($first, $second);
+        $this->assertStringContainsString('<a class="mention" href="/users/johndoe">@johndoe</a>', $second);
     }
 }
