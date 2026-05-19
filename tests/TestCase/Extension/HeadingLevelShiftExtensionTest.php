@@ -18,10 +18,9 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $result = $converter->convert("# Heading 1\n\n## Heading 2\n\n### Heading 3");
 
         // Headings are shifted, section wrapping preserved
-        $this->assertStringContainsString('<h2>Heading 1</h2>', $result);
-        $this->assertStringContainsString('<h3>Heading 2</h3>', $result);
-        $this->assertStringContainsString('<h4>Heading 3</h4>', $result);
-        $this->assertStringContainsString('<section id="Heading-1">', $result);
+        $this->assertStringContainsString('<h2 id="heading-1">Heading 1</h2>', $result);
+        $this->assertStringContainsString('<h3 id="heading-2">Heading 2</h3>', $result);
+        $this->assertStringContainsString('<h4 id="heading-3">Heading 3</h4>', $result);
     }
 
     public function testShiftByTwo(): void
@@ -31,8 +30,8 @@ class HeadingLevelShiftExtensionTest extends TestCase
 
         $result = $converter->convert("# Heading 1\n\n## Heading 2");
 
-        $this->assertStringContainsString('<h3>Heading 1</h3>', $result);
-        $this->assertStringContainsString('<h4>Heading 2</h4>', $result);
+        $this->assertStringContainsString('<h3 id="heading-1">Heading 1</h3>', $result);
+        $this->assertStringContainsString('<h4 id="heading-2">Heading 2</h4>', $result);
     }
 
     public function testCapsAtH6(): void
@@ -43,8 +42,8 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $result = $converter->convert("##### Heading 5\n\n###### Heading 6");
 
         // h5 + 2 = h6 (capped), h6 + 2 = h6 (capped)
-        $this->assertStringContainsString('<h6>Heading 5</h6>', $result);
-        $this->assertStringContainsString('<h6>Heading 6</h6>', $result);
+        $this->assertStringContainsString('<h6 id="heading-5">Heading 5</h6>', $result);
+        $this->assertStringContainsString('<h6 id="heading-6">Heading 6</h6>', $result);
     }
 
     public function testZeroShiftDoesNothing(): void
@@ -55,8 +54,7 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $result = $converter->convert('# Heading 1');
 
         // Zero shift - default section-wrapped rendering
-        $this->assertStringContainsString('<section id="Heading-1">', $result);
-        $this->assertStringContainsString('<h1>Heading 1</h1>', $result);
+        $this->assertStringContainsString('<h1 id="heading-1">Heading 1</h1>', $result);
     }
 
     public function testPreservesAttributes(): void
@@ -67,8 +65,7 @@ class HeadingLevelShiftExtensionTest extends TestCase
         // In djot, attributes go on line before the heading
         $result = $converter->convert("{.custom-class}\n# Heading");
 
-        $this->assertStringContainsString('<h2 class="custom-class">Heading</h2>', $result);
-        $this->assertStringContainsString('<section id="Heading">', $result);
+        $this->assertStringContainsString('<h2 class="custom-class" id="heading">Heading</h2>', $result);
     }
 
     public function testPreservesExplicitId(): void
@@ -79,8 +76,7 @@ class HeadingLevelShiftExtensionTest extends TestCase
         // In djot, attributes go on line before the heading
         $result = $converter->convert("{#my-id}\n# Heading");
 
-        $this->assertStringContainsString('<h2>Heading</h2>', $result);
-        $this->assertStringContainsString('<section id="my-id">', $result);
+        $this->assertStringContainsString('<h2 id="my-id">Heading</h2>', $result);
     }
 
     public function testShiftClampedToValidRange(): void
@@ -92,7 +88,7 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $result = $converter->convert('# Heading 1');
 
         // h1 + 5 = h6
-        $this->assertStringContainsString('<h6>Heading 1</h6>', $result);
+        $this->assertStringContainsString('<h6 id="heading-1">Heading 1</h6>', $result);
     }
 
     public function testNegativeShiftClampedToZero(): void
@@ -103,8 +99,7 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $result = $converter->convert('# Heading 1');
 
         // Negative shift clamped to 0 - default section-wrapped rendering
-        $this->assertStringContainsString('<section id="Heading-1">', $result);
-        $this->assertStringContainsString('<h1>Heading 1</h1>', $result);
+        $this->assertStringContainsString('<h1 id="heading-1">Heading 1</h1>', $result);
     }
 
     public function testWorksWithSectionWrapping(): void
@@ -114,9 +109,8 @@ class HeadingLevelShiftExtensionTest extends TestCase
 
         $result = $converter->convert("# Heading 1\n\nContent");
 
-        // Section wrapping is preserved with shifted heading
-        $this->assertStringContainsString('<section id="Heading-1">', $result);
-        $this->assertStringContainsString('<h2>Heading 1</h2>', $result);
+        // Headings are flat; the shifted level is applied
+        $this->assertStringContainsString('<h2 id="heading-1">Heading 1</h2>', $result);
         $this->assertStringContainsString('<p>Content</p>', $result);
     }
 
@@ -155,9 +149,9 @@ class HeadingLevelShiftExtensionTest extends TestCase
         $first = $converter->render($document);
         $second = $converter->render($document);
 
-        $this->assertStringContainsString('<h2>Heading 1</h2>', $first);
-        $this->assertStringContainsString('<h2>Heading 1</h2>', $second);
-        $this->assertStringNotContainsString('<h3>Heading 1</h3>', $second);
+        $this->assertStringContainsString('<h2 id="heading-1">Heading 1</h2>', $first);
+        $this->assertStringContainsString('<h2 id="heading-1">Heading 1</h2>', $second);
+        $this->assertStringNotContainsString('<h3 id="heading-1">Heading 1</h3>', $second);
     }
 
     public function testExtensionInstanceCanBeReusedAcrossConverters(): void
