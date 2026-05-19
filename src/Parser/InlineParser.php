@@ -11,6 +11,7 @@ use Carve\Node\Inline\Emphasis;
 use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineExtension;
@@ -395,6 +396,18 @@ class InlineParser
                     // At this point, result has node/pos (not unclosed_link)
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Heading cross-reference: </#id> (before autolink)
+            if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
+                if (preg_match('/\G<\/#([^>\s]+)>/u', $text, $hm, 0, $pos)) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $parent->appendChild(new HeadingRef($hm[1]));
+                    $pos += strlen($hm[0]);
 
                     continue;
                 }
@@ -1123,7 +1136,7 @@ class InlineParser
         // intraword bold like foo*bar*baz still works.
         if (
             ($delimiter === '/' || $delimiter === '_')
-            && ($prevChar === '_' || ctype_alnum($prevChar))
+            && ($prevChar === '_' || $prevChar === $delimiter || ctype_alnum($prevChar))
         ) {
             return null;
         }

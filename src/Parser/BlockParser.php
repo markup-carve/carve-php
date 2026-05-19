@@ -1253,7 +1253,23 @@ class BlockParser
         }
 
         $heading = new Heading($level);
-        $this->inlineParser->parse($heading, trim($content), $start);
+
+        // A trailing {#id .class key=val} block sets heading attributes
+        // (not an inline marker like {=highlight=}).
+        $content = trim($content);
+        if (preg_match('/^(.*?)\s*\{([^{}]+)\}$/s', $content, $am)) {
+            $inner = trim($am[2]);
+            $first = $inner[0] ?? '';
+            $last = $inner[strlen($inner) - 1] ?? '';
+            $isInlineMarker = $first === $last
+                && in_array($first, ['=', '+', '-', '~', '^', '_', '*'], true);
+            if (!$isInlineMarker && $inner !== '') {
+                AttributeParser::applyToNode($heading, $inner);
+                $content = rtrim($am[1]);
+            }
+        }
+
+        $this->inlineParser->parse($heading, $content, $start);
         $this->applyPendingAttributes($heading);
         $parent->appendChild($heading);
 

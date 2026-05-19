@@ -45,13 +45,11 @@ class CarveConverterTest extends TestCase
 
     public function testHeadings(): void
     {
-        // Headings are wrapped in <section> per djot spec
-        // Nested headings create nested sections (h2 inside h1 section, etc.)
+        // Carve headings are flat with auto-generated ids.
         $djot = "# Heading 1\n\n## Heading 2\n\n### Heading 3";
-        $expected = "<section id=\"Heading-1\">\n<h1>Heading 1</h1>\n"
-            . "<section id=\"Heading-2\">\n<h2>Heading 2</h2>\n"
-            . "<section id=\"Heading-3\">\n<h3>Heading 3</h3>\n"
-            . "</section>\n</section>\n</section>\n";
+        $expected = "<h1 id=\"heading-1\">Heading 1</h1>\n"
+            . "<h2 id=\"heading-2\">Heading 2</h2>\n"
+            . "<h3 id=\"heading-3\">Heading 3</h3>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -446,13 +444,10 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // Headings are now wrapped in section per djot spec
-        $this->assertStringContainsString('<section id="Welcome">', $result);
-        $this->assertStringContainsString('<h1>Welcome</h1>', $result);
+        $this->assertStringContainsString('<h1 id="welcome">Welcome</h1>', $result);
         $this->assertStringContainsString('<strong>comprehensive</strong>', $result);
         $this->assertStringContainsString('<em>Djot</em>', $result);
-        $this->assertStringContainsString('<section id="Features">', $result);
-        $this->assertStringContainsString('<h2>Features</h2>', $result);
+        $this->assertStringContainsString('<h2 id="features">Features</h2>', $result);
         $this->assertStringContainsString('<ul>', $result);
         $this->assertStringContainsString('<li>', $result);
         $this->assertStringContainsString('language-php', $result);
@@ -955,9 +950,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // Headings wrapped in section per djot spec
-        $this->assertStringContainsString('<section id="Hello-world-and-everyone">', $result);
-        $this->assertStringContainsString('<h1>', $result);
+        $this->assertStringContainsString('<h1 id="hello-world-and-everyone">', $result);
         $this->assertStringContainsString('<strong>world</strong>', $result);
         $this->assertStringContainsString('<em>everyone</em>', $result);
     }
@@ -1114,13 +1107,9 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // Headings are wrapped in section per djot spec
-        $this->assertStringContainsString('<section id="One">', $result);
-        $this->assertStringContainsString('<h1>One</h1>', $result);
-        $this->assertStringContainsString('<section id="Two">', $result);
-        $this->assertStringContainsString('<h2>Two</h2>', $result);
-        $this->assertStringContainsString('<section id="Three">', $result);
-        $this->assertStringContainsString('<h3>Three</h3>', $result);
+        $this->assertStringContainsString('<h1 id="one">One</h1>', $result);
+        $this->assertStringContainsString('<h2 id="two">Two</h2>', $result);
+        $this->assertStringContainsString('<h3 id="three">Three</h3>', $result);
     }
 
     public function testTableWithInlineFormatting(): void
@@ -1414,8 +1403,7 @@ DJOT;
             $this->assertCount(2, $document->getChildren());
 
             $result = $this->converter->render($document);
-            $this->assertStringContainsString('<section id="Hello">', $result);
-            $this->assertStringContainsString('<h1>Hello</h1>', $result);
+            $this->assertStringContainsString('<h1 id="hello">Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
             unlink($tempFile);
@@ -1430,8 +1418,7 @@ DJOT;
         try {
             $result = $this->converter->convertFile($tempFile);
 
-            $this->assertStringContainsString('<section id="Hello">', $result);
-            $this->assertStringContainsString('<h1>Hello</h1>', $result);
+            $this->assertStringContainsString('<h1 id="hello">Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
             unlink($tempFile);
@@ -1753,8 +1740,7 @@ DJOT;
         $djot = '# 日本語の見出し';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="日本語の見出し">', $result);
-        $this->assertStringContainsString('<h1>日本語の見出し</h1>', $result);
+        $this->assertStringContainsString('<h1 id="日本語の見出し">日本語の見出し</h1>', $result);
     }
 
     public function testUnicodeInLink(): void
@@ -2958,7 +2944,7 @@ DJOT;
     public function testValidAnchorLinkToHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# My Heading\n\n[link](#My-Heading)");
+        $converter->convert("# My Heading\n\n[link](#my-heading)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -2990,7 +2976,7 @@ DJOT;
     public function testValidAnchorLinkToPunctuationHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# Hello, world!\n\n[link](#Hello-world)");
+        $converter->convert("# Hello, world!\n\n[link](#hello-world)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3008,8 +2994,8 @@ DJOT;
         $converter = new CarveConverter();
         $html = $converter->convert("# Hello, world!\n\n[Hello, world!][]");
 
-        $this->assertStringContainsString('id="Hello-world"', $html);
-        $this->assertStringContainsString('href="#Hello-world"', $html);
+        $this->assertStringContainsString('id="hello-world"', $html);
+        $this->assertStringContainsString('href="#hello-world"', $html);
     }
 
     public function testHeadingReferenceUsesRendererCompatibleIdForCodeHeading(): void
@@ -3064,7 +3050,7 @@ DJOT;
         $djot = <<<'DJOT'
 # Valid Heading
 
-[valid link](#Valid-Heading)
+[valid link](#valid-heading)
 
 [broken link](#nonexistent)
 DJOT;
