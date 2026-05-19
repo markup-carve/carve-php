@@ -55,6 +55,13 @@ class HeadingIdTracker
     protected array $resolvedTexts = [];
 
     /**
+     * Resolved heading id => heading plain text (for </#id> refs)
+     *
+     * @var array<string, string>
+     */
+    protected array $textById = [];
+
+    /**
      * Get the unique ID for a heading node
      *
      * Returns a cached result if this heading has already been resolved.
@@ -69,8 +76,19 @@ class HeadingIdTracker
 
         $id = $this->generateId($node);
         $this->resolvedIds[$objectId] = $id;
+        if (!isset($this->textById[$id])) {
+            $this->textById[$id] = $this->getPlainText($node);
+        }
 
         return $id;
+    }
+
+    /**
+     * Plain text of the heading owning $id, for </#id> cross-references.
+     */
+    public function getTextForId(string $id): ?string
+    {
+        return $this->textById[$id] ?? null;
     }
 
     /**
@@ -82,7 +100,7 @@ class HeadingIdTracker
     public function trackId(string $id): void
     {
         if ($id !== '' && !isset($this->usedIds[$id])) {
-            $this->usedIds[$id] = 0;
+            $this->usedIds[$id] = 1;
         }
     }
 
@@ -106,18 +124,20 @@ class HeadingIdTracker
      */
     public function normalizeId(string $text): string
     {
-        $id = str_replace('#', '', $text);
-        $id = trim($id);
-        $id = preg_replace('/\s+/u', '-', $id) ?? $id;
+        // Carve "Automatic Identifiers" algorithm (normative).
+        $id = mb_strtolower($text, 'UTF-8');           // 2. lowercase
+        $id = trim($id);                               // 3. trim
+        $id = str_replace(["'", '"', ';', ':'], '', $id); // 4. drop CSS-unsafe punct
+        // 5/6. non letter/digit/_/- runs (incl. spaces) -> single '-'
         $id = preg_replace('/[^\p{L}\p{N}_-]+/u', '-', $id) ?? $id;
-        $id = preg_replace('/-{2,}/', '-', $id) ?? $id;
-        $id = trim($id, '-');
+        $id = preg_replace('/-{2,}/', '-', $id) ?? $id; // 7. collapse
+        $id = trim($id, '-');                           // 7. trim '-'
 
         if ($id !== '' && preg_match('/^\p{N}/u', $id)) {
-            $id = 'h-' . $id;
+            $id = 'section-' . $id;                      // 8. digit-leading
         }
 
-        return $id !== '' ? $id : 'heading';
+        return $id !== '' ? $id : 'section';            // 9. empty -> 'section'
     }
 
     /**
@@ -176,6 +196,7 @@ class HeadingIdTracker
         $this->sectionCounter = 0;
         $this->resolvedIds = [];
         $this->resolvedTexts = [];
+        $this->textById = [];
     }
 
     /**
@@ -189,7 +210,7 @@ class HeadingIdTracker
             $id = $idAttr ?? '';
             // Track explicit IDs so auto-generated IDs don't conflict
             if (!isset($this->usedIds[$id])) {
-                $this->usedIds[$id] = 0;
+                $this->usedIds[$id] = 1;
             }
 
             return $id;
@@ -198,23 +219,16 @@ class HeadingIdTracker
         // Generate from heading text
         $headingText = $this->getPlainText($node);
 
-        if ($headingText === '') {
-            // Generate fallback ID
-            $this->sectionCounter++;
-
-            return 's-' . $this->sectionCounter;
-        }
-
         $baseId = $this->normalizeId($headingText);
 
-        // Track and deduplicate
+        // Track and deduplicate. First use is bare; later collisions
+        // take the next 1-based numeric suffix (second -> -2, -> -3).
         if (!isset($this->usedIds[$baseId])) {
-            $this->usedIds[$baseId] = 0;
+            $this->usedIds[$baseId] = 1;
 
             return $baseId;
         }
 
-        // Already used, add suffix (first conflict is -1, second is -2, etc.)
         $this->usedIds[$baseId]++;
 
         return $baseId . '-' . $this->usedIds[$baseId];
