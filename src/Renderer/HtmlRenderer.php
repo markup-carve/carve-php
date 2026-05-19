@@ -695,20 +695,42 @@ class HtmlRenderer implements RendererInterface
     protected function renderBlockQuote(BlockQuote $node): string
     {
         $attrs = $this->renderAttributes($node);
+        $children = $node->getChildren();
+        $inner = rtrim($this->renderChildren($node), "\n");
 
-        return '<blockquote' . $attrs . ">\n" . $this->renderChildren($node) . "</blockquote>\n";
+        // A blockquote of a single paragraph is compact (one line);
+        // anything else (lists, headings, multiple blocks) is expanded
+        // with two-space indentation. Matches the carve-js reference.
+        if (count($children) === 1 && $children[0] instanceof Paragraph) {
+            return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
+        }
+
+        return '<blockquote' . $attrs . ">\n"
+            . $this->indentBlock($inner, 2) . "\n</blockquote>\n";
     }
 
     /**
-     * Prefix every non-empty line of $html with $spaces spaces.
+     * Prefix every non-empty line of $html with $spaces spaces, but
+     * never touch lines inside a <pre> region — their text is raw
+     * (code / raw HTML) and must be preserved verbatim. The opening
+     * <pre> line is still indented (structure); content lines through
+     * the closing </pre> are left as-is.
      */
     protected function indentBlock(string $html, int $spaces): string
     {
         $pad = str_repeat(' ', $spaces);
         $lines = explode("\n", $html);
+        $inPre = false;
         foreach ($lines as $i => $line) {
-            if ($line !== '') {
-                $lines[$i] = $pad . $line;
+            if (!$inPre) {
+                if ($line !== '') {
+                    $lines[$i] = $pad . $line;
+                }
+                if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
+                    $inPre = true;
+                }
+            } elseif (str_contains($line, '</pre>')) {
+                $inPre = false;
             }
         }
 

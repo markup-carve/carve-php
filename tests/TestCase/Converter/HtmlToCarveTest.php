@@ -280,7 +280,7 @@ class HtmlToCarveTest extends TestCase
         $this->assertStringContainsString("> one\n>\n> two", $djot);
 
         $html = (new CarveConverter())->convert($djot);
-        $this->assertStringContainsString("<blockquote>\n<p>one</p>\n<p>two</p>\n</blockquote>", $html);
+        $this->assertStringContainsString("<blockquote>\n  <p>one</p>\n  <p>two</p>\n</blockquote>", $html);
     }
 
     public function testHorizontalRule(): void

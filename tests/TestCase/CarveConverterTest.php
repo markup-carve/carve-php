@@ -139,8 +139,8 @@ class CarveConverterTest extends TestCase
     public function testBlockQuote(): void
     {
         $djot = "> This is a quote\n> with multiple lines";
-        // Djot preserves newlines
-        $expected = "<blockquote>\n<p>This is a quote\nwith multiple lines</p>\n</blockquote>\n";
+        // Single-paragraph blockquote renders compact (Carve/carve-js).
+        $expected = "<blockquote><p>This is a quote\nwith multiple lines</p></blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
