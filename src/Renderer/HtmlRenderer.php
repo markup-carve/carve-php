@@ -39,6 +39,7 @@ use Carve\Node\Inline\InlineExtension;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
+use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
@@ -145,6 +146,7 @@ class HtmlRenderer implements RendererInterface
             RawInline::class => 'renderRawInline',
             EscapedText::class => 'renderEscapedText',
             Math::class => 'renderMath',
+            Mention::class => 'renderMention',
             Symbol::class => 'renderSymbol',
             FootnoteRef::class => 'renderFootnoteRef',
             SoftBreak::class => 'renderSoftBreak',
@@ -1120,6 +1122,25 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<ins' . $attrs . '>' . $this->renderChildren($node) . '</ins>';
+    }
+
+    protected function renderMention(Mention $node): string
+    {
+        $href = $node->getDestination() ?? '';
+        if ($this->safeMode !== null) {
+            $href = $this->safeMode->sanitizeUrl($href);
+        }
+
+        // Class first, then href, then any attributes added by the link
+        // pipeline (e.g. rel="nofollow ugc" from a profile). With no
+        // such attributes this is the exact corpus/reference output.
+        $attrs = $this->getRenderableAttributes($node);
+        unset($attrs['class'], $attrs['href']);
+
+        return '<a class="' . $this->escapeAttribute($node->getCssClass()) . '"'
+            . ' href="' . $this->escapeAttribute($href) . '"'
+            . $this->renderAttributeArray($attrs) . '>'
+            . $this->renderChildren($node) . '</a>';
     }
 
     protected function renderInlineExtension(InlineExtension $node): string

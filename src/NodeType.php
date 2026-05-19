@@ -149,6 +149,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const MENTION = 'mention';
+
+    /**
+     * @var string
+     */
     public const CODE = 'code';
 
     /**
@@ -273,6 +278,7 @@ final class NodeType
             self::UNDERLINE,
             self::STRIKE,
             self::INLINE_EXTENSION,
+            self::MENTION,
             self::CODE,
             self::LINK,
             self::IMAGE,
