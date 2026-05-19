@@ -225,8 +225,9 @@ class HtmlRendererTest extends TestCase
 
         $result = $renderer->render($doc);
 
-        $this->assertStringContainsString('<h2 id="Repeat">Repeat</h2>', $result);
-        $this->assertStringContainsString('<section id="Repeat-1">', $result);
+        // Fragment heading shares the active render context's dedup namespace.
+        $this->assertStringContainsString('<h2 id="repeat-3">Repeat</h2>', $result);
+        $this->assertStringContainsString('<h2 id="repeat-2">Repeat</h2>', $result);
     }
 
     public function testNestedExplicitIdsAreTrackedBeforeLaterHeadings(): void

@@ -198,14 +198,14 @@ DJOT;
         $tocHtml = $tocExtension->getTocHtml();
 
         // TOC entries should have deduplicated IDs
-        $this->assertSame('Introduction', $toc[0]['id']);
-        $this->assertSame('Final-Thoughts', $toc[1]['id']);
-        $this->assertSame('Final-Thoughts-1', $toc[2]['id']);
+        $this->assertSame('introduction', $toc[0]['id']);
+        $this->assertSame('final-thoughts', $toc[1]['id']);
+        $this->assertSame('final-thoughts-2', $toc[2]['id']);
 
         // Section IDs in HTML should match TOC IDs
-        $this->assertStringContainsString('id="Introduction"', $html);
-        $this->assertStringContainsString('id="Final-Thoughts"', $html);
-        $this->assertStringContainsString('id="Final-Thoughts-1"', $html);
+        $this->assertStringContainsString('id="introduction"', $html);
+        $this->assertStringContainsString('id="final-thoughts"', $html);
+        $this->assertStringContainsString('id="final-thoughts-2"', $html);
 
         // Permalink links should match section IDs
         $this->assertStringContainsString('href="#final-thoughts"', $html);
