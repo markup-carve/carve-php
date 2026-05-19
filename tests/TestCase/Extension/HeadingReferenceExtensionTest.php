@@ -24,7 +24,7 @@ See [[Getting Started]].
 # Getting Started
 DJOT);
 
-        $this->assertStringContainsString('href="#Getting-Started"', $html);
+        $this->assertStringContainsString('href="#getting-started"', $html);
         $this->assertStringContainsString('class="heading-ref"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
     }
@@ -55,7 +55,7 @@ See [[Getting Started|the introduction]] for details.
 # Getting Started
 DJOT);
 
-        $this->assertStringContainsString('href="#Getting-Started"', $html);
+        $this->assertStringContainsString('href="#getting-started"', $html);
         $this->assertStringContainsString('>the introduction</a>', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
     }
@@ -126,7 +126,7 @@ See [[Summary]].
 ## Summary
 DJOT);
 
-        $this->assertStringContainsString('href="#Summary"', $html);
+        $this->assertStringContainsString('href="#summary"', $html);
         $this->assertStringContainsString('class="permalink"', $html);
     }
 
@@ -143,7 +143,7 @@ DJOT);
 
         $html = $converter->render($document);
 
-        $this->assertStringContainsString('href="#Getting-Started"', $html);
+        $this->assertStringContainsString('href="#getting-started"', $html);
         $this->assertStringNotContainsString('__djot_heading_ref_', $html);
     }
 
@@ -166,7 +166,7 @@ DJOT);
 
         $html = $converter->render($first);
 
-        $this->assertStringContainsString('href="#One"', $html);
+        $this->assertStringContainsString('href="#one"', $html);
         $this->assertStringNotContainsString('__djot_heading_ref_', $html);
     }
 
@@ -184,7 +184,7 @@ See [[Say "Hello"]].
 # Say "Hello"
 DJOT);
 
-        $this->assertStringContainsString('href="#Say-Hello"', $html);
+        $this->assertStringContainsString('href="#say-hello"', $html);
         $this->assertStringNotContainsString('[[Say "Hello"]]', $html);
     }
 
@@ -199,7 +199,7 @@ See [[Say Hello]].
 # Say _Hello_
 DJOT);
 
-        $this->assertStringContainsString('href="#Say-Hello"', $html);
+        $this->assertStringContainsString('href="#say-hello"', $html);
     }
 
     public function testHeadingWithApostropheResolvesCorrectly(): void
@@ -213,7 +213,7 @@ See [[Bob's Guide]].
 # Bob's Guide
 DJOT);
 
-        $this->assertStringContainsString('href="#Bob-s-Guide"', $html);
+        $this->assertStringContainsString('href="#bob-s-guide"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $this->assertStringNotContainsString('[[Bob\'s Guide]]', $html);
     }
@@ -249,7 +249,7 @@ See [[Real Heading]].
 DJOT);
 
         // Reference resolves to the text heading, image heading is ignored
-        $this->assertStringContainsString('href="#Real-Heading"', $html);
+        $this->assertStringContainsString('href="#real-heading"', $html);
     }
 
     public function testUserAuthoredLinkWithMatchingPlaceholderIsNotRewritten(): void
@@ -273,7 +273,7 @@ See [[Test]].
 DJOT);
 
         $this->assertStringContainsString('<a href="collision-placeholder-0__">outside</a>', $html);
-        $this->assertStringContainsString('href="#Test"', $html);
+        $this->assertStringContainsString('href="#test"', $html);
     }
 
     public function testConflictsWithWikilinksWhenAddedAfter(): void
