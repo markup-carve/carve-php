@@ -343,18 +343,17 @@ class HtmlRenderer implements RendererInterface
      */
     protected function renderDocumentWithSections(Document $document): string
     {
-        // Carve headings are flat (no <section> wrappers). Non-heading
-        // explicit ids are still tracked so the heading-id namespace
-        // dedupes against them.
-        // Pre-resolve every heading id + text so </#id> refs work
-        // regardless of document order.
+        // Carve headings are flat (no <section> wrappers). Per the
+        // spec, every explicit {#id} (heading or not) is reserved in
+        // document order *before* any auto heading id is generated, so
+        // a later heading colliding with an explicit id dedupes
+        // (-2, -3, …). Then resolve all heading ids+text so </#id>
+        // cross-references work regardless of order.
+        $this->trackIdFromNode($document);
         $this->preresolveHeadingIds($document);
 
         $html = '';
         foreach ($document->getChildren() as $child) {
-            if (!($child instanceof Heading)) {
-                $this->trackIdFromNode($child);
-            }
             $html .= $this->renderNode($child);
         }
 
