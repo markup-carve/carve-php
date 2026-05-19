@@ -17,6 +17,7 @@ use Carve\Renderer\SoftBreakMode;
 use LengthException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Transliterator;
 
 class CarveConverterTest extends TestCase
 {
@@ -1746,7 +1747,7 @@ DJOT;
         $this->assertStringNotContainsString('id="日本語の見出し"', $result);
         $this->assertMatchesRegularExpression('/<h1 id="[\x21-\x7E]+">/', $result);
 
-        if (class_exists(\Transliterator::class)) {
+        if (class_exists(Transliterator::class)) {
             // With ext-intl the CJK heading is romanized (lowercased per
             // Carve's normative algorithm) rather than dropped.
             $this->assertStringContainsString('<h1 id="ri-ben-yuno-jian-chushi">', $result);
