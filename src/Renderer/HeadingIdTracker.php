@@ -106,22 +106,22 @@ class HeadingIdTracker
     }
 
     /**
-     * Normalize text into a valid CSS identifier string
+     * Normalize text to a Carve heading identifier (the normative
+     * "Automatic Identifiers" algorithm):
      *
-     * 1. Strip # characters entirely
-     * 2. Trim whitespace
-     * 3. Replace whitespace sequences (including Unicode spaces) with single dashes
-     * 4. Replace any remaining characters that are invalid in CSS identifiers
-     *    (anything other than Unicode letters/numbers, hyphens, and underscores)
-     *    with dashes
-     * 5. Collapse consecutive dashes and trim leading/trailing dashes
-     * 6. Prefix with 'h-' if the result starts with a digit, ensuring a valid
-     *    CSS ident start (digits are not allowed as the first character)
+     * 1. Lowercase, Unicode-aware.
+     * 2. Trim whitespace.
+     * 3. Delete the CSS-unsafe punctuation ' " ; : (so "What's New"
+     *    becomes "whats-new", not "what-s-new").
+     * 4. Replace every maximal run of characters that are not Unicode
+     *    letters/digits/_/- (spaces included) with a single '-'.
+     * 5. Collapse runs of '-', then trim leading/trailing '-'.
+     * 6. If the result starts with a digit, prefix 'section-' (a CSS
+     *    identifier may not start with a digit).
+     * 7. If the result is empty, the identifier is 'section'.
      *
-     * Producing a valid CSS identifier ensures that consumers such as HTMX,
-     * which call `querySelector` with the section ID for scroll-restoration,
-     * do not throw a SyntaxError when headings contain inline code or special
-     * characters (e.g. `$this->t($key, $params = [], $fallback = '')`).
+     * Deduplication against the document namespace (shared by explicit
+     * {#id} and generated ids) is applied by the caller.
      */
     public function normalizeId(string $text): string
     {
