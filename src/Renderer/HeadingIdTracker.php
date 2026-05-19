@@ -8,8 +8,8 @@ use Carve\Node\Block\Heading;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Math;
-use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
@@ -126,19 +126,19 @@ class HeadingIdTracker
     public function normalizeId(string $text): string
     {
         // Carve "Automatic Identifiers" algorithm (normative).
-        $id = mb_strtolower($text, 'UTF-8');           // 2. lowercase
-        $id = trim($id);                               // 3. trim
+        $id = mb_strtolower($text, 'UTF-8'); // 2. lowercase
+        $id = trim($id); // 3. trim
         $id = str_replace(["'", '"', ';', ':'], '', $id); // 4. drop CSS-unsafe punct
         // 5/6. non letter/digit/_/- runs (incl. spaces) -> single '-'
         $id = preg_replace('/[^\p{L}\p{N}_-]+/u', '-', $id) ?? $id;
         $id = preg_replace('/-{2,}/', '-', $id) ?? $id; // 7. collapse
-        $id = trim($id, '-');                           // 7. trim '-'
+        $id = trim($id, '-'); // 7. trim '-'
 
         if ($id !== '' && preg_match('/^\p{N}/u', $id)) {
-            $id = 'section-' . $id;                      // 8. digit-leading
+            $id = 'section-' . $id; // 8. digit-leading
         }
 
-        return $id !== '' ? $id : 'section';            // 9. empty -> 'section'
+        return $id !== '' ? $id : 'section'; // 9. empty -> 'section'
     }
 
     /**
