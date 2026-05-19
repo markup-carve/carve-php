@@ -28,7 +28,7 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('Hello-World', $id);
+        $this->assertSame('hello-world', $id);
     }
 
     public function testDeduplicatesSameText(): void
@@ -46,9 +46,9 @@ class HeadingIdTrackerTest extends TestCase
         $id2 = $this->tracker->getIdForHeading($heading2);
         $id3 = $this->tracker->getIdForHeading($heading3);
 
-        $this->assertSame('Final-Thoughts', $id1);
-        $this->assertSame('Final-Thoughts-1', $id2);
-        $this->assertSame('Final-Thoughts-2', $id3);
+        $this->assertSame('final-thoughts', $id1);
+        $this->assertSame('final-thoughts-2', $id2);
+        $this->assertSame('final-thoughts-3', $id3);
     }
 
     public function testCachingReturnsSameId(): void
@@ -60,7 +60,7 @@ class HeadingIdTrackerTest extends TestCase
         $id2 = $this->tracker->getIdForHeading($heading);
 
         $this->assertSame($id1, $id2);
-        $this->assertSame('Cached', $id1);
+        $this->assertSame('cached', $id1);
     }
 
     public function testCachingDoesNotIncrementCounter(): void
@@ -78,9 +78,9 @@ class HeadingIdTrackerTest extends TestCase
         // Third call for different object with same text gets -1
         $id2 = $this->tracker->getIdForHeading($heading2);
 
-        $this->assertSame('Same', $id1);
-        $this->assertSame('Same', $id1Again);
-        $this->assertSame('Same-1', $id2);
+        $this->assertSame('same', $id1);
+        $this->assertSame('same', $id1Again);
+        $this->assertSame('same-2', $id2);
     }
 
     public function testExplicitIdAttribute(): void
@@ -102,8 +102,8 @@ class HeadingIdTrackerTest extends TestCase
         $id1 = $this->tracker->getIdForHeading($heading1);
         $id2 = $this->tracker->getIdForHeading($heading2);
 
-        $this->assertSame('s-1', $id1);
-        $this->assertSame('s-2', $id2);
+        $this->assertSame('section', $id1);
+        $this->assertSame('section-2', $id2);
     }
 
     public function testResetClearsState(): void
@@ -112,7 +112,7 @@ class HeadingIdTrackerTest extends TestCase
         $heading1->appendChild(new Text('Title'));
 
         $id1 = $this->tracker->getIdForHeading($heading1);
-        $this->assertSame('Title', $id1);
+        $this->assertSame('title', $id1);
 
         $this->tracker->reset();
 
@@ -121,20 +121,20 @@ class HeadingIdTrackerTest extends TestCase
         $heading2->appendChild(new Text('Title'));
 
         $id2 = $this->tracker->getIdForHeading($heading2);
-        $this->assertSame('Title', $id2);
+        $this->assertSame('title', $id2);
     }
 
     public function testTrackIdPreventsConflict(): void
     {
         // Pre-track an ID that a heading would generate
-        $this->tracker->trackId('My-Heading');
+        $this->tracker->trackId('my-heading');
 
         $heading = new Heading(2);
         $heading->appendChild(new Text('My Heading'));
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('My-Heading-1', $id);
+        $this->assertSame('my-heading-2', $id);
     }
 
     public function testTrackIdEmptyStringIgnored(): void
@@ -146,21 +146,21 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('Test', $id);
+        $this->assertSame('test', $id);
     }
 
     public function testNormalizeId(): void
     {
-        $this->assertSame('Hello-World', $this->tracker->normalizeId('Hello World'));
-        $this->assertSame('No-Hashes', $this->tracker->normalizeId('#No# #Hashes#'));
-        $this->assertSame('Trim-Me', $this->tracker->normalizeId('  Trim Me  '));
-        $this->assertSame('Multiple-Spaces', $this->tracker->normalizeId('Multiple   Spaces'));
+        $this->assertSame('hello-world', $this->tracker->normalizeId('Hello World'));
+        $this->assertSame('no-hashes', $this->tracker->normalizeId('#No# #Hashes#'));
+        $this->assertSame('trim-me', $this->tracker->normalizeId('  Trim Me  '));
+        $this->assertSame('multiple-spaces', $this->tracker->normalizeId('Multiple   Spaces'));
         $this->assertSame('this-t-key-params-fallback', $this->tracker->normalizeId("\$this->t(\$key, \$params = [], \$fallback = '')"));
-        $this->assertSame('My-title', $this->tracker->normalizeId('My --- title'));
+        $this->assertSame('my-title', $this->tracker->normalizeId('My --- title'));
         $this->assertSame('日本語の見出し', $this->tracker->normalizeId('日本語の見出し'));
-        $this->assertSame('heading', $this->tracker->normalizeId('###'));
-        $this->assertSame('h-123-Things', $this->tracker->normalizeId('123 Things'));
-        $this->assertSame('h-1-Introduction', $this->tracker->normalizeId('1. Introduction'));
+        $this->assertSame('section', $this->tracker->normalizeId('###'));
+        $this->assertSame('section-123-things', $this->tracker->normalizeId('123 Things'));
+        $this->assertSame('section-1-introduction', $this->tracker->normalizeId('1. Introduction'));
     }
 
     public function testGetPlainText(): void
@@ -207,7 +207,7 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('C-Programming', $id);
+        $this->assertSame('c-programming', $id);
     }
 
     public function testGetPlainTextCachesForHeadings(): void
@@ -249,7 +249,7 @@ class HeadingIdTrackerTest extends TestCase
 
         // getIdForHeading internally calls getPlainText, which caches
         $id = $this->tracker->getIdForHeading($heading);
-        $this->assertSame('Title', $id);
+        $this->assertSame('title', $id);
 
         // Modify heading after ID generation
         $heading->appendChild(new Text(' modified'));

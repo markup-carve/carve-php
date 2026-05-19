@@ -133,9 +133,9 @@ DJOT;
         $this->assertSame('Chapter Two', $toc[2]['text']);
 
         // Both permalinks and TOC links should use same IDs
-        $this->assertStringContainsString('href="#Introduction"', $html);
+        $this->assertStringContainsString('href="#introduction"', $html);
         $tocHtml = $tocExtension->getTocHtml();
-        $this->assertStringContainsString('href="#Introduction"', $tocHtml);
+        $this->assertStringContainsString('href="#introduction"', $tocHtml);
     }
 
     public function testTocWithHeadingPermalinksReversedOrder(): void
@@ -166,8 +166,8 @@ DJOT;
 
         // IDs should still match between TOC and HTML
         $tocHtml = $tocExtension->getTocHtml();
-        $this->assertStringContainsString('href="#Introduction"', $tocHtml);
-        $this->assertStringContainsString('href="#Introduction"', $html);
+        $this->assertStringContainsString('href="#introduction"', $tocHtml);
+        $this->assertStringContainsString('href="#introduction"', $html);
     }
 
     public function testTocAndPermalinksWithDuplicateHeadings(): void
@@ -198,22 +198,22 @@ DJOT;
         $tocHtml = $tocExtension->getTocHtml();
 
         // TOC entries should have deduplicated IDs
-        $this->assertSame('Introduction', $toc[0]['id']);
-        $this->assertSame('Final-Thoughts', $toc[1]['id']);
-        $this->assertSame('Final-Thoughts-1', $toc[2]['id']);
+        $this->assertSame('introduction', $toc[0]['id']);
+        $this->assertSame('final-thoughts', $toc[1]['id']);
+        $this->assertSame('final-thoughts-2', $toc[2]['id']);
 
         // Section IDs in HTML should match TOC IDs
-        $this->assertStringContainsString('id="Introduction"', $html);
-        $this->assertStringContainsString('id="Final-Thoughts"', $html);
-        $this->assertStringContainsString('id="Final-Thoughts-1"', $html);
+        $this->assertStringContainsString('id="introduction"', $html);
+        $this->assertStringContainsString('id="final-thoughts"', $html);
+        $this->assertStringContainsString('id="final-thoughts-2"', $html);
 
         // Permalink links should match section IDs
-        $this->assertStringContainsString('href="#Final-Thoughts"', $html);
-        $this->assertStringContainsString('href="#Final-Thoughts-1"', $html);
+        $this->assertStringContainsString('href="#final-thoughts"', $html);
+        $this->assertStringContainsString('href="#final-thoughts-2"', $html);
 
         // TOC links should also match section IDs
-        $this->assertStringContainsString('href="#Final-Thoughts"', $tocHtml);
-        $this->assertStringContainsString('href="#Final-Thoughts-1"', $tocHtml);
+        $this->assertStringContainsString('href="#final-thoughts"', $tocHtml);
+        $this->assertStringContainsString('href="#final-thoughts-2"', $tocHtml);
     }
 
     public function testHeadingReferencesShareIdsWithTocAndPermalinks(): void
@@ -234,8 +234,8 @@ DJOT);
 
         $tocHtml = $tocExtension->getTocHtml();
 
-        $this->assertStringContainsString('href="#Getting-Started"', $html);
-        $this->assertStringContainsString('href="#Getting-Started"', $tocHtml);
+        $this->assertStringContainsString('href="#getting-started"', $html);
+        $this->assertStringContainsString('href="#getting-started"', $tocHtml);
     }
 
     public function testExternalLinksWithInternalHostsExcluded(): void

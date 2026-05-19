@@ -92,7 +92,7 @@ class ProfileTest extends TestCase
         $converter = new CarveConverter(profile: Profile::comment());
         $html = $converter->convert("# Heading\n\nParagraph text");
 
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
         $this->assertStringContainsString('Heading', $html);
         $this->assertStringContainsString('Paragraph text', $html);
     }
@@ -112,7 +112,7 @@ class ProfileTest extends TestCase
 
         $html = $converter->render($document);
 
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
         $this->assertStringContainsString('Heading', $html);
         $this->assertStringContainsString('Paragraph text', $html);
         $this->assertTrue($converter->hasProfileViolations());
@@ -206,7 +206,7 @@ class ProfileTest extends TestCase
         $converter = new CarveConverter(profile: Profile::article());
         $html = $converter->convert('# Heading');
 
-        $this->assertStringContainsString('<h1>', $html);
+        $this->assertStringContainsString('<h1 ', $html);
     }
 
     public function testArticleProfileAllowsImages(): void
@@ -294,7 +294,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<h1>', $html);
+        $this->assertStringContainsString('<h1 ', $html);
         $this->assertStringContainsString('<strong>', $html);
         $this->assertStringContainsString('<img', $html);
         $this->assertStringContainsString('<table>', $html);
@@ -329,7 +329,7 @@ DJOT;
         $converter = new CarveConverter(profile: $profile);
         $html = $converter->convert("# Title\n\n[link](url)");
 
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
         $this->assertStringNotContainsString('<a ', $html);
     }
 
@@ -383,7 +383,7 @@ DJOT;
 
         // Heading content should be preserved as text
         $this->assertStringContainsString('Heading', $html);
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
     }
 
     // ==================== Profile Info Tests ====================
@@ -441,7 +441,7 @@ DJOT;
         $converter->setProfile(Profile::comment());
 
         $html = $converter->convert('# Heading');
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
     }
 
     public function testGetProfile(): void
@@ -458,7 +458,7 @@ DJOT;
         $converter->setProfile(null);
 
         $html = $converter->convert('# Heading');
-        $this->assertStringContainsString('<h1>', $html);
+        $this->assertStringContainsString('<h1 ', $html);
     }
 
     public function testDisablingProfileClearsStaleViolations(): void
@@ -497,7 +497,7 @@ DJOT;
         $html = $converter->convert($djot);
 
         // Profile strips heading
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
 
         // SafeMode sanitizes javascript URL
         $this->assertStringNotContainsString('javascript:', $html);
@@ -928,7 +928,7 @@ DJOT;
         $html = $converter->convert($djot);
 
         // Headings should be converted to text in separate paragraphs
-        $this->assertStringNotContainsString('<h1>', $html);
+        $this->assertStringNotContainsString('<h1 ', $html);
         $this->assertStringContainsString('First Heading', $html);
         $this->assertStringContainsString('Second Heading', $html);
         // Text should not run together

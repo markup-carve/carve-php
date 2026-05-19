@@ -33,6 +33,7 @@ use Carve\Node\Inline\Emphasis;
 use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineExtension;
@@ -149,6 +150,7 @@ class HtmlRenderer implements RendererInterface
             Mention::class => 'renderMention',
             Symbol::class => 'renderSymbol',
             FootnoteRef::class => 'renderFootnoteRef',
+            HeadingRef::class => 'renderHeadingRef',
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
@@ -341,78 +343,18 @@ class HtmlRenderer implements RendererInterface
      */
     protected function renderDocumentWithSections(Document $document): string
     {
-        $children = $document->getChildren();
+        // Carve headings are flat (no <section> wrappers). Per the
+        // spec, every explicit {#id} (heading or not) is reserved in
+        // document order *before* any auto heading id is generated, so
+        // a later heading colliding with an explicit id dedupes
+        // (-2, -3, …). Then resolve all heading ids+text so </#id>
+        // cross-references work regardless of order.
+        $this->trackIdFromNode($document);
+        $this->preresolveHeadingIds($document);
+
         $html = '';
-        /** @var array<int, int> $openSections Level => count of open sections at that level */
-        $openSections = [];
-
-        $childCount = count($children);
-        for ($i = 0; $i < $childCount; $i++) {
-            $child = $children[$i];
-
-            if ($child instanceof Heading) {
-                $level = $child->getLevel();
-                $customHtml = null;
-
-                // Dispatch render event for heading - allows custom rendering
-                if ($this->hasAnyListeners()) {
-                    $eventName = 'render.' . $child->getType();
-                    $event = new RenderEvent($child);
-                    $event->setChildrenRenderer(fn (): string => $this->renderChildren($child));
-                    $this->dispatchEvent($eventName, $event);
-                    $this->dispatchEvent('render.*', $event);
-
-                    if ($event->isDefaultPrevented()) {
-                        $customHtml = $event->getHtml();
-                    }
-                }
-
-                // Close any sections at same or deeper level
-                for ($l = 6; $l >= $level; $l--) {
-                    while (($openSections[$l] ?? 0) > 0) {
-                        $html .= "</section>\n";
-                        $openSections[$l]--;
-                    }
-                }
-
-                // If event provided custom HTML, use it (without section wrapper)
-                if ($customHtml !== null) {
-                    $html .= $customHtml;
-
-                    continue;
-                }
-
-                // Get the section ID
-                $sectionId = $this->getSectionId($child);
-
-                // Check if heading has explicit ID (for round-trip support)
-                $explicitIdAttr = '';
-                if ($this->roundTripMode && $child->hasAttribute('id')) {
-                    $explicitIdAttr = ' data-djot-explicit-id="1"';
-                }
-
-                // Open new section
-                $html .= '<section id="' . $this->escapeAttribute($sectionId) . '"' . $explicitIdAttr . '>' . "\n";
-                if (!isset($openSections[$level])) {
-                    $openSections[$level] = 0;
-                }
-                $openSections[$level]++;
-
-                // Render heading without section wrapper
-                $html .= $this->renderHeadingContent($child);
-            } else {
-                // Track IDs from non-heading elements for deduplication
-                $this->trackIdFromNode($child);
-                $html .= $this->renderNode($child);
-            }
-        }
-
-        // Close all open sections (deepest first)
-        for ($l = 6; $l >= 1; $l--) {
-            while (($openSections[$l] ?? 0) > 0) {
-                $html .= "</section>\n";
-                $openSections[$l]--;
-            }
+        foreach ($document->getChildren() as $child) {
+            $html .= $this->renderNode($child);
         }
 
         // Add abbreviation definitions for round-trip support
@@ -463,6 +405,21 @@ class HtmlRenderer implements RendererInterface
 
         foreach ($node->getChildren() as $child) {
             $this->trackIdFromNode($child);
+        }
+    }
+
+    /**
+     * Resolve the id (and capture the text) of every heading in the
+     * document so </#id> cross-references can be rendered.
+     */
+    protected function preresolveHeadingIds(Node $node): void
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Heading) {
+                $this->getSectionId($child);
+            } else {
+                $this->preresolveHeadingIds($child);
+            }
         }
     }
 
@@ -563,16 +520,19 @@ class HtmlRenderer implements RendererInterface
         // Section wrapping is ONLY applied at document level by renderDocumentWithSections
         // Inside nested blocks, headings just get id attribute directly
         $level = $node->getLevel();
-        $sectionId = $this->getSectionId($node);
-        $attrs = $this->renderAttributesExcluding($node, ['id']);
 
-        // Add data attribute for explicit ID round-trip support
+        // Carve headings are flat: no <section> wrapper, the id sits on
+        // the heading. Attribute order is the node's own attributes
+        // (e.g. class) followed by id — matching the corpus.
+        $attrs = $this->getRenderableAttributes($node, ['id']);
+        $attrs['id'] = $this->getSectionId($node);
+
         $explicitIdAttr = '';
         if ($this->roundTripMode && $node->hasAttribute('id')) {
             $explicitIdAttr = ' data-djot-explicit-id="1"';
         }
 
-        return '<h' . $level . ' id="' . $this->escapeAttribute($sectionId) . '"' . $explicitIdAttr . $attrs . '>'
+        return '<h' . $level . $this->renderAttributeArray($attrs) . $explicitIdAttr . '>'
             . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
 
@@ -1144,6 +1104,15 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<ins' . $attrs . '>' . $this->renderChildren($node) . '</ins>';
+    }
+
+    protected function renderHeadingRef(HeadingRef $node): string
+    {
+        $id = $node->getTargetId();
+        $label = $this->getRenderContext()->headingIdTracker->getTextForId($id) ?? $id;
+
+        return '<a href="#' . $this->escapeAttribute($id) . '">'
+            . $this->escape($label) . '</a>';
     }
 
     protected function renderMention(Mention $node): string
