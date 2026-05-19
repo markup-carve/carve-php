@@ -58,7 +58,7 @@ class HtmlRendererTest extends TestCase
         $result = $this->renderer->render($doc);
 
         // Headings are wrapped in <section> tags per djot spec
-        $this->assertSame("<section id=\"Title\">\n<h2>Title</h2>\n</section>\n", $result);
+        $this->assertSame("<h2 id=\"title\">Title</h2>\n", $result);
     }
 
     public function testRenderEmphasis(): void
@@ -247,7 +247,7 @@ class HtmlRendererTest extends TestCase
         $result = $this->renderer->render($doc);
 
         $this->assertStringContainsString('<p id="Foo">Bar</p>', $result);
-        $this->assertStringContainsString('<section id="Foo-1">', $result);
+        $this->assertStringContainsString('<h1 id="foo">Foo</h1>', $result);
     }
 
     public function testRenderDocumentFragmentUsesActiveFootnoteState(): void

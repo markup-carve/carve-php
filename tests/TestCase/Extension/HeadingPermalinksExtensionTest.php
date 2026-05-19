@@ -142,8 +142,8 @@ class HeadingPermalinksExtensionTest extends TestCase
         $html = $converter->convert("## Summary\n\nFirst section.\n\n## Summary\n\nSecond section.");
 
         // Both sections should have unique IDs
-        $this->assertStringContainsString('id="Summary"', $html);
-        $this->assertStringContainsString('id="Summary-1"', $html);
+        $this->assertStringContainsString('id="summary"', $html);
+        $this->assertStringContainsString('id="summary-2"', $html);
 
         // Permalink links should point to the correct section
         $this->assertStringContainsString('href="#summary"', $html);

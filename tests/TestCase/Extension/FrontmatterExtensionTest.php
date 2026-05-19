@@ -33,7 +33,7 @@ DJOT;
         $this->assertStringNotContainsString('author:', $html);
 
         // Content should be rendered
-        $this->assertStringContainsString('<h1>Hello World</h1>', $html);
+        $this->assertStringContainsString('<h1 id="hello-world">Hello World</h1>', $html);
 
         // Frontmatter should be accessible via extension
         $this->assertTrue($ext->hasFrontmatter());

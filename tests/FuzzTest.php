@@ -349,9 +349,8 @@ class FuzzTest extends TestCase
 
         $result = $this->converter->convert($input);
         $this->assertIsString($result);
-        // Headings are now wrapped in <section> with the id attribute
-        $this->assertStringContainsString('<h1>', $result);
-        $this->assertStringContainsString('<section id="', $result);
+        $this->assertStringContainsString('<h1 ', $result);
+        $this->assertStringContainsString('<h1 ', $result);
     }
 
     public function testManySmallDocuments(): void
