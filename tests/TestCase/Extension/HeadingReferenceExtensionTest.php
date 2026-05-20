@@ -213,7 +213,12 @@ See [[Bob's Guide]].
 # Bob's Guide
 DJOT);
 
-        $this->assertStringContainsString('href="#bob-s-guide"', $html);
+        // Smart-punctuation turns the straight apostrophe into U+2019, then
+        // ASCII transliteration folds it back to a straight `'`, which the
+        // normalize step drops along with other CSS-unsafe punctuation:
+        // `Bob's Guide` -> `bobs-guide`. The href must match the heading id.
+        $this->assertStringContainsString('id="bobs-guide"', $html);
+        $this->assertStringContainsString('href="#bobs-guide"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $this->assertStringNotContainsString('[[Bob\'s Guide]]', $html);
     }

@@ -378,20 +378,69 @@ class BlockParser
         $i = 0;
         $count = count($lines);
         $pendingAttrs = [];
+        $pendingAttrsInQuote = false;
+        // Track open fenced code block so `[r]: /u` (or `> [r]: /u`)
+        // shown inside a code sample is not collected as a real def.
+        $fenceChar = null;
+        $fenceLen = 0;
 
         while ($i < $count) {
             $line = $lines[$i];
 
-            // Check for attributes that may precede a reference definition
-            if (preg_match('/^\{([^}]+)\}\s*$/', $line, $attrMatches)) {
+            // Fenced-code opacity: definitions inside ``` / ~~~ blocks
+            // are literal samples, never registered.
+            if ($fenceChar !== null) {
+                if (
+                    preg_match('/^[ ]{0,3}([`~]{3,})\s*$/', $line, $fm)
+                    && $fm[1][0] === $fenceChar
+                    && strlen($fm[1]) >= $fenceLen
+                ) {
+                    $fenceChar = null;
+                    $fenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^[ ]{0,3}([`~]{3,})/', $line, $fm)) {
+                $fenceChar = $fm[1][0];
+                $fenceLen = strlen($fm[1]);
+                $i++;
+
+                continue;
+            }
+
+            // Reference definitions are allowed inside blockquotes
+            // (a `> [r]: /u` line is consumed by the blockquote parser
+            // without rendering, but must still populate the global ref
+            // map). Strip leading `>` markers -- including nested
+            // `> > ` -- before the def regex tests.
+            // The `>` must sit at column 0 (no preceding whitespace) so
+            // an indented `    > [r]: /u` line, which is paragraph or
+            // code continuation, is not misclassified as a definition.
+            // List markers are intentionally NOT stripped: `- [r]: /u`
+            // is left to the list parser as inline content (the
+            // underspecified case where the grammar does not put
+            // `reference_definition` inside `list_item_content`).
+            // tryParseBlockQuote requires a space after each `>` (or
+            // end-of-line). Mirror that: `>> [r]: /u` (no space between
+            // `>`s) is literal text, not a nested blockquote.
+            $bare = preg_replace('/^(?:> )+/', '', $line) ?? $line;
+            $inQuote = ($bare !== $line);
+
+            // Check for attributes that may precede a reference definition.
+            // Tag the attrs with their origin context so a quoted
+            // `> {.note}` cannot leak onto a top-level definition below.
+            if (preg_match('/^\{([^}]+)\}\s*$/', $bare, $attrMatches)) {
                 $pendingAttrs = AttributeParser::parse($attrMatches[1]);
+                $pendingAttrsInQuote = $inQuote;
                 $i++;
 
                 continue;
             }
 
             // Match reference definition: [label]: url (url can be empty, on next line)
-            if (preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+            if (preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1]));
                 $url = trim($matches[2]);
@@ -399,7 +448,20 @@ class BlockParser
                 // Collect continuation lines (URL can start on continuation line)
                 $j = $i + 1;
                 while ($j < $count) {
-                    $nextLine = $lines[$j];
+                    $nextLineRaw = $lines[$j];
+                    // A blockquoted def's continuation must itself stay
+                    // inside the blockquote. Strip `>` from the next
+                    // line; if the strip removed no marker, the
+                    // blockquote has ended -- do not absorb top-level
+                    // text into the quoted URL.
+                    $nextLine = $nextLineRaw;
+                    if ($inQuote) {
+                        $stripped = preg_replace('/^(?:>\s?)+/', '', $nextLineRaw) ?? $nextLineRaw;
+                        if ($stripped === $nextLineRaw) {
+                            break;
+                        }
+                        $nextLine = $stripped;
+                    }
                     if (IndentationHelper::isBlankLine($nextLine)) {
                         break;
                     }
@@ -418,8 +480,14 @@ class BlockParser
                     }
                 }
 
-                $this->references[$label] = new ReferenceDefinition($url, $pendingAttrs, $i);
+                // Attach pendingAttrs only when the attributes line and the
+                // definition share the same context (both quoted or both
+                // top-level). This prevents a `> {.note}` line from leaking
+                // its attrs onto a top-level `[r]: /u` below it.
+                $attrsToUse = ($pendingAttrsInQuote === $inQuote) ? $pendingAttrs : [];
+                $this->references[$label] = new ReferenceDefinition($url, $attrsToUse, $i);
                 $pendingAttrs = [];
+                $pendingAttrsInQuote = false;
                 $i = $j;
 
                 continue;
@@ -428,6 +496,7 @@ class BlockParser
             // Non-reference line, clear any pending attributes
             if (!IndentationHelper::isBlankLine($line)) {
                 $pendingAttrs = [];
+                $pendingAttrsInQuote = false;
             }
 
             $i++;

@@ -62,6 +62,13 @@ class HeadingIdTracker
      */
     protected array $textById = [];
 
+    protected AsciiTransliterator $transliterator;
+
+    public function __construct(?AsciiTransliterator $transliterator = null)
+    {
+        $this->transliterator = $transliterator ?? new AsciiTransliterator();
+    }
+
     /**
      * Get the unique ID for a heading node
      *
@@ -125,6 +132,14 @@ class HeadingIdTracker
      */
     public function normalizeId(string $text): string
     {
+        // 1. Transliterate to ASCII so the id survives being shared as a
+        // URL fragment through auto-linkers (which routinely truncate or
+        // mis-encode non-ASCII). Latin/Cyrillic/Greek/punctuation become
+        // byte-identical with or without ext-intl; unmapped scripts (CJK,
+        // …) are romanized when intl is present and otherwise drop, so
+        // the empty-result branch below yields a stable `section` id.
+        $text = $this->transliterator->transliterate($text);
+
         // Carve "Automatic Identifiers" algorithm (normative).
         $id = mb_strtolower($text, 'UTF-8'); // 2. lowercase
         $id = trim($id); // 3. trim
