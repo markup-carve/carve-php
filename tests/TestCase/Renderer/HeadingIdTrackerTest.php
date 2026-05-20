@@ -157,7 +157,11 @@ class HeadingIdTrackerTest extends TestCase
         $this->assertSame('multiple-spaces', $this->tracker->normalizeId('Multiple   Spaces'));
         $this->assertSame('this-t-key-params-fallback', $this->tracker->normalizeId("\$this->t(\$key, \$params = [], \$fallback = '')"));
         $this->assertSame('my-title', $this->tracker->normalizeId('My --- title'));
-        $this->assertSame('日本語の見出し', $this->tracker->normalizeId('日本語の見出し'));
+        // Non-ASCII is transliterated for link-safety; Latin and Cyrillic
+        // are byte-identical with or without ext-intl.
+        $this->assertSame('uber-uns', $this->tracker->normalizeId('Über uns'));
+        $this->assertSame('cafe-resume', $this->tracker->normalizeId('café résumé'));
+        $this->assertSame('privet-mir', $this->tracker->normalizeId('Привет мир'));
         $this->assertSame('section', $this->tracker->normalizeId('###'));
         $this->assertSame('section-123-things', $this->tracker->normalizeId('123 Things'));
         $this->assertSame('section-1-introduction', $this->tracker->normalizeId('1. Introduction'));

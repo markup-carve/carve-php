@@ -17,6 +17,7 @@ use Carve\Renderer\SoftBreakMode;
 use LengthException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Transliterator;
 
 class CarveConverterTest extends TestCase
 {
@@ -1740,7 +1741,17 @@ DJOT;
         $djot = '# 日本語の見出し';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<h1 id="日本語の見出し">日本語の見出し</h1>', $result);
+        // The visible heading text is unchanged; only the ID is made
+        // ASCII-safe so it survives being shared as a URL fragment.
+        $this->assertStringContainsString('>日本語の見出し</h1>', $result);
+        $this->assertStringNotContainsString('id="日本語の見出し"', $result);
+        $this->assertMatchesRegularExpression('/<h1 id="[\x21-\x7E]+">/', $result);
+
+        if (class_exists(Transliterator::class)) {
+            // With ext-intl the CJK heading is romanized (lowercased per
+            // Carve's normative algorithm) rather than dropped.
+            $this->assertStringContainsString('<h1 id="ri-ben-yuno-jian-chushi">', $result);
+        }
     }
 
     public function testUnicodeInLink(): void
