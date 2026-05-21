@@ -957,6 +957,27 @@ DJOT;
         $this->assertStringContainsString('class="inner"', $result);
     }
 
+    public function testDivAttributesOnlyOpener(): void
+    {
+        // `::: {…}` (no type word) parses the block as the div's
+        // attributes (grammar div_open, PART 9 §12), not a literal class.
+        $djot = "::: {.x #y}\nz\n:::";
+        $expected = "<div class=\"x\" id=\"y\">\n  <p>z</p>\n</div>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testDivOpenerAttrsWinOverPendingBlockAttrs(): void
+    {
+        // A standalone {…} line is earlier in source than the opener's
+        // own {…}; the opener wins on conflict (id last), classes
+        // accumulate (PART 9 §15).
+        $djot = "{#outer .a}\n::: {#inner .b}\nz\n:::";
+        $expected = "<div id=\"inner\" class=\"a b\">\n  <p>z</p>\n</div>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
     public function testHeadingWithInlineFormatting(): void
     {
         $djot = '# Hello *world* and /everyone/';
