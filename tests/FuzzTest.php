@@ -349,8 +349,10 @@ class FuzzTest extends TestCase
 
         $result = $this->converter->convert($input);
         $this->assertIsString($result);
-        $this->assertStringContainsString('<h1 ', $result);
-        $this->assertStringContainsString('<h1 ', $result);
+        // Each top-level heading is wrapped in a <section id="…"> with a
+        // bare <h1> inside (id lives on the section, not the heading).
+        $this->assertStringContainsString('<section id="', $result);
+        $this->assertStringContainsString('<h1>', $result);
     }
 
     public function testManySmallDocuments(): void

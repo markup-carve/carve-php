@@ -322,7 +322,8 @@ class CustomPatternsTest extends TestCase
         $this->assertStringContainsString('class="special"', $specialResult);
 
         $normalResult = $this->converter->convert('# Regular Heading');
-        $this->assertStringContainsString('<h1 id="regular-heading">Regular Heading</h1>', $normalResult);
+        $this->assertStringContainsString('<section id="regular-heading">', $normalResult);
+        $this->assertStringContainsString('<h1>Regular Heading</h1>', $normalResult);
     }
 
     // ==================== Combined Patterns ====================
@@ -702,7 +703,8 @@ class CustomPatternsTest extends TestCase
         $this->assertStringContainsString('class="draft-heading"', $result);
         $this->assertStringContainsString('Work in Progress', $result);
         // Regular heading should still work (now wrapped in section per djot spec)
-        $this->assertStringContainsString('<h2 id="regular-heading">Regular Heading</h2>', $result);
+        $this->assertStringContainsString('<section id="regular-heading">', $result);
+        $this->assertStringContainsString('<h2>Regular Heading</h2>', $result);
     }
 
     public function testBlockPatternWithEmptyContent(): void

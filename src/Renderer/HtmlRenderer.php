@@ -352,10 +352,13 @@ class HtmlRenderer implements RendererInterface
         $this->trackIdFromNode($document);
         $this->preresolveHeadingIds($document);
 
-        $html = '';
-        foreach ($document->getChildren() as $child) {
-            $html .= $this->renderNode($child);
-        }
+        // Section wrapping (grammar PART 9 §13): every top-level heading
+        // emits a <section id="{slug}"> around itself and the content up
+        // to the next same-or-shallower heading. The id lives on the
+        // <section>, not the <h*>; sections nest by heading level. The
+        // ids were already resolved (document order, dedup) by
+        // preresolveHeadingIds above, so render order is irrelevant here.
+        $html = $this->renderSectionRange($document->getChildren());
 
         // Add abbreviation definitions for round-trip support
         if ($this->roundTripMode) {
@@ -363,6 +366,78 @@ class HtmlRenderer implements RendererInterface
             if ($abbreviations !== []) {
                 $html .= $this->renderAbbreviationDefinitions($abbreviations);
             }
+        }
+
+        return $html;
+    }
+
+    /**
+     * Render a run of top-level nodes, wrapping each heading and the
+     * content that follows it (up to the next same-or-shallower heading)
+     * in a `<section id="…">`. Recurses for nested sections. Matches the
+     * carve-js renderer and djot's structural model.
+     *
+     * @param array<\Carve\Node\Node> $nodes
+     */
+    protected function renderSectionRange(array $nodes): string
+    {
+        $html = '';
+        $count = count($nodes);
+        $i = 0;
+        while ($i < $count) {
+            $node = $nodes[$i];
+            if (!$node instanceof Heading) {
+                $html .= $this->renderNode($node);
+                $i++;
+
+                continue;
+            }
+
+            $level = $node->getLevel();
+            // Collect the nodes belonging to this section: everything up
+            // to (but not including) the next heading at the same or a
+            // shallower level.
+            $inner = [];
+            $j = $i + 1;
+            while ($j < $count) {
+                $next = $nodes[$j];
+                if ($next instanceof Heading && $next->getLevel() <= $level) {
+                    break;
+                }
+                $inner[] = $next;
+                $j++;
+            }
+
+            // Dispatch the heading render event before emitting the
+            // heading, mirroring renderNode(): extensions such as
+            // HeadingPermalinksExtension hook 'render.heading' to mutate
+            // the node (append a permalink span) or to provide custom
+            // HTML. Dispatch happens before getSectionId so an extension
+            // that pins an explicit id is reflected consistently.
+            $headingHtml = null;
+            if ($this->hasAnyListeners()) {
+                $event = new RenderEvent($node);
+                $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
+                $this->dispatchEvent('render.heading', $event);
+                $this->dispatchEvent('render.*', $event);
+                if ($event->isDefaultPrevented()) {
+                    $headingHtml = $event->getHtml() ?? '';
+                }
+            }
+            $headingHtml ??= $this->renderHeadingContent($node);
+
+            $sectionId = $this->getSectionId($node);
+            // In round-trip mode, flag a section whose heading carried an
+            // explicit {#id} so HtmlToCarve::processSection can recover
+            // the `{#id}` (it only emits one when this marker is present).
+            $explicitIdAttr = '';
+            if ($this->roundTripMode && $node->hasAttribute('id')) {
+                $explicitIdAttr = ' data-djot-explicit-id="1"';
+            }
+            $body = $headingHtml . $this->renderSectionRange($inner);
+            $html .= '<section id="' . $this->escape($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
+                . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</section>\n";
+            $i = $j;
         }
 
         return $html;
