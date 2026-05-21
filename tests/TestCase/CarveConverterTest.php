@@ -46,11 +46,18 @@ class CarveConverterTest extends TestCase
 
     public function testHeadings(): void
     {
-        // Carve headings are flat with auto-generated ids.
+        // Carve headings are wrapped in nested <section> elements; the id
+        // lives on the section, not the heading.
         $djot = "# Heading 1\n\n## Heading 2\n\n### Heading 3";
-        $expected = "<h1 id=\"heading-1\">Heading 1</h1>\n"
-            . "<h2 id=\"heading-2\">Heading 2</h2>\n"
-            . "<h3 id=\"heading-3\">Heading 3</h3>\n";
+        $expected = "<section id=\"heading-1\">\n"
+            . "  <h1>Heading 1</h1>\n"
+            . "  <section id=\"heading-2\">\n"
+            . "    <h2>Heading 2</h2>\n"
+            . "    <section id=\"heading-3\">\n"
+            . "      <h3>Heading 3</h3>\n"
+            . "    </section>\n"
+            . "  </section>\n"
+            . "</section>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -445,10 +452,12 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<h1 id="welcome">Welcome</h1>', $result);
+        $this->assertStringContainsString('<section id="welcome">', $result);
+        $this->assertStringContainsString('<h1>Welcome</h1>', $result);
         $this->assertStringContainsString('<strong>comprehensive</strong>', $result);
         $this->assertStringContainsString('<em>Djot</em>', $result);
-        $this->assertStringContainsString('<h2 id="features">Features</h2>', $result);
+        $this->assertStringContainsString('<section id="features">', $result);
+        $this->assertStringContainsString('<h2>Features</h2>', $result);
         $this->assertStringContainsString('<ul>', $result);
         $this->assertStringContainsString('<li>', $result);
         $this->assertStringContainsString('language-php', $result);
@@ -951,9 +960,8 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<h1 id="hello-world-and-everyone">', $result);
-        $this->assertStringContainsString('<strong>world</strong>', $result);
-        $this->assertStringContainsString('<em>everyone</em>', $result);
+        $this->assertStringContainsString('<section id="hello-world-and-everyone">', $result);
+        $this->assertStringContainsString('<h1>Hello <strong>world</strong> and <em>everyone</em></h1>', $result);
     }
 
     public function testListWithParagraphs(): void
@@ -1108,9 +1116,12 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<h1 id="one">One</h1>', $result);
-        $this->assertStringContainsString('<h2 id="two">Two</h2>', $result);
-        $this->assertStringContainsString('<h3 id="three">Three</h3>', $result);
+        $this->assertStringContainsString('<section id="one">', $result);
+        $this->assertStringContainsString('<h1>One</h1>', $result);
+        $this->assertStringContainsString('<section id="two">', $result);
+        $this->assertStringContainsString('<h2>Two</h2>', $result);
+        $this->assertStringContainsString('<section id="three">', $result);
+        $this->assertStringContainsString('<h3>Three</h3>', $result);
     }
 
     public function testTableWithInlineFormatting(): void
@@ -1404,7 +1415,8 @@ DJOT;
             $this->assertCount(2, $document->getChildren());
 
             $result = $this->converter->render($document);
-            $this->assertStringContainsString('<h1 id="hello">Hello</h1>', $result);
+            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
             unlink($tempFile);
@@ -1419,7 +1431,8 @@ DJOT;
         try {
             $result = $this->converter->convertFile($tempFile);
 
-            $this->assertStringContainsString('<h1 id="hello">Hello</h1>', $result);
+            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
             unlink($tempFile);
@@ -1742,15 +1755,16 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         // The visible heading text is unchanged; only the ID is made
-        // ASCII-safe so it survives being shared as a URL fragment.
+        // ASCII-safe so it survives being shared as a URL fragment. The id
+        // lives on the section wrapper, not the heading.
         $this->assertStringContainsString('>日本語の見出し</h1>', $result);
         $this->assertStringNotContainsString('id="日本語の見出し"', $result);
-        $this->assertMatchesRegularExpression('/<h1 id="[\x21-\x7E]+">/', $result);
+        $this->assertMatchesRegularExpression('/<section id="[\x21-\x7E]+">/', $result);
 
         if (class_exists(Transliterator::class)) {
             // With ext-intl the CJK heading is romanized (lowercased per
             // Carve's normative algorithm) rather than dropped.
-            $this->assertStringContainsString('<h1 id="ri-ben-yuno-jian-chushi">', $result);
+            $this->assertStringContainsString('<section id="ri-ben-yuno-jian-chushi">', $result);
         }
     }
 
