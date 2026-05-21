@@ -1180,9 +1180,23 @@ class BlockParser
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
 
+        // Separate a trailing quoted title from the type/class
+        // (grammar quoted_title; PART 9 §12): `::: note "Heads up"`.
+        // The title is stored as the `title` attribute (the same slot
+        // the AdmonitionExtension reads) and rendered as a
+        // <p class="admonition-title">, never folded into the class.
+        $title = null;
+        if (preg_match('/^(.*?)\s+"([^"]*)"\s*$/', $className, $tm) === 1) {
+            $className = trim($tm[1]);
+            $title = $tm[2];
+        }
+
         $div = new Div();
         if ($className !== '') {
             $div->addClass($className);
+        }
+        if ($title !== null) {
+            $div->setAttribute('title', $title);
         }
 
         // Save and clear pending attributes - they apply to the div, not inner content

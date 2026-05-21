@@ -213,8 +213,11 @@ class CarveConverterTest extends TestCase
 
     public function testDiv(): void
     {
+        // Tier 2 (PART 9 §12): a custom `:::` type renders as a generic
+        // <div class="{type}"> with its body indented two spaces, matching
+        // the canonical-admonition <aside> shape and carve-js.
         $djot = "::: sidebar\nGeneric fenced div\n:::";
-        $expected = "<div class=\"sidebar\">\n<p>Generic fenced div</p>\n</div>\n";
+        $expected = "<div class=\"sidebar\">\n  <p>Generic fenced div</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
