@@ -858,9 +858,13 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
+     * The eight canonical admonition types (grammar PART 9 §12, Tier 1).
+     * These render as a semantic <aside class="admonition {type}">; any
+     * other type is a Tier-2 generic <div class="{type}">.
+     *
      * @var list<string>
      */
-    protected const ADMONITION_TYPES = ['note', 'tip', 'important', 'warning', 'caution', 'danger', 'info'];
+    protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
     protected function renderDiv(Div $node): string
     {
@@ -870,28 +874,39 @@ class HtmlRenderer implements RendererInterface
             : [];
         $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
 
-        // A fenced div carrying a known admonition type renders as a
-        // semantic <aside class="admonition …">. Any extra classes and
-        // all other node attributes (id, data-*, …) are preserved.
+        // A quoted title (PART 9 §12) is stored as the `title` attribute;
+        // it renders as <p class="admonition-title"> and is excluded from
+        // the wrapper's HTML attributes. Applies to both tiers.
+        $titleAttr = $node->getAttribute('title');
+        $titleLine = '';
+        if (is_string($titleAttr)) {
+            $titleLine = '  <p class="admonition-title">' . $this->escape($titleAttr) . "</p>\n";
+        }
+
+        // Tier 1: a canonical admonition type renders as a semantic
+        // <aside class="admonition …">. Any extra classes and all other
+        // node attributes (id, data-*, …) are preserved; `title` and
+        // `class` are rebuilt/excluded.
         if ($types !== []) {
-            // Drop type tokens and any pre-existing "admonition" so the
-            // prefix is emitted exactly once.
             $others = array_values(array_filter(
                 $classes,
                 static fn (string $c): bool => $c !== 'admonition'
                     && !in_array($c, self::ADMONITION_TYPES, true),
             ));
-            $attrs = $this->getRenderableAttributes($node);
+            $attrs = $this->getRenderableAttributes($node, ['title']);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
-            $body = rtrim($this->renderChildren($node), "\n");
+            $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
             return '<aside' . $this->renderAttributeArray($attrs) . ">\n"
-                . $this->indentBlock($body, 2) . "\n</aside>\n";
+                . $body . "\n</aside>\n";
         }
 
-        $attrs = $this->renderAttributes($node);
+        // Tier 2: a custom type renders as a generic <div class="{type}">,
+        // the fenced-div primitive the block-extension mechanism builds on.
+        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node, ['title']));
+        $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
-        return '<div' . $attrs . ">\n" . $this->renderChildren($node) . "</div>\n";
+        return '<div' . $attrs . ">\n" . $body . "\n</div>\n";
     }
 
     protected function renderLineBlock(LineBlock $node): string
