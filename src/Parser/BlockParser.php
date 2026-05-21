@@ -1192,16 +1192,48 @@ class BlockParser
         }
 
         $div = new Div();
-        if ($className !== '') {
-            $div->addClass($className);
-        }
-        if ($title !== null) {
-            $div->setAttribute('title', $title);
-        }
 
-        // Save and clear pending attributes - they apply to the div, not inner content
         $divAttributes = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $applyPending = function () use ($div, $divAttributes): void {
+            foreach ($divAttributes as $name => $value) {
+                if ($name === 'class') {
+                    foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
+                        if ($class !== '') {
+                            $div->addClass($class);
+                        }
+                    }
+                } else {
+                    $div->setAttribute($name, $value);
+                }
+            }
+        };
+
+        if ($className !== '' && preg_match('/^\{(.*)\}$/s', $className, $am) === 1) {
+            // Attribute-only opener `::: {…}` (no type word): the block is
+            // the div's own attributes (grammar div_open, PART 9 §12).
+            // Pending standalone attrs are EARLIER in source, so apply
+            // them first; the opener's attrs are later and win on
+            // conflict (id/key last-wins, classes accumulate). applyToNode
+            // preserves source order.
+            $applyPending();
+            AttributeParser::applyToNode($div, $am[1]);
+            if ($title !== null) {
+                $div->setAttribute('title', $title);
+            }
+        } else {
+            // Typed (`::: box`) or bare (`:::`) opener: the type is the
+            // div's primary class (emitted first, so it stays the
+            // recoverable `:::` identity for round-trips); leading
+            // pending attrs merge after it.
+            if ($className !== '') {
+                $div->addClass($className);
+            }
+            if ($title !== null) {
+                $div->setAttribute('title', $title);
+            }
+            $applyPending();
+        }
 
         $innerLines = [];
         $i = $start + 1;
@@ -1260,17 +1292,8 @@ class BlockParser
         $this->parseBlocks($div, $innerLines, 0);
         $this->lineOffset = $previousOffset;
 
-        // Apply the saved attributes to the div, merging classes instead of replacing
-        foreach ($divAttributes as $name => $value) {
-            if ($name === 'class') {
-                // Merge class attributes instead of replacing
-                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                    $div->addClass($class);
-                }
-            } else {
-                $div->setAttribute($name, $value);
-            }
-        }
+        // (Pending block attributes were already applied before the
+        // opener's own attributes above, per PART 9 §15 precedence.)
         $parent->appendChild($div);
 
         return $i - $start;
