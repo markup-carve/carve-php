@@ -38,6 +38,7 @@ class CarveCorpusTest extends TestCase
      */
     protected const IMPLEMENTED = [
         '01-emphasis',
+        '02-headings',
         '03-links',
         '04-images',
         '05-lists',
@@ -47,6 +48,8 @@ class CarveCorpusTest extends TestCase
         '12-inline-code',
         '13-admonitions',
         '14-abbreviations',
+        '17-attributes',
+        '19-heading-ids',
     ];
 
     /**
@@ -60,6 +63,15 @@ class CarveCorpusTest extends TestCase
         '01-emphasis-11' => 'Phase-1 emphasis edge: a /,_ opening run (//a/) is '
             . 'not yet rejected at line start; tracked separately, '
             . 'unrelated to headings.',
+        '05-lists-7' => 'Paragraph interruption (grammar PART 9 §10): two '
+            . 'same-kind marker lines after a paragraph line should '
+            . 'interrupt the paragraph and start a list. Not yet '
+            . 'implemented in carve-php; surfaced by the corpus bump, '
+            . 'tracked separately, unrelated to the section change.',
+        '05-lists-10' => 'Paragraph interruption (grammar PART 9 §10): a '
+            . 'blockquote + caption following a paragraph line should '
+            . 'interrupt the paragraph. Not yet implemented in carve-php; '
+            . 'surfaced by the corpus bump, unrelated to the section change.',
     ];
 
     protected CarveConverter $converter;

@@ -46,11 +46,12 @@ DJOT;
 
         // Heading should be outside the list
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<h3 id="mixed-list-types">Mixed List Types</h3>', $result);
+        $this->assertStringContainsString('<section id="mixed-list-types">', $result);
+        $this->assertStringContainsString('<h3>Mixed List Types</h3>', $result);
 
         // Heading should come after the list closes
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h3 ');
+        $headingPos = strpos($result, '<h3>');
         $this->assertGreaterThan($lastUlPos, $headingPos, 'Heading should appear after list closes');
     }
 
@@ -67,10 +68,11 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<h3 id="heading">Heading</h3>', $result);
+        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<h3>Heading</h3>', $result);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h3 ');
+        $headingPos = strpos($result, '<h3>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -217,7 +219,8 @@ DJOT;
 
         // Should be tight list (no <p> wrappers)
         $this->assertStringNotContainsString('<li><p>A</p>', $result);
-        $this->assertStringContainsString('<h3 id="heading">Heading</h3>', $result);
+        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<h3>Heading</h3>', $result);
     }
 
     public function testLooseNestedListWithHeading(): void
@@ -234,7 +237,7 @@ DJOT;
 
         // Heading should be outside the list
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h3 ');
+        $headingPos = strpos($result, '<h3>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -256,13 +259,15 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<h2 id="first-heading">First Heading</h2>', $result);
-        $this->assertStringContainsString('<h2 id="second-heading">Second Heading</h2>', $result);
+        $this->assertStringContainsString('<section id="first-heading">', $result);
+        $this->assertStringContainsString('<h2>First Heading</h2>', $result);
+        $this->assertStringContainsString('<section id="second-heading">', $result);
+        $this->assertStringContainsString('<h2>Second Heading</h2>', $result);
 
         // Both headings should be after the list
         $lastUlPos = strrpos($result, '</ul>');
-        $h1Pos = strpos($result, '<h2 id="first-heading">First Heading');
-        $h2Pos = strpos($result, '<h2 id="second-heading">Second Heading');
+        $h1Pos = strpos($result, '<section id="first-heading">');
+        $h2Pos = strpos($result, '<section id="second-heading">');
         $this->assertGreaterThan($lastUlPos, $h1Pos);
         $this->assertGreaterThan($lastUlPos, $h2Pos);
     }
@@ -286,7 +291,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $codePos = strpos($result, '<pre>');
         $quotePos = strpos($result, '<blockquote>');
 
@@ -308,7 +313,8 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<h1 id="heading">Heading</h1>', $result);
+        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<h1>Heading</h1>', $result);
     }
 
     public function testEmptyNestedListWithHeading(): void
@@ -324,7 +330,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -342,7 +348,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -361,10 +367,11 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ol>', $result);
-        $this->assertStringContainsString('<h2 id="heading">Heading</h2>', $result);
+        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<h2>Heading</h2>', $result);
 
         $lastOlPos = strrpos($result, '</ol>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertGreaterThan($lastOlPos, $headingPos);
     }
 
@@ -381,7 +388,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -597,7 +604,7 @@ DJOT;
         $lastUlPos = strrpos($result, '</ul>');
 
         // All block elements should appear after the list
-        $this->assertGreaterThan($lastUlPos, strpos($result, '<h2 '));
+        $this->assertGreaterThan($lastUlPos, strpos($result, '<h2>'));
         $this->assertGreaterThan($lastUlPos, strpos($result, '<blockquote>'));
         $this->assertGreaterThan($lastUlPos, strpos($result, '<table>'));
         $this->assertGreaterThan($lastUlPos, strpos($result, '<dl>'));
@@ -694,7 +701,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
 
@@ -730,7 +737,7 @@ DJOT;
 
         // Heading should be outside the list
         $lastUlPos = strrpos($result, '</ul>');
-        $headingPos = strpos($result, '<h2 ');
+        $headingPos = strpos($result, '<h2>');
         $this->assertNotFalse($headingPos);
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }

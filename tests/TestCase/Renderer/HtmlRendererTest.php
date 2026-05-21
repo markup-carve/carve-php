@@ -57,8 +57,9 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        // Headings are wrapped in <section> tags per djot spec
-        $this->assertSame("<h2 id=\"title\">Title</h2>\n", $result);
+        // Headings are wrapped in <section> tags per djot spec; the id
+        // lives on the section, not the heading.
+        $this->assertSame("<section id=\"title\">\n  <h2>Title</h2>\n</section>\n", $result);
     }
 
     public function testRenderEmphasis(): void
@@ -225,9 +226,11 @@ class HtmlRendererTest extends TestCase
 
         $result = $renderer->render($doc);
 
-        // Fragment heading shares the active render context's dedup namespace.
+        // Fragment heading shares the active render context's dedup namespace:
+        // the section ids ("repeat", "repeat-2") are already taken, so the
+        // fragment-rendered heading gets "repeat-3".
         $this->assertStringContainsString('<h2 id="repeat-3">Repeat</h2>', $result);
-        $this->assertStringContainsString('<h2 id="repeat-2">Repeat</h2>', $result);
+        $this->assertStringContainsString('<section id="repeat-2">', $result);
     }
 
     public function testNestedExplicitIdsAreTrackedBeforeLaterHeadings(): void
@@ -248,7 +251,8 @@ class HtmlRendererTest extends TestCase
         $result = $this->renderer->render($doc);
 
         $this->assertStringContainsString('<p id="Foo">Bar</p>', $result);
-        $this->assertStringContainsString('<h1 id="foo">Foo</h1>', $result);
+        $this->assertStringContainsString('<section id="foo">', $result);
+        $this->assertStringContainsString('<h1>Foo</h1>', $result);
     }
 
     public function testRenderDocumentFragmentUsesActiveFootnoteState(): void
