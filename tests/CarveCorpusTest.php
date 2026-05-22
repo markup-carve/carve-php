@@ -72,6 +72,7 @@ class CarveCorpusTest extends TestCase
         '40-table-multi-line-cell-continuation',
         '41-table-rowspan-with-multi-line-content',
         '42-math',
+        '43-footnotes',
         '44-generic-divs',
         '45-definition-lists',
         '46-comments',
@@ -83,6 +84,7 @@ class CarveCorpusTest extends TestCase
         '52-ordered-list-start-and-delimiter',
         '53-ordered-list-dialects',
         '54-ordered-marker-vs-prose',
+        '55-footnote-with-multiple-blocks',
         '56-editorial-markup',
         '57-thematic-breaks',
         '58-cross-reference',
@@ -113,6 +115,9 @@ class CarveCorpusTest extends TestCase
             . 'blockquote + caption following a paragraph line should '
             . 'interrupt the paragraph. Not yet implemented in carve-php; '
             . 'surfaced by the corpus bump, unrelated to the section change.',
+        '43-footnotes-2' => 'Paragraph interruption (grammar PART 9 §10): a '
+            . 'footnote definition directly after a paragraph line (no blank) '
+            . 'should interrupt the paragraph. Same gap as 05-lists-7/10.',
     ];
 
     protected CarveConverter $converter;

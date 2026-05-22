@@ -1524,9 +1524,10 @@ class HtmlRenderer implements RendererInterface
         // Sort footnotes by their reference number order
         ksort($renderedContents);
 
+        // Indentation matches carve-js: hr/ol at 2, li at 4, body at 6.
         $html = '<section role="doc-endnotes">' . "\n";
-        $html .= $this->xhtml ? "<hr />\n" : "<hr>\n";
-        $html .= '<ol>' . "\n";
+        $html .= $this->xhtml ? "  <hr />\n" : "  <hr>\n";
+        $html .= '  <ol>' . "\n";
 
         foreach ($renderedContents as $number => $content) {
             $liAttrs = '';
@@ -1541,7 +1542,7 @@ class HtmlRenderer implements RendererInterface
                 $liAttrs = ' data-djot-footnote-label="' . $this->escapeAttribute((string)$label) . '"';
             }
 
-            $html .= '<li id="fn' . $number . '"' . $liAttrs . '>' . "\n";
+            $html .= '    <li id="fn' . $number . '"' . $liAttrs . '>' . "\n";
 
             // Get ref count for this footnote
             $refCount = $label !== false ? ($context->footnoteRefCounts[$label] ?? 1) : 1;
@@ -1553,19 +1554,19 @@ class HtmlRenderer implements RendererInterface
             // Otherwise add as separate paragraph
             if ($content !== '' && preg_match('/^(.*)(<\/p>\n?)$/s', $content, $matches)) {
                 $content = $matches[1] . $backlinks . '</p>';
-                $html .= $content . "\n";
+                $html .= $this->indentBlock(rtrim($content, "\n"), 6) . "\n";
             } else {
                 // Content doesn't end with paragraph (e.g., code block or empty)
                 if ($content !== '') {
-                    $html .= $content . "\n";
+                    $html .= $this->indentBlock(rtrim($content, "\n"), 6) . "\n";
                 }
-                $html .= '<p>' . $backlinks . '</p>' . "\n";
+                $html .= '      <p>' . $backlinks . '</p>' . "\n";
             }
 
-            $html .= '</li>' . "\n";
+            $html .= '    </li>' . "\n";
         }
 
-        $html .= '</ol>' . "\n";
+        $html .= '  </ol>' . "\n";
         $html .= '</section>' . "\n";
 
         return $html;
@@ -1581,7 +1582,7 @@ class HtmlRenderer implements RendererInterface
     {
         if ($refCount <= 1) {
             // Single reference - simple backlink
-            return '<a href="#fnref' . $number . '" role="doc-backlink">↩︎</a>';
+            return '<a href="#fnref' . $number . '" role="doc-backlink">↩</a>';
         }
 
         // Multiple references - generate numbered backlinks
@@ -1591,7 +1592,7 @@ class HtmlRenderer implements RendererInterface
             if ($i > 1) {
                 $refId .= '-' . $i;
             }
-            $links[] = '<a href="#' . $refId . '" role="doc-backlink">↩︎<sup>' . $i . '</sup></a>';
+            $links[] = '<a href="#' . $refId . '" role="doc-backlink">↩<sup>' . $i . '</sup></a>';
         }
 
         return implode(' ', $links);
