@@ -73,6 +73,7 @@ class CarveCorpusTest extends TestCase
         '41-table-rowspan-with-multi-line-content',
         '42-math',
         '44-generic-divs',
+        '45-definition-lists',
         '46-comments',
         '47-raw-blocks',
         '48-hard-line-breaks',

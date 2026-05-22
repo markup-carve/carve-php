@@ -742,6 +742,7 @@ class BlockParser
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseDiv($parent, $lines, $i)
+                ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
                 ?? $this->tryParseThematicBreak($parent, $line, $i)
                 ?? $this->tryParseBlockQuote($parent, $lines, $i)
@@ -1874,6 +1875,69 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      */
+    /**
+     * Carve definition list (§4.5): `:: term` (exactly two colons, not a
+     * `:::` div) lines, then `:  definition` (colon + two spaces) lines.
+     * Deeper-indented lines continue a definition; a single blank line may
+     * separate entries. Renders to <dl> of <dt> then <dd>.
+     *
+     * @param array<string> $lines
+     */
+    protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
+    {
+        if (!preg_match('/^::(?!:)\s+(.+)$/', $lines[$start])) {
+            return null;
+        }
+
+        $dl = new DefinitionList();
+        $this->applyPendingAttributes($dl);
+        $i = $start;
+        $count = count($lines);
+
+        while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i])) {
+            // An entry: one or more terms, then one or more definitions.
+            while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
+                $term = new DefinitionTerm();
+                $this->inlineParser->parse($term, trim($m[1]), $i);
+                $dl->appendChild($term);
+                $i++;
+            }
+            while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
+                $body = [trim($m[1])];
+                $i++;
+                while (
+                    $i < $count
+                    && trim($lines[$i]) !== ''
+                    && strlen($lines[$i]) - strlen(ltrim($lines[$i], ' ')) >= 3
+                ) {
+                    $body[] = ltrim($lines[$i]);
+                    $i++;
+                }
+                $dd = new DefinitionDescription();
+                $this->parseBlocks($dd, $body, 0);
+                $dl->appendChild($dd);
+            }
+            // Allow a single blank line before the next entry's `:: term`.
+            if ($i < $count && trim($lines[$i]) === '') {
+                $look = $i;
+                while ($look < $count && trim($lines[$look]) === '') {
+                    $look++;
+                }
+                if ($look < $count && preg_match('/^::(?!:)\s+/', $lines[$look])) {
+                    $i = $look;
+
+                    continue;
+                }
+            }
+
+            break;
+        }
+
+        $parent->appendChild($dl);
+
+        return $i - $start;
+    }
+
     protected function tryParseDjotDefinitionList(Node $parent, array $lines, int $start): ?int
     {
         $defList = new DefinitionList();

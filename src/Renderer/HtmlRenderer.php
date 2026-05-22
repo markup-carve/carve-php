@@ -1453,21 +1453,26 @@ class HtmlRenderer implements RendererInterface
     {
         $attrs = $this->renderAttributes($node);
 
-        return '<dt' . $attrs . '>' . $this->renderChildren($node) . "</dt>\n";
+        return '  <dt' . $attrs . '>' . $this->renderChildren($node) . "</dt>\n";
     }
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
         $attrs = $this->renderAttributes($node);
-        $content = $this->renderChildren($node);
+        $children = $node->getChildren();
 
-        // Content goes on separate lines
-        $content = rtrim($content);
-        if ($content === '') {
-            return '<dd' . $attrs . ">\n</dd>\n";
+        // A single-paragraph definition renders inline (<dd>text</dd>); any
+        // richer block content keeps its block structure.
+        if (count($children) === 1 && $children[0] instanceof Paragraph) {
+            return '  <dd' . $attrs . '>' . $this->renderChildren($children[0]) . "</dd>\n";
         }
 
-        return '<dd' . $attrs . ">\n" . $content . "\n</dd>\n";
+        $content = rtrim($this->renderChildren($node));
+        if ($content === '') {
+            return '  <dd' . $attrs . "></dd>\n";
+        }
+
+        return '  <dd' . $attrs . ">\n" . $content . "\n  </dd>\n";
     }
 
     protected function renderFootnote(Footnote $node): string
