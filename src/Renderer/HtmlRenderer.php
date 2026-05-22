@@ -772,6 +772,24 @@ class HtmlRenderer implements RendererInterface
         return implode("\n", $lines);
     }
 
+    /**
+     * Indent a footnote body by 6 spaces, padding only block-boundary lines
+     * (the first line and any line starting a tag) so a paragraph's inline
+     * soft-break continuation stays at column 0 — matching how a block
+     * renders at an indent level in the reference implementation.
+     */
+    protected function indentFootnoteBody(string $content): string
+    {
+        $lines = explode("\n", rtrim($content, "\n"));
+        foreach ($lines as $i => $line) {
+            if ($line !== '' && ($i === 0 || str_starts_with($line, '<'))) {
+                $lines[$i] = '      ' . $line;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     protected function renderList(ListBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
@@ -1554,11 +1572,11 @@ class HtmlRenderer implements RendererInterface
             // Otherwise add as separate paragraph
             if ($content !== '' && preg_match('/^(.*)(<\/p>\n?)$/s', $content, $matches)) {
                 $content = $matches[1] . $backlinks . '</p>';
-                $html .= $this->indentBlock(rtrim($content, "\n"), 6) . "\n";
+                $html .= $this->indentFootnoteBody($content) . "\n";
             } else {
                 // Content doesn't end with paragraph (e.g., code block or empty)
                 if ($content !== '') {
-                    $html .= $this->indentBlock(rtrim($content, "\n"), 6) . "\n";
+                    $html .= $this->indentFootnoteBody($content) . "\n";
                 }
                 $html .= '      <p>' . $backlinks . '</p>' . "\n";
             }

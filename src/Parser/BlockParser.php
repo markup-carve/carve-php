@@ -2992,7 +2992,7 @@ class BlockParser
                 break;
             }
 
-            if (!$hasUnclosedBrace && $this->startsNewBlock($nextLine)) {
+            if (!$hasUnclosedBrace && $this->interruptsParagraph($lines, $i)) {
                 break;
             }
 
@@ -3008,6 +3008,58 @@ class BlockParser
         $parent->appendChild($paragraph);
 
         return $i - $start;
+    }
+
+    /**
+     * Carve paragraph interruption (grammar PART 9 §10). A hard-wrapped
+     * prose line may begin with `-`, `*`, `+`, `>`, `|` as an operator. An
+     * ambiguous marker line (bullet/task, blockquote, table row) interrupts
+     * the paragraph only when it forms a real block: two or more same-kind
+     * markers, an indented continuation, or (blockquote/table) a following
+     * caption. Footnote definitions and other unambiguous starts (handled
+     * by startsNewBlock) always interrupt.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     */
+    protected function interruptsParagraph(array $lines, int $i): bool
+    {
+        $line = $lines[$i];
+        if ($this->startsNewBlock($line)) {
+            return true;
+        }
+        // Footnote definition is an unambiguous block.
+        if (preg_match('/^\[\^[^\]]+\]:/', $line) === 1) {
+            return true;
+        }
+
+        $isBullet = preg_match('/^[-*+]\s/', $line) === 1;
+        $isQuote = preg_match('/^>\s?/', $line) === 1;
+        $isTable = isset($line[0]) && $line[0] === '|';
+        if (!$isBullet && !$isQuote && !$isTable) {
+            return false;
+        }
+
+        $next = $lines[$i + 1] ?? null;
+        if ($next === null || IndentationHelper::isBlankLine($next)) {
+            return false;
+        }
+
+        if ($isBullet) {
+            // Two or more same-marker lines, or an indented continuation.
+            if (preg_match('/^[-*+]\s/', $next) === 1 && $line[0] === $next[0]) {
+                return true;
+            }
+
+            return preg_match('/^\s/', $next) === 1;
+        }
+        if ($isQuote) {
+            // A second quote line or a caption confirms a real (figure) block.
+            return preg_match('/^>\s?/', $next) === 1 || preg_match('/^\^ /', $next) === 1;
+        }
+
+        // Table: a second `|` row or a caption.
+        return (isset($next[0]) && $next[0] === '|') || preg_match('/^\^ /', $next) === 1;
     }
 
     /**
