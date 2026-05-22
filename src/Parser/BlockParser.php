@@ -996,6 +996,14 @@ class BlockParser
     {
         $line = $lines[$start];
 
+        // Carve line comment: a `%%` line (the `%%%` fenced form is handled
+        // earlier by tryParseFencedComment) runs to end of line, not rendered.
+        if (str_starts_with(ltrim($line), '%%')) {
+            $parent->appendChild(new Comment(trim(substr(ltrim($line), 2))));
+
+            return 1;
+        }
+
         // Use FencedBlockParser to check for comment opener
         if (!$this->fencedBlockParser->isCommentOpener($line)) {
             return null;
@@ -1391,21 +1399,13 @@ class BlockParser
             return null;
         }
 
-        // Must contain only * and/or - characters
-        if (!preg_match('/^[\*\-]+$/', $stripped)) {
+        // Must contain only thematic-break markers: -, *, or _ (§ grammar
+        // thematic_break). strlen(>= 3) is already checked above.
+        if (!preg_match('/^[\*\-_]+$/', $stripped)) {
             return null;
         }
 
-        // Must have at least 3 of the marker characters total
-        $starCount = substr_count($stripped, '*');
-        $dashCount = substr_count($stripped, '-');
-
-        // Valid if we have 3+ stars OR 3+ dashes OR a mix totaling 3+
-        if ($starCount + $dashCount < 3) {
-            return null;
-        }
-
-        $char = $starCount >= $dashCount ? '*' : '-';
+        $char = $stripped[0];
         $thematicBreak = new ThematicBreak($char);
         $this->applyPendingAttributes($thematicBreak);
         $parent->appendChild($thematicBreak);

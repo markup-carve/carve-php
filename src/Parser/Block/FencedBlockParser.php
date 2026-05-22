@@ -120,13 +120,13 @@ class FencedBlockParser
      */
     public function parseRawBlockOpener(string $line): ?array
     {
-        // Fast early exit: raw blocks start with ` and contain =
-        if (!isset($line[0]) || $line[0] !== '`' || !str_contains($line, '=')) {
+        // Fast early exit: raw blocks start with `.
+        if (!isset($line[0]) || $line[0] !== '`') {
             return null;
         }
 
-        // Match opening fence with =format: ``` =html (space before = is syntax delimiter)
-        if (!preg_match('/^(`{3,}) +=(\w+) *$/', $line, $matches)) {
+        // Carve raw block opener: ```raw FORMAT (two info tokens, §4.15).
+        if (!preg_match('/^(`{3,})\s*raw\s+(\w[\w-]*)\s*$/', $line, $matches)) {
             return null;
         }
 
