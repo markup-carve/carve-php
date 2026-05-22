@@ -113,18 +113,6 @@ class CarveCorpusTest extends TestCase
         '01-emphasis-11' => 'Phase-1 emphasis edge: a /,_ opening run (//a/) is '
             . 'not yet rejected at line start; tracked separately, '
             . 'unrelated to headings.',
-        '05-lists-7' => 'Paragraph interruption (grammar PART 9 §10): two '
-            . 'same-kind marker lines after a paragraph line should '
-            . 'interrupt the paragraph and start a list. Not yet '
-            . 'implemented in carve-php; surfaced by the corpus bump, '
-            . 'tracked separately, unrelated to the section change.',
-        '05-lists-10' => 'Paragraph interruption (grammar PART 9 §10): a '
-            . 'blockquote + caption following a paragraph line should '
-            . 'interrupt the paragraph. Not yet implemented in carve-php; '
-            . 'surfaced by the corpus bump, unrelated to the section change.',
-        '43-footnotes-2' => 'Paragraph interruption (grammar PART 9 §10): a '
-            . 'footnote definition directly after a paragraph line (no blank) '
-            . 'should interrupt the paragraph. Same gap as 05-lists-7/10.',
     ];
 
     protected CarveConverter $converter;
