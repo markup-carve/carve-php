@@ -792,11 +792,12 @@ class HtmlRenderer implements RendererInterface
             $style = $node->getStyle();
             $marker = $node->getMarker();
 
-            if ($start !== 1) {
-                $olAttrs .= ' start="' . $start . '"';
-            }
+            // Corpus order: type before start (matches carve-js).
             if ($style !== null) {
                 $olAttrs .= ' type="' . $style . '"';
+            }
+            if ($start !== 1) {
+                $olAttrs .= ' start="' . $start . '"';
             }
             if ($this->roundTripMode && $marker !== null && $marker !== '.') {
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';

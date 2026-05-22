@@ -581,6 +581,16 @@ class InlineParser
                 continue;
             }
 
+            // Smart symbols: arrows, comparison operators, (c)/(r)/(tm).
+            // Runs after the escape check, so `\->` etc. are already absorbed.
+            $symbol = $this->parseSmartSymbol($text, $pos);
+            if ($symbol !== null) {
+                $textBuffer .= $symbol[0];
+                $pos += $symbol[1];
+
+                continue;
+            }
+
             // Regular character
             $textBuffer .= $char;
             $pos++;
@@ -1710,6 +1720,38 @@ class InlineParser
     /**
      * @return array{text: string, pos: int}
      */
+    /**
+     * Smart typography for arrows, comparison operators, and (c)/(r)/(tm).
+     * Longest-first so `<->` beats `<-` and `(tm)` beats `(c)`. Mirrors the
+     * carve-js SMART_TOKENS table (lowercase only).
+     *
+     * @return array{0: string, 1: int}|null [replacement, consumedLength]
+     */
+    protected function parseSmartSymbol(string $text, int $pos): ?array
+    {
+        static $map = [
+            '<->' => "\u{2194}",
+            '(tm)' => "\u{2122}",
+            '->' => "\u{2192}",
+            '<-' => "\u{2190}",
+            '=>' => "\u{21D2}",
+            '<=' => "\u{2264}",
+            '>=' => "\u{2265}",
+            '!=' => "\u{2260}",
+            '+-' => "\u{00B1}",
+            '(c)' => "\u{00A9}",
+            '(r)' => "\u{00AE}",
+        ];
+
+        foreach ($map as $needle => $repl) {
+            if (substr($text, $pos, strlen($needle)) === $needle) {
+                return [$repl, strlen($needle)];
+            }
+        }
+
+        return null;
+    }
+
     protected function parseSmartDash(string $text, int $pos): array
     {
         $length = strlen($text);
