@@ -1878,19 +1878,14 @@ class BlockParser
     }
 
     /**
-     * Parse djot-style definition list (: term with indented definition)
+     * Carve definition list (§4.5): `:: term` (exactly two colons, not a
+     * `:::` div) lines, then `: definition` (colon + two spaces) lines.
+     * Deeper-indented lines continue a definition; a single blank line may
+     * separate entries. Renders to <dl> of <dt> then <dd>.
      *
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
-     */
-    /**
-     * Carve definition list (§4.5): `:: term` (exactly two colons, not a
-     * `:::` div) lines, then `:  definition` (colon + two spaces) lines.
-     * Deeper-indented lines continue a definition; a single blank line may
-     * separate entries. Renders to <dl> of <dt> then <dd>.
-     *
-     * @param array<string> $lines
      */
     protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
     {
@@ -1914,12 +1909,15 @@ class BlockParser
             while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
                 $body = [trim($m[1])];
                 $i++;
-                while (
-                    $i < $count
-                    && trim($lines[$i]) !== ''
-                    && strlen($lines[$i]) - strlen(ltrim($lines[$i], ' ')) >= 3
-                ) {
-                    $body[] = ltrim($lines[$i]);
+                // Deeper-indented (>= 3 spaces) non-blank lines continue the def.
+                while ($i < $count) {
+                    $contLine = $lines[$i];
+                    $contLen = strlen($contLine);
+                    $indent = $contLen - strlen(ltrim($contLine, ' '));
+                    if (trim($contLine) === '' || $indent < 3) {
+                        break;
+                    }
+                    $body[] = ltrim($contLine);
                     $i++;
                 }
                 $dd = new DefinitionDescription();
@@ -1947,6 +1945,13 @@ class BlockParser
         return $i - $start;
     }
 
+    /**
+     * Parse djot-style definition list (: term with indented definition).
+     *
+     * @param \Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
     protected function tryParseDjotDefinitionList(Node $parent, array $lines, int $start): ?int
     {
         $defList = new DefinitionList();

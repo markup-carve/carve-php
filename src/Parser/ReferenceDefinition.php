@@ -13,6 +13,7 @@ class ReferenceDefinition
      * @param string $url
      * @param array<string, string> $attributes
      * @param int $line Line number where reference was defined (0-indexed)
+     * @param string|null $title
      */
     public function __construct(
         public readonly string $url,

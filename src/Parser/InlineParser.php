@@ -558,8 +558,12 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseBracedInline($text, $pos);
                 if ($result !== null) {
-                    foreach ($result['nodes'] ?? [$result['node']] as $bracedNode) {
-                        $parent->appendChild($bracedNode);
+                    if (isset($result['nodes'])) {
+                        foreach ($result['nodes'] as $bracedNode) {
+                            $parent->appendChild($bracedNode);
+                        }
+                    } else {
+                        $parent->appendChild($result['node']);
                     }
                     $pos = $result['pos'];
 
@@ -819,7 +823,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span|\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -1411,11 +1415,6 @@ class InlineParser
     }
 
     /**
-     * Parse braced inline syntax: {=highlight=}, {+insert+}, {-delete-}, {'} and {"}
-     *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
-     */
-    /**
      * Editorial comment {# ... #} -> <span class="critic-comment">…</span>.
      * Content is literal (spaces preserved), matching carve-js.
      *
@@ -1437,6 +1436,12 @@ class InlineParser
         return ['node' => $span, 'pos' => $close + 2];
     }
 
+    /**
+     * Parse braced inline syntax: {=highlight=}, {+insert+}, {-delete-},
+     * {~old~>new~} substitution, {'} and {"}.
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
+     */
     protected function parseBracedInline(string $text, int $pos): ?array
     {
         $length = strlen($text);
@@ -1765,9 +1770,6 @@ class InlineParser
     }
 
     /**
-     * @return array{text: string, pos: int}
-     */
-    /**
      * Smart typography for arrows, comparison operators, and (c)/(r)/(tm).
      * Longest-first so `<->` beats `<-` and `(tm)` beats `(c)`. Mirrors the
      * carve-js SMART_TOKENS table (lowercase only).
@@ -1799,6 +1801,9 @@ class InlineParser
         return null;
     }
 
+    /**
+     * @return array{text: string, pos: int}
+     */
     protected function parseSmartDash(string $text, int $pos): array
     {
         $length = strlen($text);
