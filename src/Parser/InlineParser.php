@@ -532,6 +532,18 @@ class InlineParser
 
             // Special braced syntax: {=highlight=}, {+insert+}, {-delete-}, or inline attributes {.class}
             if ($char === '{') {
+                // Editorial comment {# ... #} -> styled span. Must precede the
+                // attribute check, which would otherwise consume `{# … #}`.
+                $comment = $this->parseEditorialComment($text, $pos);
+                if ($comment !== null) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $parent->appendChild($comment['node']);
+                    $pos = $comment['pos'];
+
+                    continue;
+                }
+
                 // First check for inline attributes that apply to preceding word
                 $attrResult = $this->parseInlineAttributes($text, $pos, $textBuffer, $parent);
                 if ($attrResult !== null) {
@@ -546,7 +558,9 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseBracedInline($text, $pos);
                 if ($result !== null) {
-                    $parent->appendChild($result['node']);
+                    foreach ($result['nodes'] ?? [$result['node']] as $bracedNode) {
+                        $parent->appendChild($bracedNode);
+                    }
                     $pos = $result['pos'];
 
                     continue;
@@ -1412,6 +1426,28 @@ class InlineParser
      *
      * @return array{node: \Carve\Node\Node, pos: int}|null
      */
+    /**
+     * Editorial comment {# ... #} -> <span class="critic-comment">…</span>.
+     * Content is literal (spaces preserved), matching carve-js.
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|null
+     */
+    protected function parseEditorialComment(string $text, int $pos): ?array
+    {
+        if (substr($text, $pos, 2) !== '{#') {
+            return null;
+        }
+        $close = strpos($text, '#}', $pos + 2);
+        if ($close === false) {
+            return null;
+        }
+        $span = new Span();
+        $span->addClass('critic-comment');
+        $span->appendChild(new Text(substr($text, $pos + 2, $close - $pos - 2)));
+
+        return ['node' => $span, 'pos' => $close + 2];
+    }
+
     protected function parseBracedInline(string $text, int $pos): ?array
     {
         $length = strlen($text);
@@ -1457,6 +1493,28 @@ class InlineParser
                     'node' => new Text($result),
                     'pos' => $quotePos + 1,
                 ];
+            }
+        }
+
+        // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
+        if ($marker === '~') {
+            $searchPos = $pos + 2;
+            while ($searchPos < $length - 1) {
+                if ($text[$searchPos] === '~' && $text[$searchPos + 1] === '}') {
+                    $content = substr($text, $pos + 2, $searchPos - $pos - 2);
+                    if (str_contains($content, '~>')) {
+                        [$old, $new] = explode('~>', $content, 2);
+                        $del = new Delete();
+                        $this->parseInlines($del, $old);
+                        $ins = new Insert();
+                        $this->parseInlines($ins, $new);
+
+                        return ['nodes' => [$del, $ins], 'pos' => $searchPos + 2];
+                    }
+
+                    break;
+                }
+                $searchPos++;
             }
         }
 

@@ -83,6 +83,7 @@ class CarveCorpusTest extends TestCase
         '52-ordered-list-start-and-delimiter',
         '53-ordered-list-dialects',
         '54-ordered-marker-vs-prose',
+        '56-editorial-markup',
         '57-thematic-breaks',
         '58-cross-reference',
         '59-autolinks',
