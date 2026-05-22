@@ -2285,6 +2285,38 @@ class BlockParser
     }
 
     /**
+     * Parse a Carve table cell's tight alignment/header marker (written
+     * tight against the pipe): optional `=` (header) then optional one of
+     * `< > ~` (left/right/center). Returns the flags plus the content with
+     * the marker stripped. Spaced markers (`| ^ |`, `| < |`) are span
+     * markers, not alignment — their leading space means index 0 is not a
+     * marker char, so they are left untouched here.
+     *
+     * @return array{header: bool, align: string|null, content: string}
+     */
+    protected function parseTableCellMarker(string $raw): array
+    {
+        $header = false;
+        $rest = $raw;
+        // `==x==` is a highlight cell, so `=` must not be followed by `=`.
+        if (isset($rest[0]) && $rest[0] === '=' && ($rest[1] ?? '') !== '=') {
+            $header = true;
+            $rest = substr($rest, 1);
+        }
+        $align = match ($rest[0] ?? '') {
+            '>' => TableCell::ALIGN_RIGHT,
+            '<' => TableCell::ALIGN_LEFT,
+            '~' => TableCell::ALIGN_CENTER,
+            default => null,
+        };
+        if ($align !== null) {
+            $rest = substr($rest, 1);
+        }
+
+        return ['header' => $header, 'align' => $align, 'content' => $rest];
+    }
+
+    /**
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -2311,6 +2343,9 @@ class BlockParser
         $table = new Table();
         $i = $start;
         $alignments = [];
+        // Per-column alignment from Carve header markers (|=>, |=~, |=<),
+        // keyed by column position; propagates to the column's body cells.
+        $columnAligns = [];
         $headerFound = false;
         $hasRowspans = false;
 
@@ -2457,16 +2492,22 @@ class BlockParser
                     ];
                     $colPosition += $colspan;
                 } else {
-                    $alignment = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
+                    // Parse the tight alignment/header marker. A header row
+                    // fixes per-column alignment; a cell's own marker overrides
+                    // it; a djot separator row is the final fallback.
+                    $marker = $this->parseTableCellMarker($cellData['content']);
+                    if ($isHeaderRow && $marker['align'] !== null) {
+                        $columnAligns[$colPosition] = $marker['align'];
+                    }
+                    $alignment = $marker['align']
+                        ?? $columnAligns[$colPosition]
+                        ?? $alignments[$index]
+                        ?? TableCell::ALIGN_DEFAULT;
                     $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
                     if ($cellData['attributes']) {
                         $cell->setAttributes($cellData['attributes']);
                     }
-                    // Strip the leading "=" header marker for header cells.
-                    $rawContent = $isHeaderRow
-                        ? substr($cellData['content'], 1)
-                        : $cellData['content'];
-                    $trimmedContent = trim($rawContent);
+                    $trimmedContent = trim($marker['content']);
                     if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                         $cell->appendChild(new Text($trimmedContent));
                     } else {
