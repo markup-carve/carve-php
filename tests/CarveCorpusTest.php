@@ -43,13 +43,63 @@ class CarveCorpusTest extends TestCase
         '04-images',
         '05-lists',
         '06-task-lists',
+        '07-blockquote-with-attribution',
         '08-image-with-caption',
+        '09-tables',
+        '10-tables-with-rowspan-and-colspan',
         '11-fenced-code',
         '12-inline-code',
         '13-admonitions',
         '14-abbreviations',
+        '15-mentions-and-tags',
+        '16-inline-extensions',
         '17-attributes',
+        '18-frontmatter',
         '19-heading-ids',
+        '20-table-column-alignment',
+        '21-table-per-cell-alignment-override',
+        '22-headerless-table-alignment',
+        '23-table-without-alignment',
+        '24-table-alignment-with-colspan',
+        '25-table-doubled-alignment-marker',
+        '26-fenced-code-shorter-inner-fence',
+        '27-blockquote-caption-after-a-blank-line',
+        '28-table-cell-escaped-pipe',
+        '29-table-cell-pipe-inside-code-span',
+        '30-abbreviation-matches-on-word-boundaries-only',
+        '31-mention-ignores-email-addresses',
+        '32-tag-requires-a-word-boundary',
+        '33-table-stacked-rowspan',
+        '34-reference-link',
+        '35-collapsed-reference-link',
+        '36-unresolved-reference-link',
+        '37-smart-typography-dashes-and-quotes',
+        '38-smart-typography-arrows-and-symbols',
+        '39-smart-typography-escapes-and-code',
+        '40-table-multi-line-cell-continuation',
+        '41-table-rowspan-with-multi-line-content',
+        '42-math',
+        '43-footnotes',
+        '44-generic-divs',
+        '45-definition-lists',
+        '46-comments',
+        '47-raw-blocks',
+        '48-hard-line-breaks',
+        '49-non-breaking-space',
+        '50-raw-inline',
+        '51-emoji',
+        '52-ordered-list-start-and-delimiter',
+        '53-ordered-list-dialects',
+        '54-ordered-marker-vs-prose',
+        '55-footnote-with-multiple-blocks',
+        '56-editorial-markup',
+        '57-thematic-breaks',
+        '58-cross-reference',
+        '59-autolinks',
+        '60-escapes',
+        '61-empty-delimiters',
+        '62-bare-urls-stay-literal',
+        '63-nested-containers',
     ];
 
     /**
@@ -63,15 +113,6 @@ class CarveCorpusTest extends TestCase
         '01-emphasis-11' => 'Phase-1 emphasis edge: a /,_ opening run (//a/) is '
             . 'not yet rejected at line start; tracked separately, '
             . 'unrelated to headings.',
-        '05-lists-7' => 'Paragraph interruption (grammar PART 9 §10): two '
-            . 'same-kind marker lines after a paragraph line should '
-            . 'interrupt the paragraph and start a list. Not yet '
-            . 'implemented in carve-php; surfaced by the corpus bump, '
-            . 'tracked separately, unrelated to the section change.',
-        '05-lists-10' => 'Paragraph interruption (grammar PART 9 §10): a '
-            . 'blockquote + caption following a paragraph line should '
-            . 'interrupt the paragraph. Not yet implemented in carve-php; '
-            . 'surfaced by the corpus bump, unrelated to the section change.',
     ];
 
     protected CarveConverter $converter;
