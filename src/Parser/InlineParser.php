@@ -942,7 +942,7 @@ class InlineParser
                     // Track reference usage for validation
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
-                    $link = new Link($refDef->url);
+                    $link = new Link($refDef->url, $refDef->title);
                     // Store reference info for round-trip support
                     $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
                     $this->parseInlines($link, $linkText);
@@ -974,23 +974,12 @@ class InlineParser
                     ];
                 }
 
-                // Reference not found - create link without href (null) and warn
+                // Reference not found - leave the whole [text][ref] literal.
                 $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
-
-                $link = new Link(null);
-                // Store reference info for round-trip support
-                $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
-                $this->parseInlines($link, $linkText);
-
                 $endPos = $refEnd + 1;
 
-                // Check for attributes after reference link
-                if ($endPos < $length && $text[$endPos] === '{') {
-                    $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
-                }
-
                 return [
-                    'node' => $link,
+                    'node' => new Text(substr($text, $pos, $endPos - $pos)),
                     'pos' => $endPos,
                 ];
             }

@@ -485,7 +485,16 @@ class BlockParser
                 // top-level). This prevents a `> {.note}` line from leaking
                 // its attrs onto a top-level `[r]: /u` below it.
                 $attrsToUse = ($pendingAttrsInQuote === $inQuote) ? $pendingAttrs : [];
-                $this->references[$label] = new ReferenceDefinition($url, $attrsToUse, $i);
+                // Split a trailing quoted title: `url "title"` / `url 'title'`.
+                $title = null;
+                if (preg_match('/^(.*?)\s+"([^"]*)"$/', $url, $tm)) {
+                    $url = $tm[1];
+                    $title = $tm[2];
+                } elseif (preg_match("/^(.*?)\\s+'([^']*)'$/", $url, $tm)) {
+                    $url = $tm[1];
+                    $title = $tm[2];
+                }
+                $this->references[$label] = new ReferenceDefinition(trim($url), $attrsToUse, $i, $title);
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $i = $j;

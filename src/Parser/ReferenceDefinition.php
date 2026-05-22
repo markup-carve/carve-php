@@ -18,6 +18,7 @@ class ReferenceDefinition
         public readonly string $url,
         public readonly array $attributes = [],
         public readonly int $line = 0,
+        public readonly ?string $title = null,
     ) {
     }
 }
