@@ -485,7 +485,16 @@ class BlockParser
                 // top-level). This prevents a `> {.note}` line from leaking
                 // its attrs onto a top-level `[r]: /u` below it.
                 $attrsToUse = ($pendingAttrsInQuote === $inQuote) ? $pendingAttrs : [];
-                $this->references[$label] = new ReferenceDefinition($url, $attrsToUse, $i);
+                // Split a trailing quoted title: `url "title"` / `url 'title'`.
+                $title = null;
+                if (preg_match('/^(.*?)\s+"([^"]*)"$/', $url, $tm)) {
+                    $url = $tm[1];
+                    $title = $tm[2];
+                } elseif (preg_match("/^(.*?)\\s+'([^']*)'$/", $url, $tm)) {
+                    $url = $tm[1];
+                    $title = $tm[2];
+                }
+                $this->references[$label] = new ReferenceDefinition(trim($url), $attrsToUse, $i, $title);
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $i = $j;
@@ -742,6 +751,7 @@ class BlockParser
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseDiv($parent, $lines, $i)
+                ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
                 ?? $this->tryParseThematicBreak($parent, $line, $i)
                 ?? $this->tryParseBlockQuote($parent, $lines, $i)
@@ -995,6 +1005,14 @@ class BlockParser
     protected function tryParseComment(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
+
+        // Carve line comment: a `%%` line (the `%%%` fenced form is handled
+        // earlier by tryParseFencedComment) runs to end of line, not rendered.
+        if (str_starts_with(ltrim($line), '%%')) {
+            $parent->appendChild(new Comment(trim(substr(ltrim($line), 2))));
+
+            return 1;
+        }
 
         // Use FencedBlockParser to check for comment opener
         if (!$this->fencedBlockParser->isCommentOpener($line)) {
@@ -1391,21 +1409,13 @@ class BlockParser
             return null;
         }
 
-        // Must contain only * and/or - characters
-        if (!preg_match('/^[\*\-]+$/', $stripped)) {
+        // Must contain only thematic-break markers: -, *, or _ (§ grammar
+        // thematic_break). strlen(>= 3) is already checked above.
+        if (!preg_match('/^[\*\-_]+$/', $stripped)) {
             return null;
         }
 
-        // Must have at least 3 of the marker characters total
-        $starCount = substr_count($stripped, '*');
-        $dashCount = substr_count($stripped, '-');
-
-        // Valid if we have 3+ stars OR 3+ dashes OR a mix totaling 3+
-        if ($starCount + $dashCount < 3) {
-            return null;
-        }
-
-        $char = $starCount >= $dashCount ? '*' : '-';
+        $char = $stripped[0];
         $thematicBreak = new ThematicBreak($char);
         $this->applyPendingAttributes($thematicBreak);
         $parent->appendChild($thematicBreak);
@@ -1868,7 +1878,75 @@ class BlockParser
     }
 
     /**
-     * Parse djot-style definition list (: term with indented definition)
+     * Carve definition list (§4.5): `:: term` (exactly two colons, not a
+     * `:::` div) lines, then `: definition` (colon + two spaces) lines.
+     * Deeper-indented lines continue a definition; a single blank line may
+     * separate entries. Renders to <dl> of <dt> then <dd>.
+     *
+     * @param \Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
+    {
+        if (!preg_match('/^::(?!:)\s+(.+)$/', $lines[$start])) {
+            return null;
+        }
+
+        $dl = new DefinitionList();
+        $this->applyPendingAttributes($dl);
+        $i = $start;
+        $count = count($lines);
+
+        while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i])) {
+            // An entry: one or more terms, then one or more definitions.
+            while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
+                $term = new DefinitionTerm();
+                $this->inlineParser->parse($term, trim($m[1]), $i);
+                $dl->appendChild($term);
+                $i++;
+            }
+            while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
+                $body = [trim($m[1])];
+                $i++;
+                // Deeper-indented (>= 3 spaces) non-blank lines continue the def.
+                while ($i < $count) {
+                    $contLine = $lines[$i];
+                    $contLen = strlen($contLine);
+                    $indent = $contLen - strlen(ltrim($contLine, ' '));
+                    if (trim($contLine) === '' || $indent < 3) {
+                        break;
+                    }
+                    $body[] = ltrim($contLine);
+                    $i++;
+                }
+                $dd = new DefinitionDescription();
+                $this->parseBlocks($dd, $body, 0);
+                $dl->appendChild($dd);
+            }
+            // Allow a single blank line before the next entry's `:: term`.
+            if ($i < $count && trim($lines[$i]) === '') {
+                $look = $i;
+                while ($look < $count && trim($lines[$look]) === '') {
+                    $look++;
+                }
+                if ($look < $count && preg_match('/^::(?!:)\s+/', $lines[$look])) {
+                    $i = $look;
+
+                    continue;
+                }
+            }
+
+            break;
+        }
+
+        $parent->appendChild($dl);
+
+        return $i - $start;
+    }
+
+    /**
+     * Parse djot-style definition list (: term with indented definition).
      *
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
@@ -2207,6 +2285,38 @@ class BlockParser
     }
 
     /**
+     * Parse a Carve table cell's tight alignment/header marker (written
+     * tight against the pipe): optional `=` (header) then optional one of
+     * `< > ~` (left/right/center). Returns the flags plus the content with
+     * the marker stripped. Spaced markers (`| ^ |`, `| < |`) are span
+     * markers, not alignment — their leading space means index 0 is not a
+     * marker char, so they are left untouched here.
+     *
+     * @return array{header: bool, align: string|null, content: string}
+     */
+    protected function parseTableCellMarker(string $raw): array
+    {
+        $header = false;
+        $rest = $raw;
+        // `==x==` is a highlight cell, so `=` must not be followed by `=`.
+        if (isset($rest[0]) && $rest[0] === '=' && ($rest[1] ?? '') !== '=') {
+            $header = true;
+            $rest = substr($rest, 1);
+        }
+        $align = match ($rest[0] ?? '') {
+            '>' => TableCell::ALIGN_RIGHT,
+            '<' => TableCell::ALIGN_LEFT,
+            '~' => TableCell::ALIGN_CENTER,
+            default => null,
+        };
+        if ($align !== null) {
+            $rest = substr($rest, 1);
+        }
+
+        return ['header' => $header, 'align' => $align, 'content' => $rest];
+    }
+
+    /**
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -2233,6 +2343,9 @@ class BlockParser
         $table = new Table();
         $i = $start;
         $alignments = [];
+        // Per-column alignment from Carve header markers (|=>, |=~, |=<),
+        // keyed by column position; propagates to the column's body cells.
+        $columnAligns = [];
         $headerFound = false;
         $hasRowspans = false;
 
@@ -2379,16 +2492,22 @@ class BlockParser
                     ];
                     $colPosition += $colspan;
                 } else {
-                    $alignment = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
+                    // Parse the tight alignment/header marker. A header row
+                    // fixes per-column alignment; a cell's own marker overrides
+                    // it; a djot separator row is the final fallback.
+                    $marker = $this->parseTableCellMarker($cellData['content']);
+                    if ($isHeaderRow && $marker['align'] !== null) {
+                        $columnAligns[$colPosition] = $marker['align'];
+                    }
+                    $alignment = $marker['align']
+                        ?? $columnAligns[$colPosition]
+                        ?? $alignments[$index]
+                        ?? TableCell::ALIGN_DEFAULT;
                     $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
                     if ($cellData['attributes']) {
                         $cell->setAttributes($cellData['attributes']);
                     }
-                    // Strip the leading "=" header marker for header cells.
-                    $rawContent = $isHeaderRow
-                        ? substr($cellData['content'], 1)
-                        : $cellData['content'];
-                    $trimmedContent = trim($rawContent);
+                    $trimmedContent = trim($marker['content']);
                     if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                         $cell->appendChild(new Text($trimmedContent));
                     } else {
@@ -2873,7 +2992,7 @@ class BlockParser
                 break;
             }
 
-            if (!$hasUnclosedBrace && $this->startsNewBlock($nextLine)) {
+            if (!$hasUnclosedBrace && $this->interruptsParagraph($lines, $i)) {
                 break;
             }
 
@@ -2889,6 +3008,58 @@ class BlockParser
         $parent->appendChild($paragraph);
 
         return $i - $start;
+    }
+
+    /**
+     * Carve paragraph interruption (grammar PART 9 §10). A hard-wrapped
+     * prose line may begin with `-`, `*`, `+`, `>`, `|` as an operator. An
+     * ambiguous marker line (bullet/task, blockquote, table row) interrupts
+     * the paragraph only when it forms a real block: two or more same-kind
+     * markers, an indented continuation, or (blockquote/table) a following
+     * caption. Footnote definitions and other unambiguous starts (handled
+     * by startsNewBlock) always interrupt.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     */
+    protected function interruptsParagraph(array $lines, int $i): bool
+    {
+        $line = $lines[$i];
+        if ($this->startsNewBlock($line)) {
+            return true;
+        }
+        // Footnote definition is an unambiguous block.
+        if (preg_match('/^\[\^[^\]]+\]:/', $line) === 1) {
+            return true;
+        }
+
+        $isBullet = preg_match('/^[-*+]\s/', $line) === 1;
+        $isQuote = preg_match('/^>\s?/', $line) === 1;
+        $isTable = isset($line[0]) && $line[0] === '|';
+        if (!$isBullet && !$isQuote && !$isTable) {
+            return false;
+        }
+
+        $next = $lines[$i + 1] ?? null;
+        if ($next === null || IndentationHelper::isBlankLine($next)) {
+            return false;
+        }
+
+        if ($isBullet) {
+            // Two or more same-marker lines, or an indented continuation.
+            if (preg_match('/^[-*+]\s/', $next) === 1 && $line[0] === $next[0]) {
+                return true;
+            }
+
+            return preg_match('/^\s/', $next) === 1;
+        }
+        if ($isQuote) {
+            // A second quote line or a caption confirms a real (figure) block.
+            return preg_match('/^>\s?/', $next) === 1 || preg_match('/^\^ /', $next) === 1;
+        }
+
+        // Table: a second `|` row or a caption.
+        return (isset($next[0]) && $next[0] === '|') || preg_match('/^\^ /', $next) === 1;
     }
 
     /**

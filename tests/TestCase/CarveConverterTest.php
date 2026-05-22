@@ -525,7 +525,7 @@ DJOT;
 
     public function testRawBlock(): void
     {
-        $djot = "``` =html\n<div class=\"custom\">Raw HTML</div>\n```";
+        $djot = "```raw html\n<div class=\"custom\">Raw HTML</div>\n```";
 
         $result = $this->converter->convert($djot);
 
@@ -1064,7 +1064,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<ol start="10" type="i">', $result);
+        $this->assertStringContainsString('<ol type="i" start="10">', $result);
         $this->assertStringContainsString('first', $result);
         $this->assertStringContainsString('second', $result);
         $this->assertStringContainsString('third', $result);
@@ -1077,7 +1077,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<ol start="10" type="I">', $result);
+        $this->assertStringContainsString('<ol type="I" start="10">', $result);
         $this->assertStringContainsString('first', $result);
         $this->assertStringContainsString('second', $result);
         $this->assertStringContainsString('third', $result);
@@ -1571,7 +1571,7 @@ DJOT;
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Unclosed raw block');
 
-        $converter->convert("``` =html\n<div>no closing fence");
+        $converter->convert("```raw html\n<div>no closing fence");
     }
 
     public function testWarningForUndefinedReference(): void
@@ -2025,7 +2025,8 @@ DJOT;
     public function testEmptyEmphasisIsLiteral(): void
     {
         $this->assertSame("<p>__</p>\n", $this->converter->convert('__'));
-        $this->assertSame("<p>___</p>\n", $this->converter->convert('___'));
+        // `___` (3+ underscores alone) is a thematic break, not empty emphasis.
+        $this->assertSame("<hr>\n", $this->converter->convert('___'));
         $this->assertSame("<p>**</p>\n", $this->converter->convert('**'));
         // Note: *** at block level is a thematic break, so test inline
         $this->assertStringContainsString('***', $this->converter->convert('a***b'));
@@ -2321,7 +2322,7 @@ DJOT;
 
     public function testRawBlockNonHtml(): void
     {
-        $djot = "``` =latex\n\\frac{1}{2}\n```";
+        $djot = "```raw latex\n\\frac{1}{2}\n```";
         $result = $this->converter->convert($djot);
 
         // Non-HTML raw blocks should not be rendered

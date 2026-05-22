@@ -772,6 +772,24 @@ class HtmlRenderer implements RendererInterface
         return implode("\n", $lines);
     }
 
+    /**
+     * Indent a footnote body by 6 spaces, padding only block-boundary lines
+     * (the first line and any line starting a tag) so a paragraph's inline
+     * soft-break continuation stays at column 0 — matching how a block
+     * renders at an indent level in the reference implementation.
+     */
+    protected function indentFootnoteBody(string $content): string
+    {
+        $lines = explode("\n", rtrim($content, "\n"));
+        foreach ($lines as $i => $line) {
+            if ($line !== '' && ($i === 0 || str_starts_with($line, '<'))) {
+                $lines[$i] = '      ' . $line;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     protected function renderList(ListBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
@@ -792,11 +810,12 @@ class HtmlRenderer implements RendererInterface
             $style = $node->getStyle();
             $marker = $node->getMarker();
 
-            if ($start !== 1) {
-                $olAttrs .= ' start="' . $start . '"';
-            }
+            // Corpus order: type before start (matches carve-js).
             if ($style !== null) {
                 $olAttrs .= ' type="' . $style . '"';
+            }
+            if ($start !== 1) {
+                $olAttrs .= ' start="' . $start . '"';
             }
             if ($this->roundTripMode && $marker !== null && $marker !== '.') {
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
@@ -1452,21 +1471,26 @@ class HtmlRenderer implements RendererInterface
     {
         $attrs = $this->renderAttributes($node);
 
-        return '<dt' . $attrs . '>' . $this->renderChildren($node) . "</dt>\n";
+        return '  <dt' . $attrs . '>' . $this->renderChildren($node) . "</dt>\n";
     }
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
         $attrs = $this->renderAttributes($node);
-        $content = $this->renderChildren($node);
+        $children = $node->getChildren();
 
-        // Content goes on separate lines
-        $content = rtrim($content);
-        if ($content === '') {
-            return '<dd' . $attrs . ">\n</dd>\n";
+        // A single-paragraph definition renders inline (<dd>text</dd>); any
+        // richer block content keeps its block structure.
+        if (count($children) === 1 && $children[0] instanceof Paragraph) {
+            return '  <dd' . $attrs . '>' . $this->renderChildren($children[0]) . "</dd>\n";
         }
 
-        return '<dd' . $attrs . ">\n" . $content . "\n</dd>\n";
+        $content = rtrim($this->renderChildren($node));
+        if ($content === '') {
+            return '  <dd' . $attrs . "></dd>\n";
+        }
+
+        return '  <dd' . $attrs . ">\n" . $content . "\n  </dd>\n";
     }
 
     protected function renderFootnote(Footnote $node): string
@@ -1518,9 +1542,10 @@ class HtmlRenderer implements RendererInterface
         // Sort footnotes by their reference number order
         ksort($renderedContents);
 
+        // Indentation matches carve-js: hr/ol at 2, li at 4, body at 6.
         $html = '<section role="doc-endnotes">' . "\n";
-        $html .= $this->xhtml ? "<hr />\n" : "<hr>\n";
-        $html .= '<ol>' . "\n";
+        $html .= $this->xhtml ? "  <hr />\n" : "  <hr>\n";
+        $html .= '  <ol>' . "\n";
 
         foreach ($renderedContents as $number => $content) {
             $liAttrs = '';
@@ -1535,7 +1560,7 @@ class HtmlRenderer implements RendererInterface
                 $liAttrs = ' data-djot-footnote-label="' . $this->escapeAttribute((string)$label) . '"';
             }
 
-            $html .= '<li id="fn' . $number . '"' . $liAttrs . '>' . "\n";
+            $html .= '    <li id="fn' . $number . '"' . $liAttrs . '>' . "\n";
 
             // Get ref count for this footnote
             $refCount = $label !== false ? ($context->footnoteRefCounts[$label] ?? 1) : 1;
@@ -1547,19 +1572,19 @@ class HtmlRenderer implements RendererInterface
             // Otherwise add as separate paragraph
             if ($content !== '' && preg_match('/^(.*)(<\/p>\n?)$/s', $content, $matches)) {
                 $content = $matches[1] . $backlinks . '</p>';
-                $html .= $content . "\n";
+                $html .= $this->indentFootnoteBody($content) . "\n";
             } else {
                 // Content doesn't end with paragraph (e.g., code block or empty)
                 if ($content !== '') {
-                    $html .= $content . "\n";
+                    $html .= $this->indentFootnoteBody($content) . "\n";
                 }
-                $html .= '<p>' . $backlinks . '</p>' . "\n";
+                $html .= '      <p>' . $backlinks . '</p>' . "\n";
             }
 
-            $html .= '</li>' . "\n";
+            $html .= '    </li>' . "\n";
         }
 
-        $html .= '</ol>' . "\n";
+        $html .= '  </ol>' . "\n";
         $html .= '</section>' . "\n";
 
         return $html;
@@ -1575,7 +1600,7 @@ class HtmlRenderer implements RendererInterface
     {
         if ($refCount <= 1) {
             // Single reference - simple backlink
-            return '<a href="#fnref' . $number . '" role="doc-backlink">↩︎</a>';
+            return '<a href="#fnref' . $number . '" role="doc-backlink">↩</a>';
         }
 
         // Multiple references - generate numbered backlinks
@@ -1585,7 +1610,7 @@ class HtmlRenderer implements RendererInterface
             if ($i > 1) {
                 $refId .= '-' . $i;
             }
-            $links[] = '<a href="#' . $refId . '" role="doc-backlink">↩︎<sup>' . $i . '</sup></a>';
+            $links[] = '<a href="#' . $refId . '" role="doc-backlink">↩<sup>' . $i . '</sup></a>';
         }
 
         return implode(' ', $links);

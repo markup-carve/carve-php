@@ -532,6 +532,18 @@ class InlineParser
 
             // Special braced syntax: {=highlight=}, {+insert+}, {-delete-}, or inline attributes {.class}
             if ($char === '{') {
+                // Editorial comment {# ... #} -> styled span. Must precede the
+                // attribute check, which would otherwise consume `{# … #}`.
+                $comment = $this->parseEditorialComment($text, $pos);
+                if ($comment !== null) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $parent->appendChild($comment['node']);
+                    $pos = $comment['pos'];
+
+                    continue;
+                }
+
                 // First check for inline attributes that apply to preceding word
                 $attrResult = $this->parseInlineAttributes($text, $pos, $textBuffer, $parent);
                 if ($attrResult !== null) {
@@ -546,7 +558,13 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseBracedInline($text, $pos);
                 if ($result !== null) {
-                    $parent->appendChild($result['node']);
+                    if (isset($result['nodes'])) {
+                        foreach ($result['nodes'] as $bracedNode) {
+                            $parent->appendChild($bracedNode);
+                        }
+                    } else {
+                        $parent->appendChild($result['node']);
+                    }
                     $pos = $result['pos'];
 
                     continue;
@@ -577,6 +595,16 @@ class InlineParser
             if ($char === '.' && substr($text, $pos, 3) === '...') {
                 $textBuffer .= "\u{2026}";
                 $pos += 3;
+
+                continue;
+            }
+
+            // Smart symbols: arrows, comparison operators, (c)/(r)/(tm).
+            // Runs after the escape check, so `\->` etc. are already absorbed.
+            $symbol = $this->parseSmartSymbol($text, $pos);
+            if ($symbol !== null) {
+                $textBuffer .= $symbol[0];
+                $pos += $symbol[1];
 
                 continue;
             }
@@ -795,7 +823,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span|\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -918,7 +946,7 @@ class InlineParser
                     // Track reference usage for validation
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
-                    $link = new Link($refDef->url);
+                    $link = new Link($refDef->url, $refDef->title);
                     // Store reference info for round-trip support
                     $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
                     $this->parseInlines($link, $linkText);
@@ -950,23 +978,12 @@ class InlineParser
                     ];
                 }
 
-                // Reference not found - create link without href (null) and warn
+                // Reference not found - leave the whole [text][ref] literal.
                 $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
-
-                $link = new Link(null);
-                // Store reference info for round-trip support
-                $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
-                $this->parseInlines($link, $linkText);
-
                 $endPos = $refEnd + 1;
 
-                // Check for attributes after reference link
-                if ($endPos < $length && $text[$endPos] === '{') {
-                    $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
-                }
-
                 return [
-                    'node' => $link,
+                    'node' => new Text(substr($text, $pos, $endPos - $pos)),
                     'pos' => $endPos,
                 ];
             }
@@ -1398,9 +1415,32 @@ class InlineParser
     }
 
     /**
-     * Parse braced inline syntax: {=highlight=}, {+insert+}, {-delete-}, {'} and {"}
+     * Editorial comment {# ... #} -> <span class="critic-comment">…</span>.
+     * Content is literal (spaces preserved), matching carve-js.
      *
      * @return array{node: \Carve\Node\Node, pos: int}|null
+     */
+    protected function parseEditorialComment(string $text, int $pos): ?array
+    {
+        if (substr($text, $pos, 2) !== '{#') {
+            return null;
+        }
+        $close = strpos($text, '#}', $pos + 2);
+        if ($close === false) {
+            return null;
+        }
+        $span = new Span();
+        $span->addClass('critic-comment');
+        $span->appendChild(new Text(substr($text, $pos + 2, $close - $pos - 2)));
+
+        return ['node' => $span, 'pos' => $close + 2];
+    }
+
+    /**
+     * Parse braced inline syntax: {=highlight=}, {+insert+}, {-delete-},
+     * {~old~>new~} substitution, {'} and {"}.
+     *
+     * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
      */
     protected function parseBracedInline(string $text, int $pos): ?array
     {
@@ -1447,6 +1487,28 @@ class InlineParser
                     'node' => new Text($result),
                     'pos' => $quotePos + 1,
                 ];
+            }
+        }
+
+        // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
+        if ($marker === '~') {
+            $searchPos = $pos + 2;
+            while ($searchPos < $length - 1) {
+                if ($text[$searchPos] === '~' && $text[$searchPos + 1] === '}') {
+                    $content = substr($text, $pos + 2, $searchPos - $pos - 2);
+                    if (str_contains($content, '~>')) {
+                        [$old, $new] = explode('~>', $content, 2);
+                        $del = new Delete();
+                        $this->parseInlines($del, $old);
+                        $ins = new Insert();
+                        $this->parseInlines($ins, $new);
+
+                        return ['nodes' => [$del, $ins], 'pos' => $searchPos + 2];
+                    }
+
+                    break;
+                }
+                $searchPos++;
             }
         }
 
@@ -1705,6 +1767,38 @@ class InlineParser
         }
 
         return $matched;
+    }
+
+    /**
+     * Smart typography for arrows, comparison operators, and (c)/(r)/(tm).
+     * Longest-first so `<->` beats `<-` and `(tm)` beats `(c)`. Mirrors the
+     * carve-js SMART_TOKENS table (lowercase only).
+     *
+     * @return array{0: string, 1: int}|null [replacement, consumedLength]
+     */
+    protected function parseSmartSymbol(string $text, int $pos): ?array
+    {
+        static $map = [
+            '<->' => "\u{2194}",
+            '(tm)' => "\u{2122}",
+            '->' => "\u{2192}",
+            '<-' => "\u{2190}",
+            '=>' => "\u{21D2}",
+            '<=' => "\u{2264}",
+            '>=' => "\u{2265}",
+            '!=' => "\u{2260}",
+            '+-' => "\u{00B1}",
+            '(c)' => "\u{00A9}",
+            '(r)' => "\u{00AE}",
+        ];
+
+        foreach ($map as $needle => $repl) {
+            if (substr($text, $pos, strlen($needle)) === $needle) {
+                return [$repl, strlen($needle)];
+            }
+        }
+
+        return null;
     }
 
     /**
