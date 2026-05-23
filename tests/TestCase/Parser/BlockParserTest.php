@@ -455,7 +455,7 @@ DJOT;
         $this->assertCount(0, $doc->getChildren());
     }
 
-    public function testSignificantNewlinesDisabledByDefault(): void
+    public function testBlocksInterruptParagraphsDisabledByDefault(): void
     {
         // Without blank line, sublist syntax is treated as text
         $doc = $this->parser->parse("- Item\n  - Not a sublist");
@@ -465,9 +465,9 @@ DJOT;
         $this->assertCount(1, $list->getChildren());
     }
 
-    public function testSignificantNewlinesNestedLists(): void
+    public function testBlocksInterruptParagraphsNestedLists(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables");
 
         $list = $doc->getChildren()[0];
@@ -488,9 +488,9 @@ DJOT;
         $this->assertCount(2, $sublist->getChildren());
     }
 
-    public function testSignificantNewlinesThreeLevels(): void
+    public function testBlocksInterruptParagraphsThreeLevels(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("- L1\n  - L2\n    - L3");
 
         $list = $doc->getChildren()[0];
@@ -503,9 +503,9 @@ DJOT;
         $this->assertCount(1, $l3List->getChildren());
     }
 
-    public function testSignificantNewlinesMixedListTypes(): void
+    public function testBlocksInterruptParagraphsMixedListTypes(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("- Unordered\n  1. Ordered\n  2. Second");
 
         $list = $doc->getChildren()[0];
@@ -517,9 +517,9 @@ DJOT;
         $this->assertSame(ListBlock::TYPE_ORDERED, $sublist->getListType());
     }
 
-    public function testSignificantNewlinesBlockquoteInList(): void
+    public function testBlocksInterruptParagraphsBlockquoteInList(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("- Item\n  > quoted");
 
         $list = $doc->getChildren()[0];
@@ -531,9 +531,9 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testSignificantNewlinesListInterruptsParagraph(): void
+    public function testBlocksInterruptParagraphsListInterruptsParagraph(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("Here is a list:\n- item one\n- item two");
 
         $children = $doc->getChildren();
@@ -542,9 +542,9 @@ DJOT;
         $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
-    public function testSignificantNewlinesBlockquoteInterruptsParagraph(): void
+    public function testBlocksInterruptParagraphsBlockquoteInterruptsParagraph(): void
     {
-        $parser = new BlockParser(significantNewlines: true);
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
         $doc = $parser->parse("They said:\n> This is important");
 
         $children = $doc->getChildren();
@@ -553,16 +553,16 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testSignificantNewlinesSetterMethod(): void
+    public function testBlocksInterruptParagraphsSetterMethod(): void
     {
         $parser = new BlockParser();
-        $this->assertFalse($parser->getSignificantNewlines());
+        $this->assertFalse($parser->getBlocksInterruptParagraphs());
 
-        $parser->setSignificantNewlines(true);
-        $this->assertTrue($parser->getSignificantNewlines());
+        $parser->setBlocksInterruptParagraphs(true);
+        $this->assertTrue($parser->getBlocksInterruptParagraphs());
 
         // Test chaining
-        $result = $parser->setSignificantNewlines(false);
+        $result = $parser->setBlocksInterruptParagraphs(false);
         $this->assertSame($parser, $result);
     }
 
