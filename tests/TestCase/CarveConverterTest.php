@@ -2008,13 +2008,17 @@ DJOT;
 
     public function testMultipleConsecutiveDelimiters(): void
     {
-        // In Djot, each * is a strong delimiter (unlike Markdown where ** = bold)
-        // So ** opens two strong scopes, text, and ** closes them both
+        // Carve forbids same-type nesting (spec §4.2), unlike djot: a doubled
+        // delimiter is literal text, never nested <strong>. A bare delimiter
+        // adjacent to the same delimiter does not open, uniformly across all
+        // five single-char types (so `**...**` stays literal like `//...//`).
         $djot = 'Text **not strong** here';
         $result = $this->converter->convert($djot);
 
-        // Result should be: Text <strong><strong>not strong</strong></strong> here
-        $this->assertStringContainsString('<strong><strong>not strong</strong></strong>', $result);
+        $this->assertSame(
+            "<p>Text **not strong** here</p>\n",
+            $result,
+        );
     }
 
     /**

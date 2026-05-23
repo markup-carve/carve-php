@@ -1146,36 +1146,27 @@ class InlineParser
             return null;
         }
 
-        // Intraword rule: the italic (/) and underline (_) delimiters cannot
-        // open when preceded by an alphanumeric character, by `_`, or by the
-        // same delimiter, nor when immediately FOLLOWED by the same delimiter
-        // (so `//a/` and `snake_/case/` stay literal). This mirrors Djot's
-        // underscore rule and keeps paths/identifiers literal (e.g. a/b/c,
-        // foo_bar). The strong (*) delimiter is exempt, so intraword bold
-        // like foo*bar*baz still works.
-        if (
-            ($delimiter === '/' || $delimiter === '_')
-            && (
-                $prevChar === '_' || $prevChar === $delimiter || ctype_alnum($prevChar)
-                || $nextChar === $delimiter
-            )
-        ) {
+        // No same-type nesting (spec §4.2), unlike djot: a bare single-char
+        // delimiter immediately PRECEDED or FOLLOWED by the same delimiter does
+        // not open. A doubled delimiter is therefore literal text, never nested
+        // same-type emphasis. This is uniform across all five single-char
+        // delimiters, so `**x**`, `~~x~~`, `^^x^^` stay literal exactly like
+        // `//x//` and `__x__`.
+        if ($prevChar === $delimiter || $nextChar === $delimiter) {
             return null;
         }
 
-        // Find closing delimiter, skipping over attribute blocks and code spans
-        // First, check if there are consecutive delimiters (opening run)
-        $searchPos = $pos + 1;
-        $openingRunEnd = $pos + 1;
-        while ($openingRunEnd < $length && $text[$openingRunEnd] === $delimiter) {
-            $openingRunEnd++;
-        }
-        // If the opening run extends to end of string (all delimiters), no valid emphasis
-        if ($openingRunEnd >= $length) {
+        // Additional intraword rule for the italic (/) and underline (_)
+        // delimiters only: they also cannot open when preceded by an
+        // alphanumeric or `_`, keeping paths/identifiers literal (a/b/c,
+        // foo_bar). Strong (*) and friends are exempt, so intraword bold like
+        // foo*bar*baz still works.
+        if (($delimiter === '/' || $delimiter === '_') && ($prevChar === '_' || ctype_alnum($prevChar))) {
             return null;
         }
-        // Skip the opening run to look for content and closing run
-        $searchPos = $openingRunEnd;
+
+        // Look for the content and the closer right after the single opener.
+        $searchPos = $pos + 1;
         while ($searchPos < $length) {
             $char = $text[$searchPos];
 
@@ -1241,23 +1232,20 @@ class InlineParser
 
                         continue;
                     }
-                    // For runs of delimiters like *****, we want to find the LAST one
-                    // to match our opener (outer-to-outer matching)
-                    // Find the end of this run of closers
-                    $runEnd = $searchPos;
-                    while ($runEnd + 1 < $length && $text[$runEnd + 1] === $delimiter) {
-                        $runEnd++;
-                    }
-                    // Use the last delimiter in this closing run
-                    $actualClose = $runEnd;
+                    // No same-type nesting (spec §4.2): the opener is a single
+                    // delimiter (any longer run was peeled to literal above), so
+                    // it pairs with the FIRST valid closer (innermost matching).
+                    // Any trailing delimiters of a closing run stay literal:
+                    // `**x**` -> `*<strong>x</strong>*`, `~b~~` -> `<s>b</s>~`.
+                    $actualClose = $searchPos;
 
                     // Intraword closer rule for / and _: a closer immediately
                     // followed by an alphanumeric (or _) is not a valid
                     // closer, so inner delimiters stay literal content
                     // (e.g. /usr/local/ -> <em>usr/local</em>).
                     if ($delimiter === '/' || $delimiter === '_') {
-                        $afterRun = $text[$actualClose + 1] ?? '';
-                        if ($afterRun !== '' && ($afterRun === '_' || ctype_alnum($afterRun))) {
+                        $afterClose = $text[$actualClose + 1] ?? '';
+                        if ($afterClose !== '' && ($afterClose === '_' || ctype_alnum($afterClose))) {
                             $searchPos = $actualClose + 1;
 
                             continue;
@@ -1267,7 +1255,7 @@ class InlineParser
                     // Check content isn't empty
                     $content = substr($text, $pos + 1, $actualClose - $pos - 1);
                     if ($content === '') {
-                        $searchPos = $runEnd + 1;
+                        $searchPos = $actualClose + 1;
 
                         continue;
                     }
