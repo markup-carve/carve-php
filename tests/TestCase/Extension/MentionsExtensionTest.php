@@ -14,14 +14,14 @@ class MentionsExtensionTest extends TestCase
     {
         $html = (new CarveConverter())->convert('Hello @johndoe!');
 
-        $this->assertStringContainsString('<a class="mention" href="/users/johndoe">@johndoe</a>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@johndoe</strong></span>', $html);
     }
 
     public function testTag(): void
     {
         $html = (new CarveConverter())->convert('See #release-1.0 notes.');
 
-        $this->assertStringContainsString('<a class="tag" href="/tags/release-1.0">#release-1.0</a>', $html);
+        $this->assertStringContainsString('<span class="tag"><strong>#release-1.0</strong></span>', $html);
     }
 
     public function testMentionsAndTagsEnabledByDefault(): void
@@ -29,8 +29,8 @@ class MentionsExtensionTest extends TestCase
         // No explicit addExtension(): both are core Carve syntax.
         $html = (new CarveConverter())->convert('Hey @alice, see #bug.');
 
-        $this->assertStringContainsString('class="mention" href="/users/alice"', $html);
-        $this->assertStringContainsString('class="tag" href="/tags/bug"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@alice</strong></span>', $html);
+        $this->assertStringContainsString('<span class="tag"><strong>#bug</strong></span>', $html);
     }
 
     public function testCustomTemplatesAndClasses(): void
@@ -53,30 +53,30 @@ class MentionsExtensionTest extends TestCase
     {
         $html = (new CarveConverter())->convert('@alice and @bob discussed the issue.');
 
-        $this->assertStringContainsString('href="/users/alice"', $html);
-        $this->assertStringContainsString('href="/users/bob"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@alice</strong></span>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@bob</strong></span>', $html);
     }
 
     public function testMentionWithHyphenAndUnderscore(): void
     {
         $html = (new CarveConverter())->convert('Thanks @john-doe and @jane_doe');
 
-        $this->assertStringContainsString('href="/users/john-doe"', $html);
-        $this->assertStringContainsString('href="/users/jane_doe"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@john-doe</strong></span>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@jane_doe</strong></span>', $html);
     }
 
     public function testMentionAtStartOfText(): void
     {
         $html = (new CarveConverter())->convert('@admin please help');
 
-        $this->assertStringContainsString('href="/users/admin"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@admin</strong></span>', $html);
     }
 
     public function testMentionAtEndOfText(): void
     {
         $html = (new CarveConverter())->convert('Thanks @helper');
 
-        $this->assertStringContainsString('href="/users/helper"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@helper</strong></span>', $html);
     }
 
     public function testMidWordAtIsNotAMention(): void
@@ -92,7 +92,7 @@ class MentionsExtensionTest extends TestCase
     {
         $html = (new CarveConverter())->convert('see #release-1.0.');
 
-        $this->assertStringContainsString('href="/tags/release-1.0"', $html);
+        $this->assertStringContainsString('<span class="tag"><strong>#release-1.0</strong></span>', $html);
         $this->assertStringNotContainsString('release-1.0.', $html);
     }
 
@@ -113,6 +113,6 @@ class MentionsExtensionTest extends TestCase
         $second = $converter->render($document);
 
         $this->assertSame($first, $second);
-        $this->assertStringContainsString('<a class="mention" href="/users/johndoe">@johndoe</a>', $second);
+        $this->assertStringContainsString('<span class="mention"><strong>@johndoe</strong></span>', $second);
     }
 }

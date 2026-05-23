@@ -1227,6 +1227,22 @@ class HtmlRenderer implements RendererInterface
     protected function renderMention(Mention $node): string
     {
         $href = $node->getDestination() ?? '';
+        $class = $this->escapeAttribute($node->getCssClass());
+
+        // Carve default: with no configured URL template a mention/tag is a
+        // non-link `<span class="…"><strong>…</strong></span>`. A configured
+        // template (e.g. via MentionsExtension) yields a link instead. Any
+        // author/extension attributes are preserved on the span, mirroring the
+        // link path (with none they add nothing, matching the corpus output).
+        if ($href === '') {
+            $spanAttrs = $this->getRenderableAttributes($node);
+            unset($spanAttrs['class'], $spanAttrs['href']);
+
+            return '<span class="' . $class . '"'
+                . $this->renderAttributeArray($spanAttrs) . '><strong>'
+                . $this->renderChildren($node) . '</strong></span>';
+        }
+
         if ($this->safeMode !== null) {
             $href = $this->safeMode->sanitizeUrl($href);
         }
@@ -1237,7 +1253,7 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->getRenderableAttributes($node);
         unset($attrs['class'], $attrs['href']);
 
-        return '<a class="' . $this->escapeAttribute($node->getCssClass()) . '"'
+        return '<a class="' . $class . '"'
             . ' href="' . $this->escapeAttribute($href) . '"'
             . $this->renderAttributeArray($attrs) . '>'
             . $this->renderChildren($node) . '</a>';
