@@ -165,13 +165,13 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('1. First', $result);
         $this->assertStringContainsString('2. Second', $result);
 
-        // Parenthesized format - normalized to dot (not standard Markdown)
+        // Parenthesized (1) is NOT a Carve list marker - it stays literal.
         $djot = "(1) First\n(2) Second";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertStringContainsString('1. First', $result);
-        $this->assertStringContainsString('2. Second', $result);
+        $this->assertStringContainsString('(1) First', $result);
+        $this->assertStringContainsString('(2) Second', $result);
     }
 
     public function testTaskList(): void
