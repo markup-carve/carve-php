@@ -131,24 +131,24 @@ class BlockParser
     protected array $customBlockPatterns = [];
 
     /**
-     * When true, enables "significant newlines" mode:
-     * - Block elements can interrupt paragraphs without blank lines
-     * - Nested blocks in lists don't need blank lines
-     * - More markdown-like, chat-friendly parsing
+     * When true, top-level blocks (lists, blockquotes, headings, tables,
+     * fences, divs) may interrupt a paragraph without a preceding blank line —
+     * a markdown-like, chat-friendly leniency.
      *
-     * This deviates from djot spec but provides more intuitive behavior
-     * for chat messages, comments, and quick notes.
+     * This deviates from the Djot spec but is more intuitive for chat messages,
+     * comments, and quick notes. Nesting blocks inside list items is native
+     * Carve behavior and does NOT require this flag.
      */
-    protected bool $significantNewlines = false;
+    protected bool $blocksInterruptParagraphs = false;
 
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
-        bool $significantNewlines = false,
+        bool $blocksInterruptParagraphs = false,
     ) {
         $this->collectWarnings = $collectWarnings;
         $this->strictMode = $strictMode;
-        $this->significantNewlines = $significantNewlines;
+        $this->blocksInterruptParagraphs = $blocksInterruptParagraphs;
         $this->inlineParser = new InlineParser($this);
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
@@ -156,28 +156,25 @@ class BlockParser
     }
 
     /**
-     * Enable or disable significant newlines mode
+     * Enable or disable blocks-interrupt-paragraphs mode.
      *
-     * When enabled:
-     * - Lists, blockquotes, code blocks can interrupt paragraphs
-     * - Nested blocks in list items don't need preceding blank lines
-     * - Indentation alone triggers block nesting
-     *
-     * This provides markdown-like behavior for chat and quick note use cases.
+     * When enabled, lists, blockquotes, headings, tables, fences and divs can
+     * interrupt a paragraph without a preceding blank line (markdown-like).
+     * Nesting blocks inside list items is native Carve and is unaffected.
      */
-    public function setSignificantNewlines(bool $value): self
+    public function setBlocksInterruptParagraphs(bool $value): self
     {
-        $this->significantNewlines = $value;
+        $this->blocksInterruptParagraphs = $value;
 
         return $this;
     }
 
     /**
-     * Check if significant newlines mode is enabled
+     * Check if blocks-interrupt-paragraphs mode is enabled
      */
-    public function getSignificantNewlines(): bool
+    public function getBlocksInterruptParagraphs(): bool
     {
-        return $this->significantNewlines;
+        return $this->blocksInterruptParagraphs;
     }
 
     /**
@@ -1771,15 +1768,9 @@ class BlockParser
                 // Content at content indent or more is continuation.
                 // Carve nests an indented list marker directly (no blank
                 // line required): "- a\n  - b" makes "- b" a child list.
-                // Break out so the outer loop collects it as nested
-                // content. (significantNewlines additionally breaks for
-                // any block starter.)
+                // Break out so the outer loop collects it as nested content.
                 if ($nextIndent >= $contentIndent) {
                     if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
-                        break;
-                    }
-                    if ($this->significantNewlines && $this->startsNewBlock($nextTrimmed)) {
-                        // Other block starter under significantNewlines.
                         break;
                     }
                     // Properly indented continuation - include with original indentation relative to content
@@ -1817,46 +1808,31 @@ class BlockParser
                     // Content starts with a block element (blockquote, code fence, etc.)
                     $this->parseBlocks($listItem, $itemLines, 0);
                 } else {
-                    $paragraph = new Paragraph();
-                    $this->inlineParser->parse($paragraph, implode("\n", $itemLines), $start);
-                    $listItem->appendChild($paragraph);
+                    // Carve nests a block that follows plain text in the same item
+                    // without a blank line: emit the leading text as a paragraph and
+                    // parse from the first block element on as nested blocks.
+                    $blockIndex = 0;
+                    $itemLineCount = count($itemLines);
+                    for ($idx = 1; $idx < $itemLineCount; $idx++) {
+                        if ($this->isBlockElementStart($itemLines[$idx])) {
+                            $blockIndex = $idx;
+
+                            break;
+                        }
+                    }
+                    if ($blockIndex > 0) {
+                        $paragraph = new Paragraph();
+                        $this->inlineParser->parse($paragraph, implode("\n", array_slice($itemLines, 0, $blockIndex)), $start);
+                        $listItem->appendChild($paragraph);
+                        $this->parseBlocks($listItem, array_slice($itemLines, $blockIndex), 0);
+                    } else {
+                        $paragraph = new Paragraph();
+                        $this->inlineParser->parse($paragraph, implode("\n", $itemLines), $start);
+                        $listItem->appendChild($paragraph);
+                    }
                 }
             } else {
                 $this->parseBlocks($listItem, $itemLines, 0);
-            }
-
-            // In significantNewlines mode, check for immediate nested content (any block type)
-            if ($this->significantNewlines && $i < $count) {
-                $nextLine = $lines[$i];
-                $nextIndent = IndentationHelper::getLeadingSpaces($nextLine);
-
-                // If there's indented content that could be a nested block
-                if ($nextIndent >= $contentIndent) {
-                    $subLines = [];
-                    while ($i < $count) {
-                        $subLine = $lines[$i];
-                        if (IndentationHelper::isBlankLine($subLine)) {
-                            // Continue across blank lines (same as standard nesting path)
-                            $subLines[] = '';
-                            $i++;
-
-                            continue;
-                        }
-                        $lineIndent = IndentationHelper::getLeadingSpaces($subLine);
-                        if ($lineIndent >= $contentIndent) {
-                            $subLines[] = IndentationHelper::stripLeadingIndent($subLine, $contentIndent);
-                            $i++;
-                        } elseif ($lineIndent === $baseIndent) {
-                            // Back to parent level - check if it's a sibling item
-                            break;
-                        } else {
-                            break;
-                        }
-                    }
-                    if ($subLines !== []) {
-                        $this->parseBlocks($listItem, $subLines, 0);
-                    }
-                }
             }
 
             // Apply attributes to list item
@@ -3018,7 +2994,7 @@ class BlockParser
      * `#`, `1.`, … stays paragraph text. Captions and INVISIBLE constructs
      * (reference definitions and comments) interrupt in every mode, since they
      * annotate/attach to prose with no blank line and produce no standalone
-     * block. In significantNewlines mode visible blocks interrupt too
+     * block. In blocksInterruptParagraphs mode visible blocks interrupt too
      * (markdown/chat-like; see startsNewBlock()). Sublist nesting via
      * indentation is handled in the list-item collector, not here.
      *
@@ -3033,7 +3009,7 @@ class BlockParser
         // mode it returns true only for captions (`^ …`) and `%%%` comments —
         // no VISIBLE block (list, quote, table, heading, fence, div, ordered
         // list) interrupts a paragraph without a blank line; in
-        // significantNewlines mode it also returns true for those blocks
+        // blocksInterruptParagraphs mode it also returns true for those blocks
         // (markdown/chat-like).
         if ($this->startsNewBlock($line)) {
             return true;
@@ -3201,9 +3177,9 @@ class BlockParser
             return true;
         }
 
-        // In significantNewlines mode, block elements can interrupt paragraphs
-        if ($this->significantNewlines) {
-            return $this->startsNewBlockSignificant($line);
+        // In blocksInterruptParagraphs mode, block elements can interrupt paragraphs
+        if ($this->blocksInterruptParagraphs) {
+            return $this->startsInterruptingBlock($line);
         }
 
         // Standard djot behavior:
@@ -3213,7 +3189,7 @@ class BlockParser
     }
 
     /**
-     * Check if line starts a new block in significantNewlines mode
+     * Check if line starts a new block in blocksInterruptParagraphs mode
      *
      * In this mode, more elements can interrupt paragraphs:
      * - Block quotes (>)
@@ -3221,7 +3197,7 @@ class BlockParser
      * - Code fences (```)
      * - Fenced divs (:::)
      */
-    protected function startsNewBlockSignificant(string $line): bool
+    protected function startsInterruptingBlock(string $line): bool
     {
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
@@ -3271,7 +3247,7 @@ class BlockParser
      *
      * This is different from startsNewBlock() which is about paragraph interruption.
      * Block elements at column 0 (or less than list indent) should always break out
-     * of list content collection, regardless of significantNewlines mode.
+     * of list content collection, regardless of blocksInterruptParagraphs mode.
      *
      * @param string $line The trimmed line to check
      */

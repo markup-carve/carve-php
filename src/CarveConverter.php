@@ -69,7 +69,7 @@ class CarveConverter
      *
      * // Custom parser
      * $converter = CarveConverter::create(
-     *     parser: new BlockParser(significantNewlines: true),
+     *     parser: new BlockParser(blocksInterruptParagraphs: true),
      *     renderer: new HtmlRenderer(xhtml: true),
      * );
      * ```
@@ -125,10 +125,10 @@ class CarveConverter
      * @param bool $strict Whether to throw exceptions on parse errors
      * @param \Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
-     * @param bool $significantNewlines Enable significant newlines mode (markdown-like paragraph interruption)
+     * @param bool $blocksInterruptParagraphs Allow top-level blocks to interrupt paragraphs without a blank line (markdown-like)
      * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks (HTML renderer only)
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
-     * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict/significantNewlines if set)
+     * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict/blocksInterruptParagraphs if set)
      * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
      */
     public function __construct(
@@ -137,7 +137,7 @@ class CarveConverter
         bool $strict = false,
         bool|SafeMode|null $safeMode = null,
         ?Profile $profile = null,
-        bool $significantNewlines = false,
+        bool $blocksInterruptParagraphs = false,
         ?SoftBreakMode $softBreakMode = null,
         bool $roundTripMode = false,
         ?BlockParser $parser = null,
@@ -150,7 +150,7 @@ class CarveConverter
         if ($parser !== null) {
             $this->parser = $parser;
         } else {
-            $this->parser = new BlockParser($warnings, $strict, $significantNewlines);
+            $this->parser = new BlockParser($warnings, $strict, $blocksInterruptParagraphs);
         }
 
         // Use provided renderer or create one from parameters
@@ -222,13 +222,12 @@ class CarveConverter
     }
 
     /**
-     * Create a converter with significant newlines mode enabled
+     * Create a converter with blocks-interrupt-paragraphs mode enabled.
      *
-     * In this mode:
-     * - Block elements (lists, blockquotes, code) can interrupt paragraphs without blank lines
-     * - Nested blocks in lists don't need blank lines
-     *
-     * This provides markdown-like behavior for block interruption.
+     * In this mode, top-level blocks (lists, blockquotes, headings, tables,
+     * fences, divs) can interrupt a paragraph without a preceding blank line —
+     * markdown-like behavior. Nesting blocks inside list items is native Carve
+     * and works regardless of this flag.
      *
      * Note: This does NOT change how soft breaks are rendered. Use setSoftBreakMode()
      * or the softBreakMode parameter if you also want visible line breaks.
@@ -241,7 +240,7 @@ class CarveConverter
      * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks (HTML renderer only)
      * @param bool $roundTripMode Add data attributes for round-trips (HTML renderer only)
      */
-    public static function withSignificantNewlines(
+    public static function withBlocksInterruptParagraphs(
         bool $xhtml = false,
         bool $warnings = false,
         bool $strict = false,
