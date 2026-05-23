@@ -12,7 +12,7 @@ use Carve\Node\Block\ListItem;
  *
  * This class handles parsing of:
  * - Bullet lists (-, *, +)
- * - Ordered lists (1., 1), (1), roman numerals, alphabetical)
+ * - Ordered lists (1., 1), roman numerals, alphabetical)
  * - Task lists (- [ ], - [x])
  *
  * Definition lists are handled by DefinitionListParser.
@@ -88,7 +88,7 @@ class ListParser
             ];
         }
 
-        // Ordered list: 1. or 1) or (1)
+        // Ordered list: 1. or 1)
         if (preg_match('/^(\d+)([.)]) +(.*)$/', $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
@@ -98,14 +98,9 @@ class ListParser
             ];
         }
 
-        if (preg_match('/^\((\d+)\) +(.*)$/', $line, $matches)) {
-            return [
-                'type' => ListBlock::TYPE_ORDERED,
-                'marker' => '()',
-                'content' => $matches[2],
-                'start' => (int)$matches[1],
-            ];
-        }
+        // Parenthesized markers (1) / (a) / (i) are NOT Carve list markers
+        // (too easily confused with a prose parenthetical); they stay
+        // literal paragraph text. Carve uses the . and ) delimiters only.
 
         // Roman numeral ordered list
         if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +(.*)$/', $line, $matches)) {
@@ -131,30 +126,7 @@ class ListParser
             }
         }
 
-        if (preg_match('/^\(([ivxlcdmIVXLCDM]+)\) +(.*)$/', $line, $matches)) {
-            $roman = $matches[1];
-            $isLower = ctype_lower($roman[0]);
-            $start = $this->romanToInt(strtoupper($roman));
-            if ($start > 0) {
-                $result = [
-                    'type' => ListBlock::TYPE_ORDERED,
-                    'marker' => '()',
-                    'content' => $matches[2],
-                    'start' => $start,
-                    'style' => $isLower ? 'i' : 'I',
-                ];
-                if (strlen($roman) === 1) {
-                    $alphaStart = ord(strtolower($roman)) - ord('a') + 1;
-                    $result['ambiguous'] = true;
-                    $result['alpha_start'] = $alphaStart;
-                    $result['alpha_style'] = $isLower ? 'a' : 'A';
-                }
-
-                return $result;
-            }
-        }
-
-        // Alpha ordered list: a. or A. or a) or A) or (a) or (A)
+        // Alpha ordered list: a. or A. or a) or A)
         if (preg_match('/^([a-zA-Z])([.)]) +(.*)$/', $line, $matches)) {
             $letter = $matches[1];
             $isLower = ctype_lower($letter);
@@ -164,20 +136,6 @@ class ListParser
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => $matches[2],
                 'content' => $matches[3],
-                'start' => $start,
-                'style' => $isLower ? 'a' : 'A',
-            ];
-        }
-
-        if (preg_match('/^\(([a-zA-Z])\) +(.*)$/', $line, $matches)) {
-            $letter = $matches[1];
-            $isLower = ctype_lower($letter);
-            $start = ord(strtolower($letter)) - ord('a') + 1;
-
-            return [
-                'type' => ListBlock::TYPE_ORDERED,
-                'marker' => '()',
-                'content' => $matches[2],
                 'start' => $start,
                 'style' => $isLower ? 'a' : 'A',
             ];
@@ -217,9 +175,6 @@ class ListParser
         if (preg_match('/^([ivxlcdmIVXLCDM])/', $lines[$start], $m)) {
             $firstMarkerLetter = strtolower($m[1]);
             $firstIsLower = ctype_lower($m[1]);
-        } elseif (preg_match('/^\(([ivxlcdmIVXLCDM])\)/', $lines[$start], $m)) {
-            $firstMarkerLetter = strtolower($m[1]);
-            $firstIsLower = ctype_lower($m[1]);
         }
 
         $hasMultiCharRoman = false;
@@ -244,14 +199,8 @@ class ListParser
 
             // Extract the marker text (preserve original case for comparison)
             $markerTextRaw = null;
-            if ($marker === '()') {
-                if (preg_match('/^\(([^)]+)\)/', $line, $m)) {
-                    $markerTextRaw = $m[1];
-                }
-            } else {
-                if (preg_match('/^([a-zA-Z]+)[.)]/', $line, $m)) {
-                    $markerTextRaw = $m[1];
-                }
+            if (preg_match('/^([a-zA-Z]+)[.)]/', $line, $m)) {
+                $markerTextRaw = $m[1];
             }
 
             if ($markerTextRaw === null) {
