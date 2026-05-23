@@ -34,6 +34,7 @@ use Carve\Node\Inline\Image;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
+use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
@@ -138,6 +139,7 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Underline => $this->renderUnderline($node),
             $node instanceof Strike => $this->renderStrike($node),
             $node instanceof Code => $this->renderCode($node),
+            $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof HardBreak => "  \n",
@@ -376,6 +378,16 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return $backticks . $content . $backticks;
+    }
+
+    protected function renderMention(Mention $node): string
+    {
+        // A mention/tag with no configured URL renders as plain text.
+        if (($node->getDestination() ?? '') === '') {
+            return $this->renderChildren($node);
+        }
+
+        return $this->renderLink($node);
     }
 
     protected function renderLink(Link $node): string

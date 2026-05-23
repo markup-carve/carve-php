@@ -30,6 +30,7 @@ use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
+use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Symbol;
@@ -130,6 +131,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof Code => $node->getContent(),
             $node instanceof Math => $node->getContent(),
             $node instanceof Image => $node->getAlt(),
+            $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
             $node instanceof Symbol => ':' . $node->getName() . ':',
@@ -268,6 +270,16 @@ class PlainTextRenderer implements RendererInterface
     protected function renderFootnote(Footnote $node): string
     {
         return '[' . $node->getLabel() . ']: ' . trim($this->renderChildren($node)) . "\n";
+    }
+
+    protected function renderMention(Mention $node): string
+    {
+        // A mention/tag with no configured URL renders as plain text.
+        if (($node->getDestination() ?? '') === '') {
+            return $this->renderChildren($node);
+        }
+
+        return $this->renderLink($node);
     }
 
     protected function renderLink(Link $node): string
