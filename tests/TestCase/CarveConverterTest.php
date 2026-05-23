@@ -2751,7 +2751,7 @@ DJOT;
         // The code span is normal code (not raw); {=html …} is literal
         // text, and the #id within it is a Carve tag (tags are core
         // syntax, on by default). The ``` on line two is empty code.
-        $expected = "<p><code>&lt;b&gt;foo&lt;/b&gt;</code>{=html <a class=\"tag\" href=\"/tags/id\">#id</a>}\n<code></code></p>\n";
+        $expected = "<p><code>&lt;b&gt;foo&lt;/b&gt;</code>{=html <span class=\"tag\"><strong>#id</strong></span>}\n<code></code></p>\n";
         $this->assertSame($expected, $result);
     }
 

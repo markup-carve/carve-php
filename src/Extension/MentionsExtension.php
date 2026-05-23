@@ -9,27 +9,30 @@ use Carve\Node\Inline\Mention;
 use function str_replace;
 
 /**
- * Parses @mentions and #tags into links.
+ * Parses @mentions and #tags as core Carve social syntax (enabled by default).
  *
- * Carve treats both as core social syntax (enabled by default):
+ * By default both render as non-link spans:
  *
  *     Hey @alice, see #release-1.0.
- *     <p>Hey <a class="mention" href="/users/alice">@alice</a>,
- *        see <a class="tag" href="/tags/release-1.0">#release-1.0</a>.</p>
+ *     <p>Hey <span class="mention"><strong>@alice</strong></span>,
+ *        see <span class="tag"><strong>#release-1.0</strong></span>.</p>
  *
- * URL templates use the {name} placeholder. Both are configurable.
+ * Pass a URL template (with the {name} placeholder) to render links instead:
+ *
+ *     new MentionsExtension(mentionUrl: '/users/{name}', tagUrl: '/tags/{name}')
+ *     <p>Hey <a class="mention" href="/users/alice">@alice</a>, …</p>
  */
 class MentionsExtension implements ExtensionInterface
 {
     /**
-     * @param string $mentionUrl URL template for @mentions ({name} placeholder)
-     * @param string $tagUrl URL template for #tags ({name} placeholder)
-     * @param string $mentionClass CSS class for mention links
-     * @param string $tagClass CSS class for tag links
+     * @param string $mentionUrl URL template for @mentions ({name} placeholder); empty = non-link span
+     * @param string $tagUrl URL template for #tags ({name} placeholder); empty = non-link span
+     * @param string $mentionClass CSS class for mentions
+     * @param string $tagClass CSS class for tags
      */
     public function __construct(
-        protected string $mentionUrl = '/users/{name}',
-        protected string $tagUrl = '/tags/{name}',
+        protected string $mentionUrl = '',
+        protected string $tagUrl = '',
         protected string $mentionClass = 'mention',
         protected string $tagClass = 'tag',
     ) {

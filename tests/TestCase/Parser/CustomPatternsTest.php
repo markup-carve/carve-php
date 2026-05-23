@@ -137,7 +137,7 @@ class CustomPatternsTest extends TestCase
         $userResult = $this->converter->convert('Hello @user!');
         // Custom pattern returned null, so the default Carve mention
         // (core syntax, on by default) handles @user as a fallback.
-        $this->assertStringContainsString('<a class="mention" href="/users/user">@user</a>', $userResult);
+        $this->assertStringContainsString('<span class="mention"><strong>@user</strong></span>', $userResult);
     }
 
     public function testInlinePatternRemove(): void

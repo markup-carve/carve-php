@@ -53,7 +53,7 @@ DJOT;
         $this->assertCount(3, $tocExtension->getToc());
 
         // Mentions should be linked
-        $this->assertStringContainsString('href="/users/admin"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@admin</strong></span>', $html);
         $this->assertStringContainsString('class="mention"', $html);
 
         // Auto-linked URLs should exist
@@ -101,8 +101,8 @@ DJOT;
 
         $html = $converter->convert('@alice shared https://example.com with @bob');
 
-        $this->assertStringContainsString('href="/users/alice"', $html);
-        $this->assertStringContainsString('href="/users/bob"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@alice</strong></span>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@bob</strong></span>', $html);
         $this->assertStringContainsString('href="https://example.com"', $html);
     }
 
@@ -272,7 +272,7 @@ DJOT);
         // Extensions should still work with safe mode enabled
         $html = $converter->convert('@user visited https://example.com');
 
-        $this->assertStringContainsString('href="/users/user"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@user</strong></span>', $html);
         $this->assertStringContainsString('href="https://example.com"', $html);
     }
 
@@ -295,7 +295,7 @@ DJOT;
 
         // Both extensions should work
         $this->assertTrue($tocExtension->hasToc());
-        $this->assertStringContainsString('href="/users/world"', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@world</strong></span>', $html);
     }
 
     public function testRepeatedConversionsWithToc(): void

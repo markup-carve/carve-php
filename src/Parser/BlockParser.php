@@ -3011,13 +3011,16 @@ class BlockParser
     }
 
     /**
-     * Carve paragraph interruption (grammar PART 9 §10). A hard-wrapped
-     * prose line may begin with `-`, `*`, `+`, `>`, `|` as an operator. An
-     * ambiguous marker line (bullet/task, blockquote, table row) interrupts
-     * the paragraph only when it forms a real block: two or more same-kind
-     * markers, an indented continuation, or (blockquote/table) a following
-     * caption. Footnote definitions and other unambiguous starts (handled
-     * by startsNewBlock) always interrupt.
+     * Paragraph interruption (grammar PART 9 §10). In the default (full-djot)
+     * mode a VISIBLE block (list, quote, table, heading, fence, div, ordered
+     * list) does NOT interrupt a paragraph: it needs a blank line before it,
+     * so a hard-wrapped prose line beginning with `-`, `*`, `+`, `>`, `|`,
+     * `#`, `1.`, … stays paragraph text. Captions and INVISIBLE constructs
+     * (reference definitions and comments) interrupt in every mode, since they
+     * annotate/attach to prose with no blank line and produce no standalone
+     * block. In significantNewlines mode visible blocks interrupt too
+     * (markdown/chat-like; see startsNewBlock()). Sublist nesting via
+     * indentation is handled in the list-item collector, not here.
      *
      * @param array<string> $lines
      * @param int $i
@@ -3025,41 +3028,24 @@ class BlockParser
     protected function interruptsParagraph(array $lines, int $i): bool
     {
         $line = $lines[$i];
+
+        // startsNewBlock() encodes the mode policy: in default (full-djot)
+        // mode it returns true only for captions (`^ …`) and `%%%` comments —
+        // no VISIBLE block (list, quote, table, heading, fence, div, ordered
+        // list) interrupts a paragraph without a blank line; in
+        // significantNewlines mode it also returns true for those blocks
+        // (markdown/chat-like).
         if ($this->startsNewBlock($line)) {
             return true;
         }
-        // Footnote definition is an unambiguous block.
-        if (preg_match('/^\[\^[^\]]+\]:/', $line) === 1) {
-            return true;
-        }
 
-        $isBullet = preg_match('/^[-*+]\s/', $line) === 1;
-        $isQuote = preg_match('/^>\s?/', $line) === 1;
-        $isTable = isset($line[0]) && $line[0] === '|';
-        if (!$isBullet && !$isQuote && !$isTable) {
-            return false;
-        }
-
-        $next = $lines[$i + 1] ?? null;
-        if ($next === null || IndentationHelper::isBlankLine($next)) {
-            return false;
-        }
-
-        if ($isBullet) {
-            // Two or more same-marker lines, or an indented continuation.
-            if (preg_match('/^[-*+]\s/', $next) === 1 && $line[0] === $next[0]) {
-                return true;
-            }
-
-            return preg_match('/^\s/', $next) === 1;
-        }
-        if ($isQuote) {
-            // A second quote line or a caption confirms a real (figure) block.
-            return preg_match('/^>\s?/', $next) === 1 || preg_match('/^\^ /', $next) === 1;
-        }
-
-        // Table: a second `|` row or a caption.
-        return (isset($next[0]) && $next[0] === '|') || preg_match('/^\^ /', $next) === 1;
+        // Invisible constructs interrupt in EVERY mode — they produce no
+        // rendered block of their own, so they are recognised next to prose
+        // rather than left as literal text: reference definitions (link /
+        // footnote / abbreviation) and `%%` line comments.
+        return preg_match('/^\[[^\]]+\]:/', $line) === 1
+            || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
+            || preg_match('/^%%/', $line) === 1;
     }
 
     /**

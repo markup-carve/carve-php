@@ -109,7 +109,7 @@ DJOT);
         // Tags are core Carve syntax (on by default), so #installation
         // is a tag even inside [[ ]]; the brackets stay literal. Matches
         // the carve-js reference.
-        $this->assertStringContainsString('[[<a class="tag" href="/tags/installation">#installation</a>]]', $html);
+        $this->assertStringContainsString('[[<span class="tag"><strong>#installation</strong></span>]]', $html);
         $this->assertStringNotContainsString('href="#installation"', $html);
     }
 
