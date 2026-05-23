@@ -1147,13 +1147,18 @@ class InlineParser
         }
 
         // Intraword rule: the italic (/) and underline (_) delimiters cannot
-        // open when preceded by an alphanumeric character. This mirrors
-        // Djot's underscore rule and keeps paths/identifiers literal
-        // (e.g. a/b/c, foo_bar). The strong (*) delimiter is exempt, so
-        // intraword bold like foo*bar*baz still works.
+        // open when preceded by an alphanumeric character, by `_`, or by the
+        // same delimiter, nor when immediately FOLLOWED by the same delimiter
+        // (so `//a/` and `snake_/case/` stay literal). This mirrors Djot's
+        // underscore rule and keeps paths/identifiers literal (e.g. a/b/c,
+        // foo_bar). The strong (*) delimiter is exempt, so intraword bold
+        // like foo*bar*baz still works.
         if (
             ($delimiter === '/' || $delimiter === '_')
-            && ($prevChar === '_' || $prevChar === $delimiter || ctype_alnum($prevChar))
+            && (
+                $prevChar === '_' || $prevChar === $delimiter || ctype_alnum($prevChar)
+                || $nextChar === $delimiter
+            )
         ) {
             return null;
         }
