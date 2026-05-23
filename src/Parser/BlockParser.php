@@ -1376,15 +1376,21 @@ class BlockParser
         $heading = new Heading($level);
 
         // A trailing {#id .class key=val} block sets heading attributes
-        // (not an inline marker like {=highlight=}).
+        // (not an inline marker like {=highlight=}). The value scan is
+        // quote-aware (escape-aware) so a `}` inside a quoted value (e.g.
+        // {k="{y}"}) is part of the value and a `\"` escape does not end it
+        // early, matching how spans consume their attribute block.
         $content = trim($content);
-        if (preg_match('/^(.*?)\s*\{([^{}]+)\}$/s', $content, $am)) {
+        if (preg_match('/^(.*?)\s*\{((?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')+)\}$/s', $content, $am)) {
             $inner = trim($am[2]);
             $first = $inner[0] ?? '';
             $last = $inner[strlen($inner) - 1] ?? '';
             $isInlineMarker = $first === $last
                 && in_array($first, ['=', '+', '-', '~', '^', '_', '*'], true);
-            if (!$isInlineMarker && $inner !== '') {
+            // Only consume the block when it yields at least one real
+            // attribute (grammar `attribute_list` needs >= 1 attribute);
+            // an attribute-less brace block stays part of the heading text.
+            if (!$isInlineMarker && $inner !== '' && AttributeParser::parse($inner) !== []) {
                 AttributeParser::applyToNode($heading, $inner);
                 $content = rtrim($am[1]);
             }

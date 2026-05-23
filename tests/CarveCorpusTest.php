@@ -105,6 +105,8 @@ class CarveCorpusTest extends TestCase
         '66-inline-span',
         '67-superscript-and-subscript',
         '68-parenthesized-ordered-marker',
+        '69-emphasis-edge-cases',
+        '70-list-nesting-and-looseness',
     ];
 
     /**

@@ -55,6 +55,24 @@ class BlockParserTest extends TestCase
         $this->assertSame(1, $heading->getLevel());
     }
 
+    public function testParseHeadingTrailingAttributesQuoteAware(): void
+    {
+        // A trailing attribute block tolerates a `}` inside a quoted value
+        // (the close `}` is the first one outside quotes), in either quote
+        // form, and a `\"` escape does not end the value early — matching
+        // how spans consume their attribute block.
+        $cases = [
+            '# H {k="{y}"}' => '{y}',
+            "# H {k='{y}'}" => '{y}',
+            '# H {k="a\"b"}' => 'a"b',
+        ];
+        foreach ($cases as $src => $expected) {
+            $heading = $this->parser->parse($src)->getChildren()[0];
+            $this->assertInstanceOf(Heading::class, $heading);
+            $this->assertSame($expected, $heading->getAttribute('k'), 'for ' . $src);
+        }
+    }
+
     public function testParseHeadingLevels(): void
     {
         $doc = $this->parser->parse("# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6");
