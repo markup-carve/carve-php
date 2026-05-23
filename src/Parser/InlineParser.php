@@ -996,6 +996,11 @@ class InlineParser
                 $span = new Span();
                 // Apply all consecutive attribute blocks
                 $endPos = $this->applyConsecutiveAttributes($span, $text, $afterBracket);
+                // NOTE: the span is materialized even when the block yields no
+                // attribute (e.g. [x]{} or [x]{"{y}"}) so DefaultAttributesExtension
+                // can decorate it post-parse. This is an intentional divergence
+                // from carve-js, which treats such blocks as literal. See
+                // carve/MAINTAINING.md.
                 $this->parseInlines($span, $linkText);
 
                 return [

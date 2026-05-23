@@ -51,7 +51,7 @@ class MentionsExtension implements ExtensionInterface
 
                 return new Mention(
                     $mentionClass,
-                    str_replace('{name}', $name, $mentionUrl),
+                    str_replace('{name}', rawurlencode($name), $mentionUrl),
                     '@' . $name,
                 );
             },
@@ -66,7 +66,7 @@ class MentionsExtension implements ExtensionInterface
 
                 return new Mention(
                     $tagClass,
-                    str_replace('{name}', $name, $tagUrl),
+                    str_replace('{name}', rawurlencode($name), $tagUrl),
                     '#' . $name,
                 );
             },
