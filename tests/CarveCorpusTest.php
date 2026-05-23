@@ -109,11 +109,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '01-emphasis-11' => 'Phase-1 emphasis edge: a /,_ opening run (//a/) is '
-            . 'not yet rejected at line start; tracked separately, '
-            . 'unrelated to headings.',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 
