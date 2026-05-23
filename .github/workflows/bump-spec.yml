@@ -1,0 +1,80 @@
+name: Bump spec corpus
+
+# Keeps the `tests/spec` submodule (the markup-carve/carve conformance corpus)
+# in step with carve main. Runs weekly and on demand; it bumps the submodule,
+# verifies the corpus still passes in this job, and only then opens (or updates)
+# a single `automation/bump-spec` PR. A red run means the bump broke the corpus
+# and needs a human — no PR is opened in that case.
+#
+# Note: newly added corpus categories that carve-php does not yet implement are
+# marked incomplete by CarveCorpusTest (not failed), so the job stays green and
+# the PR surfaces them for promotion.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump-spec
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Update spec submodule to carve main
+        id: bump
+        run: |
+          git submodule update --remote --recursive tests/spec
+          if git diff --quiet -- tests/spec; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "spec already at carve main; nothing to do."
+          else
+            sha="$(git -C tests/spec rev-parse --short HEAD)"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup PHP
+        if: steps.bump.outputs.changed == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install dependencies
+        if: steps.bump.outputs.changed == 'true'
+        run: composer install --prefer-dist --no-progress
+
+      - name: Verify conformance against the new corpus
+        if: steps.bump.outputs.changed == 'true'
+        run: vendor/bin/phpunit --filter CarveCorpusTest
+
+      - name: Open or update the bump PR
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B automation/bump-spec
+          git add tests/spec
+          git commit -m "chore: bump spec corpus submodule to carve main (${{ steps.bump.outputs.sha }})"
+          git push -f origin automation/bump-spec
+          if ! gh pr view automation/bump-spec --json number >/dev/null 2>&1; then
+            gh pr create \
+              --base main \
+              --head automation/bump-spec \
+              --title "chore: bump spec corpus to carve main (${{ steps.bump.outputs.sha }})" \
+              --body "Automated bump of the \`tests/spec\` submodule to the latest carve main (\`${{ steps.bump.outputs.sha }}\`). The corpus suite was verified green in the bump job before this PR was opened. Any new categories carve-php does not yet implement show as incomplete — promote them in this PR if they already pass. Review and merge."
+          fi
