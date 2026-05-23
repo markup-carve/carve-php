@@ -100,6 +100,11 @@ class CarveCorpusTest extends TestCase
         '61-empty-delimiters',
         '62-bare-urls-stay-literal',
         '63-nested-containers',
+        '64-attribute-edge-cases',
+        '65-escape-coverage',
+        '66-inline-span',
+        '67-superscript-and-subscript',
+        '68-parenthesized-ordered-marker',
     ];
 
     /**
