@@ -310,6 +310,37 @@ DJOT;
         $this->assertStringContainsString('The actual quote', $result);
     }
 
+    public function testTextThenBlockquoteNoBlankLineInList(): void
+    {
+        $djot = <<<'DJOT'
+- Some intro text
+  > The quote
+DJOT;
+
+        $result = $this->converter->convert($djot);
+
+        // Native Carve: a block right after text in a list item nests without a blank line.
+        $this->assertStringContainsString('Some intro text', $result);
+        $this->assertStringContainsString('<blockquote>', $result);
+        $this->assertStringContainsString('The quote', $result);
+    }
+
+    public function testTextThenCodeFenceNoBlankLineInList(): void
+    {
+        $djot = <<<'DJOT'
+- Some intro text
+  ``` php
+  echo 1;
+  ```
+DJOT;
+
+        $result = $this->converter->convert($djot);
+
+        $this->assertStringContainsString('Some intro text', $result);
+        $this->assertStringContainsString('<pre><code', $result);
+        $this->assertStringContainsString('echo 1;', $result);
+    }
+
     public function testTextBeforeCodeBlockInList(): void
     {
         $djot = <<<'DJOT'
