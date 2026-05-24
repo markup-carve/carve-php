@@ -481,6 +481,16 @@ DJOT;
         $this->assertStringContainsString('role="doc-endnotes"', $result);
     }
 
+    public function testUnreferencedFootnoteDefinitionEmitsNoEndnotes(): void
+    {
+        // A footnote defined but never referenced produces no endnotes
+        // section (an empty <ol> would otherwise leak); matches carve-js.
+        $result = $this->converter->convert("text\n[^f]: note");
+
+        $this->assertStringNotContainsString('role="doc-endnotes"', $result);
+        $this->assertSame('<p>text</p>', trim($result));
+    }
+
     public function testFootnotesUseXhtmlHrInXhtmlMode(): void
     {
         $converter = new CarveConverter(true);
