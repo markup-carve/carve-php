@@ -6,7 +6,11 @@ namespace Carve\Extension;
 
 use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
+use Carve\Node\Block\Paragraph;
+use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
+use Carve\Node\Inline\SoftBreak;
+use Carve\Node\Inline\Text;
 use Closure;
 
 /**
@@ -196,6 +200,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
     public function afterParse(Document $document): void
     {
         $this->frontmatter = null;
+        $this->materializeBareFrontmatter($document);
 
         foreach ($document->getChildren() as $child) {
             if ($child instanceof Frontmatter) {
@@ -204,6 +209,38 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
                 break;
             }
         }
+    }
+
+    protected function materializeBareFrontmatter(Document $document): void
+    {
+        $children = $document->getChildren();
+        if (!isset($children[0], $children[1])) {
+            return;
+        }
+        if (!$children[0] instanceof ThematicBreak || !$children[1] instanceof Paragraph) {
+            return;
+        }
+
+        $lines = [];
+        foreach ($children[1]->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $lines[] = $child->getContent();
+
+                continue;
+            }
+            if (!$child instanceof SoftBreak) {
+                return;
+            }
+        }
+
+        if ($lines === [] || array_pop($lines) !== "\u{2014}") {
+            return;
+        }
+
+        $frontmatter = new Frontmatter(implode("\n", $lines), $this->defaultFormat);
+        $document->removeChildAt(1);
+        $document->removeChildAt(0);
+        $document->prependChild($frontmatter);
     }
 
     /**

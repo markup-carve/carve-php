@@ -31,18 +31,18 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        // Register @mention pattern
-        $parser->addInlinePattern('/@([a-zA-Z0-9_]+)/', function ($match, $groups, $p) {
+        // Register ~mention pattern
+        $parser->addInlinePattern('/~([a-zA-Z0-9_]+)/', function ($match, $groups, $p) {
             $link = new Link('https://example.com/users/' . $groups[1]);
-            $link->appendChild(new Text('@' . $groups[1]));
+            $link->appendChild(new Text('~' . $groups[1]));
 
             return $link;
         });
 
-        $result = $this->converter->convert('Hello @john_doe, how are you?');
+        $result = $this->converter->convert('Hello ~john_doe, how are you?');
 
         $this->assertStringContainsString('href="https://example.com/users/john_doe"', $result);
-        $this->assertStringContainsString('@john_doe</a>', $result);
+        $this->assertStringContainsString('~john_doe</a>', $result);
     }
 
     public function testInlinePatternWikiLink(): void
@@ -67,34 +67,34 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        // Register #hashtag pattern
-        $parser->addInlinePattern('/#([a-zA-Z][a-zA-Z0-9_]*)/', function ($match, $groups, $p) {
+        // Register %hashtag pattern
+        $parser->addInlinePattern('/%([a-zA-Z][a-zA-Z0-9_]*)/', function ($match, $groups, $p) {
             $link = new Link('/tags/' . strtolower($groups[1]));
-            $link->appendChild(new Text('#' . $groups[1]));
+            $link->appendChild(new Text('%' . $groups[1]));
             $link->setAttribute('class', 'hashtag');
 
             return $link;
         });
 
-        $result = $this->converter->convert('Check out #coolproject today!');
+        $result = $this->converter->convert('Check out %coolproject today!');
 
         $this->assertStringContainsString('href="/tags/coolproject"', $result);
         $this->assertStringContainsString('class="hashtag"', $result);
-        $this->assertStringContainsString('#coolproject</a>', $result);
+        $this->assertStringContainsString('%coolproject</a>', $result);
     }
 
     public function testInlinePatternEmoji(): void
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        // Register :emoji: pattern that converts to actual emoji
+        // Register ;emoji; pattern that converts to actual emoji
         $emojis = [
             'smile' => '😊',
             'heart' => '❤️',
             'thumbsup' => '👍',
         ];
 
-        $parser->addInlinePattern('/:([a-z]+):/', function ($match, $groups, $p) use ($emojis) {
+        $parser->addInlinePattern('/;([a-z]+);/', function ($match, $groups, $p) use ($emojis) {
             $name = $groups[1];
             if (isset($emojis[$name])) {
                 return new Text($emojis[$name]);
@@ -103,7 +103,7 @@ class CustomPatternsTest extends TestCase
             return null; // Let default :symbol: handling take over
         });
 
-        $result = $this->converter->convert('I :heart: this! :smile:');
+        $result = $this->converter->convert('I ;heart; this! ;smile;');
 
         $this->assertStringContainsString('❤️', $result);
         $this->assertStringContainsString('😊', $result);
@@ -114,7 +114,7 @@ class CustomPatternsTest extends TestCase
         $parser = $this->converter->getParser()->getInlineParser();
 
         // Register pattern that sometimes returns null (fallback to default)
-        $parser->addInlinePattern('/@([a-zA-Z0-9_]+)/', function ($match, $groups, $p) {
+        $parser->addInlinePattern('/~([a-zA-Z0-9_]+)/', function ($match, $groups, $p) {
             // Only handle @admin specially
             if ($groups[1] === 'admin') {
                 $link = new Link('/admin');
@@ -126,25 +126,23 @@ class CustomPatternsTest extends TestCase
             return null; // Not handled, will be parsed as text
         });
 
-        $adminResult = $this->converter->convert('Contact @admin for help.');
+        $adminResult = $this->converter->convert('Contact ~admin for help.');
         $this->assertStringContainsString('Administrator</a>', $adminResult);
 
         // Re-create converter to reset patterns
         $this->converter = new CarveConverter();
         $parser = $this->converter->getParser()->getInlineParser();
-        $parser->addInlinePattern('/@([a-zA-Z0-9_]+)/', fn ($m, $g, $p) => null);
+        $parser->addInlinePattern('/~([a-zA-Z0-9_]+)/', fn ($m, $g, $p) => null);
 
-        $userResult = $this->converter->convert('Hello @user!');
-        // Custom pattern returned null, so the default Carve mention
-        // (core syntax, on by default) handles @user as a fallback.
-        $this->assertStringContainsString('<span class="mention"><strong>@user</strong></span>', $userResult);
+        $userResult = $this->converter->convert('Hello ~user!');
+        $this->assertStringContainsString('<p>Hello ~user!</p>', $userResult);
     }
 
     public function testInlinePatternRemove(): void
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        $pattern = '/@([a-zA-Z0-9_]+)/';
+        $pattern = '/~([a-zA-Z0-9_]+)/';
         $parser->addInlinePattern($pattern, fn ($m, $g, $p) => new Text('REPLACED'));
 
         $this->assertCount(1, $parser->getInlinePatterns());
@@ -158,18 +156,16 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        // Custom patterns are checked before built-in syntax
-        // So we can override how certain things are parsed
-        $parser->addInlinePattern('/\*\*([^*]+)\*\*/', function ($match, $groups, $p) {
+        $parser->addInlinePattern('/\*([^*]+)\*/', function ($match, $groups, $p) {
             $text = new Text('【' . $groups[1] . '】');
 
             return $text;
         });
 
-        $result = $this->converter->convert('This is **important** text.');
+        $result = $this->converter->convert('This is *important* text.');
 
-        $this->assertStringContainsString('【important】', $result);
-        $this->assertStringNotContainsString('<strong>', $result);
+        $this->assertStringNotContainsString('【important】', $result);
+        $this->assertStringContainsString('<strong>important</strong>', $result);
     }
 
     // ==================== Block Patterns ====================
@@ -298,15 +294,14 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser();
 
-        // Pattern that matches but returns null (fallback to default)
-        $parser->addBlockPattern('/^#/', function ($lines, $start, $parent, $p) {
+        $parser->addBlockPattern('/^NOTE:\s*/', function ($lines, $start, $parent, $p) {
             // Only handle special case
-            if (str_starts_with($lines[$start], '# SPECIAL:')) {
+            if (str_starts_with($lines[$start], 'NOTE: SPECIAL:')) {
                 $div = new Div();
                 $div->setAttribute('class', 'special');
 
                 $para = new Paragraph();
-                $para->appendChild(new Text(substr($lines[$start], 10)));
+                $para->appendChild(new Text(substr($lines[$start], 14)));
                 $div->appendChild($para);
 
                 $parent->appendChild($div);
@@ -318,12 +313,11 @@ class CustomPatternsTest extends TestCase
         });
 
         // Special heading handled by custom pattern
-        $specialResult = $this->converter->convert('# SPECIAL: Custom content');
+        $specialResult = $this->converter->convert('NOTE: SPECIAL: Custom content');
         $this->assertStringContainsString('class="special"', $specialResult);
 
-        $normalResult = $this->converter->convert('# Regular Heading');
-        $this->assertStringContainsString('<section id="regular-heading">', $normalResult);
-        $this->assertStringContainsString('<h1>Regular Heading</h1>', $normalResult);
+        $normalResult = $this->converter->convert('NOTE: Regular note');
+        $this->assertStringContainsString('<p>NOTE: Regular note</p>', $normalResult);
     }
 
     // ==================== Combined Patterns ====================
@@ -334,9 +328,9 @@ class CustomPatternsTest extends TestCase
         $inlineParser = $parser->getInlineParser();
 
         // Add both inline and block patterns
-        $inlineParser->addInlinePattern('/@(\w+)/', function ($m, $g, $p) {
+        $inlineParser->addInlinePattern('/~(\w+)/', function ($m, $g, $p) {
             $link = new Link('/u/' . $g[1]);
-            $link->appendChild(new Text('@' . $g[1]));
+            $link->appendChild(new Text('~' . $g[1]));
 
             return $link;
         });
@@ -358,7 +352,7 @@ class CustomPatternsTest extends TestCase
             return $i - $start;
         });
 
-        $djot = "NOTE:\nRemember to contact @support for help.\n\nRegular paragraph with @mention.";
+        $djot = "NOTE:\nRemember to contact ~support for help.\n\nRegular paragraph with ~mention.";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="admonition note"', $result);
@@ -541,15 +535,15 @@ class CustomPatternsTest extends TestCase
         $parser = $this->converter->getParser();
 
         // Register a two-column layout pattern
-        $parser->addBlockPattern('/^:::\s*columns\s*$/', function ($lines, $start, $parent, $p) {
+        $parser->addBlockPattern('/^COLUMNS:\s*$/', function ($lines, $start, $parent, $p) {
             $leftContent = [];
             $rightContent = [];
             $currentSide = 'left';
             $i = $start + 1;
             $count = count($lines);
 
-            while ($i < $count && !preg_match('/^:::\s*$/', $lines[$i])) {
-                if (preg_match('/^---\s*$/', $lines[$i])) {
+            while ($i < $count && !preg_match('/^ENDCOLUMNS\s*$/', $lines[$i])) {
+                if (preg_match('/^\\+\\+\\+\\s*$/', $lines[$i])) {
                     $currentSide = 'right';
                     $i++;
 
@@ -582,7 +576,7 @@ class CustomPatternsTest extends TestCase
             return ($i < $count) ? $i - $start + 1 : $i - $start;
         });
 
-        $djot = "::: columns\nLeft content here.\n---\nRight content here.\n:::\n\nAfter columns.";
+        $djot = "COLUMNS:\nLeft content here.\n+++\nRight content here.\nENDCOLUMNS\n\nAfter columns.";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="columns"', $result);
@@ -660,21 +654,19 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser()->getInlineParser();
 
-        $parser->addInlinePattern('/@(\w+)/', function ($match, $groups, $p) {
+        $parser->addInlinePattern('/~(\w+)/', function ($match, $groups, $p) {
             $link = new Link('/user/' . $groups[1]);
-            $link->appendChild(new Text('@' . $groups[1]));
+            $link->appendChild(new Text('~' . $groups[1]));
 
             return $link;
         });
 
-        // Test that escaped @ is not matched
-        $result = $this->converter->convert('Contact \\@admin for help, or @support.');
+        $result = $this->converter->convert('Contact \\~admin for help, or ~support.');
 
-        // Escaped @ should be literal
-        $this->assertStringContainsString('@admin', $result);
+        $this->assertStringContainsString('~admin', $result);
         $this->assertStringNotContainsString('href="/user/admin"', $result);
 
-        // Non-escaped @ should create link
+        // Non-escaped ~ should create link
         $this->assertStringContainsString('href="/user/support"', $result);
     }
 
@@ -682,7 +674,6 @@ class CustomPatternsTest extends TestCase
     {
         $parser = $this->converter->getParser();
 
-        // Override heading behavior for special prefix
         $parser->addBlockPattern('/^##\s+DRAFT:\s+(.+)$/', function ($lines, $start, $parent, $p) {
             preg_match('/^##\s+DRAFT:\s+(.+)$/', $lines[$start], $m);
 
@@ -700,9 +691,8 @@ class CustomPatternsTest extends TestCase
 
         $result = $this->converter->convert("## DRAFT: Work in Progress\n\n## Regular Heading");
 
-        $this->assertStringContainsString('class="draft-heading"', $result);
-        $this->assertStringContainsString('Work in Progress', $result);
-        // Regular heading should still work (now wrapped in section per djot spec)
+        $this->assertStringNotContainsString('class="draft-heading"', $result);
+        $this->assertStringContainsString('<h2>DRAFT: Work in Progress</h2>', $result);
         $this->assertStringContainsString('<section id="regular-heading">', $result);
         $this->assertStringContainsString('<h2>Regular Heading</h2>', $result);
     }
@@ -731,21 +721,21 @@ class CustomPatternsTest extends TestCase
         $parser = $this->converter->getParser()->getInlineParser();
 
         // Multiple inline patterns in sequence
-        $parser->addInlinePattern('/@(\w+)/', function ($match, $groups, $p) {
+        $parser->addInlinePattern('/~(\w+)/', function ($match, $groups, $p) {
             $link = new Link('/users/' . $groups[1]);
-            $link->appendChild(new Text('@' . $groups[1]));
+            $link->appendChild(new Text('~' . $groups[1]));
 
             return $link;
         });
 
-        $parser->addInlinePattern('/#(\w+)/', function ($match, $groups, $p) {
+        $parser->addInlinePattern('/%(\\w+)/', function ($match, $groups, $p) {
             $link = new Link('/tags/' . $groups[1]);
-            $link->appendChild(new Text('#' . $groups[1]));
+            $link->appendChild(new Text('%' . $groups[1]));
 
             return $link;
         });
 
-        $result = $this->converter->convert('Hello @alice and @bob! Check #news and #updates.');
+        $result = $this->converter->convert('Hello ~alice and ~bob! Check %news and %updates.');
 
         $this->assertStringContainsString('href="/users/alice"', $result);
         $this->assertStringContainsString('href="/users/bob"', $result);

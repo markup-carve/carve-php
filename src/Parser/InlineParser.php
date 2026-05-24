@@ -30,6 +30,7 @@ use Carve\Node\Inline\Text;
 use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
 use Carve\Parser\Utility\AttributeParser;
+use Closure;
 
 /**
  * Inline parser for Djot
@@ -58,11 +59,18 @@ class InlineParser
     protected array $customPatterns = [];
 
     /**
-     * Cached anchored patterns for custom inline patterns
+     * Registered scanner-function inline matchers.
      *
-     * @var array<string, string>
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null}>
      */
-    protected array $anchoredPatternCache = [];
+    protected array $inlineMatchers = [];
+
+    protected int $inlineMatcherSeq = 0;
+
+    /**
+     * @var array<\Closure>|null
+     */
+    protected ?array $sortedInlineMatchers = null;
 
     /**
      * Cached abbreviation regex pattern (built once per document)
@@ -137,7 +145,27 @@ class InlineParser
      */
     public function addInlinePattern(string $pattern, callable $callback): void
     {
+        $this->removeInlinePattern($pattern);
         $this->customPatterns[$pattern] = $callback;
+
+        $anchored = $pattern[0] . '\G' . substr($pattern, 1);
+        $self = $this;
+
+        $this->registerInlineMatcher(
+            function (string $text, int $pos, MatcherContext $ctx) use ($anchored, $callback, $self): ?array {
+                if (!preg_match($anchored, $text, $matches, 0, $pos)) {
+                    return null;
+                }
+
+                $node = $callback($matches[0], $matches, $self);
+                if ($node === null) {
+                    return null;
+                }
+
+                return ['node' => $node, 'end' => $pos + strlen($matches[0])];
+            },
+            pattern: $pattern,
+        );
     }
 
     /**
@@ -146,6 +174,11 @@ class InlineParser
     public function removeInlinePattern(string $pattern): void
     {
         unset($this->customPatterns[$pattern]);
+        $this->inlineMatchers = array_values(array_filter(
+            $this->inlineMatchers,
+            static fn (array $entry): bool => $entry['pattern'] !== $pattern,
+        ));
+        $this->sortedInlineMatchers = null;
     }
 
     /**
@@ -156,6 +189,51 @@ class InlineParser
     public function getInlinePatterns(): array
     {
         return $this->customPatterns;
+    }
+
+    /**
+     * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
+     * @param int $priority
+     */
+    public function addInlineMatcher(Closure $matcher, int $priority = 0): void
+    {
+        $this->registerInlineMatcher($matcher, $priority);
+    }
+
+    /**
+     * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
+     * @param int $priority
+     * @param string|null $pattern
+     */
+    protected function registerInlineMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null): void
+    {
+        $this->inlineMatchers[] = [
+            'matcher' => $matcher,
+            'priority' => $priority,
+            'seq' => $this->inlineMatcherSeq++,
+            'pattern' => $pattern,
+        ];
+        $this->sortedInlineMatchers = null;
+    }
+
+    /**
+     * @return array<\Closure>
+     */
+    protected function sortedInlineMatchers(): array
+    {
+        if ($this->sortedInlineMatchers !== null) {
+            return $this->sortedInlineMatchers;
+        }
+
+        $entries = $this->inlineMatchers;
+        usort($entries, static function (array $a, array $b): int {
+            return $b['priority'] <=> $a['priority'] ?: $a['seq'] <=> $b['seq'];
+        });
+
+        return $this->sortedInlineMatchers = array_map(
+            static fn (array $entry): Closure => $entry['matcher'],
+            $entries,
+        );
     }
 
     /**
@@ -271,17 +349,6 @@ class InlineParser
 
                     continue;
                 }
-            }
-
-            // Check custom patterns first (before built-in syntax)
-            $customResult = $this->tryCustomPatterns($text, $pos);
-            if ($customResult !== null) {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $parent->appendChild($customResult['node']);
-                $pos = $customResult['pos'];
-
-                continue;
             }
 
             // Soft break (newline)
@@ -609,6 +676,16 @@ class InlineParser
                 continue;
             }
 
+            $matchResult = $this->tryInlineMatchers($text, $pos);
+            if ($matchResult !== null) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild($matchResult['node']);
+                $pos = $matchResult['end'];
+
+                continue;
+            }
+
             // Regular character
             $textBuffer .= $char;
             $pos++;
@@ -684,31 +761,19 @@ class InlineParser
     }
 
     /**
-     * Try to match custom inline patterns at the current position
-     *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
+     * @return array{node: \Carve\Node\Node, end: int}|null
      */
-    protected function tryCustomPatterns(string $text, int $pos): ?array
+    protected function tryInlineMatchers(string $text, int $pos): ?array
     {
-        if ($this->customPatterns === []) {
+        if ($this->inlineMatchers === []) {
             return null;
         }
 
-        foreach ($this->customPatterns as $pattern => $callback) {
-            // Cache the anchored pattern (use \G to match at offset position)
-            if (!isset($this->anchoredPatternCache[$pattern])) {
-                $this->anchoredPatternCache[$pattern] = '/\G' . substr($pattern, 1, -1) . '/';
-            }
-
-            // Use offset parameter to avoid substr() allocation
-            if (preg_match($this->anchoredPatternCache[$pattern], $text, $matches, 0, $pos)) {
-                $node = $callback($matches[0], $matches, $this);
-                if ($node !== null) {
-                    return [
-                        'node' => $node,
-                        'pos' => $pos + strlen($matches[0]),
-                    ];
-                }
+        $ctx = new MatcherContext($this->blockParser, $this);
+        foreach ($this->sortedInlineMatchers() as $matcher) {
+            $result = $matcher($text, $pos, $ctx);
+            if ($result !== null) {
+                return $result;
             }
         }
 
