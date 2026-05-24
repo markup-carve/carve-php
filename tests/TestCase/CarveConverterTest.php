@@ -224,7 +224,7 @@ class CarveConverterTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'This is {=highlighted=} text';
+        $djot = 'This is ==highlighted== text';
         $expected = "<p>This is <mark>highlighted</mark> text</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));

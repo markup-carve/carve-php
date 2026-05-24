@@ -225,7 +225,7 @@ class PlainTextRendererTest extends TestCase
 
     public function testHighlightInsertDelete(): void
     {
-        $djot = '{=highlighted=} {+inserted+} {-deleted-}';
+        $djot = '==highlighted== {+inserted+} {-deleted-}';
         $document = $this->converter->parse($djot);
 
         $this->assertSame("highlighted inserted ~deleted~\n", $this->renderer->render($document));

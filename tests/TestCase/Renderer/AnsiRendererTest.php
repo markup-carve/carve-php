@@ -141,7 +141,7 @@ class AnsiRendererTest extends TestCase
 
     public function testRenderHighlight(): void
     {
-        $doc = $this->converter->parse('This is {=highlighted=} text.');
+        $doc = $this->converter->parse('This is ==highlighted== text.');
         $output = $this->renderer->render($doc);
 
         $this->assertStringContainsString('highlighted', $output);
