@@ -820,7 +820,7 @@ class InlineParserTest extends TestCase
 
     public function testHighlightWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('{=highlighted=}{.match}');
+        $para = $this->parseInline('==highlighted=={.match}');
 
         $mark = $this->getFirstChild($para);
         $this->assertInstanceOf(Highlight::class, $mark);
@@ -847,13 +847,13 @@ class InlineParserTest extends TestCase
 
     public function testConsecutiveBracedInlines(): void
     {
-        $para = $this->parseInline('{=a=}{=b=}');
+        $para = $this->parseInline('{+a+}{+b+}');
 
         $children = $para->getChildren();
         $this->assertCount(2, $children);
 
-        $this->assertInstanceOf(Highlight::class, $children[0]);
-        $this->assertInstanceOf(Highlight::class, $children[1]);
+        $this->assertInstanceOf(Insert::class, $children[0]);
+        $this->assertInstanceOf(Insert::class, $children[1]);
     }
 
     public function testConsecutiveDifferentBracedInlines(): void

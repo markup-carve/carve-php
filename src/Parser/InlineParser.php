@@ -530,7 +530,7 @@ class InlineParser
                 }
             }
 
-            // Special braced syntax: {=highlight=}, {+insert+}, {-delete-}, or inline attributes {.class}
+            // Special braced syntax: {+insert+}, {-delete-}, or inline attributes {.class}
             if ($char === '{') {
                 // Editorial comment {# ... #} -> styled span. Must precede the
                 // attribute check, which would otherwise consume `{# … #}`.
@@ -1312,6 +1312,15 @@ class InlineParser
             return null;
         }
 
+        // A run of 3+ of the same char does not open: the doubled delimiter IS
+        // the token, so an adjacent third char (before the pair or right after
+        // it) makes it literal -- consistent with the single-char same-delimiter
+        // adjacency rule. So `====x====` and `,,,,y,,,,` stay literal.
+        $runChar = $delimiter[0];
+        if (($pos > 0 && $text[$pos - 1] === $runChar) || $text[$start] === $runChar) {
+            return null;
+        }
+
         $searchPos = $start;
         while ($searchPos + $dl <= $length) {
             // Skip over code spans so delimiters inside them stay literal.
@@ -1435,8 +1444,10 @@ class InlineParser
     }
 
     /**
-     * Parse braced inline syntax: {=highlight=}, {+insert+}, {-delete-},
-     * {~old~>new~} substitution, {'} and {"}.
+     * Parse braced inline syntax: {+insert+}, {-delete-},
+     * {~old~>new~} substitution, {'} and {"}. (Highlight is `==text==` only;
+     * the djot `{=text=}` form is intentionally not parsed -- it is flagged
+     * for migration to `==`.)
      *
      * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
      */
@@ -1511,7 +1522,6 @@ class InlineParser
         }
 
         $nodeClass = match ($marker) {
-            '=' => Highlight::class,
             '+' => Insert::class,
             '-' => Delete::class,
             '~' => Subscript::class,
