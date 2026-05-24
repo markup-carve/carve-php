@@ -2202,6 +2202,13 @@ class InlineParser
             }
 
             $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
+            // A `{...}` that yields no real attribute is literal text (PART 9
+            // §15), not an empty attribute block to consume. Stop here and
+            // leave it in the stream (so e.g. `{=hl=}`, `{ }`, `{???}` after a
+            // node render literally instead of being silently dropped).
+            if (AttributeParser::parse($attrStr) === []) {
+                break;
+            }
             $this->applyAttributesToNode($node, $attrStr);
             $pos = $attrEnd + 1;
         }
