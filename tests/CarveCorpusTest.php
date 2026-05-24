@@ -19,12 +19,11 @@ use function preg_replace;
  * git submodule at tests/spec) against CarveConverter.
  *
  * Mirrors the carve-js / carve-rs runners: every NN-slug.crv is paired with
- * its NN-slug.html and compared after trimming. Only category prefixes in
- * IMPLEMENTED run as real assertions; everything else is marked incomplete
- * so the remaining work stays visible without failing CI.
- *
- * Carve-php is mid-migration from Djot syntax. Promote a prefix into
- * IMPLEMENTED once the corresponding parser/renderer work lands.
+ * its NN-slug.html and compared after trimming. Category prefixes in
+ * IMPLEMENTED run as real assertions; a category that is neither IMPLEMENTED
+ * nor an explicit KNOWN_GAP FAILS (so a new category from a corpus bump turns
+ * CI red, which drafts the downstream bump PR). Defer a category via
+ * KNOWN_GAPS; promote it into IMPLEMENTED once the parser/renderer work lands.
  */
 #[Group('corpus')]
 class CarveCorpusTest extends TestCase
@@ -181,9 +180,16 @@ class CarveCorpusTest extends TestCase
             $this->markTestIncomplete(self::KNOWN_GAPS[$slug]);
         }
 
-        if (!self::isImplemented($slug)) {
-            $this->markTestIncomplete('Not yet implemented for Carve syntax: ' . $slug);
-        }
+        // A corpus category that is neither IMPLEMENTED nor an explicit
+        // KNOWN_GAP is a real gap: fail rather than silently skip. A new
+        // category arriving via a corpus bump therefore turns CI red, which
+        // opens the downstream bump PR as a draft (carve bump-downstream
+        // workflow). Defer a category by listing it in KNOWN_GAPS; promote it
+        // into IMPLEMENTED once the parser/renderer work lands.
+        $this->assertTrue(
+            self::isImplemented($slug),
+            'Corpus category not implemented (add to IMPLEMENTED, or KNOWN_GAPS to defer): ' . $slug,
+        );
 
         $actual = $this->converter->convert($crv);
 
