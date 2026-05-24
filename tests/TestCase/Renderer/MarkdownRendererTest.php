@@ -251,7 +251,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'Text {=highlighted=} here';
+        $djot = 'Text ==highlighted== here';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 

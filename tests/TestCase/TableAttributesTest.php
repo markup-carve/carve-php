@@ -387,7 +387,7 @@ DJOT;
     /**
      * Test that inline formatting is not mistaken for cell attributes.
      *
-     * {=highlight=}, {+insert+}, {-delete-} etc should be rendered as inline
+     * ==highlight==, {+insert+}, {-delete-} etc should be rendered as inline
      * formatting, not stripped as attributes.
      */
     public function testInlineFormattingNotMistakenForAttributes(): void
@@ -395,7 +395,7 @@ DJOT;
         $djot = <<<'DJOT'
 | Syntax            | Result          |
 | :---------------- | :-------------- |
-| `{=Highlighted=}` | {=Highlighted=} |
+| `==Highlighted==` | ==Highlighted== |
 | `{+Inserted+}`    | {+Inserted+}    |
 | `{-Deleted-}`     | {-Deleted-}     |
 DJOT;
@@ -414,7 +414,7 @@ DJOT;
     public function testInlineFormattingWithLeadingSpace(): void
     {
         $djot = <<<'DJOT'
-| Normal text | {=marked=} text |
+| Normal text | ==marked== text |
 |-------------|-----------------|
 | {+added+}   | {-removed-}     |
 DJOT;
@@ -450,7 +450,7 @@ DJOT;
     public function testCellAttributesWithInlineFormatting(): void
     {
         $djot = <<<'DJOT'
-|{.highlight} {=marked=} text | normal |
+|{.highlight} ==marked== text | normal |
 |-----|------|
 | a   | b    |
 DJOT;
