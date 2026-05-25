@@ -31,6 +31,39 @@ $converter = new CarveConverter();
 $html = $converter->toHtml('# Hello /Carve/');
 ~~~
 
+## Extension Matchers
+
+Carve-PHP supports parse-stage extension matchers alongside render hooks and
+document transforms. Matchers are tried only where core syntax declines, so
+core parsing always wins first.
+
+~~~ php
+use Carve\CarveConverter;
+use Carve\Node\Inline\Text;
+use Carve\Parser\MatcherContext;
+
+$converter = new CarveConverter();
+
+$converter->getParser()->getInlineParser()->addInlineMatcher(
+    function (string $text, int $pos, MatcherContext $ctx): ?array {
+        if (!preg_match('/\G\{\{([a-z]+)\}\}/', $text, $m, 0, $pos)) {
+            return null;
+        }
+
+        return ['node' => new Text('VAR:' . $m[1]), 'end' => $pos + strlen($m[0])];
+    },
+);
+~~~
+
+`MatcherContext` exposes definition tables (`getReference()`, `hasFootnote()`,
+`getAbbreviation()`) and recursive parse helpers (`parseInlines()`,
+`parseBlocks()`). Matchers run by descending `priority`, then registration
+order. `addInlinePattern()` and `addBlockPattern()` remain available as regex
+sugar over the same matcher contract.
+
+The normative extension contract lives in
+[`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

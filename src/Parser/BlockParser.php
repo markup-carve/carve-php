@@ -37,6 +37,7 @@ use Carve\Parser\Block\TableParser;
 use Carve\Parser\Utility\AttributeParser;
 use Carve\Parser\Utility\IndentationHelper;
 use Carve\Renderer\HeadingIdTracker;
+use Closure;
 
 /**
  * Block-level parser for Djot
@@ -129,6 +130,20 @@ class BlockParser
      * @var array<string, callable(array<string>, int, \Carve\Node\Node, self): ?int>
      */
     protected array $customBlockPatterns = [];
+
+    /**
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null}>
+     */
+    protected array $blockMatchers = [];
+
+    protected int $blockMatcherSeq = 0;
+
+    /**
+     * @var array<\Closure>|null
+     */
+    protected ?array $sortedBlockMatchers = null;
+
+    protected ?Node $currentMatcherParent = null;
 
     /**
      * When true, top-level blocks (lists, blockquotes, headings, tables,
@@ -226,7 +241,39 @@ class BlockParser
      */
     public function addBlockPattern(string $pattern, callable $callback): void
     {
+        $this->removeBlockPattern($pattern);
         $this->customBlockPatterns[$pattern] = $callback;
+        $self = $this;
+
+        $this->registerBlockMatcher(
+            function (array $lines, int $start, MatcherContext $ctx) use ($pattern, $callback, $self): ?array {
+                if (!preg_match($pattern, $lines[$start])) {
+                    return null;
+                }
+
+                $parent = $self->currentMatcherParent ?? new Document();
+                $initialChildCount = count($parent->getChildren());
+                $consumed = $callback($lines, $start, $parent, $self);
+                if ($consumed === null) {
+                    return null;
+                }
+
+                $children = array_slice($parent->getChildren(), $initialChildCount);
+                if ($children === []) {
+                    return null;
+                }
+
+                for ($index = count($parent->getChildren()) - 1; $index >= $initialChildCount; $index--) {
+                    $parent->removeChildAt($index);
+                }
+
+                return [
+                    'node' => count($children) === 1 ? $children[0] : $this->wrapMatcherChildren($children),
+                    'linesConsumed' => $consumed,
+                ];
+            },
+            pattern: $pattern,
+        );
     }
 
     /**
@@ -235,6 +282,11 @@ class BlockParser
     public function removeBlockPattern(string $pattern): void
     {
         unset($this->customBlockPatterns[$pattern]);
+        $this->blockMatchers = array_values(array_filter(
+            $this->blockMatchers,
+            static fn (array $entry): bool => $entry['pattern'] !== $pattern,
+        ));
+        $this->sortedBlockMatchers = null;
     }
 
     /**
@@ -245,6 +297,51 @@ class BlockParser
     public function getBlockPatterns(): array
     {
         return $this->customBlockPatterns;
+    }
+
+    /**
+     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
+     * @param int $priority
+     */
+    public function addBlockMatcher(Closure $matcher, int $priority = 0): void
+    {
+        $this->registerBlockMatcher($matcher, $priority);
+    }
+
+    /**
+     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
+     * @param int $priority
+     * @param string|null $pattern
+     */
+    protected function registerBlockMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null): void
+    {
+        $this->blockMatchers[] = [
+            'matcher' => $matcher,
+            'priority' => $priority,
+            'seq' => $this->blockMatcherSeq++,
+            'pattern' => $pattern,
+        ];
+        $this->sortedBlockMatchers = null;
+    }
+
+    /**
+     * @return array<\Closure>
+     */
+    protected function sortedBlockMatchers(): array
+    {
+        if ($this->sortedBlockMatchers !== null) {
+            return $this->sortedBlockMatchers;
+        }
+
+        $entries = $this->blockMatchers;
+        usort($entries, static function (array $a, array $b): int {
+            return $b['priority'] <=> $a['priority'] ?: $a['seq'] <=> $b['seq'];
+        });
+
+        return $this->sortedBlockMatchers = array_map(
+            static fn (array $entry): Closure => $entry['matcher'],
+            $entries,
+        );
     }
 
     /**
@@ -344,7 +441,7 @@ class BlockParser
         $this->extractHeadingReferences($lines);
 
         // Second pass: parse blocks
-        $this->parseBlocks($document, $lines, 0);
+        $this->parseBlocks($document, $lines, 0, topLevel: true);
 
         // Append footnotes section if any
         foreach ($this->footnotes as $footnote) {
@@ -707,8 +804,9 @@ class BlockParser
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
+     * @param bool $topLevel
      */
-    protected function parseBlocks(Node $parent, array $lines, int $indent): void
+    protected function parseBlocks(Node $parent, array $lines, int $indent, bool $topLevel = false): void
     {
         $i = 0;
         $count = count($lines);
@@ -731,12 +829,22 @@ class BlockParser
                 continue;
             }
 
-            // Try custom block patterns first (before built-in syntax)
-            $customConsumed = $this->tryCustomBlockPatterns($parent, $lines, $i);
-            if ($customConsumed !== null) {
-                $i += $customConsumed;
+            // A bare `---` at the very start of the document is ambiguous between
+            // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
+            // Give registered block matchers first refusal at this one position so
+            // the frontmatter extension can capture the block raw, before core reads
+            // the `---` as a thematic break (which would route the body through
+            // inline parsing and corrupt quotes/dashes/ellipses). Scoped to the
+            // exact `---` opener so core-first still holds for every other line and
+            // every other thematic-break shape (***, ___, ----); a lone `---` with
+            // no closing fence is declined, leaving it a thematic break.
+            if ($topLevel && !$parent->hasChildren() && preg_match('/^---\s*$/', $line) === 1) {
+                $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
+                if ($matchConsumed !== null) {
+                    $i += $matchConsumed;
 
-                continue;
+                    continue;
+                }
             }
 
             // Try to match block elements in order of precedence
@@ -758,38 +866,64 @@ class BlockParser
                 ?? $this->tryParseFootnoteDefinition($lines, $i)
                 ?? $this->tryParseReferenceDefinition($lines, $i)
                 ?? $this->tryParseAbbreviationDefinition($lines, $i)
-                ?? $this->tryParseCaption($parent, $lines, $i)
-                ?? $this->tryParseParagraph($parent, $lines, $i);
+                ?? $this->tryParseCaption($parent, $lines, $i);
+
+            if ($consumed === null) {
+                $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
+                if ($matchConsumed !== null) {
+                    $i += $matchConsumed;
+
+                    continue;
+                }
+            }
+
+            $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
             $i += $consumed;
         }
     }
 
     /**
-     * Try to match custom block patterns at the current position
-     *
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
-    protected function tryCustomBlockPatterns(Node $parent, array $lines, int $start): ?int
+    protected function tryBlockMatchers(Node $parent, array $lines, int $start): ?int
     {
-        if ($this->customBlockPatterns === []) {
+        if ($this->blockMatchers === []) {
             return null;
         }
 
-        $line = $lines[$start];
+        $previousParent = $this->currentMatcherParent;
+        $this->currentMatcherParent = $parent;
+        $ctx = new MatcherContext($this, $this->getInlineParser());
+        try {
+            foreach ($this->sortedBlockMatchers() as $matcher) {
+                $result = $matcher($lines, $start, $ctx);
+                if ($result !== null) {
+                    $parent->appendChild($result['node']);
 
-        foreach ($this->customBlockPatterns as $pattern => $callback) {
-            if (preg_match($pattern, $line)) {
-                $consumed = $callback($lines, $start, $parent, $this);
-                if ($consumed !== null) {
-                    return $consumed;
+                    return $result['linesConsumed'];
                 }
             }
+        } finally {
+            $this->currentMatcherParent = $previousParent;
         }
 
         return null;
+    }
+
+    /**
+     * @param array<\Carve\Node\Node> $children
+     */
+    protected function wrapMatcherChildren(array $children): Node
+    {
+        $wrapper = new Div();
+        foreach ($children as $child) {
+            $wrapper->appendChild($child);
+        }
+
+        return $wrapper;
     }
 
     /**
