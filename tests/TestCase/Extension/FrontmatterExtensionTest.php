@@ -564,8 +564,37 @@ DJOT;
 
         $this->assertTrue($ext->hasFrontmatter());
         $this->assertSame('toml', $ext->getFormat());
-        $this->assertStringContainsString('title = ', $ext->getContent());
-        $this->assertStringContainsString('My Document', $ext->getContent());
+        // Content is captured raw — straight quotes are NOT mangled into smart quotes.
+        $this->assertStringContainsString('title = "My Document"', $ext->getContent());
+    }
+
+    public function testBareFrontmatterContentIsCapturedVerbatim(): void
+    {
+        // Regression: bare --- frontmatter is captured raw at the block level,
+        // never routed through inline smart typography. Straight quotes, triple
+        // dashes, and ellipses in the content must survive byte-for-byte so a
+        // downstream YAML/TOML parser sees exactly what the author wrote.
+        $ext = new FrontmatterExtension();
+        $converter = new CarveConverter();
+        $converter->addExtension($ext);
+
+        $djot = <<<'DJOT'
+---
+quote: "straight"
+range: 1---9
+note: wait...
+---
+
+# Hello
+DJOT;
+
+        $converter->convert($djot);
+
+        $content = (string)$ext->getContent();
+        $this->assertSame("quote: \"straight\"\nrange: 1---9\nnote: wait...", $content);
+        $this->assertStringNotContainsString("\u{201C}", $content);
+        $this->assertStringNotContainsString("\u{2014}", $content);
+        $this->assertStringNotContainsString("\u{2026}", $content);
     }
 
     public function testExplicitFormatOverridesDefaultFormat(): void

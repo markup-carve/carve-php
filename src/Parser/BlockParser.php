@@ -441,7 +441,7 @@ class BlockParser
         $this->extractHeadingReferences($lines);
 
         // Second pass: parse blocks
-        $this->parseBlocks($document, $lines, 0);
+        $this->parseBlocks($document, $lines, 0, topLevel: true);
 
         // Append footnotes section if any
         foreach ($this->footnotes as $footnote) {
@@ -804,8 +804,9 @@ class BlockParser
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
+     * @param bool $topLevel
      */
-    protected function parseBlocks(Node $parent, array $lines, int $indent): void
+    protected function parseBlocks(Node $parent, array $lines, int $indent, bool $topLevel = false): void
     {
         $i = 0;
         $count = count($lines);
@@ -826,6 +827,24 @@ class BlockParser
                 $i += $attrConsumed;
 
                 continue;
+            }
+
+            // A bare `---` at the very start of the document is ambiguous between
+            // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
+            // Give registered block matchers first refusal at this one position so
+            // the frontmatter extension can capture the block raw, before core reads
+            // the `---` as a thematic break (which would route the body through
+            // inline parsing and corrupt quotes/dashes/ellipses). Scoped to the
+            // exact `---` opener so core-first still holds for every other line and
+            // every other thematic-break shape (***, ___, ----); a lone `---` with
+            // no closing fence is declined, leaving it a thematic break.
+            if ($topLevel && !$parent->hasChildren() && preg_match('/^---\s*$/', $line) === 1) {
+                $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
+                if ($matchConsumed !== null) {
+                    $i += $matchConsumed;
+
+                    continue;
+                }
             }
 
             // Try to match block elements in order of precedence
