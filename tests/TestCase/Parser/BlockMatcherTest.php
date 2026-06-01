@@ -75,4 +75,26 @@ class BlockMatcherTest extends TestCase
 
         $this->assertSame('<p>SPOILER</p>', trim($converter->convert("@@spoiler\nhi\n@@")));
     }
+
+    public function testAddBlockPatternEmittingMultipleSiblingsStaysFlat(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser()->addBlockPattern(
+            '/^DUO\s*$/',
+            function (array $lines, int $start, $parent, $parser): ?int {
+                $first = new Paragraph();
+                $first->appendChild(new Text('A'));
+                $second = new Paragraph();
+                $second->appendChild(new Text('B'));
+                $parent->appendChild($first);
+                $parent->appendChild($second);
+
+                return 1;
+            },
+        );
+
+        // A legacy callback that appends several sibling blocks keeps them flat —
+        // they must NOT be collapsed into a synthetic wrapper <div>.
+        $this->assertSame("<p>A</p>\n<p>B</p>", trim($converter->convert('DUO')));
+    }
 }

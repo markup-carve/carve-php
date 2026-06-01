@@ -246,31 +246,24 @@ class BlockParser
         $self = $this;
 
         $this->registerBlockMatcher(
-            function (array $lines, int $start, MatcherContext $ctx) use ($pattern, $callback, $self): ?array {
+            function (array $lines, int $start, MatcherContext $ctx) use ($pattern, $callback, $self): ?int {
                 if (!preg_match($pattern, $lines[$start])) {
                     return null;
                 }
 
-                $parent = $self->currentMatcherParent ?? new Document();
-                $initialChildCount = count($parent->getChildren());
+                // Legacy callbacks append their node(s) to the parent themselves
+                // and return the number of lines consumed. Preserve that contract
+                // verbatim — a pattern emitting several sibling blocks keeps them
+                // flat, with no synthetic wrapper. The dispatcher reads the int
+                // return as "already appended".
+                $parent = $self->currentMatcherParent;
+                if ($parent === null) {
+                    return null;
+                }
+
                 $consumed = $callback($lines, $start, $parent, $self);
-                if ($consumed === null) {
-                    return null;
-                }
 
-                $children = array_slice($parent->getChildren(), $initialChildCount);
-                if ($children === []) {
-                    return null;
-                }
-
-                for ($index = count($parent->getChildren()) - 1; $index >= $initialChildCount; $index--) {
-                    $parent->removeChildAt($index);
-                }
-
-                return [
-                    'node' => count($children) === 1 ? $children[0] : $this->wrapMatcherChildren($children),
-                    'linesConsumed' => $consumed,
-                ];
+                return is_int($consumed) ? $consumed : null;
             },
             pattern: $pattern,
         );
@@ -309,7 +302,7 @@ class BlockParser
     }
 
     /**
-     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
+     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (int|array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
      * @param int $priority
      * @param string|null $pattern
      */
@@ -900,30 +893,24 @@ class BlockParser
         try {
             foreach ($this->sortedBlockMatchers() as $matcher) {
                 $result = $matcher($lines, $start, $ctx);
-                if ($result !== null) {
-                    $parent->appendChild($result['node']);
-
-                    return $result['linesConsumed'];
+                if ($result === null) {
+                    continue;
                 }
+                // Legacy addBlockPattern callbacks append to $parent themselves
+                // and report only the line count.
+                if (is_int($result)) {
+                    return $result;
+                }
+                // Normative matchers return the node for the dispatcher to append.
+                $parent->appendChild($result['node']);
+
+                return $result['linesConsumed'];
             }
         } finally {
             $this->currentMatcherParent = $previousParent;
         }
 
         return null;
-    }
-
-    /**
-     * @param array<\Carve\Node\Node> $children
-     */
-    protected function wrapMatcherChildren(array $children): Node
-    {
-        $wrapper = new Div();
-        foreach ($children as $child) {
-            $wrapper->appendChild($child);
-        }
-
-        return $wrapper;
     }
 
     /**
