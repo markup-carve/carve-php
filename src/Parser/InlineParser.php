@@ -1054,24 +1054,36 @@ class InlineParser
             }
         }
 
-        // Check for attribute span: [text]{.class} or [text]{.foo}{.bar}
+        // Inline span [text]{attrs} (PART 9 §14). A bracketed run forms a
+        // <span> only when the directly-abutting block is a VALID attribute
+        // block: one that yields an attribute, OR an empty/whitespace-only
+        // block. carve-php materializes the empty case as a bare <span> so a
+        // default-attribute extension can target it ([x]{}, [x]{ }). A block
+        // carrying unrecognized content ({???}, {=y=}, {"{y}"}) is not an
+        // attribute block: we fall through and the brackets and block render
+        // literally (the inner bracket content is still inline-parsed, so
+        // `[*x*]{???}` -> `[<strong>x</strong>]{???}`, matching carve-js).
+        // See carve/MAINTAINING.md.
         if ($afterBracket < $length && $text[$afterBracket] === '{') {
             $attrEnd = $this->findAttributeEnd($text, $afterBracket);
             if ($attrEnd !== null) {
-                $span = new Span();
-                // Apply all consecutive attribute blocks
-                $endPos = $this->applyConsecutiveAttributes($span, $text, $afterBracket);
-                // NOTE: the span is materialized even when the block yields no
-                // attribute (e.g. [x]{} or [x]{"{y}"}) so DefaultAttributesExtension
-                // can decorate it post-parse. This is an intentional divergence
-                // from carve-js, which treats such blocks as literal. See
-                // carve/MAINTAINING.md.
-                $this->parseInlines($span, $linkText);
+                $attrStr = substr($text, $afterBracket + 1, $attrEnd - $afterBracket - 1);
+                if ($this->isValidAttrPayload($attrStr)) {
+                    $span = new Span();
+                    // The gating block is valid (real attributes or an
+                    // empty/whitespace-only block). Apply and consume it here,
+                    // then absorb any further consecutive attribute blocks
+                    // (those stop at the first block that yields no attribute,
+                    // leaving it literal -- e.g. `[x]{.a}{???}`).
+                    $this->applyAttributesToNode($span, $attrStr);
+                    $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
+                    $this->parseInlines($span, $linkText);
 
-                return [
-                    'node' => $span,
-                    'pos' => $endPos,
-                ];
+                    return [
+                        'node' => $span,
+                        'pos' => $endPos,
+                    ];
+                }
             }
         }
 
@@ -2050,6 +2062,27 @@ class InlineParser
     }
 
     /**
+     * Whether a `{...}` payload is a valid attribute block.
+     *
+     * Valid means it yields at least one attribute under the actual attribute
+     * grammar (AttributeParser), OR it is empty/whitespace/comment-only -- a
+     * valid empty block that carve-php materializes as a bare <span> so a
+     * default-attribute extension can target it. A block carrying unrecognized
+     * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
+     * so the whole bracketed run stays literal text (PART 9 §14).
+     */
+    protected function isValidAttrPayload(string $attrStr): bool
+    {
+        if (AttributeParser::parse($attrStr) !== []) {
+            return true;
+        }
+
+        // No attribute extracted: valid only if the block is empty or
+        // whitespace/comment-only. Otherwise it is invalid and stays literal.
+        return trim($this->removeAttributeComments($attrStr)) === '';
+    }
+
+    /**
      * Find the end of an attribute block, handling quoted strings
      */
     protected function findAttributeEnd(string $text, int $pos): ?int
@@ -2270,7 +2303,9 @@ class InlineParser
             // A `{...}` that yields no real attribute is literal text (PART 9
             // §15), not an empty attribute block to consume. Stop here and
             // leave it in the stream (so e.g. `{=hl=}`, `{ }`, `{???}` after a
-            // node render literally instead of being silently dropped).
+            // node render literally instead of being silently dropped). The
+            // inline-span branch in parseLink() handles the leading
+            // empty/whitespace block explicitly before delegating here.
             if (AttributeParser::parse($attrStr) === []) {
                 break;
             }
