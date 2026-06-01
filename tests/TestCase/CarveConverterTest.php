@@ -15,6 +15,7 @@ use Carve\Profile;
 use Carve\Renderer\MarkdownRenderer;
 use Carve\Renderer\SoftBreakMode;
 use LengthException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Transliterator;
@@ -3220,5 +3221,50 @@ DJOT;
 
         $result = $converter->setSafeMode(true);
         $this->assertSame($converter, $result);
+    }
+
+    /**
+     * A bracketed run followed by an attribute block forms a <span> only when
+     * the block is a VALID attribute block (yields an attribute, or is
+     * empty/whitespace-only). An invalid block (`{???}`, `{=y=}`, `{"{y}"}`)
+     * is not an attribute block, so the whole run stays literal text.
+     *
+     * Regression for markup-carve/carve-php#37: the block used to leak after
+     * the span (`[x]{ }` -> `<span>x</span>{ }`).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function inlineSpanAttributeBlockEdgeProvider(): array
+    {
+        return [
+            // Empty / whitespace-only block: valid empty block -> bare span.
+            'empty block' => ['[x]{}', "<p><span>x</span></p>\n"],
+            'single space block' => ['[x]{ }', "<p><span>x</span></p>\n"],
+            'multi space block' => ['[x]{  }', "<p><span>x</span></p>\n"],
+            'comment-only block' => ['[x]{% c %}', "<p><span>x</span></p>\n"],
+            // Invalid block: whole [text]{block} stays literal.
+            'invalid junk block' => ['[x]{???}', "<p>[x]{???}</p>\n"],
+            'invalid equals block' => ['[x]{=y=}', "<p>[x]{=y=}</p>\n"],
+            // Brackets + block render literally, but the inner content is still
+            // inline-parsed (matches carve-js: `[*x*]{???}` keeps the strong).
+            'invalid block keeps inner markup' => ['[*x*]{???}', "<p>[<strong>x</strong>]{???}</p>\n"],
+            // Real attributes are unaffected, including colon-bearing keys and
+            // classes that AttributeParser accepts (regression guard: these
+            // must form the span, not leave `[x]` literal inside it).
+            'class block' => ['[x]{.a}', "<p><span class=\"a\">x</span></p>\n"],
+            'colon key block' => ['[x]{xml:lang="en"}', "<p><span xml:lang=\"en\">x</span></p>\n"],
+            'colon class block' => ['[x]{.sm:hover}', "<p><span class=\"sm:hover\">x</span></p>\n"],
+            'boolean attr block' => ['[x]{disabled}', "<p><span disabled=\"\">x</span></p>\n"],
+            'consecutive class blocks' => ['[x]{.a}{.b}', "<p><span class=\"a b\">x</span></p>\n"],
+            // Valid block followed by an invalid one: span keeps the valid
+            // attribute, the invalid block stays literal (matches carve-js).
+            'valid then invalid block' => ['[x]{.a}{???}', "<p><span class=\"a\">x</span>{???}</p>\n"],
+        ];
+    }
+
+    #[DataProvider('inlineSpanAttributeBlockEdgeProvider')]
+    public function testInlineSpanAttributeBlockEdge(string $input, string $expected): void
+    {
+        $this->assertSame($expected, $this->converter->convert($input));
     }
 }
