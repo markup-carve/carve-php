@@ -1845,7 +1845,6 @@ class BlockParser
             $itemLines = [$itemContent];
             $i++;
             $lastItemHadBlankAfter = false;
-            $hasNonMarkerContinuation = false;
 
             // Calculate content indent based on list type and marker width
             // For bullet lists (including task lists): use 2 (for "- ")
@@ -1906,7 +1905,6 @@ class BlockParser
                     // Lazy continuation (not properly indented but not at base level either)
                     $itemLines[] = $nextTrimmed;
                 }
-                $hasNonMarkerContinuation = true;
                 $i++;
             }
 
@@ -1929,38 +1927,12 @@ class BlockParser
             // a block element. If so, parse as blocks; otherwise parse as plain text.
             // This prevents "-like" lines from being parsed as nested lists while
             // still allowing blockquotes, code blocks, etc. to be properly recognized.
-            if ($hasNonMarkerContinuation) {
-                $firstLine = $itemLines[0];
-                if ($this->isBlockElementStart($firstLine)) {
-                    // Content starts with a block element (blockquote, code fence, etc.)
-                    $this->parseBlocks($listItem, $itemLines, 0);
-                } else {
-                    // Carve nests a block that follows plain text in the same item
-                    // without a blank line: emit the leading text as a paragraph and
-                    // parse from the first block element on as nested blocks.
-                    $blockIndex = 0;
-                    $itemLineCount = count($itemLines);
-                    for ($idx = 1; $idx < $itemLineCount; $idx++) {
-                        if ($this->isBlockElementStart($itemLines[$idx])) {
-                            $blockIndex = $idx;
-
-                            break;
-                        }
-                    }
-                    if ($blockIndex > 0) {
-                        $paragraph = new Paragraph();
-                        $this->inlineParser->parse($paragraph, implode("\n", array_slice($itemLines, 0, $blockIndex)), $start);
-                        $listItem->appendChild($paragraph);
-                        $this->parseBlocks($listItem, array_slice($itemLines, $blockIndex), 0);
-                    } else {
-                        $paragraph = new Paragraph();
-                        $this->inlineParser->parse($paragraph, implode("\n", $itemLines), $start);
-                        $listItem->appendChild($paragraph);
-                    }
-                }
-            } else {
-                $this->parseBlocks($listItem, $itemLines, 0);
-            }
+            // Item content parses as blocks. Per grammar §10 only a list marker
+            // interrupts nested content without a blank line (sublists are
+            // collected above); a non-list block opener after lead text stays
+            // paragraph text, so tryParseParagraph folds it into the lead
+            // paragraph rather than splitting it into a separate block.
+            $this->parseBlocks($listItem, $itemLines, 0);
 
             // Apply attributes to list item
             if ($itemAttributes !== []) {
