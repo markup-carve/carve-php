@@ -293,9 +293,26 @@ class HtmlRenderer implements RendererInterface
         return $number;
     }
 
+    /**
+     * Sentinel marking a soft break inside a list item's lead inline content.
+     * It keeps that break out of block indentation (indentBlock() never treats
+     * it as a line boundary), so a multi-line lead paragraph stays flush like
+     * carve-js/carve-rs/djot, instead of having its continuation re-indented.
+     * Restored to a newline at every public render exit. A NUL byte never
+     * appears in escaped HTML output, so the round-trip is safe.
+     *
+     * @var string
+     */
+    protected const SOFT_BREAK_GUARD = "\x00";
+
+    protected function restoreSoftBreakGuards(string $html): string
+    {
+        return str_replace(self::SOFT_BREAK_GUARD, "\n", $html);
+    }
+
     public function render(Document $document): string
     {
-        return $this->withRenderContext(
+        return $this->restoreSoftBreakGuards($this->withRenderContext(
             $this->sharedRenderContext,
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
@@ -312,7 +329,7 @@ class HtmlRenderer implements RendererInterface
 
                 return $html;
             },
-        );
+        ));
     }
 
     /**
@@ -323,7 +340,9 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderNodeFragment(Node $node): string
     {
-        return $this->withFragmentContext(fn (): string => $this->renderNode($node));
+        return $this->restoreSoftBreakGuards(
+            $this->withFragmentContext(fn (): string => $this->renderNode($node)),
+        );
     }
 
     /**
@@ -334,7 +353,9 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderDocumentFragment(Document $document): string
     {
-        return $this->withFragmentContext(fn (): string => $this->renderDocumentWithSections($document));
+        return $this->restoreSoftBreakGuards(
+            $this->withFragmentContext(fn (): string => $this->renderDocumentWithSections($document)),
+        );
     }
 
     /**
@@ -850,6 +871,13 @@ class HtmlRenderer implements RendererInterface
         } else {
             $lead = $content;
         }
+
+        // The lead sits inline on the `<li>` line; its inline soft breaks must
+        // stay flush (not picked up by the list's block indentation), matching
+        // carve-js/carve-rs/djot. Guard them so indentBlock() leaves them alone;
+        // render() restores the newlines. Nested blocks ($rest) keep real
+        // newlines and are indented normally.
+        $lead = str_replace("\n", self::SOFT_BREAK_GUARD, $lead);
 
         if ($node->isTask()) {
             $checked = $node->getChecked() ? ' checked' : '';
