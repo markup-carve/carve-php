@@ -319,10 +319,11 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // Native Carve: a block right after text in a list item nests without a blank line.
+        // Carve grammar §10: only a LIST MARKER interrupts nested content
+        // without a blank line. A block quote after lead text (no blank line)
+        // stays paragraph text, not a nested block.
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringContainsString('<blockquote>', $result);
-        $this->assertStringContainsString('The quote', $result);
+        $this->assertStringNotContainsString('<blockquote>', $result);
     }
 
     public function testTextThenCodeFenceNoBlankLineInList(): void
@@ -336,9 +337,10 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
+        // §10: a fence after lead text (no blank line) stays paragraph text
+        // (an inline code span), not a nested code block.
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringContainsString('<pre><code', $result);
-        $this->assertStringContainsString('echo 1;', $result);
+        $this->assertStringNotContainsString('<pre><code', $result);
     }
 
     public function testTextBeforeCodeBlockInList(): void
