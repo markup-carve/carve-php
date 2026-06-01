@@ -135,7 +135,7 @@ class CarveConverter
         bool $xhtml = false,
         bool $warnings = false,
         bool $strict = false,
-        bool|SafeMode|null $safeMode = null,
+        SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
         bool $blocksInterruptParagraphs = false,
         ?SoftBreakMode $softBreakMode = null,
@@ -244,7 +244,7 @@ class CarveConverter
         bool $xhtml = false,
         bool $warnings = false,
         bool $strict = false,
-        bool|SafeMode|null $safeMode = null,
+        SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
         ?SoftBreakMode $softBreakMode = null,
         bool $roundTripMode = false,
@@ -257,7 +257,7 @@ class CarveConverter
      *
      * @param \Carve\SafeMode|bool|null $safeMode True for defaults, SafeMode for custom, null/false to disable
      */
-    public function setSafeMode(bool|SafeMode|null $safeMode): self
+    public function setSafeMode(SafeMode|bool|null $safeMode): self
     {
         if (!$this->renderer instanceof HtmlRenderer) {
             return $this;
