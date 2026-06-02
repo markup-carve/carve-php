@@ -111,6 +111,7 @@ class CarveCorpusTest extends TestCase
         '73-reference-labels-are-case-sensitive',
         '74-two-char-delimiter-runs',
         '75-trailing-attribute-block-edge-cases',
+        '76-paragraph-interruption',
     ];
 
     /**
