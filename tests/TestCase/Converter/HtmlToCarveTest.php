@@ -39,26 +39,26 @@ class HtmlToCarveTest extends TestCase
 
     public function testEmphasis(): void
     {
-        $this->assertSame("_italic_\n", $this->converter->convert('<em>italic</em>'));
-        $this->assertSame("_italic_\n", $this->converter->convert('<i>italic</i>'));
+        $this->assertSame("/italic/\n", $this->converter->convert('<em>italic</em>'));
+        $this->assertSame("/italic/\n", $this->converter->convert('<i>italic</i>'));
     }
 
     public function testUnderline(): void
     {
-        $this->assertSame("{+underline+}\n", $this->converter->convert('<u>underline</u>'));
+        $this->assertSame("_underline_\n", $this->converter->convert('<u>underline</u>'));
         $this->assertSame("{+inserted+}\n", $this->converter->convert('<ins>inserted</ins>'));
     }
 
     public function testStrikethrough(): void
     {
-        $this->assertSame("{-deleted-}\n", $this->converter->convert('<s>deleted</s>'));
+        $this->assertSame("~deleted~\n", $this->converter->convert('<s>deleted</s>'));
         $this->assertSame("{-deleted-}\n", $this->converter->convert('<del>deleted</del>'));
-        $this->assertSame("{-deleted-}\n", $this->converter->convert('<strike>deleted</strike>'));
+        $this->assertSame("~deleted~\n", $this->converter->convert('<strike>deleted</strike>'));
     }
 
     public function testHighlight(): void
     {
-        $this->assertSame("{=highlighted=}\n", $this->converter->convert('<mark>highlighted</mark>'));
+        $this->assertSame("==highlighted==\n", $this->converter->convert('<mark>highlighted</mark>'));
     }
 
     public function testSuperscript(): void
@@ -68,13 +68,40 @@ class HtmlToCarveTest extends TestCase
 
     public function testSubscript(): void
     {
-        $this->assertSame("H~2~O\n", $this->converter->convert('H<sub>2</sub>O'));
+        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub>2</sub>O'));
     }
 
     public function testNestedFormatting(): void
     {
         $result = $this->converter->convert('<strong><em>bold italic</em></strong>');
-        $this->assertSame("*_bold italic_*\n", $result);
+        $this->assertSame("*/bold italic/*\n", $result);
+    }
+
+    /**
+     * Inline marks must emit Carve tokens that the parser maps back to the same
+     * element, so an HTML -> Carve -> HTML round-trip is stable.
+     *
+     * @return void
+     */
+    public function testInlineMarksRoundTripThroughParser(): void
+    {
+        $cases = [
+            '<em>x</em>' => '<em>x</em>',
+            '<u>x</u>' => '<u>x</u>',
+            '<s>x</s>' => '<s>x</s>',
+            '<sub>x</sub>' => '<sub>x</sub>',
+            '<sup>x</sup>' => '<sup>x</sup>',
+            '<mark>x</mark>' => '<mark>x</mark>',
+            '<strong>x</strong>' => '<strong>x</strong>',
+        ];
+
+        $toCarve = new HtmlToCarve();
+        $toHtml = new CarveConverter();
+        foreach ($cases as $html => $expectedInner) {
+            $carve = $toCarve->convert($html);
+            $roundTripped = $toHtml->convert($carve);
+            $this->assertStringContainsString($expectedInner, $roundTripped, "Round-trip drift for {$html} (via Carve: " . trim($carve) . ')');
+        }
     }
 
     public function testEmptyInlineTags(): void
@@ -93,7 +120,7 @@ class HtmlToCarveTest extends TestCase
     {
         // Whitespace should be trimmed
         $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
-        $this->assertSame("H~2~O\n", $this->converter->convert('H<sub> 2 </sub>O'));
+        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub> 2 </sub>O'));
         $this->assertSame("*bold*\n", $this->converter->convert('<strong> bold </strong>'));
         $this->assertSame("{-deleted-}\n", $this->converter->convert('<del> deleted </del>'));
     }
@@ -650,7 +677,7 @@ HTML;
 
         $this->assertStringContainsString('# Welcome', $result);
         $this->assertStringContainsString('*important*', $result);
-        $this->assertStringContainsString('_emphasized_', $result);
+        $this->assertStringContainsString('/emphasized/', $result);
         $this->assertStringContainsString('- First item', $result);
         $this->assertStringContainsString('> A quote', $result);
     }
@@ -869,7 +896,7 @@ HTML;
         $this->assertStringContainsString('```php', $result);
         $this->assertStringContainsString('> A quote', $result);
         $this->assertStringContainsString('*bold*', $result);
-        $this->assertStringContainsString('_italic_', $result);
+        $this->assertStringContainsString('/italic/', $result);
 
         // Content lines should not have leading whitespace (except list indentation)
         $this->assertStringNotContainsString("\n Introduction", $result);
@@ -987,7 +1014,7 @@ HTML;
         $this->assertStringContainsString('*bold*{.important}', $result);
 
         $result = $this->converter->convert('<em class="note">italic</em>');
-        $this->assertStringContainsString('_italic_{.note}', $result);
+        $this->assertStringContainsString('/italic/{.note}', $result);
 
         $result = $this->converter->convert('<code class="lang-php">code</code>');
         $this->assertStringContainsString('`code`{.lang-php}', $result);
@@ -1168,8 +1195,8 @@ HTML;
         $html = '<h2>Features</h2><em>sdf</em><ul><li>Item</li></ul>';
         $result = $this->converter->convert($html);
 
-        // Should have blank line after _sdf_ (implicit paragraph)
-        $this->assertStringContainsString("## Features\n\n_sdf_\n\n", $result);
+        // Should have blank line after /sdf/ (implicit paragraph)
+        $this->assertStringContainsString("## Features\n\n/sdf/\n\n", $result);
         $this->assertStringContainsString('- Item', $result);
     }
 
@@ -1179,7 +1206,7 @@ HTML;
         $html = '<div>Hello <strong>world</strong> and <em>more</em></div>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("Hello *world* and _more_\n", $result);
+        $this->assertSame("Hello *world* and /more/\n", $result);
     }
 
     public function testTextNodeAtBlockLevel(): void
