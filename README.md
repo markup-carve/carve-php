@@ -2,13 +2,9 @@
 
 PHP parser and renderer for [Carve](https://github.com/markup-carve/carve), a post-Djot lightweight markup language with visual mnemonics and human-centered design.
 
-> [!WARNING]
-> **Alpha — syntax fork in progress.**
-> This repository was forked from [`php-collective/djot-php`](https://github.com/php-collective/djot-php) on 2026-05-13 and is being adapted to Carve syntax. While the migration is in flight, the parser still recognises Djot syntax in most places. Do not depend on the API yet.
-
 ## Status
 
-The `Carve\` namespace and class names are in place. The actual Carve syntax rules (delimiter swaps, table changes, captions, custom extension syntax) are being applied in tracked steps — see the project roadmap.
+Carve's syntax is implemented - the delimiter swaps, table changes, captions, and custom extension syntax - and passes the shared Carve spec corpus.
 
 ## Origins
 
