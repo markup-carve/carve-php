@@ -63,13 +63,38 @@ class BlocksInterruptParagraphsTest extends TestCase
 
     public function testBlockquoteInterruptsParagraph(): void
     {
+        // A real (multi-line) quote interrupts; a lone "> ..." stays prose to
+        // avoid mistaking a comparison for a quote (see testLoneBlockquoteMarkerStaysProse).
         $parser = new BlockParser(blocksInterruptParagraphs: true);
-        $doc = $parser->parse("They said:\n> This is important");
+        $doc = $parser->parse("They said:\n> This is important\n> Read it");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
+    }
+
+    public function testLoneBlockquoteMarkerStaysProse(): void
+    {
+        // A single "> ..." line after prose is ambiguous (comparison vs quote);
+        // without a continuation it stays paragraph text.
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $doc = $parser->parse("if a\n> b then");
+
+        $children = $doc->getChildren();
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+    }
+
+    public function testLoneBulletMarkerStaysProse(): void
+    {
+        // A single "- x" line after prose is almost always an operator, not a list.
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $doc = $parser->parse("x = 5\n- 3");
+
+        $children = $doc->getChildren();
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
     public function testOrderedListInterruptsParagraph(): void
@@ -163,7 +188,7 @@ class BlocksInterruptParagraphsTest extends TestCase
     public function testBlockquoteInListWithoutBlankLine(): void
     {
         $parser = new BlockParser(blocksInterruptParagraphs: true);
-        $doc = $parser->parse("- Item\n  > quoted");
+        $doc = $parser->parse("- Item\n  > quoted\n  > more");
 
         $list = $doc->getChildren()[0];
         $item = $list->getChildren()[0];
@@ -236,7 +261,7 @@ class BlocksInterruptParagraphsTest extends TestCase
     {
         $converter = new CarveConverter(blocksInterruptParagraphs: true);
 
-        $djot = "They said:\n> Important";
+        $djot = "They said:\n> Important\n> Detail";
         $result = $converter->convert($djot);
 
         $this->assertStringContainsString('<blockquote>', $result);
