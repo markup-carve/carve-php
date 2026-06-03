@@ -3109,8 +3109,10 @@ class BlockParser
         // no VISIBLE block (list, quote, table, heading, fence, div, ordered
         // list) interrupts a paragraph without a blank line; in
         // blocksInterruptParagraphs mode it also returns true for those blocks
-        // (markdown/chat-like).
-        if ($this->startsNewBlock($line)) {
+        // (markdown/chat-like). Pass the lookahead context so a lone ambiguous
+        // marker ("x = 5\n- 3", "if a\n> b") stays prose while a real block still
+        // interrupts.
+        if ($this->startsNewBlock($line, $lines, $i)) {
             return true;
         }
 
@@ -3257,7 +3259,14 @@ class BlockParser
         }
     }
 
-    protected function startsNewBlock(string $line): bool
+    /**
+     * @param string $line The candidate line.
+     * @param array<string>|null $lines All source lines, when lookahead is available
+     *     (paragraph interruption only). When null, a lone marker keeps the legacy
+     *     "interrupts" behavior.
+     * @param int $index Index of $line within $lines (so the next line is $lines[$index + 1]).
+     */
+    protected function startsNewBlock(string $line, ?array $lines = null, int $index = -1): bool
     {
         // Quick check: empty lines don't start blocks
         if ($line === '' || !isset($line[0])) {
@@ -3278,7 +3287,7 @@ class BlockParser
 
         // In blocksInterruptParagraphs mode, block elements can interrupt paragraphs
         if ($this->blocksInterruptParagraphs) {
-            return $this->startsInterruptingBlock($line);
+            return $this->startsInterruptingBlock($line, $lines, $index);
         }
 
         // Standard djot behavior:
@@ -3295,8 +3304,13 @@ class BlockParser
      * - Ordered lists (1. 2. etc)
      * - Code fences (```)
      * - Fenced divs (:::)
+     *
+     * @param string $line The candidate line.
+     * @param array<string>|null $lines All source lines, when prose lookahead is
+     *     available; null keeps the legacy "lone marker interrupts" behavior.
+     * @param int $index Index of $line within $lines.
      */
-    protected function startsInterruptingBlock(string $line): bool
+    protected function startsInterruptingBlock(string $line, ?array $lines = null, int $index = -1): bool
     {
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
@@ -3310,16 +3324,31 @@ class BlockParser
             case '+':
                 // Unordered lists or thematic breaks
                 if (isset($line[1]) && $line[1] === ' ') {
+                    // A lone marker line in flowing prose is almost always an
+                    // operator ("x = 5\n* 3 + 17", "Total\n- 3"), not a list.
+                    // When prose lookahead is available, only interrupt for a
+                    // real block: 2+ markers or an indented continuation.
+                    if ($lines !== null) {
+                        return $this->significantMarkerHasBlockContinuation('bullet', $lines, $index);
+                    }
+
                     return true; // Unordered list
                 }
 
                 // Thematic breaks: *\s*\*\s*\* or -\s*-\s*-
                 return preg_match('/^(\*\s*\*\s*\*|-\s*-\s*-)/', $line) === 1;
             case '|':
-                // Tables
+                // Tables — a single "| a | b |" line is already a valid table in
+                // Carve, and a line-leading "|" is rarely ambiguous prose, so it
+                // interrupts without a lookahead (unlike bullets/quotes).
                 return true;
             case '>':
-                // Block quotes
+                // Block quotes — a lone ">" in prose ("if x\n> 5 then") is a
+                // comparison, not a quote; require a real (multi-line) quote.
+                if ($lines !== null) {
+                    return $this->significantMarkerHasBlockContinuation('quote', $lines, $index);
+                }
+
                 return true;
             case '`':
                 // Code fences: `{3,}
@@ -3339,6 +3368,45 @@ class BlockParser
 
                 return false;
         }
+    }
+
+    /**
+     * In blocksInterruptParagraphs mode, decide whether a lone marker line in
+     * flowing prose really begins a block, or is just an operator/punctuation
+     * that happens to start a hard-wrapped line ("x = 5\n* 3 + 17", "if x\n> 5").
+     *
+     * A real block requires the immediately following line to either continue
+     * the block (another same-kind marker, i.e. 2+ markers) or be an indented
+     * continuation. A single isolated marker line stays paragraph text.
+     *
+     * @param string $kind One of 'bullet', 'quote'
+     * @param array<string> $lines All source lines
+     * @param int $index Index of the marker line within $lines
+     */
+    protected function significantMarkerHasBlockContinuation(string $kind, array $lines, int $index): bool
+    {
+        $next = $lines[$index + 1] ?? null;
+
+        // Lone marker as the last line (e.g. "Total: 5\n- 3") is not a block.
+        if ($next === null || IndentationHelper::isBlankLine($next)) {
+            return false;
+        }
+
+        // Indented continuation of a multi-line first item ("- item\n  more").
+        // Only meaningful for lists; quotes need their own marker.
+        if ($kind === 'bullet' && preg_match('/^\s/', $next) === 1) {
+            return true;
+        }
+
+        $t = ltrim($next);
+
+        return match ($kind) {
+            'bullet' => isset($t[0], $t[1])
+                && ($t[0] === '-' || $t[0] === '*' || $t[0] === '+')
+                && $t[1] === ' ',
+            'quote' => isset($t[0]) && $t[0] === '>',
+            default => true,
+        };
     }
 
     /**
