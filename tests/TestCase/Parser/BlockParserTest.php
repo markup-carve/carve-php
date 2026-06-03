@@ -538,7 +538,7 @@ DJOT;
     public function testBlocksInterruptParagraphsBlockquoteInList(): void
     {
         $parser = new BlockParser(blocksInterruptParagraphs: true);
-        $doc = $parser->parse("- Item\n  > quoted\n  > more");
+        $doc = $parser->parse("- Item\n  > quoted");
 
         $list = $doc->getChildren()[0];
         $item = $list->getChildren()[0];
@@ -562,24 +562,13 @@ DJOT;
 
     public function testBlocksInterruptParagraphsBlockquoteInterruptsParagraph(): void
     {
-        // A real (multi-line) quote interrupts; a lone "> ..." stays prose.
         $parser = new BlockParser(blocksInterruptParagraphs: true);
-        $doc = $parser->parse("They said:\n> This is important\n> Read it");
+        $doc = $parser->parse("They said:\n> This is important");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
-    }
-
-    public function testBlocksInterruptParagraphsLoneBlockquoteMarkerStaysProse(): void
-    {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
-        $doc = $parser->parse("if a\n> b then");
-
-        $children = $doc->getChildren();
-        $this->assertCount(1, $children);
-        $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
     public function testBlocksInterruptParagraphsSetterMethod(): void
