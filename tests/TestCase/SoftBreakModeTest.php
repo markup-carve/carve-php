@@ -134,12 +134,12 @@ DJOT;
         $djot = <<<'DJOT'
 Some text
 > A quote
-> continued
+More text
 DJOT;
 
         $result = $converter->convert($djot);
 
-        // A real (multi-line) quote interrupts; a lone "> ..." would stay prose.
+        // Should have blockquote (blocksInterruptParagraphs allows block interruption)
         $this->assertStringContainsString('<blockquote>', $result);
     }
 
