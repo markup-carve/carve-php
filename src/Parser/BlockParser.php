@@ -3316,8 +3316,10 @@ class BlockParser
                 // Thematic breaks: *\s*\*\s*\* or -\s*-\s*-
                 return preg_match('/^(\*\s*\*\s*\*|-\s*-\s*-)/', $line) === 1;
             case '|':
-                // Tables
-                return true;
+                // Tables: a single "| a | b |" row is a valid table, but a pipe
+                // in prose ("a\n| b als Oder.") is not a row, so validate before
+                // interrupting to avoid splitting prose into stray paragraphs.
+                return $this->tableParser->isTableRow($line);
             case '>':
                 // Block quotes
                 return true;

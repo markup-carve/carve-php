@@ -354,4 +354,16 @@ DJOT;
         $this->assertInstanceOf(Paragraph::class, $children[0]);
         $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
+
+    public function testNonTablePipeLineStaysProse(): void
+    {
+        // A pipe in prose is not a valid table row, so it must not interrupt
+        // and split the paragraph into stray blocks.
+        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $doc = $parser->parse("Das berechnet a\n| b als bitweises Oder.");
+
+        $children = $doc->getChildren();
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+    }
 }
