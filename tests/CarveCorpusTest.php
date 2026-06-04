@@ -112,6 +112,9 @@ class CarveCorpusTest extends TestCase
         '74-two-char-delimiter-runs',
         '75-trailing-attribute-block-edge-cases',
         '76-paragraph-interruption',
+        '77-blockquote-lazy-continuation',
+        '78-fenced-code-language-with-punctuation',
+        '79-multi-line-headings',
     ];
 
     /**
