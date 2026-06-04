@@ -1197,16 +1197,21 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSoftBreak(): string
     {
+        // The trailing newline is emitted as the soft-break guard so block
+        // indentation (indentBlock) never treats an inline soft/hard break as a
+        // line boundary — a hard-wrapped paragraph or heading keeps its
+        // continuation flush at column 0, matching carve-js/carve-rs/djot. The
+        // guard is restored to a real newline at every public render exit.
         return match ($this->softBreakMode) {
-            SoftBreakMode::Newline => "\n",
+            SoftBreakMode::Newline => self::SOFT_BREAK_GUARD,
             SoftBreakMode::Space => ' ',
-            SoftBreakMode::Break => $this->xhtml ? "<br />\n" : "<br>\n",
+            SoftBreakMode::Break => ($this->xhtml ? '<br />' : '<br>') . self::SOFT_BREAK_GUARD,
         };
     }
 
     protected function renderHardBreak(): string
     {
-        return $this->xhtml ? "<br />\n" : "<br>\n";
+        return ($this->xhtml ? '<br />' : '<br>') . self::SOFT_BREAK_GUARD;
     }
 
     protected function renderSpan(Span $node): string
