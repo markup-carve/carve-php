@@ -63,6 +63,25 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testSoftBreakContinuationStaysFlushInsideSection(): void
+    {
+        // A soft-break continuation line inside a section-nested block keeps
+        // its content at column 0 (it is not re-indented by the section's
+        // block indentation), matching carve-js. The block tag is indented;
+        // the wrapped text is not.
+        $expected = "<section id=\"h\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
+
+        $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two"));
+    }
+
+    public function testMultiLineHeadingContinuationIsFlush(): void
+    {
+        // Carve headings are multi-line; the folded continuation renders flush.
+        $expected = "<section id=\"title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
+
+        $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
+    }
+
     public function testEmphasis(): void
     {
         $djot = 'This is /emphasized/ text';
