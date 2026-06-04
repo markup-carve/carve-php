@@ -310,6 +310,19 @@ class HtmlRenderer implements RendererInterface
         return str_replace(self::SOFT_BREAK_GUARD, "\n", $html);
     }
 
+    /**
+     * Restore soft-break guards only at the top level. While an outer render is
+     * active (a fragment rendered by an extension mid-render), leave the guards
+     * in place so the surrounding block indentation does not re-indent inline
+     * soft/hard-break continuations — the outer render restores them at exit.
+     */
+    protected function restoreSoftBreakGuardsIfTopLevel(string $html): string
+    {
+        return $this->activeRenderContext === null
+            ? $this->restoreSoftBreakGuards($html)
+            : $html;
+    }
+
     public function render(Document $document): string
     {
         return $this->restoreSoftBreakGuards($this->withRenderContext(
@@ -340,7 +353,7 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderNodeFragment(Node $node): string
     {
-        return $this->restoreSoftBreakGuards(
+        return $this->restoreSoftBreakGuardsIfTopLevel(
             $this->withFragmentContext(fn (): string => $this->renderNode($node)),
         );
     }
@@ -353,7 +366,7 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderDocumentFragment(Document $document): string
     {
-        return $this->restoreSoftBreakGuards(
+        return $this->restoreSoftBreakGuardsIfTopLevel(
             $this->withFragmentContext(fn (): string => $this->renderDocumentWithSections($document)),
         );
     }
