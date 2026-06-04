@@ -63,6 +63,16 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testHeadingIsSingleLine(): void
+    {
+        // Carve headings end at the newline (grammar atx_heading); a following
+        // non-blank line is a separate paragraph inside the section, not part
+        // of the heading. (Djot would fold it into the heading.)
+        $expected = "<section id=\"title\">\n  <h1>Title</h1>\n  <p>outside</p>\n</section>\n";
+
+        $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
+    }
+
     public function testEmphasis(): void
     {
         $djot = 'This is /emphasized/ text';

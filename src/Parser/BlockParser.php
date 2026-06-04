@@ -750,22 +750,10 @@ class BlockParser
             // Match heading: optional leading spaces, 1-6 # characters, followed by space(s) and content
             // Space after # is syntax delimiter, not indentation - must be space(s) per spec, not tab
             if (preg_match('/^[ ]{0,3}(#{1,6})(?: +(.*))?$/', $line, $matches)) {
+                // Headings are single-line in Carve, so the reference label /
+                // id come from this line alone (must match tryParseHeading; a
+                // following non-blank line is a separate block, not heading text).
                 $headingText = trim($matches[2] ?? '');
-
-                // Collect continuation lines
-                $j = $i + 1;
-                while ($j < $count) {
-                    $nextLine = $lines[$j];
-                    if (trim($nextLine) === '' || preg_match('/^[ ]{0,3}#{1,6}/', $nextLine)) {
-                        break;
-                    }
-                    if (!$this->startsNewBlock($nextLine)) {
-                        $headingText .= ' ' . trim($nextLine);
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
 
                 $heading = new Heading(strlen($matches[1]));
                 if ($pendingId !== null) {
@@ -1460,39 +1448,11 @@ class BlockParser
         $level = strlen($matches[1]);
         $content = trim($matches[2] ?? '');
 
-        // Collect continuation lines
+        // Headings are single-line in Carve (grammar `atx_heading` ends at the
+        // newline; setext is intentionally excluded). Unlike Djot, the heading
+        // text does NOT spill onto following lines — a following non-blank line
+        // is its own block (a new heading, or a paragraph inside the section).
         $i = $start + 1;
-        $count = count($lines);
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-
-            // Empty line ends the heading
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                break;
-            }
-
-            // Check for continuation with # prefix (same level or less) - these continue the heading
-            // e.g., "# Heading\n# more" becomes "Heading\nmore" for a level-1 heading
-            if (preg_match('/^[ ]{0,3}#{1,' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
-                if ($content !== '') {
-                    $content .= "\n";
-                }
-                $content .= $contMatch[1];
-                $i++;
-            } elseif (preg_match('/^[ ]{0,3}#{1,6}(?: |$)/', $nextLine)) {
-                // Different level heading marker (or empty heading) starts a new heading
-                break;
-            } elseif (!$this->startsNewBlock($nextLine)) {
-                // "Lazy" continuation - plain text continues the heading
-                if ($content !== '') {
-                    $content .= "\n";
-                }
-                $content .= $nextLine;
-                $i++;
-            } else {
-                break;
-            }
-        }
 
         $heading = new Heading($level);
 

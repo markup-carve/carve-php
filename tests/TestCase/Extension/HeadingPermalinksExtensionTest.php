@@ -150,16 +150,18 @@ class HeadingPermalinksExtensionTest extends TestCase
         $this->assertStringContainsString('href="#summary-2"', $html);
     }
 
-    public function testHeadingWithLineBreak(): void
+    public function testHeadingDoesNotSpillOntoNextLine(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new HeadingPermalinksExtension());
 
-        // Hard break in heading (backslash at end of line)
+        // Carve headings are single-line (unlike Djot): the second line is a
+        // separate paragraph, not part of the heading, so the id is just "hello".
         $html = $converter->convert("# Hello\\\nWorld");
 
-        // The break should become a space in the ID
-        $this->assertStringContainsString('href="#hello-world"', $html);
+        $this->assertStringContainsString('href="#hello"', $html);
+        $this->assertStringContainsString('<p>World</p>', $html);
+        $this->assertStringNotContainsString('hello-world', $html);
     }
 
     public function testShowOnHover(): void
