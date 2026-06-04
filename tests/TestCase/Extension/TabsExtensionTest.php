@@ -888,4 +888,31 @@ DJOT;
         // The reconstructed djot should contain the table
         $this->assertStringContainsString('| Header 1 | Header 2 |', $html);
     }
+
+    public function testSoftBreakInTabStaysFlushInsideSection(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        // A hard-wrapped paragraph inside a tab (fragment-rendered) that sits
+        // inside a section must keep its continuation flush at column 0 — the
+        // surrounding section indentation must not re-indent it.
+        $djot = <<<'DJOT'
+# Heading
+
+:::: tabs
+::: tab
+### Tab One
+
+line one
+line two
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString("line one\nline two", $html);
+        $this->assertStringNotContainsString("line one\n  line two", $html);
+    }
 }
