@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Carve\Parser;
 
+use Carve\Node\Block\Comment;
 use Carve\Node\Inline\Abbreviation;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
@@ -357,6 +358,33 @@ class InlineParser
                 $textBuffer = '';
                 $parent->appendChild(new SoftBreak());
                 $pos++;
+
+                continue;
+            }
+
+            // Trailing (inline) line comment: `%%` preceded by a space/tab or
+            // at the start of the run consumes to the next newline. The
+            // preceding whitespace is absorbed; the newline stays (becomes a
+            // soft break, so the next line survives). Code spans parse before
+            // this on a backtick and consume opaquely; `\%%` is handled by the
+            // escape branch above.
+            if (
+                $char === '%' && $nextChar === '%'
+                && ($pos === 0 || $text[$pos - 1] === ' ' || $text[$pos - 1] === "\t")
+            ) {
+                $nl = strpos($text, "\n", $pos);
+                $end = $nl === false ? $length : $nl;
+                $content = substr($text, $pos + 2, $end - ($pos + 2));
+                // Strip exactly one leading space/tab (the separator between
+                // `%%` and the comment text); any further spacing is kept.
+                if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+                    $content = substr($content, 1);
+                }
+                $textBuffer = rtrim($textBuffer, " \t");
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(new Comment($content));
+                $pos = $end;
 
                 continue;
             }
