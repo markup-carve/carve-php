@@ -29,6 +29,24 @@ class ProfileTest extends TestCase
         $this->assertStringContainsString('<em>italic</em>', $html);
     }
 
+    public function testCommentProfileDropsBlockCommentWithoutLeakingContent(): void
+    {
+        $converter = new CarveConverter(profile: Profile::comment());
+        $html = $converter->convert("hello\n\n%% secret note\n\nworld");
+
+        $this->assertStringNotContainsString('secret', $html);
+        $this->assertStringContainsString('<p>hello</p>', $html);
+        $this->assertStringContainsString('<p>world</p>', $html);
+    }
+
+    public function testCommentProfileDropsTrailingCommentWithoutLeakingContent(): void
+    {
+        $converter = new CarveConverter(profile: Profile::comment());
+        $html = $converter->convert('visible text %% trailing secret');
+
+        $this->assertSame('<p>visible text</p>', trim($html));
+    }
+
     public function testCommentProfileAllowsDelete(): void
     {
         $converter = new CarveConverter(profile: Profile::comment());

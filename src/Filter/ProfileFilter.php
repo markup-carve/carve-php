@@ -9,6 +9,7 @@ use Carve\LinkPolicy;
 use Carve\Node\Block\BlockNode;
 use Carve\Node\Block\BlockQuote;
 use Carve\Node\Block\CodeBlock;
+use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
@@ -194,6 +195,15 @@ class ProfileFilter
 
     protected function convertToText(Node $node, Node $parent): void
     {
+        // A comment is never visible content. Converting it to text would leak
+        // its body into the output (and, being a block node, wrap it in a
+        // stray paragraph), so always drop it regardless of the action.
+        if ($node instanceof Comment) {
+            $parent->removeChild($node);
+
+            return;
+        }
+
         $textContent = $this->extractTextContent($node);
 
         if ($textContent === '') {
