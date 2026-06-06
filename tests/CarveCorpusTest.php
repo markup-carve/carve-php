@@ -128,18 +128,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // Blockquote lazy-continuation-stops-at-a-fenced-block (category 80) is
-        // tracked separately from paragraph interruption (§10). Example -2 also
-        // hits the unclosed-``` inline-verbatim divergence (MAINTAINING Open).
-        // Deferred here; resolved by the blockquote fence/div-lazy work, not by
-        // this change.
-        '80-blockquote-lazy-continuation-stops-at-a-fenced-block' =>
-            'Blockquote lazy-continuation stops-at-fence is tracked separately (not §10).',
-        '80-blockquote-lazy-continuation-stops-at-a-fenced-block-2' =>
-            'Unclosed ``` renders an inline verbatim span in carve-php vs literal text; the '
-            . 'inline-verbatim-unclosed divergence is tracked in MAINTAINING (Open).',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 
