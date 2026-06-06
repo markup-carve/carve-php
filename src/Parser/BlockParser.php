@@ -51,6 +51,18 @@ class BlockParser
      */
     private const INITIAL_BRACE_STATE = ['depth' => 0, 'inQuote' => false, 'quoteChar' => '', 'pendingEscape' => false];
 
+    /**
+     * Maximum block-container nesting depth. Every level of blockquote / div /
+     * list / footnote recurses through parseBlocks(), so unbounded nesting (e.g.
+     * `> ` repeated thousands of times) exhausts the stack or memory. Past this
+     * depth, container content is emitted as a literal paragraph instead of
+     * recursing. Far above any real document; only adversarial input reaches it.
+     */
+    private const MAX_NESTING_DEPTH = 200;
+
+    /** Current block-container nesting depth, maintained by parseBlocks(). */
+    private int $nestingDepth = 0;
+
     protected InlineParser $inlineParser;
 
     protected ListParser $listParser;
@@ -801,12 +813,43 @@ class BlockParser
     }
 
     /**
+     * Recurse into block content, but cap nesting depth so pathologically
+     * nested input degrades to literal text instead of overflowing the stack
+     * (or exhausting memory). See MAX_NESTING_DEPTH.
+     *
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
      * @param bool $topLevel
      */
     protected function parseBlocks(Node $parent, array $lines, int $indent, bool $topLevel = false): void
+    {
+        if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
+            $text = implode("\n", $lines);
+            if (trim($text) !== '') {
+                $paragraph = new Paragraph();
+                $this->inlineParser->parse($paragraph, $text);
+                $parent->appendChild($paragraph);
+            }
+
+            return;
+        }
+
+        $this->nestingDepth++;
+        try {
+            $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
+        } finally {
+            $this->nestingDepth--;
+        }
+    }
+
+    /**
+     * @param \Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $indent
+     * @param bool $topLevel
+     */
+    private function parseBlocksImpl(Node $parent, array $lines, int $indent, bool $topLevel = false): void
     {
         $i = 0;
         $count = count($lines);
