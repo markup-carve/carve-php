@@ -42,15 +42,16 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testOrderedListInterruptsParagraphOnlyFromOne(): void
+    public function testOrderedListDoesNotInterruptParagraph(): void
     {
+        // An ordered-list marker does not interrupt a paragraph; it needs a
+        // blank line (matching Djot, avoiding the CommonMark `1.`-only heuristic).
         $parser = new BlockParser();
         $doc = $parser->parse("Steps:\n1. First\n2. Second");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
     public function testCodeFenceInterruptsParagraphWhenClosed(): void

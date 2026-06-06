@@ -3541,12 +3541,10 @@ class BlockParser
                 // Fenced comments: %{3,}
                 return isset($line[1], $line[2]) && $line[1] === '%' && $line[2] === '%';
             default:
-                // Only 1. or 1) can interrupt paragraphs (CommonMark rule)
-                // Prevents "1985. That year..." from becoming a list
-                if ($first === '1') {
-                    return preg_match('/^1[.)]\s/', $line) === 1;
-                }
-
+                // An ordered-list marker does NOT interrupt a paragraph: it
+                // needs a blank line (matching Djot). Allowing it would require
+                // the CommonMark `1.`-only heuristic to keep `2.`, `1985.` etc.
+                // as prose, which Carve avoids. A bare image is inline too.
                 return false;
         }
     }
