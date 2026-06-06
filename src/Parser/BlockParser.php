@@ -3600,8 +3600,8 @@ class BlockParser
         }
 
         // List markers - these indicate a new list at this level
-        // Bullet lists: -, *, + followed by space
-        if (preg_match('/^[-*+] /', $line)) {
+        // Bullet lists: - or * followed by space (`+` is not a bullet in Carve)
+        if (preg_match('/^[-*] /', $line)) {
             return true;
         }
 

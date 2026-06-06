@@ -61,8 +61,10 @@ class CompactListBlocksTest extends TestCase
         $this->assertStringContainsString('<p>+</p>', $this->converter->convert("para\n\n+\n\nnext"));
     }
 
-    public function testRealPlusBulletsUnaffected(): void
+    public function testPlusIsNotABulletSoPlusLineIsLiteral(): void
     {
-        $this->assertSame("<ul>\n  <li>one</li>\n  <li>two</li>\n</ul>", trim($this->converter->convert("+ one\n+ two")));
+        // Carve drops `+` as a bullet (it is the continuation marker), so a
+        // `+ x` line is ordinary paragraph text.
+        $this->assertSame("<p>+ one\n+ two</p>", trim($this->converter->convert("+ one\n+ two")));
     }
 }
