@@ -125,15 +125,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // A non-`>` line landing inside an open fenced code block in a
-        // blockquote should end the quote; carve-php swallows it into the code
-        // block instead. Pre-existing block-parser divergence, unrelated to the
-        // inline-verbatim work that pinned this category (the mid-paragraph
-        // verbatim sub-example `-2` passes). Tracked separately.
-        '80-blockquote-lazy-continuation-stops-at-a-fenced-block' =>
-            'Blockquote fence lazy-continuation: non-> line swallowed into code block (block-parser bug, tracked separately).',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 
