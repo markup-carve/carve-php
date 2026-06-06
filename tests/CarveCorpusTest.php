@@ -115,6 +115,7 @@ class CarveCorpusTest extends TestCase
         '77-blockquote-lazy-continuation',
         '78-fenced-code-language-with-punctuation',
         '79-multi-line-headings',
+        '80-blockquote-lazy-continuation-stops-at-a-fenced-block',
     ];
 
     /**
