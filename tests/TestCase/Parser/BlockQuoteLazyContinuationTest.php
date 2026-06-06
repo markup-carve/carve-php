@@ -24,11 +24,12 @@ class BlockQuoteLazyContinuationTest extends TestCase
 
     public function testNonMarkerLineInsideOpenFenceTerminatesQuote(): void
     {
-        // The non-">" lines must NOT be swallowed into the code block; the quote
-        // ends and they become a separate paragraph (">" rendered literally).
+        // The non-">" line must NOT be swallowed into the code block; the quote
+        // ends and `b` starts a paragraph. The trailing `> c` then interrupts
+        // that paragraph into a fresh block quote (§10 paragraph interruption).
         $djot = "> ```\n> a\nb\n> c";
         $expected = "<blockquote>\n  <pre><code>a\n</code></pre>\n</blockquote>\n"
-            . "<p>b\n&gt; c</p>\n";
+            . "<p>b</p>\n<blockquote><p>c</p></blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -36,10 +37,13 @@ class BlockQuoteLazyContinuationTest extends TestCase
     public function testNonMarkerLineAfterDivOpenerTerminatesQuote(): void
     {
         // The div just opened (no paragraph yet), so a non-">" line ends the quote
-        // and is not pulled inside the div.
+        // and is not pulled inside the div; `body` starts a paragraph. The trailing
+        // `> :::` then interrupts it into a fresh block quote (§10). The bare `:::`
+        // inside that quote is carve-php's unterminated-div handling (an empty div);
+        // the unterminated-opener rendering is a deferred cross-impl divergence.
         $djot = "> :::note\nbody\n> :::";
         $expected = "<blockquote>\n  <aside class=\"admonition note\">\n\n  </aside>\n</blockquote>\n"
-            . "<p>body\n&gt; :::</p>\n";
+            . "<p>body</p>\n<blockquote>\n  <div>\n\n  </div>\n</blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

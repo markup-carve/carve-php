@@ -11,17 +11,17 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for soft break mode configuration.
  *
- * The softBreakMode parameter allows separating parsing behavior
- * (blocksInterruptParagraphs) from rendering behavior (soft breaks as <br>).
+ * The softBreakMode parameter configures rendering behavior
+ * (soft breaks as <br>) independently from parsing behavior.
  */
 class SoftBreakModeTest extends TestCase
 {
     /**
-     * blocksInterruptParagraphs allows nested lists without blank lines.
+     * Paragraph interruption allows nested lists without blank lines.
      */
     public function testNestedListsWithoutBlankLines(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -45,7 +45,7 @@ DJOT;
      */
     public function testSoftBreaksWithSpaceMode(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -62,15 +62,15 @@ DJOT;
     }
 
     /**
-     * blocksInterruptParagraphs mode does NOT automatically set soft break mode.
+     * Paragraph interruption does not automatically set soft break mode.
      *
      * The two features are independent:
-     * - blocksInterruptParagraphs: affects parsing (block interruption)
+     * - paragraphInterruption: affects parsing (block interruption)
      * - softBreakMode: affects rendering (how soft breaks appear)
      */
-    public function testBlocksInterruptParagraphsDoesNotChangeSoftBreakMode(): void
+    public function testParagraphInterruptionDoesNotChangeSoftBreakMode(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs();
+        $converter = new CarveConverter();
 
         $djot = <<<'DJOT'
 Line one
@@ -89,7 +89,7 @@ DJOT;
      */
     public function testExplicitBreakModeHasBrTags(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Break,
         );
 
@@ -111,7 +111,6 @@ DJOT;
     public function testConstructorWithSoftBreakMode(): void
     {
         $converter = new CarveConverter(
-            blocksInterruptParagraphs: true,
             softBreakMode: SoftBreakMode::Newline,
         );
 
@@ -123,11 +122,11 @@ DJOT;
     }
 
     /**
-     * blocksInterruptParagraphs allows blockquotes without blank lines.
+     * Paragraph interruption allows blockquotes without blank lines.
      */
     public function testBlockquotesWithoutBlankLines(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -139,16 +138,16 @@ DJOT;
 
         $result = $converter->convert($djot);
 
-        // Should have blockquote (blocksInterruptParagraphs allows block interruption)
+        // Should have blockquote (paragraph interruption allows block interruption)
         $this->assertStringContainsString('<blockquote>', $result);
     }
 
     /**
-     * Nested ordered lists work with blocksInterruptParagraphs.
+     * Nested ordered lists work with paragraph interruption.
      */
     public function testNestedOrderedLists(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -167,11 +166,11 @@ DJOT;
     }
 
     /**
-     * Deeply nested lists work with blocksInterruptParagraphs.
+     * Deeply nested lists work with paragraph interruption.
      */
     public function testDeeplyNestedLists(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -212,11 +211,11 @@ DJOT;
     }
 
     /**
-     * blocksInterruptParagraphs preserves tight/loose list distinction.
+     * Paragraph interruption preserves tight/loose list distinction.
      */
     public function testTightLooseDistinctionPreserved(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
@@ -251,7 +250,7 @@ DJOT;
      */
     public function testBlankLinesInNestedListsDoNotSplit(): void
     {
-        $converter = CarveConverter::withBlocksInterruptParagraphs(
+        $converter = new CarveConverter(
             softBreakMode: SoftBreakMode::Space,
         );
 
