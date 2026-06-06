@@ -165,51 +165,16 @@ class BlockParser
 
     protected ?Node $currentMatcherParent = null;
 
-    /**
-     * When true, top-level blocks (lists, blockquotes, headings, tables,
-     * fences, divs) may interrupt a paragraph without a preceding blank line —
-     * a markdown-like, chat-friendly leniency.
-     *
-     * This deviates from the Djot spec but is more intuitive for chat messages,
-     * comments, and quick notes. Nesting blocks inside list items is native
-     * Carve behavior and does NOT require this flag.
-     */
-    protected bool $blocksInterruptParagraphs = false;
-
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
-        bool $blocksInterruptParagraphs = false,
     ) {
         $this->collectWarnings = $collectWarnings;
         $this->strictMode = $strictMode;
-        $this->blocksInterruptParagraphs = $blocksInterruptParagraphs;
         $this->inlineParser = new InlineParser($this);
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
         $this->fencedBlockParser = new FencedBlockParser();
-    }
-
-    /**
-     * Enable or disable blocks-interrupt-paragraphs mode.
-     *
-     * When enabled, lists, blockquotes, headings, tables, fences and divs can
-     * interrupt a paragraph without a preceding blank line (markdown-like).
-     * Nesting blocks inside list items is native Carve and is unaffected.
-     */
-    public function setBlocksInterruptParagraphs(bool $value): self
-    {
-        $this->blocksInterruptParagraphs = $value;
-
-        return $this;
-    }
-
-    /**
-     * Check if blocks-interrupt-paragraphs mode is enabled
-     */
-    public function getBlocksInterruptParagraphs(): bool
-    {
-        return $this->blocksInterruptParagraphs;
     }
 
     /**
@@ -1725,11 +1690,14 @@ class BlockParser
             return;
         }
 
-        // A fence/comment/div opener starts a new block only when it is allowed to:
-        // djot paragraphs are not interrupted by block elements without a blank line,
-        // so a fence-looking line mid-paragraph is just paragraph text. With
-        // blocksInterruptParagraphs enabled, openers DO interrupt an open paragraph.
-        if (!$state['paragraphOpen'] || $this->blocksInterruptParagraphs) {
+        // This only tracks LAZY-CONTINUATION state (which non-">" lines extend the
+        // quote), not how the collected content is block-parsed -- §10 paragraph
+        // interruption (with its fence/div closer lookahead) is applied later by
+        // parseBlocks. A fence/comment/div opener begins a fence/comment/div state
+        // only when no paragraph is open (the opener is the first content, or
+        // follows a blank line); a marker mid-paragraph leaves the paragraph open
+        // so a following unquoted line still lazily continues it.
+        if (!$state['paragraphOpen']) {
             $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($content);
             if ($fenceInfo !== null) {
                 $state['inFence'] = true;
@@ -3235,16 +3203,11 @@ class BlockParser
     }
 
     /**
-     * Paragraph interruption (grammar PART 9 §10). In the default (full-djot)
-     * mode a VISIBLE block (list, quote, table, heading, fence, div, ordered
-     * list) does NOT interrupt a paragraph: it needs a blank line before it,
-     * so a hard-wrapped prose line beginning with `-`, `*`, `+`, `>`, `|`,
-     * `#`, `1.`, … stays paragraph text. Captions and INVISIBLE constructs
-     * (reference definitions and comments) interrupt in every mode, since they
-     * annotate/attach to prose with no blank line and produce no standalone
-     * block. In blocksInterruptParagraphs mode visible blocks interrupt too
-     * (markdown/chat-like; see startsNewBlock()). Sublist nesting via
-     * indentation is handled in the list-item collector, not here.
+     * Paragraph interruption (grammar PART 9 §10). Visible blocks interrupt
+     * open paragraphs without requiring a blank line. Captions and invisible
+     * constructs (reference definitions and comments) also interrupt, since
+     * they annotate/attach to prose with no rendered block of their own.
+     * Sublist nesting via indentation is handled in the list-item collector.
      *
      * @param array<string> $lines
      * @param int $i
@@ -3253,20 +3216,12 @@ class BlockParser
     {
         $line = $lines[$i];
 
-        // startsNewBlock() encodes the mode policy: in default (full-djot)
-        // mode it returns true only for captions (`^ …`) and `%%%` comments —
-        // no VISIBLE block (list, quote, table, heading, fence, div, ordered
-        // list) interrupts a paragraph without a blank line; in
-        // blocksInterruptParagraphs mode it also returns true for those blocks
-        // (markdown/chat-like).
-        if ($this->startsNewBlock($line)) {
+        if ($this->startsNewBlock($line, $lines, $i)) {
             return true;
         }
 
-        // Invisible constructs interrupt in EVERY mode — they produce no
-        // rendered block of their own, so they are recognised next to prose
-        // rather than left as literal text: reference definitions (link /
-        // footnote / abbreviation) and `%%` line comments.
+        // Invisible constructs produce no rendered block of their own, so they
+        // are recognised next to prose rather than left as literal text.
         return preg_match('/^\[[^\]]+\]:/', $line) === 1
             || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
             || preg_match('/^%%/', $line) === 1;
@@ -3304,7 +3259,7 @@ class BlockParser
                 break;
             }
             // Stop at block-level elements
-            if ($this->startsNewBlock($nextLine)) {
+            if ($this->startsNewBlock($nextLine, $lines, $i)) {
                 break;
             }
             // Stop at new table
@@ -3406,7 +3361,12 @@ class BlockParser
         }
     }
 
-    protected function startsNewBlock(string $line): bool
+    /**
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function startsNewBlock(string $line, ?array $lines = null, ?int $index = null): bool
     {
         // Quick check: empty lines don't start blocks
         if ($line === '' || !isset($line[0])) {
@@ -3425,27 +3385,17 @@ class BlockParser
             return true;
         }
 
-        // In blocksInterruptParagraphs mode, block elements can interrupt paragraphs
-        if ($this->blocksInterruptParagraphs) {
-            return $this->startsInterruptingBlock($line);
-        }
-
-        // Standard djot behavior:
-        // NO block elements can interrupt paragraphs - they all require a blank line
-        // See: https://djot.net - "Paragraphs can never be interrupted by other block-level elements"
-        return false;
+        return $this->startsInterruptingBlock($line, $lines, $index);
     }
 
     /**
-     * Check if line starts a new block in blocksInterruptParagraphs mode
+     * Check if line starts a visible block that interrupts an open paragraph.
      *
-     * In this mode, more elements can interrupt paragraphs:
-     * - Block quotes (>)
-     * - Ordered lists (1. 2. etc)
-     * - Code fences (```)
-     * - Fenced divs (:::)
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
      */
-    protected function startsInterruptingBlock(string $line): bool
+    protected function startsInterruptingBlock(string $line, ?array $lines = null, ?int $index = null): bool
     {
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
@@ -3462,8 +3412,11 @@ class BlockParser
                     return true; // Unordered list
                 }
 
-                // Thematic breaks: *\s*\*\s*\* or -\s*-\s*-
-                return preg_match('/^(\*\s*\*\s*\*|-\s*-\s*-)/', $line) === 1;
+                // Thematic breaks: a bare run of at least three matching markers
+                return preg_match('/^(' . preg_quote($first, '/') . '[ \t]*){3,}$/', $line) === 1;
+            case '_':
+                // Thematic break
+                return preg_match('/^(_[ \t]*){3,}$/', $line) === 1;
             case '|':
                 // Tables: a single "| a | b |" row is a valid table, but a pipe
                 // in prose ("a\n| b als Oder.") is not a row, so validate before
@@ -3473,11 +3426,12 @@ class BlockParser
                 // Block quotes
                 return true;
             case '`':
-                // Code fences: `{3,}
-                return isset($line[1], $line[2]) && $line[1] === '`' && $line[2] === '`';
+            case '~':
+                // Code fences interrupt only if a matching closer exists ahead.
+                return $this->hasClosingFenceAhead($line, $lines, $index);
             case ':':
-                // Fenced divs: :{3,}
-                return isset($line[1], $line[2]) && $line[1] === ':' && $line[2] === ':';
+                // Fenced divs interrupt only if a matching closer exists ahead.
+                return $this->hasClosingDivFenceAhead($line, $lines, $index);
             case '%':
                 // Fenced comments: %{3,}
                 return isset($line[1], $line[2]) && $line[1] === '%' && $line[2] === '%';
@@ -3493,11 +3447,72 @@ class BlockParser
     }
 
     /**
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function hasClosingFenceAhead(string $line, ?array $lines, ?int $index): bool
+    {
+        if (preg_match('/^([`~])\1{2,}/', $line, $matches) !== 1) {
+            return false;
+        }
+
+        if ($lines === null || $index === null) {
+            return true;
+        }
+
+        $char = $matches[1];
+        $length = strspn($line, $char);
+        $count = count($lines);
+
+        // Reuse the collector's closer matcher so the interruption lookahead can
+        // never accept a closer the fence collector would reject (no drift).
+        for ($i = $index + 1; $i < $count; $i++) {
+            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $char, $length)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function hasClosingDivFenceAhead(string $line, ?array $lines, ?int $index): bool
+    {
+        if (preg_match('/^:{3,}/', $line) !== 1) {
+            return false;
+        }
+
+        if ($lines === null || $index === null) {
+            return true;
+        }
+
+        $length = strspn($line, ':');
+        $count = count($lines);
+
+        // Reuse the collector's closer matcher (isDivFenceCloser allows no leading
+        // whitespace), so an indented `  :::` is not mistaken for a closer here
+        // when tryParseDiv would not accept it -- which would split the paragraph
+        // and swallow the document into an unterminated div.
+        for ($i = $index + 1; $i < $count; $i++) {
+            if ($this->fencedBlockParser->isDivFenceCloser($lines[$i], $length)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if line starts a block element that should terminate list content collection.
      *
      * This is different from startsNewBlock() which is about paragraph interruption.
      * Block elements at column 0 (or less than list indent) should always break out
-     * of list content collection, regardless of blocksInterruptParagraphs mode.
+     * of list content collection.
      *
      * @param string $line The trimmed line to check
      */
