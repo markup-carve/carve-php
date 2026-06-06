@@ -1988,8 +1988,11 @@ class BlockParser
                     if ($nextInfo !== null) {
                         break;
                     }
-                    // Non-list content at base indent - check if it starts another block
-                    if ($this->startsNewBlock($nextTrimmed)) {
+                    // Non-list content at base indent: a line that starts a block
+                    // ends the list (lazy continuation only extends a paragraph).
+                    // isBlockElementStart() detects blocks regardless of mode;
+                    // startsNewBlock() additionally covers blocksInterruptParagraphs.
+                    if ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)) {
                         break;
                     }
                 }

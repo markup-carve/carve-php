@@ -934,6 +934,18 @@ class InlineParser
         $bracketDepth = 1;
         $textEnd = $pos + 1;
         while ($textEnd < $length && $bracketDepth > 0) {
+            if ($text[$textEnd] === '`') {
+                // A bracket inside a code span is literal. An unclosed run is
+                // opaque to the end of the block, so no ] can close the bracket
+                // and this is not a link.
+                $codeEnd = $this->findCodeSpanEnd($text, $textEnd);
+                if ($codeEnd === null) {
+                    return null;
+                }
+                $textEnd = $codeEnd;
+
+                continue;
+            }
             if ($text[$textEnd] === '[') {
                 $bracketDepth++;
             } elseif ($text[$textEnd] === ']') {
@@ -1306,6 +1318,10 @@ class InlineParser
 
                     continue;
                 }
+
+                // Unclosed backtick run: opaque to the end of the block, so no
+                // closer can follow it and this delimiter cannot form emphasis.
+                return null;
             }
 
             // Skip over autolinks <...>
@@ -1444,6 +1460,10 @@ class InlineParser
 
                     continue;
                 }
+
+                // Unclosed backtick run: opaque to the end of the block, so no
+                // closer can follow it and this delimiter cannot form emphasis.
+                return null;
             }
 
             if (substr($text, $searchPos, $dl) === $delimiter) {
@@ -1502,6 +1522,10 @@ class InlineParser
 
                     continue;
                 }
+
+                // Unclosed backtick run: opaque to the end of the block, so no
+                // closer can follow it.
+                return null;
             }
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
