@@ -65,8 +65,9 @@ class ListParser
             ];
         }
 
-        // Bullet list: - or * only. Carve drops djot's `+` bullet so a lone `+`
-        // can be the list-continuation marker (a `+ ` line is paragraph text).
+        // Bullet list: - or * only. Unlike Markdown/djot, `+` is not a Carve
+        // bullet -- it is reserved as the list-continuation marker, so a lone
+        // `+` is unambiguous and a `+ x` line is ordinary paragraph text.
         if (preg_match('/^([-*]) +(.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];

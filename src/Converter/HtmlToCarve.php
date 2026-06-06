@@ -1240,7 +1240,12 @@ class HtmlToCarve
         if ($isOrdered) {
             $marker = $marker ?: '.';
         } else {
+            // `+` is not a Carve bullet (it is the continuation marker), so clamp
+            // a stray data-marker="+" (e.g. from hand-written HTML) back to `-`.
             $marker = $marker ?: '-';
+            if ($marker === '+') {
+                $marker = '-';
+            }
         }
 
         // Add leading newline for top-level lists to ensure blank line before

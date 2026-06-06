@@ -63,8 +63,8 @@ class CompactListBlocksTest extends TestCase
 
     public function testPlusIsNotABulletSoPlusLineIsLiteral(): void
     {
-        // Carve drops `+` as a bullet (it is the continuation marker), so a
-        // `+ x` line is ordinary paragraph text.
+        // `+` is not a Carve bullet (unlike Markdown/djot) -- it is the
+        // continuation marker, so a `+ x` line is ordinary paragraph text.
         $this->assertSame("<p>+ one\n+ two</p>", trim($this->converter->convert("+ one\n+ two")));
     }
 }
