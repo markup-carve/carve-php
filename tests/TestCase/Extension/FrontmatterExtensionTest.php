@@ -617,4 +617,28 @@ DJOT;
         $this->assertTrue($ext->hasFrontmatter());
         $this->assertSame('json', $ext->getFormat());
     }
+
+    public function testLenientSpaceBeforeFormatToken(): void
+    {
+        // `--- toml` (space) is accepted as well as `---toml`; the no-space form
+        // is canonical. Matches the optional space on a code fence.
+        $ext = new FrontmatterExtension();
+        $converter = new CarveConverter();
+        $converter->addExtension($ext);
+
+        $djot = <<<'DJOT'
+--- toml
+title = "My Document"
+---
+
+Content here.
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringNotContainsString('title =', $html);
+        $this->assertTrue($ext->hasFrontmatter());
+        $this->assertSame('toml', $ext->getFormat());
+        $this->assertStringContainsString('title = "My Document"', $ext->getContent());
+    }
 }
