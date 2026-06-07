@@ -53,7 +53,7 @@ class ListParser
         // Task list: - [.] where . is any single character
         // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
         // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([-*+]) +\[(.)\] +(.*)$/', $line, $matches)) {
+        if (preg_match('/^([-*+]) +\[(.)\] +(\S.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -66,7 +66,10 @@ class ListParser
         }
 
         // Bullet list: -, +, or *
-        if (preg_match('/^([-*+]) +(.*)$/', $line, $matches)) {
+        // A marker is a list item only with non-empty content: a content-less
+        // marker (bare or trailing whitespace only) is paragraph text, not a
+        // list. Avoids a trailing space being load-bearing. See PART 9.
+        if (preg_match('/^([-*+]) +(\S.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
@@ -89,7 +92,7 @@ class ListParser
         }
 
         // Ordered list: 1. or 1)
-        if (preg_match('/^(\d+)([.)]) +(.*)$/', $line, $matches)) {
+        if (preg_match('/^(\d+)([.)]) +(\S.*)$/', $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => $matches[2],
@@ -103,7 +106,7 @@ class ListParser
         // literal paragraph text. Carve uses the . and ) delimiters only.
 
         // Roman numeral ordered list
-        if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +(.*)$/', $line, $matches)) {
+        if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +(\S.*)$/', $line, $matches)) {
             $roman = $matches[1];
             $isLower = ctype_lower($roman[0]);
             $start = $this->romanToInt(strtoupper($roman));
@@ -127,7 +130,7 @@ class ListParser
         }
 
         // Alpha ordered list: a. or A. or a) or A)
-        if (preg_match('/^([a-zA-Z])([.)]) +(.*)$/', $line, $matches)) {
+        if (preg_match('/^([a-zA-Z])([.)]) +(\S.*)$/', $line, $matches)) {
             $letter = $matches[1];
             $isLower = ctype_lower($letter);
             $start = ord(strtolower($letter)) - ord('a') + 1;
