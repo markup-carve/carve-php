@@ -72,9 +72,11 @@ class HtmlRenderer implements RendererInterface
     protected ?SafeMode $safeMode = null;
 
     /**
-     * Tab width for code blocks (null = preserve tabs, integer = convert to spaces)
+     * Tab width for code content (null = preserve tabs verbatim, the default and
+     * djot/CommonMark-aligned behavior; integer = convert each tab to that many
+     * spaces). Opt in to conversion via TabNormalizeExtension, not by default.
      */
-    protected ?int $codeBlockTabWidth = 4;
+    protected ?int $codeBlockTabWidth = null;
 
     /**
      * Round-trip mode adds data attributes to preserve Djot-specific information
