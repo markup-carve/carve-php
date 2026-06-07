@@ -52,7 +52,7 @@ class InlineCommentTest extends TestCase
         // Heading text "%% all" reaches the inline parser at offset 0, so the
         // start-of-run branch fires and the whole title is a comment.
         $this->assertSame(
-            "<section id=\"section\">\n  <h1></h1>\n</section>",
+            "<section id=\"s\">\n  <h1></h1>\n</section>",
             $this->html('# %% all'),
         );
     }

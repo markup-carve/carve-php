@@ -18,7 +18,6 @@ use LengthException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Transliterator;
 
 class CarveConverterTest extends TestCase
 {
@@ -1808,18 +1807,12 @@ DJOT;
         $djot = '# 日本語の見出し';
         $result = $this->converter->convert($djot);
 
-        // The visible heading text is unchanged; only the ID is made
-        // ASCII-safe so it survives being shared as a URL fragment. The id
-        // lives on the section wrapper, not the heading.
+        // By default the id preserves non-ASCII characters (only case is
+        // folded), per carve spec #73. The id lives on the section
+        // wrapper, not the heading. Opt into ASCII via
+        // AsciiHeadingIdsExtension (see its dedicated test).
         $this->assertStringContainsString('>日本語の見出し</h1>', $result);
-        $this->assertStringNotContainsString('id="日本語の見出し"', $result);
-        $this->assertMatchesRegularExpression('/<section id="[\x21-\x7E]+">/', $result);
-
-        if (class_exists(Transliterator::class)) {
-            // With ext-intl the CJK heading is romanized (lowercased per
-            // Carve's normative algorithm) rather than dropped.
-            $this->assertStringContainsString('<section id="ri-ben-yuno-jian-chushi">', $result);
-        }
+        $this->assertStringContainsString('<section id="日本語の見出し">', $result);
     }
 
     public function testUnicodeInLink(): void

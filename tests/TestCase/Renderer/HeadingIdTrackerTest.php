@@ -102,8 +102,8 @@ class HeadingIdTrackerTest extends TestCase
         $id1 = $this->tracker->getIdForHeading($heading1);
         $id2 = $this->tracker->getIdForHeading($heading2);
 
-        $this->assertSame('section', $id1);
-        $this->assertSame('section-2', $id2);
+        $this->assertSame('s', $id1);
+        $this->assertSame('s-2', $id2);
     }
 
     public function testResetClearsState(): void
@@ -157,14 +157,14 @@ class HeadingIdTrackerTest extends TestCase
         $this->assertSame('multiple-spaces', $this->tracker->normalizeId('Multiple   Spaces'));
         $this->assertSame('this-t-key-params-fallback', $this->tracker->normalizeId("\$this->t(\$key, \$params = [], \$fallback = '')"));
         $this->assertSame('my-title', $this->tracker->normalizeId('My --- title'));
-        // Non-ASCII is transliterated for link-safety; Latin and Cyrillic
-        // are byte-identical with or without ext-intl.
-        $this->assertSame('uber-uns', $this->tracker->normalizeId('Über uns'));
-        $this->assertSame('cafe-resume', $this->tracker->normalizeId('café résumé'));
-        $this->assertSame('privet-mir', $this->tracker->normalizeId('Привет мир'));
-        $this->assertSame('section', $this->tracker->normalizeId('###'));
-        $this->assertSame('section-123-things', $this->tracker->normalizeId('123 Things'));
-        $this->assertSame('section-1-introduction', $this->tracker->normalizeId('1. Introduction'));
+        // Non-ASCII is preserved by default (only case folded); see
+        // AsciiHeadingIdsExtension for the opt-in ASCII fold.
+        $this->assertSame('über-uns', $this->tracker->normalizeId('Über uns'));
+        $this->assertSame('café-résumé', $this->tracker->normalizeId('café résumé'));
+        $this->assertSame('привет-мир', $this->tracker->normalizeId('Привет мир'));
+        $this->assertSame('s', $this->tracker->normalizeId('###'));
+        $this->assertSame('s-123-things', $this->tracker->normalizeId('123 Things'));
+        $this->assertSame('s-1-introduction', $this->tracker->normalizeId('1. Introduction'));
     }
 
     public function testGetPlainText(): void

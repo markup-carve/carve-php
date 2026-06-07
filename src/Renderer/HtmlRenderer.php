@@ -1271,7 +1271,12 @@ class HtmlRenderer implements RendererInterface
     protected function renderHeadingRef(HeadingRef $node): string
     {
         $id = $node->getTargetId();
-        $label = $this->getRenderContext()->headingIdTracker->getTextForId($id) ?? $id;
+        $label = $this->getRenderContext()->headingIdTracker->getTextForId($id);
+        if ($label === null) {
+            // An unresolved </#id> renders as its literal source text,
+            // not a dangling self-link (matches the spec and carve-js).
+            return $this->escape('</#' . $id . '>');
+        }
 
         return '<a href="#' . $this->escapeAttribute($id) . '">'
             . $this->escape($label) . '</a>';
