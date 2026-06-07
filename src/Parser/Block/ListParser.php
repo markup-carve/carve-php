@@ -42,6 +42,33 @@ class ListParser
     protected const ROMAN_CHARS = 'ivxlcdm';
 
     /**
+     * Regex character-class fragment of the recognized bullet markers.
+     *
+     * Carve drops `+` as a bullet by default (it is reserved as the
+     * list-continuation marker). The PlusBulletExtension re-enables it via
+     * allowPlusBullet().
+     *
+     * @var string
+     */
+    protected string $bulletMarkerClass = '-*';
+
+    /**
+     * Allow (or disallow) `+` as a bullet marker alongside `-` and `*`.
+     *
+     * A `+` is only ever a bullet when followed by a space and non-empty
+     * content; a content-less `+` stays the list-continuation marker, so the
+     * two never collide.
+     *
+     * @param bool $enable
+     *
+     * @return void
+     */
+    public function allowPlusBullet(bool $enable = true): void
+    {
+        $this->bulletMarkerClass = $enable ? '-*+' : '-*';
+    }
+
+    /**
      * Parse a list item marker from a line.
      *
      * @param string $line The line to parse
@@ -53,7 +80,7 @@ class ListParser
         // Task list: - [.] where . is any single character
         // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
         // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([-*]) +\[(.)\] +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[(.)\] +(\S.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -65,21 +92,22 @@ class ListParser
             ];
         }
 
-        // Bullet list: - or * only. Unlike Markdown/djot, `+` is not a Carve
-        // bullet -- it is reserved as the list-continuation marker, so a lone
-        // `+` is unambiguous and a `+ x` line is ordinary paragraph text.
+        // Bullet list: - or * (and + when the PlusBulletExtension is active).
+        // Unlike Markdown/djot, `+` is not a Carve bullet by default -- it is
+        // reserved as the list-continuation marker, so a lone `+` is
+        // unambiguous and a `+ x` line is ordinary paragraph text.
         // A marker is a list item only with non-empty content: a content-less
         // marker (bare or trailing whitespace only) is paragraph text, not a
         // list. Avoids a trailing space being load-bearing. See PART 9.
-        if (preg_match('/^([-*]) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +(\S.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
             // Don't treat as list if content ends with the same marker (likely
-            // emphasis), e.g. `* foo *` / `- bar -`. Both remaining bullets
-            // (`-`, `*`) double as emphasis delimiters, so this always applies.
+            // emphasis), e.g. `* foo *` / `- bar -`. `-` and `*` double as
+            // emphasis delimiters; `+` does not, so `+ foo +` is a real bullet.
             $trimmed = rtrim($content);
-            if ($trimmed !== '' && substr($trimmed, -1) === $marker) {
+            if ($marker !== '+' && $trimmed !== '' && substr($trimmed, -1) === $marker) {
                 $inner = substr($trimmed, 0, -1);
                 if (trim($inner) !== '' && !str_contains($inner, "\n")) {
                     return null;

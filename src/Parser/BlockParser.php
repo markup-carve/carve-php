@@ -3926,6 +3926,14 @@ class BlockParser
     }
 
     /**
+     * Get the list parser for tweaking list parsing (e.g. bullet markers)
+     */
+    public function getListParser(): ListParser
+    {
+        return $this->listParser;
+    }
+
+    /**
      * Check if text contains only plain characters (no inline markup triggers).
      *
      * Used to skip the inline parser for simple table cell content,
