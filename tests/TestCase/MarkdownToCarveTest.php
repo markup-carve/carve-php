@@ -173,6 +173,14 @@ class MarkdownToCarveTest extends TestCase
                 "```js title=\"demo\"\n*a*\n```",
                 "```js title=\"demo\"\n*a*\n```",
             ],
+            'normalizes a space between fence and language to no-space (canonical)' => [
+                "``` php\n*a*\n```",
+                "```php\n*a*\n```",
+            ],
+            'strips only the leading space, keeps the rest of the info' => [
+                "``` js title=\"x\"\n*a*\n```",
+                "```js title=\"x\"\n*a*\n```",
+            ],
             'converts <em>/<i> to /x/' => [
                 '<em>a</em> <i>b</i>',
                 '/a/ /b/',

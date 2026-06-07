@@ -44,9 +44,12 @@ class MarkdownToCarve
                 $inCodeBlock = true;
                 $fenceChar = $matches[2][0];
                 $fenceLength = strlen($matches[2]);
-                // Carve (PHP) accepts the full info string as the language
-                // (e.g. ```c++, ```js title="x"), so emit the opener unchanged.
-                $result[] = $line;
+                // Canonical fence opener has no space between the fence and the
+                // info string (```php, not ``` php). Carve accepts both (lenient
+                // input; Markdown/Djot may write the space), but emits the
+                // no-space form. The rest of the info is preserved (c++, js
+                // title="x").
+                $result[] = $matches[1] . $matches[2] . ltrim($matches[3]);
                 $prevLineType = 'code_fence';
 
                 continue;
