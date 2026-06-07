@@ -108,17 +108,19 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
         $parser = $converter->getParser();
 
         // Register block pattern for frontmatter
-        // Matches --- optionally followed by a format identifier (e.g. ---yaml, ---toml)
+        // Matches --- optionally followed by a format identifier (e.g. ---yaml, ---toml).
+        // The space between --- and the identifier is optional (lenient input:
+        // both ---yaml and --- yaml are accepted; ---yaml is canonical).
         // When no identifier is present, $defaultFormat is used as the fallback
         $parser->addBlockPattern(
-            '/^---(\w*)\s*$/',
+            '/^---[ \t]*(\w*)\s*$/',
             function (array $lines, int $start, $parent, $blockParser) {
                 // Only match at document start (first block of Document)
                 if (!($parent instanceof Document) || $parent->hasChildren()) {
                     return null;
                 }
 
-                if (!preg_match('/^---(\w*)\s*$/', $lines[$start], $matches)) {
+                if (!preg_match('/^---[ \t]*(\w*)\s*$/', $lines[$start], $matches)) {
                     return null; // @codeCoverageIgnore - pattern already matched
                 }
                 $format = $matches[1] !== '' ? $matches[1] : $this->defaultFormat;
