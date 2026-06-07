@@ -67,4 +67,32 @@ class CompactListBlocksTest extends TestCase
         // continuation marker, so a `+ x` line is ordinary paragraph text.
         $this->assertSame("<p>+ one\n+ two</p>", trim($this->converter->convert("+ one\n+ two")));
     }
+
+    public function testFirstBlockItemTableFlushLeft(): void
+    {
+        // `- +` opens an item whose body is the flush-left block that follows.
+        $html = $this->converter->convert("- +\n| a | b |\n| c | d |\n- next");
+        $this->assertStringContainsString("<li>\n    <table>", $html);
+        $this->assertStringContainsString('<tr><td>a</td><td>b</td></tr>', $html);
+        $this->assertStringContainsString('<li>next</li>', $html);
+    }
+
+    public function testFirstBlockItemCodeFlushLeft(): void
+    {
+        $html = $this->converter->convert("- +\n```sh\nmake\n```\n- next");
+        $this->assertStringContainsString("<li>\n    <pre><code class=\"language-sh\">make\n", $html);
+    }
+
+    public function testFirstBlockItemQuoteMatchesBlankLineForm(): void
+    {
+        $flush = trim($this->converter->convert("- +\n> note\n- next"));
+        $this->assertSame("<ul>\n  <li>\n    <blockquote><p>note</p></blockquote>\n  </li>\n  <li>next</li>\n</ul>", $flush);
+    }
+
+    public function testDashPlusTextStaysLiteralItemContent(): void
+    {
+        // Only a BARE `+` triggers the first-block form; `- + text` is literal.
+        $html = $this->converter->convert("- + text\n- next");
+        $this->assertStringContainsString('<li>+ text</li>', $html);
+    }
 }

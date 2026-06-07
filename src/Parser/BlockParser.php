@@ -2037,6 +2037,41 @@ class BlockParser
             $i++;
             $lastItemHadBlankAfter = false;
 
+            // First-block item (Carve): `- +` opens an item whose body is the
+            // flush-left block that follows, with no indentation. A lone `+` as
+            // the sole item content is the continuation marker, not literal text
+            // (`- + text` keeps `+ text` as literal content). This lets an item
+            // start directly with a table, code block, quote or div at column 0.
+            if (trim($itemContent) === '+') {
+                /** @var array<string> $attached */
+                $attached = [];
+                while ($i < $count) {
+                    $line = $lines[$i];
+                    if (IndentationHelper::isBlankLine($line)) {
+                        break;
+                    }
+                    $lineIndent = IndentationHelper::getLeadingSpaces($line);
+                    if ($lineIndent < $baseIndent) {
+                        break;
+                    }
+                    $trimmed = ltrim($line);
+                    if (
+                        $lineIndent === $baseIndent
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $trimmed === '+')
+                    ) {
+                        break;
+                    }
+                    $attached[] = IndentationHelper::stripLeadingIndent($line, $baseIndent);
+                    $i++;
+                }
+                if ($attached !== []) {
+                    $this->parseBlocks($listItem, $attached, 0);
+                }
+                $list->appendChild($listItem);
+
+                continue;
+            }
+
             // Calculate content indent based on list type and marker width
             // For bullet lists (including task lists): use 2 (for "- ")
             // For ordered lists: use actual marker width (varies with number length)
