@@ -119,7 +119,35 @@ class DjotToCarve
             $source = substr($source, 0, $editStart) . $replacement . substr($source, $editEnd);
         }
 
-        return $source;
+        return $this->normalizePlusBullets($source, $masked);
+    }
+
+    /**
+     * Rewrite Djot `+` bullet markers to `-`.
+     *
+     * Djot allows `-`, `*` and `+` as bullets; Carve does not have a `+` bullet
+     * (it is the list-continuation marker), so a Djot `+` list would otherwise
+     * convert to a plain paragraph. The code mask is used to skip lines inside
+     * fenced blocks. Inline delimiter edits never cross newlines, so the masked
+     * string stays line-aligned with the edited source.
+     *
+     * @param string $source The delimiter-converted source
+     * @param string $masked The code-masked original (line-aligned)
+     *
+     * @return string
+     */
+    protected function normalizePlusBullets(string $source, string $masked): string
+    {
+        $lines = explode("\n", $source);
+        $maskedLines = explode("\n", $masked);
+        foreach ($lines as $i => $line) {
+            if (!isset($maskedLines[$i]) || !preg_match('/^(\s*)\+(\s)/', $maskedLines[$i])) {
+                continue;
+            }
+            $lines[$i] = preg_replace('/^(\s*)\+(\s)/', '$1-$2', $line) ?? $line;
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

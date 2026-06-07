@@ -881,6 +881,12 @@ class HtmlRenderer implements RendererInterface
         if (preg_match('/^<p>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
             $lead = $tight ? $m[1] : '<p>' . $m[1] . '</p>';
             $rest = isset($m[2]) ? trim($m[2], "\n") : '';
+        } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|figure|hr|dl|h[1-6])\b/', $content)) {
+            // A block-only item (no inline lead, e.g. the `- +` first-block
+            // form) puts the block on its own indented line, matching the
+            // lead+block layout and carve-js, instead of inlining it on the
+            // `<li>` line.
+            $rest = $content;
         } else {
             $lead = $content;
         }
