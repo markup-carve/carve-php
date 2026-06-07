@@ -53,7 +53,7 @@ class ListParser
         // Task list: - [.] where . is any single character
         // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
         // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([-*+]) +\[(.)\] +(.*)$/', $line, $matches)) {
+        if (preg_match('/^([-*]) +\[(.)\] +(.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -65,19 +65,21 @@ class ListParser
             ];
         }
 
-        // Bullet list: -, +, or *
-        if (preg_match('/^([-*+]) +(.*)$/', $line, $matches)) {
+        // Bullet list: - or * only. Unlike Markdown/djot, `+` is not a Carve
+        // bullet -- it is reserved as the list-continuation marker, so a lone
+        // `+` is unambiguous and a `+ x` line is ordinary paragraph text.
+        if (preg_match('/^([-*]) +(.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
-            // Don't treat as list if content ends with same marker (likely emphasis)
-            if ($marker === '*' || $marker === '-') {
-                $trimmed = rtrim($content);
-                if ($trimmed !== '' && substr($trimmed, -1) === $marker) {
-                    $inner = substr($trimmed, 0, -1);
-                    if (trim($inner) !== '' && !str_contains($inner, "\n")) {
-                        return null;
-                    }
+            // Don't treat as list if content ends with the same marker (likely
+            // emphasis), e.g. `* foo *` / `- bar -`. Both remaining bullets
+            // (`-`, `*`) double as emphasis delimiters, so this always applies.
+            $trimmed = rtrim($content);
+            if ($trimmed !== '' && substr($trimmed, -1) === $marker) {
+                $inner = substr($trimmed, 0, -1);
+                if (trim($inner) !== '' && !str_contains($inner, "\n")) {
+                    return null;
                 }
             }
 

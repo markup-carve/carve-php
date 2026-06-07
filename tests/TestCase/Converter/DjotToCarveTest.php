@@ -87,4 +87,28 @@ class DjotToCarveTest extends TestCase
     {
         $this->assertSame('', $this->converter->convert(''));
     }
+
+    public function testPlusBulletBecomesDash(): void
+    {
+        // Djot allows `+` bullets; Carve does not (it is the continuation
+        // marker), so a `+` list is normalized to `-` to survive conversion.
+        $this->assertSame("- one\n- two", $this->converter->convert("+ one\n+ two"));
+    }
+
+    public function testIndentedPlusBulletBecomesDash(): void
+    {
+        $this->assertSame("- a\n  - b", $this->converter->convert("+ a\n  + b"));
+    }
+
+    public function testLonePlusContinuationMarkerIsUntouched(): void
+    {
+        // A lone `+` is the Carve list-continuation marker, not a bullet.
+        $this->assertSame("- item\n+\n> note", $this->converter->convert("- item\n+\n> note"));
+    }
+
+    public function testPlusBulletInFencedBlockIsUntouched(): void
+    {
+        $input = "```\n+ literal\n```";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
 }
