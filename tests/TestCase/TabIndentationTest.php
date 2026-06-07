@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
+use Carve\Extension\TabNormalizeExtension;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -24,15 +25,31 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Tabs inside code blocks are converted to 4 spaces by default.
+     * Tabs inside code blocks are PRESERVED verbatim by default
+     * (djot/CommonMark-aligned). Conversion is opt-in via TabNormalizeExtension.
      */
-    public function testTabsInCodeBlockConvertedToSpaces(): void
+    public function testTabsInCodeBlockPreservedByDefault(): void
     {
         $input = "```\n\tindented with tab\n\t\tdouble tab\n```";
         $result = $this->converter->convert($input);
 
+        $this->assertStringContainsString("\tindented with tab", $result);
+        $this->assertStringContainsString("\t\tdouble tab", $result);
+    }
+
+    /**
+     * TabNormalizeExtension converts tabs to spaces (default width 2).
+     */
+    public function testTabsInCodeBlockConvertedByExtension(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabNormalizeExtension(width: 4));
+        $input = "```\n\tindented with tab\n\t\tdouble tab\n```";
+        $result = $converter->convert($input);
+
         $this->assertStringContainsString('    indented with tab', $result);
         $this->assertStringContainsString('        double tab', $result);
+        $this->assertStringNotContainsString("\t", $result);
     }
 
     /**
@@ -216,9 +233,17 @@ class TabIndentationTest extends TestCase
         $input = '`code	with	tabs`';
         $result = $this->converter->convert($input);
 
-        $this->assertStringContainsString('<code>code', $result);
-        // Tabs are converted to 4 spaces in inline code by default
-        $this->assertStringContainsString('    ', $result);
+        // Tabs in inline code are preserved verbatim by default.
+        $this->assertStringContainsString("<code>code\twith\ttabs</code>", $result);
+    }
+
+    public function testTabInInlineCodeConvertedByExtension(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabNormalizeExtension(width: 4));
+        $result = $converter->convert('`code	with	tabs`');
+
+        $this->assertStringContainsString('code    with    tabs', $result);
         $this->assertStringNotContainsString("\t", $result);
     }
 
