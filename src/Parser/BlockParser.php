@@ -1892,11 +1892,15 @@ class BlockParser
                 }
             }
 
-            // Indented content belonging to the previous item. Carve
-            // enters this for an indented list marker even with no
-            // preceding blank line (tight nesting); other indented
-            // content still requires the blank line (loose nesting).
-            $indentedListMarker = $currentIndent > $baseIndent
+            // Indented content belonging to the previous item. In strict mode a
+            // blank line before the indented content is required for any block
+            // (sublist included): without it the indented marker is the item's
+            // lazy continuation text, not a nested list, matching djot. (The
+            // former no-blank-line sublist carve-out was removed.) In the opt-in
+            // blocksInterruptParagraphs mode an indented marker still nests with
+            // no blank line, like every other interrupting block.
+            $indentedListMarker = $this->blocksInterruptParagraphs
+                && $currentIndent > $baseIndent
                 && $this->listParser->parseListItemMarker(ltrim($currentLine)) !== null;
             if (($lastItemHadBlankAfter || $indentedListMarker) && $currentIndent > $baseIndent) {
                 // Content after blank line with indentation belongs to previous item
@@ -2139,12 +2143,18 @@ class BlockParser
                     break;
                 }
 
-                // Content at content indent or more is continuation.
-                // Carve nests an indented list marker directly (no blank
-                // line required): "- a\n  - b" makes "- b" a child list.
-                // Break out so the outer loop collects it as nested content.
+                // Content at content indent or more is continuation. In strict
+                // mode an indented list marker with no preceding blank line is
+                // NOT a nested list; it is the item's lazy continuation text
+                // ("- a\n  - b" -> one item whose text is "a\n- b"), matching
+                // djot. A nested list needs a blank line. In the opt-in
+                // blocksInterruptParagraphs mode the marker still nests, so break
+                // out and let the outer loop collect it as nested content.
                 if ($nextIndent >= $contentIndent) {
-                    if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
+                    if (
+                        $this->blocksInterruptParagraphs
+                        && $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                    ) {
                         break;
                     }
                     // Properly indented continuation - include with original indentation relative to content

@@ -111,9 +111,10 @@ class TabIndentationTest extends TestCase
         $input = "- Level 1\n\t- Level 2";
         $result = $this->converter->convert($input);
 
-        // Carve nests a tab-indented marker without a blank line.
-        $this->assertSame(2, substr_count($result, '<ul>'));
-        $this->assertSame(2, substr_count($result, '</ul>'));
+        // No blank line: the tab-indented marker is lazy continuation text of
+        // the item, not a nested list (matches djot). One list, no nesting.
+        $this->assertSame(1, substr_count($result, '<ul>'));
+        $this->assertStringContainsString('- Level 2', $result);
     }
 
     /**
