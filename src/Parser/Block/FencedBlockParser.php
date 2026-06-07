@@ -20,7 +20,7 @@ class FencedBlockParser
      *
      * @param string $line The line to check
      *
-     * @return array{fence: string, char: string, length: int, info: string, indent: string}|null
+     * @return array{fence: string, char: string, length: int, info: string, label: string|null, indent: string}|null
      */
     public function parseCodeFenceOpener(string $line): ?array
     {
@@ -49,11 +49,36 @@ class FencedBlockParser
             }
         }
 
+        // Info string: a single language token, optionally followed by a
+        // bracketed [label] (structured metadata, e.g. ```php [NPM]), or a bare
+        // [label]. The token itself may be any non-whitespace run (carve-php is
+        // permissive here: ```=html djot-raw, ```text/html MIME tags). What is
+        // NOT allowed is a SECOND whitespace-separated token that is not a
+        // bracketed label -- a bare word, a quoted value, key=val
+        // (```js title="x", ``` php {.x}). Such a line is not a fenced code
+        // block; it falls back to inline parsing. (Raw ```raw FORMAT blocks are
+        // matched by parseRawBlockOpener first.)
+        $language = '';
+        $label = null;
+        if ($info !== '') {
+            if (preg_match('/^\[([^\]]*)\]$/', $info, $im)) {
+                $label = $im[1];
+            } elseif (preg_match('/^(\S+)(?:\s+\[([^\]]*)\])?$/', $info, $im)) {
+                $language = $im[1];
+                if (isset($im[2])) {
+                    $label = $im[2];
+                }
+            } else {
+                return null;
+            }
+        }
+
         return [
             'fence' => $fence,
             'char' => $fenceChar,
             'length' => $fenceLength,
-            'info' => $info,
+            'info' => $language,
+            'label' => $label,
             'indent' => $indent,
         ];
     }
