@@ -184,7 +184,10 @@ See [[Say "Hello"]].
 # Say "Hello"
 DJOT);
 
-        $this->assertStringContainsString('href="#say-hello"', $html);
+        // Both the heading and the reference smart-convert the quotes, and
+        // ids now keep non-ASCII verbatim (carve spec #73), so they share
+        // the smart-quoted id and still resolve.
+        $this->assertStringContainsString('href="#say-“hello”"', $html);
         $this->assertStringNotContainsString('[[Say "Hello"]]', $html);
     }
 
@@ -213,12 +216,11 @@ See [[Bob's Guide]].
 # Bob's Guide
 DJOT);
 
-        // Smart-punctuation turns the straight apostrophe into U+2019, then
-        // ASCII transliteration folds it back to a straight `'`, which the
-        // normalize step drops along with other CSS-unsafe punctuation:
-        // `Bob's Guide` -> `bobs-guide`. The href must match the heading id.
-        $this->assertStringContainsString('id="bobs-guide"', $html);
-        $this->assertStringContainsString('href="#bobs-guide"', $html);
+        // Smart-punctuation turns the straight apostrophe into U+2019, which
+        // is non-ASCII and now kept verbatim in the id (carve spec #73):
+        // `Bob's Guide` -> `bob’s-guide`. The href must match the heading id.
+        $this->assertStringContainsString('id="bob’s-guide"', $html);
+        $this->assertStringContainsString('href="#bob’s-guide"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $this->assertStringNotContainsString('[[Bob\'s Guide]]', $html);
     }
