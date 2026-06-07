@@ -176,6 +176,18 @@ class BlockParser
      */
     protected bool $blocksInterruptParagraphs = false;
 
+    /**
+     * Optional slug transform mirrored onto the parse-time heading-id
+     * tracker so implicit `[Heading][]` references agree with the
+     * render-time ids (set by AsciiHeadingIdsExtension).
+     */
+    protected ?Closure $headingIdTransformer = null;
+
+    public function setHeadingIdTransformer(?Closure $headingIdTransformer): void
+    {
+        $this->headingIdTransformer = $headingIdTransformer;
+    }
+
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
@@ -754,6 +766,7 @@ class BlockParser
     protected function extractHeadingReferences(array $lines): void
     {
         $headingIdTracker = new HeadingIdTracker();
+        $headingIdTracker->setIdTransformer($this->headingIdTransformer);
         $pendingId = null;
         $count = count($lines);
 

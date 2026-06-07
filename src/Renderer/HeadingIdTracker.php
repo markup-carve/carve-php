@@ -13,6 +13,8 @@ use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
+use Closure;
+use Normalizer;
 
 /**
  * Shared service for generating and deduplicating heading IDs
@@ -62,11 +64,16 @@ class HeadingIdTracker
      */
     protected array $textById = [];
 
-    protected AsciiTransliterator $transliterator;
+    /**
+     * Optional transform applied to the base slug (e.g. ASCII
+     * transliteration). Set by AsciiHeadingIdsExtension; null leaves
+     * non-ASCII characters in the id verbatim (the default).
+     */
+    protected ?Closure $idTransformer = null;
 
-    public function __construct(?AsciiTransliterator $transliterator = null)
+    public function setIdTransformer(?Closure $idTransformer): void
     {
-        $this->transliterator = $transliterator ?? new AsciiTransliterator();
+        $this->idTransformer = $idTransformer;
     }
 
     /**
@@ -114,46 +121,53 @@ class HeadingIdTracker
 
     /**
      * Normalize text to a Carve heading identifier (the normative
-     * "Automatic Identifiers" algorithm):
+     * "Automatic Identifiers" algorithm, carve spec #73):
      *
-     * 1. Lowercase, Unicode-aware.
-     * 2. Trim whitespace.
-     * 3. Delete the CSS-unsafe punctuation ' " ; : (so "What's New"
-     *    becomes "whats-new", not "what-s-new").
-     * 4. Replace every maximal run of characters that are not Unicode
-     *    letters/digits/_/- (spaces included) with a single '-'.
-     * 5. Collapse runs of '-', then trim leading/trailing '-'.
-     * 6. If the result starts with a digit, prefix 'section-' (a CSS
+     * 1. NFC-normalize (so a decomposed `résumé` slugs identically to
+     *    its precomposed form).
+     * 2. Replace each maximal run of non-alphanumeric ASCII with a
+     *    single '-' and trim; non-ASCII characters are preserved.
+     * 3. If an id transformer is set (AsciiHeadingIdsExtension), apply
+     *    it to the slug and re-run step 2 (opt-in ASCII transliteration).
+     * 4. Lowercase, Unicode-aware: GitHub-style anchors that make ids
+     *    and `</#id>` / `[Heading][]` cross-references case-insensitive
+     *    with no special lookup logic.
+     * 5. If the result starts with a digit, prefix 's-' (a CSS
      *    identifier may not start with a digit).
-     * 7. If the result is empty, the identifier is 'section'.
+     * 6. If the result is empty, the identifier is 's'.
      *
      * Deduplication against the document namespace (shared by explicit
      * {#id} and generated ids) is applied by the caller.
      */
     public function normalizeId(string $text): string
     {
-        // 1. Transliterate to ASCII so the id survives being shared as a
-        // URL fragment through auto-linkers (which routinely truncate or
-        // mis-encode non-ASCII). Latin/Cyrillic/Greek/punctuation become
-        // byte-identical with or without ext-intl; unmapped scripts (CJK,
-        // …) are romanized when intl is present and otherwise drop, so
-        // the empty-result branch below yields a stable `section` id.
-        $text = $this->transliterator->transliterate($text);
-
-        // Carve "Automatic Identifiers" algorithm (normative).
-        $id = mb_strtolower($text, 'UTF-8'); // 2. lowercase
-        $id = trim($id); // 3. trim
-        $id = str_replace(["'", '"', ';', ':'], '', $id); // 4. drop CSS-unsafe punct
-        // 5/6. non letter/digit/_/- runs (incl. spaces) -> single '-'
-        $id = preg_replace('/[^\p{L}\p{N}_-]+/u', '-', $id) ?? $id;
-        $id = preg_replace('/-{2,}/', '-', $id) ?? $id; // 7. collapse
-        $id = trim($id, '-'); // 7. trim '-'
-
-        if ($id !== '' && preg_match('/^\p{N}/u', $id)) {
-            $id = 'section-' . $id; // 8. digit-leading
+        if (class_exists(Normalizer::class)) {
+            $text = Normalizer::normalize($text, Normalizer::FORM_C) ?: $text;
         }
 
-        return $id !== '' ? $id : 'section'; // 9. empty -> 'section'
+        $id = $this->slugRun($text);
+        if ($this->idTransformer !== null) {
+            $id = $this->slugRun(($this->idTransformer)($id));
+        }
+
+        $id = mb_strtolower($id, 'UTF-8');
+        if ($id !== '' && preg_match('/^\p{N}/u', $id)) {
+            $id = 's-' . $id;
+        }
+
+        return $id !== '' ? $id : 's';
+    }
+
+    /**
+     * jgm/djot#393 slug step: replace each maximal run of
+     * non-alphanumeric ASCII with a single '-' and trim. Non-ASCII
+     * characters and letter case are preserved.
+     */
+    protected function slugRun(string $text): string
+    {
+        $text = preg_replace('/[^0-9A-Za-z\x{80}-\x{10FFFF}]+/u', '-', $text) ?? $text;
+
+        return trim($text, '-');
     }
 
     /**
