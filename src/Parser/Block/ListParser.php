@@ -53,7 +53,7 @@ class ListParser
         // Task list: - [.] where . is any single character
         // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
         // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([-*+]) +\[(.)\] +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([-*]) +\[(.)\] +(\S.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -65,22 +65,24 @@ class ListParser
             ];
         }
 
-        // Bullet list: -, +, or *
+        // Bullet list: - or * only. Unlike Markdown/djot, `+` is not a Carve
+        // bullet -- it is reserved as the list-continuation marker, so a lone
+        // `+` is unambiguous and a `+ x` line is ordinary paragraph text.
         // A marker is a list item only with non-empty content: a content-less
         // marker (bare or trailing whitespace only) is paragraph text, not a
         // list. Avoids a trailing space being load-bearing. See PART 9.
-        if (preg_match('/^([-*+]) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([-*]) +(\S.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
-            // Don't treat as list if content ends with same marker (likely emphasis)
-            if ($marker === '*' || $marker === '-') {
-                $trimmed = rtrim($content);
-                if ($trimmed !== '' && substr($trimmed, -1) === $marker) {
-                    $inner = substr($trimmed, 0, -1);
-                    if (trim($inner) !== '' && !str_contains($inner, "\n")) {
-                        return null;
-                    }
+            // Don't treat as list if content ends with the same marker (likely
+            // emphasis), e.g. `* foo *` / `- bar -`. Both remaining bullets
+            // (`-`, `*`) double as emphasis delimiters, so this always applies.
+            $trimmed = rtrim($content);
+            if ($trimmed !== '' && substr($trimmed, -1) === $marker) {
+                $inner = substr($trimmed, 0, -1);
+                if (trim($inner) !== '' && !str_contains($inner, "\n")) {
+                    return null;
                 }
             }
 
