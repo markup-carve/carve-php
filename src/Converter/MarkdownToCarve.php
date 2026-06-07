@@ -130,6 +130,11 @@ class MarkdownToCarve
             if ($isHeading) {
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
+            // Carve has no `+` bullet (it is the list-continuation marker);
+            // normalize a Markdown `+` bullet to `-` so the converted list works.
+            if ($isList) {
+                $body = preg_replace('/^(\s*)\+(\s)/', '$1-$2', $body) ?? $body;
+            }
 
             $result[] = $this->convertInlineFormatting($body);
 
