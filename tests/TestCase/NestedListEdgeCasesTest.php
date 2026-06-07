@@ -741,4 +741,26 @@ DJOT;
         $this->assertNotFalse($headingPos);
         $this->assertGreaterThan($lastUlPos, $headingPos);
     }
+
+    public function testBareMarkerIsNotAList(): void
+    {
+        // A content-less marker is paragraph text, not a list.
+        $this->assertSame("<p>-\nnot a list</p>", trim($this->converter->convert("-\nnot a list")));
+    }
+
+    public function testTrailingSpaceMarkerBehavesLikeBareMarker(): void
+    {
+        // `- ` (trailing space only) must not become a list -- the trailing
+        // space is not load-bearing.
+        $this->assertStringNotContainsString('<ul>', $this->converter->convert("- \nx"));
+        $this->assertStringNotContainsString('<ol>', $this->converter->convert("1. \nx"));
+    }
+
+    public function testMarkerWithContentStillParsesAsList(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>",
+            trim($this->converter->convert("- a\n- b")),
+        );
+    }
 }

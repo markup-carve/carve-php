@@ -3647,14 +3647,17 @@ class BlockParser
             return true;
         }
 
-        // List markers - these indicate a new list at this level
-        // Bullet lists: - or * followed by space (`+` is not a bullet in Carve)
-        if (preg_match('/^[-*] /', $line)) {
+        // List markers - these indicate a new list at this level. A marker is a
+        // list only with non-empty content (a content-less `- ` is paragraph
+        // text, not a block start), matching ListParser::parseListItemMarker.
+        // Bullet lists: - or * followed by space + content (`+` is not a bullet
+        // in Carve -- it is the list-continuation marker).
+        if (preg_match('/^[-*] +\S/', $line)) {
             return true;
         }
 
-        // Ordered lists: digit(s) or letter followed by . or ) and space
-        if (preg_match('/^(\d+|[a-zA-Z])[.)] /', $line)) {
+        // Ordered lists: digit(s) or letter followed by . or ) and space + content
+        if (preg_match('/^(\d+|[a-zA-Z])[.)] +\S/', $line)) {
             return true;
         }
 
