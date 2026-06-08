@@ -89,8 +89,13 @@ class HtmlToCarve
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
 
-        // Wrap in root element if needed
-        if (!preg_match('/<(html|body|div)[^>]*>/i', $html)) {
+        // Wrap in a single root element unless the input is already a full
+        // document. Only a leading <!doctype>/<html>/<body> counts as a root:
+        // a <div> nested anywhere must NOT skip wrapping, otherwise a fragment
+        // with several top-level siblings (e.g. <ul>..</ul><ul>..</ul> where an
+        // item contains a <div>) loses every sibling after the first, since
+        // LIBXML_HTML_NOIMPLIED makes only the first element the documentElement.
+        if (!preg_match('/^\s*(<!doctype|<html|<body)/i', $html)) {
             $html = '<div>' . $html . '</div>';
         }
 
@@ -1226,7 +1231,10 @@ class HtmlToCarve
     {
         $this->listDepth++;
         $isOrdered = strtolower($node->tagName) === 'ol';
-        $isTaskList = $node->getAttribute('class') === 'task-list';
+        // Recognize both the rendered form (class="task-list") and the TipTap
+        // editor form (data-type="taskList").
+        $isTaskList = $node->getAttribute('class') === 'task-list'
+            || $node->getAttribute('data-type') === 'taskList';
         $output = '';
         $counter = 1;
 
@@ -1253,6 +1261,7 @@ class HtmlToCarve
             $skipAttrs = $isOrdered ? ['start', 'data-marker'] : ['data-marker'];
             if ($isTaskList) {
                 $skipAttrs[] = 'class';
+                $skipAttrs[] = 'data-type';
             }
             $listAttrs = $this->formatBlockAttributes($node, $skipAttrs);
             $output .= $listAttrs . "\n";
@@ -1266,11 +1275,15 @@ class HtmlToCarve
 
                 $indent = str_repeat('  ', $this->listDepth - 1);
 
-                // Check for task list item (has checkbox input)
+                // Check for task list item. The checked state comes from a
+                // direct <input checked> (rendered form) or from data-checked
+                // (TipTap form, where the input is nested in a <label>).
                 $checkbox = '';
                 $checkboxInput = $this->getDirectCheckboxInput($child);
                 if ($isTaskList || $checkboxInput !== null) {
-                    $isChecked = $checkboxInput?->hasAttribute('checked') ?? false;
+                    $isChecked = $child->hasAttribute('data-checked')
+                        ? $child->getAttribute('data-checked') === 'true'
+                        : ($checkboxInput?->hasAttribute('checked') ?? false);
                     $checkbox = $isChecked ? '[x] ' : '[ ] ';
                 }
 
@@ -1290,6 +1303,12 @@ class HtmlToCarve
                         } elseif ($childTag === 'input' && $liChild->getAttribute('type') === 'checkbox') {
                             // Skip checkbox inputs (handled via $checkbox prefix)
                             continue;
+                        } elseif ($isTaskList && $childTag === 'label' && trim($liChild->textContent) === '') {
+                            // TipTap wraps the checkbox in an empty <label>; the
+                            // visible text lives in the sibling <div>. A label
+                            // that carries text (accessibility markup) is left to
+                            // fall through and be processed normally.
+                            continue;
                         } elseif (in_array($childTag, $this->blockElements, true)) {
                             $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
                             $content = trim($this->processNode($liChild));
@@ -1306,8 +1325,11 @@ class HtmlToCarve
 
                 $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
 
-                // Add list item attributes on next line (indented)
-                $liAttrs = $this->getElementAttributes($child);
+                // Add list item attributes on next line (indented). For TipTap
+                // task items only, drop the editor's data-type/data-checked
+                // markers; ordinary list items keep their attributes.
+                $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
+                $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $continuation = $indent . str_repeat(' ', strlen($prefix));
 
                 if ($contentParts === []) {
