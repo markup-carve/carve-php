@@ -1547,6 +1547,45 @@ DJOT;
         $this->assertSame(trim($djot), $back);
     }
 
+    public function testTopLevelSiblingsSurviveWhenAnItemContainsADiv(): void
+    {
+        // A <div> nested in a list item must not make the wrap-detection skip
+        // wrapping and drop every top-level sibling after the first list.
+        $html = '<ul><li><div><p>x</p></div></li></ul><p>after</p>';
+
+        $this->assertSame("- x\n\nafter", trim($this->converter->convert($html)));
+    }
+
+    public function testTaskListLabelWithTextKeepsTheText(): void
+    {
+        // A label that wraps both the checkbox and the visible text (rendered /
+        // accessibility markup) must keep the text, unlike TipTap's empty label.
+        $html = '<ul class="task-list"><li><label><input type="checkbox"> Done</label></li></ul>';
+
+        $this->assertSame('- [ ] Done', trim($this->converter->convert($html)));
+    }
+
+    public function testOrdinaryListItemKeepsDataAttributes(): void
+    {
+        // data-type/data-checked are only dropped for TipTap task items; a
+        // plain list keeps its item attributes.
+        $html = '<ul><li data-type="note" data-checked="maybe">x</li></ul>';
+
+        $this->assertStringContainsString('{data-type=note data-checked=maybe}', $this->converter->convert($html));
+    }
+
+    public function testTipTapTaskListConvertsToCarveCheckboxes(): void
+    {
+        // TipTap emits <ul data-type="taskList"> with the checkbox in a
+        // <label> and the text in a sibling <div>; data-checked holds state.
+        $html = '<ul data-type="taskList">'
+            . '<li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>todo</p></div></li>'
+            . '<li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked><span></span></label><div><p>done</p></div></li>'
+            . '</ul>';
+
+        $this->assertSame("- [ ] todo\n- [x] done", trim($this->converter->convert($html)));
+    }
+
     public function testTabsRoundTripPreservesTaskLists(): void
     {
         $converter = new CarveConverter(roundTripMode: true);
