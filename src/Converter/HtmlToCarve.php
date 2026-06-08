@@ -1239,13 +1239,12 @@ class HtmlToCarve
         $marker = $node->getAttribute('data-marker');
         if ($isOrdered) {
             $marker = $marker ?: '.';
-        } else {
-            // `+` is not a Carve bullet (it is the continuation marker), so clamp
-            // a stray data-marker="+" (e.g. from hand-written HTML) back to `-`.
-            $marker = $marker ?: '-';
-            if ($marker === '+') {
-                $marker = '-';
-            }
+        } elseif ($marker === '' || $marker === '+') {
+            // No explicit marker (or a stray `+`, which is the continuation
+            // marker, not a Carve bullet): pick `-`/`*` by the parity of
+            // preceding adjacent sibling <ul>s so that two back-to-back bullet
+            // lists stay distinct in Carve instead of merging into one list.
+            $marker = $this->alternatingBulletMarker($node);
         }
 
         // Add leading newline for top-level lists to ensure blank line before
@@ -1357,6 +1356,47 @@ class HtmlToCarve
 
         // Add trailing newline for top-level lists
         return $output . ($this->listDepth === 0 ? "\n" : '');
+    }
+
+    /**
+     * Pick `-` or `*` for a bullet list so a run of adjacent sibling <ul>s
+     * alternates markers. Two same-marker bullet lists separated only by a
+     * blank line merge into one list in Carve; alternating keeps them separate.
+     *
+     * The choice is the opposite of the immediately preceding adjacent <ul>'s
+     * actual marker (so an explicit data-marker="*" is respected), or `-` when
+     * there is no preceding adjacent bullet list.
+     *
+     * @param \DOMElement $node The <ul> element
+     *
+     * @return string `-` or `*`
+     */
+    protected function alternatingBulletMarker(DOMElement $node): string
+    {
+        $prev = $node->previousElementSibling;
+        if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'ul') {
+            return $this->resolveBulletMarker($prev) === '*' ? '-' : '*';
+        }
+
+        return '-';
+    }
+
+    /**
+     * Resolve the bullet marker a <ul> emits: its explicit data-marker when set
+     * (and not the `+` continuation marker), otherwise the alternating default.
+     *
+     * @param \DOMElement $node The <ul> element
+     *
+     * @return string `-` or `*`
+     */
+    protected function resolveBulletMarker(DOMElement $node): string
+    {
+        $marker = $node->getAttribute('data-marker');
+        if ($marker !== '' && $marker !== '+') {
+            return $marker;
+        }
+
+        return $this->alternatingBulletMarker($node);
     }
 
     protected function processListItem(DOMElement $node): string
