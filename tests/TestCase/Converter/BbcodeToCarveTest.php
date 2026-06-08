@@ -249,6 +249,18 @@ class BbcodeToCarveTest extends TestCase
         $this->assertStringContainsString('- Item 2', $result);
     }
 
+    public function testAdjacentUnorderedListsAlternateMarkers(): void
+    {
+        $bbcode = '[list][*]a[*]b[/list][list][*]c[*]d[/list]';
+        $result = $this->converter->convert($bbcode);
+
+        // The second adjacent list switches marker so the two stay distinct.
+        $this->assertStringContainsString('- a', $result);
+        $this->assertStringContainsString('- b', $result);
+        $this->assertStringContainsString('* c', $result);
+        $this->assertStringContainsString('* d', $result);
+    }
+
     public function testOrderedList(): void
     {
         $bbcode = "[list=1]\n[*]First\n[*]Second\n[/list]";

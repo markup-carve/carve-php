@@ -342,6 +342,35 @@ class HtmlToCarveTest extends TestCase
         $this->assertStringContainsString('2. Second', $result);
     }
 
+    public function testAdjacentBulletListsAlternateMarkers(): void
+    {
+        $html = '<ul><li>a</li><li>b</li></ul><ul><li>c</li><li>d</li></ul>';
+        $result = $this->converter->convert($html);
+
+        // The second list must use a different marker, otherwise the two
+        // lists would merge into one when rendered back to HTML.
+        $this->assertStringContainsString('- a', $result);
+        $this->assertStringContainsString('- b', $result);
+        $this->assertStringContainsString('* c', $result);
+        $this->assertStringContainsString('* d', $result);
+
+        // Round-trip: still two separate lists.
+        $html2 = (new CarveConverter())->convert($result);
+        $this->assertSame(2, substr_count($html2, '<ul>'));
+    }
+
+    public function testAdjacentBulletListAlternatesOffExplicitStarMarker(): void
+    {
+        // The first list explicitly uses `*`; the unmarked second list must
+        // pick `-`, not `*`, or the two would merge on round-trip.
+        $html = '<ul data-marker="*"><li>a</li></ul><ul><li>b</li></ul>';
+        $result = $this->converter->convert($html);
+
+        $this->assertStringContainsString('* a', $result);
+        $this->assertStringContainsString('- b', $result);
+        $this->assertSame(2, substr_count((new CarveConverter())->convert($result), '<ul>'));
+    }
+
     public function testNestedList(): void
     {
         $html = '<ul><li>Item 1<ul><li>Nested</li></ul></li></ul>';

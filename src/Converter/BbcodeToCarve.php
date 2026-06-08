@@ -326,22 +326,27 @@ class BbcodeToCarve
             $text,
         ) ?? $text;
 
-        // Unordered list [list]...[/list]
+        // Unordered list [list]...[/list]. Alternate the bullet marker per
+        // list so that two adjacent lists stay distinct in Carve (same-marker
+        // lists separated only by a blank line merge into one).
+        $bulletIndex = 0;
         $text = preg_replace_callback(
             '/\[list\](.*?)\[\/list\]/is',
-            function ($m) {
+            function ($m) use (&$bulletIndex) {
+                $marker = $bulletIndex % 2 === 0 ? '-' : '*';
+                $bulletIndex++;
                 $content = $m[1];
                 $content = preg_replace_callback(
                     '/\[\*\](.*?)(?=\[\*\]|\z)/is',
-                    function ($item) {
+                    function ($item) use ($marker) {
                         $text = trim($item[1]);
 
-                        return '- ' . $text . "\n";
+                        return $marker . ' ' . $text . "\n";
                     },
                     $content,
                 );
 
-                // Ensure blank line before list for proper Djot block separation
+                // Ensure blank line before list for proper Carve block separation
                 return "\n\n" . $content . "\n";
             },
             $text,

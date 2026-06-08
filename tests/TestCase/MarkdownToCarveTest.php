@@ -281,6 +281,22 @@ class MarkdownToCarveTest extends TestCase
                 "- parent\n  - child",
                 "- parent\n  - child",
             ],
+            'remaps a standalone + bullet list to -' => [
+                "+ a\n+ b",
+                "- a\n- b",
+            ],
+            'preserves a standalone * bullet list' => [
+                "* a\n* b",
+                "* a\n* b",
+            ],
+            'alternates an adjacent + list off the preceding - list' => [
+                "- a\n\n+ b",
+                "- a\n\n* b",
+            ],
+            'flips a colliding marker for + then - back-to-back' => [
+                "+ a\n- b",
+                "- a\n* b",
+            ],
             'does not convert inside an indented fenced code block' => [
                 "  ```\n  const x = *a* + _b_\n  ```",
                 "  ```\n  const x = *a* + _b_\n  ```",
