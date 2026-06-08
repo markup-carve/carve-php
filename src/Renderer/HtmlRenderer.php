@@ -706,6 +706,12 @@ class HtmlRenderer implements RendererInterface
         if ($language !== null && $language !== '') {
             $djot .= ' ' . $language;
         }
+        // Bracketed label is structured metadata stored separately from the
+        // language; re-emit it for round-trip (```php [Label]).
+        $label = $node->getLabel();
+        if ($label !== null) {
+            $djot .= ' [' . $label . ']';
+        }
         $djot .= "\n";
         $djot .= $content;
         if (!str_ends_with($content, "\n")) {

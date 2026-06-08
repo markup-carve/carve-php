@@ -1127,6 +1127,7 @@ class BlockParser
         $fenceChar = $fenceInfo['char'];
         $fenceLength = $fenceInfo['length'];
         $info = $fenceInfo['info'];
+        $label = $fenceInfo['label'];
         $indentLen = strlen($fenceInfo['indent']);
 
         $content = '';
@@ -1170,7 +1171,7 @@ class BlockParser
 
         $language = $info !== '' ? $info : null;
 
-        $codeBlock = new CodeBlock(trim($content, "\n"), $language);
+        $codeBlock = new CodeBlock(trim($content, "\n"), $language, $label);
         $this->applyPendingAttributes($codeBlock);
         $parent->appendChild($codeBlock);
 

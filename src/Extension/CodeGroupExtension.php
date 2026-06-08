@@ -148,7 +148,7 @@ class CodeGroupExtension implements ResettableExtensionInterface
             }
 
             $position++;
-            $metadata = $this->parseLanguageMetadata($child->getLanguage(), $position);
+            $metadata = $this->parseLanguageMetadata($child->getLanguage(), $child->getLabel(), $position);
 
             // Check for selected attribute on preceding paragraph (djot attribute syntax)
             $selected = $child->hasAttribute('selected');
@@ -170,35 +170,22 @@ class CodeGroupExtension implements ResettableExtensionInterface
     }
 
     /**
-     * Parse language hint with optional [Label] suffix
+     * Resolve the tab language + label from a code block's structured fields.
      *
-     * Supports formats:
-     * - "php" -> language: php, label: php
-     * - "php [Installation]" -> language: php, label: Installation
-     * - "[Custom Label]" -> language: null, label: Custom Label
-     * - "" -> language: null, label: Code N
+     * The parser already separates the language token from the bracketed
+     * [label] (```php [Installation] -> language "php", label "Installation"),
+     * so this no longer string-splits the info. Label resolution:
+     * - explicit [label] wins;
+     * - else fall back to the language name;
+     * - else "Code N".
      *
      * @return array{language: string|null, label: string}
      */
-    protected function parseLanguageMetadata(?string $language, int $position): array
+    protected function parseLanguageMetadata(?string $language, ?string $label, int $position): array
     {
-        $raw = trim((string)$language);
-        if ($raw === '') {
-            return ['language' => null, 'label' => 'Code ' . $position];
-        }
+        $resolvedLanguage = ($language !== null && $language !== '') ? $language : null;
 
-        // Match the full hint: optional language token, optional [label]
-        if (preg_match('/^(?:(?<lang>[^\s\[]+)\s*)?(?:\[(?<label>[^\]]+)])?$/', $raw, $matches) !== 1) {
-            return ['language' => $raw, 'label' => $raw];
-        }
-
-        $matchedLanguage = $matches['lang'] ?? null;
-        $matchedLabel = $matches['label'] ?? null;
-
-        $resolvedLanguage = $matchedLanguage !== '' ? $matchedLanguage : null;
-        $resolvedLabel = $matchedLabel !== null ? trim($matchedLabel) : null;
-
-        // Fallback label to language name or position
+        $resolvedLabel = ($label !== null && trim($label) !== '') ? trim($label) : null;
         if ($resolvedLabel === null) {
             $resolvedLabel = $resolvedLanguage ?? 'Code ' . $position;
         }
@@ -297,6 +284,7 @@ class CodeGroupExtension implements ResettableExtensionInterface
             /** @var \Carve\Node\Block\CodeBlock $block */
             $block = $item['block'];
             $langHint = $block->getLanguage() ?? '';
+            $label = $block->getLabel();
 
             $content = $block->getContent();
             $fence = StringUtil::findSafeCodeFence($content, 3);
@@ -305,6 +293,10 @@ class CodeGroupExtension implements ResettableExtensionInterface
             $djot .= $fence;
             if ($langHint !== '') {
                 $djot .= ' ' . $langHint;
+            }
+            // Label is stored separately from the language; re-emit it.
+            if ($label !== null) {
+                $djot .= ' [' . $label . ']';
             }
             $djot .= "\n";
 

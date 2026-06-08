@@ -14,6 +14,12 @@ class CodeBlock extends BlockNode implements ContentNodeInterface
     public function __construct(
         protected string $content = '',
         protected ?string $language = null,
+        /**
+         * Optional bracketed label from the info string (```php [NPM] -> "NPM").
+         * Structured metadata only: NOT part of the language/class. The core
+         * renderer ignores it; an extension (e.g. CodeGroup) may use it.
+         */
+        protected ?string $label = null,
     ) {
     }
 
@@ -40,6 +46,16 @@ class CodeBlock extends BlockNode implements ContentNodeInterface
     public function setLanguage(?string $language): void
     {
         $this->language = $language;
+    }
+
+    public function getLabel(): ?string
+    {
+        return $this->label;
+    }
+
+    public function setLabel(?string $label): void
+    {
+        $this->label = $label;
     }
 
     public function getType(): string

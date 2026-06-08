@@ -113,10 +113,15 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testCodeBlockLanguageEscapesQuotesInAttributeContext(): void
+    public function testMaliciousMultiwordFenceInfoIsNotAFence(): void
     {
+        // A multiword/quoted info string (here an attribute-injection attempt)
+        // is NOT a fenced code block: the info string must be a single token
+        // (optionally + a [label]). The line falls back to inline parsing, so
+        // there is no class attribute to inject into -- the quotes/`=` become
+        // inert inline-code content.
         $djot = "``` php\" onclick=\"alert(1)\necho 1;\n```";
-        $expected = "<pre><code class=\"language-php&quot; onclick=&quot;alert(1)\">echo 1;\n</code></pre>\n";
+        $expected = "<p><code> php\" onclick=\"alert(1)\necho 1;\n</code></p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -125,6 +130,25 @@ class CarveConverterTest extends TestCase
     {
         $djot = "```\nplain code\n```";
         $expected = "<pre><code>plain code\n</code></pre>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testCodeBlockLabelIsNotPartOfTheClass(): void
+    {
+        // ```php [NPM] -> code fence, language `php`, label `NPM` held aside.
+        // The label is structured metadata; it must NOT leak into the class.
+        $djot = "```php [NPM]\ncode\n```";
+        $expected = "<pre><code class=\"language-php\">code\n</code></pre>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testCodeBlockLabelWithoutLanguage(): void
+    {
+        // ```[NPM] -> code fence, no language, label `NPM`.
+        $djot = "```[NPM]\ncode\n```";
+        $expected = "<pre><code>code\n</code></pre>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
