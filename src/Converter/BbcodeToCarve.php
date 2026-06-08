@@ -52,14 +52,14 @@ class BbcodeToCarve
         // Bold [b]...[/b] -> *...*
         $text = preg_replace('/\[b\](.*?)\[\/b\]/is', '*$1*', $text) ?? $text;
 
-        // Italic [i]...[/i] -> _..._
-        $text = preg_replace('/\[i\](.*?)\[\/i\]/is', '_$1_', $text) ?? $text;
+        // Italic [i]...[/i] -> /.../
+        $text = preg_replace('/\[i\](.*?)\[\/i\]/is', '/$1/', $text) ?? $text;
 
-        // Underline [u]...[/u] -> {+...+} (using insert as closest equivalent)
-        $text = preg_replace('/\[u\](.*?)\[\/u\]/is', '{+$1+}', $text) ?? $text;
+        // Underline [u]...[/u] -> _..._
+        $text = preg_replace('/\[u\](.*?)\[\/u\]/is', '_$1_', $text) ?? $text;
 
-        // Strikethrough [s]...[/s] -> {-...-}
-        $text = preg_replace('/\[s\](.*?)\[\/s\]/is', '{-$1-}', $text) ?? $text;
+        // Strikethrough [s]...[/s] -> ~...~
+        $text = preg_replace('/\[s\](.*?)\[\/s\]/is', '~$1~', $text) ?? $text;
 
         // Size [size=X]...[/size] - no direct equivalent, strip tags
         $text = preg_replace('/\[size=[^\]]*\](.*?)\[\/size\]/is', '$1', $text) ?? $text;
@@ -389,8 +389,8 @@ class BbcodeToCarve
         // [sup]...[/sup] -> ^...^
         $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '^$1^', $text) ?? $text;
 
-        // [sub]...[/sub] -> ~...~
-        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', '~$1~', $text) ?? $text;
+        // [sub]...[/sub] -> ,,...,,
+        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', ',,$1,,', $text) ?? $text;
 
         return $text;
     }
