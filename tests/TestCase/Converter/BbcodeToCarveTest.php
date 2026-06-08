@@ -25,17 +25,17 @@ class BbcodeToCarveTest extends TestCase
 
     public function testItalic(): void
     {
-        $this->assertSame("_italic text_\n", $this->converter->convert('[i]italic text[/i]'));
+        $this->assertSame("/italic text/\n", $this->converter->convert('[i]italic text[/i]'));
     }
 
     public function testUnderline(): void
     {
-        $this->assertSame("{+underlined+}\n", $this->converter->convert('[u]underlined[/u]'));
+        $this->assertSame("_underlined_\n", $this->converter->convert('[u]underlined[/u]'));
     }
 
     public function testStrikethrough(): void
     {
-        $this->assertSame("{-deleted-}\n", $this->converter->convert('[s]deleted[/s]'));
+        $this->assertSame("~deleted~\n", $this->converter->convert('[s]deleted[/s]'));
     }
 
     public function testSuperscript(): void
@@ -45,12 +45,12 @@ class BbcodeToCarveTest extends TestCase
 
     public function testSubscript(): void
     {
-        $this->assertSame("H~2~O\n", $this->converter->convert('H[sub]2[/sub]O'));
+        $this->assertSame("H,,2,,O\n", $this->converter->convert('H[sub]2[/sub]O'));
     }
 
     public function testNestedFormatting(): void
     {
-        $this->assertSame("*_bold italic_*\n", $this->converter->convert('[b][i]bold italic[/i][/b]'));
+        $this->assertSame("*/bold italic/*\n", $this->converter->convert('[b][i]bold italic[/i][/b]'));
     }
 
     public function testSizeStripped(): void
@@ -249,6 +249,18 @@ class BbcodeToCarveTest extends TestCase
         $this->assertStringContainsString('- Item 2', $result);
     }
 
+    public function testAdjacentUnorderedListsAlternateMarkers(): void
+    {
+        $bbcode = '[list][*]a[*]b[/list][list][*]c[*]d[/list]';
+        $result = $this->converter->convert($bbcode);
+
+        // The second adjacent list switches marker so the two stay distinct.
+        $this->assertStringContainsString('- a', $result);
+        $this->assertStringContainsString('- b', $result);
+        $this->assertStringContainsString('* c', $result);
+        $this->assertStringContainsString('* d', $result);
+    }
+
     public function testOrderedList(): void
     {
         $bbcode = "[list=1]\n[*]First\n[*]Second\n[/list]";
@@ -329,7 +341,7 @@ BBCODE;
         $result = $this->converter->convert($bbcode);
 
         $this->assertStringContainsString('*Welcome to the Forum!*', $result);
-        $this->assertStringContainsString('_important_', $result);
+        $this->assertStringContainsString('/important/', $result);
         $this->assertStringContainsString('- Read the rules', $result);
         $this->assertStringContainsString('^ Admin', $result);
         $this->assertStringContainsString('[our website](https://example.com)', $result);

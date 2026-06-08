@@ -31,6 +31,15 @@ class MarkdownToCarve
         $fenceLength = 0;
         $prevLineType = 'blank';
 
+        // Bullet-marker run tracking, so adjacent bullet lists stay distinct in
+        // Carve. `$activeBulletMd` is the Markdown marker (-,*,+) of the current
+        // run, `$activeBulletCarve` the `-`/`*` emitted for it, and
+        // `$bulletRunBroken` is true once a non-list block separates this from
+        // the previous bullet list.
+        $activeBulletMd = null;
+        $activeBulletCarve = null;
+        $bulletRunBroken = true;
+
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $line = $lines[$i];
@@ -51,11 +60,13 @@ class MarkdownToCarve
                 // title="x").
                 $result[] = $matches[1] . $matches[2] . ltrim($matches[3]);
                 $prevLineType = 'code_fence';
+                $bulletRunBroken = true;
 
                 continue;
             }
 
             if ($inCodeBlock) {
+                $bulletRunBroken = true;
                 $pattern = '/^\s{0,3}' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/';
                 if (preg_match($pattern, $line)) {
                     $inCodeBlock = false;
@@ -114,6 +125,7 @@ class MarkdownToCarve
                     $result[] = '';
                 }
                 $prevLineType = 'heading';
+                $bulletRunBroken = true;
 
                 continue;
             }
@@ -133,10 +145,25 @@ class MarkdownToCarve
             if ($isHeading) {
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
-            // Carve has no `+` bullet (it is the list-continuation marker);
-            // normalize a Markdown `+` bullet to `-` so the converted list works.
-            if ($isList) {
-                $body = preg_replace('/^(\s*)\+(\s)/', '$1-$2', $body) ?? $body;
+            // Carve has only `-`/`*` bullets (no `+`, which is the
+            // continuation marker), and two adjacent bullet lists must use
+            // different markers or Carve merges them into one. Keep the
+            // Markdown marker when it does not collide with an adjacent
+            // preceding list; otherwise flip to the other marker.
+            if ($isList && $ordered === null) {
+                $mdMarker = $trimmed[0];
+                if (!$bulletRunBroken && $mdMarker === $activeBulletMd) {
+                    $carveMarker = (string)$activeBulletCarve;
+                } else {
+                    $preferred = $mdMarker === '+' ? '-' : $mdMarker;
+                    $carveMarker = !$bulletRunBroken && $preferred === $activeBulletCarve
+                        ? ($activeBulletCarve === '-' ? '*' : '-')
+                        : $preferred;
+                }
+                $body = preg_replace('/^(\s*)[-*+](\s)/', '${1}' . $carveMarker . '$2', $body) ?? $body;
+                $activeBulletMd = $mdMarker;
+                $activeBulletCarve = $carveMarker;
+                $bulletRunBroken = false;
             }
 
             $result[] = $this->convertInlineFormatting($body);
@@ -150,12 +177,20 @@ class MarkdownToCarve
 
             if ($isHeading) {
                 $prevLineType = 'heading';
+                $bulletRunBroken = true;
             } elseif ($isList) {
                 $prevLineType = 'list';
+                if ($ordered !== null) {
+                    // An ordered list between two bullet lists keeps them
+                    // separate, so it breaks the bullet-marker run.
+                    $bulletRunBroken = true;
+                }
             } elseif ($isBlockquote) {
                 $prevLineType = 'blockquote';
+                $bulletRunBroken = true;
             } else {
                 $prevLineType = 'text';
+                $bulletRunBroken = true;
             }
         }
 

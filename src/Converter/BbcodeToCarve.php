@@ -52,14 +52,14 @@ class BbcodeToCarve
         // Bold [b]...[/b] -> *...*
         $text = preg_replace('/\[b\](.*?)\[\/b\]/is', '*$1*', $text) ?? $text;
 
-        // Italic [i]...[/i] -> _..._
-        $text = preg_replace('/\[i\](.*?)\[\/i\]/is', '_$1_', $text) ?? $text;
+        // Italic [i]...[/i] -> /.../
+        $text = preg_replace('/\[i\](.*?)\[\/i\]/is', '/$1/', $text) ?? $text;
 
-        // Underline [u]...[/u] -> {+...+} (using insert as closest equivalent)
-        $text = preg_replace('/\[u\](.*?)\[\/u\]/is', '{+$1+}', $text) ?? $text;
+        // Underline [u]...[/u] -> _..._
+        $text = preg_replace('/\[u\](.*?)\[\/u\]/is', '_$1_', $text) ?? $text;
 
-        // Strikethrough [s]...[/s] -> {-...-}
-        $text = preg_replace('/\[s\](.*?)\[\/s\]/is', '{-$1-}', $text) ?? $text;
+        // Strikethrough [s]...[/s] -> ~...~
+        $text = preg_replace('/\[s\](.*?)\[\/s\]/is', '~$1~', $text) ?? $text;
 
         // Size [size=X]...[/size] - no direct equivalent, strip tags
         $text = preg_replace('/\[size=[^\]]*\](.*?)\[\/size\]/is', '$1', $text) ?? $text;
@@ -326,22 +326,27 @@ class BbcodeToCarve
             $text,
         ) ?? $text;
 
-        // Unordered list [list]...[/list]
+        // Unordered list [list]...[/list]. Alternate the bullet marker per
+        // list so that two adjacent lists stay distinct in Carve (same-marker
+        // lists separated only by a blank line merge into one).
+        $bulletIndex = 0;
         $text = preg_replace_callback(
             '/\[list\](.*?)\[\/list\]/is',
-            function ($m) {
+            function ($m) use (&$bulletIndex) {
+                $marker = $bulletIndex % 2 === 0 ? '-' : '*';
+                $bulletIndex++;
                 $content = $m[1];
                 $content = preg_replace_callback(
                     '/\[\*\](.*?)(?=\[\*\]|\z)/is',
-                    function ($item) {
+                    function ($item) use ($marker) {
                         $text = trim($item[1]);
 
-                        return '- ' . $text . "\n";
+                        return $marker . ' ' . $text . "\n";
                     },
                     $content,
                 );
 
-                // Ensure blank line before list for proper Djot block separation
+                // Ensure blank line before list for proper Carve block separation
                 return "\n\n" . $content . "\n";
             },
             $text,
@@ -389,8 +394,8 @@ class BbcodeToCarve
         // [sup]...[/sup] -> ^...^
         $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '^$1^', $text) ?? $text;
 
-        // [sub]...[/sub] -> ~...~
-        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', '~$1~', $text) ?? $text;
+        // [sub]...[/sub] -> ,,...,,
+        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', ',,$1,,', $text) ?? $text;
 
         return $text;
     }
