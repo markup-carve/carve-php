@@ -473,19 +473,9 @@ DJOT;
         $this->assertCount(0, $doc->getChildren());
     }
 
-    public function testBlocksInterruptParagraphsDisabledByDefault(): void
+    public function testParagraphInterruptionNestedLists(): void
     {
-        // Without blank line, sublist syntax is treated as text
-        $doc = $this->parser->parse("- Item\n  - Not a sublist");
-
-        $list = $doc->getChildren()[0];
-        $this->assertInstanceOf(ListBlock::class, $list);
-        $this->assertCount(1, $list->getChildren());
-    }
-
-    public function testBlocksInterruptParagraphsNestedLists(): void
-    {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables");
 
         $list = $doc->getChildren()[0];
@@ -506,9 +496,9 @@ DJOT;
         $this->assertCount(2, $sublist->getChildren());
     }
 
-    public function testBlocksInterruptParagraphsThreeLevels(): void
+    public function testParagraphInterruptionThreeLevels(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("- L1\n  - L2\n    - L3");
 
         $list = $doc->getChildren()[0];
@@ -521,9 +511,9 @@ DJOT;
         $this->assertCount(1, $l3List->getChildren());
     }
 
-    public function testBlocksInterruptParagraphsMixedListTypes(): void
+    public function testParagraphInterruptionMixedListTypes(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("- Unordered\n  1. Ordered\n  2. Second");
 
         $list = $doc->getChildren()[0];
@@ -535,9 +525,9 @@ DJOT;
         $this->assertSame(ListBlock::TYPE_ORDERED, $sublist->getListType());
     }
 
-    public function testBlocksInterruptParagraphsBlockquoteInList(): void
+    public function testParagraphInterruptionBlockquoteInList(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("- Item\n  > quoted");
 
         $list = $doc->getChildren()[0];
@@ -549,9 +539,9 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testBlocksInterruptParagraphsListInterruptsParagraph(): void
+    public function testParagraphInterruptionListInterruptsParagraph(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("Here is a list:\n- item one\n- item two");
 
         $children = $doc->getChildren();
@@ -560,38 +550,15 @@ DJOT;
         $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
-    public function testBlocksInterruptParagraphsBlockquoteInterruptsParagraph(): void
+    public function testParagraphInterruptionBlockquoteInterruptsParagraph(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("They said:\n> This is important");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
-    }
-
-    public function testBlocksInterruptParagraphsSetterMethod(): void
-    {
-        $parser = new BlockParser();
-        $this->assertFalse($parser->getBlocksInterruptParagraphs());
-
-        $parser->setBlocksInterruptParagraphs(true);
-        $this->assertTrue($parser->getBlocksInterruptParagraphs());
-
-        // Test chaining
-        $result = $parser->setBlocksInterruptParagraphs(false);
-        $this->assertSame($parser, $result);
-    }
-
-    public function testStandardModeBlockquoteDoesNotInterrupt(): void
-    {
-        // Standard djot: blockquote doesn't interrupt paragraph
-        $doc = $this->parser->parse("They said:\n> This is important");
-
-        $children = $doc->getChildren();
-        $this->assertCount(1, $children);
-        $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
     public function testCodeBlockTrimsLeadingAndTrailingBlankLines(): void

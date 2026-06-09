@@ -1,0 +1,586 @@
+# Bundled extensions
+
+This page documents the extensions shipped with `carve-php`. The normative,
+language-level extension contract (taxonomy, matcher/transform/renderer stages,
+registration) lives upstream in
+[`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
+
+## Default vs opt-in
+
+Two extensions are part of the core Carve language and are registered
+automatically on the first `parse()`/`convert()` call, so they are active out of
+the box without any `addExtension()` call:
+
+- **FrontmatterExtension** - a leading `---yaml ... ---` block is treated as
+  document metadata and stripped from the rendered output (not a thematic break).
+- **MentionsExtension** - `@mentions` and `#tags` are parsed as core social
+  syntax.
+
+Both are registered lazily: if you add your own pre-configured instance (for
+example `new MentionsExtension(mentionUrl: '/users/{name}')`) before the first
+parse, your instance takes precedence and the default is not added. Configure
+extensions before the first `parse()`; the standard extension lifecycle expects
+all extensions to be in place before parsing begins.
+
+Every other extension below is **opt-in** and must be registered manually.
+
+## Adding an extension
+
+All extensions are registered through `addExtension()`:
+
+~~~ php
+use Carve\CarveConverter;
+use Carve\Extension\ExternalLinksExtension;
+
+$converter = new CarveConverter();
+$converter->addExtension(new ExternalLinksExtension());
+
+$html = $converter->convert($djot);
+~~~
+
+For each opt-in extension below, the registration call is simply
+`addExtension(new FooExtension(...))`. Per-extension examples are shown only
+where the syntax or options add value.
+
+Note: `HeadingReferenceExtension` and `WikilinksExtension` both parse `[[...]]`
+syntax and therefore cannot be registered on the same converter instance - doing
+so throws a `LogicException`.
+
+## Links and references
+
+### AutolinkExtension
+
+Converts bare URLs in text (`http://`, `https://`, `mailto:`, and bare email
+addresses) into clickable links without explicit link syntax.
+
+Constructor options:
+
+- `allowedSchemes` (`array<string>`, default `['https', 'http', 'mailto']`) -
+  which URL schemes to auto-link. When `mailto` is included, bare email
+  addresses are also linked.
+
+~~~ php
+$converter->addExtension(new AutolinkExtension());
+
+$converter->convert('Visit https://example.com for more info.');
+// <p>Visit <a href="https://example.com">https://example.com</a> for more info.</p>
+
+// Only http/https, no mailto / bare emails:
+$converter->addExtension(new AutolinkExtension(allowedSchemes: ['https', 'http']));
+~~~
+
+### ExternalLinksExtension
+
+Adds `target` and `rel` attributes to external links (URLs starting with
+`http://` or `https://`). Hosts you list as internal are left untouched.
+
+Constructor options:
+
+- `internalHosts` (`array<string>`, default `[]`) - hosts treated as internal
+  (no external attributes added).
+- `target` (`string`, default `'_blank'`).
+- `rel` (`string`, default `'noopener noreferrer'`).
+- `nofollow` (`bool`, default `false`) - append `nofollow` to the `rel` value.
+
+~~~ php
+$converter->addExtension(new ExternalLinksExtension(
+    internalHosts: ['example.com', 'www.example.com'],
+    nofollow: true,
+));
+~~~
+
+### WikilinksExtension
+
+Parses `[[Page Name]]` and `[[page|Display Text]]` (with optional `#anchor`)
+into navigational links, as used in wikis and note tools like Obsidian or
+MediaWiki. Cannot be combined with `HeadingReferenceExtension`.
+
+Constructor options:
+
+- `urlGenerator` (`?Closure`, default null) - `fn(string $page): string`. When
+  null, the page name is slugified.
+- `cssClass` (`string`, default `'wikilink'`).
+- `newWindow` (`bool`, default `false`).
+
+~~~ php
+$converter->addExtension(new WikilinksExtension(
+    urlGenerator: fn (string $page) => '/wiki/' . strtolower(str_replace(' ', '-', $page)) . '.html',
+));
+
+$converter->convert('See [[Tiger Facts]]');
+// <p>See <a href="/wiki/tiger-facts.html" class="wikilink">Tiger Facts</a></p>
+
+$converter->convert('Learn about [[tigers|big cats]]');
+// <p>Learn about <a href="tigers" class="wikilink">big cats</a></p>
+~~~
+
+### HeadingReferenceExtension
+
+Resolves `[[Heading Text]]` (and `[[Heading Text|display]]`) to in-document
+headings, matching on the heading's text rather than its generated id, so
+authors do not have to guess slug rules. HTML output only; with other renderers
+the `[[...]]` is rendered as literal text. Cannot be combined with
+`WikilinksExtension`.
+
+Constructor options:
+
+- `cssClass` (`string`, default `'heading-ref'`).
+
+~~~ php
+$converter->addExtension(new HeadingReferenceExtension());
+~~~
+
+### MentionsExtension (default)
+
+Parses `@mentions` and `#tags` as core Carve social syntax. Active by default.
+By default both render as non-link spans; pass URL templates with a `{name}`
+placeholder to render links instead.
+
+Constructor options:
+
+- `mentionUrl` (`string`, default `''`) - URL template for mentions; empty means
+  render a non-link span.
+- `tagUrl` (`string`, default `''`) - URL template for tags; empty means a
+  non-link span.
+- `mentionClass` (`string`, default `'mention'`).
+- `tagClass` (`string`, default `'tag'`).
+
+~~~ php
+// Default (active out of the box): non-link spans
+$converter->convert('Hey @alice, see #release-1.0.');
+// <p>Hey <span class="mention"><strong>@alice</strong></span>,
+//    see <span class="tag"><strong>#release-1.0</strong></span>.</p>
+
+// Render as links instead (add before the first parse):
+$converter->addExtension(new MentionsExtension(
+    mentionUrl: '/users/{name}',
+    tagUrl: '/tags/{name}',
+));
+~~~
+
+## Headings
+
+### AsciiHeadingIdsExtension
+
+Folds auto-generated heading ids to ASCII (opt-in). By default Carve heading ids
+are lowercased but keep non-ASCII characters verbatim (`# Über uns` ->
+`über-uns`). This extension transliterates the slug to ASCII before lowercasing
+(`# Über uns` -> `uber-uns`), useful for share-safe URL fragments. Unmapped
+scripts (CJK, Arabic, Greek) still pass through unchanged; attach an explicit
+`{#id}` for those. The same transform is applied to the parse-time tracker so
+implicit `[Heading][]` references resolve to the folded ids.
+
+Constructor options:
+
+- `transliterator` (`?AsciiTransliterator`, default null) - supply a custom
+  transliterator; defaults to `new AsciiTransliterator()`.
+
+~~~ php
+$converter->addExtension(new AsciiHeadingIdsExtension());
+~~~
+
+### HeadingLevelShiftExtension
+
+Shifts heading levels down (h1 -> h2, h2 -> h3, and so on). Useful when h1 is
+reserved for the page title. Levels are capped at h6. Works with all renderers.
+
+Constructor options:
+
+- `shift` (`int`, default `1`) - number of levels to shift; clamped to 0-5.
+
+~~~ php
+$converter->addExtension(new HeadingLevelShiftExtension(shift: 1)); // h1 -> h2
+$converter->addExtension(new HeadingLevelShiftExtension(shift: 2)); // h1 -> h3
+~~~
+
+### HeadingPermalinksExtension
+
+Appends (or prepends) a clickable anchor link to each heading so users can link
+straight to a section. HTML output only.
+
+Constructor options:
+
+- `symbol` (`string`, default `'¶'`) - the displayed symbol (`'#'`, `'🔗'`, etc.).
+- `position` (`string`, default `'after'`) - `'before'` or `'after'`.
+- `cssClass` (`string`, default `'permalink'`).
+- `ariaLabel` (`string`, default `'Permalink'`).
+- `levels` (`array<int>`, default `[1, 2, 3, 4, 5, 6]`) - which levels get a
+  permalink.
+- `showOnHover` (`bool`, default `false`) - adds a `permalink-hover` class to the
+  wrapper for CSS-driven hover reveal.
+- `copyToClipboard` (`bool`, default `false`) - adds a `data-permalink-copy`
+  attribute for a JS copy-to-clipboard handler.
+
+~~~ php
+$converter->addExtension(new HeadingPermalinksExtension(
+    symbol: '#',
+    position: 'before',
+    showOnHover: true,
+));
+~~~
+
+### TableOfContentsExtension
+
+Extracts headings and builds a structured table of contents. It can auto-insert
+the TOC into the output, or expose the data/HTML for custom placement. HTML
+output only.
+
+Constructor options:
+
+- `minLevel` (`int`, default `1`) / `maxLevel` (`int`, default `6`) - heading
+  level range to include.
+- `listType` (`string`, default `'ul'`) - `'ul'` or `'ol'`.
+- `cssClass` (`string`, default `'toc'`).
+- `position` (`?string`, default null) - `'top'`, `'bottom'`, or null for manual
+  placement.
+- `separator` (`string`, default `''`) - HTML inserted between TOC and content
+  when `position` is set.
+
+~~~ php
+$toc = new TableOfContentsExtension(minLevel: 2, maxLevel: 3, position: 'top');
+$converter->addExtension($toc);
+
+$html = $converter->convert($djot);
+
+// Or place it yourself:
+$tocHtml = $toc->getTocHtml();        // nested list HTML
+$tocData = $toc->getToc();            // [['level' => 1, 'text' => '...', 'id' => '...'], ...]
+~~~
+
+## Blocks and divs
+
+### AdmonitionExtension
+
+Turns standard Carve divs (`::: note`, `::: warning`, etc.) into semantic
+admonition markup with accessibility roles. `warning` and `danger` get
+`role="alert"`. A `{title="..."}` attribute overrides the heading; a
+`{collapsible}` / `{collapsible=open}` attribute renders `<details>`/`<summary>`.
+
+Constructor options:
+
+- `types` (`array<string>`, default `['note', 'tip', 'warning', 'danger',
+  'info', 'success']`).
+- `defaultTitle` (`bool`, default `true`) - emit a title from the type when none
+  is given.
+- `titleTag` (`string`, default `'p'`).
+- `titleClass` (`string`, default `'admonition-title'`).
+- `containerClass` (`string`, default `'admonition'`).
+- `icons` (`array<string,string>|bool`, default `false`) - `true` uses the
+  built-in emoji icon set; an array supplies custom per-type icons.
+- `iconClass` (`string`, default `'admonition-icon'`).
+
+~~~ php
+$converter->addExtension(new AdmonitionExtension(icons: true));
+~~~
+
+Input:
+
+~~~
+::: note
+This is a note.
+:::
+
+{title="Watch Out!"}
+::: warning
+Be careful here.
+:::
+
+{collapsible=open}
+::: danger
+This is expanded by default.
+:::
+~~~
+
+### TabsExtension
+
+Converts a wrapper div with class `tabs` containing child `tab` divs into an
+accessible tabbed interface. Tab labels come from the first heading or a
+`{label="..."}` attribute; `{selected}` marks the default tab. Supports a
+CSS-only mode (no JavaScript) and an ARIA mode with keyboard navigation. HTML
+output only.
+
+Constructor options:
+
+- `mode` (`string`, default `'css'`) - `'css'` or `'aria'`.
+- `wrapperClass` (`string`, default `'tabs'`).
+- `tabClass` (`string`, default `'tabs-panel'`).
+- `labelClass` (`string`, default `'tabs-label'`).
+- `radioClass` (`string`, default `'tabs-radio'`).
+- `idPrefix` (`string`, default `'tabset'`).
+
+~~~ php
+$converter->addExtension(new TabsExtension()); // CSS-only
+$converter->addExtension(new TabsExtension(mode: 'aria'));
+~~~
+
+Input (the outer container uses `::::` so it can hold nested `:::` divs):
+
+~~~
+:::: tabs
+
+::: tab
+### First Tab
+
+Content for the first tab.
+:::
+
+::: tab
+### Second Tab
+
+Content for the second tab.
+:::
+
+::::
+~~~
+
+### CodeGroupExtension
+
+Converts a div with class `code-group` containing several code blocks into a
+tabbed code interface, ideal for showing the same step in multiple languages.
+Tab labels come from the code fence info using `[Label]` suffix syntax, falling
+back to the language name or "Code N". HTML output only.
+
+Constructor options:
+
+- `wrapperClass` (`string`, default `'code-group'`).
+- `panelClass` (`string`, default `'code-group-panel'`).
+- `labelClass` (`string`, default `'code-group-label'`).
+- `radioClass` (`string`, default `'code-group-radio'`).
+- `idPrefix` (`string`, default `'codegroup'`).
+- `highlighter` (`?Closure`, default null) - `fn(string $code, ?string $lang):
+  string` to integrate a syntax highlighter.
+
+~~~ php
+$converter->addExtension(new CodeGroupExtension());
+~~~
+
+Input:
+
+~~~
+::: code-group
+``` php [Installation]
+composer require php-collective/djot
+```
+
+``` bash [NPM]
+npm install @example/djot
+```
+:::
+~~~
+
+When deciding between this and `TabsExtension`: use `CodeGroupExtension` for
+multiple code blocks with labels from language hints; use `TabsExtension` for
+arbitrary content with labels from headings/attributes and optional ARIA mode.
+
+### MermaidExtension
+
+Transforms fenced code blocks with the `mermaid` language into Mermaid.js
+compatible markup (`<pre class="mermaid">...</pre>` by default). You must include
+Mermaid.js on the page to render the diagrams. HTML output only.
+
+Constructor options:
+
+- `tag` (`string`, default `'pre'`).
+- `cssClass` (`string`, default `'mermaid'`).
+- `wrapInFigure` (`bool`, default `false`) - wrap output in a `<figure>`.
+- `figureClass` (`string`, default `'mermaid-figure'`).
+
+~~~ php
+$converter->addExtension(new MermaidExtension());
+$converter->addExtension(new MermaidExtension(wrapInFigure: true));
+~~~
+
+Input:
+
+~~~
+``` mermaid
+graph TD;
+    A-->B;
+    A-->C;
+```
+~~~
+
+### FrontmatterExtension (default)
+
+Parses a leading frontmatter block. Active by default. The block opens with
+`---` plus a format identifier (`---yaml`, `---toml`, `---json`, ...) to
+distinguish it from a thematic break; a bare `---` opening falls back to the
+configured default format. The extension exposes the raw content - it does not
+interpret it, so use your preferred parser (symfony/yaml, etc.).
+
+Constructor options:
+
+- `defaultFormat` (`string`, default `'yaml'`) - format assumed for a bare `---`
+  opening.
+- `renderAsComment` (`bool`, default `false`) - emit the frontmatter as an HTML
+  comment instead of stripping it.
+- `renderCallback` (`?Closure`, default null) - `fn(Frontmatter $fm): string`
+  for custom rendering.
+
+~~~ php
+// Default behavior is automatic. To read the parsed content, register your
+// own instance and keep a reference:
+$fm = new FrontmatterExtension();
+$converter->addExtension($fm);
+
+$converter->convert($djot);
+
+$frontmatter = $fm->getFrontmatter();
+if ($frontmatter !== null) {
+    echo $frontmatter->getFormat();  // 'yaml'
+    echo $frontmatter->getContent(); // 'title: My Document...'
+}
+
+// With a parser:
+$metadata = $fm->getParsedContent(
+    fn ($content, $format) => $format === 'yaml' ? \Symfony\Component\Yaml\Yaml::parse($content) : null,
+);
+~~~
+
+Input:
+
+~~~
+---yaml
+title: My Document
+author: John Doe
+---
+
+# Document content starts here
+~~~
+
+## Inline and spans
+
+### SemanticSpanExtension
+
+Turns spans carrying semantic attributes into proper HTML5 elements:
+`{kbd}` -> `<kbd>`, `{dfn}` -> `<dfn>`, `{abbr="..."}` -> `<abbr title="...">`,
+`{samp}` -> `<samp>`, `{var}` -> `<var>`. Attributes can be combined, with `dfn`
+wrapping inner elements. No constructor options.
+
+~~~ php
+$converter->addExtension(new SemanticSpanExtension());
+
+$converter->convert('[Ctrl+C]{kbd}');
+// <p><kbd>Ctrl+C</kbd></p>
+
+$converter->convert('[HTML]{abbr="HyperText Markup Language"}');
+// <p><abbr title="HyperText Markup Language">HTML</abbr></p>
+
+$converter->convert('[CSS]{dfn abbr="Cascading Style Sheets"}');
+// <p><dfn><abbr title="Cascading Style Sheets">CSS</abbr></dfn></p>
+~~~
+
+For automatic abbreviation expansion (define once, apply everywhere) use the
+built-in `*[HTML]: HyperText Markup Language` definition syntax instead.
+
+### InlineFootnotesExtension
+
+Converts a span with the `.fn` class into an inline footnote, so footnote
+content can be written inline rather than in a separate definition block. Inline
+footnotes share the same numbering sequence as regular footnotes and appear
+together in the footnotes section. The content supports full inline formatting.
+HTML output only; for other renderers use
+`InlineFootnotesToParenthesesTransform`.
+
+Constructor options:
+
+- `cssClass` (`string`, default `'fn'`) - the class that marks a span as an
+  inline footnote.
+
+~~~ php
+$converter->addExtension(new InlineFootnotesExtension());
+
+$converter->convert('Some text[An inline footnote]{.fn} continues.');
+~~~
+
+### SmartQuotesExtension
+
+Configures locale-specific typographic quote characters. By default the parser
+uses English quotes; this extension switches them per locale (German low/high,
+French guillemets, etc.) while keeping apostrophes as U+2019 regardless of
+locale.
+
+Constructor options:
+
+- `locale` (`?string`, default null -> `'en'`) - locale code such as `'de'`,
+  `'fr'`, `'de-CH'`. Built-in locales include en, de, de-CH, fr, pl, ru, ja, zh,
+  sv, da, fi, cs, hu, it, es, pt, nl, nb, nn, uk.
+- `openDoubleQuote` / `closeDoubleQuote` / `openSingleQuote` /
+  `closeSingleQuote` (`?string`, default null) - explicit overrides that take
+  precedence over the locale.
+
+~~~ php
+$converter->addExtension(new SmartQuotesExtension(locale: 'de'));
+
+// Or explicit characters:
+$converter->addExtension(new SmartQuotesExtension(
+    openDoubleQuote: "\u{00AB}",
+    closeDoubleQuote: "\u{00BB}",
+));
+~~~
+
+## Lists
+
+### PlusBulletExtension
+
+By default Carve does not treat `+` as a bullet marker; it is reserved as the
+list-continuation marker. `PlusBulletExtension` re-enables `+` alongside `-` and
+`*`, with one deliberate difference: a `+` is only a bullet when followed by a
+space and non-empty content. A content-less `+` (bare, or trailing whitespace
+only) stays the continuation marker, so the two never collide. `+ +` follows the
+same first-block-item syntax as `- +` / `* +` (the trailing `+` is the
+first-block sentinel), not a literal `+` item.
+
+~~~ php
+use Carve\CarveConverter;
+use Carve\Extension\PlusBulletExtension;
+
+$converter = new CarveConverter();
+$converter->addExtension(new PlusBulletExtension());
+
+$converter->convert("+ Apple\n+ Banana\n"); // <ul><li>Apple</li><li>Banana</li></ul>
+$converter->convert("+ [ ] todo\n");         // task list item
+$converter->convert("+\n");                  // <p>+</p> - still the continuation marker
+~~~
+
+## Output post-processing
+
+### DefaultAttributesExtension
+
+Adds default attributes to elements by type (CSS classes, lazy loading, etc.).
+Defaults are only applied when the element does not already have that attribute;
+`class` values are merged rather than overwritten. No-op when given an empty map.
+
+Constructor options:
+
+- `defaults` (`array<string, array<string, string>>`, default `[]`) - map of
+  element type (snake_case) to attributes. Supported types include block:
+  `paragraph`, `heading`, `code_block`, `block_quote`, `list`, `list_item`,
+  `table`, `table_cell`, `div`, `thematic_break`; inline: `link`, `image`,
+  `emphasis`, `strong`, `code`, `span`, `subscript`, `superscript`, `footnote`,
+  `footnote_ref`.
+
+~~~ php
+$converter->addExtension(new DefaultAttributesExtension([
+    'image' => ['loading' => 'lazy', 'decoding' => 'async'],
+    'table' => ['class' => 'table table-striped'],
+    'code_block' => ['class' => 'highlight'],
+]));
+~~~
+
+### TabNormalizeExtension
+
+Expands literal tabs in code content to a fixed number of spaces at render time.
+Carve preserves literal tabs by default (tab display is a CSS `tab-size`
+concern); add this for fixed-width output without CSS (email, RSS, plain HTML).
+Flat replacement (no elastic tab stops); only code content is touched. HTML
+output only.
+
+Constructor options:
+
+- `width` (`int`, default `2`) - spaces per tab.
+
+~~~ php
+$converter->addExtension(new TabNormalizeExtension());          // 2 spaces
+$converter->addExtension(new TabNormalizeExtension(width: 4));  // 4 spaces
+~~~

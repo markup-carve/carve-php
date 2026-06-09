@@ -319,11 +319,9 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // Carve grammar §10: only a LIST MARKER interrupts nested content
-        // without a blank line. A block quote after lead text (no blank line)
-        // stays paragraph text, not a nested block.
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringNotContainsString('<blockquote>', $result);
+        $this->assertStringContainsString('<blockquote>', $result);
+        $this->assertStringContainsString('The quote', $result);
     }
 
     public function testTextThenCodeFenceNoBlankLineInList(): void
@@ -337,10 +335,9 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        // §10: a fence after lead text (no blank line) stays paragraph text
-        // (an inline code span), not a nested code block.
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringNotContainsString('<pre><code', $result);
+        $this->assertStringContainsString('<pre><code class="language-php">', $result);
+        $this->assertStringContainsString('echo 1;', $result);
     }
 
     public function testTextBeforeCodeBlockInList(): void

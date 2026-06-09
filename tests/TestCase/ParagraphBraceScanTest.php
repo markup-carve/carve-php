@@ -33,7 +33,7 @@ class ParagraphBraceScanTest extends TestCase
 
     public function testUnclosedBraceSuppressesInterruption(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("text{a=x\n# heading");
 
         $this->assertCount(1, $doc->getChildren());
@@ -43,7 +43,7 @@ class ParagraphBraceScanTest extends TestCase
 
     public function testClosedBraceAllowsInterruption(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("text{a=x}\n# heading");
 
         $this->assertTrue($this->hasHeading($doc));
@@ -54,7 +54,7 @@ class ParagraphBraceScanTest extends TestCase
         // The `}` lives inside a quoted value, so the `{` stays unclosed and the
         // heading must not interrupt - exercises quote state carried across the
         // segment boundary.
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("text{a=\"}\"\n# heading");
 
         $this->assertFalse($this->hasHeading($doc));
@@ -62,7 +62,7 @@ class ParagraphBraceScanTest extends TestCase
 
     public function testPlainParagraphStillInterrupts(): void
     {
-        $parser = new BlockParser(blocksInterruptParagraphs: true);
+        $parser = new BlockParser();
         $doc = $parser->parse("text\n# heading");
 
         $this->assertTrue($this->hasHeading($doc));

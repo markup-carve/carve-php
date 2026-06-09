@@ -99,6 +99,31 @@ class HeadingIdTracker
     }
 
     /**
+     * Resolve an id directly from already-extracted plain text, with the same
+     * slugging and 1-based collision suffixing as getIdForHeading(). Lets a
+     * caller skip building and inline-parsing a Heading node when the heading
+     * text is known to be plain (no inline markup) -- the id is identical.
+     */
+    public function getIdForText(string $plainText): string
+    {
+        $baseId = $this->normalizeId($plainText);
+
+        if (!isset($this->usedIds[$baseId])) {
+            $this->usedIds[$baseId] = 1;
+            $id = $baseId;
+        } else {
+            $this->usedIds[$baseId]++;
+            $id = $baseId . '-' . $this->usedIds[$baseId];
+        }
+
+        if (!isset($this->textById[$id])) {
+            $this->textById[$id] = $plainText;
+        }
+
+        return $id;
+    }
+
+    /**
      * Plain text of the heading owning $id, for </#id> cross-references.
      */
     public function getTextForId(string $id): ?string
