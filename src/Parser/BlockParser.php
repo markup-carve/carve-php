@@ -765,6 +765,23 @@ class BlockParser
                     }
                 }
 
+                // Fast path: a heading whose collected text is purely letters,
+                // numbers and spaces has no inline markup, so its plain text
+                // equals the raw text and its id resolves without building and
+                // inline-parsing a Heading node. (Smart typography only rewrites
+                // punctuation, which slugging collapses, so the id is identical.)
+                // Skips one of the two inline parses per heading.
+                if ($pendingId === null && $headingText !== '' && preg_match('/^[\p{L}\p{N} ]+$/u', $headingText) === 1) {
+                    $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
+                    $id = $headingIdTracker->getIdForText($label);
+                    $this->headingIds[$id] = true;
+                    if (!isset($this->references[$label])) {
+                        $this->references[$label] = new ReferenceDefinition('#' . $id, [], $i);
+                    }
+
+                    continue;
+                }
+
                 $heading = new Heading(strlen($matches[1]));
                 if ($pendingId !== null) {
                     $heading->setAttribute('id', $pendingId);
@@ -867,6 +884,27 @@ class BlockParser
 
                     continue;
                 }
+            }
+
+            // Fast path: a line whose first non-blank char is a LETTER can only
+            // be a paragraph, a custom block matcher, or an alphabetic/roman
+            // ordered list (`a.`, `iv.`) - every other core block opener begins
+            // with punctuation or a digit. So skip the ~16-probe tryParse
+            // cascade and try only the list parser before falling through. This
+            // is the common case (prose) and the dominant per-line cost in PHP,
+            // where each preg_match carries real call overhead. (A first-char
+            // switch over the punctuation openers was tried too but added no
+            // measurable gain - for those lines the actual parsing, not the
+            // dispatch probes, dominates - so only the prose fast path is kept.)
+            $ws = strspn($line, " \t");
+            $fc = $line[$ws] ?? '';
+            if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
+                $consumed = $this->tryParseList($parent, $lines, $i)
+                    ?? $this->tryBlockMatchers($parent, $lines, $i)
+                    ?? $this->tryParseParagraph($parent, $lines, $i);
+                $i += $consumed;
+
+                continue;
             }
 
             // Try to match block elements in order of precedence
@@ -2815,48 +2853,65 @@ class BlockParser
                 }
             }
 
-            // Process rowspan markers - find cells above that should span down
-            // We need to track column positions considering rowspan markers in previous rows
-            $tableChildren = $table->getChildren();
-            $currentRowIndex = count($tableChildren); // Index where current row will be added
+            // Index where the current row will be added. Read the count without
+            // binding the children array to a variable: a live reference here
+            // would alias $table's internal array, forcing appendChild() below
+            // to copy-on-write the whole array on EVERY row -- turning a plain
+            // table into O(rows^2). The rowspan resolution that genuinely needs
+            // the array is done only when this row actually has `^` markers.
+            $currentRowIndex = count($table->getChildren());
+
+            $rowHasRowspanMarker = false;
+            foreach ($rowCellData as $cellInfo) {
+                if ($cellInfo['type'] === 'rowspan_marker') {
+                    $rowHasRowspanMarker = true;
+
+                    break;
+                }
+            }
 
             // Track which cells have already been extended in this row
             // (multiple ^ markers under a colspan should only extend once)
             $extendedCells = [];
 
-            foreach ($rowCellData as $cellInfo) {
-                if ($cellInfo['type'] === 'rowspan_marker') {
-                    $targetCol = $cellInfo['colPosition'];
+            if ($rowHasRowspanMarker) {
+                $tableChildren = $table->getChildren();
+                foreach ($rowCellData as $cellInfo) {
+                    if ($cellInfo['type'] === 'rowspan_marker') {
+                        $targetCol = $cellInfo['colPosition'];
 
-                    // Look in previous rows for the cell that spans into this column
-                    for ($prevRowIdx = $currentRowIndex - 1; $prevRowIdx >= 0; $prevRowIdx--) {
-                        $prevRow = $tableChildren[$prevRowIdx];
-                        if (!($prevRow instanceof TableRow)) {
-                            continue;
-                        }
-
-                        // Calculate which column position each cell occupies in this row
-                        // considering that some positions may be occupied by rowspans from above
-                        $cellFound = $this->findCellAtColumnForRowspan(
-                            $tableChildren,
-                            $prevRowIdx,
-                            $targetCol,
-                            $currentRowIndex,
-                        );
-
-                        if ($cellFound !== null) {
-                            // Only extend each cell once per row (handles multiple ^ under colspan)
-                            $cellId = spl_object_id($cellFound);
-                            if (!isset($extendedCells[$cellId])) {
-                                $cellFound->setRowspan($cellFound->getRowspan() + 1);
-                                $extendedCells[$cellId] = true;
-                                $hasRowspans = true;
+                        // Look in previous rows for the cell that spans into this column
+                        for ($prevRowIdx = $currentRowIndex - 1; $prevRowIdx >= 0; $prevRowIdx--) {
+                            $prevRow = $tableChildren[$prevRowIdx];
+                            if (!($prevRow instanceof TableRow)) {
+                                continue;
                             }
 
-                            break;
+                            // Calculate which column position each cell occupies in this row
+                            // considering that some positions may be occupied by rowspans from above
+                            $cellFound = $this->findCellAtColumnForRowspan(
+                                $tableChildren,
+                                $prevRowIdx,
+                                $targetCol,
+                                $currentRowIndex,
+                            );
+
+                            if ($cellFound !== null) {
+                                // Only extend each cell once per row (handles multiple ^ under colspan)
+                                $cellId = spl_object_id($cellFound);
+                                if (!isset($extendedCells[$cellId])) {
+                                    $cellFound->setRowspan($cellFound->getRowspan() + 1);
+                                    $extendedCells[$cellId] = true;
+                                    $hasRowspans = true;
+                                }
+
+                                break;
+                            }
                         }
                     }
                 }
+                // Release the alias before appendChild() so the append stays O(1).
+                unset($tableChildren);
             }
 
             // Remove cells that overlap with spanning cells from previous rows
