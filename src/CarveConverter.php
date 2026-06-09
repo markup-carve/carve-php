@@ -125,7 +125,7 @@ class CarveConverter
      * @param bool $strict Whether to throw exceptions on parse errors
      * @param \Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
-     * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks (HTML renderer only)
+     * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). A marker-led line is interrupted into its own block before this applies; see SoftBreakMode for the caveat.
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
