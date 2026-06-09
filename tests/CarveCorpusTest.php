@@ -126,6 +126,10 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
+     * Empty: paragraph interruption is now the canonical §10 default and the
+     * spec corpus reflects it, so the former interrupt-divergence skips
+     * (76/05/80) now pass against the interrupt parser.
+     *
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [];

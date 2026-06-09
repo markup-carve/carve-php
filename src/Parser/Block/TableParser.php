@@ -37,8 +37,10 @@ class TableParser
         // Strip row attributes if present (|...|{.class})
         $lineWithoutRowAttrs = $this->stripRowAttributes($line);
 
-        // Table rows start and end with |
-        if (!preg_match('/^\|.*\|$/', $lineWithoutRowAttrs)) {
+        // Table rows start and end with | (byte check, equivalent to
+        // `/^\|.*\|$/`: first byte is `|`, last byte is `|`, length >= 2).
+        $len = strlen($lineWithoutRowAttrs);
+        if ($len < 2 || $lineWithoutRowAttrs[0] !== '|' || $lineWithoutRowAttrs[$len - 1] !== '|') {
             return false;
         }
 
@@ -55,6 +57,12 @@ class TableParser
      */
     public function stripRowAttributes(string $line): string
     {
+        // Row attributes require a literal `}`; skip the greedy backtracking
+        // regex on the common row that has none.
+        if (!str_contains($line, '}')) {
+            return $line;
+        }
+
         // Row attributes appear after final pipe: |...|{.class}
         if (preg_match('/^(.*\|)\{([^{}]+)\}\s*$/', $line, $matches)) {
             return $matches[1];
@@ -72,6 +80,10 @@ class TableParser
      */
     public function extractRowAttributes(string $line): array
     {
+        if (!str_contains($line, '}')) {
+            return [];
+        }
+
         if (preg_match('/\|\{([^{}]+)\}\s*$/', $line, $matches)) {
             return AttributeParser::parse($matches[1]);
         }
@@ -154,6 +166,12 @@ class TableParser
 
         // Remove leading and trailing |
         $line = substr($line, 1, -1);
+
+        // Fast path: with no code spans (backticks) and no escaped pipes, every
+        // `|` is a delimiter, so a plain split is identical to the scan below.
+        if (!str_contains($line, '`') && !str_contains($line, '\\|')) {
+            return explode('|', $line);
+        }
 
         // Split by | but not \| and not | inside code spans
         $cells = [];
