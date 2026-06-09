@@ -1616,6 +1616,27 @@ class BlockParser
     }
 
     /**
+     * Block-quote line content: the text after a `> ` prefix, '' for a lone
+     * `>`, or null when the line does not open/continue a block quote.
+     * Byte-equivalent to the `/^> (.*)$/` and `/^>$/` regexes -- a space is
+     * required after `>`; `>text` and `>\t` do not start a quote.
+     */
+    private function blockQuoteLineContent(string $line): ?string
+    {
+        if (($line[0] ?? '') !== '>') {
+            return null;
+        }
+        if ($line === '>') {
+            return '';
+        }
+        if (($line[1] ?? '') === ' ') {
+            return substr($line, 2);
+        }
+
+        return null;
+    }
+
+    /**
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -1624,14 +1645,11 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Fast early exit: block quotes start with >
-        if (!isset($line[0]) || $line[0] !== '>') {
-            return null;
-        }
-
-        // Match block quote: > followed by space or end of line (NOT >text or >>)
-        // The > must be followed by a space or be at end of line
-        if (!preg_match('/^> (.*)$/', $line, $matches) && !preg_match('/^>$/', $line)) {
+        // Match block quote opener via byte checks (equivalent to the regexes
+        // `/^> (.*)$/` and `/^>$/`, without per-line preg_match overhead): `> `
+        // with content, or a lone `>`. `>text` / `>\t` are not a quote.
+        $content = $this->blockQuoteLineContent($line);
+        if ($content === null) {
             return null;
         }
 
@@ -1651,13 +1669,8 @@ class BlockParser
             'paragraphOpen' => false,
         ];
 
-        if (preg_match('/^> (.*)$/', $line, $matches)) {
-            $innerLines[] = $matches[1];
-            $this->trackBlockQuoteLazyState($matches[1], $lazyState);
-        } elseif (preg_match('/^>$/', $line)) {
-            $innerLines[] = '';
-            $this->trackBlockQuoteLazyState('', $lazyState);
-        }
+        $innerLines[] = $content;
+        $this->trackBlockQuoteLazyState($content, $lazyState);
 
         $i = $start + 1;
         $count = count($lines);
@@ -1670,14 +1683,10 @@ class BlockParser
             }
 
             // Continue with "> " prefix (space required per spec)
-            if (preg_match('/^> (.*)$/', $currentLine, $matches)) {
-                $innerLines[] = $matches[1];
-                $this->trackBlockQuoteLazyState($matches[1], $lazyState);
-                $i++;
-            } elseif (preg_match('/^>$/', $currentLine)) {
-                // Empty block quote line (just >)
-                $innerLines[] = '';
-                $this->trackBlockQuoteLazyState('', $lazyState);
+            $content = $this->blockQuoteLineContent($currentLine);
+            if ($content !== null) {
+                $innerLines[] = $content;
+                $this->trackBlockQuoteLazyState($content, $lazyState);
                 $i++;
             } elseif ($lazyState['paragraphOpen'] && !$this->startsNewBlock($currentLine)) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
