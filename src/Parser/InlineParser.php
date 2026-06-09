@@ -900,12 +900,50 @@ class InlineParser
             return null;
         }
 
-        // Delimited form: <delim>BODY<delim>flags. The body's first char is the
-        // candidate trigger (the anchor `\G` is inserted after the delimiter at
-        // registration, before BODY).
-        $c = $pattern[1];
+        // Delimited form: <delim>BODY<delim>flags. The first INPUT-consuming
+        // char of BODY is the candidate trigger.
         $delim = $pattern[0];
-        if ($c === $delim) {
+        $len = strlen($pattern);
+        $i = 1;
+
+        // Skip a leading lookbehind assertion (zero-width: consumes no input, so
+        // the real trigger follows it). Gating on the trigger is still safe --
+        // the anchored matcher requires that byte at the position regardless of
+        // the lookbehind, which only further restricts the match.
+        if (substr($pattern, $i, 4) === '(?<!' || substr($pattern, $i, 4) === '(?<=') {
+            $depth = 0;
+            while ($i < $len) {
+                $ch = $pattern[$i];
+                if ($ch === '\\') {
+                    $i += 2;
+
+                    continue;
+                }
+                if ($ch === '[') {
+                    $i++;
+                    while ($i < $len && $pattern[$i] !== ']') {
+                        $i += $pattern[$i] === '\\' ? 2 : 1;
+                    }
+                    $i++;
+
+                    continue;
+                }
+                if ($ch === '(') {
+                    $depth++;
+                } elseif ($ch === ')') {
+                    $depth--;
+                    if ($depth === 0) {
+                        $i++;
+
+                        break;
+                    }
+                }
+                $i++;
+            }
+        }
+
+        $c = $pattern[$i] ?? '';
+        if ($c === '' || $c === $delim) {
             return null;
         }
         if (in_array($c, ['\\', '(', '[', '^', '.', '$', '|', '?', '*', '+', '{', ')', ']', '}'], true)) {
