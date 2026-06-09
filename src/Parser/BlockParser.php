@@ -3511,7 +3511,6 @@ class BlockParser
                 return preg_match('/^#{1,6}\s/', $line) === 1;
             case '-':
             case '*':
-            case '+':
                 // Unordered lists or thematic breaks
                 if (isset($line[1]) && $line[1] === ' ') {
                     return true; // Unordered list
@@ -3519,6 +3518,13 @@ class BlockParser
 
                 // Thematic breaks: a bare run of at least three matching markers
                 return preg_match('/^(' . preg_quote($first, '/') . '[ \t]*){3,}$/', $line) === 1;
+            case '+':
+                // `+` is the list-continuation marker, NOT a bullet (only the
+                // opt-in PlusBulletExtension re-enables it) and is not a
+                // thematic-break char. A bare `+ x` line is ordinary prose, so
+                // it must not interrupt -- otherwise "+ one\n+ two" splits into
+                // two stray paragraphs that are neither prose nor a list.
+                return false;
             case '_':
                 // Thematic break
                 return preg_match('/^(_[ \t]*){3,}$/', $line) === 1;

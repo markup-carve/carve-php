@@ -65,13 +65,10 @@ class CompactListBlocksTest extends TestCase
     {
         // `+` is not a Carve bullet (unlike Markdown/djot) -- it is the
         // continuation marker, so a `+ x` line is ordinary paragraph text.
-        //
-        // DIVERGENCE (paragraph-interruption default): with interruption on,
-        // the second `+ two` line starts a new visible block and breaks the
-        // open paragraph, so the prose splits into two paragraphs instead of
-        // staying one. Strict (the §10 spec) keeps it as a single paragraph.
-        // This is the exact prose-corruption the roundtrip deep-dive flagged.
-        $this->assertSame("<p>+ one</p>\n<p>+ two</p>", trim($this->converter->convert("+ one\n+ two")));
+        // This holds under paragraph interruption too: `+` is neither a bullet
+        // nor a thematic-break char, so a `+ x` line never interrupts an open
+        // paragraph -- the two lines stay one paragraph.
+        $this->assertSame("<p>+ one\n+ two</p>", trim($this->converter->convert("+ one\n+ two")));
     }
 
     public function testFirstBlockItemTableFlushLeft(): void

@@ -155,7 +155,6 @@ class CarveCorpusTest extends TestCase
         '76-paragraph-interruption-13' => self::INTERRUPT_DIVERGENCE,
         '76-paragraph-interruption-15' => self::INTERRUPT_DIVERGENCE,
         '80-blockquote-lazy-continuation-stops-at-a-fenced-block' => self::INTERRUPT_DIVERGENCE,
-        '83-list-continuation-marker-4' => self::INTERRUPT_DIVERGENCE,
     ];
 
     protected CarveConverter $converter;
