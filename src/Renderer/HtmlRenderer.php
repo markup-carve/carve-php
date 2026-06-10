@@ -27,6 +27,7 @@ use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
 use Carve\Node\Inline\Abbreviation;
+use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
@@ -155,6 +156,7 @@ class HtmlRenderer implements RendererInterface
             InlineFootnote::class => 'renderInlineFootnote',
             FootnoteRef::class => 'renderFootnoteRef',
             HeadingRef::class => 'renderHeadingRef',
+            CaptionNumber::class => 'renderCaptionNumber',
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
@@ -390,6 +392,7 @@ class HtmlRenderer implements RendererInterface
         // cross-references work regardless of order.
         $this->trackIdFromNode($document);
         $this->preresolveHeadingIds($document);
+        $this->resolveNumberedCaptions($document);
 
         // Section wrapping (grammar PART 9 §13): every top-level heading
         // emits a <section id="{slug}"> around itself and the content up
@@ -535,6 +538,112 @@ class HtmlRenderer implements RendererInterface
                 $this->preresolveHeadingIds($child);
             }
         }
+    }
+
+    /**
+     * Resolve caption number placeholders and register figure/table
+     * cross-reference labels before any </#id> links are rendered.
+     */
+    protected function resolveNumberedCaptions(Node $node): void
+    {
+        $counters = [];
+        $this->resolveNumberedCaptionsInNode($node, $counters);
+    }
+
+    /**
+     * @param \Carve\Node\Node $node
+     * @param array<string, int> $counters
+     */
+    protected function resolveNumberedCaptionsInNode(Node $node, array &$counters): void
+    {
+        if ($node instanceof Figure) {
+            $caption = $this->findFigureCaption($node);
+            if ($caption !== null) {
+                $this->resolveNumberedCaption($node, $caption, $counters);
+            }
+        } elseif ($node instanceof Table && $node->hasCaption()) {
+            $caption = $node->getCaption();
+            if ($caption !== null) {
+                $this->resolveNumberedCaption($node, $caption, $counters);
+            }
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                continue;
+            }
+            $this->resolveNumberedCaptionsInNode($child, $counters);
+        }
+    }
+
+    protected function findFigureCaption(Figure $figure): ?Caption
+    {
+        foreach ($figure->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                return $child;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param \Carve\Node\Node $target
+     * @param \Carve\Node\Block\Caption $caption
+     * @param array<string, int> $counters
+     */
+    protected function resolveNumberedCaption(Node $target, Caption $caption, array &$counters): void
+    {
+        $result = $this->captionTextBeforeNumber($caption);
+        $numberNode = $result['node'];
+        if (!$numberNode instanceof CaptionNumber) {
+            return;
+        }
+
+        $label = rtrim($result['text']);
+        $counters[$label] = ($counters[$label] ?? 0) + 1;
+        $number = $counters[$label];
+        $numberNode->setNumber($number);
+
+        $id = $target->getAttribute('id') ?? '';
+        if ($id !== '') {
+            $this->getRenderContext()->headingIdTracker->setTextForId($id, $label . ' ' . $number);
+        }
+    }
+
+    /**
+     * @return array{text: string, node: \Carve\Node\Inline\CaptionNumber|null}
+     */
+    protected function captionTextBeforeNumber(Node $node): array
+    {
+        $text = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof CaptionNumber) {
+                return ['text' => $text, 'node' => $child];
+            }
+
+            if ($child instanceof Text) {
+                $text .= $child->getContent();
+            } elseif ($child instanceof EscapedText) {
+                $text .= $child->getContent();
+            } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
+                $text .= ' ';
+            } elseif ($child instanceof Code || $child instanceof Math) {
+                $text .= $child->getContent();
+            } elseif ($child instanceof Symbol) {
+                $text .= ':' . $child->getName() . ':';
+            } elseif ($child instanceof RawInline) {
+                continue;
+            } else {
+                $result = $this->captionTextBeforeNumber($child);
+                $text .= $result['text'];
+                if ($result['node'] instanceof CaptionNumber) {
+                    return ['text' => $text, 'node' => $result['node']];
+                }
+            }
+        }
+
+        return ['text' => $text, 'node' => null];
     }
 
     /**
@@ -1291,6 +1400,13 @@ class HtmlRenderer implements RendererInterface
 
         return '<a href="#' . $this->escapeAttribute($id) . '">'
             . $this->escape($label) . '</a>';
+    }
+
+    protected function renderCaptionNumber(CaptionNumber $node): string
+    {
+        $number = $node->getNumber();
+
+        return $number === null ? '' : (string)$number;
     }
 
     protected function renderMention(Mention $node): string

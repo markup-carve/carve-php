@@ -27,6 +27,7 @@ use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
 use Carve\Node\Inline\Abbreviation;
+use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
@@ -423,6 +424,7 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Symbol => $this->renderSymbol($node),
             $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
             $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
+            $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => '', // Skip raw inline
             default => $this->renderChildren($node),
         };
