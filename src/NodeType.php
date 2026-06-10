@@ -194,6 +194,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const INLINE_FOOTNOTE = 'inline_footnote';
+
+    /**
+     * @var string
+     */
     public const SPAN = 'span';
 
     /**

@@ -34,6 +34,7 @@ use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -420,6 +421,7 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Span => $this->renderChildren($node),
             $node instanceof Math => $this->renderMath($node),
             $node instanceof Symbol => $this->renderSymbol($node),
+            $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
             $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
             $node instanceof RawInline => '', // Skip raw inline
             default => $this->renderChildren($node),

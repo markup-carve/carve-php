@@ -37,6 +37,7 @@ use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineExtension;
+use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -151,6 +152,7 @@ class HtmlRenderer implements RendererInterface
             Math::class => 'renderMath',
             Mention::class => 'renderMention',
             Symbol::class => 'renderSymbol',
+            InlineFootnote::class => 'renderInlineFootnote',
             FootnoteRef::class => 'renderFootnoteRef',
             HeadingRef::class => 'renderHeadingRef',
             SoftBreak::class => 'renderSoftBreak',
@@ -1732,9 +1734,18 @@ class HtmlRenderer implements RendererInterface
             $html .= ' data-djot-footnote-label="' . $this->escapeAttribute($label) . '"';
         }
 
-        $html .= '><sup>' . $number . '</sup></a>';
+        $html .= $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '><sup>' . $number . '</sup></a>';
 
         return $html;
+    }
+
+    protected function renderInlineFootnote(InlineFootnote $node): string
+    {
+        $number = $this->registerInlineFootnote(fn (): string => '<p>' . $this->renderChildren($node) . "</p>\n");
+
+        return '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"'
+            . $this->renderAttributesExcluding($node, ['id', 'href', 'role'])
+            . '><sup>' . $number . '</sup></a>';
     }
 
     protected function renderMath(Math $node): string

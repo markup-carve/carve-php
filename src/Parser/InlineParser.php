@@ -16,6 +16,7 @@ use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineExtension;
+use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -125,6 +126,8 @@ class InlineParser
      * @var array<string, string>|null
      */
     protected ?array $cachedAbbreviations = null;
+
+    protected bool $footnoteRecognitionEnabled = true;
 
     /**
      * Smart quote characters (configurable via SmartQuotesExtension for locale support)
@@ -329,8 +332,13 @@ class InlineParser
         $this->parseInlines($parent, $text);
     }
 
-    protected function parseInlines(Node $parent, string $text): void
+    protected function parseInlines(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
     {
+        $previousFootnoteRecognition = $this->footnoteRecognitionEnabled;
+        if ($footnoteRecognitionEnabled !== null) {
+            $this->footnoteRecognitionEnabled = $footnoteRecognitionEnabled;
+        }
+
         $length = strlen($text);
         $pos = 0;
         $textBuffer = '';
@@ -520,7 +528,7 @@ class InlineParser
             }
 
             // Footnote reference: [^label]
-            if ($char === '[' && $nextChar === '^') {
+            if ($this->footnoteRecognitionEnabled && $char === '[' && $nextChar === '^') {
                 $result = $this->parseFootnoteRef($text, $pos);
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
@@ -626,6 +634,19 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '*', Strong::class);
                 if ($result !== null) {
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
+            // Inline footnote: ^[content]. Takes precedence over superscript.
+            if ($this->footnoteRecognitionEnabled && $char === '^' && $nextChar === '[') {
+                $result = $this->parseInlineFootnote($text, $pos);
+                if ($result !== null) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -780,6 +801,7 @@ class InlineParser
         }
 
         $this->flushText($parent, $textBuffer);
+        $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
     }
 
     protected function flushText(Node $parent, string $text): void
@@ -1144,35 +1166,8 @@ class InlineParser
             return null;
         }
 
-        // Find closing ]
-        $bracketDepth = 1;
-        $textEnd = $pos + 1;
-        while ($textEnd < $length && $bracketDepth > 0) {
-            if ($text[$textEnd] === '`') {
-                // A bracket inside a code span is literal. An unclosed run is
-                // opaque to the end of the block, so no ] can close the bracket
-                // and this is not a link.
-                $codeEnd = $this->findCodeSpanEnd($text, $textEnd);
-                if ($codeEnd === null) {
-                    return null;
-                }
-                $textEnd = $codeEnd;
-
-                continue;
-            }
-            if ($text[$textEnd] === '[') {
-                $bracketDepth++;
-            } elseif ($text[$textEnd] === ']') {
-                $bracketDepth--;
-            } elseif ($text[$textEnd] === '\\' && $textEnd + 1 < $length) {
-                $textEnd++; // Skip escaped char
-            }
-            if ($bracketDepth > 0) {
-                $textEnd++;
-            }
-        }
-
-        if ($bracketDepth !== 0) {
+        $textEnd = $this->findBalancedBracketEnd($text, $pos);
+        if ($textEnd === null) {
             return null;
         }
 
@@ -1347,6 +1342,54 @@ class InlineParser
                     ];
                 }
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the balanced closing `]` for a bracketed inline run.
+     *
+     * Escaped brackets and brackets inside code spans are opaque, matching the
+     * link text scanner.
+     *
+     * @return int|null Position of the closing `]`, or null if unclosed
+     */
+    protected function findBalancedBracketEnd(string $text, int $openPos): ?int
+    {
+        $length = strlen($text);
+        if ($openPos >= $length || $text[$openPos] !== '[') {
+            return null;
+        }
+
+        $bracketDepth = 1;
+        $pos = $openPos + 1;
+        while ($pos < $length) {
+            if ($text[$pos] === '`') {
+                $codeEnd = $this->findCodeSpanEnd($text, $pos);
+                if ($codeEnd === null) {
+                    return null;
+                }
+                $pos = $codeEnd;
+
+                continue;
+            }
+
+            if ($text[$pos] === '[') {
+                $bracketDepth++;
+            } elseif ($text[$pos] === ']') {
+                $bracketDepth--;
+            } elseif ($text[$pos] === '\\' && $pos + 1 < $length) {
+                $pos += 2;
+
+                continue;
+            }
+
+            if ($bracketDepth === 0) {
+                return $pos;
+            }
+
+            $pos++;
         }
 
         return null;
@@ -2605,6 +2648,46 @@ class InlineParser
         }
 
         return $pos;
+    }
+
+    /**
+     * Parse inline footnote ^[content].
+     *
+     * @return array{node: \Carve\Node\Inline\InlineFootnote, pos: int}|null
+     */
+    protected function parseInlineFootnote(string $text, int $pos): ?array
+    {
+        $length = strlen($text);
+        if ($pos + 1 >= $length || $text[$pos] !== '^' || $text[$pos + 1] !== '[') {
+            return null;
+        }
+
+        if ($pos > 0 && $text[$pos - 1] === '^') {
+            return null;
+        }
+
+        $close = $this->findBalancedBracketEnd($text, $pos + 1);
+        if ($close === null) {
+            return null;
+        }
+
+        $content = substr($text, $pos + 2, $close - $pos - 2);
+        if (trim($content) === '') {
+            return null;
+        }
+
+        $node = new InlineFootnote();
+        $this->parseInlines($node, $content, false);
+
+        $endPos = $close + 1;
+        if ($endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
+        return [
+            'node' => $node,
+            'pos' => $endPos,
+        ];
     }
 
     /**
