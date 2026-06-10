@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Carve\Renderer;
 
 use Carve\Node\Block\Heading;
+use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
@@ -132,6 +134,16 @@ class HeadingIdTracker
     }
 
     /**
+     * Register cross-reference display text for a non-heading id.
+     */
+    public function setTextForId(string $id, string $text): void
+    {
+        if ($id !== '' && !isset($this->textById[$id])) {
+            $this->textById[$id] = $text;
+        }
+    }
+
+    /**
      * Track an explicit ID from a non-heading element
      *
      * This prevents auto-generated heading IDs from conflicting
@@ -228,6 +240,10 @@ class HeadingIdTracker
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Text) {
                 $text .= $child->getContent();
+            } elseif ($child instanceof EscapedText) {
+                $text .= $child->getContent();
+            } elseif ($child instanceof CaptionNumber) {
+                $text .= $child->getNumber() === null ? '' : (string)$child->getNumber();
             } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $text .= ' ';
             } elseif ($child instanceof Code || $child instanceof Math) {
