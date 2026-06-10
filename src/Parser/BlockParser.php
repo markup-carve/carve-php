@@ -2702,6 +2702,9 @@ class BlockParser
         $columnAligns = [];
         $headerFound = false;
         $hasRowspans = false;
+        // Per-column "open" origin cell, carried down across rows so a `^`
+        // marker extends it in O(1) instead of rescanning all prior rows.
+        $columnOrigin = [];
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -2881,61 +2884,37 @@ class BlockParser
             // binding the children array to a variable: a live reference here
             // would alias $table's internal array, forcing appendChild() below
             // to copy-on-write the whole array on EVERY row -- turning a plain
-            // table into O(rows^2). The rowspan resolution that genuinely needs
-            // the array is done only when this row actually has `^` markers.
+            // table into O(rows^2).
             $currentRowIndex = count($table->getChildren());
 
-            $rowHasRowspanMarker = false;
-            foreach ($rowCellData as $cellInfo) {
-                if ($cellInfo['type'] === 'rowspan_marker') {
-                    $rowHasRowspanMarker = true;
-
-                    break;
-                }
-            }
-
-            // Track which cells have already been extended in this row
-            // (multiple ^ markers under a colspan should only extend once)
+            // Resolve rowspan markers against the per-column origin cells carried
+            // down from previous rows. Each `^` extends the cell currently "open"
+            // in its column, so the whole table stays O(cells); the previous
+            // approach rescanned every prior row per marker (rebuilding a full
+            // occupancy map each time), making an all-`^` table O(rows^3).
+            // Multiple `^` under one colspan extend the origin only once per row.
             $extendedCells = [];
-
-            if ($rowHasRowspanMarker) {
-                $tableChildren = $table->getChildren();
-                foreach ($rowCellData as $cellInfo) {
-                    if ($cellInfo['type'] === 'rowspan_marker') {
-                        $targetCol = $cellInfo['colPosition'];
-
-                        // Look in previous rows for the cell that spans into this column
-                        for ($prevRowIdx = $currentRowIndex - 1; $prevRowIdx >= 0; $prevRowIdx--) {
-                            $prevRow = $tableChildren[$prevRowIdx];
-                            if (!($prevRow instanceof TableRow)) {
-                                continue;
-                            }
-
-                            // Calculate which column position each cell occupies in this row
-                            // considering that some positions may be occupied by rowspans from above
-                            $cellFound = $this->findCellAtColumnForRowspan(
-                                $tableChildren,
-                                $prevRowIdx,
-                                $targetCol,
-                                $currentRowIndex,
-                            );
-
-                            if ($cellFound !== null) {
-                                // Only extend each cell once per row (handles multiple ^ under colspan)
-                                $cellId = spl_object_id($cellFound);
-                                if (!isset($extendedCells[$cellId])) {
-                                    $cellFound->setRowspan($cellFound->getRowspan() + 1);
-                                    $extendedCells[$cellId] = true;
-                                    $hasRowspans = true;
-                                }
-
-                                break;
-                            }
+            foreach ($rowCellData as $cellInfo) {
+                $col = $cellInfo['colPosition'];
+                if ($cellInfo['type'] === 'rowspan_marker') {
+                    $origin = $columnOrigin[$col] ?? null;
+                    if ($origin instanceof TableCell) {
+                        $originId = spl_object_id($origin);
+                        if (!isset($extendedCells[$originId])) {
+                            $origin->setRowspan($origin->getRowspan() + 1);
+                            $extendedCells[$originId] = true;
+                            $hasRowspans = true;
+                        }
+                    }
+                } else {
+                    $cell = $cellInfo['cell'] ?? null;
+                    if ($cell instanceof TableCell) {
+                        $colspan = $cell->getColspan();
+                        for ($c = $col; $c < $col + $colspan; $c++) {
+                            $columnOrigin[$c] = $cell;
                         }
                     }
                 }
-                // Release the alias before appendChild() so the append stays O(1).
-                unset($tableChildren);
             }
 
             // Remove cells that overlap with spanning cells from previous rows
@@ -2961,144 +2940,6 @@ class BlockParser
         // Caption parsing is now handled by tryParseCaption
 
         return $i - $start;
-    }
-
-    /**
-     * Find a cell at a specific column position that can span into the target row.
-     *
-     * This method handles the complexity of finding cells when previous rows
-     * may have rowspan markers (missing cells) and rowspans from even earlier rows.
-     *
-     * @param array<\Carve\Node\Node> $tableRows All rows parsed so far
-     * @param int $rowIndex The row index to search in
-     * @param int $targetCol The column position to find
-     * @param int $targetRowIndex The row index we're trying to extend into
-     *
-     * @return \Carve\Node\Block\TableCell|null The cell if found and valid for extension
-     */
-    protected function findCellAtColumnForRowspan(
-        array $tableRows,
-        int $rowIndex,
-        int $targetCol,
-        int $targetRowIndex,
-    ): ?TableCell {
-        $row = $tableRows[$rowIndex];
-        if (!($row instanceof TableRow)) {
-            return null;
-        }
-
-        // Build a map of which columns are occupied by cells from this row
-        // or by rowspans from earlier rows
-        $columnOccupancy = $this->buildColumnOccupancyMap($tableRows, $rowIndex);
-
-        // Find which cell (if any) from this row occupies the target column
-        $cells = $row->getChildren();
-        $cellColPosition = 0;
-
-        foreach ($cells as $cell) {
-            if (!($cell instanceof TableCell)) {
-                continue;
-            }
-
-            // Skip columns that are occupied by rowspans from earlier rows
-            while (isset($columnOccupancy[$cellColPosition]) && $columnOccupancy[$cellColPosition] !== $rowIndex) {
-                $cellColPosition++;
-            }
-
-            $colspan = $cell->getColspan();
-            $rowspan = $cell->getRowspan();
-
-            // Check if this cell covers the target column
-            if ($cellColPosition <= $targetCol && $targetCol < $cellColPosition + $colspan) {
-                // Check if this cell's rowspan already reaches the target row
-                $rowsSpanned = $rowIndex + $rowspan;
-                if ($rowsSpanned >= $targetRowIndex) {
-                    return $cell;
-                }
-            }
-
-            $cellColPosition += $colspan;
-        }
-
-        return null;
-    }
-
-    /**
-     * Build a map of which row's cell occupies each column position.
-     *
-     * @param array<\Carve\Node\Node> $tableRows All rows parsed so far
-     * @param int $upToRowIndex Build occupancy up to this row index
-     *
-     * @return array<int, int> Map of column position => row index that occupies it
-     */
-    protected function buildColumnOccupancyMap(array $tableRows, int $upToRowIndex): array
-    {
-        $occupancy = [];
-
-        for ($rowIdx = 0; $rowIdx <= $upToRowIndex; $rowIdx++) {
-            $row = $tableRows[$rowIdx] ?? null;
-            if (!($row instanceof TableRow)) {
-                continue;
-            }
-
-            $cells = $row->getChildren();
-            $colPos = 0;
-
-            foreach ($cells as $cell) {
-                if (!($cell instanceof TableCell)) {
-                    continue;
-                }
-
-                // Skip columns already occupied by earlier rowspans
-                while (isset($occupancy[$colPos]) && $occupancy[$colPos] + $this->getCellRowspanAt($tableRows, $occupancy[$colPos], $colPos) > $rowIdx) {
-                    $colPos++;
-                }
-
-                $colspan = $cell->getColspan();
-                $rowspan = $cell->getRowspan();
-
-                // Mark columns as occupied by this cell's row
-                for ($c = 0; $c < $colspan; $c++) {
-                    $occupancy[$colPos + $c] = $rowIdx;
-                }
-
-                $colPos += $colspan;
-            }
-        }
-
-        return $occupancy;
-    }
-
-    /**
-     * Get the rowspan of a cell at a specific row and column position.
-     *
-     * @param array<\Carve\Node\Node> $tableRows All rows
-     * @param int $rowIdx Row index
-     * @param int $colPos Column position
-     */
-    protected function getCellRowspanAt(array $tableRows, int $rowIdx, int $colPos): int
-    {
-        $row = $tableRows[$rowIdx] ?? null;
-        if (!($row instanceof TableRow)) {
-            return 1;
-        }
-
-        $cells = $row->getChildren();
-        $currentCol = 0;
-
-        foreach ($cells as $cell) {
-            if (!($cell instanceof TableCell)) {
-                continue;
-            }
-
-            $colspan = $cell->getColspan();
-            if ($currentCol <= $colPos && $colPos < $currentCol + $colspan) {
-                return $cell->getRowspan();
-            }
-            $currentCol += $colspan;
-        }
-
-        return 1;
     }
 
     /**
