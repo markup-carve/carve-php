@@ -696,4 +696,33 @@ DJOT;
         $cells = $dataRow2->getChildren();
         $this->assertCount(1, $cells); // Only "L2" cell
     }
+
+    /**
+     * A long run of stacked `^` markers must extend the single origin cell to a
+     * rowspan covering every continuation row. This also guards the parser's
+     * complexity: rowspans resolve via a per-column origin map (O(cells)), not a
+     * per-marker rescan of all prior rows (which made all-`^` tables O(rows^3)).
+     */
+    public function testDeepStackedRowspanResolvesAndStaysLinear(): void
+    {
+        $rows = 300;
+        $djot = "|= Tier |= User |\n| Gold | u0 |\n"
+            . str_repeat("| ^ | u |\n", $rows);
+
+        $doc = $this->converter->parse($djot);
+
+        /** @var \Carve\Node\Block\Table $table */
+        $table = $doc->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+
+        // Header + 1 origin row + $rows continuation rows.
+        $this->assertCount($rows + 2, $table->getChildren());
+
+        // The single "Gold" origin cell spans itself plus all `^` rows.
+        /** @var \Carve\Node\Block\TableRow $originRow */
+        $originRow = $table->getChildren()[1];
+        /** @var \Carve\Node\Block\TableCell $originCell */
+        $originCell = $originRow->getChildren()[0];
+        $this->assertSame($rows + 1, $originCell->getRowspan());
+    }
 }
