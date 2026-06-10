@@ -3305,7 +3305,7 @@ class BlockParser
         // Handle Table - add caption directly to table
         if ($lastChild instanceof Table) {
             $caption = new Caption();
-            $this->inlineParser->parse($caption, $captionText, $start);
+            $this->inlineParser->parse($caption, $captionText, $start, true);
             $lastChild->setCaption($caption);
 
             return $linesConsumed;
@@ -3323,7 +3323,7 @@ class BlockParser
 
             // Create caption
             $caption = new Caption();
-            $this->inlineParser->parse($caption, $captionText, $start);
+            $this->inlineParser->parse($caption, $captionText, $start, true);
 
             // Build figure: blockquote + caption
             $figure->appendChild($lastChild);
@@ -3343,6 +3343,10 @@ class BlockParser
 
                 $figure = new Figure();
 
+                foreach ($lastChild->getAttributes() as $key => $value) {
+                    $figure->setAttribute($key, $value);
+                }
+
                 // Transfer attributes from image to figure
                 foreach ($image->getAttributes() as $key => $value) {
                     if ($key !== 'src' && $key !== 'alt' && $key !== 'title') {
@@ -3353,7 +3357,7 @@ class BlockParser
 
                 // Create caption
                 $caption = new Caption();
-                $this->inlineParser->parse($caption, $captionText, $start);
+                $this->inlineParser->parse($caption, $captionText, $start, true);
 
                 // Build figure: image + caption
                 $figure->appendChild($image);

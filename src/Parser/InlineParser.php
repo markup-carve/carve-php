@@ -6,6 +6,7 @@ namespace Carve\Parser;
 
 use Carve\Node\Block\Comment;
 use Carve\Node\Inline\Abbreviation;
+use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
@@ -128,6 +129,10 @@ class InlineParser
     protected ?array $cachedAbbreviations = null;
 
     protected bool $footnoteRecognitionEnabled = true;
+
+    protected bool $captionContextEnabled = false;
+
+    protected bool $captionNumberEmitted = false;
 
     /**
      * Smart quote characters (configurable via SmartQuotesExtension for locale support)
@@ -324,12 +329,25 @@ class InlineParser
      * @param \Carve\Node\Node $parent
      * @param string $text
      * @param int $sourceLine Source line number (0-indexed) for error reporting
+     * @param bool $captionContext
      */
-    public function parse(Node $parent, string $text, int $sourceLine = 0): void
+    public function parse(Node $parent, string $text, int $sourceLine = 0, bool $captionContext = false): void
     {
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
-        $this->parseInlines($parent, $text);
+        $previousCaptionContext = $this->captionContextEnabled;
+        $previousCaptionNumberEmitted = $this->captionNumberEmitted;
+        $this->captionContextEnabled = $captionContext;
+        if ($captionContext) {
+            $this->captionNumberEmitted = false;
+        }
+
+        try {
+            $this->parseInlines($parent, $text);
+        } finally {
+            $this->captionContextEnabled = $previousCaptionContext;
+            $this->captionNumberEmitted = $previousCaptionNumberEmitted;
+        }
     }
 
     protected function parseInlines(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
@@ -349,6 +367,11 @@ class InlineParser
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
         $sig = $this->significantInlineBytes();
+        // In a caption, `#` is the number-placeholder opener (^ Figure #: …) and
+        // must be scanned even when no mentions/tags matcher made it significant.
+        if ($sig !== null && $this->captionContextEnabled) {
+            $sig['#'] = true;
+        }
 
         while ($pos < $length) {
             $char = $text[$pos];
@@ -425,6 +448,16 @@ class InlineParser
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $parent->appendChild(new SoftBreak());
+                $pos++;
+
+                continue;
+            }
+
+            if ($char === '#' && $this->isCaptionNumberPlaceholder($text, $pos)) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(new CaptionNumber());
+                $this->captionNumberEmitted = true;
                 $pos++;
 
                 continue;
@@ -802,6 +835,22 @@ class InlineParser
 
         $this->flushText($parent, $textBuffer);
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
+    }
+
+    protected function isCaptionNumberPlaceholder(string $text, int $pos): bool
+    {
+        if (!$this->captionContextEnabled || $this->captionNumberEmitted) {
+            return false;
+        }
+
+        $previous = $text[$pos - 1] ?? '';
+        if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
+            return false;
+        }
+
+        $next = $text[$pos + 1] ?? '';
+
+        return $next === '' || !preg_match('/[A-Za-z]/', $next);
     }
 
     protected function flushText(Node $parent, string $text): void

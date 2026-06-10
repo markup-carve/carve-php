@@ -24,6 +24,7 @@ use Carve\Node\Block\TableCell;
 use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
+use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
@@ -159,6 +160,7 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Symbol => ':' . $node->getName() . ':',
             $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
             $node instanceof FootnoteRef => '[^' . $node->getLabel() . ']',
+            $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => $this->renderRawInline($node),
             default => $this->renderChildren($node),
         };
