@@ -104,6 +104,17 @@ class InlineParser
     protected bool $inlineSignificantComputed = false;
 
     /**
+     * Memo for parseLink: the text last scanned for link triggers, and whether
+     * it contains any `](`, `][`, or `]{`. Comparing against the same string
+     * instance is pointer-cheap, so repeated parseLink calls over one text bail
+     * in O(1) when no link can form (a deep `[[[[...` run would otherwise be
+     * O(n^2)).
+     */
+    protected ?string $linkTriggerText = null;
+
+    protected bool $linkTriggerPresent = false;
+
+    /**
      * Cached abbreviation regex pattern (built once per document)
      */
     protected ?string $abbreviationPattern = null;
@@ -1113,6 +1124,23 @@ class InlineParser
         // like `[[[[...` is O(n^2). strpos is a C-level memchr that short-circuits
         // when no `]` follows.
         if (strpos($text, ']', $pos + 1) === false) {
+            return null;
+        }
+
+        // A link, reference, or inline span can only form when the matched `]` is
+        // directly followed by `(`, `[`, or `{` (there is no bare shortcut-ref
+        // form). If the text contains none of `](`, `][`, `]{`, nothing can start
+        // here, so skip the bracket-depth scan below -- otherwise a deeply nested
+        // run like `[[[[x]]]]` is O(n^2). The presence check is memoized per text
+        // (the same string instance is compared pointer-cheap), so each call is
+        // O(1) for trigger-free text.
+        if ($text !== $this->linkTriggerText) {
+            $this->linkTriggerText = $text;
+            $this->linkTriggerPresent = strpos($text, '](') !== false
+                || strpos($text, '][') !== false
+                || strpos($text, ']{') !== false;
+        }
+        if (!$this->linkTriggerPresent) {
             return null;
         }
 
