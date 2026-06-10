@@ -119,6 +119,7 @@ class CarveCorpusTest extends TestCase
         '81-list-lazy-continuation',
         '82-compact-list-blocks',
         '83-list-continuation-marker',
+        '84-block-attribute-lines',
     ];
 
     /**

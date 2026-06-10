@@ -2029,7 +2029,39 @@ DJOT;
         $djot = "```\n```";
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<pre><code></code></pre>', $result);
+        // An empty fenced code block still carries the trailing newline inside
+        // <code> (PART 10 §6: content + trailing newline), matching carve-js.
+        $this->assertStringContainsString("<pre><code>\n</code></pre>", $result);
+    }
+
+    public function testUnclosedFenceAtBlockStartIsBlockCode(): void
+    {
+        // A fence opener at block start with no closer is still a block code
+        // fence (running to end of block), not an inline code span - matching
+        // carve-js and canonical djot. Mid-paragraph unterminated fences stay
+        // inline via the §10 closer-lookahead, a separate path.
+        $this->assertSame(
+            "<pre><code>code\n</code></pre>\n",
+            $this->converter->convert("```\ncode"),
+        );
+        // Empty lone opener: empty block code with the trailing newline.
+        $this->assertSame(
+            "<pre><code>\n</code></pre>\n",
+            $this->converter->convert('```'),
+        );
+    }
+
+    public function testBlockquoteEmptyFenceTerminatedByUnmarkedLine(): void
+    {
+        // "> ```" opens a fence as the quote's first line; the next col-0 line
+        // (no ">") ends the quote, leaving an empty (never-closed) block code
+        // fence. Pinned by spec corpus 80-...-fenced-block-3.
+        $this->assertSame(
+            "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n"
+            . "<p>code no marker</p>\n"
+            . "<blockquote><p>still</p></blockquote>\n",
+            $this->converter->convert("> ```\ncode no marker\n> still\n"),
+        );
     }
 
     // Edge cases: Emphasis boundaries
