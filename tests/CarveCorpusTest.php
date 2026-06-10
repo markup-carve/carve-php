@@ -120,6 +120,7 @@ class CarveCorpusTest extends TestCase
         '82-compact-list-blocks',
         '83-list-continuation-marker',
         '84-block-attribute-lines',
+        '86-inline-footnotes',
     ];
 
     /**
@@ -133,7 +134,18 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // Numbered cross-references (carve #95 / carve-js #108) are not yet
+        // ported to carve-php; deferred until the impl lands. Tracked separately
+        // from inline footnotes (this bump's feature, which IS implemented).
+        '85-numbered-cross-references' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-2' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-3' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-4' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-5' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-6' => 'numbered cross-references not yet implemented',
+        '85-numbered-cross-references-7' => 'numbered cross-references not yet implemented',
+    ];
 
     protected CarveConverter $converter;
 
