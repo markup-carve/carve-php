@@ -1156,18 +1156,12 @@ class BlockParser
             $i++;
         }
 
-        // If not closed and using backticks, check if this should be inline code
-        if (!$closed && $fenceChar === '`') {
-            if ($i === $start + 1 && $info !== '') {
-                // Single line unclosed fence with content - treat as inline code in a paragraph
-                return null;
-            }
-            if ($content === '' && $info === '') {
-                // Empty unclosed fence (just ``` with nothing) - treat as inline code
-                return null;
-            }
-        }
-
+        // A fence opener reaching this point is at block start (no open
+        // paragraph): a mid-paragraph unterminated fence never gets here -- the
+        // §10 closer-lookahead keeps it inside the paragraph as an inline
+        // verbatim run. So an unclosed opener is always a block code fence that
+        // runs to the end of the block, even when empty (matching carve-js /
+        // canonical djot), rather than degrading to an inline code span.
         if (!$closed) {
             $this->addWarning('Unclosed code fence', $start, 1, true);
         }
