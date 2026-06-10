@@ -31,6 +31,7 @@ use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
@@ -156,6 +157,7 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Span => $this->renderSpan($node),
             $node instanceof Math => $this->renderMath($node),
             $node instanceof Symbol => ':' . $node->getName() . ':',
+            $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
             $node instanceof FootnoteRef => '[^' . $node->getLabel() . ']',
             $node instanceof RawInline => $this->renderRawInline($node),
             default => $this->renderChildren($node),

@@ -28,6 +28,7 @@ use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Mention;
@@ -135,6 +136,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
             $node instanceof Symbol => ':' . $node->getName() . ':',
+            $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
             $node instanceof FootnoteRef => '[' . $node->getLabel() . ']',
             $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
             $node instanceof HardBreak => "\n",
