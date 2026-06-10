@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase\Parser;
 
 use Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -27,6 +28,37 @@ class ListLazyContinuationTest extends TestCase
         $expected = "<ul>\n  <li>item\nlazy</li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    #[DataProvider('underIndentedNestedLazyContinuationProvider')]
+    public function testUnderIndentedLineFoldsIntoDeepestOpenParagraph(string $djot, string $expected): void
+    {
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function underIndentedNestedLazyContinuationProvider(): array
+    {
+        return [
+            'nested bullet one-space lazy' => [
+                "- a\n  - b\n c",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\nc</li>\n    </ul>\n  </li>\n</ul>\n",
+            ],
+            'deep nested bullet one-space lazy' => [
+                "- a\n  - b\n    - c\n d",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\nd</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+            ],
+            'deep nested bullet intermediate lazy' => [
+                "- a\n  - b\n    - c\n   d",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\nd</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+            ],
+            'ordered parent one-space under content lazy' => [
+                "1. a\n   - b\n  c",
+                "<ol>\n  <li>a\n    <ul>\n      <li>b\nc</li>\n    </ul>\n  </li>\n</ol>\n",
+            ],
+        ];
     }
 
     public function testLazyLineFoldsIntoLastItem(): void

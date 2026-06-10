@@ -2001,7 +2001,22 @@ class BlockParser
                             $i++;
                         } elseif ($lineIndent > $baseIndent) {
                             // Line is at intermediate indent (between base and nested content)
-                            // This content belongs to a parent list level, not current nested content
+                            // Without a preceding blank, plain text here lazily
+                            // continues the deepest paragraph in the nested parse.
+                            // Strip all leading whitespace before forwarding it,
+                            // matching CommonMark lazy continuation.
+                            $trimmedLine = ltrim($subLine);
+                            if (
+                                !$sawBlankLine
+                                && !$this->isBlockElementStart($trimmedLine)
+                                && !$this->startsNewBlock($trimmedLine)
+                            ) {
+                                $subLines[] = $trimmedLine;
+                                $i++;
+
+                                continue;
+                            }
+
                             break;
                         } else {
                             // End of list
