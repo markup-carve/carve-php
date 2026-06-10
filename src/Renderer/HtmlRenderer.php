@@ -668,8 +668,9 @@ class HtmlRenderer implements RendererInterface
             $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
         }
 
-        // Add trailing newline inside code block (official djot behavior)
-        if ($code !== '' && !str_ends_with($code, "\n")) {
+        // Add trailing newline inside code block (official djot behavior):
+        // always present, including for an empty body (<pre><code>\n</code></pre>).
+        if (!str_ends_with($code, "\n")) {
             $code .= "\n";
         }
 
