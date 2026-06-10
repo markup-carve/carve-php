@@ -2118,16 +2118,27 @@ class InlineParser
             // Mid-word quotes are skipped (apostrophes)
         }
 
-        // Match openers with closers, innermost first
+        // Match openers with closers, innermost first. Both lists are already in
+        // ascending position order, so a single stack merge pairs each closer
+        // with the nearest unmatched opener before it in O(n) -- the previous
+        // closer x opener nested scan was O(n^2) (16k quotes ~7s).
         $matched = [];
-        foreach ($closers as $closer) {
-            for ($j = count($openers) - 1; $j >= 0; $j--) {
-                $opener = $openers[$j];
-                if ($opener < $closer && !isset($matched[$opener])) {
-                    $matched[$opener] = $closer;
-
-                    break;
+        $stack = [];
+        $oi = 0;
+        $ci = 0;
+        $oc = count($openers);
+        $cc = count($closers);
+        while ($oi < $oc || $ci < $cc) {
+            $oPos = $oi < $oc ? $openers[$oi] : PHP_INT_MAX;
+            $cPos = $ci < $cc ? $closers[$ci] : PHP_INT_MAX;
+            if ($oPos < $cPos) {
+                $stack[] = $oPos;
+                $oi++;
+            } else {
+                if ($stack !== []) {
+                    $matched[(int)array_pop($stack)] = $cPos;
                 }
+                $ci++;
             }
         }
 
