@@ -315,6 +315,48 @@ class TabIndentationTest extends TestCase
     }
 
     /**
+     * A tab-indented ordered child reaches the parent's content column under
+     * CommonMark tab stops (a leading tab advances to column 4 >= the `1. `
+     * content column of 3), so it nests rather than folding as lazy text.
+     */
+    public function testTabIndentedOrderedChildNests(): void
+    {
+        $input = "1. a\n\t1. b";
+        $result = $this->converter->convert($input);
+
+        // Two ordered lists = the child nested inside item a.
+        $this->assertSame(2, substr_count($result, '<ol>'));
+        $this->assertSame(2, substr_count($result, '</ol>'));
+    }
+
+    /**
+     * A two-space ordered child stays below the `1. ` content column (3), so it
+     * still folds into the lead paragraph as lazy text (tab stops do not change
+     * the space case).
+     */
+    public function testTwoSpaceOrderedChildStillFolds(): void
+    {
+        $input = "1. a\n  1. b";
+        $result = $this->converter->convert($input);
+
+        $this->assertSame(1, substr_count($result, '<ol>'));
+    }
+
+    /**
+     * A tab-indented block opener under a list item dedents with its residual
+     * columns preserved: stripping the `1. ` content column (3) from a tab (4)
+     * leaves one column, so `\t> quote` nests as a block quote in the item.
+     */
+    public function testTabIndentedBlockOpenerUnderItemNests(): void
+    {
+        $input = "1. a\n\t> quote";
+        $result = $this->converter->convert($input);
+
+        $this->assertStringContainsString('<blockquote>', $result);
+        $this->assertSame(1, substr_count($result, '<ol>'));
+    }
+
+    /**
      * Thematic break can be indented (per spec).
      */
     public function testThematicBreakWithTabIndent(): void
