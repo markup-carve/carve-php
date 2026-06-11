@@ -2721,8 +2721,16 @@ class BlockParser
                 break;
             }
 
-            // Check if this is a separator row (attributes ignored on separator rows)
-            if ($this->tableParser->isSeparatorRow($lineWithoutRowAttrs)) {
+            // A GFM header separator is recognized ONLY as the table's second row
+            // (exactly one row precedes it and no separator was seen yet): it makes
+            // that first row the header. A delimiter line anywhere else -- leading,
+            // or after the header/body -- is an ordinary data row. This matches
+            // carve-js / carve-rs (the separator is the second row, period).
+            if (
+                $this->tableParser->isSeparatorRow($lineWithoutRowAttrs)
+                && count($table->getChildren()) === 1
+                && !$headerFound
+            ) {
                 $alignments = $this->tableParser->parseTableAlignments($lineWithoutRowAttrs);
                 $headerFound = true;
 
