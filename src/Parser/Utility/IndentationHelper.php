@@ -20,6 +20,44 @@ class IndentationHelper
     public const TAB_WIDTH = 2;
 
     /**
+     * Tab stop width used for column accounting (CommonMark tab stops).
+     *
+     * @var int
+     */
+    public const TAB_STOP = 4;
+
+    /**
+     * Count the visual column of the leading whitespace, expanding tabs to the
+     * next CommonMark tab stop (a multiple of TAB_STOP).
+     *
+     * Unlike getLeadingSpaces() (which treats a tab as a fixed TAB_WIDTH for
+     * legacy block handling), this is the column model used to decide list
+     * nesting: a space advances one column, a tab advances to the next tab stop.
+     * For space-only indentation both helpers return the same value.
+     *
+     * @param string $line The line to examine
+     *
+     * @return int The visual column where the first non-whitespace character sits
+     */
+    public static function getLeadingColumns(string $line): int
+    {
+        $col = 0;
+        $len = strlen($line);
+
+        for ($i = 0; $i < $len; $i++) {
+            if ($line[$i] === ' ') {
+                $col++;
+            } elseif ($line[$i] === "\t") {
+                $col += self::TAB_STOP - ($col % self::TAB_STOP);
+            } else {
+                break;
+            }
+        }
+
+        return $col;
+    }
+
+    /**
      * Count the number of leading spaces in a line.
      *
      * Tabs count as TAB_WIDTH spaces (2 spaces, one indentation level).
@@ -68,6 +106,46 @@ class IndentationHelper
                 $i++;
             } elseif ($line[$i] === "\t") {
                 $stripped += self::TAB_WIDTH;
+                $i++;
+            } else {
+                break;
+            }
+        }
+
+        return substr($line, $i);
+    }
+
+    /**
+     * Strip leading whitespace up to the given column amount, using CommonMark
+     * tab stops (the column model of getLeadingColumns()).
+     *
+     * This is the dedent counterpart of getLeadingColumns(); the two must agree
+     * so nested list content keeps the correct relative indentation. A tab that
+     * straddles the strip boundary is consumed whole rather than re-emitting its
+     * unconsumed columns as spaces: Carve has no indent-sensitive block (no
+     * four-space code block) where residual columns would change meaning, and
+     * getLeadingColumns() re-measures the remainder on each nested parse, so a
+     * clean dedent keeps tab-indented blocks (sub-lists, quotes) nesting instead
+     * of folding behind a leftover leading space. For space-only indentation it
+     * behaves identically to stripLeadingIndent().
+     *
+     * @param string $line The line to strip
+     * @param int $amount Column amount to strip
+     *
+     * @return string The line with leading whitespace stripped
+     */
+    public static function stripLeadingColumns(string $line, int $amount): string
+    {
+        $col = 0;
+        $len = strlen($line);
+        $i = 0;
+
+        while ($i < $len && $col < $amount) {
+            if ($line[$i] === ' ') {
+                $col++;
+                $i++;
+            } elseif ($line[$i] === "\t") {
+                $col += self::TAB_STOP - ($col % self::TAB_STOP);
                 $i++;
             } else {
                 break;
