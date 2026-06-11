@@ -713,11 +713,11 @@ class InlineParser
                 }
             }
 
-            // Subscript: ,,text,,
-            if ($char === ',' && ($text[$pos + 1] ?? '') === ',') {
+            // Subscript: ,text,
+            if ($char === ',') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDoubleDelimited($text, $pos, ',,', Subscript::class);
+                $result = $this->parseDelimited($text, $pos, ',', Subscript::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -726,11 +726,11 @@ class InlineParser
                 }
             }
 
-            // Highlight: ==text==
-            if ($char === '=' && ($text[$pos + 1] ?? '') === '=') {
+            // Highlight: =text=
+            if ($char === '=') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDoubleDelimited($text, $pos, '==', Highlight::class);
+                $result = $this->parseDelimited($text, $pos, '=', Highlight::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -1582,22 +1582,27 @@ class InlineParser
             return null;
         }
 
+        // Keep the smart typography fat-arrow token literal for the symbol pass.
+        if ($delimiter === '=' && $nextChar === '>') {
+            return null;
+        }
+
         // No same-type nesting (spec §4.2), unlike djot: a bare single-char
         // delimiter immediately PRECEDED or FOLLOWED by the same delimiter does
         // not open. A doubled delimiter is therefore literal text, never nested
-        // same-type emphasis. This is uniform across all five single-char
+        // same-type emphasis. This is uniform across all single-char
         // delimiters, so `**x**`, `~~x~~`, `^^x^^` stay literal exactly like
         // `//x//` and `__x__`.
         if ($prevChar === $delimiter || $nextChar === $delimiter) {
             return null;
         }
 
-        // Additional intraword rule for the italic (/) and underline (_)
-        // delimiters only: they also cannot open when preceded by an
-        // alphanumeric or `_`, keeping paths/identifiers literal (a/b/c,
-        // foo_bar). Strong (*) and friends are exempt, so intraword bold like
-        // foo*bar*baz still works.
-        if (($delimiter === '/' || $delimiter === '_') && ($prevChar === '_' || ctype_alnum($prevChar))) {
+        // Bare single-char delimiters never open inside words. Slash and
+        // underscore also keep their path-protection rule after slash.
+        if ($prevChar === '_' || ctype_alnum($prevChar)) {
+            return null;
+        }
+        if (($delimiter === '/' || $delimiter === '_') && $prevChar === '/') {
             return null;
         }
 
@@ -1679,17 +1684,14 @@ class InlineParser
                     // `**x**` -> `*<strong>x</strong>*`, `~b~~` -> `<s>b</s>~`.
                     $actualClose = $searchPos;
 
-                    // Intraword closer rule for / and _: a closer immediately
-                    // followed by an alphanumeric (or _) is not a valid
-                    // closer, so inner delimiters stay literal content
-                    // (e.g. /usr/local/ -> <em>usr/local</em>).
-                    if ($delimiter === '/' || $delimiter === '_') {
-                        $afterClose = $text[$actualClose + 1] ?? '';
-                        if ($afterClose !== '' && ($afterClose === '_' || ctype_alnum($afterClose))) {
-                            $searchPos = $actualClose + 1;
+                    // Bare single-char delimiters never close before an
+                    // alphanumeric (right word boundary, grammar §9). Unlike the
+                    // opener's left boundary, `_` does NOT block a closer.
+                    $afterClose = $text[$actualClose + 1] ?? '';
+                    if ($afterClose !== '' && ctype_alnum($afterClose)) {
+                        $searchPos = $actualClose + 1;
 
-                            continue;
-                        }
+                        continue;
                     }
 
                     // Check content isn't empty
@@ -1715,84 +1717,6 @@ class InlineParser
                         'pos' => $endPos,
                     ];
                 }
-            }
-
-            $searchPos++;
-        }
-
-        return null;
-    }
-
-    /**
-     * Parse a double-character delimited span: ,,sub,, or ==highlight==
-     *
-     * Content must be non-empty and may not begin or end with whitespace.
-     * Inner content is parsed recursively as inlines.
-     *
-     * @param string $text
-     * @param int $pos Position of the first delimiter character
-     * @param string $delimiter Two-character delimiter (e.g. ',,' or '==')
-     * @param class-string<\Carve\Node\Inline\InlineNode> $nodeClass
-     *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
-     */
-    protected function parseDoubleDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
-    {
-        $length = strlen($text);
-        $dl = strlen($delimiter);
-        $start = $pos + $dl;
-
-        // Can't open if followed by whitespace.
-        if ($start >= $length || ctype_space($text[$start])) {
-            return null;
-        }
-
-        // A run of 3+ of the same char does not open: the doubled delimiter IS
-        // the token, so an adjacent third char (before the pair or right after
-        // it) makes it literal -- consistent with the single-char same-delimiter
-        // adjacency rule. So `====x====` and `,,,,y,,,,` stay literal.
-        $runChar = $delimiter[0];
-        if (($pos > 0 && $text[$pos - 1] === $runChar) || $text[$start] === $runChar) {
-            return null;
-        }
-
-        $searchPos = $start;
-        while ($searchPos + $dl <= $length) {
-            // Skip over code spans so delimiters inside them stay literal.
-            if ($text[$searchPos] === '`') {
-                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
-                if ($codeEnd !== null) {
-                    $searchPos = $codeEnd + 1;
-
-                    continue;
-                }
-
-                // Unclosed backtick run: opaque to the end of the block, so no
-                // closer can follow it and this delimiter cannot form emphasis.
-                return null;
-            }
-
-            if (substr($text, $searchPos, $dl) === $delimiter) {
-                $content = substr($text, $start, $searchPos - $start);
-                // Closer may not be preceded by whitespace; content non-empty.
-                if ($content === '' || ctype_space($content[strlen($content) - 1])) {
-                    $searchPos++;
-
-                    continue;
-                }
-
-                $node = new $nodeClass();
-                $this->parseInlines($node, $content);
-
-                $endPos = $searchPos + $dl;
-                if ($endPos < $length && $text[$endPos] === '{') {
-                    $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
-                }
-
-                return [
-                    'node' => $node,
-                    'pos' => $endPos,
-                ];
             }
 
             $searchPos++;
@@ -1888,9 +1812,7 @@ class InlineParser
 
     /**
      * Parse braced inline syntax: {+insert+}, {-delete-},
-     * {~old~>new~} substitution, {'} and {"}. (Highlight is `==text==` only;
-     * the djot `{=text=}` form is intentionally not parsed -- it is flagged
-     * for migration to `==`.)
+     * forced delimiter spans, {~old~>new~} substitution, {'} and {"}.
      *
      * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
      */
@@ -1967,10 +1889,13 @@ class InlineParser
         $nodeClass = match ($marker) {
             '+' => Insert::class,
             '-' => Delete::class,
-            '~' => Subscript::class,
+            '/' => Emphasis::class,
+            '~' => Strike::class,
             '^' => Superscript::class,
-            '_' => Emphasis::class,
+            '_' => Underline::class,
             '*' => Strong::class,
+            ',' => Subscript::class,
+            '=' => Highlight::class,
             default => null,
         };
 
@@ -1989,12 +1914,12 @@ class InlineParser
 
                 $endPos = $searchPos + 2;
 
-                // Check for trailing attributes: {=text=}{.class}{.more}
-                // But NOT if it's another braced inline like {=text=}{=more=}
+                // Check for trailing attributes: {*text*}{.class}{.more}
+                // But NOT if it's another braced inline like {*text*}{=more=}
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $nextChar = $text[$endPos + 1] ?? '';
                     // Braced inline markers that should NOT be treated as attributes
-                    if (!in_array($nextChar, ['=', '+', '-', '~', '^', '_', '*'], true)) {
+                    if (!in_array($nextChar, ['=', '+', '-', '/', '~', '^', '_', '*', ','], true)) {
                         $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
                     }
                 }

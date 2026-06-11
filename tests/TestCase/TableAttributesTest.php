@@ -395,7 +395,7 @@ DJOT;
         $djot = <<<'DJOT'
 | Syntax            | Result          |
 | :---------------- | :-------------- |
-| `==Highlighted==` | ==Highlighted== |
+| `=Highlighted=`   | =Highlighted=   |
 | `{+Inserted+}`    | {+Inserted+}    |
 | `{-Deleted-}`     | {-Deleted-}     |
 DJOT;
@@ -414,7 +414,7 @@ DJOT;
     public function testInlineFormattingWithLeadingSpace(): void
     {
         $djot = <<<'DJOT'
-| Normal text | ==marked== text |
+| Normal text | =marked= text |
 |-------------|-----------------|
 | {+added+}   | {-removed-}     |
 DJOT;
@@ -434,8 +434,8 @@ DJOT;
         $djot = <<<'DJOT'
 | Formula | Result   |
 |---------|----------|
-| E=mc^2^ | E=mc^2^  |
-| H,,2,,O | H,,2,,O  |
+| E=mc{^2^} | E=mc{^2^} |
+| H{,2,}O   | H{,2,}O   |
 DJOT;
 
         $html = $this->converter->convert($djot);
@@ -450,7 +450,7 @@ DJOT;
     public function testCellAttributesWithInlineFormatting(): void
     {
         $djot = <<<'DJOT'
-|{.highlight} ==marked== text | normal |
+|{.highlight} {=marked=} text | normal |
 |-----|------|
 | a   | b    |
 DJOT;

@@ -233,7 +233,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testSuperscript(): void
     {
-        $djot = 'E=mc^2^';
+        $djot = 'E=mc{^2^}';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -242,7 +242,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testSubscript(): void
     {
-        $djot = 'H,,2,,O';
+        $djot = 'H{,2,}O';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -251,7 +251,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'Text ==highlighted== here';
+        $djot = 'Text =highlighted= here';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 

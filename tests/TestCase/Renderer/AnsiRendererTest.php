@@ -141,7 +141,7 @@ class AnsiRendererTest extends TestCase
 
     public function testRenderHighlight(): void
     {
-        $doc = $this->converter->parse('This is ==highlighted== text.');
+        $doc = $this->converter->parse('This is =highlighted= text.');
         $output = $this->renderer->render($doc);
 
         $this->assertStringContainsString('highlighted', $output);
@@ -163,7 +163,7 @@ class AnsiRendererTest extends TestCase
 
     public function testRenderSuperscriptSubscript(): void
     {
-        $doc = $this->converter->parse('E=mc{^2^} and H{~2~}O');
+        $doc = $this->converter->parse('E=mc{^2^} and H{,2,}O');
         $output = $this->renderer->render($doc);
 
         // Should use Unicode super/subscript
