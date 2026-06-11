@@ -524,7 +524,7 @@ class BlockParser
             }
 
             // Match reference definition: [label]: url (url can be empty, on next line)
-            if (preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
+            if (preg_match('/^\[(?!@)([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2]);
@@ -550,7 +550,7 @@ class BlockParser
                         break;
                     }
                     // Check if next line starts a new reference definition
-                    if (preg_match('/^\[([^\]]+)\]:/', $nextLine)) {
+                    if (preg_match('/^\[(?!@)([^\]]+)\]:/', $nextLine)) {
                         break;
                     }
                     if ($this->startsNewBlock($nextLine)) {
@@ -3083,7 +3083,7 @@ class BlockParser
         $line = $lines[$start];
 
         // Match reference definition: [label]: url (url can be empty, on next line)
-        if (!preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+        if (!preg_match('/^\[(?!@)([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -3097,7 +3097,7 @@ class BlockParser
                 break;
             }
             // Check if next line starts a new reference definition
-            if (preg_match('/^\[([^\]]+)\]:/', $nextLine)) {
+            if (preg_match('/^\[(?!@)([^\]]+)\]:/', $nextLine)) {
                 break;
             }
             if ($this->startsNewBlock($nextLine)) {
