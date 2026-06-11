@@ -962,7 +962,21 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->getRenderableAttributes($node);
         $attrs = $this->mergeAttribute($attrs, 'class', 'line-block');
 
-        return '<div' . $this->renderAttributeArray($attrs) . ">\n" . $this->renderChildren($node) . "</div>\n";
+        // Indent only the FIRST line of each child block; lines produced by an
+        // internal hard break stay at column 0 inside the <p> (matching the
+        // hard-break continuation convention used across the renderers).
+        $inner = '';
+        foreach ($node->getChildren() as $child) {
+            $rendered = rtrim($this->renderNode($child), "\n");
+            $newline = strpos($rendered, "\n");
+            $inner .= $newline === false
+                ? '  ' . $rendered . "\n"
+                : '  ' . substr($rendered, 0, $newline) . substr($rendered, $newline) . "\n";
+        }
+
+        $html = '<div' . $this->renderAttributeArray($attrs) . ">\n" . $inner . "</div>\n";
+
+        return str_replace("\u{00A0}", '&nbsp;', $html);
     }
 
     protected function renderFigure(Figure $node): string

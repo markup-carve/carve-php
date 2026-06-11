@@ -1390,7 +1390,7 @@ DJOT;
 
     public function testLineBlock(): void
     {
-        $djot = "| Line one\n| Line two\n| Line three";
+        $djot = "::: line-block\nLine one\nLine two\nLine three\n:::";
 
         $result = $this->converter->convert($djot);
 
@@ -1402,15 +1402,15 @@ DJOT;
 
     public function testLineBlockMergesExistingClasses(): void
     {
-        $djot = "{.mine}\n| Line one\n| Line two";
-        $expected = "<div class=\"mine line-block\">\n<p>Line one<br>\nLine two</p>\n</div>\n";
+        $djot = "{.mine}\n::: line-block\nLine one\nLine two\n:::";
+        $expected = "<div class=\"mine line-block\">\n  <p>Line one<br>\nLine two</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
     public function testLineBlockWithFormatting(): void
     {
-        $djot = "| This is *strong*\n| And /emphasis/";
+        $djot = "::: line-block\nThis is *strong*\nAnd /emphasis/\n:::";
 
         $result = $this->converter->convert($djot);
 
@@ -2455,7 +2455,7 @@ DJOT;
 
     public function testLineBlockWithEmptyLines(): void
     {
-        $djot = "| Line 1\n|\n| Line 3";
+        $djot = "::: line-block\nLine 1\n\nLine 3\n:::";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="line-block"', $result);

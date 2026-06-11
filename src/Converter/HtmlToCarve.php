@@ -662,14 +662,24 @@ class HtmlToCarve
         // Extract lines from the content - handle <br> as line separators
         $lines = $this->extractLineBlockLines($node);
 
-        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs;
+        // Choose a fence longer than any colon-only content line, so a verse
+        // line that is itself `:::` (or longer) cannot be read as the closer.
+        $fenceLength = 3;
+        foreach ($lines as $line) {
+            if (preg_match('/^(:{3,})\s*$/', $line, $m) === 1) {
+                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+            }
+        }
+        $fence = str_repeat(':', $fenceLength);
+
+        $attrs = $parts === [] ? '' : ' {' . implode(' ', $parts) . '}';
+        $output = $fence . ' line-block' . $attrs . "\n";
 
         foreach ($lines as $line) {
-            $output .= '| ' . $line . "\n";
+            $output .= $line . "\n";
         }
 
-        return $output . "\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -685,14 +695,16 @@ class HtmlToCarve
         $processNode = function (DOMNode $child) use (&$lines, &$currentLine): void {
             if ($child instanceof DOMText) {
                 $text = $child->textContent;
-                // Normalize whitespace but preserve content
-                $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+                $text = str_replace("\u{00A0}", ' ', $text);
+                if ($currentLine === '') {
+                    $text = preg_replace('/^\n/', '', $text) ?? $text;
+                }
                 $currentLine .= $text;
             } elseif ($child instanceof DOMElement) {
                 $tag = strtolower($child->tagName);
                 if ($tag === 'br') {
                     // <br> marks end of current line
-                    $lines[] = trim($currentLine);
+                    $lines[] = rtrim($currentLine);
                     $currentLine = '';
                 } else {
                     // Process other elements inline (strong, em, etc.)
@@ -702,17 +714,29 @@ class HtmlToCarve
         };
 
         // Find inner content (may be wrapped in <p> or direct children)
+        $sawParagraph = false;
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'p') {
+                if ($sawParagraph && ($lines === [] || end($lines) !== '')) {
+                    $lines[] = '';
+                }
+                $sawParagraph = true;
+
                 // Process paragraph's children
                 foreach ($child->childNodes as $pChild) {
                     $processNode($pChild);
                 }
 
                 if (trim($currentLine) !== '') {
-                    $lines[] = trim($currentLine);
+                    $lines[] = rtrim($currentLine);
                     $currentLine = '';
                 }
+            } elseif ($child instanceof DOMText && trim($child->textContent) === '') {
+                // Structural whitespace between block children (e.g. the
+                // indentation before a <p>) is not content - skip it so it does
+                // not bleed into the first verse line. Real indentation lives
+                // inside the <p> as NBSP and is handled above.
+                continue;
             } else {
                 $processNode($child);
             }
@@ -720,7 +744,7 @@ class HtmlToCarve
 
         // Don't forget the last line if any content remains
         if (trim($currentLine) !== '') {
-            $lines[] = trim($currentLine);
+            $lines[] = rtrim($currentLine);
         }
 
         return $lines;
@@ -2326,9 +2350,27 @@ class HtmlToCarve
         $inDefinitionList = false;
         $inList = false;
         $inFootnote = false;
+        $lineBlockFence = 0;
         $result = [];
 
         foreach ($lines as $line) {
+            // Track line blocks (::: line-block ... :::) so verse indentation
+            // is preserved verbatim - the default branch below ltrims lines.
+            if ($lineBlockFence > 0) {
+                $result[] = $line;
+                if (preg_match('/^(:{3,})\s*$/', $line, $lbm) === 1 && strlen($lbm[1]) >= $lineBlockFence) {
+                    $lineBlockFence = 0;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})\s+line-block\b/', $line, $lbm) === 1) {
+                $lineBlockFence = strlen($lbm[1]);
+                $result[] = $line;
+
+                continue;
+            }
+
             // Track code blocks
             if (str_starts_with(trim($line), '```')) {
                 $inCodeBlock = !$inCodeBlock;

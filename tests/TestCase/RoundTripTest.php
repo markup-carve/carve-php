@@ -953,9 +953,11 @@ DJOT;
     public function testSimpleLineBlock(): void
     {
         $djot = <<<'DJOT'
-| Line one
-| Line two
-| Line three
+::: line-block
+Line one
+Line two
+Line three
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -965,8 +967,10 @@ DJOT;
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
         $djot = <<<'DJOT'
-| This is *strong*
-| And _emphasis_
+::: line-block
+This is *strong*
+And _emphasis_
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -974,9 +978,10 @@ DJOT;
     public function testLineBlockWithAttributes(): void
     {
         $djot = <<<'DJOT'
-{.poem}
-| Roses are red
-| Violets are blue
+::: line-block {.poem}
+Roses are red
+Violets are blue
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }
