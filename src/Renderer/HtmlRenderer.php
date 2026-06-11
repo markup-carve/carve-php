@@ -1867,12 +1867,22 @@ class HtmlRenderer implements RendererInterface
     protected function renderMath(Math $node): string
     {
         $content = $this->escape($node->getContent());
+        $display = $node->isDisplay();
+        $delimOpen = $display ? '\\[' : '\\(';
+        $delimClose = $display ? '\\]' : '\\)';
 
-        if ($node->isDisplay()) {
-            return '<span class="math display">\\[' . $content . '\\]</span>';
+        // The static `math inline` / `math display` class leads; an author class
+        // from a trailing attribute block is merged after it. id/key follow.
+        $nodeAttrs = $this->getRenderableAttributes($node);
+        $nodeClass = $nodeAttrs['class'] ?? '';
+        unset($nodeAttrs['class']);
+        $class = 'math ' . ($display ? 'display' : 'inline');
+        if ($nodeClass !== '') {
+            $class .= ' ' . $nodeClass;
         }
+        $attrs = ['class' => $class] + $nodeAttrs;
 
-        return '<span class="math inline">\\(' . $content . '\\)</span>';
+        return '<span' . $this->renderAttributeArray($attrs) . '>' . $delimOpen . $content . $delimClose . '</span>';
     }
 
     protected function renderSymbol(Symbol $node): string

@@ -6,6 +6,7 @@ namespace Carve\Parser\Block;
 
 use Carve\Node\Block\ListBlock;
 use Carve\Node\Block\ListItem;
+use Carve\Parser\Utility\AttributeParser;
 
 /**
  * Parser for list blocks (bullet, ordered, task lists).
@@ -73,9 +74,51 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string}|null
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, attributes?: array<string, string>}|null
      */
     public function parseListItemMarker(string $line): ?array
+    {
+        // A `{...}` attribute block ABUTTING the marker (no space before `{`)
+        // attaches its attributes to the <li> (Carve addition, grammar
+        // `item_attributes`). Strip a valid block so the bare marker patterns
+        // match, and attach the parsed attributes to the returned info. A space
+        // before the brace does NOT match here -- it stays ordinary content.
+        $itemAttributes = [];
+        if (
+            preg_match(
+                '/^([-*]|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +\S.*)$/',
+                $line,
+                $am,
+            )
+        ) {
+            $body = substr($am[2], 1, -1);
+            $parsed = AttributeParser::parseOrdered($body);
+            // Valid only if it yields >= 1 attribute or is the empty block `{}`
+            // (mirrors the inline-span disambiguation, grammar §14). Otherwise
+            // `-{...}` is not a marker and the line stays ordinary text.
+            if ($parsed !== [] || $body === '') {
+                $itemAttributes = $parsed;
+                $line = $am[1] . $am[3];
+            }
+        }
+
+        $info = $this->parseListItemMarkerBase($line);
+        if ($info !== null && $itemAttributes !== []) {
+            $info['attributes'] = $itemAttributes;
+        }
+
+        return $info;
+    }
+
+    /**
+     * Parse a list item marker from a line, without the abutting-attribute
+     * handling (see parseListItemMarker).
+     *
+     * @param string $line The line to parse
+     *
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string}|null
+     */
+    private function parseListItemMarkerBase(string $line): ?array
     {
         // Task list: - [.] where . is any single character
         // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
