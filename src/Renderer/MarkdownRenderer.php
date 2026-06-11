@@ -30,6 +30,7 @@ use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineFootnote;
@@ -75,6 +76,13 @@ class MarkdownRenderer implements RendererInterface
 
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
 
+    protected HeadingIdTracker $headingIdTracker;
+
+    public function __construct()
+    {
+        $this->headingIdTracker = new HeadingIdTracker();
+    }
+
     /**
      * Set how soft breaks are rendered
      *
@@ -97,6 +105,9 @@ class MarkdownRenderer implements RendererInterface
 
     public function render(Document $document): string
     {
+        $this->headingIdTracker->reset();
+        (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+
         $markdown = $this->renderChildren($document);
 
         // Normalize multiple blank lines
@@ -160,10 +171,26 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Symbol => ':' . $node->getName() . ':',
             $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
             $node instanceof FootnoteRef => '[^' . $node->getLabel() . ']',
+            $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => $this->renderRawInline($node),
             default => $this->renderChildren($node),
         };
+    }
+
+    protected function renderHeadingRef(HeadingRef $node): string
+    {
+        $id = $node->getTargetId();
+        $label = $this->headingIdTracker->getTextForId($id);
+        if ($label === null) {
+            return '</#' . $id . '>';
+        }
+
+        // Render the resolved label as plain text, NOT a `[label](#id)` link:
+        // carve ids (explicit `{#id}`, or a slug that differs from the consumer's
+        // own heading-slug algorithm) are not guaranteed to exist as anchors in
+        // the emitted Markdown, so a fragment link would dangle.
+        return $this->escapeText($label);
     }
 
     protected function renderChildren(Node $node): string
