@@ -42,6 +42,55 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
+    public function testIndentedBulletInterruptsParagraph(): void
+    {
+        // Rule B: a bullet opens a list at any indentation, so an indented one
+        // interrupts a paragraph just like a column-0 one.
+        $parser = new BlockParser();
+        $doc = $parser->parse("text\n  - item");
+
+        $children = $doc->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+        $this->assertInstanceOf(ListBlock::class, $children[1]);
+    }
+
+    public function testTabIndentedBulletInterruptsParagraph(): void
+    {
+        $parser = new BlockParser();
+        $doc = $parser->parse("text\n\t- item");
+
+        $children = $doc->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+        $this->assertInstanceOf(ListBlock::class, $children[1]);
+    }
+
+    public function testTopLevelIndentedBulletIsAList(): void
+    {
+        // An indented bullet with no preceding paragraph opens a list whose base
+        // column is the indentation (Rule B).
+        $parser = new BlockParser();
+        $doc = $parser->parse("  - a\n  - b");
+
+        $children = $doc->getChildren();
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(ListBlock::class, $children[0]);
+        $this->assertCount(2, $children[0]->getChildren());
+    }
+
+    public function testIndentedOrderedMarkerStillDoesNotInterrupt(): void
+    {
+        // Ordered markers never interrupt a paragraph (they need a blank line),
+        // regardless of indentation.
+        $parser = new BlockParser();
+        $doc = $parser->parse("text\n  1. item");
+
+        $children = $doc->getChildren();
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+    }
+
     public function testOrderedListDoesNotInterruptParagraph(): void
     {
         // An ordered-list marker does not interrupt a paragraph; it needs a

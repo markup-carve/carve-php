@@ -1796,8 +1796,11 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Try to match list item marker
-        $listInfo = $this->listParser->parseListItemMarker($line);
+        // Try to match list item marker. The marker is matched on the trimmed
+        // line so an indented bullet/ordered marker still opens a list (Rule B:
+        // a list opens at any indentation, not only at column 0); the leading
+        // indentation becomes the list's base column (getLeadingColumns below).
+        $listInfo = $this->listParser->parseListItemMarker(ltrim($line));
         if ($listInfo === null) {
             return null;
         }
@@ -3420,6 +3423,22 @@ class BlockParser
      */
     protected function startsInterruptingBlock(string $line, ?array $lines = null, ?int $index = null): bool
     {
+        // Rule B: a bullet/task marker interrupts a paragraph at ANY indentation
+        // (an indented bullet opens a list, just like a column-0 one). Ordered
+        // markers and every other block opener still require column 0, so this
+        // only handles an indented `-`/`*` bullet; the column-0 cases fall to the
+        // switch below. Mirrors the col-0 '-'/'*' arm.
+        if ($line[0] === ' ' || $line[0] === "\t") {
+            $trimmed = ltrim($line);
+            if (
+                isset($trimmed[0], $trimmed[1])
+                && ($trimmed[0] === '-' || $trimmed[0] === '*')
+                && $trimmed[1] === ' '
+            ) {
+                return true;
+            }
+        }
+
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
 
