@@ -100,6 +100,27 @@ class MarkdownToCarve
                 continue;
             }
 
+            // A GFM table header: a `|...|` row whose NEXT line is a delimiter
+            // row (the table's second row). Emit the Carve-canonical `|=` header
+            // with alignment markers and drop the separator; body rows pass
+            // through unchanged. Native `|=` and separatorless tables are left
+            // as-is (no following delimiter row triggers this).
+            if (
+                preg_match('/^\|.*\|$/', $trimmed)
+                && $i + 1 < $lineCount
+                && $this->isGfmDelimiterRow(trim($lines[$i + 1]))
+            ) {
+                if ($prevLineType !== 'blank' && $result !== []) {
+                    $result[] = '';
+                }
+                $result[] = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                $i++; // skip the delimiter row
+                $prevLineType = 'text';
+                $bulletRunBroken = true;
+
+                continue;
+            }
+
             if ($prevLineType === 'list' && $indent >= 1) {
                 $result[] = $this->convertInlineFormatting($line);
                 $prevLineType = 'list';
@@ -195,6 +216,70 @@ class MarkdownToCarve
         }
 
         return preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+    }
+
+    /**
+     * A GFM delimiter row: `|`-delimited cells, each a run of dashes with
+     * optional leading/trailing alignment colons, and nothing else.
+     */
+    protected function isGfmDelimiterRow(string $line): bool
+    {
+        if (!preg_match('/^\|.*\|$/', $line)) {
+            return false;
+        }
+        $cells = $this->splitPipeCells($line);
+        if ($cells === []) {
+            return false;
+        }
+        foreach ($cells as $cell) {
+            if (!preg_match('/^:?-+:?$/', trim($cell))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Convert a GFM header row + its delimiter row to the Carve `|=` header
+     * form, carrying the column alignment from the delimiter colons into the
+     * `|=<` / `|=>` / `|=~` markers.
+     */
+    protected function gfmHeaderToCarve(string $headerLine, string $delimiterLine): string
+    {
+        $headers = $this->splitPipeCells($headerLine);
+        $delims = $this->splitPipeCells($delimiterLine);
+        $cells = [];
+        foreach ($headers as $idx => $header) {
+            $d = isset($delims[$idx]) ? trim($delims[$idx]) : '';
+            $left = str_starts_with($d, ':');
+            $right = str_ends_with($d, ':');
+            $marker = match (true) {
+                $left && $right => '|=~ ',
+                $right => '|=> ',
+                $left => '|=< ',
+                default => '|= ',
+            };
+            $cells[] = $marker . $this->convertInlineFormatting(trim($header));
+        }
+
+        return implode(' ', $cells) . ' |';
+    }
+
+    /**
+     * Split a `|`-delimited table row into trimmed cell sources (outer pipes
+     * removed; escaped `\|` is not a delimiter).
+     *
+     * @return array<int, string>
+     */
+    protected function splitPipeCells(string $line): array
+    {
+        $line = trim($line);
+        $line = preg_replace('/^\|/', '', $line) ?? $line;
+        $line = preg_replace('/\|$/', '', $line) ?? $line;
+        $parts = preg_split('/(?<!\\\\)\|/', $line);
+
+        return $parts === false ? [] : $parts;
     }
 
     /**

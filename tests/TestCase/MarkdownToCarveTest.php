@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Carve\Test\TestCase;
 
+use Carve\CarveConverter;
 use Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -358,5 +359,31 @@ class MarkdownToCarveTest extends TestCase
         $markdown = "   \n\n   ";
 
         $this->assertSame($markdown, $this->converter->convert($markdown));
+    }
+
+    public function testGfmTableHeaderBecomesCarveHeader(): void
+    {
+        $carve = $this->converter->convert("| a | b |\n|---|---|\n| c | d |");
+        $this->assertSame("|= a |= b |\n| c | d |", trim($carve));
+    }
+
+    public function testGfmTableAlignmentBecomesCarveMarkers(): void
+    {
+        $carve = $this->converter->convert("| Name | Age |\n|:-----|----:|\n| Alice | 28 |");
+        $this->assertSame("|=< Name |=> Age |\n| Alice | 28 |", trim($carve));
+    }
+
+    public function testTableWithoutSeparatorIsUnchanged(): void
+    {
+        $md = "| a | b |\n| c | d |";
+        $this->assertSame($md, trim($this->converter->convert($md)));
+    }
+
+    public function testGfmTableRoundTripsToSameHtml(): void
+    {
+        $md = "| Name | Age |\n|:-----|----:|\n| Alice | 28 |";
+        $carve = $this->converter->convert($md);
+        $c = new CarveConverter();
+        $this->assertSame(trim($c->convert($md)), trim($c->convert($carve)));
     }
 }
