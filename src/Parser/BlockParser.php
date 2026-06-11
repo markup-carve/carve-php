@@ -1378,15 +1378,39 @@ class BlockParser
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
 
-        // Separate a trailing quoted title from the type/class
-        // (grammar quoted_title; PART 9 §12): `::: note "Heads up"`.
-        // The title is stored as the `title` attribute (the same slot
-        // the AdmonitionExtension reads) and rendered as a
-        // <p class="admonition-title">, never folded into the class.
+        // Split an optional quoted title and an optional trailing attribute
+        // block off the type word, honoring the grammar order for a typed
+        // opener (admonition_open, PART 9 §12):
+        //   colon_fence, space, admonition_type, [space, quoted_title], [attributes]
+        // The `[attributes]` slot needs no leading space, so the block may
+        // abut the type or title (`::: note{.x}`, `::: note "T"{.x}`). A
+        // quoted title may itself contain `{`/`}`, so the attribute block is
+        // only a `{...}` AFTER the closing quote -- a single combined match
+        // keeps the title and the attributes from crossing.
+        //
+        // A bare attribute-only opener (`:::{…}` / `::: {…}`) starts with
+        // `{` and has no type word; it is left untouched for the
+        // attribute-only branch below (and parsed there with full nested-
+        // brace handling, e.g. `{k="{y}"}`).
         $title = null;
-        if (preg_match('/^(.*?)\s+"([^"]*)"\s*$/', $className, $tm) === 1) {
-            $className = trim($tm[1]);
-            $title = $tm[2];
+        $trailingAttributes = null;
+        if (
+            $className !== ''
+            && $className[0] !== '{'
+            && preg_match(
+                '/^(?<type>\S.*?)(?:\s+"(?<title>[^"]*)")?\s*(?<attrs>\{.*\})?\s*$/s',
+                $className,
+                $tm,
+                PREG_UNMATCHED_AS_NULL,
+            ) === 1
+        ) {
+            $className = $tm['type'];
+            if ($tm['title'] !== null) {
+                $title = $tm['title'];
+            }
+            if ($tm['attrs'] !== null) {
+                $trailingAttributes = $tm['attrs'];
+            }
         }
 
         $div = new Div();
@@ -1431,6 +1455,12 @@ class BlockParser
                 $div->setAttribute('title', $title);
             }
             $applyPending();
+            // The opener's own trailing attributes (`::: note {.x}`) are
+            // LATER in source than any leading block-attribute line, so they
+            // apply last (id/key last-wins, classes accumulate).
+            if ($trailingAttributes !== null) {
+                AttributeParser::applyToNode($div, substr($trailingAttributes, 1, -1));
+            }
         }
 
         $innerLines = [];
