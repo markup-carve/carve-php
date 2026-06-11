@@ -28,6 +28,7 @@ use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineFootnote;
 use Carve\Node\Inline\Link;
@@ -65,6 +66,13 @@ class PlainTextRenderer implements RendererInterface
 
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
 
+    protected HeadingIdTracker $headingIdTracker;
+
+    public function __construct()
+    {
+        $this->headingIdTracker = new HeadingIdTracker();
+    }
+
     /**
      * Set how soft breaks are rendered
      *
@@ -90,6 +98,9 @@ class PlainTextRenderer implements RendererInterface
 
     public function render(Document $document): string
     {
+        $this->headingIdTracker->reset();
+        (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+
         $text = $this->renderChildren($document);
 
         // Normalize multiple blank lines to single
@@ -139,12 +150,21 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof Symbol => ':' . $node->getName() . ':',
             $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
             $node instanceof FootnoteRef => '[' . $node->getLabel() . ']',
+            $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
             $node instanceof HardBreak => "\n",
             $node instanceof RawInline => '', // Skip raw inlines (format-specific)
             default => $this->renderChildren($node),
         };
+    }
+
+    protected function renderHeadingRef(HeadingRef $node): string
+    {
+        $id = $node->getTargetId();
+        $label = $this->headingIdTracker->getTextForId($id);
+
+        return $label ?? '</#' . $id . '>';
     }
 
     protected function renderChildren(Node $node): string

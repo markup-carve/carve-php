@@ -33,6 +33,7 @@ use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
 use Carve\Node\Inline\Highlight;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\InlineFootnote;
@@ -307,6 +308,8 @@ class AnsiRenderer implements RendererInterface
 
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
 
+    protected HeadingIdTracker $headingIdTracker;
+
     /**
      * @var array<int, int>
      */
@@ -317,6 +320,7 @@ class AnsiRenderer implements RendererInterface
         $this->terminalWidth = $terminalWidth;
         $this->useColors = $useColors;
         $this->useUnicode = $useUnicode;
+        $this->headingIdTracker = new HeadingIdTracker();
     }
 
     /**
@@ -371,6 +375,9 @@ class AnsiRenderer implements RendererInterface
 
     public function render(Document $document): string
     {
+        $this->headingIdTracker->reset();
+        (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+
         $output = $this->renderChildren($document);
 
         // Normalize multiple blank lines
@@ -424,10 +431,22 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Symbol => $this->renderSymbol($node),
             $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
             $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
+            $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => '', // Skip raw inline
             default => $this->renderChildren($node),
         };
+    }
+
+    protected function renderHeadingRef(HeadingRef $node): string
+    {
+        $id = $node->getTargetId();
+        $label = $this->headingIdTracker->getTextForId($id);
+        if ($label === null) {
+            return '</#' . $id . '>';
+        }
+
+        return $this->style($label, self::UNDERLINE . self::FG_BLUE);
     }
 
     protected function renderChildren(Node $node): string
