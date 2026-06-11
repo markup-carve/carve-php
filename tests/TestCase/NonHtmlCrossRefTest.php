@@ -16,7 +16,7 @@ class NonHtmlCrossRefTest extends TestCase
     public static function simpleHeadingRefProvider(): array
     {
         return [
-            'markdown' => ['markdown', 'See Title.', 'See .'],
+            'markdown' => ['markdown', '[Title](#title)', 'See .'],
             'plainText' => ['plainText', 'See Title.', 'See .'],
             'ansi' => ['ansi', 'See Title.', 'See .'],
         ];
@@ -37,7 +37,7 @@ class NonHtmlCrossRefTest extends TestCase
     public static function forwardHeadingRefProvider(): array
     {
         return [
-            'markdown' => ['markdown', 'See Title.', 'See .'],
+            'markdown' => ['markdown', '[Title](#title)', 'See .'],
             'plainText' => ['plainText', 'See Title.', 'See .'],
             'ansi' => ['ansi', 'See Title.', 'See .'],
         ];

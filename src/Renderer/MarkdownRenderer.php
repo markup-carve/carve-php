@@ -78,6 +78,23 @@ class MarkdownRenderer implements RendererInterface
 
     protected HeadingIdTracker $headingIdTracker;
 
+    /**
+     * Resolved ids of headings that are the target of a `</#id>` cross-reference.
+     * Such headings emit a `{#id}` attribute (pandoc/kramdown convention) so the
+     * `[label](#id)` link they are referenced by resolves to a real anchor.
+     *
+     * @var array<string, true>
+     */
+    protected array $referencedHeadingIds = [];
+
+    /**
+     * Resolved ids of ALL headings (figures/tables are excluded). Lets a
+     * `</#id>` decide whether its target can carry a markdown anchor.
+     *
+     * @var array<string, true>
+     */
+    protected array $headingIds = [];
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
@@ -107,6 +124,14 @@ class MarkdownRenderer implements RendererInterface
     {
         $this->headingIdTracker->reset();
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+
+        // Collect every heading's resolved id and the set of ids that a `</#id>`
+        // points at, so a heading that IS a crossref target can emit `{#id}` and
+        // its reference can render a working `[label](#id)` link.
+        $this->headingIds = [];
+        $referencedIds = [];
+        $this->collectHeadingAndRefIds($document, $referencedIds);
+        $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
 
         $markdown = $this->renderChildren($document);
 
@@ -183,14 +208,36 @@ class MarkdownRenderer implements RendererInterface
         $id = $node->getTargetId();
         $label = $this->headingIdTracker->getTextForId($id);
         if ($label === null) {
+            // Unresolved target: keep the literal source (matches HtmlRenderer).
             return '</#' . $id . '>';
         }
 
-        // Render the resolved label as plain text, NOT a `[label](#id)` link:
-        // carve ids (explicit `{#id}`, or a slug that differs from the consumer's
-        // own heading-slug algorithm) are not guaranteed to exist as anchors in
-        // the emitted Markdown, so a fragment link would dangle.
+        // A heading target gets a real `[label](#id)` link — renderHeading emits a
+        // matching `{#id}` anchor for it. A non-heading target (a numbered
+        // figure/table caption) has no markdown anchor to point at, so its label
+        // renders as plain text.
+        if (isset($this->headingIds[$id])) {
+            return '[' . $this->escapeText($label) . '](' . $this->markdownFragmentDestination($id) . ')';
+        }
+
         return $this->escapeText($label);
+    }
+
+    /**
+     * Build a CommonMark link destination for a `#id` fragment. carve ids may
+     * contain characters that break the bare `(...)` form (notably `(` / `)` and
+     * whitespace, which carve accepts in an explicit `{#id}`); those are wrapped
+     * in the angle-bracket destination form `<#id>` with `<`/`>`/`\` escaped.
+     */
+    protected function markdownFragmentDestination(string $id): string
+    {
+        if (preg_match('/[\s()<>]/', $id) !== 1) {
+            return '#' . $id;
+        }
+
+        $escaped = str_replace(['\\', '<', '>'], ['\\\\', '\\<', '\\>'], $id);
+
+        return '<#' . $escaped . '>';
     }
 
     protected function renderChildren(Node $node): string
@@ -208,11 +255,39 @@ class MarkdownRenderer implements RendererInterface
         return $this->renderChildren($node) . "\n\n";
     }
 
+    /**
+     * Walk the tree once, recording each heading's resolved id (into
+     * $this->headingIds) and every `</#id>` target id (into $referencedIds).
+     *
+     * @param \Carve\Node\Node $node
+     * @param array<string, true> $referencedIds
+     */
+    protected function collectHeadingAndRefIds(Node $node, array &$referencedIds): void
+    {
+        if ($node instanceof Heading) {
+            $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
+        } elseif ($node instanceof HeadingRef) {
+            $referencedIds[$node->getTargetId()] = true;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            $this->collectHeadingAndRefIds($child, $referencedIds);
+        }
+    }
+
     protected function renderHeading(Heading $node): string
     {
         $prefix = str_repeat('#', $node->getLevel()) . ' ';
+        // A Markdown heading is a single line, so a multi-line carve heading
+        // (lazy continuation, `# Foo\nbar`) is flattened to one line. This also
+        // keeps a trailing `{#id}` attribute on the actual heading line.
+        $text = trim((string)preg_replace('/\s*\n\s*/', ' ', $this->renderChildren($node)));
+        $id = $this->headingIdTracker->getIdForHeading($node);
+        // A referenced heading carries an explicit `{#id}` (pandoc/kramdown) so
+        // the `[label](#id)` link pointing at it resolves to a real anchor.
+        $suffix = isset($this->referencedHeadingIds[$id]) ? ' {#' . $id . '}' : '';
 
-        return $prefix . $this->renderChildren($node) . "\n\n";
+        return $prefix . $text . $suffix . "\n\n";
     }
 
     protected function renderCodeBlock(CodeBlock $node): string
