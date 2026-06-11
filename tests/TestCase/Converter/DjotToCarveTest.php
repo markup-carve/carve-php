@@ -23,12 +23,12 @@ class DjotToCarveTest extends TestCase
 
     public function testSubscriptTildeBecomesCommas(): void
     {
-        $this->assertSame('H,,2,,O', $this->converter->convert('H~2~O'));
+        $this->assertSame('H{,2,}O', $this->converter->convert('H~2~O'));
     }
 
     public function testHighlightBracesBecomesEquals(): void
     {
-        $this->assertSame('==important==', $this->converter->convert('{=important=}'));
+        $this->assertSame('{=important=}', $this->converter->convert('{=important=}'));
     }
 
     public function testMarkdownStrongBecomesSingleStar(): void
@@ -48,7 +48,7 @@ class DjotToCarveTest extends TestCase
 
     public function testEmphasisWithSubscriptNests(): void
     {
-        $this->assertSame('/,,x,,/', $this->converter->convert('_~x~_'));
+        $this->assertSame('/{,x,}/', $this->converter->convert('_~x~_'));
     }
 
     public function testCodeSpanIsUntouched(): void
@@ -79,7 +79,8 @@ class DjotToCarveTest extends TestCase
 
     public function testUnchangedConstructs(): void
     {
-        $input = '2^10^ {+ins+} {-del-}';
+        // Critic markup is identical in Djot and Carve, so it passes through.
+        $input = 'plain text {+ins+} {-del-}';
         $this->assertSame($input, $this->converter->convert($input));
     }
 

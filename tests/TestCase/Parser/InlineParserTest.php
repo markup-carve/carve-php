@@ -140,7 +140,7 @@ class InlineParserTest extends TestCase
 
     public function testParseSuperscript(): void
     {
-        $para = $this->parseInline('x^2^');
+        $para = $this->parseInline('x{^2^}');
 
         $children = $para->getChildren();
         $this->assertCount(2, $children);
@@ -149,7 +149,7 @@ class InlineParserTest extends TestCase
 
     public function testParseSubscript(): void
     {
-        $para = $this->parseInline('H,,2,,O');
+        $para = $this->parseInline('H{,2,}O');
 
         $children = $para->getChildren();
         $this->assertCount(3, $children);
@@ -793,7 +793,7 @@ class InlineParserTest extends TestCase
 
     public function testSubscriptWithTrailingAttributes(): void
     {
-        $para = $this->parseInline(',,2,,{.chemical}');
+        $para = $this->parseInline(',2,{.chemical}');
 
         $sub = $this->getFirstChild($para);
         $this->assertInstanceOf(Subscript::class, $sub);
@@ -811,7 +811,7 @@ class InlineParserTest extends TestCase
 
     public function testBracedSubscriptWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('{~text~}{.formula}');
+        $para = $this->parseInline('{,text,}{.formula}');
 
         $sub = $this->getFirstChild($para);
         $this->assertInstanceOf(Subscript::class, $sub);
@@ -820,7 +820,7 @@ class InlineParserTest extends TestCase
 
     public function testHighlightWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('==highlighted=={.match}');
+        $para = $this->parseInline('=highlighted={.match}');
 
         $mark = $this->getFirstChild($para);
         $this->assertInstanceOf(Highlight::class, $mark);

@@ -267,7 +267,7 @@ class CarveConverterTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'This is ==highlighted== text';
+        $djot = 'This is =highlighted= text';
         $expected = "<p>This is <mark>highlighted</mark> text</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -291,7 +291,7 @@ class CarveConverterTest extends TestCase
 
     public function testSuperscript(): void
     {
-        $djot = 'E=mc^2^';
+        $djot = 'E=mc{^2^}';
         $expected = "<p>E=mc<sup>2</sup></p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -299,7 +299,7 @@ class CarveConverterTest extends TestCase
 
     public function testSubscript(): void
     {
-        $djot = 'H,,2,,O';
+        $djot = 'H{,2,}O';
         $expected = "<p>H<sub>2</sub>O</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -848,7 +848,7 @@ DJOT;
 
     public function testStrongIntraword(): void
     {
-        $djot = 'foo*bar*baz';
+        $djot = 'foo{*bar*}baz';
         $expected = "<p>foo<strong>bar</strong>baz</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -1112,10 +1112,10 @@ DJOT;
 
     public function testListItemAttributeInvalidPayloadIsNotMarker(): void
     {
-        // `-{=y=}` does not yield a valid attribute, so it is not a marker.
-        $result = $this->converter->convert('-{=y=} text');
+        // `-{?}` does not yield a valid attribute, so it is not a marker.
+        $result = $this->converter->convert('-{?} text');
 
-        $this->assertStringContainsString('<p>-{=y=} text</p>', $result);
+        $this->assertStringContainsString('<p>-{?} text</p>', $result);
     }
 
     public function testMathTrailingAttributes(): void
@@ -2109,7 +2109,7 @@ DJOT;
 
     public function testStrongNotInMiddleOfWord(): void
     {
-        $djot = 'some*thing*else';
+        $djot = 'some{*thing*}else';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<strong>thing</strong>', $result);
@@ -2508,7 +2508,7 @@ DJOT;
 
     public function testParagraphWithAllInlineTypes(): void
     {
-        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,,sub,,, ==high==, {+ins+}, {-del-}.';
+        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,sub,, =high=, {+ins+}, {-del-}.';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<em>emphasis</em>', $result);
@@ -3347,7 +3347,7 @@ DJOT;
             'comment-only block' => ['[x]{% c %}', "<p><span>x</span></p>\n"],
             // Invalid block: whole [text]{block} stays literal.
             'invalid junk block' => ['[x]{???}', "<p>[x]{???}</p>\n"],
-            'invalid equals block' => ['[x]{=y=}', "<p>[x]{=y=}</p>\n"],
+            'invalid equals block' => ['[x]{?y?}', "<p>[x]{?y?}</p>\n"],
             // Brackets + block render literally, but the inner content is still
             // inline-parsed (matches carve-js: `[*x*]{???}` keeps the strong).
             'invalid block keeps inner markup' => ['[*x*]{???}', "<p>[<strong>x</strong>]{???}</p>\n"],

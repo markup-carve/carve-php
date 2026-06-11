@@ -153,7 +153,7 @@ DJOT;
 
     public function testSuperscriptStillRenders(): void
     {
-        $html = $this->converter->convert('x^2^');
+        $html = $this->converter->convert('x{^2^}');
 
         $this->assertSame("<p>x<sup>2</sup></p>\n", $html);
     }

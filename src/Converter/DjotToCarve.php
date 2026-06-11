@@ -51,8 +51,17 @@ class DjotToCarve
             'id' => 'djot-subscript-tilde',
             'family' => '~',
             'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~/',
-            'open' => ',,',
-            'close' => ',,',
+            'open' => '{,',
+            'close' => ',}',
+        ],
+        [
+            // Carve superscript is word-boundary-sensitive, so a bare `^2^`
+            // after `c` (E=mc^2^) would be literal; emit the forced form.
+            'id' => 'djot-superscript-caret',
+            'family' => '^',
+            'pattern' => '/\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^/',
+            'open' => '{^',
+            'close' => '^}',
         ],
         [
             'id' => 'djot-emphasis-underscore',
@@ -65,8 +74,8 @@ class DjotToCarve
             'id' => 'djot-highlight-braces',
             'family' => '{',
             'pattern' => '/\{=(?!\s)((?:(?!\n[ \t]*\n)[\s\S])+?)(?<!\s)=\}/',
-            'open' => '==',
-            'close' => '==',
+            'open' => '{=',
+            'close' => '=}',
         ],
     ];
 
