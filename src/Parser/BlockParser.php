@@ -3258,11 +3258,35 @@ class BlockParser
             return true;
         }
 
+        // A standalone block-attribute line floats forward to the next block
+        // (or is dropped when none follows), so it interrupts the paragraph
+        // rather than folding in as literal text (grammar PART 9 §15).
+        if ($this->isBlockAttributeLine($line)) {
+            return true;
+        }
+
         // Invisible constructs produce no rendered block of their own, so they
         // are recognised next to prose rather than left as literal text.
         return preg_match('/^\[[^\]]+\]:/', $line) === 1
             || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
             || preg_match('/^%%/', $line) === 1;
+    }
+
+    /**
+     * Whether a line is a standalone single-line block-attribute line: a
+     * `{...}` block alone on the line that yields attributes (matching the
+     * single-line case recognised by tryParseBlockAttributes). Braced inline
+     * markers (`_ * = + - ~ ^`) and comment blocks (`%`) are excluded.
+     */
+    protected function isBlockAttributeLine(string $line): bool
+    {
+        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches) !== 1) {
+            return false;
+        }
+
+        $attrStr = $matches[1];
+
+        return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1 && !str_starts_with($attrStr, '%');
     }
 
     /**
