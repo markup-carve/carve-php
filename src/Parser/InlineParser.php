@@ -2401,16 +2401,13 @@ class InlineParser
             $textBuffer = substr($textBuffer, 0, $wordStart);
         }
 
-        // If no preceding word, attributes don't attach to anything
-        // But they still consume the braces (according to the spec)
+        // No inline element abuts the block (it sits at the start of the
+        // content or after whitespace), so it is not an attribute block:
+        // decline here and let the caller emit `{` literally and re-parse the
+        // content inline (grammar PART 9 §14, inline_span requires a `[...]`
+        // host). Consuming it would silently drop the braces and lose content.
         if ($precedingWord === '') {
-            // Flush text and skip attributes - they produce nothing
-            $this->flushText($parent, $textBuffer);
-
-            return [
-                'textBuffer' => '',
-                'pos' => $attrEnd + 1,
-            ];
+            return null;
         }
 
         // Flush any text before the word
