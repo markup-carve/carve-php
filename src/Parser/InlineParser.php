@@ -2809,10 +2809,20 @@ class InlineParser
         }
 
         $content = substr($text, $contentStart, $closePos - $contentStart);
+        $node = new Math($content, $display);
+
+        // A trailing `{...}` applies attributes to the math span (math reuses the
+        // code-span attribute slot). EXCEPT `{=format}`, the raw-inline form,
+        // which is code-span-only and not inherited by math: leave it literal.
+        $endPos = $closePos + $backtickCount;
+        $isRawAttempt = $endPos + 1 < $length && $text[$endPos] === '{' && $text[$endPos + 1] === '=';
+        if (!$isRawAttempt && $endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
 
         return [
-            'node' => new Math($content, $display),
-            'pos' => $closePos + $backtickCount,
+            'node' => $node,
+            'pos' => $endPos,
         ];
     }
 
