@@ -12,8 +12,8 @@ namespace Carve\Converter;
  * rewrites exactly those constructs to their Carve equivalents:
  *
  *   _x_ -> /x/ (Djot emphasis is underline in Carve)
- *   ~x~ -> ,,x,, (Djot subscript is strikethrough in Carve)
- *   {=x=} -> ==x== (highlight)
+ *   ~x~ -> {,x,} (Djot subscript is strikethrough in Carve; forced brace form)
+ *   {=x=} -> {=x=} (highlight is the same braced form in Carve)
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *

@@ -27,6 +27,14 @@ $converter = new CarveConverter();
 $html = $converter->toHtml('# Hello /Carve/');
 ~~~
 
+## Sandbox
+
+Try this implementation live in the
+[Carve sandbox](https://sandbox.dereuromark.de/sandbox/carve) - explore syntax
+and extensions, inspect output, and share snippets via pastebin-style links. It
+also powers the [wp-carve](https://github.com/markup-carve/wp-carve) WordPress
+plugin.
+
 ## Extension Matchers
 
 Carve-PHP supports parse-stage extension matchers alongside render hooks and
