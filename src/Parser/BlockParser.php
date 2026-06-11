@@ -526,7 +526,7 @@ class BlockParser
             // Match reference definition: [label]: url (url can be empty, on next line)
             if (preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
-                $label = preg_replace('/\s+/', ' ', trim($matches[1]));
+                $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2]);
 
                 // Collect continuation lines (URL can start on continuation line)
@@ -1814,7 +1814,7 @@ class BlockParser
         }
 
         // Get the base indentation of this list
-        $baseIndent = IndentationHelper::getLeadingSpaces($line);
+        $baseIndent = IndentationHelper::getLeadingColumns($line);
 
         /** @var string $listType */
         $listType = $listInfo['type'];
@@ -1854,7 +1854,7 @@ class BlockParser
             }
 
             // Get indentation of current line
-            $currentIndent = IndentationHelper::getLeadingSpaces($currentLine);
+            $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
 
             // If line is less indented than base, we're done with this list
             if ($currentIndent < $baseIndent) {
@@ -1878,7 +1878,7 @@ class BlockParser
                         if (IndentationHelper::isBlankLine($line)) {
                             break;
                         }
-                        $lineIndent = IndentationHelper::getLeadingSpaces($line);
+                        $lineIndent = IndentationHelper::getLeadingColumns($line);
                         if ($lineIndent < $baseIndent) {
                             break;
                         }
@@ -1889,7 +1889,7 @@ class BlockParser
                         ) {
                             break;
                         }
-                        $attached[] = IndentationHelper::stripLeadingIndent($line, $baseIndent);
+                        $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
                         $i++;
                     }
                     if ($attached !== []) {
@@ -1944,7 +1944,7 @@ class BlockParser
 
                             continue;
                         }
-                        $lineIndent = IndentationHelper::getLeadingSpaces($subLine);
+                        $lineIndent = IndentationHelper::getLeadingColumns($subLine);
 
                         // If we've seen content at a higher indent level (actual nested content),
                         // and now we're back at the marker level (subIndent) after a blank line,
@@ -1964,7 +1964,7 @@ class BlockParser
                                 $maxContentIndent = $lineIndent;
                             }
                             // Remove subIndent worth of indentation (handling tabs)
-                            $subLines[] = IndentationHelper::stripLeadingIndent($subLine, $subIndent);
+                            $subLines[] = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -2096,7 +2096,7 @@ class BlockParser
                     if (IndentationHelper::isBlankLine($line)) {
                         break;
                     }
-                    $lineIndent = IndentationHelper::getLeadingSpaces($line);
+                    $lineIndent = IndentationHelper::getLeadingColumns($line);
                     if ($lineIndent < $baseIndent) {
                         break;
                     }
@@ -2107,7 +2107,7 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $attached[] = IndentationHelper::stripLeadingIndent($line, $baseIndent);
+                    $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
                     $i++;
                 }
                 if ($attached !== []) {
@@ -2139,7 +2139,7 @@ class BlockParser
                     break;
                 }
 
-                $nextIndent = IndentationHelper::getLeadingSpaces($nextLine);
+                $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
                 $nextTrimmed = ltrim($nextLine);
 
                 // Check if next line starts a new list item at same level (base indent)
@@ -2172,7 +2172,7 @@ class BlockParser
                         break;
                     }
                     // Properly indented continuation - include with original indentation relative to content
-                    $itemLines[] = IndentationHelper::stripLeadingIndent($nextLine, $contentIndent);
+                    $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
                 } else {
                     // Lazy continuation (not properly indented but not at base level either)
                     $itemLines[] = $nextTrimmed;
