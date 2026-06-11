@@ -217,7 +217,7 @@ class PlainTextRendererTest extends TestCase
 
     public function testSuperscriptSubscript(): void
     {
-        $djot = 'E=mc^2^ and H~2~O';
+        $djot = 'E=mc{^2^} and H{,2,}O';
         $document = $this->converter->parse($djot);
 
         $this->assertSame("E=mc2 and H2O\n", $this->renderer->render($document));
@@ -225,7 +225,7 @@ class PlainTextRendererTest extends TestCase
 
     public function testHighlightInsertDelete(): void
     {
-        $djot = '==highlighted== {+inserted+} {-deleted-}';
+        $djot = '=highlighted= {+inserted+} {-deleted-}';
         $document = $this->converter->parse($djot);
 
         $this->assertSame("highlighted inserted ~deleted~\n", $this->renderer->render($document));
