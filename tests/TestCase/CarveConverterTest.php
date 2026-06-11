@@ -2798,13 +2798,18 @@ DJOT;
 
     public function testParagraphPreservesTrailingSoftBreak(): void
     {
-        // From official attributes_12: trailing softbreak should be preserved
+        // A `{...}` block with no inline element abutting it (after a space, or
+        // at line start) is NOT an attribute block: it is literal content and
+        // is not consumed (carve PART 9 §14, matching carve-js). The `#id`
+        // inside renders as its normal inline (a tag span). The softbreak
+        // between the two source lines is preserved as a mid-paragraph newline.
         $djot = "After {#id} space\n{.class}";
         $result = $this->converter->convert($djot);
 
-        // The {.class} becomes a block attribute, leaving "After  space\n" in paragraph
-        // The newline before </p> should be preserved
-        $this->assertSame("<p>After  space\n</p>\n", $result);
+        $this->assertSame(
+            "<p>After {<span class=\"tag\"><strong>#id</strong></span>} space\n{.class}</p>\n",
+            $result,
+        );
     }
 
     public function testParagraphTrimsTrailingSpacesNotNewlines(): void
