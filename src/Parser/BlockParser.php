@@ -526,7 +526,7 @@ class BlockParser
             // Match reference definition: [label]: url (url can be empty, on next line)
             if (preg_match('/^\[([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
-                $label = preg_replace('/\s+/', ' ', trim($matches[1]));
+                $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2]);
 
                 // Collect continuation lines (URL can start on continuation line)
@@ -2069,6 +2069,14 @@ class BlockParser
             /** @var string|null $taskMarker */
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
+            // Attributes from an abutting `{...}` block attach to the <li>.
+            if (isset($itemInfo['attributes'])) {
+                /** @var array<string, string> $markerAttributes */
+                $markerAttributes = $itemInfo['attributes'];
+                foreach ($markerAttributes as $key => $value) {
+                    $listItem->setAttribute($key, $value);
+                }
+            }
             /** @var string $itemContent */
             $itemContent = $itemInfo['content'];
 
@@ -2158,15 +2166,6 @@ class BlockParser
                     }
                 }
 
-                // Check for list item attributes (must be at content indent, be a standalone attribute block)
-                if (
-                    $nextIndent >= $contentIndent &&
-                    preg_match('/^\{([^{}]+)\}\s*$/', $nextTrimmed, $attrMatch)
-                ) {
-                    // This is a list item attribute line - don't add to content
-                    break;
-                }
-
                 // Content at content indent or more is continuation.
                 // Carve nests an indented list marker directly (no blank
                 // line required): "- a\n  - b" makes "- b" a child list.
@@ -2184,21 +2183,6 @@ class BlockParser
                 $i++;
             }
 
-            // Check for list item attributes on the next line
-            $itemAttributes = [];
-            if ($i < $count) {
-                $potentialAttrLine = $lines[$i];
-                $trimmedAttrLine = ltrim($potentialAttrLine);
-                // Check if it's an attribute block at content indent level
-                if (
-                    preg_match('/^\{([^{}]+)\}\s*$/', $trimmedAttrLine, $attrMatch) &&
-                    IndentationHelper::getLeadingColumns($potentialAttrLine) >= $contentIndent
-                ) {
-                    $itemAttributes = AttributeParser::parseOrdered($attrMatch[1]);
-                    $i++;
-                }
-            }
-
             // For tight lists with continuation lines, check if content starts with
             // a block element. If so, parse as blocks; otherwise parse as plain text.
             // This prevents "-like" lines from being parsed as nested lists while
@@ -2210,12 +2194,6 @@ class BlockParser
             // paragraph rather than splitting it into a separate block.
             $this->parseBlocks($listItem, $itemLines, 0);
 
-            // Apply attributes to list item
-            if ($itemAttributes !== []) {
-                foreach ($itemAttributes as $key => $value) {
-                    $listItem->setAttribute($key, $value);
-                }
-            }
             $list->appendChild($listItem);
         }
 
@@ -3346,16 +3324,12 @@ class BlockParser
 
                 $figure = new Figure();
 
+                // A preceding block-attribute line (carried on the paragraph)
+                // floats onto the figure. The image's OWN trailing attributes
+                // stay on the <img> -- the same target as a standalone block
+                // image -- so they are NOT transferred to the figure.
                 foreach ($lastChild->getAttributes() as $key => $value) {
                     $figure->setAttribute($key, $value);
-                }
-
-                // Transfer attributes from image to figure
-                foreach ($image->getAttributes() as $key => $value) {
-                    if ($key !== 'src' && $key !== 'alt' && $key !== 'title') {
-                        $figure->setAttribute($key, $value);
-                        $image->removeAttribute($key);
-                    }
                 }
 
                 // Create caption

@@ -1064,18 +1064,18 @@ DJOT;
 
     public function testListItemAttributes(): void
     {
-        $djot = "- item 1\n  {.highlight}\n- item 2";
+        // An attribute block abutting the marker (no space) attaches to the <li>.
+        $djot = "-{.highlight} item 1\n- item 2";
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<li class="highlight">', $result);
-        $this->assertStringContainsString('item 1', $result);
-        $this->assertStringContainsString('item 2', $result);
+        $this->assertStringContainsString('<li class="highlight">item 1', $result);
+        $this->assertStringContainsString('<li>item 2', $result);
     }
 
     public function testListItemAttributesWithId(): void
     {
-        $djot = "- first item\n  {#first .important}\n- second item";
+        $djot = "-{#first .important} first item\n- second item";
 
         $result = $this->converter->convert($djot);
 
@@ -1084,7 +1084,7 @@ DJOT;
 
     public function testListItemAttributesWithCustomAttribute(): void
     {
-        $djot = "- item\n  {data-value=\"test\"}";
+        $djot = '-{data-value="test"} item';
 
         $result = $this->converter->convert($djot);
 
@@ -1093,7 +1093,7 @@ DJOT;
 
     public function testOrderedListItemAttributes(): void
     {
-        $djot = "1. first\n   {.step-one}\n2. second";
+        $djot = "1.{.step-one} first\n2. second";
 
         $result = $this->converter->convert($djot);
 
@@ -1102,12 +1102,42 @@ DJOT;
 
     public function testTaskListItemAttributes(): void
     {
-        $djot = "- [x] done\n  {.completed}\n- [ ] pending";
+        $djot = "-{.completed} [x] done\n- [ ] pending";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<li class="completed">', $result);
         $this->assertStringContainsString(' checked disabled>', $result);
+    }
+
+    public function testListItemAttributeInvalidPayloadIsNotMarker(): void
+    {
+        // `-{=y=}` does not yield a valid attribute, so it is not a marker.
+        $result = $this->converter->convert('-{=y=} text');
+
+        $this->assertStringContainsString('<p>-{=y=} text</p>', $result);
+    }
+
+    public function testMathTrailingAttributes(): void
+    {
+        $result = $this->converter->convert('$`a^2`{.boxed #eq1}');
+
+        $this->assertStringContainsString('<span class="math inline boxed" id="eq1">', $result);
+    }
+
+    public function testFigureImageTrailingAttributeStaysOnImg(): void
+    {
+        $result = $this->converter->convert("![a](x){.hero}\n^ cap");
+
+        $this->assertStringContainsString('<img src="x" alt="a" class="hero">', $result);
+        $this->assertStringContainsString('<figure>', $result);
+    }
+
+    public function testFigurePrecedingBlockAttributeTargetsFigure(): void
+    {
+        $result = $this->converter->convert("{.gallery}\n![a](x)\n^ cap");
+
+        $this->assertStringContainsString('<figure class="gallery">', $result);
     }
 
     public function testRomanNumeralList(): void
