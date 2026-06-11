@@ -2873,7 +2873,10 @@ class BlockParser
                         ?? $columnAligns[$colPosition]
                         ?? $alignments[$index]
                         ?? TableCell::ALIGN_DEFAULT;
-                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
+                    // A cell carries its own `=` marker even in a body row, so a
+                    // `|=` cell in a data row becomes a row header (<th> inside
+                    // <tbody>). The row stays a body row; only the cell is a header.
+                    $cell = new TableCell($isHeaderRow || $marker['header'], $alignment, 1, $colspan);
                     if ($cellData['attributes']) {
                         $cell->setAttributes($cellData['attributes']);
                     }
