@@ -441,4 +441,94 @@ DJOT;
         // Should have all classes merged
         $this->assertStringContainsString('class="admonition warning extra-class another-class"', $html);
     }
+
+    public function testSameLineTrailingClass(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        // Grammar admonition_open allows a trailing [attributes] block after
+        // the type word: `::: note {.x}`. The class must apply, not leak
+        // literally into the class list.
+        $html = $converter->convert("::: note {.highlight}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note highlight"', $html);
+        $this->assertStringNotContainsString('{.highlight}', $html);
+    }
+
+    public function testAbuttingTrailingAttribute(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        // The grammar [attributes] slot needs no leading space, so a block
+        // may abut the type word: `::: note{.x}`.
+        $html = $converter->convert("::: note{.highlight}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note highlight"', $html);
+        $this->assertStringNotContainsString('note{', $html);
+    }
+
+    public function testAbuttingTitleThenTrailingAttribute(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        $html = $converter->convert("::: note \"Heads up\"{.highlight}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note highlight"', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Heads up</p>', $html);
+        $this->assertStringNotContainsString('{.highlight}', $html);
+    }
+
+    public function testBracesInsideTitleAreNotAttributes(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        // A quoted title may contain braces; only the `{...}` after the
+        // closing quote is the attribute block.
+        $html = $converter->convert("::: note \"Use {x}\" {.highlight}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note highlight"', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Use {x}</p>', $html);
+    }
+
+    public function testSameLineTrailingIdAndKeyValue(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        $html = $converter->convert("::: warning {#w foo=bar}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition warning"', $html);
+        $this->assertStringContainsString('id="w"', $html);
+        $this->assertStringContainsString('foo="bar"', $html);
+        $this->assertStringNotContainsString('{#w', $html);
+    }
+
+    public function testSameLineTitleThenTrailingAttribute(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        // Grammar order is type, [quoted_title], [attributes].
+        $html = $converter->convert("::: note \"Heads up\" {.highlight}\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note highlight"', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Heads up</p>', $html);
+        $this->assertStringNotContainsString('{.highlight}', $html);
+    }
+
+    public function testGenericTypedDivSameLineAttribute(): void
+    {
+        // A typed generic div (no admonition extension) splits the trailing
+        // attribute block the same way: `::: box {.x}` -> <div class="box x">.
+        $converter = new CarveConverter();
+
+        $html = $converter->convert("::: box {.x}\nbody\n:::");
+
+        $this->assertStringContainsString('<div class="box x">', $html);
+        $this->assertStringNotContainsString('{.x}', $html);
+    }
 }
