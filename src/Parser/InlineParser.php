@@ -2758,9 +2758,19 @@ class InlineParser
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
         }
 
+        $node = new FootnoteRef($label);
+        $endPos = $pos + strlen($matches[0]);
+
+        // A trailing `{...}` attaches to the noteref <a> (grammar PART 9 §note;
+        // mirrors the inline-footnote `^[...]{attrs}` path).
+        $length = strlen($text);
+        if ($endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
         return [
-            'node' => new FootnoteRef($label),
-            'pos' => $pos + strlen($matches[0]),
+            'node' => $node,
+            'pos' => $endPos,
         ];
     }
 

@@ -132,6 +132,25 @@ DJOT;
         $this->assertStringContainsString('<a id="fnref1" href="#fn1" role="doc-noteref" class="c"><sup>1</sup></a>', $html);
     }
 
+    public function testReferenceTrailingAttributesAttachToNoteref(): void
+    {
+        // A trailing {attrs} on a reference noteref attaches to its <a>,
+        // mirroring the inline-footnote form (grammar PART 9 §note).
+        $html = $this->converter->convert("A ref[^a]{.c} here.\n\n[^a]: body.");
+
+        $this->assertStringContainsString('<a id="fnref1" href="#fn1" role="doc-noteref" class="c"><sup>1</sup></a>', $html);
+    }
+
+    public function testReferenceTrailingAttributesOnlyOnAuthoredRef(): void
+    {
+        // The second reference to the same note carries no attribute block;
+        // only the ref where the author wrote one gets the class.
+        $html = $this->converter->convert("First[^a]{.c} then[^a].\n\n[^a]: body.");
+
+        $this->assertStringContainsString('<a id="fnref1" href="#fn1" role="doc-noteref" class="c"><sup>1</sup></a>', $html);
+        $this->assertStringContainsString('<a id="fnref1-2" href="#fn1" role="doc-noteref"><sup>1</sup></a>', $html);
+    }
+
     public function testSuperscriptStillRenders(): void
     {
         $html = $this->converter->convert('x^2^');
