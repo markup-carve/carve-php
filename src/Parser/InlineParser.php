@@ -2292,6 +2292,14 @@ class InlineParser
             ];
         }
 
+        // The block must yield a valid attribute, else it is not an attribute
+        // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
+        // unrecognized content makes the whole `{...}` stay literal. Decline
+        // so the caller emits `{` literally and re-parses the content.
+        if (!$this->isValidAttrPayload($attrStr)) {
+            return null;
+        }
+
         // Find the preceding word to attach attributes to
         // A word is a sequence of alphanumeric characters (plus some allowed chars)
         $precedingWord = '';
@@ -2376,15 +2384,41 @@ class InlineParser
      * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
      * so the whole bracketed run stays literal text (PART 9 §14).
      */
-    protected function isValidAttrPayload(string $attrStr): bool
+    public function isValidAttrPayload(string $attrStr): bool
     {
-        if (AttributeParser::parse($attrStr) !== []) {
+        // Strip every RECOGNIZED token; if anything non-whitespace remains the
+        // block is invalid and stays literal (§14). A name (key, class, id)
+        // is a grammar identifier (letter/`_` first), so a digit-first or
+        // hyphen-first name is NOT recognized -- one bad name invalidates the
+        // WHOLE block, even mixed with valid ones, matching carve-js.
+        // Booleans, colon-bearing keys, and an invalid unquoted VALUE (which
+        // is tolerated and skipped) all stay accepted.
+        $rest = $attrStr;
+        // Quoted key=values first, so `%`, dots and braces inside quotes are
+        // protected from the comment stripper and the shorthand patterns.
+        $rest = preg_replace(
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')/',
+            ' ',
+            $rest,
+        ) ?? $rest;
+        $rest = $this->removeAttributeComments($rest);
+        if (trim($rest) === '') {
             return true;
         }
+        $patterns = [
+            // unquoted key=value (the key is an identifier; the value is
+            // tolerant like carve-js's `\S+`, so an invalid value is skipped)
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
+            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
+            '/\s+/',
+        ];
+        foreach ($patterns as $pattern) {
+            $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
+        }
 
-        // No attribute extracted: valid only if the block is empty or
-        // whitespace/comment-only. Otherwise it is invalid and stays literal.
-        return trim($this->removeAttributeComments($attrStr)) === '';
+        return trim($rest) === '';
     }
 
     /**
