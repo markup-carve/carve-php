@@ -78,7 +78,7 @@ class NonBreakingSpaceTest extends TestCase
     {
         // A medial gap of two or more columns (inline alignment, e.g. the caesura
         // of Old English verse) is preserved; a lone inner space stays collapsible.
-        $html = $this->converter->convert("::: line-block\nHwaet  in geardagum\nfoo bar baz\n:::");
+        $html = $this->converter->convert("::: |\nHwaet  in geardagum\nfoo bar baz\n:::");
 
         $this->assertStringContainsString('Hwaet&nbsp;&nbsp;in geardagum', $html);
         $this->assertStringContainsString('foo bar baz', $html);
