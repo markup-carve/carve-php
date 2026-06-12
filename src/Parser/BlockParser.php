@@ -2665,16 +2665,7 @@ class BlockParser
         $lastIndex = count($lines) - 1;
 
         foreach ($lines as $index => [$line, $lineNumber]) {
-            [$leadingSpaces, $content] = $this->splitLineBlockLeadingWhitespace($line);
-            if ($leadingSpaces > 0) {
-                // Use the internal non-breaking-space placeholder (U+E000) - the
-                // same private-use sentinel as an escaped space - so the indent
-                // never collides with a literal U+00A0 in the author's text and is
-                // converted per renderer (HTML &nbsp;, Markdown U+00A0, plain space).
-                $paragraph->appendChild(new Text(str_repeat("\u{E000}", $leadingSpaces)));
-            }
-
-            $this->inlineParser->parse($paragraph, $content, $lineNumber);
+            $this->appendLineBlockLine($paragraph, $line, $lineNumber);
             if ($index < $lastIndex) {
                 $paragraph->appendChild(new HardBreak());
             }
@@ -2684,28 +2675,63 @@ class BlockParser
     }
 
     /**
-     * @return array{0: int, 1: string}
+     * Append a single line-block line, preserving significant whitespace.
+     *
+     * Leading indentation is always kept (even a single column). An inner or
+     * trailing run of TWO OR MORE columns is a medial gap (inline alignment,
+     * e.g. the caesura of Old English verse) and is kept too; a lone inner space
+     * stays an ordinary, collapsible space so a long line can still wrap between
+     * words. Preserved columns are emitted via the internal non-breaking-space
+     * placeholder (U+E000), which each renderer converts (HTML &nbsp;, Markdown
+     * U+00A0, plain space) and which never collides with a literal U+00A0 in the
+     * author's text. Tabs expand to four-column stops.
      */
-    protected function splitLineBlockLeadingWhitespace(string $line): array
+    protected function appendLineBlockLine(Paragraph $paragraph, string $line, int $lineNo): void
     {
-        $column = 0;
-        $offset = 0;
         $length = strlen($line);
+        $offset = 0;
+        $column = 0;
+        $text = '';
+        $seenContent = false;
 
         while ($offset < $length) {
             $char = $line[$offset];
-            if ($char === ' ') {
+            if ($char !== ' ' && $char !== "\t") {
+                $text .= $char;
+                $seenContent = true;
                 $column++;
                 $offset++;
-            } elseif ($char === "\t") {
-                $column += 4 - ($column % 4);
-                $offset++;
-            } else {
-                break;
+
+                continue;
             }
+
+            $width = 0;
+            while ($offset < $length && ($line[$offset] === ' ' || $line[$offset] === "\t")) {
+                if ($line[$offset] === "\t") {
+                    $width += 4 - (($column + $width) % 4);
+                } else {
+                    $width++;
+                }
+                $offset++;
+            }
+            $column += $width;
+
+            if (!$seenContent || $width >= 2) {
+                if ($text !== '') {
+                    $this->inlineParser->parse($paragraph, $text, $lineNo);
+                    $text = '';
+                }
+                $paragraph->appendChild(new Text(str_repeat("\u{E000}", $width)));
+
+                continue;
+            }
+
+            $text .= ' ';
         }
 
-        return [$column, substr($line, $offset)];
+        if ($text !== '') {
+            $this->inlineParser->parse($paragraph, $text, $lineNo);
+        }
     }
 
     /**
