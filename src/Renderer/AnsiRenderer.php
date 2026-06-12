@@ -383,7 +383,12 @@ class AnsiRenderer implements RendererInterface
         // Normalize multiple blank lines
         $output = preg_replace("/\n{3,}/", "\n\n", $output) ?? $output;
 
-        return trim($output) . "\n";
+        $output = trim($output) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) collapses to an
+        // ordinary space in terminal output. Done after trimming so placeholder-
+        // derived leading indentation survives; a literal U+00A0 is left intact.
+        return str_replace("\u{E000}", ' ', $output);
     }
 
     protected function renderNode(Node $node): string
@@ -409,7 +414,7 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Table => $this->renderTable($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => str_replace("\u{00A0}", ' ', $node->getContent()),
+            $node instanceof Text => $node->getContent(),
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
