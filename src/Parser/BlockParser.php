@@ -739,9 +739,23 @@ class BlockParser
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
 
-            // Check for explicit ID attribute before heading: {#custom-id}
-            if (preg_match('/^\{#([^\s}]+)\}\s*$/', $line, $attrMatch)) {
-                $pendingId = $attrMatch[1];
+            // Check for an explicit id on a block-attribute line before the
+            // heading -- bare ({#custom-id}) or part of a fuller list
+            // ({#id .class key=val}), single- or multi-line. Attribute lines
+            // accumulate (§15, last id wins); an attribute line without an id
+            // keeps a pending one. Mirrors the tryParseBlockAttributes gates
+            // (first content char [.#a-zA-Z], not a comment/braced inline
+            // marker) so the pre-scan accepts exactly what the parser does.
+            $attrStr = $this->scanBlockAttributeLines($lines, $i, $consumed);
+            if ($attrStr !== null) {
+                // Same source-order merge the parser uses (later token wins,
+                // e.g. `{id=bar #foo}` -> foo), so the pre-scan id always
+                // matches the rendered one.
+                $attrs = $attrStr === '' ? [] : AttributeParser::parseAndMerge([], $attrStr);
+                if (isset($attrs['id'])) {
+                    $pendingId = $attrs['id'];
+                }
+                $i += $consumed - 1;
 
                 continue;
             }
@@ -807,6 +821,75 @@ class BlockParser
                 }
             }
         }
+    }
+
+    /**
+     * Recognize a block-attribute line (single- or multi-line) starting at
+     * $start, WITHOUT applying it. Returns the joined attribute string and
+     * sets $consumed to the number of lines the block spans, or returns null
+     * when the line is not a block-attribute line. Mirrors the recognition
+     * rules of tryParseBlockAttributes() exactly: `{...}` with the first
+     * content character in [.#a-zA-Z] (excludes braced inline markers like
+     * `{=x=}` and `{%...%}` comments); a multi-line block needs indented
+     * continuation lines and a closing `}`.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int|null $consumed
+     */
+    protected function scanBlockAttributeLines(array $lines, int $start, ?int &$consumed): ?string
+    {
+        $consumed = 0;
+        $line = $lines[$start];
+
+        if (!str_starts_with($line, '{')) {
+            return null;
+        }
+
+        // Empty attribute block {} - consumed, contributes nothing
+        // (mirrors tryParseBlockAttributes).
+        if (preg_match('/^\{\}\s*$/', $line)) {
+            $consumed = 1;
+
+            return '';
+        }
+
+        // Single-line block: {.class #id key=value}
+        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches)) {
+            $attrStr = $matches[1];
+            if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                return null;
+            }
+            $consumed = 1;
+
+            return $attrStr;
+        }
+
+        // Multi-line block: { on the first line, } on a later line, with
+        // indented continuation lines in between.
+        $count = count($lines);
+        $attrContent = substr($line, 1);
+        $i = $start + 1;
+        while ($i < $count) {
+            $nextLine = $lines[$i];
+            if (preg_match('/^(.*)\}\s*$/', $nextLine, $closeMatch)) {
+                $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
+                if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                    return null;
+                }
+                $consumed = $i - $start + 1;
+
+                return $attrStr;
+            }
+            if (preg_match('/^\s+(.*)$/', $nextLine, $contMatch)) {
+                $attrContent .= ' ' . $contMatch[1];
+                $i++;
+            } else {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1553,27 +1636,12 @@ class BlockParser
 
         $heading = new Heading($level);
 
-        // A trailing {#id .class key=val} block sets heading attributes
-        // (not an inline marker like {=highlight=}). The value scan is
-        // quote-aware (escape-aware) so a `}` inside a quoted value (e.g.
-        // {k="{y}"}) is part of the value and a `\"` escape does not end it
-        // early, matching how spans consume their attribute block.
+        // djot-strict (spec PART 2 headings; matches carve-js #153): a heading
+        // line carries NO trailing `{...}` attribute block -- a trailing brace
+        // block is ordinary inline content, and the heading id derives from
+        // the full literal text. Attributes attach via a PRECEDING
+        // block-attribute line (applyPendingAttributes below, PART 9 §15).
         $content = trim($content);
-        if (preg_match('/^(.*?)\s*\{((?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')+)\}$/s', $content, $am)) {
-            $inner = trim($am[2]);
-            $first = $inner[0] ?? '';
-            $last = $inner[strlen($inner) - 1] ?? '';
-            $isInlineMarker = $first === $last
-                && in_array($first, ['=', '+', '-', '~', '^', '_', '*'], true);
-            // Only consume the block when the WHOLE payload is a valid
-            // attribute block (§14); an attribute-less or partly-invalid block
-            // (e.g. an invalid char in a name like `{#foo)}`) stays part of the
-            // heading text, matching the inline and block-attribute-line paths.
-            if (!$isInlineMarker && $inner !== '' && $this->inlineParser->isValidAttrPayload($inner)) {
-                AttributeParser::applyToNode($heading, $inner);
-                $content = rtrim($am[1]);
-            }
-        }
 
         $this->inlineParser->parse($heading, $content, $start);
         $this->applyPendingAttributes($heading);

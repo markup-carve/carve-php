@@ -3191,6 +3191,58 @@ DJOT;
         $this->assertFalse($converter->hasWarnings());
     }
 
+    public function testImplicitHeadingRefUsesExplicitIdFromFullAttributeLine(): void
+    {
+        // The pre-scan must pick the `#id` out of a FULL preceding
+        // block-attribute line ({#foo .bar}), not only a bare {#foo} line —
+        // otherwise [Title][] anchors to the generated #title while the
+        // heading renders with id="foo" (a broken self-document link).
+        $converter = new CarveConverter();
+        $html = $converter->convert("{#foo .bar}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#title"', $html);
+    }
+
+    public function testImplicitHeadingRefUsesExplicitIdFromMultiLineAttributeBlock(): void
+    {
+        // A multi-line attribute block ({#foo\n  .bar}) applies to the
+        // heading; the implicit-ref pre-scan must consume it the same way.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{#foo\n  .bar}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#title"', $html);
+    }
+
+    public function testImplicitHeadingRefUsesSourceOrderIdMerge(): void
+    {
+        // Mixed `id=` / `#id` tokens merge in source order (later wins),
+        // both on the rendered heading and in the implicit-ref pre-scan.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{id=bar #foo}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#bar"', $html);
+    }
+
+    public function testImplicitHeadingRefIgnoresRejectedBraceLine(): void
+    {
+        // A `{...}` line the block parser rejects (first content char not
+        // [.#a-zA-Z], e.g. a braced inline marker payload) is ordinary
+        // paragraph text — the pre-scan must NOT mine an id out of it, or
+        // [Title][] would anchor to a #foo the heading never gets.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{* #foo}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="title">', $html);
+        $this->assertStringContainsString('href="#title"', $html);
+        $this->assertStringNotContainsString('href="#foo"', $html);
+    }
+
     public function testValidAnchorLinkToPunctuationHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);

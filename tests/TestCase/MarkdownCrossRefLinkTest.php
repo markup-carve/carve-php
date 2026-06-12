@@ -44,7 +44,9 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
     {
-        $out = $this->md("# Title {#foo}\n\nSee </#foo>.\n");
+        // The explicit id comes from a preceding block-attribute line
+        // (djot-strict: a heading line carries no trailing attribute block).
+        $out = $this->md("{#foo}\n# Title\n\nSee </#foo>.\n");
 
         $this->assertStringContainsString('# Title {#foo}', $out);
         $this->assertStringContainsString('[Title](#foo)', $out);
@@ -64,9 +66,10 @@ class MarkdownCrossRefLinkTest extends TestCase
     public function testParenInIdIsNotAValidIdentifier(): void
     {
         // An id is a grammar identifier (letter/digit/`_`/`-`/`:`); a `)` is
-        // not, so `{#foo)}` is not an attribute block at all and stays literal
-        // heading text (§14). No id is set, so the crossref does not resolve.
-        $out = $this->md("# Title {#foo)}\n\nSee </#foo)>.\n");
+        // not, so the preceding block-attribute line `{#foo)}` is not a valid
+        // attribute block and stays literal (§14). No id is set on the heading,
+        // so the crossref does not resolve.
+        $out = $this->md("{#foo)}\n# Title\n\nSee </#foo)>.\n");
 
         $this->assertStringContainsString('{\\#foo)}', $out);
         $this->assertStringNotContainsString('[Title]', $out);
