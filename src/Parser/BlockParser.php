@@ -2667,7 +2667,11 @@ class BlockParser
         foreach ($lines as $index => [$line, $lineNumber]) {
             [$leadingSpaces, $content] = $this->splitLineBlockLeadingWhitespace($line);
             if ($leadingSpaces > 0) {
-                $paragraph->appendChild(new Text(str_repeat("\u{00A0}", $leadingSpaces)));
+                // Use the internal non-breaking-space placeholder (U+E000) - the
+                // same private-use sentinel as an escaped space - so the indent
+                // never collides with a literal U+00A0 in the author's text and is
+                // converted per renderer (HTML &nbsp;, Markdown U+00A0, plain space).
+                $paragraph->appendChild(new Text(str_repeat("\u{E000}", $leadingSpaces)));
             }
 
             $this->inlineParser->parse($paragraph, $content, $lineNumber);
