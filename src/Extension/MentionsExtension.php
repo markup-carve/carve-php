@@ -45,7 +45,11 @@ class MentionsExtension implements ExtensionInterface
         $mentionUrl = $this->mentionUrl;
         $mentionClass = $this->mentionClass;
         $inlineParser->addInlinePattern(
-            '/(?<![A-Za-z0-9_])@([a-zA-Z0-9_-]+)/',
+            // Interior dots are part of the name (a dot followed by another
+            // name character, `@john.doe`); a trailing dot stays sentence
+            // punctuation. Same shape as the tag pattern below (grammar
+            // PART 9 §7; corpus 89-mention-and-tag-name-boundaries).
+            '/(?<![A-Za-z0-9_])@([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)/',
             function (string $match, array $groups) use ($mentionUrl, $mentionClass): Mention {
                 $name = $groups[1];
 
