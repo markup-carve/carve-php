@@ -44,7 +44,9 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
     {
-        $out = $this->md("# Title {#foo}\n\nSee </#foo>.\n");
+        // The explicit id comes from a preceding block-attribute line
+        // (djot-strict: a heading line carries no trailing attribute block).
+        $out = $this->md("{#foo}\n# Title\n\nSee </#foo>.\n");
 
         $this->assertStringContainsString('# Title {#foo}', $out);
         $this->assertStringContainsString('[Title](#foo)', $out);
@@ -63,9 +65,10 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testIdWithParensUsesAngleBracketDestination(): void
     {
-        // carve accepts `)` in an explicit id; a bare `(#foo))` would break the
+        // carve-php accepts `)` in an explicit id (via a preceding
+        // block-attribute line); a bare `(#foo))` would break the
         // CommonMark destination, so it is wrapped as `<#foo)>`.
-        $out = $this->md("# Title {#foo)}\n\nSee </#foo)>.\n");
+        $out = $this->md("{#foo)}\n# Title\n\nSee </#foo)>.\n");
 
         $this->assertStringContainsString('[Title](<#foo)>)', $out);
     }
