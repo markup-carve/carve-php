@@ -61,13 +61,15 @@ class MarkdownCrossRefLinkTest extends TestCase
         $this->assertStringNotContainsString('{#fig}', $out);
     }
 
-    public function testIdWithParensUsesAngleBracketDestination(): void
+    public function testParenInIdIsNotAValidIdentifier(): void
     {
-        // carve accepts `)` in an explicit id; a bare `(#foo))` would break the
-        // CommonMark destination, so it is wrapped as `<#foo)>`.
+        // An id is a grammar identifier (letter/digit/`_`/`-`/`:`); a `)` is
+        // not, so `{#foo)}` is not an attribute block at all and stays literal
+        // heading text (§14). No id is set, so the crossref does not resolve.
         $out = $this->md("# Title {#foo)}\n\nSee </#foo)>.\n");
 
-        $this->assertStringContainsString('[Title](<#foo)>)', $out);
+        $this->assertStringContainsString('{\\#foo)}', $out);
+        $this->assertStringNotContainsString('[Title]', $out);
     }
 
     public function testMultiLineHeadingIsFlattenedWithIdOnTheHeadingLine(): void

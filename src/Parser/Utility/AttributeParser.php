@@ -49,12 +49,12 @@ class AttributeParser
         // start with a digit (a `class="123"` is also invalid CSS), so a
         // digit-first `.123` is not matched. The whole block then yields no
         // attribute and stays literal (§14).
-        if (preg_match_all('/\.([a-zA-Z_][^\s.#=}]*)/', $strippedForShorthand, $classMatches)) {
+        if (preg_match_all('/\.([a-zA-Z_][a-zA-Z0-9_:-]*)/', $strippedForShorthand, $classMatches)) {
             $attributes['class'] = implode(' ', $classMatches[1]);
         }
 
         // Parse #id -- the id is a grammar identifier (no leading digit).
-        if (preg_match('/#([a-zA-Z_][^\s.#=}]*)/', $strippedForShorthand, $idMatch)) {
+        if (preg_match('/#([a-zA-Z_][a-zA-Z0-9_:-]*)/', $strippedForShorthand, $idMatch)) {
             $attributes['id'] = $idMatch[1];
         }
 
@@ -133,9 +133,9 @@ class AttributeParser
             // Skip invalid unquoted values (e.g. key=foo.bar, 1=v) - consume but don't capture
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][^\s.#=}]*)|'
+            . '\.([a-zA-Z_][a-zA-Z0-9_:-]*)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][^\s.#=}]*)|'
+            . '#([a-zA-Z_][a-zA-Z0-9_:-]*)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
@@ -221,9 +221,9 @@ class AttributeParser
             // This prevents .bar from being matched as a class
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][^\s.#=}]*)|'
+            . '\.([a-zA-Z_][a-zA-Z0-9_:-]*)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][^\s.#=}]*)|'
+            . '#([a-zA-Z_][a-zA-Z0-9_:-]*)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';

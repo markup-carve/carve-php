@@ -2384,7 +2384,7 @@ class InlineParser
      * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
      * so the whole bracketed run stays literal text (PART 9 §14).
      */
-    protected function isValidAttrPayload(string $attrStr): bool
+    public function isValidAttrPayload(string $attrStr): bool
     {
         // Strip every RECOGNIZED token; if anything non-whitespace remains the
         // block is invalid and stays literal (§14). A name (key, class, id)
@@ -2409,8 +2409,8 @@ class InlineParser
             // unquoted key=value (the key is an identifier; the value is
             // tolerant like carve-js's `\S+`, so an invalid value is skipped)
             '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
-            '/\.[a-zA-Z_][^\s.#=}]*/',
-            '/#[a-zA-Z_][^\s.#=}]*/',
+            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
             '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
             '/\s+/',
         ];

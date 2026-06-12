@@ -1010,10 +1010,12 @@ class BlockParser
                 return null;
             }
 
-            // The block must yield a valid attribute, else it is not a
-            // block-attribute line (§14) and stays literal paragraph text.
-            // A digit-first name (`.123`, `#1`, `2=v`) yields nothing.
-            if (AttributeParser::parse($attrStr) === []) {
+            // The whole payload must be a valid attribute block, else it is
+            // not a block-attribute line (§14) and stays literal paragraph
+            // text. One invalid name (`.123`, `#1`, `2=v`, `.a!b`) -- even
+            // mixed with valid ones (`.ok .1`) -- invalidates the whole line,
+            // matching the inline path and carve-js.
+            if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
                 return null;
             }
 
@@ -1053,9 +1055,10 @@ class BlockParser
                 if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
-                // Must yield a valid attribute, else it is not a block-
-                // attribute line (§14) and stays literal.
-                if (AttributeParser::parse($attrStr) === []) {
+                // The whole payload must be valid, else it is not a block-
+                // attribute line (§14) and stays literal. One invalid name --
+                // even mixed with valid ones -- invalidates the whole line.
+                if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
                     return null;
                 }
                 $this->parseAttributeString($attrStr);
@@ -1562,10 +1565,11 @@ class BlockParser
             $last = $inner[strlen($inner) - 1] ?? '';
             $isInlineMarker = $first === $last
                 && in_array($first, ['=', '+', '-', '~', '^', '_', '*'], true);
-            // Only consume the block when it yields at least one real
-            // attribute (grammar `attribute_list` needs >= 1 attribute);
-            // an attribute-less brace block stays part of the heading text.
-            if (!$isInlineMarker && $inner !== '' && AttributeParser::parse($inner) !== []) {
+            // Only consume the block when the WHOLE payload is a valid
+            // attribute block (§14); an attribute-less or partly-invalid block
+            // (e.g. an invalid char in a name like `{#foo)}`) stays part of the
+            // heading text, matching the inline and block-attribute-line paths.
+            if (!$isInlineMarker && $inner !== '' && $this->inlineParser->isValidAttrPayload($inner)) {
                 AttributeParser::applyToNode($heading, $inner);
                 $content = rtrim($am[1]);
             }
