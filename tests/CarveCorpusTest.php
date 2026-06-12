@@ -144,14 +144,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // Strict-djot openers: a `:::` fence carries no inline attributes, so
-        // `::: {.class}` is an ordinary paragraph, not a div. carve-php still
-        // treats it as a div; adopting the strict-attr policy is a separate
-        // follow-up, independent of the line-block `|` opener change.
-        '44-generic-divs-2' => 'Strict-attr `:::` openers not implemented yet (inline `::: {.class}` should be a paragraph).',
-        '88-line-blocks-5' => 'Strict-attr `:::` openers not implemented yet (inline `::: {.line-block}` should be a paragraph).',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 
