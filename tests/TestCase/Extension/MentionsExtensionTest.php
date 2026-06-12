@@ -65,6 +65,17 @@ class MentionsExtensionTest extends TestCase
         $this->assertStringContainsString('<span class="mention"><strong>@jane_doe</strong></span>', $html);
     }
 
+    public function testMentionWithInteriorDot(): void
+    {
+        // An interior dot (followed by another name character) is part of the
+        // name; a trailing dot is sentence punctuation (grammar PART 9 §7,
+        // corpus 89-mention-and-tag-name-boundaries).
+        $html = (new CarveConverter())->convert('Ping @john.doe and @markus. end');
+
+        $this->assertStringContainsString('<span class="mention"><strong>@john.doe</strong></span>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@markus</strong></span>. end', $html);
+    }
+
     public function testMentionAtStartOfText(): void
     {
         $html = (new CarveConverter())->convert('@admin please help');
