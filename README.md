@@ -27,6 +27,33 @@ $converter = new CarveConverter();
 $html = $converter->toHtml('# Hello /Carve/');
 ~~~
 
+Besides HTML, the same AST renders to Markdown, plain text, and ANSI via the
+`CarveConverter::markdown()`, `::plainText()`, and `::ansi()` factories:
+
+~~~ php
+$markdown = CarveConverter::markdown()->convert('# Hello /Carve/');
+$ansi = CarveConverter::ansi()->convert('# Hello /Carve/');
+~~~
+
+## CLI
+
+The package ships a `bin/carve` executable that reads Carve from a file or
+stdin and writes the rendered output to stdout. HTML is the default; pass a
+format flag for another output:
+
+~~~ bash
+bin/carve README.crv > README.html   # HTML (default)
+bin/carve --markdown README.crv      # Markdown
+bin/carve --plain README.crv         # plain text
+bin/carve --ansi README.crv          # ANSI-colored terminal text
+echo '# Hello' | bin/carve           # render from stdin
+~~~
+
+`--html` / `--markdown` (`--md`) / `--plain` (`--plain-text`) / `--ansi` select
+the format. `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
+parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
+to HTML output only. Run `bin/carve --help` for the full list.
+
 ## Sandbox
 
 Try this implementation live in the
