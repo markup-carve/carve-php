@@ -444,7 +444,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertSame("<div class=\"custom line-block\">\n<p>line</p>\n</div>\n", $result);
+        $this->assertSame("<div class=\"custom line-block\">\n  <p>line</p>\n</div>\n", $result);
     }
 
     public function testTableCellMergesExistingStyle(): void

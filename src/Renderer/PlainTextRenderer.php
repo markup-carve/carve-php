@@ -140,7 +140,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof TableCell => $this->renderTableCell($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $node->getContent(),
+            $node instanceof Text => str_replace("\u{00A0}", ' ', $node->getContent()),
             $node instanceof Code => $node->getContent(),
             $node instanceof Math => $node->getContent(),
             $node instanceof Image => $node->getAlt(),

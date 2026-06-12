@@ -123,6 +123,7 @@ class CarveCorpusTest extends TestCase
         '85-numbered-cross-references',
         '86-inline-footnotes',
         '87-list-item-attributes',
+        '88-line-blocks',
     ];
 
     /**

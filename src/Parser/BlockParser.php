@@ -916,13 +916,13 @@ class BlockParser
                 ?? $this->tryParseComment($parent, $lines, $i)
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
+                ?? $this->tryParseLineBlock($parent, $lines, $i)
                 ?? $this->tryParseDiv($parent, $lines, $i)
                 ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
                 ?? $this->tryParseThematicBreak($parent, $line, $i)
                 ?? $this->tryParseBlockQuote($parent, $lines, $i)
                 ?? $this->tryParseList($parent, $lines, $i)
-                ?? $this->tryParseLineBlock($parent, $lines, $i)
                 ?? $this->tryParseTable($parent, $lines, $i)
                 ?? $this->tryParseFootnoteDefinition($lines, $i)
                 ?? $this->tryParseReferenceDefinition($lines, $i)
@@ -2576,10 +2576,7 @@ class BlockParser
     }
 
     /**
-     * Try to parse a line block (preserves line breaks)
-     *
-     * | Line one
-     * | Line two
+     * Try to parse a line block (preserves author line layout).
      *
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
@@ -2589,59 +2586,122 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Line block lines start with | followed by space (not |---|)
-        // Must distinguish from tables which have | at both start and end
-        if (!preg_match('/^\|\s(.*)$/', $line, $matches)) {
+        $divInfo = $this->fencedBlockParser->parseDivFenceOpener($line);
+        if ($divInfo === null) {
             return null;
         }
 
-        // Make sure it's not a table (tables have | at start and end outside of code spans)
-        if ($this->tableParser->isTableRow($line)) {
+        if (
+            preg_match(
+                '/^line-block(?:\s*(?<attrs>\{.*\}))?\s*$/s',
+                $divInfo['className'],
+                $openerMatches,
+                PREG_UNMATCHED_AS_NULL,
+            ) !== 1
+        ) {
             return null;
         }
 
-        // Line blocks should have at least 2 consecutive lines starting with |
-        // A single line like `| `a |`` should be a paragraph, not a line block
+        $i = $start;
         $count = count($lines);
-        $hasSecondLine = ($start + 1 < $count) && preg_match('/^\|/', $lines[$start + 1]);
-        if (!$hasSecondLine) {
+        $contentLines = [];
+        $closed = false;
+
+        $i++;
+        while ($i < $count) {
+            $currentLine = $lines[$i];
+
+            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $divInfo['length'])) {
+                $i++;
+                $closed = true;
+
+                break;
+            }
+
+            $contentLines[] = $currentLine;
+            $i++;
+        }
+
+        if (!$closed) {
             return null;
         }
 
         $lineBlock = new LineBlock();
-        $contentLines = [];
-        $i = $start;
-        $count = count($lines);
+        $this->applyPendingAttributes($lineBlock);
+        if (($openerMatches['attrs'] ?? null) !== null) {
+            AttributeParser::applyToNode($lineBlock, substr($openerMatches['attrs'], 1, -1));
+        }
 
-        while ($i < $count) {
-            $currentLine = $lines[$i];
+        $stanza = [];
+        $lineNumber = $start + 1;
+        foreach ($contentLines as $contentLine) {
+            if (IndentationHelper::isBlankLine($contentLine)) {
+                $this->appendLineBlockStanza($lineBlock, $stanza);
+                $stanza = [];
+            } else {
+                $stanza[] = [$contentLine, $lineNumber];
+            }
 
-            if (preg_match('/^\|\s(.*)$/', $currentLine, $matches)) {
-                $contentLines[] = $matches[1];
-                $i++;
-            } elseif (preg_match('/^\|$/', $currentLine)) {
-                // Empty line block line
-                $contentLines[] = '';
-                $i++;
+            $lineNumber++;
+        }
+        $this->appendLineBlockStanza($lineBlock, $stanza);
+
+        $parent->appendChild($lineBlock);
+
+        return $i - $start;
+    }
+
+    /**
+     * @param \Carve\Node\Block\LineBlock $lineBlock
+     * @param list<array{0: string, 1: int}> $lines
+     */
+    protected function appendLineBlockStanza(LineBlock $lineBlock, array $lines): void
+    {
+        if ($lines === []) {
+            return;
+        }
+
+        $paragraph = new Paragraph();
+        $lastIndex = count($lines) - 1;
+
+        foreach ($lines as $index => [$line, $lineNumber]) {
+            [$leadingSpaces, $content] = $this->splitLineBlockLeadingWhitespace($line);
+            if ($leadingSpaces > 0) {
+                $paragraph->appendChild(new Text(str_repeat("\u{00A0}", $leadingSpaces)));
+            }
+
+            $this->inlineParser->parse($paragraph, $content, $lineNumber);
+            if ($index < $lastIndex) {
+                $paragraph->appendChild(new HardBreak());
+            }
+        }
+
+        $lineBlock->appendChild($paragraph);
+    }
+
+    /**
+     * @return array{0: int, 1: string}
+     */
+    protected function splitLineBlockLeadingWhitespace(string $line): array
+    {
+        $column = 0;
+        $offset = 0;
+        $length = strlen($line);
+
+        while ($offset < $length) {
+            $char = $line[$offset];
+            if ($char === ' ') {
+                $column++;
+                $offset++;
+            } elseif ($char === "\t") {
+                $column += 4 - ($column % 4);
+                $offset++;
             } else {
                 break;
             }
         }
 
-        // Parse each line as a paragraph with hard breaks between them
-        $paragraph = new Paragraph();
-        foreach ($contentLines as $index => $contentLine) {
-            $this->inlineParser->parse($paragraph, $contentLine, $start + $index);
-            if ($index < count($contentLines) - 1) {
-                $paragraph->appendChild(new HardBreak());
-            }
-        }
-        $lineBlock->appendChild($paragraph);
-
-        $this->applyPendingAttributes($lineBlock);
-        $parent->appendChild($lineBlock);
-
-        return $i - $start;
+        return [$column, substr($line, $offset)];
     }
 
     /**
