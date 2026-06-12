@@ -29,6 +29,7 @@ use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Image;
+use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
 use Carve\Parser\Block\FencedBlockParser;
@@ -3357,6 +3358,28 @@ class BlockParser
             return $linesConsumed;
         }
 
+        // Handle CodeBlock - wrap in figure (numbered listing)
+        if ($lastChild instanceof CodeBlock) {
+            $figure = new Figure();
+
+            // A preceding block-attribute line (e.g. `{#lst-x}`) sits on the
+            // code block; move it onto the figure so the id drives the crossref.
+            foreach ($lastChild->getAttributes() as $key => $value) {
+                $figure->setAttribute($key, $value);
+                $lastChild->removeAttribute($key);
+            }
+
+            $caption = new Caption();
+            $this->inlineParser->parse($caption, $captionText, $start, true);
+
+            $figure->appendChild($lastChild);
+            $figure->appendChild($caption);
+
+            $parent->replaceChild(count($children) - 1, $figure);
+
+            return $linesConsumed;
+        }
+
         // Handle BlockQuote - wrap in figure
         if ($lastChild instanceof BlockQuote) {
             $figure = new Figure();
@@ -3406,6 +3429,38 @@ class BlockParser
                 $figure->appendChild($caption);
 
                 // Replace paragraph with figure in parent
+                $parent->replaceChild(count($children) - 1, $figure);
+
+                return $linesConsumed;
+            }
+
+            // A paragraph that is nothing but a display-math span is a numbered
+            // EQUATION: wrap the whole paragraph (keeping the <p> wrapper) in a
+            // figure. Inline math, or display math with trailing prose, does not
+            // qualify (more than one child, or not display).
+            if (
+                count($paragraphChildren) === 1
+                && $paragraphChildren[0] instanceof Math
+                && $paragraphChildren[0]->isDisplay()
+            ) {
+                $figure = new Figure();
+
+                // A preceding block-attribute line (`{#eq-x}`) sits on the
+                // paragraph; move it onto the figure so the id is on <figure>,
+                // not the inner <p>, and drives the crossref.
+                foreach ($lastChild->getAttributes() as $key => $value) {
+                    $figure->setAttribute($key, $value);
+                }
+                foreach (array_keys($lastChild->getAttributes()) as $key) {
+                    $lastChild->removeAttribute($key);
+                }
+
+                $caption = new Caption();
+                $this->inlineParser->parse($caption, $captionText, $start, true);
+
+                $figure->appendChild($lastChild);
+                $figure->appendChild($caption);
+
                 $parent->replaceChild(count($children) - 1, $figure);
 
                 return $linesConsumed;
