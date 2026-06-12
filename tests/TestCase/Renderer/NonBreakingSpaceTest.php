@@ -40,7 +40,7 @@ class NonBreakingSpaceTest extends TestCase
 
     public function testLineBlockIndentIsNbspInHtml(): void
     {
-        $html = $this->converter->convert("::: line-block\nflush\n  indented\n:::");
+        $html = $this->converter->convert("::: |\nflush\n  indented\n:::");
 
         $this->assertStringContainsString("flush<br>\n&nbsp;&nbsp;indented", $html);
         $this->assertStringNotContainsString(self::PLACEHOLDER, $html);
@@ -48,7 +48,7 @@ class NonBreakingSpaceTest extends TestCase
 
     public function testLineBlockIndentIsRealNbspInMarkdown(): void
     {
-        $document = $this->converter->parse("::: line-block\nflush\n  indented\n:::");
+        $document = $this->converter->parse("::: |\nflush\n  indented\n:::");
         $markdown = (new MarkdownRenderer())->render($document);
 
         $this->assertStringContainsString(self::NBSP . self::NBSP . 'indented', $markdown);
@@ -57,7 +57,7 @@ class NonBreakingSpaceTest extends TestCase
 
     public function testLineBlockIndentIsOrdinarySpaceInPlainText(): void
     {
-        $document = $this->converter->parse("::: line-block\nflush\n  indented\n:::");
+        $document = $this->converter->parse("::: |\nflush\n  indented\n:::");
         $text = (new PlainTextRenderer())->render($document);
 
         $this->assertStringContainsString("flush\n  indented", $text);
@@ -78,7 +78,7 @@ class NonBreakingSpaceTest extends TestCase
     {
         // A medial gap of two or more columns (inline alignment, e.g. the caesura
         // of Old English verse) is preserved; a lone inner space stays collapsible.
-        $html = $this->converter->convert("::: line-block\nHwaet  in geardagum\nfoo bar baz\n:::");
+        $html = $this->converter->convert("::: |\nHwaet  in geardagum\nfoo bar baz\n:::");
 
         $this->assertStringContainsString('Hwaet&nbsp;&nbsp;in geardagum', $html);
         $this->assertStringContainsString('foo bar baz', $html);

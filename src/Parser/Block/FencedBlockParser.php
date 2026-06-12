@@ -118,12 +118,13 @@ class FencedBlockParser
         }
 
         // STRICT (djot): the opener carries no inline attributes. The text
-        // after the fence must be empty (bare div), a type word, or a type
-        // word followed by a quoted title. Any trailing `{...}` (or other
+        // after the fence must be empty (bare div), a type token, or a type
+        // token followed by a quoted title. A type token is a word or the bare
+        // pipe `|` (the line-block opener). Any trailing `{...}` (or other
         // non-title text) makes the line an ordinary paragraph, not a fence;
         // attributes attach via a preceding block-attribute line (§15).
         $rest = trim($matches[2]);
-        if ($rest !== '' && !preg_match('/^[a-zA-Z_][\w-]*(?:\s+"[^"]*")?$/', $rest)) {
+        if ($rest !== '' && !preg_match('/^(?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?$/', $rest)) {
             return null;
         }
 

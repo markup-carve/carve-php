@@ -289,7 +289,7 @@ class HtmlToCarveTest extends TestCase
     {
         $result = $this->converter->convert('<div class="line-block"><p>one</p><p>two</p></div>');
 
-        $this->assertSame("::: line-block\none\n\ntwo\n:::\n", $result);
+        $this->assertSame("::: |\none\n\ntwo\n:::\n", $result);
     }
 
     // ==================== Block Elements ====================

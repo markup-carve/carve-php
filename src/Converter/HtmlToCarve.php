@@ -678,7 +678,7 @@ class HtmlToCarve
         // STRICT (djot): the `:::` fence takes no inline attributes, so any
         // extra id/classes go on a PRECEDING block-attribute line.
         $attrLine = $parts === [] ? '' : '{' . implode(' ', $parts) . '}' . "\n";
-        $output = $attrLine . $fence . ' line-block' . "\n";
+        $output = $attrLine . $fence . ' |' . "\n";
 
         foreach ($lines as $line) {
             $output .= $line . "\n";
@@ -2369,7 +2369,7 @@ class HtmlToCarve
 
                 continue;
             }
-            if (preg_match('/^(:{3,})\s+line-block\b/', $line, $lbm) === 1) {
+            if (preg_match('/^(:{3,})\s+\|/', $line, $lbm) === 1) {
                 $lineBlockFence = strlen($lbm[1]);
                 $result[] = $line;
 
