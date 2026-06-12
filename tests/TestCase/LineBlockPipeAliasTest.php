@@ -8,8 +8,8 @@ use Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `::: |` is a language-neutral alias for `::: line-block`: the pipe is the
- * block's type token on the opener, identical in every way to the keyword form.
+ * The line-block opener is a bare pipe `|`: `::: |` is the only form. The
+ * former `::: line-block` keyword is no longer special - it is an ordinary div.
  */
 class LineBlockPipeAliasTest extends TestCase
 {
@@ -20,19 +20,15 @@ class LineBlockPipeAliasTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
-    public function testPipeAliasRendersLineBlock(): void
+    public function testPipeOpensLineBlock(): void
     {
         $html = $this->converter->convert("::: |\nRoses are red,\nViolets are blue.\n:::");
 
-        $this->assertSame(
-            $this->converter->convert("::: line-block\nRoses are red,\nViolets are blue.\n:::"),
-            $html,
-        );
         $this->assertStringContainsString('<div class="line-block">', $html);
         $this->assertStringContainsString("Roses are red,<br>\nViolets are blue.", $html);
     }
 
-    public function testPipeAliasPreservesIndentAndStanzas(): void
+    public function testPipePreservesIndentAndStanzas(): void
     {
         $html = $this->converter->convert("::: |\nflush\n  indented\n\nstanza two\n:::");
 
@@ -40,11 +36,20 @@ class LineBlockPipeAliasTest extends TestCase
         $this->assertSame(2, substr_count($html, '<p>'));
     }
 
-    public function testPipeAliasAcceptsAttributes(): void
+    public function testPipeAcceptsAttributes(): void
     {
         $html = $this->converter->convert("::: | {#poem}\none\ntwo\n:::");
 
         $this->assertStringContainsString('id="poem"', $html);
         $this->assertStringContainsString('line-block', $html);
+    }
+
+    public function testLineBlockKeywordIsNoLongerSpecial(): void
+    {
+        // `::: line-block` is now an ordinary generic div: no hard breaks.
+        $html = $this->converter->convert("::: line-block\none\ntwo\n:::");
+
+        $this->assertStringContainsString('<div class="line-block">', $html);
+        $this->assertStringNotContainsString('<br>', $html);
     }
 }
