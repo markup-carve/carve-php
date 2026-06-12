@@ -206,20 +206,24 @@ class AttributeParser
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
         // Per djot spec, unquoted values may only contain: alphanumerics, underscore, colon, hyphen
+        // An attribute name (key, class, id) is a grammar identifier and may
+        // not start with a digit, so a digit-first name is not captured (a
+        // digit-first key=value is consumed by the invalid-value skip). This
+        // also prevents a numeric key being cast to int and crashing escape().
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z0-9_:-]+)="((?:[^"\\\\]|\\\\.)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="((?:[^"\\\\]|\\\\.)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z0-9_:-]+)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z0-9_:-]+)=([a-zA-Z0-9_:-]+)(?=\s|}|$)|'
-            // Skip invalid unquoted values (e.g. key=foo.bar) - consume but don't capture
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_:-]+)(?=\s|}|$)|'
+            // Skip invalid unquoted values (e.g. key=foo.bar, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
-            . '\.([^\s.#=}]+)|'
+            . '\.([a-zA-Z_][^\s.#=}]*)|'
             // Group 8: #id shorthand
-            . '#([^\s.#=}]+)|'
+            . '#([a-zA-Z_][^\s.#=}]*)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
