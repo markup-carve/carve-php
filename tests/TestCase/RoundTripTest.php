@@ -977,8 +977,11 @@ DJOT;
 
     public function testLineBlockWithAttributes(): void
     {
+        // STRICT (djot): attributes attach via a preceding block-attribute
+        // line, not inline on the `::: line-block` fence.
         $djot = <<<'DJOT'
-::: line-block {.poem}
+{.poem}
+::: line-block
 Roses are red
 Violets are blue
 :::
