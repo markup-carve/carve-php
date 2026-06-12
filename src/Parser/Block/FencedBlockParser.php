@@ -111,15 +111,27 @@ class FencedBlockParser
             return null;
         }
 
-        // Match opening fence: 3+ colons with optional class
+        // Match opening fence: 3+ colons, then an optional type word and an
+        // optional quoted title -- and NOTHING else.
         if (!preg_match('/^(:{3,})\s*(.*)$/', $line, $matches)) {
+            return null;
+        }
+
+        // STRICT (djot): the opener carries no inline attributes. The text
+        // after the fence must be empty (bare div), a type token, or a type
+        // token followed by a quoted title. A type token is a word or the bare
+        // pipe `|` (the line-block opener). Any trailing `{...}` (or other
+        // non-title text) makes the line an ordinary paragraph, not a fence;
+        // attributes attach via a preceding block-attribute line (§15).
+        $rest = trim($matches[2]);
+        if ($rest !== '' && !preg_match('/^(?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?$/', $rest)) {
             return null;
         }
 
         return [
             'fence' => $matches[1],
             'length' => strlen($matches[1]),
-            'className' => trim($matches[2]),
+            'className' => $rest,
         ];
     }
 

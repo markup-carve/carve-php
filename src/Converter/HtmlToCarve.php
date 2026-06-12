@@ -675,8 +675,10 @@ class HtmlToCarve
         }
         $fence = str_repeat(':', $fenceLength);
 
-        $attrs = $parts === [] ? '' : ' {' . implode(' ', $parts) . '}';
-        $output = $fence . ' |' . $attrs . "\n";
+        // STRICT (djot): the `:::` fence takes no inline attributes, so any
+        // extra id/classes go on a PRECEDING block-attribute line.
+        $attrLine = $parts === [] ? '' : '{' . implode(' ', $parts) . '}' . "\n";
+        $output = $attrLine . $fence . ' |' . "\n";
 
         foreach ($lines as $line) {
             $output .= $line . "\n";

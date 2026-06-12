@@ -38,7 +38,9 @@ class LineBlockPipeAliasTest extends TestCase
 
     public function testPipeAcceptsAttributes(): void
     {
-        $html = $this->converter->convert("::: | {#poem}\none\ntwo\n:::");
+        // Strict djot: attributes attach via a preceding block-attribute line,
+        // not inline on the `:::` opener.
+        $html = $this->converter->convert("{#poem}\n::: |\none\ntwo\n:::");
 
         $this->assertStringContainsString('id="poem"', $html);
         $this->assertStringContainsString('line-block', $html);

@@ -106,7 +106,13 @@ class PlainTextRenderer implements RendererInterface
         // Normalize multiple blank lines to single
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
-        return trim($text) . "\n";
+        $text = trim($text) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) collapses to an
+        // ordinary space in plain text. Done after trimming so placeholder-derived
+        // leading indentation (e.g. in a line block) survives. A literal U+00A0 in
+        // the author's text is left intact.
+        return str_replace("\u{E000}", ' ', $text);
     }
 
     protected function renderNode(Node $node): string
@@ -140,7 +146,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof TableCell => $this->renderTableCell($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => str_replace("\u{00A0}", ' ', $node->getContent()),
+            $node instanceof Text => $node->getContent(),
             $node instanceof Code => $node->getContent(),
             $node instanceof Math => $node->getContent(),
             $node instanceof Image => $node->getAlt(),
