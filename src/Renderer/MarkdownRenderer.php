@@ -138,7 +138,15 @@ class MarkdownRenderer implements RendererInterface
         // Normalize multiple blank lines
         $markdown = preg_replace("/\n{3,}/", "\n\n", $markdown) ?? $markdown;
 
-        return trim($markdown) . "\n";
+        $markdown = trim($markdown) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) becomes a literal
+        // non-breaking space (U+00A0). Markdown is a re-parseable round-trip
+        // format, so unlike the display renderers it keeps the real nbsp: that
+        // survives a re-render as `&nbsp;` and is never mistaken for an indented
+        // code-block prefix the way ordinary leading spaces would be. Done after
+        // trimming so placeholder-derived leading indentation survives.
+        return str_replace("\u{E000}", "\u{00A0}", $markdown);
     }
 
     protected function renderNode(Node $node): string
@@ -171,7 +179,7 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Table => $this->renderTable($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $this->escapeText(str_replace("\u{00A0}", ' ', $node->getContent())),
+            $node instanceof Text => $this->escapeText($node->getContent()),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
             $node instanceof Underline => $this->renderUnderline($node),
