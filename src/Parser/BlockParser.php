@@ -1093,6 +1093,15 @@ class BlockParser
                 return null;
             }
 
+            // The whole payload must be a valid attribute block, else it is
+            // not a block-attribute line (§14) and stays literal paragraph
+            // text. One invalid name (`.123`, `#1`, `2=v`, `.a!b`) -- even
+            // mixed with valid ones (`.ok .1`) -- invalidates the whole line,
+            // matching the inline path and carve-js.
+            if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
+                return null;
+            }
+
             // Check if attributes precede a reference definition - if so, skip storing them
             // (they were already applied during extractReferences)
             $count = count($lines);
@@ -1127,6 +1136,12 @@ class BlockParser
                 // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
                 // Exclude % which starts comments (handled by tryParseComment)
                 if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                    return null;
+                }
+                // The whole payload must be valid, else it is not a block-
+                // attribute line (§14) and stays literal. One invalid name --
+                // even mixed with valid ones -- invalidates the whole line.
+                if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
                     return null;
                 }
                 $this->parseAttributeString($attrStr);

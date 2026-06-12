@@ -1029,6 +1029,48 @@ DJOT;
         $this->assertStringNotContainsString('<div', $html);
     }
 
+    public function testDigitFirstAttributeNameStaysLiteral(): void
+    {
+        // An attribute name (id, class, key) is a grammar identifier and may
+        // not start with a digit; the whole block is then not an attribute
+        // block and stays literal (§14), stricter than djot. Also guards a
+        // numeric key from a fatal int-to-escape() cast.
+        $this->assertSame("<p>[x]{.123}</p>\n", $this->converter->convert('[x]{.123}'));
+        $this->assertSame("<p>[x]{123=v}</p>\n", $this->converter->convert('[x]{123=v}'));
+        $this->assertSame("<p>x{.1a}</p>\n", $this->converter->convert('x{.1a}'));
+        // A digit after the first identifier character is fine.
+        $this->assertSame(
+            "<p><span class=\"a1\" id=\"b2\" k3=\"v\">x</span></p>\n",
+            $this->converter->convert('[x]{.a1 #b2 k3=v}'),
+        );
+    }
+
+    public function testDigitFirstBlockAttributeLineStaysLiteral(): void
+    {
+        $this->assertSame("<p>{.123}\np</p>\n", $this->converter->convert("{.123}\np"));
+    }
+
+    public function testInvalidCharAfterFirstIdentifierCharStaysLiteral(): void
+    {
+        // The identifier rule constrains every character, not just the first:
+        // a non-identifier char anywhere (`!`, ...) invalidates the whole
+        // block, so it stays literal (§14), matching carve-js.
+        $this->assertSame("<p>[x]{.a!b}</p>\n", $this->converter->convert('[x]{.a!b}'));
+        $this->assertSame("<p>[x]{a!b=v}</p>\n", $this->converter->convert('[x]{a!b=v}'));
+        // A hyphen or underscore after the first character is fine.
+        $this->assertSame("<p><span class=\"a-b\">x</span></p>\n", $this->converter->convert('[x]{.a-b}'));
+        $this->assertSame("<p><span class=\"a_b\">x</span></p>\n", $this->converter->convert('[x]{.a_b}'));
+    }
+
+    public function testMixedValidInvalidAttributeStaysLiteral(): void
+    {
+        // One invalid name invalidates the WHOLE block even mixed with valid
+        // attributes -- inline and block-attribute line alike (§14).
+        $this->assertSame("<p>[x]{.ok .1}</p>\n", $this->converter->convert('[x]{.ok .1}'));
+        $this->assertSame("<p>{.ok .1}\np</p>\n", $this->converter->convert("{.ok .1}\np"));
+        $this->assertSame("<p>{.a!b}\np</p>\n", $this->converter->convert("{.a!b}\np"));
+    }
+
     public function testConsecutivePrecedingBlockAttrsAccumulate(): void
     {
         // Consecutive block-attribute lines before the opener accumulate:

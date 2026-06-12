@@ -475,13 +475,13 @@ class AttributeParserTest extends TestCase
         $this->assertStringContainsString('_b="2"', $result);
     }
 
-    public function testHyphenKeyAfterWhitespace(): void
+    public function testHyphenKeyStaysLiteral(): void
     {
-        // Hyphen-prefixed keys are valid after whitespace (matching JS reference)
+        // A hyphen-first key (`-b`) is not a valid grammar identifier, so the
+        // whole block is invalid and stays literal (§14), matching carve-js.
         $result = $this->converter->convert('[text]{a=1 -b=2}');
 
-        $this->assertStringContainsString('a="1"', $result);
-        $this->assertStringContainsString('-b="2"', $result);
+        $this->assertSame("<p>[text]{a=1 -b=2}</p>\n", $result);
     }
 
     /**
