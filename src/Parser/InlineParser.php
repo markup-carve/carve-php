@@ -2292,6 +2292,14 @@ class InlineParser
             ];
         }
 
+        // The block must yield a valid attribute, else it is not an attribute
+        // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
+        // unrecognized content makes the whole `{...}` stay literal. Decline
+        // so the caller emits `{` literally and re-parses the content.
+        if (!$this->isValidAttrPayload($attrStr)) {
+            return null;
+        }
+
         // Find the preceding word to attach attributes to
         // A word is a sequence of alphanumeric characters (plus some allowed chars)
         $precedingWord = '';

@@ -1010,6 +1010,13 @@ class BlockParser
                 return null;
             }
 
+            // The block must yield a valid attribute, else it is not a
+            // block-attribute line (§14) and stays literal paragraph text.
+            // A digit-first name (`.123`, `#1`, `2=v`) yields nothing.
+            if (AttributeParser::parse($attrStr) === []) {
+                return null;
+            }
+
             // Check if attributes precede a reference definition - if so, skip storing them
             // (they were already applied during extractReferences)
             $count = count($lines);
@@ -1044,6 +1051,11 @@ class BlockParser
                 // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
                 // Exclude % which starts comments (handled by tryParseComment)
                 if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                    return null;
+                }
+                // Must yield a valid attribute, else it is not a block-
+                // attribute line (§14) and stays literal.
+                if (AttributeParser::parse($attrStr) === []) {
                     return null;
                 }
                 $this->parseAttributeString($attrStr);
