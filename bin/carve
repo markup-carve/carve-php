@@ -8,7 +8,7 @@ declare(strict_types=1);
  *
  * Usage:
  *   carve [options] [input-file]
- *   cat file.djot | carve [options]
+ *   cat file.crv | carve [options]
  *
  * Options:
  *   -o, --output FILE Write output to FILE instead of stdout
@@ -43,6 +43,7 @@ if (!$autoloaderFound) {
 }
 
 use Carve\CarveConverter;
+use Carve\Parser\BlockParser;
 
 /**
  * Parse command line arguments
@@ -54,6 +55,7 @@ function parseArgs(array $argv): array
 {
     $options = [
         'output' => null,
+        'format' => 'html',
         'xhtml' => false,
         'safe' => false,
         'warnings' => false,
@@ -71,6 +73,14 @@ function parseArgs(array $argv): array
             $options['help'] = true;
         } elseif ($arg === '-v' || $arg === '--version') {
             $options['version'] = true;
+        } elseif ($arg === '--html') {
+            $options['format'] = 'html';
+        } elseif ($arg === '--markdown' || $arg === '--md') {
+            $options['format'] = 'markdown';
+        } elseif ($arg === '--plain' || $arg === '--plain-text') {
+            $options['format'] = 'plain';
+        } elseif ($arg === '--ansi') {
+            $options['format'] = 'ansi';
         } elseif ($arg === '-x' || $arg === '--xhtml') {
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
@@ -88,7 +98,7 @@ function parseArgs(array $argv): array
             $options['output'] = $argv[++$i];
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "Error: Unknown option: $arg\n");
-            fwrite(STDERR, "Try 'djot --help' for more information.\n");
+            fwrite(STDERR, "Try 'carve --help' for more information.\n");
             exit(1);
         } else {
             if ($input !== null) {
@@ -105,30 +115,36 @@ function parseArgs(array $argv): array
 function showHelp(): void
 {
     echo <<<'HELP'
-Djot - Convert djot markup to HTML
+Carve - Render Carve markup
 
 Usage:
   carve [options] [input-file]
-  cat file.djot | carve [options]
+  cat file.crv | carve [options]
 
 Arguments:
-  input-file          Input djot file (reads from stdin if not specified)
+  input-file          Input Carve file (reads from stdin if not specified)
+
+Output format (default --html; last one wins):
+  --html              HTML
+  --markdown, --md    Markdown
+  --plain, --plain-text  plain text
+  --ansi              ANSI-colored terminal text
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
-  -x, --xhtml         Use XHTML-compatible output (self-closing tags)
-  -s, --safe          Enable safe mode (sanitize dangerous HTML)
+  -x, --xhtml         Use XHTML-compatible output (self-closing tags; HTML only)
+  -s, --safe          Enable safe mode (sanitize dangerous HTML; HTML only)
   -w, --warnings      Show parse warnings on stderr
   --strict            Exit with error code 1 if warnings are generated
   -h, --help          Show this help message
   -v, --version       Show version information
 
 Examples:
-  djot document.djot                    Convert file to stdout
-  djot document.djot -o document.html   Convert file to output file
-  djot -s untrusted.djot                Convert with safe mode enabled
-  echo '*hello*' | djot                 Convert from stdin
-  djot --warnings doc.djot 2>warn.txt   Save warnings to file
+  carve document.crv                    Render file to stdout (HTML)
+  carve --ansi document.crv             Render colored terminal output
+  carve --markdown document.crv         Render Markdown
+  carve document.crv -o document.html   Render to an output file
+  echo '*hello*' | carve                Render from stdin
 
 HELP;
 }
@@ -143,7 +159,7 @@ function showVersion(): void
         $version = $data['version'] ?? 'dev';
     }
 
-    echo "djot-php version $version\n";
+    echo "carve-php version $version\n";
 }
 
 // Main
@@ -188,12 +204,26 @@ if ($inputFile !== null) {
     }
 }
 
-// Create converter
-$converter = new CarveConverter(
-    xhtml: $options['xhtml'],
-    warnings: $options['warnings'] || $options['strict'],
-    safeMode: $options['safe'] ? true : null,
-);
+// Create converter. The non-HTML renderers (Markdown / plain text / ANSI) are
+// their own converters; the --xhtml / --safe options are HTML-only and ignored
+// for those formats.
+$wantWarnings = $options['warnings'] || $options['strict'];
+// The non-HTML factories take a pre-configured parser; pass a warnings-enabled
+// one so --warnings / --strict work for every format (getWarnings() reads the
+// parser). --xhtml / --safe stay HTML-only.
+// Enable warning COLLECTION but not the parser's throw-on-error strict mode:
+// --strict is enforced by the CLI below (non-zero exit when warnings exist),
+// matching the HTML path.
+$converter = match ($options['format']) {
+    'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
+    'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
+    'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
+    default => new CarveConverter(
+        xhtml: $options['xhtml'],
+        warnings: $wantWarnings,
+        safeMode: $options['safe'] ? true : null,
+    ),
+};
 
 // Convert
 $output = $converter->convert($input);
