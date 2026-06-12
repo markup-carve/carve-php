@@ -40,12 +40,12 @@ class BbcodeToCarveTest extends TestCase
 
     public function testSuperscript(): void
     {
-        $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc[sup]2[/sup]'));
+        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc[sup]2[/sup]'));
     }
 
     public function testSubscript(): void
     {
-        $this->assertSame("H,,2,,O\n", $this->converter->convert('H[sub]2[/sub]O'));
+        $this->assertSame("H{,2,}O\n", $this->converter->convert('H[sub]2[/sub]O'));
     }
 
     public function testNestedFormatting(): void

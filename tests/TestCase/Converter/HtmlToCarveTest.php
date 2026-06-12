@@ -58,17 +58,17 @@ class HtmlToCarveTest extends TestCase
 
     public function testHighlight(): void
     {
-        $this->assertSame("==highlighted==\n", $this->converter->convert('<mark>highlighted</mark>'));
+        $this->assertSame("{=highlighted=}\n", $this->converter->convert('<mark>highlighted</mark>'));
     }
 
     public function testSuperscript(): void
     {
-        $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc<sup>2</sup>'));
+        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup>2</sup>'));
     }
 
     public function testSubscript(): void
     {
-        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub>2</sub>O'));
+        $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub>2</sub>O'));
     }
 
     public function testNestedFormatting(): void
@@ -119,8 +119,8 @@ class HtmlToCarveTest extends TestCase
     public function testWhitespaceInInlineTags(): void
     {
         // Whitespace should be trimmed
-        $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
-        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub> 2 </sub>O'));
+        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
+        $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub> 2 </sub>O'));
         $this->assertSame("*bold*\n", $this->converter->convert('<strong> bold </strong>'));
         $this->assertSame("{-deleted-}\n", $this->converter->convert('<del> deleted </del>'));
     }

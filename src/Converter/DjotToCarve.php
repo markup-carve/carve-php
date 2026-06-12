@@ -12,8 +12,8 @@ namespace Carve\Converter;
  * rewrites exactly those constructs to their Carve equivalents:
  *
  *   _x_ -> /x/ (Djot emphasis is underline in Carve)
- *   ~x~ -> ,,x,, (Djot subscript is strikethrough in Carve)
- *   {=x=} -> ==x== (highlight)
+ *   ~x~ -> {,x,} (Djot subscript is strikethrough in Carve; forced brace form)
+ *   {=x=} -> {=x=} (highlight is the same braced form in Carve)
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *
@@ -51,8 +51,17 @@ class DjotToCarve
             'id' => 'djot-subscript-tilde',
             'family' => '~',
             'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~/',
-            'open' => ',,',
-            'close' => ',,',
+            'open' => '{,',
+            'close' => ',}',
+        ],
+        [
+            // Carve superscript is word-boundary-sensitive, so a bare `^2^`
+            // after `c` (E=mc^2^) would be literal; emit the forced form.
+            'id' => 'djot-superscript-caret',
+            'family' => '^',
+            'pattern' => '/\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^/',
+            'open' => '{^',
+            'close' => '^}',
         ],
         [
             'id' => 'djot-emphasis-underscore',
@@ -65,8 +74,8 @@ class DjotToCarve
             'id' => 'djot-highlight-braces',
             'family' => '{',
             'pattern' => '/\{=(?!\s)((?:(?!\n[ \t]*\n)[\s\S])+?)(?<!\s)=\}/',
-            'open' => '==',
-            'close' => '==',
+            'open' => '{=',
+            'close' => '=}',
         ],
     ];
 

@@ -621,7 +621,7 @@ class AttributeParserTest extends TestCase
 
     public function testMultipleAttributeBlocksOnHighlight(): void
     {
-        $result = $this->converter->convert('==highlight=={.foo}{.bar}');
+        $result = $this->converter->convert('=highlight={.foo}{.bar}');
 
         $this->assertStringContainsString('<mark class="foo bar">highlight</mark>', $result);
     }

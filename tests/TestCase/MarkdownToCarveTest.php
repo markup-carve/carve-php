@@ -82,9 +82,9 @@ class MarkdownToCarveTest extends TestCase
                 'a ~~gone~~ word',
                 'a ~gone~ word',
             ],
-            'leaves ==highlight== unchanged' => [
+            'converts ==highlight== to a single = (Carve highlight)' => [
                 'a ==hot== word',
-                'a ==hot== word',
+                'a =hot= word',
             ],
             'leaves ^superscript^ unchanged' => [
                 'x^2^ end',
@@ -190,17 +190,17 @@ class MarkdownToCarveTest extends TestCase
                 '<strong>a</strong> <b>b</b>',
                 '*a* *b*',
             ],
-            'converts <mark> to ==x==' => [
+            'converts <mark> to the forced highlight {=x=}' => [
                 '<mark>hot</mark>',
-                '==hot==',
+                '{=hot=}',
             ],
-            'converts <sub> to ,,x,,' => [
+            'converts <sub> to the forced subscript {,x,} (renders intraword)' => [
                 'H<sub>2</sub>O',
-                'H,,2,,O',
+                'H{,2,}O',
             ],
-            'converts <sup> to ^x^' => [
+            'converts <sup> to the forced superscript {^x^} (renders intraword)' => [
                 'x<sup>2</sup>',
-                'x^2^',
+                'x{^2^}',
             ],
             'converts <del>/<s> to ~x~' => [
                 '<del>a</del> <s>b</s>',

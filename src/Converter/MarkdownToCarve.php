@@ -357,13 +357,21 @@ class MarkdownToCarve
         $line = preg_replace('/(?<![A-Za-z0-9_])_(?!\s)([^_]+?)(?<!\s)_(?![A-Za-z0-9_])/', '/$1/', $line) ?? $line;
         $line = preg_replace('/~~([^~]+)~~/', '~$1~', $line) ?? $line;
 
+        // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
+        // doubled `==x==` is literal text in Carve, so a Markdown highlight
+        // left unchanged would silently mis-render.
+        $line = preg_replace('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line) ?? $line;
+
+        // Highlight/super/subscript use the forced brace forms: an HTML tag can
+        // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is
+        // literal in Carve; the {,x,} / {^x^} / {=x=} forms render anywhere.
         $htmlRules = [
-            '/<mark>([^<]+)<\/mark>/i' => '==$1==',
+            '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
             '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
             '/<del>([^<]+)<\/del>/i' => '~$1~',
             '/<s>([^<]+)<\/s>/i' => '~$1~',
-            '/<sup>([^<]+)<\/sup>/i' => '^$1^',
-            '/<sub>([^<]+)<\/sub>/i' => ',,$1,,',
+            '/<sup>([^<]+)<\/sup>/i' => '{^$1^}',
+            '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
             '/<strong>([^<]+)<\/strong>/i' => '*$1*',
             '/<b>([^<]+)<\/b>/i' => '*$1*',
             '/<em>([^<]+)<\/em>/i' => '/$1/',

@@ -237,9 +237,12 @@ class HtmlToCarve
             'ins' => $this->processInlineFormatting($node, '{+', '+}'),
             's', 'strike' => $this->processInlineFormatting($node, '~', '~'),
             'del' => $this->processInlineFormatting($node, '{-', '-}'),
-            'mark' => $this->processInlineFormatting($node, '==', '=='),
-            'sup' => $this->processInlineFormatting($node, '^', '^'),
-            'sub' => $this->processInlineFormatting($node, ',,', ',,'),
+            // Forced brace forms so intraword marks (e.g. H<sub>2</sub>O,
+            // E=mc<sup>2</sup>) round-trip: a bare single-char delimiter would
+            // not open next to a word character under the word-boundary rule.
+            'mark' => $this->processInlineFormatting($node, '{=', '=}'),
+            'sup' => $this->processInlineFormatting($node, '{^', '^}'),
+            'sub' => $this->processInlineFormatting($node, '{,', ',}'),
             'kbd' => $this->processSemanticSpan($node, 'kbd'),
             'dfn' => $this->processSemanticSpan($node, 'dfn'),
             'abbr' => $this->processSemanticSpan($node, 'abbr'),
