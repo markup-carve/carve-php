@@ -55,22 +55,33 @@ class BlockParserTest extends TestCase
         $this->assertSame(1, $heading->getLevel());
     }
 
-    public function testParseHeadingTrailingAttributesQuoteAware(): void
+    public function testParseHeadingPrecedingAttributesQuoteAware(): void
     {
-        // A trailing attribute block tolerates a `}` inside a quoted value
-        // (the close `}` is the first one outside quotes), in either quote
-        // form, and a `\"` escape does not end the value early — matching
-        // how spans consume their attribute block.
+        // Heading attributes come from a PRECEDING block-attribute line
+        // (djot-strict, spec PART 2 headings / PART 9 §15). The attribute
+        // line tolerates a `}` inside a quoted value, in either quote form,
+        // and a `\"` escape does not end the value early.
         $cases = [
-            '# H {k="{y}"}' => '{y}',
-            "# H {k='{y}'}" => '{y}',
-            '# H {k="a\"b"}' => 'a"b',
+            "{k=\"{y}\"}\n# H" => '{y}',
+            "{k='{y}'}\n# H" => '{y}',
+            "{k=\"a\\\"b\"}\n# H" => 'a"b',
         ];
         foreach ($cases as $src => $expected) {
             $heading = $this->parser->parse($src)->getChildren()[0];
             $this->assertInstanceOf(Heading::class, $heading);
             $this->assertSame($expected, $heading->getAttribute('k'), 'for ' . $src);
         }
+    }
+
+    public function testParseHeadingTrailingBraceBlockIsLiteralText(): void
+    {
+        // djot-strict: a heading line carries NO trailing attribute block —
+        // a trailing `{…}` is ordinary inline content (matches carve-js #153
+        // and corpus 02-headings).
+        $heading = $this->parser->parse('## Setup {#install .featured}')->getChildren()[0];
+        $this->assertInstanceOf(Heading::class, $heading);
+        $this->assertNull($heading->getAttribute('id'));
+        $this->assertNull($heading->getAttribute('class'));
     }
 
     public function testParseHeadingLevels(): void
