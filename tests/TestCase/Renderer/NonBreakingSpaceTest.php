@@ -74,6 +74,17 @@ class NonBreakingSpaceTest extends TestCase
         $this->assertStringNotContainsString(self::PLACEHOLDER, (new AnsiRenderer())->render($document));
     }
 
+    public function testLineBlockPreservesMedialGaps(): void
+    {
+        // A medial gap of two or more columns (inline alignment, e.g. the caesura
+        // of Old English verse) is preserved; a lone inner space stays collapsible.
+        $html = $this->converter->convert("::: line-block\nHwaet  in geardagum\nfoo bar baz\n:::");
+
+        $this->assertStringContainsString('Hwaet&nbsp;&nbsp;in geardagum', $html);
+        $this->assertStringContainsString('foo bar baz', $html);
+        $this->assertStringNotContainsString('foo&nbsp;bar', $html);
+    }
+
     public function testLiteralNonBreakingSpaceIsPreservedInNonHtml(): void
     {
         $document = $this->converter->parse('ice' . self::NBSP . 'cream');
