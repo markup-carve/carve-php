@@ -171,7 +171,7 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Table => $this->renderTable($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $this->escapeText($node->getContent()),
+            $node instanceof Text => $this->escapeText(str_replace("\u{00A0}", ' ', $node->getContent())),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
             $node instanceof Underline => $this->renderUnderline($node),
