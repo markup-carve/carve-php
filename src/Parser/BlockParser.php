@@ -2591,9 +2591,11 @@ class BlockParser
             return null;
         }
 
+        // `|` is a language-neutral alias for the `line-block` type word, so
+        // `::: |` is identical to `::: line-block` (carve spec, jgm/djot#29).
         if (
             preg_match(
-                '/^line-block(?:\s*(?<attrs>\{.*\}))?\s*$/s',
+                '/^(?:line-block|\|)(?:\s*(?<attrs>\{.*\}))?\s*$/s',
                 $divInfo['className'],
                 $openerMatches,
                 PREG_UNMATCHED_AS_NULL,
