@@ -953,7 +953,7 @@ DJOT;
     public function testSimpleLineBlock(): void
     {
         $djot = <<<'DJOT'
-::: line-block
+::: |
 Line one
 Line two
 Line three
@@ -967,7 +967,7 @@ DJOT;
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
         $djot = <<<'DJOT'
-::: line-block
+::: |
 This is *strong*
 And _emphasis_
 :::
@@ -978,10 +978,10 @@ DJOT;
     public function testLineBlockWithAttributes(): void
     {
         // STRICT (djot): attributes attach via a preceding block-attribute
-        // line, not inline on the `::: line-block` fence.
+        // line, not inline on the `::: |` fence.
         $djot = <<<'DJOT'
 {.poem}
-::: line-block
+::: |
 Roses are red
 Violets are blue
 :::

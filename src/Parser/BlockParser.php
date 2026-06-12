@@ -2540,9 +2540,11 @@ class BlockParser
             return null;
         }
 
+        // A bare pipe `|` is the line-block type token (carve spec, jgm/djot#29);
+        // `::: |` is the only line-block opener.
         if (
             preg_match(
-                '/^line-block(?:\s*(?<attrs>\{.*\}))?\s*$/s',
+                '/^\|(?:\s*(?<attrs>\{.*\}))?\s*$/s',
                 $divInfo['className'],
                 $openerMatches,
                 PREG_UNMATCHED_AS_NULL,
