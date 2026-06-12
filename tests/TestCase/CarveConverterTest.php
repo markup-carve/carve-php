@@ -1010,22 +1010,30 @@ DJOT;
         $this->assertStringContainsString('class="inner"', $result);
     }
 
-    public function testDivAttributesOnlyOpener(): void
+    public function testDivAttributesViaPrecedingLine(): void
     {
-        // `::: {…}` (no type word) parses the block as the div's
-        // attributes (grammar div_open, PART 9 §12), not a literal class.
-        $djot = "::: {.x #y}\nz\n:::";
+        // STRICT (djot): the `:::` fence takes no inline attributes; a div is
+        // attributed by a preceding block-attribute line that floats onto it.
+        $djot = "{.x #y}\n:::\nz\n:::";
         $expected = "<div class=\"x\" id=\"y\">\n  <p>z</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testDivOpenerAttrsWinOverPendingBlockAttrs(): void
+    public function testDivInlineAttributeOpenerIsParagraph(): void
     {
-        // A standalone {…} line is earlier in source than the opener's
-        // own {…}; the opener wins on conflict (id last), classes
-        // accumulate (PART 9 §15).
-        $djot = "{#outer .a}\n::: {#inner .b}\nz\n:::";
+        // An inline `::: {…}` opener is not a fence (strict djot).
+        $html = $this->converter->convert("::: {.x}\nz\n:::");
+
+        $this->assertStringStartsWith('<p>', $html);
+        $this->assertStringNotContainsString('<div', $html);
+    }
+
+    public function testConsecutivePrecedingBlockAttrsAccumulate(): void
+    {
+        // Consecutive block-attribute lines before the opener accumulate:
+        // the last id wins, classes accumulate (PART 9 §15).
+        $djot = "{#outer .a}\n{#inner .b}\n:::\nz\n:::";
         $expected = "<div id=\"inner\" class=\"a b\">\n  <p>z</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));

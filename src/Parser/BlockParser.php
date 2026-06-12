@@ -1379,90 +1379,39 @@ class BlockParser
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
 
-        // Split an optional quoted title and an optional trailing attribute
-        // block off the type word, honoring the grammar order for a typed
-        // opener (admonition_open, PART 9 §12):
-        //   colon_fence, space, admonition_type, [space, quoted_title], [attributes]
-        // The `[attributes]` slot needs no leading space, so the block may
-        // abut the type or title (`::: note{.x}`, `::: note "T"{.x}`). A
-        // quoted title may itself contain `{`/`}`, so the attribute block is
-        // only a `{...}` AFTER the closing quote -- a single combined match
-        // keeps the title and the attributes from crossing.
-        //
-        // A bare attribute-only opener (`:::{…}` / `::: {…}`) starts with
-        // `{` and has no type word; it is left untouched for the
-        // attribute-only branch below (and parsed there with full nested-
-        // brace handling, e.g. `{k="{y}"}`).
+        // STRICT (djot): the opener carries no inline attributes, so
+        // `parseDivFenceOpener` has already guaranteed `$className` is empty
+        // (bare `:::`), a type word, or `type "title"`. Split off the
+        // optional quoted title; the type word is the div's primary class.
+        // Attributes attach via a preceding block-attribute line only.
         $title = null;
-        $trailingAttributes = null;
-        if (
-            $className !== ''
-            && $className[0] !== '{'
-            && preg_match(
-                '/^(?<type>\S.*?)(?:\s+"(?<title>[^"]*)")?\s*(?<attrs>\{.*\})?\s*$/s',
-                $className,
-                $tm,
-                PREG_UNMATCHED_AS_NULL,
-            ) === 1
-        ) {
-            $className = $tm['type'];
-            if ($tm['title'] !== null) {
-                $title = $tm['title'];
-            }
-            if ($tm['attrs'] !== null) {
-                $trailingAttributes = $tm['attrs'];
-            }
+        if ($className !== '' && preg_match('/^([a-zA-Z_][\w-]*)(?:\s+"([^"]*)")?$/', $className, $tm) === 1) {
+            $className = $tm[1];
+            $title = $tm[2] ?? null;
         }
 
         $div = new Div();
 
-        $divAttributes = $this->pendingAttributes;
-        $this->pendingAttributes = [];
-        $applyPending = function () use ($div, $divAttributes): void {
-            foreach ($divAttributes as $name => $value) {
-                if ($name === 'class') {
-                    foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                        if ($class !== '') {
-                            $div->addClass($class);
-                        }
+        // Leading block-attribute lines (`{.x}` before the opener) are the
+        // only attribute source; they apply to the div in source order.
+        if ($className !== '') {
+            $div->addClass($className);
+        }
+        if ($title !== null) {
+            $div->setAttribute('title', $title);
+        }
+        foreach ($this->pendingAttributes as $name => $value) {
+            if ($name === 'class') {
+                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
+                    if ($class !== '') {
+                        $div->addClass($class);
                     }
-                } else {
-                    $div->setAttribute($name, $value);
                 }
-            }
-        };
-
-        if ($className !== '' && preg_match('/^\{(.*)\}$/s', $className, $am) === 1) {
-            // Attribute-only opener `::: {…}` (no type word): the block is
-            // the div's own attributes (grammar div_open, PART 9 §12).
-            // Pending standalone attrs are EARLIER in source, so apply
-            // them first; the opener's attrs are later and win on
-            // conflict (id/key last-wins, classes accumulate). applyToNode
-            // preserves source order.
-            $applyPending();
-            AttributeParser::applyToNode($div, $am[1]);
-            if ($title !== null) {
-                $div->setAttribute('title', $title);
-            }
-        } else {
-            // Typed (`::: box`) or bare (`:::`) opener: the type is the
-            // div's primary class (emitted first, so it stays the
-            // recoverable `:::` identity for round-trips); leading
-            // pending attrs merge after it.
-            if ($className !== '') {
-                $div->addClass($className);
-            }
-            if ($title !== null) {
-                $div->setAttribute('title', $title);
-            }
-            $applyPending();
-            // The opener's own trailing attributes (`::: note {.x}`) are
-            // LATER in source than any leading block-attribute line, so they
-            // apply last (id/key last-wins, classes accumulate).
-            if ($trailingAttributes !== null) {
-                AttributeParser::applyToNode($div, substr($trailingAttributes, 1, -1));
+            } else {
+                $div->setAttribute($name, $value);
             }
         }
+        $this->pendingAttributes = [];
 
         $innerLines = [];
         $i = $start + 1;
