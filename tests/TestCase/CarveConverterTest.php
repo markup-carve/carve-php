@@ -81,6 +81,21 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
     }
 
+    public function testHeadingFoldsBlockOpenerLineInsteadOfInterrupting(): void
+    {
+        // Nothing but a blank line / higher-or-other `#` / caption / `%%%`
+        // interrupts an open heading (grammar PART 2). A `- item` or `> quote`
+        // line folds into the heading text, matching carve-js / carve-rs.
+        $this->assertSame(
+            "<section id=\"t-item\">\n  <h1>T\n- item</h1>\n</section>\n",
+            $this->converter->convert("# T\n- item"),
+        );
+        $this->assertSame(
+            "<section id=\"t-quote\">\n  <h1>T\n&gt; quote</h1>\n</section>\n",
+            $this->converter->convert("# T\n> quote"),
+        );
+    }
+
     public function testEmphasis(): void
     {
         $djot = 'This is /emphasized/ text';

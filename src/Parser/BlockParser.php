@@ -1622,15 +1622,21 @@ class BlockParser
             } elseif (preg_match('/^[ ]{0,3}#{1,6}(?: |$)/', $nextLine)) {
                 // Different level heading marker (or empty heading) starts a new heading
                 break;
-            } elseif (!$this->startsNewBlock($nextLine)) {
-                // "Lazy" continuation - plain text continues the heading
+            } elseif (preg_match('/^\^ /', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
+                // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
+                break;
+            } else {
+                // Everything else FOLDS into the heading text. Per the grammar
+                // (PART 2 headings / §10) nothing but a blank line, a higher/other
+                // `#` marker, a caption, or a `%%%` fence interrupts an open
+                // heading -- a `- item` / `> quote` / `| table |` line is part of
+                // the heading, matching Djot and carve-js / carve-rs. (Previously
+                // a block-opener line wrongly ended the heading.)
                 if ($content !== '') {
                     $content .= "\n";
                 }
                 $content .= $nextLine;
                 $i++;
-            } else {
-                break;
             }
         }
 
