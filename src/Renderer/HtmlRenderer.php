@@ -1391,10 +1391,14 @@ class HtmlRenderer implements RendererInterface
             return '';
         }
 
-        // Preserve source order of attributes (matching JS reference implementation)
+        // Preserve source order of attributes (matching JS reference implementation).
+        // Cast the key to string: PHP silently coerces an all-digit array key
+        // (e.g. "123") to int, so a programmatically-built attribute array would
+        // otherwise pass an int into escape() and throw a TypeError. The parser
+        // never produces digit-first names, but setAttributes() is public.
         $html = '';
         foreach ($attrs as $key => $value) {
-            $html .= ' ' . $this->escape($key) . '="' . $this->escapeAttribute($value) . '"';
+            $html .= ' ' . $this->escape((string)$key) . '="' . $this->escapeAttribute($value) . '"';
         }
 
         return $html;
