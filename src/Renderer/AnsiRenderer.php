@@ -31,6 +31,7 @@ use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -415,6 +416,7 @@ class AnsiRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $node->getContent(),
+            $node instanceof EscapedText => $node->getContent(),
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
@@ -637,7 +639,15 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        return $this->renderChildren($node);
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading bold line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $this->style($title, self::BOLD) . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string

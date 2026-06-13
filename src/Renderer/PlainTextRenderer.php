@@ -11,6 +11,7 @@ use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
+use Carve\Node\Block\Div;
 use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\LineBlock;
@@ -26,6 +27,7 @@ use Carve\Node\Document;
 use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -129,6 +131,7 @@ class PlainTextRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Document => $this->renderChildren($node),
+            $node instanceof Div => $this->renderDiv($node),
             $node instanceof Paragraph => $this->renderParagraph($node),
             $node instanceof Heading => $this->renderHeading($node),
             $node instanceof CodeBlock => $this->renderCodeBlock($node),
@@ -147,6 +150,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $node->getContent(),
+            $node instanceof EscapedText => $node->getContent(),
             $node instanceof Code => $node->getContent(),
             $node instanceof Math => $node->getContent(),
             $node instanceof Image => $node->getAlt(),
@@ -186,6 +190,19 @@ class PlainTextRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";
+    }
+
+    protected function renderDiv(Div $node): string
+    {
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $title . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderHeading(Heading $node): string
