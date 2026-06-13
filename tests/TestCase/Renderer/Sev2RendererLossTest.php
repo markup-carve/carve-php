@@ -38,4 +38,12 @@ class Sev2RendererLossTest extends TestCase
         $this->assertStringNotContainsString('i.png)Cap', $md);
         $this->assertStringContainsString('Cap text', $md);
     }
+
+    public function testAdmonitionTitlePreservedInNonHtmlRenderers(): void
+    {
+        $src = ":::note \"Heads up\"\nbody\n:::";
+        $this->assertStringContainsString('Heads up', CarveConverter::markdown()->convert($src));
+        $this->assertStringContainsString('Heads up', CarveConverter::plainText()->convert($src));
+        $this->assertStringContainsString('Heads up', CarveConverter::ansi()->convert($src));
+    }
 }

@@ -639,7 +639,15 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        return $this->renderChildren($node);
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading bold line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $this->style($title, self::BOLD) . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string

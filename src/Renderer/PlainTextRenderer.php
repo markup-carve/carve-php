@@ -11,6 +11,7 @@ use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
+use Carve\Node\Block\Div;
 use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\LineBlock;
@@ -130,6 +131,7 @@ class PlainTextRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Document => $this->renderChildren($node),
+            $node instanceof Div => $this->renderDiv($node),
             $node instanceof Paragraph => $this->renderParagraph($node),
             $node instanceof Heading => $this->renderHeading($node),
             $node instanceof CodeBlock => $this->renderCodeBlock($node),
@@ -188,6 +190,19 @@ class PlainTextRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";
+    }
+
+    protected function renderDiv(Div $node): string
+    {
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $title . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderHeading(Heading $node): string

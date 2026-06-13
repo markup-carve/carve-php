@@ -410,8 +410,16 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        // Divs don't exist in Markdown, just render content
-        return $this->renderChildren($node);
+        // Divs/admonitions don't exist in Markdown; render the content. An
+        // admonition's quoted title is stored as the `title` attribute (PART 9
+        // §12) and would otherwise be lost — preserve it as a leading bold line.
+        $body = $this->renderChildren($node);
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return '**' . $this->escapeText($title) . "**\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string
@@ -650,11 +658,14 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function renderAbbreviation(Abbreviation $node): string
     {
-        // HTML-attribute escaping (not Markdown text escaping): a `"` in the
-        // title would otherwise break out of the attribute and inject markup.
+        // The whole element is raw inline HTML, so both the title (attribute)
+        // and the text (element content) need HTML escaping, NOT Markdown text
+        // escaping: a `"` in the title or a `<` in the text would otherwise
+        // break the tag / be misparsed as markup downstream.
         $title = htmlspecialchars($node->getTitle(), ENT_QUOTES, 'UTF-8');
+        $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
 
-        return '<abbr title="' . $title . '">' . $this->renderChildren($node) . '</abbr>';
+        return '<abbr title="' . $title . '">' . $text . '</abbr>';
     }
 
     protected function escapeText(string $text): string
