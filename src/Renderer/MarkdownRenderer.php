@@ -6,12 +6,14 @@ namespace Carve\Renderer;
 
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\BlockQuote;
+use Carve\Node\Block\Caption;
 use Carve\Node\Block\CodeBlock;
 use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
 use Carve\Node\Block\Div;
+use Carve\Node\Block\Figure;
 use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\LineBlock;
@@ -24,10 +26,12 @@ use Carve\Node\Block\TableCell;
 use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
+use Carve\Node\Inline\Abbreviation;
 use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -180,6 +184,14 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $this->escapeText($node->getContent()),
+            // Keep the backslash so the literal stays literal when re-parsed as
+            // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
+            // ordered list. EscapedText only ever holds escaped ASCII
+            // punctuation, all of which CommonMark allows a `\` before.
+            $node instanceof EscapedText => '\\' . $node->getContent(),
+            $node instanceof Figure => $this->renderFigure($node),
+            $node instanceof Caption => $this->renderCaption($node),
+            $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
             $node instanceof Underline => $this->renderUnderline($node),
@@ -398,8 +410,16 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        // Divs don't exist in Markdown, just render content
-        return $this->renderChildren($node);
+        // Divs/admonitions don't exist in Markdown; render the content. An
+        // admonition's quoted title is stored as the `title` attribute (PART 9
+        // §12) and would otherwise be lost — preserve it as a leading bold line.
+        $body = $this->renderChildren($node);
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return '**' . $this->escapeText($title) . "**\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string
@@ -605,6 +625,47 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return '';
+    }
+
+    /**
+     * A figure renders its target then its caption as a separate block
+     * (Markdown has no <figure>). A BLANK line before the caption is required,
+     * not just a newline: against a block-quote target a single newline would
+     * make the caption a lazy continuation of the quote and swallow it.
+     */
+    protected function renderFigure(Figure $node): string
+    {
+        $output = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                $output = rtrim($output) . "\n\n" . $this->renderCaption($child);
+            } else {
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        return $output;
+    }
+
+    protected function renderCaption(Caption $node): string
+    {
+        return trim($this->renderChildren($node)) . "\n\n";
+    }
+
+    /**
+     * Markdown has no abbreviation syntax; emit inline <abbr> so the title is
+     * preserved (mirrors how subscript/superscript fall back to inline HTML).
+     */
+    protected function renderAbbreviation(Abbreviation $node): string
+    {
+        // The whole element is raw inline HTML, so both the title (attribute)
+        // and the text (element content) need HTML escaping, NOT Markdown text
+        // escaping: a `"` in the title or a `<` in the text would otherwise
+        // break the tag / be misparsed as markup downstream.
+        $title = htmlspecialchars($node->getTitle(), ENT_QUOTES, 'UTF-8');
+        $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
+
+        return '<abbr title="' . $title . '">' . $text . '</abbr>';
     }
 
     protected function escapeText(string $text): string
