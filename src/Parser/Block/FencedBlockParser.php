@@ -42,11 +42,8 @@ class FencedBlockParser
         $info = trim($matches[3]);
 
         // Check for inline code on a single line: ``` foo ``` should be inline code
-        if ($fenceChar === '`') {
-            $closingPattern = '/`{' . $fenceLength . ',}/';
-            if (preg_match($closingPattern, $info)) {
-                return null;
-            }
+        if ($fenceChar === '`' && self::hasRunAtLeast($info, '`', $fenceLength)) {
+            return null;
         }
 
         // Info string: a single language token, optionally followed by a
@@ -94,7 +91,12 @@ class FencedBlockParser
      */
     public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
     {
-        return preg_match('/^\s*' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', $line) === 1;
+        $pattern = '/^\s*(' . preg_quote($fenceChar, '/') . '+)\s*$/';
+        if (preg_match($pattern, $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
     }
 
     /**
@@ -145,7 +147,11 @@ class FencedBlockParser
      */
     public function isDivFenceCloser(string $line, int $fenceLength): bool
     {
-        return preg_match('/^:{' . $fenceLength . ',}\s*$/', $line) === 1;
+        if (preg_match('/^(:+)\s*$/', $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
     }
 
     /**
@@ -250,7 +256,31 @@ class FencedBlockParser
      */
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
-        return preg_match('/^\s*%{' . $fenceLength . ',}\s*$/', $line) === 1;
+        if (preg_match('/^\s*(%+)\s*$/', $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
+    }
+
+    /**
+     * Does $haystack contain a run of $char at least $min long? Length-agnostic
+     * match + strlen compare, NOT a `{$min,}` quantifier: PCRE rejects a
+     * quantifier bound above 65535, so interpolating a huge fence length there
+     * throws "number too big in {} quantifier" on adversarial input.
+     */
+    private static function hasRunAtLeast(string $haystack, string $char, int $min): bool
+    {
+        if (preg_match_all('/' . preg_quote($char, '/') . '+/', $haystack, $m) === 0) {
+            return false;
+        }
+        foreach ($m[0] as $run) {
+            if (strlen($run) >= $min) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
