@@ -955,6 +955,13 @@ class BlockParser
         $i = 0;
         $count = count($lines);
 
+        // Precompute, once for this line set, the longest colon-fence CLOSER
+        // (a colon-only `:::` line outside a nested code block) at or after each
+        // index. tryParseDiv consults this in O(1) to decide whether an opener
+        // has a closer ahead, instead of rescanning to EOF per opener -- which
+        // made a document of many unterminated `:::` openers O(n²).
+        $divCloserSuffix = $this->buildDivCloserSuffixMax($lines);
+
         while ($i < $count) {
             $line = $lines[$i];
 
@@ -1021,7 +1028,7 @@ class BlockParser
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseLineBlock($parent, $lines, $i)
-                ?? $this->tryParseDiv($parent, $lines, $i)
+                ?? $this->tryParseDiv($parent, $lines, $i, $divCloserSuffix)
                 ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
                 ?? $this->tryParseThematicBreak($parent, $line, $i)
@@ -1488,7 +1495,13 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      */
-    protected function tryParseDiv(Node $parent, array $lines, int $start): ?int
+    /**
+     * @param \Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param array<int, int> $divCloserSuffix Longest colon-fence closer at or
+     *   after each index (from buildDivCloserSuffixMax), for an O(1) closer check.
+     */
+    protected function tryParseDiv(Node $parent, array $lines, int $start, array $divCloserSuffix): ?int
     {
         $line = $lines[$start];
 
@@ -1508,9 +1521,10 @@ class BlockParser
         // (grammar §12; matches carve-js / carve-rs). A consequence: a
         // SAME-length inner fence closes the outer div, so nested divs need an
         // outer fence longer than the inner (also matching js / rs / djot).
-        // Checked before any state is touched (pending attributes, the div
-        // node) so a failed opener leaves them for the next parser.
-        if (!$this->divHasCloserAhead($lines, $start, $fenceLength)) {
+        // The precomputed suffix-max gives the closer test in O(1); checked
+        // before any state is touched (pending attributes, the div node) so a
+        // failed opener leaves them for the next parser.
+        if (($divCloserSuffix[$start + 1] ?? 0) < $fenceLength) {
             return null;
         }
 
@@ -1613,22 +1627,24 @@ class BlockParser
     }
 
     /**
-     * Whether a div opened at `$start` (fence length `$fenceLength`) has a
-     * matching closer ahead -- a `:::` line of equal-or-greater length that is
-     * not inside a nested fenced code block. An opener without a closer is not
-     * a div (grammar §12); its lines stay literal.
+     * Build, for one line set, the longest colon-fence CLOSER length at or
+     * after each index -- a line that is only colons (`:::`, after trimming),
+     * NOT inside a nested fenced code block. `$result[$i]` is the maximum such
+     * length at any line `>= $i` (0 if none). A div opener of length L at
+     * index `s` then has a matching closer ahead iff `$result[$s + 1] >= L`,
+     * an O(1) test that replaces a per-opener rescan to EOF (grammar §12).
      *
      * @param array<string> $lines
-     * @param int $fenceLength
-     * @param int $start
+     * @return array<int, int>
      */
-    protected function divHasCloserAhead(array $lines, int $start, int $fenceLength): bool
+    protected function buildDivCloserSuffixMax(array $lines): array
     {
         $count = count($lines);
+        $closerLen = array_fill(0, $count + 1, 0);
         $inCodeBlock = false;
         $codeBlockFence = '';
         $codeBlockFenceLength = 0;
-        for ($i = $start + 1; $i < $count; $i++) {
+        for ($i = 0; $i < $count; $i++) {
             $currentLine = $lines[$i];
             if (!$inCodeBlock) {
                 $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
@@ -1647,12 +1663,20 @@ class BlockParser
 
                 continue;
             }
-            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $fenceLength)) {
-                return true;
+            // A closer is a line whose trimmed content is only colons (3+).
+            $trimmed = trim($currentLine);
+            if ($trimmed !== '' && strlen($trimmed) >= 3 && strspn($trimmed, ':') === strlen($trimmed)) {
+                $closerLen[$i] = strlen($trimmed);
             }
         }
 
-        return false;
+        // Suffix-max so an opener can look up the deepest closer ahead in O(1).
+        $suffix = array_fill(0, $count + 1, 0);
+        for ($i = $count - 1; $i >= 0; $i--) {
+            $suffix[$i] = max($closerLen[$i], $suffix[$i + 1]);
+        }
+
+        return $suffix;
     }
 
     /**
