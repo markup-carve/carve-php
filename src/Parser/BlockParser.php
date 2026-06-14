@@ -429,6 +429,13 @@ class BlockParser
         if (str_starts_with($input, "\u{FEFF}")) {
             $input = substr($input, 3);
         }
+        // Replace any NUL (U+0000) with the U+FFFD replacement character so a
+        // control byte never reaches output (decided cross-impl behavior;
+        // WHATWG-style). For carve-php this also prevents an input NUL from
+        // colliding with the internal SOFT_BREAK_GUARD sentinel (also \x00).
+        if (str_contains($input, "\0")) {
+            $input = str_replace("\0", "\u{FFFD}", $input);
+        }
         $lines = $this->splitLines($input);
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
@@ -2753,6 +2760,14 @@ class BlockParser
                 }
             }
 
+            // Leading colspan markers (`<` with no cell to their left) cannot
+            // merge: each becomes an empty cell rather than being dropped
+            // (carve-js / carve-rs parity).
+            while ($colspanAccumulator > 1) {
+                array_unshift($processedCells, ['content' => '', 'attributes' => [], 'colspan' => 1]);
+                $colspanAccumulator--;
+            }
+
             // Carve header row: every cell is "=" prefixed (|= Header |).
             // No separator row is used. "==x==" stays a normal cell
             // (highlight), so "=" must not be followed by another "=".
@@ -2785,6 +2800,22 @@ class BlockParser
 
                 // Check for rowspan marker
                 if ($this->tableParser->isRowspanMarker($cellData['content'])) {
+                    $origin = $columnOrigin[$colPosition] ?? null;
+                    if (!($origin instanceof TableCell)) {
+                        // No cell above to extend (first row, or a column with
+                        // no origin): the `^` becomes an empty cell instead of
+                        // being dropped (carve-js / carve-rs parity).
+                        $emptyCell = new TableCell($isHeaderRow, TableCell::ALIGN_DEFAULT, 1, $colspan);
+                        $row->appendChild($emptyCell);
+                        $rowCellData[] = [
+                            'type' => 'cell',
+                            'cell' => $emptyCell,
+                            'colPosition' => $colPosition,
+                        ];
+                        $colPosition += $colspan;
+
+                        continue;
+                    }
                     // Mark this position for rowspan processing
                     $rowCellData[] = [
                         'type' => 'rowspan_marker',
