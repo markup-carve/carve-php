@@ -1501,6 +1501,19 @@ class BlockParser
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
 
+        // A colon fence opens only when a matching closer (a `:::` line of
+        // equal-or-greater length, not inside a nested code block) exists
+        // ahead. An unterminated `:::` / `::: note` stays literal -- it parses
+        // as ordinary blocks instead of swallowing the rest of the document
+        // (grammar §12; matches carve-js / carve-rs). A consequence: a
+        // SAME-length inner fence closes the outer div, so nested divs need an
+        // outer fence longer than the inner (also matching js / rs / djot).
+        // Checked before any state is touched (pending attributes, the div
+        // node) so a failed opener leaves them for the next parser.
+        if (!$this->divHasCloserAhead($lines, $start, $fenceLength)) {
+            return null;
+        }
+
         // STRICT (djot): the opener carries no inline attributes, so
         // `parseDivFenceOpener` has already guaranteed `$className` is empty
         // (bare `:::`), a type word, or `type "title"`. Split off the
@@ -1597,6 +1610,49 @@ class BlockParser
         $parent->appendChild($div);
 
         return $i - $start;
+    }
+
+    /**
+     * Whether a div opened at `$start` (fence length `$fenceLength`) has a
+     * matching closer ahead -- a `:::` line of equal-or-greater length that is
+     * not inside a nested fenced code block. An opener without a closer is not
+     * a div (grammar §12); its lines stay literal.
+     *
+     * @param array<string> $lines
+     * @param int $fenceLength
+     * @param int $start
+     */
+    protected function divHasCloserAhead(array $lines, int $start, int $fenceLength): bool
+    {
+        $count = count($lines);
+        $inCodeBlock = false;
+        $codeBlockFence = '';
+        $codeBlockFenceLength = 0;
+        for ($i = $start + 1; $i < $count; $i++) {
+            $currentLine = $lines[$i];
+            if (!$inCodeBlock) {
+                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
+                if ($codeFenceInfo !== null) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $codeFenceInfo['char'];
+                    $codeBlockFenceLength = $codeFenceInfo['length'];
+
+                    continue;
+                }
+            }
+            if ($inCodeBlock) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
+                    $inCodeBlock = false;
+                }
+
+                continue;
+            }
+            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $fenceLength)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

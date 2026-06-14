@@ -382,6 +382,24 @@ class HtmlToCarve
         return $prefix . $content;
     }
 
+    /**
+     * Choose a colon-fence string at least one longer than any colon-only line
+     * in `$content`, so a NESTED div/admonition (whose closer is a `:::` line)
+     * does not prematurely close this fence. A same-length inner fence would
+     * close the outer one, so the outer must be longer (grammar §12).
+     */
+    protected function colonFenceFor(string $content): string
+    {
+        $fenceLength = 3;
+        foreach (explode("\n", $content) as $line) {
+            if (preg_match('/^(:{3,})\s*$/', trim($line), $m) === 1) {
+                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+            }
+        }
+
+        return str_repeat(':', $fenceLength);
+    }
+
     protected function processDiv(DOMElement $node): string
     {
         // Check for admonition div (round-trip support)
@@ -418,12 +436,13 @@ class HtmlToCarve
             }
 
             $content = trim($this->processChildren($node));
-            $output = $attrs . ":::\n";
+            $fence = $this->colonFenceFor($content);
+            $output = $attrs . $fence . "\n";
             if ($content !== '') {
                 $output .= $content . "\n";
             }
 
-            return $output . ":::\n\n";
+            return $output . $fence . "\n\n";
         }
         if ($fenceClass === 'djot-content' && $classes === [] && $node->getAttribute('id') === '') {
             $hasExtraAttrs = false;
@@ -459,12 +478,13 @@ class HtmlToCarve
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $fenceClass . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $fenceClass . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -511,12 +531,13 @@ class HtmlToCarve
         $content = $this->processAdmonitionContent($node);
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $type . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $type . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -565,12 +586,13 @@ class HtmlToCarve
         }
 
         $content = trim($this->processBlock($node));
-        $output = $attrs . '::: ' . $tagName . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $tagName . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -622,12 +644,13 @@ class HtmlToCarve
 
         // Collapsible admonitions always have at least the 'collapsible' attribute
         $attrs = '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $type . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $type . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**

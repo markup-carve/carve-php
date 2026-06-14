@@ -1445,10 +1445,10 @@ DJOT;
         $converter->addExtension(new CodeGroupExtension());
 
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Demo}
-::: tab
+:::: tab
 ::: code-group
 ``` php [One]
 echo 1;
@@ -1458,8 +1458,8 @@ echo 1;
 echo 2;
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
 
         $html = $converter->convert($djot);
@@ -1660,16 +1660,16 @@ DJOT;
         $converter->addExtension(new TabsExtension());
 
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Div}
-::: tab
+:::: tab
 {#callout .note data-x=1}
 ::: box
 Nested content
 :::
-:::
 ::::
+:::::
 DJOT;
 
         $html = $converter->convert($djot);
