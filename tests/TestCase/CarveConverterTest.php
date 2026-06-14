@@ -81,6 +81,22 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
     }
 
+    public function testAmbiguousRomanLetterResolvesToAlphaByConsecutiveLetter(): void
+    {
+        // `c.` + `d.`: the sibling is the consecutive LETTER (not the next roman
+        // numeral after 100), so the list is alphabetical (§11), matching
+        // carve-js / carve-rs. Previously `c` was read as roman 100.
+        $this->assertSame(
+            "<ol type=\"a\" start=\"3\">\n  <li>one</li>\n  <li>two</li>\n</ol>\n",
+            $this->converter->convert("c. one\nd. two"),
+        );
+        // consecutive roman numeral still resolves to roman
+        $this->assertStringContainsString(
+            '<ol type="i">',
+            $this->converter->convert("i. one\nii. two"),
+        );
+    }
+
     public function testHeadingFoldsBlockOpenerLineInsteadOfInterrupting(): void
     {
         // Nothing but a blank line / higher-or-other `#` / caption / `%%%`
