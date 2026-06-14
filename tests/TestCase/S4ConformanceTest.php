@@ -67,4 +67,28 @@ class S4ConformanceTest extends TestCase
         // heading; only at the very start (matches carve-js).
         $this->assertStringContainsString('<h1>T</h1>', $this->c->convert("\u{FEFF}# T"));
     }
+
+    public function testNulByteIsReplacedWithReplacementChar(): void
+    {
+        // A NUL (U+0000) is replaced with U+FFFD so a control byte never reaches
+        // output (decided cross-impl behavior). For carve-php this also prevents
+        // a collision with the internal soft-break-guard sentinel.
+        $this->assertSame("<p>a\u{FFFD}b</p>\n", $this->c->convert("a\0b"));
+    }
+
+    public function testSpanMarkerInFirstRowOrColumnIsAnEmptyCell(): void
+    {
+        // A `<` (colspan) in the first column or `^` (rowspan) in the first row
+        // has nothing to merge into, so it renders as an empty cell rather than
+        // being dropped (carve-js / carve-rs parity).
+        $colspan = $this->c->convert("| < | b |\n|---|---|\n| c | d |");
+        $this->assertStringContainsString('<th></th><th>b</th>', $colspan);
+        $rowspan = $this->c->convert("| ^ | b |\n|---|---|\n| c | d |");
+        $this->assertStringContainsString('<th></th><th>b</th>', $rowspan);
+        // a normal colspan into a left cell still merges.
+        $this->assertStringContainsString(
+            '<td colspan="2">c</td>',
+            $this->c->convert("| a | b |\n|---|---|\n| c | < |"),
+        );
+    }
 }
