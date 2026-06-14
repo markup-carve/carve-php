@@ -2862,8 +2862,12 @@ class BlockParser
             $isHeaderRow = $processedCells !== [];
             foreach ($processedCells as $cellData) {
                 $content = $cellData['content'];
+                // A cell carrying an attribute block is not a `|=` header cell
+                // (its content is literal, so a leading `=` is text), so it
+                // never makes the row a Carve all-header row -- matching carve-js.
                 if (
-                    $this->tableParser->isRowspanMarker($content)
+                    $cellData['attributes'] !== ''
+                    || $this->tableParser->isRowspanMarker($content)
                     || preg_match('/^=([^=]|$)/', $content) !== 1
                 ) {
                     $isHeaderRow = false;
