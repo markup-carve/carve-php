@@ -217,15 +217,10 @@ class ListParser
             ];
         }
 
-        // Definition list: :
-        if (preg_match('/^: +(.*)$/', $line, $matches)) {
-            return [
-                'type' => ListBlock::TYPE_DEFINITION,
-                'marker' => ':',
-                'content' => $matches[1],
-            ];
-        }
-
+        // A definition-list term is `::` (double colon), parsed by
+        // BlockParser::tryParseDefinitionList. A single-colon `: term` is NOT a
+        // carve definition list (grammar definition_term = "::"); it stays
+        // ordinary paragraph text, matching carve-js and carve-rs.
         return null;
     }
 

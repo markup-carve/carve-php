@@ -536,9 +536,8 @@ DJOT;
 
   - Level 2
 
-: Term
-
-  Definition here
+:: Term
+:  Definition here
 DJOT;
 
         $result = $this->converter->convert($djot);
@@ -558,13 +557,10 @@ DJOT;
 
     - Level 3
 
-: First term
-
-  First definition
-
-: Second term
-
-  Second definition
+:: First term
+:  First definition
+:: Second term
+:  Second definition
 DJOT;
 
         $result = $this->converter->convert($djot);
@@ -594,9 +590,8 @@ DJOT;
 |---|
 | B |
 
-: Term
-
-  Def
+:: Term
+:  Def
 DJOT;
 
         $result = $this->converter->convert($djot);
