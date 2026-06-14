@@ -131,6 +131,7 @@ class CarveCorpusTest extends TestCase
         '93-abbreviation-definition-interrupts-a-paragraph',
         '94-literal-less-than-in-prose',
         '95-boolean-attributes',
+        '96-table-span-marker-in-first-column',
     ];
 
     /**
