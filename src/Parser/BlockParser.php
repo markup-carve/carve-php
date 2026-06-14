@@ -2824,7 +2824,7 @@ class BlockParser
             foreach ($mergedCells as $idx => $content) {
                 $mergedCellsWithAttrs[] = [
                     'content' => $content,
-                    'attributes' => $cellAttributes[$idx] ?? [],
+                    'attributes' => $cellAttributes[$idx] ?? '',
                 ];
             }
 
@@ -2835,7 +2835,9 @@ class BlockParser
 
             for ($cellIdx = count($mergedCellsWithAttrs) - 1; $cellIdx >= 0; $cellIdx--) {
                 $cellData = $mergedCellsWithAttrs[$cellIdx];
-                if ($this->tableParser->isColspanMarker($cellData['content'])) {
+                // A cell carrying attributes is never a bare span marker, so its
+                // `<` content is literal (carve-js / carve-rs parity).
+                if ($cellData['attributes'] === '' && $this->tableParser->isColspanMarker($cellData['content'])) {
                     // This cell is a colspan marker, add to accumulator
                     $colspanAccumulator++;
                 } else {
@@ -2850,7 +2852,7 @@ class BlockParser
             // merge: each becomes an empty cell rather than being dropped
             // (carve-js / carve-rs parity).
             while ($colspanAccumulator > 1) {
-                array_unshift($processedCells, ['content' => '', 'attributes' => [], 'colspan' => 1]);
+                array_unshift($processedCells, ['content' => '', 'attributes' => '', 'colspan' => 1]);
                 $colspanAccumulator--;
             }
 
@@ -2860,8 +2862,12 @@ class BlockParser
             $isHeaderRow = $processedCells !== [];
             foreach ($processedCells as $cellData) {
                 $content = $cellData['content'];
+                // A cell carrying an attribute block is not a `|=` header cell
+                // (its content is literal, so a leading `=` is text), so it
+                // never makes the row a Carve all-header row -- matching carve-js.
                 if (
-                    $this->tableParser->isRowspanMarker($content)
+                    $cellData['attributes'] !== ''
+                    || $this->tableParser->isRowspanMarker($content)
                     || preg_match('/^=([^=]|$)/', $content) !== 1
                 ) {
                     $isHeaderRow = false;
@@ -2884,8 +2890,9 @@ class BlockParser
             foreach ($processedCells as $index => $cellData) {
                 $colspan = $cellData['colspan'];
 
-                // Check for rowspan marker
-                if ($this->tableParser->isRowspanMarker($cellData['content'])) {
+                // Check for rowspan marker (a cell with attributes is never a
+                // bare span marker -- its `^` content is literal).
+                if ($cellData['attributes'] === '' && $this->tableParser->isRowspanMarker($cellData['content'])) {
                     $origin = $columnOrigin[$colPosition] ?? null;
                     if (!($origin instanceof TableCell)) {
                         // No cell above to extend (first row, or a column with
@@ -2911,8 +2918,12 @@ class BlockParser
                 } else {
                     // Parse the tight alignment/header marker. A header row
                     // fixes per-column alignment; a cell's own marker overrides
-                    // it; a djot separator row is the final fallback.
-                    $marker = $this->parseTableCellMarker($cellData['content']);
+                    // it; a djot separator row is the final fallback. A cell
+                    // carrying a `{...}` attribute block has no tight marker --
+                    // its content is literal (so `{.x} <` keeps the `<`).
+                    $marker = $cellData['attributes'] !== ''
+                        ? ['align' => null, 'header' => false, 'content' => $cellData['content']]
+                        : $this->parseTableCellMarker($cellData['content']);
                     if ($isHeaderRow && $marker['align'] !== null) {
                         $columnAligns[$colPosition] = $marker['align'];
                     }
@@ -2924,8 +2935,10 @@ class BlockParser
                     // `|=` cell in a data row becomes a row header (<th> inside
                     // <tbody>). The row stays a body row; only the cell is a header.
                     $cell = new TableCell($isHeaderRow || $marker['header'], $alignment, 1, $colspan);
-                    if ($cellData['attributes']) {
-                        $cell->setAttributes($cellData['attributes']);
+                    if ($cellData['attributes'] !== '') {
+                        // Apply in source order (matching inline attributes and
+                        // carve-js), not via setAttributes() which reorders.
+                        AttributeParser::applyToNode($cell, $cellData['attributes']);
                     }
                     $trimmedContent = trim($marker['content']);
                     if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
