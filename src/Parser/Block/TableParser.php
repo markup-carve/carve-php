@@ -244,7 +244,7 @@ class TableParser
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: array<string, string>}> Array of cell data
+     * @return array<array{content: string, attributes: string}> Array of cell data (attributes = raw `{...}` inner, empty when none)
      */
     public function parseTableCellsWithAttributes(string $line): array
     {
@@ -252,22 +252,29 @@ class TableParser
         $result = [];
 
         foreach ($cells as $cellContent) {
-            $attributes = [];
+            // The attribute string (raw inner of the `{...}`), empty when the
+            // cell has none; applied later in source order via applyToNode.
+            $attributes = '';
             $content = $cellContent;
 
-            // Check for cell attribute at start: {.class} content
-            // Attribute must be immediately at start (no leading whitespace)
-            // to distinguish from inline formatting like {=highlight=}
-            // Also exclude inline markers: {=...=}, {+...+}, {-...-}, etc.
-            // Fast path: only run regex if cell starts with {
-            if (isset($cellContent[0]) && $cellContent[0] === '{' && preg_match('/^\{([^{}]+)\}\s*/', $cellContent, $matches)) {
-                $inner = $matches[1];
-                // Only treat as attribute if it's NOT an inline formatting marker
-                // Inline markers have same char at start and end: =text=, +text+, -text-, etc.
-                if (!$this->isInlineMarker($inner)) {
-                    $attributes = AttributeParser::parse($inner);
-                    // Remove the attribute from content
-                    $content = substr($cellContent, strlen($matches[0]));
+            // A `{...}` GLUED to the opening pipe (index 0, no leading space)
+            // is the cell's attribute block; the rest, after optional
+            // whitespace, is the content. A space before the brace is ordinary
+            // content. The closing brace is found quote-aware (so a quoted `}`
+            // in a value is kept), and the WHOLE payload must be valid
+            // attribute syntax (§15) -- otherwise the `{` stays literal content.
+            if (isset($cellContent[0]) && $cellContent[0] === '{') {
+                $end = $this->findCellAttrEnd($cellContent);
+                if ($end !== null) {
+                    $inner = substr($cellContent, 1, $end - 1);
+                    if (
+                        $inner !== ''
+                        && !$this->isInlineMarker($inner)
+                        && AttributeParser::isValidPayload($inner)
+                    ) {
+                        $attributes = $inner;
+                        $content = ltrim(substr($cellContent, $end + 1));
+                    }
                 }
             }
 
@@ -278,6 +285,42 @@ class TableParser
         }
 
         return $result;
+    }
+
+    /**
+     * Index of the `}` that closes a `{...}` attribute block at the start of a
+     * cell, scanning quote-aware so a quoted `}` in a value does not end it.
+     * Null if there is no closing brace.
+     */
+    protected function findCellAttrEnd(string $cell): ?int
+    {
+        $length = strlen($cell);
+        $quote = null;
+        for ($i = 1; $i < $length; $i++) {
+            $char = $cell[$i];
+            if ($char === '\\' && $i + 1 < $length) {
+                $i++;
+
+                continue;
+            }
+            if ($quote !== null) {
+                if ($char === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+
+                continue;
+            }
+            if ($char === '}') {
+                return $i;
+            }
+        }
+
+        return null;
     }
 
     /**
