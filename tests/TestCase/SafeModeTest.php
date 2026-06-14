@@ -390,13 +390,20 @@ class SafeModeTest extends TestCase
         $this->assertStringContainsString('href=""', $result);
     }
 
-    public function testJavascriptUrlWithNullByteIsBlocked(): void
+    public function testNullByteInSchemeMakesUrlInertNotDangerous(): void
     {
+        // A NUL is normalized to U+FFFD at the parse entry, so `java\x00script:`
+        // becomes `java\u{FFFD}script:`. U+FFFD is invalid in a URL scheme, so
+        // browsers treat the whole thing as a (harmless) relative URL -- no
+        // script runs. It is therefore passed through, NOT a `javascript:`
+        // scheme to block. Matches carve-js / carve-rs. (A genuine
+        // `javascript:` is still blocked; see the tests above.)
         $converter = new CarveConverter(safeMode: true);
         $djot = "[click](java\x00script:alert(1))";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=""', $result);
+        $this->assertStringContainsString("java\u{FFFD}script:alert(1)", $result);
     }
 
     public function testJavascriptUrlWithSpaceBeforeColonIsBlocked(): void

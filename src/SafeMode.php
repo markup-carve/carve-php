@@ -228,11 +228,17 @@ class SafeMode
             $scheme = substr($url, 0, $colonPos);
 
             // Normalize scheme: strip ASCII whitespace and control characters (0x00-0x20)
-            // plus the U+FFFD replacement character (a NUL becomes U+FFFD at the
-            // parse entry, so a `java\x00script:` evasion arrives as
-            // `java\u{FFFD}script:`). This prevents bypass attempts like
-            // "java\tscript:", "java\x0bscript:", "java\x00script:", etc.
-            $scheme = preg_replace('/[\x00-\x20]+|\x{FFFD}+/u', '', $scheme) ?? $scheme;
+            // that browsers ignore when reading a scheme. This prevents bypass
+            // attempts like "java\tscript:", "java\x0bscript:", etc.
+            //
+            // A NUL is normalized to U+FFFD at the parse entry, so a
+            // `java\x00script:` evasion arrives as `java\u{FFFD}script:`. U+FFFD
+            // is NOT stripped here: it is invalid in a URL scheme, so browsers
+            // already treat such a URL as a relative reference (no script runs).
+            // Stripping it would only blank otherwise-safe relative URLs that
+            // happen to contain U+FFFD before a colon -- matching carve-js /
+            // carve-rs, which pass it through.
+            $scheme = preg_replace('/[\x00-\x20]+/', '', $scheme) ?? $scheme;
             $scheme = strtolower($scheme);
 
             // Check against dangerous schemes
