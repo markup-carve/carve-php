@@ -122,7 +122,7 @@ class S4ConformanceTest extends TestCase
         // an attributed cell never makes the row a Carve all-`=` header row.
         $this->assertSame(
             "<table>\n  <tbody>\n    <tr><td class=\"x\">= A</td><td class=\"y\">= B</td></tr>\n  </tbody>\n</table>\n",
-            $this->c->convert("|{.x} = A |{.y} = B |"),
+            $this->c->convert('|{.x} = A |{.y} = B |'),
         );
     }
 }
