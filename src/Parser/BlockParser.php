@@ -423,6 +423,12 @@ class BlockParser
         $this->headingIds = [];
         $this->lineOffset = 0;
         $document = new Document();
+        // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
+        // `﻿# T` is a heading, not literal text. Root only: this is the
+        // top-level entry; nested content is parsed from line arrays.
+        if (str_starts_with($input, "\u{FEFF}")) {
+            $input = substr($input, 3);
+        }
         $lines = $this->splitLines($input);
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
