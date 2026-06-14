@@ -1625,13 +1625,14 @@ class BlockParser
             } elseif (preg_match('/^\^ /', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
+            } elseif ($this->startsNewBlock($nextLine, $lines, $i)) {
+                // A block-opener (list/quote/table/fence/div/thematic break) ends
+                // the heading and starts that block, exactly as it interrupts a
+                // paragraph (§10). Only plain text folds; an ordered marker still
+                // folds (it never interrupts). Matches carve-js / carve-rs / djot.
+                break;
             } else {
-                // Everything else FOLDS into the heading text. Per the grammar
-                // (PART 2 headings / §10) nothing but a blank line, a higher/other
-                // `#` marker, a caption, or a `%%%` fence interrupts an open
-                // heading -- a `- item` / `> quote` / `| table |` line is part of
-                // the heading, matching Djot and carve-js / carve-rs. (Previously
-                // a block-opener line wrongly ended the heading.)
+                // Plain text folds into the heading text.
                 if ($content !== '') {
                     $content .= "\n";
                 }
