@@ -1625,6 +1625,19 @@ class BlockParser
             } elseif (preg_match('/^\^ /', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
+            } elseif (
+                preg_match('/^\[[^\]]+\]:/', $nextLine)
+                || preg_match('/^\*\[[^\]]+\]:/', $nextLine)
+                || preg_match('/^%%/', $nextLine)
+                || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
+                    && $this->inlineParser->isValidAttrPayload($invisibleAttr[1]))
+            ) {
+                // Invisible constructs -- a reference / footnote / abbreviation
+                // definition, a comment, or a block-attribute line -- are §10
+                // interrupters (INVISIBLE CONSTRUCTS): each ends the heading and
+                // is consumed or floated forward by its own parser, exactly as it
+                // interrupts a paragraph. Matches carve-js / carve-rs.
+                break;
             } elseif ($this->startsNewBlock($nextLine, $lines, $i)) {
                 // A block-opener (list/quote/table/fence/div/thematic break) ends
                 // the heading and starts that block, exactly as it interrupts a
