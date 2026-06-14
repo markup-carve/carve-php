@@ -254,6 +254,42 @@ class AttributeParser
     }
 
     /**
+     * Whether the WHOLE payload between `{...}` is valid attribute syntax.
+     *
+     * Strips every recognized token (quoted key=value, comments, unquoted
+     * key=value, .class, #id, boolean); if anything non-whitespace remains the
+     * block is invalid and must stay literal (§14). A name (key/class/id) is a
+     * grammar identifier (letter/`_` first), so a digit-first or hyphen-first
+     * name invalidates the whole block even mixed with valid tokens -- matching
+     * carve-js / carve-rs and the inline attribute rule.
+     */
+    public static function isValidPayload(string $attrStr): bool
+    {
+        // Quoted key=values first, so dots/braces/% inside quotes are protected.
+        $rest = preg_replace(
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')/',
+            ' ',
+            $attrStr,
+        ) ?? $attrStr;
+        $rest = self::removeComments($rest);
+        if (trim($rest) === '') {
+            return true;
+        }
+        $patterns = [
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
+            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
+            '/\s+/',
+        ];
+        foreach ($patterns as $pattern) {
+            $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
+        }
+
+        return trim($rest) === '';
+    }
+
+    /**
      * Process escape sequences in attribute values
      *
      * Per djot spec, backslash escapes work on ASCII punctuation characters:

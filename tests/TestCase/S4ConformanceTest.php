@@ -91,4 +91,33 @@ class S4ConformanceTest extends TestCase
             $this->c->convert("| a | b |\n|---|---|\n| c | < |"),
         );
     }
+
+    public function testGluedCellAttributesMatchInlineSourceOrderAndEdges(): void
+    {
+        $row1 = fn (string $src): string => explode("\n", $this->c->convert($src))[1];
+        // glued `{...}` after the pipe sets the cell's attributes (source order).
+        $this->assertSame(
+            '  <thead><tr><th id="id" class="a" key="v">hi</th><th>b</th></tr></thead>',
+            $row1("|{#id .a key=v} hi | b |\n|---|---|\n| c | d |"),
+        );
+        // a SPACE before the brace is literal content.
+        $this->assertSame(
+            '  <thead><tr><th>{.x} hi</th><th>b</th></tr></thead>',
+            $row1("| {.x} hi | b |\n|---|---|\n| c | d |"),
+        );
+        // quoted brace in a value; partial-invalid stays literal; attributed
+        // cell is never a bare span marker.
+        $this->assertSame(
+            '  <thead><tr><th key="{y}">hi</th><th>b</th></tr></thead>',
+            $row1("|{key=\"{y}\"} hi | b |\n|---|---|\n| c | d |"),
+        );
+        $this->assertSame(
+            '  <thead><tr><th>{.x 1bad} hi</th><th>b</th></tr></thead>',
+            $row1("|{.x 1bad} hi | b |\n|---|---|\n| c | d |"),
+        );
+        $this->assertSame(
+            '  <thead><tr><th class="x">&lt;</th><th>b</th></tr></thead>',
+            $row1("|{.x} < | b |\n|---|---|\n| c | d |"),
+        );
+    }
 }
