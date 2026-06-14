@@ -2275,16 +2275,29 @@ class InlineParser
 
         $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
 
+        // A genuinely empty/whitespace-only block (`{}`, `{ }`) abutting a word
+        // or an inline node is NOT consumed -- it stays literal (`hi{}` ->
+        // `hi{}`, `*x*{}` -> `<strong>x</strong>{}`, `[x]{}{}` keeps the second
+        // block), matching carve-js / carve-rs. The one place an empty block is
+        // meaningful, the `[text]{}` span form, is handled by the bracket path
+        // before this standalone-attribute handler runs. (A block that becomes
+        // empty only AFTER comment removal, e.g. `{% note %}`, is still a
+        // consumed comment -- handled below.)
+        if (trim($attrStr) === '') {
+            return null;
+        }
+
         // Check if this looks like valid attributes (starts with ., #, % comment, or key=)
         // Exclude _ * = + - ~ ^ which are braced inline markers
-        if ($attrStr !== '' && !preg_match('/^[.#a-zA-Z%]/', $attrStr)) {
+        if (!preg_match('/^[.#a-zA-Z%]/', $attrStr)) {
             return null;
         }
 
         // Remove comments from attributes: % ... % or % to end
         $attrStr = $this->removeAttributeComments($attrStr);
 
-        // Empty attributes: hi{} - just skip them
+        // A comment-only block (`{% note %}`) reduces to empty here: consume it
+        // (the comment vanishes) rather than leaving it literal.
         if (trim($attrStr) === '') {
             return [
                 'textBuffer' => $textBuffer,
@@ -2433,6 +2446,13 @@ class InlineParser
 
         while ($i < $length) {
             $char = $text[$i];
+
+            // An inline attribute block is single-line: a newline before the
+            // closing `}` means this is not an inline attr block, so the `{`
+            // stays literal (`[x]{.a\n.b}` is text). Matches carve-js / carve-rs.
+            if ($char === "\n") {
+                return null;
+            }
 
             // Handle escape sequences
             if ($char === '\\' && $i + 1 < $length) {
