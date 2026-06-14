@@ -36,14 +36,14 @@ class BlockQuoteLazyContinuationTest extends TestCase
 
     public function testNonMarkerLineAfterDivOpenerTerminatesQuote(): void
     {
-        // The div just opened (no paragraph yet), so a non-">" line ends the quote
-        // and is not pulled inside the div; `body` starts a paragraph. The trailing
-        // `> :::` then interrupts it into a fresh block quote (§10). The bare `:::`
-        // inside that quote is carve-php's unterminated-div handling (an empty div);
-        // the unterminated-opener rendering is a deferred cross-impl divergence.
+        // The `:::note` opener inside the quote has no matching closer within
+        // the quote, so it is NOT a div -- it stays literal (§12), and the
+        // non-">" `body` line ends the quote. The trailing `> :::` is likewise
+        // an unterminated fence: a quoted paragraph of literal `:::`. Matches
+        // carve-js / carve-rs (no more empty-div divergence).
         $djot = "> :::note\nbody\n> :::";
-        $expected = "<blockquote>\n  <aside class=\"admonition note\">\n\n  </aside>\n</blockquote>\n"
-            . "<p>body</p>\n<blockquote>\n  <div>\n\n  </div>\n</blockquote>\n";
+        $expected = "<blockquote><p>:::note</p></blockquote>\n"
+            . "<p>body</p>\n<blockquote><p>:::</p></blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

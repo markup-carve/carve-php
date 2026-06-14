@@ -295,10 +295,10 @@ DJOT;
     public function testTabsWithNestedCodeGroup(): void
     {
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Install}
-::: tab
+:::: tab
 ::: code-group
 ``` php
 composer require pkg
@@ -308,8 +308,8 @@ composer require pkg
 npm install pkg
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -387,13 +387,13 @@ DJOT;
 
     public function testNestedStructures(): void
     {
-        // Note: Parser has limitations with multiple tabs containing nested code-groups
-        // when both use ::: fences. This test uses a single tab with nested code-group.
+        // Nested divs use DECREASING fence lengths (outer longest), so each
+        // inner `:::`-fence is shorter than its parent and does not close it.
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Install}
-::: tab
+:::: tab
 Introduction text.
 
 ::: code-group
@@ -405,8 +405,8 @@ $x = 1;
 let x = 1;
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
         $this->assertRoundTrip($djot);
     }

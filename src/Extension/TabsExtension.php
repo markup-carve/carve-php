@@ -512,30 +512,54 @@ class TabsExtension implements ResettableExtensionInterface
      */
     protected function reconstructDjotSource(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
-        $djot = $this->renderDjotAttributeBlock($wrapper, skipClasses: ['tabs']);
-        $djot .= ":::: tabs\n\n";
-
+        // Build each `tab` block with a fence longer than any colon-fence in
+        // its own content (a nested `code-group` etc.), then the outer `tabs`
+        // fence longer than any tab fence. A same-length inner fence would
+        // close its parent (grammar §12), so nested divs must use increasing
+        // lengths from the inside out.
+        $tabBlocks = '';
         foreach ($tabs as $tab) {
             $node = $tab['node'];
             $hasHeadingLabel = $this->hasHeadingLabel($node);
             $skipAttrs = $hasHeadingLabel ? ['label'] : [];
 
-            $djot .= $this->renderDjotAttributeBlock($node, skipAttrs: $skipAttrs, skipClasses: ['tab']);
-            $djot .= "::: tab\n";
+            $inner = '';
             if ($hasHeadingLabel) {
-                $djot .= '### ' . $tab['label'] . "\n\n";
+                $inner .= '### ' . $tab['label'] . "\n\n";
             }
             $content = $this->reconstructTabContent($node, $renderer);
             if ($content !== '') {
-                $djot .= $content . "\n";
+                $inner .= $content . "\n";
             }
-            $djot .= ":::\n";
+
+            $tabFence = $this->colonFenceFor($inner);
+            $tabBlocks .= $this->renderDjotAttributeBlock($node, skipAttrs: $skipAttrs, skipClasses: ['tab']);
+            $tabBlocks .= $tabFence . " tab\n" . $inner . $tabFence . "\n";
         }
 
-        $djot = rtrim($djot) . "\n";
-        $djot .= "::::\n";
+        $tabsFence = $this->colonFenceFor($tabBlocks);
+        $djot = $this->renderDjotAttributeBlock($wrapper, skipClasses: ['tabs']);
+        $djot .= $tabsFence . " tabs\n\n";
+        $djot .= rtrim($tabBlocks) . "\n";
+        $djot .= $tabsFence . "\n";
 
         return $djot;
+    }
+
+    /**
+     * A colon-fence string at least one longer than any colon-only line in
+     * `$content`, so a nested div's `:::` closer cannot close this fence.
+     */
+    protected function colonFenceFor(string $content): string
+    {
+        $fenceLength = 3;
+        foreach (explode("\n", $content) as $line) {
+            if (preg_match('/^(:{3,})\s*$/', trim($line), $m) === 1) {
+                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+            }
+        }
+
+        return str_repeat(':', $fenceLength);
     }
 
     protected function reconstructTabContent(Div $tab, HtmlRenderer $renderer): string
