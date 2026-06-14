@@ -629,7 +629,7 @@ DJOT;
 
     public function testRawBlock(): void
     {
-        $djot = "```raw html\n<div class=\"custom\">Raw HTML</div>\n```";
+        $djot = "```=html\n<div class=\"custom\">Raw HTML</div>\n```";
 
         $result = $this->converter->convert($djot);
 
@@ -1717,7 +1717,7 @@ DJOT;
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Unclosed raw block');
 
-        $converter->convert("```raw html\n<div>no closing fence");
+        $converter->convert("```=html\n<div>no closing fence");
     }
 
     public function testWarningForUndefinedReference(): void
@@ -2497,7 +2497,7 @@ DJOT;
 
     public function testRawBlockNonHtml(): void
     {
-        $djot = "```raw latex\n\\frac{1}{2}\n```";
+        $djot = "```=latex\n\\frac{1}{2}\n```";
         $result = $this->converter->convert($djot);
 
         // Non-HTML raw blocks should not be rendered
