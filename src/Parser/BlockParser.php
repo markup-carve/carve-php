@@ -1495,9 +1495,11 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      */
+
     /**
      * @param \Carve\Node\Node $parent
      * @param array<string> $lines
+     * @param int $start
      * @param array<int, int> $divCloserSuffix Longest colon-fence closer at or
      *   after each index (from buildDivCloserSuffixMax), for an O(1) closer check.
      */
@@ -1635,6 +1637,7 @@ class BlockParser
      * an O(1) test that replaces a per-opener rescan to EOF (grammar §12).
      *
      * @param array<string> $lines
+     *
      * @return array<int, int>
      */
     protected function buildDivCloserSuffixMax(array $lines): array
