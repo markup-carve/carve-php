@@ -901,30 +901,12 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderSymbol(Symbol $node): string
     {
-        $name = $node->getName();
-
-        // Common emoji mappings
-        $emoji = match ($name) {
-            'heart' => '❤',
-            'star' => '★',
-            'check' => '✓',
-            'x' => '✗',
-            'warning' => '⚠',
-            'info' => 'ℹ',
-            'arrow_right' => '→',
-            'arrow_left' => '←',
-            'arrow_up' => '↑',
-            'arrow_down' => '↓',
-            'sunny' => '☀',
-            'cloud' => '☁',
-            'thumbsup' => '👍',
-            'thumbsdown' => '👎',
-            'smile' => '😊',
-            'sad' => '😢',
-            default => ':' . $name . ':',
-        };
-
-        return $this->useUnicode ? $emoji : ':' . $name . ':';
+        // A symbol renders as its literal `:name:` by default, matching the HTML
+        // renderer, carve-js, and carve-rs (the HTML output keeps `:name:` too).
+        // Emoji substitution is opt-in via an emoji map, not a built-in default,
+        // so the ANSI renderer must not silently map names the other outputs do
+        // not.
+        return ':' . $node->getName() . ':';
     }
 
     protected function renderFootnoteRef(FootnoteRef $node): string
