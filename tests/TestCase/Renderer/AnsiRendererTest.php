@@ -173,10 +173,13 @@ class AnsiRendererTest extends TestCase
 
     public function testRenderSymbol(): void
     {
+        // A symbol renders as its literal `:name:` (matching the HTML renderer,
+        // carve-js, and carve-rs); emoji substitution is opt-in, not a default.
         $doc = $this->converter->parse('I :heart: this!');
         $output = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('❤', $output);
+        $this->assertStringContainsString(':heart:', $output);
+        $this->assertStringNotContainsString('❤', $output);
     }
 
     public function testRenderDefinitionList(): void
