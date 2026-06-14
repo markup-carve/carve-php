@@ -102,12 +102,13 @@ class BlockquoteRefDefTest extends TestCase
         $this->assertStringContainsString('<a href="/2">b</a>', $html);
     }
 
-    public function testNoSpaceAfterAngleIsNotABlockquote(): void
+    public function testRefDefInsideNoSpaceNestedBlockquoteIsCollected(): void
     {
-        // tryParseBlockQuote requires a space after each `>`. A literal
-        // `>> [r]: /u` (no space) is paragraph text, not a definition.
+        // The space after `>` is optional, so `>> [r]: /u` IS a nested block
+        // quote and the reference definition inside it is collected (matching
+        // carve-js). Previously php required `> ` and left it unresolved.
         $html = $this->converter->convert("[x][r]\n\n>> [r]: /u");
-        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testQuotedAttrLineDoesNotLeakToTopLevelDef(): void
