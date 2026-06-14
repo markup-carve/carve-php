@@ -53,8 +53,9 @@ class FencedBlockParser
         // NOT allowed is a SECOND whitespace-separated token that is not a
         // bracketed label -- a bare word, a quoted value, key=val
         // (```js title="x", ``` php {.x}). Such a line is not a fenced code
-        // block; it falls back to inline parsing. (Raw ```raw FORMAT blocks are
-        // matched by parseRawBlockOpener first.)
+        // block; it falls back to inline parsing. (Raw ```=FORMAT blocks are
+        // matched by parseRawBlockOpener first; a leading `=` is never a
+        // language token.)
         $language = '';
         $label = null;
         if ($info !== '') {
@@ -163,13 +164,16 @@ class FencedBlockParser
      */
     public function parseRawBlockOpener(string $line): ?array
     {
-        // Fast early exit: raw blocks start with `.
-        if (!isset($line[0]) || $line[0] !== '`') {
+        // Fast early exit: raw blocks start with a code fence (` or ~).
+        if (!isset($line[0]) || ($line[0] !== '`' && $line[0] !== '~')) {
             return null;
         }
 
-        // Carve raw block opener: ```raw FORMAT (two info tokens, §4.15).
-        if (!preg_match('/^(`{3,})\s*raw\s+(\w[\w-]*)\s*$/', $line, $matches)) {
+        // Carve raw block opener: ```=FORMAT (djot raw-block syntax, §4.15). The
+        // leading `=`, immediately followed by the format name, is the block
+        // parallel of the inline raw `{=format}` attribute; the former
+        // ```raw FORMAT keyword form was removed.
+        if (!preg_match('/^([`~]{3,})\s*=([a-zA-Z][\w-]*)\s*$/', $line, $matches)) {
             return null;
         }
 
