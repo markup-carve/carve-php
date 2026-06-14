@@ -8,10 +8,10 @@ use Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Guards the single-quote opener/closer matching in buildSingleQuoteMatchCache().
- * It must pair quotes with a single stack merge (O(n)); the previous nested
- * closer x opener scan was O(n^2) (16k quotes ~7s). Correctness must be
- * unchanged.
+ * Single-quote opener/closer behavior. A `'` in opener position (preceded by
+ * whitespace / start, followed by a non-space, non-digit) is an OPENING quote
+ * per the §8 flanking rule -- no matching closer is required -- matching
+ * carve-js / carve-rs.
  */
 class SmartQuoteScanTest extends TestCase
 {
@@ -30,10 +30,25 @@ class SmartQuoteScanTest extends TestCase
         );
     }
 
-    public function testApostropheStaysWhenNoCloser(): void
+    public function testFlankingOpenerIsACurlyQuoteEvenWithNoCloser(): void
     {
-        // A lone opener with no matching closer is an apostrophe, not a quote.
-        $this->assertStringNotContainsString("\u{2018}", $this->converter->convert("it 'is here"));
+        // A lone opener (space before, letter after) is an OPENING curly quote,
+        // matching carve-js / carve-rs -- it does not require a matching closer.
+        $this->assertSame(
+            "<p>it \u{2018}is here</p>",
+            trim($this->converter->convert("it 'is here")),
+        );
+        $this->assertSame(
+            "<p>\u{2018}twas the night</p>",
+            trim($this->converter->convert("'twas the night")),
+        );
+    }
+
+    public function testApostropheCasesStayApostrophe(): void
+    {
+        // Mid-word and before-digit single quotes are apostrophes, not openers.
+        $this->assertSame("<p>it\u{2019}s</p>", trim($this->converter->convert("it's")));
+        $this->assertSame("<p>\u{2019}70s</p>", trim($this->converter->convert("'70s")));
     }
 
     public function testManySingleQuotesParseInLinearTime(): void
@@ -44,7 +59,7 @@ class SmartQuoteScanTest extends TestCase
         $this->converter->convert($source);
         $elapsed = (hrtime(true) - $start) / 1e9;
 
-        // Linear is well under a second; the previous O(n^2) match was ~7s.
+        // The opener decision is O(1) per quote; well under a second.
         $this->assertLessThan(2.0, $elapsed, "16000 single quotes took {$elapsed}s (quadratic regression?)");
     }
 }

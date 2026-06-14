@@ -152,16 +152,6 @@ class InlineParser
      */
     protected string $apostrophe = "\u{2019}";
 
-    /**
-     * Cached single quote opener→closer matches for the current text block.
-     *
-     * Pre-computed once per parseInlines() call to avoid O(n²) scanning.
-     * Keys are opener positions, values are closer positions.
-     *
-     * @var array<int, int>|null
-     */
-    protected ?array $singleQuoteMatchCache = null;
-
     public function __construct(protected BlockParser $blockParser)
     {
     }
@@ -360,9 +350,6 @@ class InlineParser
         $length = strlen($text);
         $pos = 0;
         $textBuffer = '';
-
-        // Pre-compute single quote matches to avoid O(n²) complexity
-        $this->singleQuoteMatchCache = $this->buildSingleQuoteMatchCache($text);
 
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
@@ -1980,16 +1967,14 @@ class InlineParser
             return $prevIsSpace && !$nextIsSpace ? $this->openDoubleQuote : $this->closeDoubleQuote;
         }
 
-        // For single quotes, use pre-computed cache to determine if this could be an opener
-        // A potential opener at position can only be an opener if there's a matching closer later
+        // A single quote in opener position (preceded by whitespace / start,
+        // followed by a non-space) is an OPENING quote, per the §8 flanking
+        // rule -- regardless of whether a matching closer exists later
+        // (`'twas`, `say 'hi` -> `‘`). This matches carve-js / carve-rs; the
+        // earlier rules already peel off the apostrophe cases (`'70s` before a
+        // digit, mid-word `it's`).
         if ($prevIsSpace && !$nextIsSpace) {
-            // This could be an opener - check the pre-computed cache
-            if (isset($this->singleQuoteMatchCache[$pos])) {
-                return $this->openSingleQuote;
-            }
-
-            // No matching closer found, treat as apostrophe
-            return $this->apostrophe;
+            return $this->openSingleQuote;
         }
 
         // Check if this is mid-word (next char is a word character) — apostrophe
@@ -1999,167 +1984,6 @@ class InlineParser
 
         // Closing single quote
         return $this->closeSingleQuote;
-    }
-
-    /**
-     * Find a matching single quote closer for a potential opener at $pos
-     *
-     * Returns the position of the closer if found, null otherwise.
-     * Uses a matching algorithm similar to emphasis - potential openers and closers
-     * are matched from innermost pairs outward.
-     */
-    protected function findMatchingSingleQuoteCloser(string $text, int $openerPos): ?int
-    {
-        $length = strlen($text);
-
-        // Collect all potential openers and closers after this position
-        $openers = [$openerPos];
-        $closers = [];
-
-        for ($i = $openerPos + 1; $i < $length; $i++) {
-            if ($text[$i] !== "'") {
-                continue;
-            }
-
-            $prevChar = $text[$i - 1] ?? ' ';
-            $nextChar = $text[$i + 1] ?? ' ';
-            $prevIsSpace = ctype_space($prevChar);
-            // Closer can be followed by space, punctuation, or end of string
-            $nextIsSpaceOrPunct = ctype_space($nextChar) || $i === $length - 1
-                || preg_match('/^[\p{P}\p{S}]/u', $nextChar);
-
-            // Skip quotes before digits (always apostrophe)
-            if (ctype_digit($nextChar)) {
-                continue;
-            }
-
-            // Skip quotes after ] or )
-            if ($prevChar === ']' || $prevChar === ')') {
-                continue;
-            }
-
-            $nextIsSpace = ctype_space($nextChar);
-            if ($prevIsSpace && !$nextIsSpace) {
-                // Could be opener (after space, before non-space)
-                $openers[] = $i;
-            } elseif (!$prevIsSpace && $nextIsSpaceOrPunct) {
-                // Could be closer (after non-space, before space/punct)
-                $closers[] = $i;
-            } elseif (!$prevIsSpace) {
-                // Mid-word quote (like Jane's) - typically apostrophe
-                continue;
-            }
-        }
-
-        // Now match openers with closers, innermost first
-        // For each closer, find the nearest preceding unmatched opener
-        $matched = [];
-        foreach ($closers as $closer) {
-            for ($j = count($openers) - 1; $j >= 0; $j--) {
-                $opener = $openers[$j];
-                if ($opener < $closer && !isset($matched[$opener])) {
-                    $matched[$opener] = $closer;
-
-                    break;
-                }
-            }
-        }
-
-        // Return the closer for our position, if any
-        return $matched[$openerPos] ?? null;
-    }
-
-    /**
-     * Build a cache of all single quote opener→closer matches for the text.
-     *
-     * This is called once per parseInlines() to avoid O(n²) complexity
-     * when processing many single quotes.
-     *
-     * @return array<int, int> Map of opener position to closer position
-     */
-    protected function buildSingleQuoteMatchCache(string $text): array
-    {
-        // No apostrophe -> no single-quote matches. Skips a full-text char scan
-        // (a long quote-free paragraph parses ~34% faster); byte-identical.
-        if (!str_contains($text, "'")) {
-            return [];
-        }
-
-        $length = strlen($text);
-        $openers = [];
-        $closers = [];
-
-        // Single pass: collect all potential openers and closers
-        for ($i = 0; $i < $length; $i++) {
-            if ($text[$i] !== "'") {
-                continue;
-            }
-
-            $prevChar = $i > 0 ? $text[$i - 1] : ' ';
-            $nextChar = $text[$i + 1] ?? ' ';
-
-            // Skip quotes before digits (always apostrophe)
-            if (ctype_digit($nextChar)) {
-                continue;
-            }
-
-            // Skip quotes after ] or )
-            if ($prevChar === ']' || $prevChar === ')') {
-                continue;
-            }
-
-            $prevIsSpace = ctype_space($prevChar) || $i === 0;
-            $nextIsSpace = ctype_space($nextChar);
-            $nextIsSpaceOrPunct = $nextIsSpace || $i === $length - 1
-                || preg_match('/^[\p{P}\p{S}]/u', $nextChar) === 1;
-
-            // A quote following another quote at line start should be considered opener
-            $prevIsQuoteOpener = ($prevChar === '"' || $prevChar === "'");
-            if ($prevIsQuoteOpener && !$prevIsSpace) {
-                // $i >= 2 here because: $i=0 means prevChar=' ', so $prevIsQuoteOpener=false;
-                // $i=1 means prevChar=$text[0], if quote, then $prevIsSpace=true (start of string)
-                if ($i === 1) {
-                    $prevIsSpace = true;
-                } elseif (ctype_space($text[$i - 2])) {
-                    $prevIsSpace = true;
-                }
-            }
-
-            if ($prevIsSpace && !$nextIsSpace) {
-                // Potential opener
-                $openers[] = $i;
-            } elseif (!$prevIsSpace && $nextIsSpaceOrPunct) {
-                // Potential closer
-                $closers[] = $i;
-            }
-            // Mid-word quotes are skipped (apostrophes)
-        }
-
-        // Match openers with closers, innermost first. Both lists are already in
-        // ascending position order, so a single stack merge pairs each closer
-        // with the nearest unmatched opener before it in O(n) -- the previous
-        // closer x opener nested scan was O(n^2) (16k quotes ~7s).
-        $matched = [];
-        $stack = [];
-        $oi = 0;
-        $ci = 0;
-        $oc = count($openers);
-        $cc = count($closers);
-        while ($oi < $oc || $ci < $cc) {
-            $oPos = $oi < $oc ? $openers[$oi] : PHP_INT_MAX;
-            $cPos = $ci < $cc ? $closers[$ci] : PHP_INT_MAX;
-            if ($oPos < $cPos) {
-                $stack[] = $oPos;
-                $oi++;
-            } else {
-                if ($stack !== []) {
-                    $matched[(int)array_pop($stack)] = $cPos;
-                }
-                $ci++;
-            }
-        }
-
-        return $matched;
     }
 
     /**
