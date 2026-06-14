@@ -178,12 +178,30 @@ abstract class Node
         $classes = (string)($this->getAttribute('class') ?? '');
         $classList = $classes !== '' ? (preg_split('/\s+/', trim($classes)) ?: []) : [];
 
+        // addClass() is the PROGRAMMATIC path (extensions, default attributes);
+        // it stays idempotent. Source-order accumulation WITHOUT de-dup (grammar
+        // §15) is handled by appendClass(), used by the attribute parser.
         if (in_array($class, $classList, true)) {
             return;
         }
 
         $classList[] = $class;
         $this->setAttribute('class', implode(' ', $classList));
+    }
+
+    /**
+     * Append a class WITHOUT de-duplication, for source-order accumulation:
+     * `{.a .b}` then `{.b .c}` -> `class="a b b c"` (grammar §15), matching
+     * carve-js / carve-rs and djot.
+     */
+    public function appendClass(string $class): void
+    {
+        $class = trim($class);
+        if ($class === '') {
+            return;
+        }
+        $classes = (string)($this->getAttribute('class') ?? '');
+        $this->setAttribute('class', $classes === '' ? $class : $classes . ' ' . $class);
     }
 
     /**

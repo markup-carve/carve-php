@@ -241,8 +241,8 @@ class AttributeParser
                 // key=unquoted
                 $node->setAttribute($match[5], $match[6] ?? '');
             } elseif (($match[7] ?? '') !== '') {
-                // .class shorthand
-                $node->addClass($match[7]);
+                // .class shorthand -- source-order, no de-dup (§15).
+                $node->appendClass($match[7]);
             } elseif (($match[8] ?? '') !== '') {
                 // #id shorthand
                 $node->setAttribute('id', $match[8]);

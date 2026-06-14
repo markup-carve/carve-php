@@ -507,10 +507,13 @@ class BlockParser
             // is left to the list parser as inline content (the
             // underspecified case where the grammar does not put
             // `reference_definition` inside `list_item_content`).
-            // tryParseBlockQuote requires a space after each `>` (or
-            // end-of-line). Mirror that: `>> [r]: /u` (no space between
-            // `>`s) is literal text, not a nested blockquote.
-            $bare = preg_replace('/^(?:> )+/', '', $line) ?? $line;
+            // The space after each `>` is OPTIONAL (blockQuoteLineContent), so
+            // a reference definition inside a tight (`>[r]: /u`) or nested
+            // (`>>[r]: /u`) blockquote must be stripped the same way the quote
+            // parser strips it -- `>` then an optional LITERAL space (not a
+            // tab), exactly mirroring blockQuoteLineContent -- else the prepass
+            // and the real parse disagree on `>\t[r]: /u`.
+            $bare = preg_replace('/^(?:> ?)+/', '', $line) ?? $line;
             $inQuote = ($bare !== $line);
 
             // Check for attributes that may precede a reference definition.
@@ -541,7 +544,10 @@ class BlockParser
                     // text into the quoted URL.
                     $nextLine = $nextLineRaw;
                     if ($inQuote) {
-                        $stripped = preg_replace('/^(?:>\s?)+/', '', $nextLineRaw) ?? $nextLineRaw;
+                        // Strip `>` + optional LITERAL space per marker, exactly
+                        // as blockQuoteLineContent does (a tab is left as inner
+                        // content), so the prepass and the real parse agree.
+                        $stripped = preg_replace('/^(?:> ?)+/', '', $nextLineRaw) ?? $nextLineRaw;
                         if ($stripped === $nextLineRaw) {
                             break;
                         }
@@ -762,8 +768,10 @@ class BlockParser
 
             // Match heading: optional leading spaces, 1-6 # characters, followed by space(s) and content
             // Space after # is syntax delimiter, not indentation - must be space(s) per spec, not tab
-            if (preg_match('/^[ ]{0,3}(#{1,6})(?: +(.*))?$/', $line, $matches)) {
-                $headingText = trim($matches[2] ?? '');
+            if (preg_match('/^[ ]{0,3}(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+                // Content required (same rule as tryParseHeading): a bare
+                // `#` / `# ` is not a heading and must not consume a slug here.
+                $headingText = trim($matches[2]);
 
                 // Collect continuation lines
                 $j = $i + 1;
@@ -1590,15 +1598,18 @@ class BlockParser
             return null;
         }
 
-        // Match heading: optional leading spaces, 1-6 # characters, optionally followed by space(s) and content
-        // Can be: "## Heading", "##", "   ## Heading", "##\n", etc.
-        // Space after # is syntax delimiter - must be space(s) per spec, not tab
-        if (!preg_match('/^[ ]{0,3}(#{1,6})(?: +(.*))?$/', $line, $matches)) {
+        // A heading is 1-6 `#` (after up to 3 leading spaces), a literal space,
+        // then NON-EMPTY content (grammar `atx_heading = heading_marker, space,
+        // inline_content`). Requiring content in the pattern itself means a bare
+        // `#`, `##`, or `# ` is ordinary paragraph text -- matching carve-js /
+        // carve-rs. `# \tx` (content after a tab) is still a heading: `.*\S.*`
+        // only requires a non-whitespace char somewhere after the space.
+        if (!preg_match('/^[ ]{0,3}(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
             return null;
         }
 
         $level = strlen($matches[1]);
-        $content = trim($matches[2] ?? '');
+        $content = trim($matches[2]);
 
         // Collect continuation lines
         $i = $start + 1;
@@ -1614,13 +1625,16 @@ class BlockParser
             // Check for continuation with # prefix (same level or less) - these continue the heading
             // e.g., "# Heading\n# more" becomes "Heading\nmore" for a level-1 heading
             if (preg_match('/^[ ]{0,3}#{1,' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
-                if ($content !== '') {
-                    $content .= "\n";
-                }
-                $content .= $contMatch[1];
+                // The heading already has non-empty first-line content, so a
+                // newline always precedes a folded continuation.
+                $content .= "\n" . $contMatch[1];
                 $i++;
             } elseif (preg_match('/^[ ]{0,3}#{1,6}(?: |$)/', $nextLine)) {
-                // Different level heading marker (or empty heading) starts a new heading
+                // A `#`-marker line (any level, including a bare `#` / `# `)
+                // ENDS the open heading -- matching carve-js, whose heading
+                // continuation breaks on `/^#{1,6}([ \t]|$)/`. The bare-`#`
+                // line then forms its own paragraph (it is not itself a
+                // heading).
                 break;
             } elseif (preg_match('/^\^ /', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
@@ -1646,10 +1660,7 @@ class BlockParser
                 break;
             } else {
                 // Plain text folds into the heading text.
-                if ($content !== '') {
-                    $content .= "\n";
-                }
-                $content .= $nextLine;
+                $content .= "\n" . $nextLine;
                 $i++;
             }
         }
@@ -1707,11 +1718,14 @@ class BlockParser
         if ($line === '>') {
             return '';
         }
+        // The space after `>` is OPTIONAL (grammar `blockquote_line = '>',
+        // [' '], inline_content`): `>tight` is a quote of `tight`, and `>>x`
+        // nests. Consume one optional leading space.
         if (($line[1] ?? '') === ' ') {
             return substr($line, 2);
         }
 
-        return null;
+        return substr($line, 1);
     }
 
     /**
@@ -3683,8 +3697,9 @@ class BlockParser
 
         switch ($first) {
             case '#':
-                // Headings: #{1,6}\s
-                return preg_match('/^#{1,6}\s/', $line) === 1;
+                // Headings: #{1,6}, a space, then non-empty content (a bare
+                // `#` / `# ` is not a heading).
+                return preg_match('/^#{1,6} .*\S/', $line) === 1;
             case '-':
             case '*':
                 // Unordered lists or thematic breaks
@@ -3803,8 +3818,9 @@ class BlockParser
      */
     protected function isBlockElementStart(string $line): bool
     {
-        // Headings
-        if (preg_match('/^#{1,6}(?: |$)/', $line)) {
+        // Headings: #{1,6}, a space, then non-empty content (a bare `#` / `# `
+        // is not a heading).
+        if (preg_match('/^#{1,6} .*\S/', $line)) {
             return true;
         }
 
