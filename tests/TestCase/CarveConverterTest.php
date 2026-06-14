@@ -97,18 +97,24 @@ class CarveConverterTest extends TestCase
         );
     }
 
-    public function testHeadingFoldsBlockOpenerLineInsteadOfInterrupting(): void
+    public function testBlockOpenerInterruptsHeading(): void
     {
-        // Nothing but a blank line / higher-or-other `#` / caption / `%%%`
-        // interrupts an open heading (grammar PART 2). A `- item` or `> quote`
-        // line folds into the heading text, matching carve-js / carve-rs.
+        // A block-opener (list/quote/table/fence/div/thematic break) ends the
+        // heading and starts that block, exactly as it interrupts a paragraph
+        // (§10). Only plain text folds; an ordered marker still folds (it never
+        // interrupts). Matches carve-js / carve-rs / canonical djot.
         $this->assertSame(
-            "<section id=\"t-item\">\n  <h1>T\n- item</h1>\n</section>\n",
+            "<section id=\"t\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
         );
         $this->assertSame(
-            "<section id=\"t-quote\">\n  <h1>T\n&gt; quote</h1>\n</section>\n",
+            "<section id=\"t\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
             $this->converter->convert("# T\n> quote"),
+        );
+        // An ordered marker is not an interrupter, so it folds into the heading.
+        $this->assertSame(
+            "<section id=\"t-1-one\">\n  <h1>T\n1. one</h1>\n</section>\n",
+            $this->converter->convert("# T\n1. one"),
         );
     }
 
