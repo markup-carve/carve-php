@@ -118,6 +118,20 @@ class CarveConverterTest extends TestCase
         );
     }
 
+    public function testInvisibleConstructInterruptsHeading(): void
+    {
+        // Invisible constructs -- reference / footnote / abbreviation
+        // definitions, comments, and block-attribute lines -- are §10
+        // interrupters: each ends the heading and is consumed/floated by its own
+        // parser, so the heading text does not absorb it. Matches carve-js /
+        // carve-rs.
+        $expected = "<section id=\"h\">\n  <h1>H</h1>\n</section>\n";
+        $this->assertSame($expected, $this->converter->convert("# H\n[r]: /url"));
+        $this->assertSame($expected, $this->converter->convert("# H\n*[A]: Abbr"));
+        $this->assertSame($expected, $this->converter->convert("# H\n%% comment"));
+        $this->assertSame($expected, $this->converter->convert("# H\n{.x}"));
+    }
+
     public function testEmphasis(): void
     {
         $djot = 'This is /emphasized/ text';
