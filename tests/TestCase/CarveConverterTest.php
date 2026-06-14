@@ -597,7 +597,7 @@ DJOT;
 
     public function testDefinitionList(): void
     {
-        $djot = ": Term\n\n  Definition of the term";
+        $djot = ":: Term\n:  Definition of the term";
 
         $result = $this->converter->convert($djot);
 
@@ -677,7 +677,7 @@ DJOT;
 
     public function testDefinitionListMultiple(): void
     {
-        $djot = ": Apple\n\n  A fruit\n\n: Banana\n\n  Another fruit";
+        $djot = ":: Apple\n:  A fruit\n:: Banana\n:  Another fruit";
 
         $result = $this->converter->convert($djot);
 
@@ -689,7 +689,7 @@ DJOT;
 
     public function testDefinitionListMultipleTerms(): void
     {
-        $djot = ": CLI\n: Command Line Interface\n\n  A text-based interface for interacting with computers.";
+        $djot = ":: CLI\n:: Command Line Interface\n:  A text-based interface for interacting with computers.";
 
         $result = $this->converter->convert($djot);
 
@@ -702,7 +702,7 @@ DJOT;
 
     public function testDefinitionListMultipleTermsWithBlankLines(): void
     {
-        $djot = ": color\n\n: colour\n\n  The visual property of objects.";
+        $djot = ":: color\n:: colour\n:  The visual property of objects.";
 
         $result = $this->converter->convert($djot);
 
@@ -713,8 +713,7 @@ DJOT;
 
     public function testDefinitionListMultipleTermsMultipleDefinitions(): void
     {
-        // Use `: +` continuation marker to create multiple dd elements
-        $djot = ": color\n: colour\n\n  The visual property of objects.\n\n: +\n\n  Used in art and design.";
+        $djot = ":: color\n:: colour\n:  The visual property of objects.\n:  Used in art and design.";
 
         $result = $this->converter->convert($djot);
 
@@ -722,53 +721,17 @@ DJOT;
         $this->assertStringContainsString('<dt>colour</dt>', $result);
         $this->assertStringContainsString('The visual property', $result);
         $this->assertStringContainsString('Used in art and design', $result);
-        // `: +` marker creates second dd element
         $this->assertSame(2, substr_count($result, '<dd>'));
     }
 
     public function testDefinitionListDlAttribute(): void
     {
-        $djot = "{.vocabulary}\n: Term\n\n  Definition";
+        $djot = "{.vocabulary}\n:: Term\n:  Definition";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<dl class="vocabulary">', $result);
         $this->assertStringContainsString('<dt>Term</dt>', $result);
-    }
-
-    public function testDefinitionListDtAttribute(): void
-    {
-        $djot = ": Term\n{.highlighted}\n\n  Definition";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dt class="highlighted">Term</dt>', $result);
-    }
-
-    public function testDefinitionListDdAttribute(): void
-    {
-        // DD attribute comes AFTER content (consistent with list items)
-        $djot = ": Term\n\n  Definition content\n  {.note}";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dd class="note">', $result);
-        $this->assertStringContainsString('Definition content', $result);
-    }
-
-    public function testDefinitionListAllAttributes(): void
-    {
-        // DD attributes come AFTER content (consistent with list items)
-        // Use `: +` continuation marker to create multiple dd elements with separate attributes
-        $djot = "{.vocabulary}\n: color\n{.american}\n: colour\n{.british}\n\n  The visual property.\n  {.primary}\n\n: +\n\n  Used in design.\n  {.secondary}";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dl class="vocabulary">', $result);
-        $this->assertStringContainsString('<dt class="american">color</dt>', $result);
-        $this->assertStringContainsString('<dt class="british">colour</dt>', $result);
-        $this->assertStringContainsString('<dd class="primary">', $result);
-        $this->assertStringContainsString('<dd class="secondary">', $result);
     }
 
     public function testComment(): void
@@ -1436,8 +1399,7 @@ DJOT;
 
     public function testDefinitionListWithMultipleDefinitions(): void
     {
-        // Use `: +` continuation marker to create multiple dd elements
-        $djot = ": Term\n\n  First definition\n\n: +\n\n  Second definition";
+        $djot = ":: Term\n:  First definition\n:  Second definition";
 
         $result = $this->converter->convert($djot);
 
@@ -2421,8 +2383,7 @@ DJOT;
 
     public function testDefinitionListWithMultipleTerms(): void
     {
-        // Two separate terms, second with multiple definitions using `: +` continuation
-        $djot = ": Term 1\n\n  Definition 1\n\n: Term 2\n\n  Definition 2a\n\n: +\n\n  Definition 2b";
+        $djot = ":: Term 1\n:  Definition 1\n:: Term 2\n:  Definition 2a\n:  Definition 2b";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<dt>Term 1</dt>', $result);

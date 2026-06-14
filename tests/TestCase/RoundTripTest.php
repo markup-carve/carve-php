@@ -682,9 +682,8 @@ DJOT;
     public function testDefinitionList(): void
     {
         $djot = <<<'DJOT'
-: Term
-
-  Definition text here
+:: Term
+:  Definition text here
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -692,13 +691,9 @@ DJOT;
     public function testDefinitionListMultipleTerms(): void
     {
         $djot = <<<'DJOT'
-: First Term
-
-  First definition
-
-: Second Term
-
-  Second definition
+:: First Term
+:: Second Term
+:  Shared definition
 DJOT;
         $this->assertRoundTrip($djot);
     }

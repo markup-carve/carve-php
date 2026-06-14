@@ -1741,48 +1741,26 @@ class HtmlToCarve
 
     protected function processDefinitionList(DOMElement $node): string
     {
-        // Definition list level attributes
+        // Carve definition list: `:: term` for each term, `:  definition` for
+        // each definition (grammar definition_term = "::", definition_body =
+        // ":  "); a multi-line definition continues on three-space-indented
+        // lines. dl-level attributes attach on a preceding block-attribute line.
+        // (dt/dd-level attributes have no `::` representation and are dropped.)
         $dlAttrs = $this->formatBlockAttributes($node);
-        $output = $dlAttrs . "\n";
-        $lastWasTerm = false;
-        $ddCount = 0;
+        $output = $dlAttrs !== '' ? $dlAttrs . "\n" : '';
 
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $tag = strtolower($child->tagName);
-                if ($tag === 'dt') {
-                    // Term: `: term` format
-                    $output .= ': ' . trim($this->processChildren($child)) . "\n";
-                    // dt attributes on next line
-                    $dtAttrs = $this->getElementAttributes($child);
-                    if ($dtAttrs !== '') {
-                        $output .= '{' . $dtAttrs . "}\n";
-                    }
-                    $lastWasTerm = true;
-                    $ddCount = 0;
-                } elseif ($tag === 'dd') {
-                    // Definition: indented content after blank line
-                    if ($lastWasTerm) {
-                        $output .= "\n";
-                    } elseif ($ddCount > 0) {
-                        // Multiple dd elements for same term - use continuation marker
-                        $output .= ": +\n\n";
-                    }
-                    $content = trim($this->processChildren($child));
-                    // Indent definition content
-                    $lines = explode("\n", $content);
-                    foreach ($lines as $line) {
-                        $output .= '  ' . $line . "\n";
-                    }
-                    // Output dd attributes as last indented line (after content)
-                    $ddAttrs = $this->getElementAttributes($child);
-                    if ($ddAttrs !== '') {
-                        $output .= '  {' . $ddAttrs . "}\n";
-                    }
-                    // Add blank line after dd for visual separation
-                    $output .= "\n";
-                    $lastWasTerm = false;
-                    $ddCount++;
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if ($tag === 'dt') {
+                $output .= ':: ' . trim($this->processChildren($child)) . "\n";
+            } elseif ($tag === 'dd') {
+                $lines = explode("\n", trim($this->processChildren($child)));
+                $output .= ':  ' . array_shift($lines) . "\n";
+                foreach ($lines as $line) {
+                    $output .= '   ' . $line . "\n";
                 }
             }
         }
@@ -2399,8 +2377,8 @@ class HtmlToCarve
                 continue;
             }
 
-            // Track definition lists (`: term` starts one)
-            if (str_starts_with($line, ': ')) {
+            // Track definition lists (`:: term` / `:  definition`)
+            if (str_starts_with($line, ':: ') || str_starts_with($line, ':  ')) {
                 $inDefinitionList = true;
                 $inList = false;
                 $inFootnote = false;

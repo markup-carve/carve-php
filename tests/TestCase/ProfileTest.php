@@ -1100,13 +1100,10 @@ DJOT;
         $converter = new CarveConverter(profile: $profile);
 
         $djot = <<<'DJOT'
-: Djot
-
-  A lightweight markup language.
-
-: Markdown
-
-  The predecessor.
+:: Djot
+:  A lightweight markup language.
+:: Markdown
+:  The predecessor.
 DJOT;
 
         $html = $converter->convert($djot);

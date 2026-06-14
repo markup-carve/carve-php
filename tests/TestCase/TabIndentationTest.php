@@ -169,19 +169,6 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Definition list with tab indent.
-     */
-    public function testDefinitionListWithTabIndent(): void
-    {
-        $input = ": Term\n\n\tDefinition with tab indent";
-        $result = $this->converter->convert($input);
-
-        // Check if definition list is created
-        $this->assertStringContainsString('<dl>', $result);
-        $this->assertStringContainsString('<dt>Term</dt>', $result);
-    }
-
-    /**
      * Footnote with tab-indented continuation.
      */
     public function testFootnoteWithTabIndent(): void

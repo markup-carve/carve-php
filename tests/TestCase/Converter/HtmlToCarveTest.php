@@ -441,9 +441,8 @@ HTML;
         $html = '<dl><dt>Term</dt><dd>Definition</dd></dl>';
         $result = $this->converter->convert($html);
 
-        // Djot format: `: term` for term, indented content for definition
-        $this->assertStringContainsString(': Term', $result);
-        $this->assertStringContainsString('  Definition', $result);
+        $this->assertStringContainsString(':: Term', $result);
+        $this->assertStringContainsString(':  Definition', $result);
     }
 
     public function testDefinitionListMultipleTerms(): void
@@ -452,23 +451,20 @@ HTML;
         $result = $this->converter->convert($html);
 
         // Multiple terms share one definition
-        $this->assertStringContainsString(': color', $result);
-        $this->assertStringContainsString(': colour', $result);
-        $this->assertStringContainsString('  The visual property.', $result);
+        $this->assertStringContainsString(':: color', $result);
+        $this->assertStringContainsString(':: colour', $result);
+        $this->assertStringContainsString(':  The visual property.', $result);
     }
 
     public function testDefinitionListMultipleDefinitions(): void
     {
-        // Multiple dd elements use `: +` continuation marker
         $html = '<dl><dt>color</dt><dt>colour</dt><dd>The visual property.</dd><dd>Used in design.</dd></dl>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString(': color', $result);
-        $this->assertStringContainsString(': colour', $result);
-        // First dd is indented content
-        $this->assertStringContainsString('  The visual property.', $result);
-        // Second dd uses continuation marker
-        $this->assertStringContainsString(": +\n\n  Used in design.", $result);
+        $this->assertStringContainsString(':: color', $result);
+        $this->assertStringContainsString(':: colour', $result);
+        $this->assertStringContainsString(':  The visual property.', $result);
+        $this->assertStringContainsString(':  Used in design.', $result);
     }
 
     // ==================== Spans with Attributes ====================
@@ -948,24 +944,6 @@ HTML;
         $this->assertStringContainsString('Used in design.', $htmlBack);
     }
 
-    public function testDefinitionListAttributesRoundtrip(): void
-    {
-        $html = '<dl class="vocabulary"><dt class="american">color</dt><dt class="british">colour</dt>'
-            . '<dd class="primary"><p>Visual property.</p></dd><dd class="secondary"><p>Used in design.</p></dd></dl>';
-        $djot = $this->converter->convert($html);
-
-        // Convert back to HTML
-        $djotConverter = new CarveConverter();
-        $htmlBack = $djotConverter->convert($djot);
-
-        // All attributes should roundtrip
-        $this->assertStringContainsString('<dl class="vocabulary">', $htmlBack);
-        $this->assertStringContainsString('<dt class="american">color</dt>', $htmlBack);
-        $this->assertStringContainsString('<dt class="british">colour</dt>', $htmlBack);
-        $this->assertStringContainsString('<dd class="primary">', $htmlBack);
-        $this->assertStringContainsString('<dd class="secondary">', $htmlBack);
-    }
-
     // ==================== Attribute Extraction ====================
 
     public function testHeadingWithIdAndClass(): void
@@ -1077,16 +1055,6 @@ HTML;
         // DOMDocument doesn't preserve empty tags well, but we test the concept
         $result = $this->converter->convert('<a href="#" download>Link</a>');
         $this->assertStringContainsString('download', $result);
-    }
-
-    public function testDefinitionListWithAttributes(): void
-    {
-        $html = '<dl class="glossary"><dt class="term">Term</dt><dd class="def">Definition</dd></dl>';
-        $result = $this->converter->convert($html);
-
-        $this->assertStringContainsString('{.glossary}', $result);
-        $this->assertStringContainsString('{.term}', $result);
-        $this->assertStringContainsString('{.def}', $result);
     }
 
     public function testMultipleClassesPreserved(): void
@@ -1663,9 +1631,8 @@ DJOT;
 
 {label=Defs}
 ::: tab
-: Term
-
-  Desc with *em*
+:: Term
+:  Desc with *em*
 :::
 ::::
 DJOT;
