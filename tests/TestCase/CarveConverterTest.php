@@ -636,6 +636,16 @@ DJOT;
         $this->assertStringContainsString('<div class="custom">Raw HTML</div>', $result);
     }
 
+    public function testRawBlockWithTildeFence(): void
+    {
+        // A ~~~=html opener must close with ~~~ (same fence character), not ```.
+        $djot = "~~~=html\n<div class=\"custom\">Raw HTML</div>\n~~~";
+
+        $result = $this->converter->convert($djot);
+
+        $this->assertStringContainsString('<div class="custom">Raw HTML</div>', $result);
+    }
+
     public function testMathInline(): void
     {
         $djot = 'The equation is $`E = mc^2`$.';

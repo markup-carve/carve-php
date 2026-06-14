@@ -1435,6 +1435,9 @@ class BlockParser
 
         $fenceLength = $rawInfo['length'];
         $format = $rawInfo['format'];
+        // The closer must use the SAME fence character as the opener (` or ~);
+        // a ~~~=html block closes with ~~~, not ```.
+        $fenceChar = $rawInfo['fence'][0];
 
         $content = '';
         $i = $start + 1;
@@ -1445,7 +1448,7 @@ class BlockParser
             $currentLine = $lines[$i];
 
             // Check for closing fence (equal or longer)
-            if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, '`', $fenceLength)) {
+            if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $fenceChar, $fenceLength)) {
                 $i++;
                 $closed = true;
 
