@@ -132,6 +132,7 @@ class CarveCorpusTest extends TestCase
         '94-literal-less-than-in-prose',
         '95-boolean-attributes',
         '96-table-span-marker-in-first-column',
+        '97-table-cell-attributes',
     ];
 
     /**
@@ -139,24 +140,12 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * SYMMETRIC LIST INTERRUPTION (Option D, matches djot): a list marker folds
-     * into a PARAGRAPH but ENDS a heading/blockquote. These spec corpus pairs
-     * still pin the OLD behavior in the currently-pinned submodule and only
-     * match once it is bumped to the updated spec (markup-carve/carve). The
-     * heading/quote-ending pairs (77-2, 79-2) already match the OLD corpus under
-     * Option D, so only the PARAGRAPH-folding pairs and the ordered-ends-heading
-     * pair (79-3) are deferred here until the bump.
+     * Empty: the symmetric-list-interruption / Option D pairs now match the
+     * bumped spec corpus, so they run as real assertions.
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '05-lists-9' => 'Symmetric list interruption: indented bullet folds into the paragraph (spec lockstep pending).',
-        '05-lists-12' => 'Symmetric list interruption: bullet false-positive now stays prose (spec lockstep pending).',
-        '05-lists-13' => 'Symmetric list interruption: bullet folds into the paragraph (spec lockstep pending).',
-        '76-paragraph-interruption-5' => 'Symmetric list interruption: bullet folds into the paragraph (spec lockstep pending).',
-        '76-paragraph-interruption-13' => 'Symmetric list interruption: quoted bullet folds into the quoted paragraph (spec lockstep pending).',
-        '79-multi-line-headings-3' => 'Symmetric list interruption: ordered marker now ends the heading -> sibling list (spec lockstep pending).',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 
