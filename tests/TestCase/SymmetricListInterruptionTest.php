@@ -104,6 +104,36 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
+     * Rule B: a list opens at any indentation, so a marker that dedents below an
+     * indented list's base column starts a NEW sibling list (distinct base
+     * columns are distinct lists) -- it is neither nested nor folded into the
+     * previous item. Matches carve-js.
+     */
+    public function testDedentBelowIndentedBaseStartsSiblingList(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n",
+            $this->converter->convert("  - a\n  - b\n- c"),
+        );
+        // A single indented item then a dedented one: still two sibling lists.
+        $this->assertSame(
+            "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n",
+            $this->converter->convert("  - a\n- b"),
+        );
+        // A normal col-0 list with a child then a col-0 sibling is unaffected.
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>c</li>\n</ul>\n",
+            $this->converter->convert("- a\n  - b\n- c"),
+        );
+        // Plain text dedented below the base is NOT a marker: it lazily continues
+        // the item (CommonMark lazy continuation), it does not end the list.
+        $this->assertSame(
+            "<ul>\n  <li>a\ncontinued</li>\n</ul>\n",
+            $this->converter->convert("  - a\n continued"),
+        );
+    }
+
+    /**
      * An indented list after a reference or abbreviation definition is a list,
      * not a definition continuation -- bullet and ordered alike. (Before this
      * change ordered was already swallowed here; the fix makes both consistent.)

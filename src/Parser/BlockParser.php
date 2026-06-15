@@ -2351,6 +2351,26 @@ class BlockParser
                 $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
                 $nextTrimmed = ltrim($nextLine);
 
+                // A MARKER (or block opener) dedented BELOW the list's base
+                // column ends this list: the outer parser then starts a new
+                // sibling list at the dedented column (Rule B -- a list opens at
+                // ANY indentation, so distinct base columns are distinct lists),
+                // or the outer block. Without this a dedented marker would lazily
+                // fold into the current item (`  - a` / `  - b` / `- c` -> c
+                // stuck on b). Plain text dedented below the base still lazily
+                // continues the item (CommonMark lazy continuation), so only a
+                // marker/block breaks here. Matches carve-js.
+                if (
+                    $nextIndent < $baseIndent
+                    && (
+                        $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                        || $this->isBlockElementStart($nextTrimmed)
+                        || $this->startsNewBlock($nextTrimmed)
+                    )
+                ) {
+                    break;
+                }
+
                 // Check if next line starts a new list item at same level (base indent)
                 if ($nextIndent === $baseIndent) {
                     $nextInfo = $this->listParser->parseListItemMarker($nextTrimmed);
