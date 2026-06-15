@@ -576,6 +576,13 @@ class BlockParser
                     if ($this->startsNewBlock($nextLine)) {
                         break;
                     }
+                    // A list marker (bullet or ordered, at any indent) starts a
+                    // list, not a definition continuation. startsNewBlock() no
+                    // longer reports list markers (symmetric interruption), so
+                    // check explicitly to avoid swallowing the list.
+                    if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
+                        break;
+                    }
                     if (preg_match('/^\s+(\S.*)$/', $nextLine, $contMatch)) {
                         $url .= $contMatch[1];
                         $j++;
@@ -720,6 +727,13 @@ class BlockParser
                         break;
                     }
                     if ($this->startsNewBlock($nextLine)) {
+                        break;
+                    }
+                    // A list marker (bullet or ordered, at any indent) starts a
+                    // list, not a definition continuation. startsNewBlock() no
+                    // longer reports list markers (symmetric interruption), so
+                    // check explicitly to avoid swallowing the list.
+                    if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
                         break;
                     }
                     // Continuation line (indented)
@@ -2337,6 +2351,26 @@ class BlockParser
                 $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
                 $nextTrimmed = ltrim($nextLine);
 
+                // A MARKER (or block opener) dedented BELOW the list's base
+                // column ends this list: the outer parser then starts a new
+                // sibling list at the dedented column (Rule B -- a list opens at
+                // ANY indentation, so distinct base columns are distinct lists),
+                // or the outer block. Without this a dedented marker would lazily
+                // fold into the current item (`  - a` / `  - b` / `- c` -> c
+                // stuck on b). Plain text dedented below the base still lazily
+                // continues the item (CommonMark lazy continuation), so only a
+                // marker/block breaks here. Matches carve-js.
+                if (
+                    $nextIndent < $baseIndent
+                    && (
+                        $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                        || $this->isBlockElementStart($nextTrimmed)
+                        || $this->startsNewBlock($nextTrimmed)
+                    )
+                ) {
+                    break;
+                }
+
                 // Check if next line starts a new list item at same level (base indent)
                 if ($nextIndent === $baseIndent) {
                     $nextInfo = $this->listParser->parseListItemMarker($nextTrimmed);
@@ -3204,6 +3238,11 @@ class BlockParser
             if ($this->startsNewBlock($nextLine)) {
                 break;
             }
+            // A list marker (bullet or ordered, at any indent) starts a list,
+            // not a definition continuation; stop the skip so it is parsed.
+            if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
+                break;
+            }
             if (preg_match('/^\s+(\S.*)$/', $nextLine, $contMatch)) {
                 $i++;
             } else {
@@ -3243,6 +3282,11 @@ class BlockParser
                 break;
             }
             if ($this->startsNewBlock($nextLine)) {
+                break;
+            }
+            // A list marker (bullet or ordered, at any indent) starts a list,
+            // not a definition continuation; stop the skip so it is parsed.
+            if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
                 break;
             }
             if (preg_match('/^\s+(.+)$/', $nextLine)) {
@@ -3576,21 +3620,14 @@ class BlockParser
      */
     protected function startsInterruptingBlock(string $line, ?array $lines = null, ?int $index = null): bool
     {
-        // Rule B: a bullet/task marker interrupts a paragraph at ANY indentation
-        // (an indented bullet opens a list, just like a column-0 one). Ordered
-        // markers and every other block opener still require column 0, so this
-        // only handles an indented `-`/`*` bullet; the column-0 cases fall to the
-        // switch below. Mirrors the col-0 '-'/'*' arm.
-        if ($line[0] === ' ' || $line[0] === "\t") {
-            $trimmed = ltrim($line);
-            if (
-                isset($trimmed[0], $trimmed[1])
-                && ($trimmed[0] === '-' || $trimmed[0] === '*')
-                && $trimmed[1] === ' '
-            ) {
-                return true;
-            }
-        }
+        // SYMMETRIC LIST INTERRUPTION: no list marker interrupts a paragraph --
+        // a bullet (`-`/`*`) needs a blank line before it, exactly like an
+        // ordered marker (`1.`/`a.`/`i.`) already does. This drops the former
+        // "Rule B" (an indented bullet at ANY indentation interrupted a
+        // paragraph), so there is no indented-bullet arm here and the column-0
+        // `-`/`*` arm below no longer returns true for a bullet. Tight nested
+        // lists are unaffected: sublist nesting runs through
+        // isBlockElementStart(), not this paragraph-interruption predicate.
 
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
@@ -3602,12 +3639,9 @@ class BlockParser
                 return preg_match('/^#{1,6} .*\S/', $line) === 1;
             case '-':
             case '*':
-                // Unordered lists or thematic breaks
-                if (isset($line[1]) && $line[1] === ' ') {
-                    return true; // Unordered list
-                }
-
-                // Thematic breaks: a bare run of at least three matching markers
+                // A bullet does NOT interrupt a paragraph (symmetric with ordered
+                // markers; needs a blank line). Only a thematic break -- a bare
+                // run of at least three matching markers -- interrupts here.
                 return preg_match('/^(' . preg_quote($first, '/') . '[ \t]*){3,}$/', $line) === 1;
             case '+':
                 // `+` is the list-continuation marker, NOT a bullet (only the
