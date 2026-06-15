@@ -133,6 +133,7 @@ class CarveCorpusTest extends TestCase
         '95-boolean-attributes',
         '96-table-span-marker-in-first-column',
         '97-table-cell-attributes',
+        '98-table-row-attributes',
     ];
 
     /**
