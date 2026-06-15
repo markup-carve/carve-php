@@ -134,6 +134,7 @@ class CarveCorpusTest extends TestCase
         '96-table-span-marker-in-first-column',
         '97-table-cell-attributes',
         '98-table-row-attributes',
+        '99-table-header-cell-rowspan',
     ];
 
     /**
