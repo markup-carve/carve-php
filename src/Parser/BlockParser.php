@@ -2848,15 +2848,17 @@ class BlockParser
                         // Preserve row attributes from original row
                         $headerRow->setAttributes($lastRow->getAttributes());
                         $cellIndex = 0;
+                        $colPos = 0;
                         foreach ($lastRow->getChildren() as $cell) {
                             if ($cell instanceof TableCell) {
                                 $alignment = $alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT;
+                                $colspan = $cell->getColspan();
                                 // Preserve rowspan and colspan from original cell
                                 $headerCell = new TableCell(
                                     true,
                                     $alignment,
                                     $cell->getRowspan(),
-                                    $cell->getColspan(),
+                                    $colspan,
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributes());
@@ -2864,6 +2866,15 @@ class BlockParser
                                     $headerCell->appendChild($child);
                                 }
                                 $headerRow->appendChild($headerCell);
+                                // The promoted header cell replaces the original at
+                                // these column positions; repoint the rowspan origin
+                                // so a `^` in a later row extends the NEW header cell
+                                // (otherwise it extends the detached old cell and the
+                                // header rowspan is lost). Matches carve-js / carve-rs.
+                                for ($c = $colPos; $c < $colPos + $colspan; $c++) {
+                                    $columnOrigin[$c] = $headerCell;
+                                }
+                                $colPos += $colspan;
                                 $cellIndex++;
                             }
                         }
