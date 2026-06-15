@@ -58,9 +58,9 @@ class BlockParser
      * `openParagraph` starts true: an empty item (no block yet) can absorb a
      * lazy line. See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
      */
-    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0];
+    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0];
 
     /**
      * Maximum block-container nesting depth. Every level of blockquote / div /
@@ -2437,7 +2437,11 @@ class BlockParser
                     // open) is NOT a code block -- it is an inline-verbatim run
                     // that is part of the paragraph, so the dedented line folds
                     // in (matching the §10 closer-lookahead rule).
-                    if (!$trailingState['openParagraph'] && !$trailingState['inFence']) {
+                    if (
+                        !$trailingState['openParagraph']
+                        && !$trailingState['inFence']
+                        && !$trailingState['inDiv']
+                    ) {
                         break;
                     }
                     $itemLines[] = $nextTrimmed;
@@ -3820,10 +3824,10 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
      */
     protected function advanceTrailingBlockState(array $state, string $line): array
     {
@@ -3833,6 +3837,20 @@ class BlockParser
             // the code block, so the trailing block remains code.
             if ($this->fencedBlockParser->isCodeFenceCloser($line, $state['fenceChar'], $state['fenceLength'])) {
                 $state['inFence'] = false;
+            }
+            $state['openParagraph'] = false;
+
+            return $state;
+        }
+
+        if ($state['inDiv']) {
+            // Inside a `:::` div / admonition: a complete (closed) div has no
+            // open paragraph, so the trailing block stays non-paragraph through
+            // the body and the closing fence. An UNTERMINATED div (closer never
+            // seen) is handled at the gate via inDiv, which keeps it foldable
+            // (it is paragraph text under the §10 closer-lookahead rule).
+            if ($this->fencedBlockParser->isDivFenceCloser($line, $state['divFenceLength'])) {
+                $state['inDiv'] = false;
             }
             $state['openParagraph'] = false;
 
@@ -3861,6 +3879,17 @@ class BlockParser
             return $state;
         }
 
+        $divOpener = $this->fencedBlockParser->parseDivFenceOpener($line);
+        if ($divOpener !== null) {
+            /** @var int $divFenceLength */
+            $divFenceLength = $divOpener['length'];
+            $state['inDiv'] = true;
+            $state['divFenceLength'] = $divFenceLength;
+            $state['openParagraph'] = false;
+
+            return $state;
+        }
+
         if ($this->tableParser->isTableRow($line)) {
             // A table has no open paragraph for a dedented line to continue.
             $state['openParagraph'] = false;
@@ -3869,7 +3898,7 @@ class BlockParser
         }
 
         // Any other non-blank line belongs to a paragraph-bearing block (plain
-        // paragraph, blockquote, div, heading text). Treat the trailing block
+        // paragraph, blockquote, heading text). Treat the trailing block
         // as having an open paragraph and let the existing lazy-continuation
         // behavior fold the dedented line in.
         $state['openParagraph'] = true;
