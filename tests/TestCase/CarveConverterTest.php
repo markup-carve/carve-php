@@ -443,7 +443,7 @@ class CarveConverterTest extends TestCase
 
     public function testTableDataRowWithTrailingWhitespace(): void
     {
-        $result = $this->converter->convert("| a |   ");
+        $result = $this->converter->convert('| a |   ');
 
         $this->assertStringContainsString('<td>a</td>', $result);
         $this->assertStringNotContainsString('<p>', $result);
