@@ -429,6 +429,37 @@ class CarveConverterTest extends TestCase
         $this->assertStringContainsString('text-align: right', $result);
     }
 
+    public function testTableRowWithTrailingWhitespace(): void
+    {
+        // Trailing whitespace after the closing pipe is insignificant (parity
+        // with carve-js / carve-rs); the row must still parse as a table row,
+        // and a separator with trailing whitespace must still promote a header.
+        $result = $this->converter->convert("| H |\n|---|   \n| c |");
+
+        $this->assertStringContainsString('<thead>', $result);
+        $this->assertStringContainsString('<th>H</th>', $result);
+        $this->assertStringNotContainsString('<p>', $result);
+    }
+
+    public function testTableDataRowWithTrailingWhitespace(): void
+    {
+        $result = $this->converter->convert('| a |   ');
+
+        $this->assertStringContainsString('<td>a</td>', $result);
+        $this->assertStringNotContainsString('<p>', $result);
+    }
+
+    public function testSeparatorRowWithEmptyCellIsNotASeparator(): void
+    {
+        // `|---||` has an empty second cell, so it is NOT a delimiter row: it
+        // stays an ordinary data row and the first row is not promoted (parity
+        // with carve-js / carve-rs).
+        $result = $this->converter->convert("| H | G |\n|---||\n| a | b |");
+
+        $this->assertStringNotContainsString('<thead>', $result);
+        $this->assertStringNotContainsString('<th>', $result);
+    }
+
     public function testTableCaption(): void
     {
         $djot = "| A | B |\n|---|---|\n| 1 | 2 |\n^ This is a caption";
