@@ -1765,11 +1765,12 @@ class BlockParser
                 // is consumed or floated forward by its own parser, exactly as it
                 // interrupts a paragraph. Matches carve-js / carve-rs.
                 break;
-            } elseif ($this->startsNewBlock($nextLine, $lines, $i)) {
-                // A block-opener (list/quote/table/fence/div/thematic break) ends
-                // the heading and starts that block, exactly as it interrupts a
-                // paragraph (§10). Only plain text folds; an ordered marker still
-                // folds (it never interrupts). Matches carve-js / carve-rs / djot.
+            } elseif ($this->endsHeadingOrQuote($nextLine, $lines, $i)) {
+                // A block-opener ends the heading and starts that block (§10). A
+                // LIST marker (bullet OR ordered) also ends the heading and starts
+                // a sibling list: a list marker folds only into a PARAGRAPH, not a
+                // heading (symmetric, matches carve-js / carve-rs / djot). Only
+                // plain text folds into the heading.
                 break;
             } else {
                 // Plain text folds into the heading text.
@@ -1893,11 +1894,14 @@ class BlockParser
                 $innerLines[] = $content;
                 $this->trackBlockQuoteLazyState($content, $lazyState);
                 $i++;
-            } elseif ($lazyState['paragraphOpen'] && !$this->startsNewBlock($currentLine)) {
+            } elseif ($lazyState['paragraphOpen'] && !$this->endsHeadingOrQuote($currentLine)) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
                 // block that left no open paragraph (a just-opened div, a closed
-                // fence), terminates the quote instead of being swallowed.
+                // fence), terminates the quote instead of being swallowed. A LIST
+                // marker (bullet OR ordered) also ends the quote and starts a
+                // sibling list -- it folds only into a paragraph, not a quote
+                // (symmetric §10, matches carve-js / carve-rs / djot).
                 $innerLines[] = $currentLine;
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState);
                 $i++;
@@ -3582,6 +3586,26 @@ class BlockParser
         if ($lastChild instanceof Paragraph) {
             $this->inlineParser->parse($lastChild, ' ' . $content, $line);
         }
+    }
+
+    /**
+     * Whether a line ENDS an open heading or blockquote (and starts a sibling
+     * block). A list marker (bullet, task, or ordered) ends them and starts a
+     * sibling list -- unlike paragraph interruption, where a list marker FOLDS
+     * in (symmetric §10): a list folds into a PARAGRAPH but ends a heading/quote,
+     * matching djot. Every paragraph-interrupter ends them too.
+     *
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function endsHeadingOrQuote(string $line, ?array $lines = null, ?int $index = null): bool
+    {
+        if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+            return true;
+        }
+
+        return $this->startsNewBlock($line, $lines, $index);
     }
 
     /**

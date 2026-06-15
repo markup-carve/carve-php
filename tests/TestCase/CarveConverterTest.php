@@ -99,21 +99,21 @@ class CarveConverterTest extends TestCase
 
     public function testBlockOpenerInterruptsHeading(): void
     {
-        // A block-opener that interrupts a paragraph (quote/table/fence/div/
-        // thematic break) also ends a heading and starts that block (§10).
-        // Symmetric interruption: list markers -- bullet AND ordered -- are NOT
-        // interrupters, so both fold into the heading text.
+        // A block-opener ends a heading and starts that block (§10). A LIST
+        // marker (bullet AND ordered) also ends the heading and starts a sibling
+        // list -- symmetric: a list marker folds only into a PARAGRAPH, not a
+        // heading. Only plain text folds into the heading.
         $this->assertSame(
-            "<section id=\"t-item\">\n  <h1>T\n- item</h1>\n</section>\n",
+            "<section id=\"t\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
         );
         $this->assertSame(
             "<section id=\"t\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
             $this->converter->convert("# T\n> quote"),
         );
-        // An ordered marker folds into the heading too (unchanged).
+        // An ordered marker ends the heading too (symmetric with the bullet).
         $this->assertSame(
-            "<section id=\"t-1-one\">\n  <h1>T\n1. one</h1>\n</section>\n",
+            "<section id=\"t\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
             $this->converter->convert("# T\n1. one"),
         );
     }

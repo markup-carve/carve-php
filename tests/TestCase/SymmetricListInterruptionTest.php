@@ -93,13 +93,31 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
-     * A bullet folds into an open heading, just like an ordered marker.
+     * A list marker ENDS an open heading and starts a sibling list (bullet and
+     * ordered alike) -- it folds only into a paragraph, not a heading. A
+     * blockquote, by contrast, is also ended. Plain text would fold in.
      */
-    public function testBulletFoldsIntoHeading(): void
+    public function testListMarkerEndsHeadingAndStartsSiblingList(): void
     {
         $this->assertSame(
-            "<section id=\"t-item\">\n  <h1>T\n- item</h1>\n</section>\n",
+            "<section id=\"t\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
+        );
+        $this->assertSame(
+            "<section id=\"t\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
+            $this->converter->convert("# T\n1. one"),
+        );
+    }
+
+    /**
+     * A list marker ENDS an open blockquote and starts a top-level sibling list
+     * (it does not lazily extend the quote); plain text folds in.
+     */
+    public function testListMarkerEndsBlockquoteAndStartsSiblingList(): void
+    {
+        $this->assertSame(
+            "<blockquote><p>quoted</p></blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            $this->converter->convert("> quoted\n- item"),
         );
     }
 
