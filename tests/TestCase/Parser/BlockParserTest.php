@@ -484,15 +484,23 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testParagraphInterruptionListInterruptsParagraph(): void
+    public function testParagraphInterruptionBulletFoldsWithoutBlankLine(): void
     {
+        // Symmetric interruption: a bullet without a preceding blank line folds
+        // into the paragraph (like an ordered marker). A blank line is required
+        // to start the list.
         $parser = new BlockParser();
         $doc = $parser->parse("Here is a list:\n- item one\n- item two");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
+
+        $withBlank = $parser->parse("Here is a list:\n\n- item one\n- item two");
+        $blankChildren = $withBlank->getChildren();
+        $this->assertCount(2, $blankChildren);
+        $this->assertInstanceOf(Paragraph::class, $blankChildren[0]);
+        $this->assertInstanceOf(ListBlock::class, $blankChildren[1]);
     }
 
     public function testParagraphInterruptionBlockquoteInterruptsParagraph(): void
