@@ -341,6 +341,21 @@ DJOT;
         $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::INLINE_FOOTNOTE));
     }
 
+    public function testFullProfileAllowsHeadingReferences(): void
+    {
+        // </#id> cross-references produce heading_ref inline nodes, so the full
+        // profile must keep them. Regression for heading_ref missing from
+        // NodeType::allInlineTypes(), which made isTypeAllowed() treat it as an
+        // unknown, denied type and silently drop the cross-reference.
+        $converter = new CarveConverter(profile: Profile::full());
+
+        $html = $converter->convert("# Setup\n\nJump to </#setup>.");
+
+        $this->assertStringContainsString('<a href="#Setup">', $html);
+        $this->assertFalse($converter->hasProfileViolations());
+        $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::HEADING_REF));
+    }
+
     // ==================== Custom Profile Tests ====================
 
     public function testCustomProfileWithAllowlist(): void
