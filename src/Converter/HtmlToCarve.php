@@ -237,12 +237,13 @@ class HtmlToCarve
             'ins' => $this->processInlineFormatting($node, '{+', '+}'),
             's', 'strike' => $this->processInlineFormatting($node, '~', '~'),
             'del' => $this->processInlineFormatting($node, '{-', '-}'),
-            // Forced brace forms so intraword marks (e.g. H<sub>2</sub>O,
-            // E=mc<sup>2</sup>) round-trip: a bare single-char delimiter would
-            // not open next to a word character under the word-boundary rule.
-            'mark' => $this->processInlineFormatting($node, '{=', '=}'),
-            'sup' => $this->processInlineFormatting($node, '{^', '^}'),
-            'sub' => $this->processInlineFormatting($node, '{,', ',}'),
+            // Single-char delimiters (`=` mark, `^` sup, `,` sub): bare when the
+            // element is whitespace-bounded (canonical), forced brace form only
+            // intraword (H<sub>2</sub>O, E=mc<sup>2</sup>) where a bare delimiter
+            // would not open under the word-boundary rule.
+            'mark' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '=')),
+            'sup' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '^')),
+            'sub' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, ',')),
             'kbd' => $this->processSemanticSpan($node, 'kbd'),
             'dfn' => $this->processSemanticSpan($node, 'dfn'),
             'abbr' => $this->processSemanticSpan($node, 'abbr'),
@@ -852,6 +853,29 @@ class HtmlToCarve
         $attrs = $this->formatBlockAttributes($node, $skipAttrs);
 
         return $attrs . $prefix . $content . "\n\n";
+    }
+
+    /**
+     * Choose bare vs forced-brace delimiters for a single-char inline mark
+     * (`=` mark, `^` sup, `,` sub). A bare delimiter parses only at a word
+     * boundary, so emit the bare form (`^x^`) when the element is whitespace-
+     * bounded on both sides (or at the start/end of its container) and the
+     * forced form (`{^x^}`) otherwise, so an intraword mark still round-trips.
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected function boundaryDelimiters(DOMElement $node, string $ch): array
+    {
+        $prev = $node->previousSibling;
+        $next = $node->nextSibling;
+        $prevOk = $prev === null
+            || ($prev instanceof DOMText
+                && ($prev->textContent === '' || ctype_space(substr($prev->textContent, -1))));
+        $nextOk = $next === null
+            || ($next instanceof DOMText
+                && ($next->textContent === '' || ctype_space($next->textContent[0])));
+
+        return ($prevOk && $nextOk) ? [$ch, $ch] : ['{' . $ch, $ch . '}'];
     }
 
     protected function processInlineFormatting(DOMElement $node, string $open, string $close): string
@@ -1555,6 +1579,7 @@ class HtmlToCarve
         $rows = [];
         $headerRow = null;
         $headerRowAttrs = '';
+        $headerCells = [];
         $columnCount = 0;
         $captionText = '';
         $alignments = [];
@@ -1609,6 +1634,7 @@ class HtmlToCarve
                 if ($isHeader && $headerRow === null) {
                     $headerRow = $row;
                     $headerRowAttrs = $rowAttrSuffix;
+                    $headerCells = $cells;
                 } else {
                     $rows[] = $row;
                 }
@@ -1620,30 +1646,54 @@ class HtmlToCarve
         $output = $tableAttrs . "\n";
 
         if ($headerRow !== null) {
-            $output .= $headerRow . "\n";
-
-            // Use original separator widths if available for round-trip
-            $separator = [];
             $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
-            if ($colWidthsAttr !== '') {
-                $colWidths = array_map('intval', explode(',', $colWidthsAttr));
-                foreach ($colWidths as $width) {
-                    // Use exact width from original for round-trip fidelity
-                    $separator[] = $this->buildTableSeparator($width, $alignments[count($separator)] ?? TableCell::ALIGN_DEFAULT);
-                }
-                // Fill remaining columns with default width
-                $separatorCount = count($separator);
-                while ($separatorCount < $columnCount) {
-                    $separator[] = $this->buildTableSeparator(3, $alignments[$separatorCount] ?? TableCell::ALIGN_DEFAULT);
-                    $separatorCount++;
-                }
-            } else {
-                for ($i = 0; $i < $columnCount; $i++) {
-                    $separator[] = $this->buildTableSeparator(3, $alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+
+            // A header cell carrying an attribute block can't use the tight
+            // `|=` form unambiguously, so fall back to the separator form.
+            $headerHasCellAttrs = false;
+            foreach ($headerCells as $hc) {
+                if (str_starts_with($hc, '{')) {
+                    $headerHasCellAttrs = true;
+
+                    break;
                 }
             }
 
-            $output .= '|' . implode('|', $separator) . '|' . "\n";
+            if ($colWidthsAttr === '' && !$headerHasCellAttrs) {
+                // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
+                // markers on the header cell), no separator row. Used unless the
+                // source was a GFM table (recorded via data-djot-col-widths).
+                $headerLine = '|';
+                foreach ($headerCells as $i => $cell) {
+                    $marker = $this->tableAlignMarker($alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+                    $headerLine .= '=' . $marker . ' ' . $cell . ' |';
+                }
+                $output .= $headerLine . $headerRowAttrs . "\n";
+            } else {
+                $output .= $headerRow . "\n";
+
+                // Use original separator widths if available for round-trip
+                $separator = [];
+                if ($colWidthsAttr !== '') {
+                    $colWidths = array_map('intval', explode(',', $colWidthsAttr));
+                    foreach ($colWidths as $width) {
+                        // Use exact width from original for round-trip fidelity
+                        $separator[] = $this->buildTableSeparator($width, $alignments[count($separator)] ?? TableCell::ALIGN_DEFAULT);
+                    }
+                    // Fill remaining columns with default width
+                    $separatorCount = count($separator);
+                    while ($separatorCount < $columnCount) {
+                        $separator[] = $this->buildTableSeparator(3, $alignments[$separatorCount] ?? TableCell::ALIGN_DEFAULT);
+                        $separatorCount++;
+                    }
+                } else {
+                    for ($i = 0; $i < $columnCount; $i++) {
+                        $separator[] = $this->buildTableSeparator(3, $alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+                    }
+                }
+
+                $output .= '|' . implode('|', $separator) . '|' . "\n";
+            }
         }
 
         $output .= implode("\n", $rows) . "\n";
@@ -1811,6 +1861,20 @@ class HtmlToCarve
             TableCell::ALIGN_RIGHT => str_repeat('-', max(2, $width)) . ':',
             TableCell::ALIGN_CENTER => ':' . str_repeat('-', max(1, $width)) . ':',
             default => str_repeat('-', max(2, $width)),
+        };
+    }
+
+    /**
+     * The tight alignment marker glued to a `|=` header cell: `<` left,
+     * `>` right, `~` center, empty for default.
+     */
+    protected function tableAlignMarker(string $alignment): string
+    {
+        return match ($alignment) {
+            TableCell::ALIGN_LEFT => '<',
+            TableCell::ALIGN_RIGHT => '>',
+            TableCell::ALIGN_CENTER => '~',
+            default => '',
         };
     }
 
