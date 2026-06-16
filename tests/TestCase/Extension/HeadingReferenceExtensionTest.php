@@ -184,10 +184,10 @@ See [[Say "Hello"]].
 # Say "Hello"
 DJOT);
 
-        // Both the heading and the reference smart-convert the quotes, and
-        // ids now keep non-ASCII verbatim (carve spec #73), so they share
-        // the smart-quoted id and still resolve.
-        $this->assertStringContainsString('href="#Say-“Hello”"', $html);
+        // Smart typography is reversed to ASCII before the id is computed, so
+        // the curly quotes do not leak into the id (`Say "Hello"` -> id
+        // `Say-Hello`); the wiki reference still resolves on heading text.
+        $this->assertStringContainsString('href="#Say-Hello"', $html);
         $this->assertStringNotContainsString('[[Say "Hello"]]', $html);
     }
 
@@ -216,11 +216,11 @@ See [[Bob's Guide]].
 # Bob's Guide
 DJOT);
 
-        // Smart-punctuation turns the straight apostrophe into U+2019, which
-        // is non-ASCII and now kept verbatim in the id (carve spec #73):
-        // `Bob's Guide` -> `Bob’s-Guide`. The href must match the heading id.
-        $this->assertStringContainsString('id="Bob’s-Guide"', $html);
-        $this->assertStringContainsString('href="#Bob’s-Guide"', $html);
+        // Smart-punctuation turns the straight apostrophe into U+2019, but it
+        // is reversed to ASCII before the id is computed, so the curly quote
+        // does not leak in: `Bob's Guide` -> `Bob-s-Guide`. The href must match.
+        $this->assertStringContainsString('id="Bob-s-Guide"', $html);
+        $this->assertStringContainsString('href="#Bob-s-Guide"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $this->assertStringNotContainsString('[[Bob\'s Guide]]', $html);
     }
