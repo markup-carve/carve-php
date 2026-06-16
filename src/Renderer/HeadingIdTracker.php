@@ -197,7 +197,7 @@ class HeadingIdTracker
      */
     public function normalizeId(string $text): string
     {
-        $id = $this->slugRun($text);
+        $id = $this->slugRun($this->deTypography($text));
         if ($this->idTransformer !== null) {
             $id = $this->slugRun(($this->idTransformer)($id));
         }
@@ -258,6 +258,23 @@ class HeadingIdTracker
         $text = preg_replace('/[^0-9A-Za-z\x{80}-\x{10FFFF}]+/u', '-', $text) ?? $text;
 
         return trim($text, '-');
+    }
+
+    /**
+     * Reverse smart-typography substitutions to their ASCII source before a
+     * slug is computed, so an id never depends on presentational typography
+     * (`# That's all` keeps no curly `’`; `# Step 1 -> 2` keeps no `→`). The
+     * map is the inverse of the parser's smart tokens plus smart quotes and
+     * dashes; the recovered ASCII punctuation then collapses in slugRun().
+     */
+    protected function deTypography(string $text): string
+    {
+        return strtr($text, [
+            '↔' => '<->', '™' => '(tm)', '…' => '...', '→' => '->', '←' => '<-',
+            '⇒' => '=>', '≤' => '<=', '≥' => '>=', '≠' => '!=', '±' => '+-',
+            '©' => '(c)', '®' => '(r)', '–' => '-', '—' => '-',
+            '‘' => "'", '’' => "'", '“' => '"', '”' => '"',
+        ]);
     }
 
     /**
