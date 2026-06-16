@@ -21,9 +21,9 @@ class HeadingLevelShiftTransformTest extends TestCase
         $original = $converter->render($document);
         $shifted = $converter->render($transformed);
 
-        $this->assertStringContainsString('<section id="heading-1">', $original);
+        $this->assertStringContainsString('<section id="Heading-1">', $original);
         $this->assertStringContainsString('<h1>Heading 1</h1>', $original);
-        $this->assertStringContainsString('<section id="heading-1">', $shifted);
+        $this->assertStringContainsString('<section id="Heading-1">', $shifted);
         $this->assertStringContainsString('<h2>Heading 1</h2>', $shifted);
     }
 

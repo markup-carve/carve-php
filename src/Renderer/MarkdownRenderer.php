@@ -225,11 +225,15 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->headingIdTracker->getTextForId($id);
-        if ($label === null) {
+        $target = $node->getTargetId();
+        // Exact match first, then a case-insensitive fallback so a lowercase
+        // `</#getting-started>` resolves to a case-preserved id and the emitted
+        // href uses the ACTUAL id (matches HtmlRenderer).
+        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
+        if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
-            return '</#' . $id . '>';
+            return '</#' . $target . '>';
         }
 
         // A heading target gets a real `[label](#id)` link — renderHeading emits a
@@ -287,7 +291,13 @@ class MarkdownRenderer implements RendererInterface
         if ($node instanceof Heading) {
             $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
         } elseif ($node instanceof HeadingRef) {
-            $referencedIds[$node->getTargetId()] = true;
+            // Record the ACTUAL (case-preserved) heading id a `</#id>` resolves
+            // to, so a heading that is a case-insensitive crossref target still
+            // emits its `{#id}` anchor.
+            $resolvedId = $this->headingIdTracker->findIdCaseInsensitive($node->getTargetId());
+            if ($resolvedId !== null) {
+                $referencedIds[$resolvedId] = true;
+            }
         }
 
         foreach ($node->getChildren() as $child) {

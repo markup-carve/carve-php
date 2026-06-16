@@ -61,7 +61,7 @@ DJOT;
 
         $toc = $tocExtension->getToc();
 
-        $this->assertSame('hello-world', $toc[0]['id']);
+        $this->assertSame('Hello-World', $toc[0]['id']);
     }
 
     public function testMinMaxLevels(): void
@@ -100,8 +100,8 @@ DJOT;
         $html = $tocExtension->getTocHtml();
 
         $this->assertStringContainsString('<nav class="toc">', $html);
-        $this->assertStringContainsString('<a href="#first">First</a>', $html);
-        $this->assertStringContainsString('<a href="#second">Second</a>', $html);
+        $this->assertStringContainsString('<a href="#First">First</a>', $html);
+        $this->assertStringContainsString('<a href="#Second">Second</a>', $html);
     }
 
     public function testOrderedList(): void
@@ -253,7 +253,7 @@ DJOT;
         $html = $converter->render($document);
 
         $this->assertStringContainsString('<nav class="toc">', $html);
-        $this->assertStringContainsString('<a href="#one">One</a>', $html);
+        $this->assertStringContainsString('<a href="#One">One</a>', $html);
     }
 
     public function testPositionBottom(): void
@@ -321,21 +321,21 @@ DJOT;
         $toc = $tocExtension->getToc();
 
         $this->assertCount(4, $toc);
-        $this->assertSame('introduction', $toc[0]['id']);
-        $this->assertSame('final-thoughts', $toc[1]['id']);
-        $this->assertSame('final-thoughts-2', $toc[2]['id']);
-        $this->assertSame('final-thoughts-3', $toc[3]['id']);
+        $this->assertSame('Introduction', $toc[0]['id']);
+        $this->assertSame('Final-Thoughts', $toc[1]['id']);
+        $this->assertSame('Final-Thoughts-2', $toc[2]['id']);
+        $this->assertSame('Final-Thoughts-3', $toc[3]['id']);
 
         // Verify the section IDs in the HTML match the TOC IDs
-        $this->assertStringContainsString('id="final-thoughts"', $html);
-        $this->assertStringContainsString('id="final-thoughts-2"', $html);
-        $this->assertStringContainsString('id="final-thoughts-3"', $html);
+        $this->assertStringContainsString('id="Final-Thoughts"', $html);
+        $this->assertStringContainsString('id="Final-Thoughts-2"', $html);
+        $this->assertStringContainsString('id="Final-Thoughts-3"', $html);
 
         // Verify TOC links point to the correct section IDs
         $tocHtml = $tocExtension->getTocHtml();
-        $this->assertStringContainsString('href="#final-thoughts"', $tocHtml);
-        $this->assertStringContainsString('href="#final-thoughts-2"', $tocHtml);
-        $this->assertStringContainsString('href="#final-thoughts-3"', $tocHtml);
+        $this->assertStringContainsString('href="#Final-Thoughts"', $tocHtml);
+        $this->assertStringContainsString('href="#Final-Thoughts-2"', $tocHtml);
+        $this->assertStringContainsString('href="#Final-Thoughts-3"', $tocHtml);
     }
 
     public function testPositionNullForManualPlacement(): void
@@ -365,7 +365,7 @@ DJOT;
         $toc = $tocExtension->getToc();
 
         $this->assertSame('The foo function', $toc[0]['text']);
-        $this->assertSame('the-foo-function', $toc[0]['id']);
+        $this->assertSame('The-foo-function', $toc[0]['id']);
     }
 
     public function testInlineMathTextIsIncludedInTocEntry(): void
@@ -380,7 +380,7 @@ DJOT;
         $toc = $tocExtension->getToc();
 
         $this->assertSame('Equation E=mc^2', $toc[0]['text']);
-        $this->assertSame('equation-e-mc-2', $toc[0]['id']);
+        $this->assertSame('Equation-E-mc-2', $toc[0]['id']);
     }
 
     public function testRawInlineIsExcludedFromTocEntry(): void
@@ -413,8 +413,8 @@ DJOT;
         $html = $tocExtension->getTocHtml();
 
         $this->assertSame(2, substr_count($html, '<ul>'));
-        $this->assertStringContainsString('<li><a href="#one">One</a>' . "\n<ul>", $html);
-        $this->assertStringContainsString('<li><a href="#three">Three</a></li>', $html);
+        $this->assertStringContainsString('<li><a href="#One">One</a>' . "\n<ul>", $html);
+        $this->assertStringContainsString('<li><a href="#Three">Three</a></li>', $html);
         $this->assertStringContainsString("</ul>\n</li>\n</ul>", $html);
     }
 
@@ -430,6 +430,6 @@ DJOT;
 
         $this->assertSame(2, substr_count($html, '<ul>'));
         $this->assertStringNotContainsString("</ul>\n\n<ul>", $html);
-        $this->assertStringContainsString('<li><a href="#three">Three</a></li>' . "\n<li><a href=\"#two\">Two</a></li>", $html);
+        $this->assertStringContainsString('<li><a href="#Three">Three</a></li>' . "\n<li><a href=\"#Two\">Two</a></li>", $html);
     }
 }

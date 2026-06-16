@@ -22,8 +22,8 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("# Installation\n\nSee </#installation> for setup.\n");
 
-        $this->assertStringContainsString('# Installation {#installation}', $out);
-        $this->assertStringContainsString('[Installation](#installation)', $out);
+        $this->assertStringContainsString('# Installation {#Installation}', $out);
+        $this->assertStringContainsString('[Installation](#Installation)', $out);
     }
 
     public function testUnreferencedHeadingHasNoId(): void
@@ -38,8 +38,8 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("See </#setup>.\n\n# Setup\n");
 
-        $this->assertStringContainsString('[Setup](#setup)', $out);
-        $this->assertStringContainsString('# Setup {#setup}', $out);
+        $this->assertStringContainsString('[Setup](#Setup)', $out);
+        $this->assertStringContainsString('# Setup {#Setup}', $out);
     }
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
@@ -81,9 +81,9 @@ class MarkdownCrossRefLinkTest extends TestCase
         // is flattened; the `{#id}` stays on the heading line so the link anchors.
         $out = $this->md("# Foo\nbar\n\nSee </#foo-bar>.\n");
 
-        $this->assertStringContainsString('# Foo bar {#foo-bar}', $out);
-        $this->assertStringContainsString('[Foo bar](#foo-bar)', $out);
-        $this->assertStringNotContainsString("bar {#foo-bar}\n\n# ", $out);
+        $this->assertStringContainsString('# Foo bar {#Foo-bar}', $out);
+        $this->assertStringContainsString('[Foo bar](#Foo-bar)', $out);
+        $this->assertStringNotContainsString("bar {#Foo-bar}\n\n# ", $out);
     }
 
     public function testUnresolvedReferenceStaysLiteral(): void

@@ -46,7 +46,7 @@ DJOT;
 
         // Heading should be outside the list
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<section id="mixed-list-types">', $result);
+        $this->assertStringContainsString('<section id="Mixed-List-Types">', $result);
         $this->assertStringContainsString('<h3>Mixed List Types</h3>', $result);
 
         // Heading should come after the list closes
@@ -68,7 +68,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<section id="Heading">', $result);
         $this->assertStringContainsString('<h3>Heading</h3>', $result);
 
         $lastUlPos = strrpos($result, '</ul>');
@@ -219,7 +219,7 @@ DJOT;
 
         // Should be tight list (no <p> wrappers)
         $this->assertStringNotContainsString('<li><p>A</p>', $result);
-        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<section id="Heading">', $result);
         $this->assertStringContainsString('<h3>Heading</h3>', $result);
     }
 
@@ -259,15 +259,15 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="first-heading">', $result);
+        $this->assertStringContainsString('<section id="First-Heading">', $result);
         $this->assertStringContainsString('<h2>First Heading</h2>', $result);
-        $this->assertStringContainsString('<section id="second-heading">', $result);
+        $this->assertStringContainsString('<section id="Second-Heading">', $result);
         $this->assertStringContainsString('<h2>Second Heading</h2>', $result);
 
         // Both headings should be after the list
         $lastUlPos = strrpos($result, '</ul>');
-        $h1Pos = strpos($result, '<section id="first-heading">');
-        $h2Pos = strpos($result, '<section id="second-heading">');
+        $h1Pos = strpos($result, '<section id="First-Heading">');
+        $h2Pos = strpos($result, '<section id="Second-Heading">');
         $this->assertGreaterThan($lastUlPos, $h1Pos);
         $this->assertGreaterThan($lastUlPos, $h2Pos);
     }
@@ -313,7 +313,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ul>', $result);
-        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<section id="Heading">', $result);
         $this->assertStringContainsString('<h1>Heading</h1>', $result);
     }
 
@@ -367,7 +367,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('</ol>', $result);
-        $this->assertStringContainsString('<section id="heading">', $result);
+        $this->assertStringContainsString('<section id="Heading">', $result);
         $this->assertStringContainsString('<h2>Heading</h2>', $result);
 
         $lastOlPos = strrpos($result, '</ol>');
