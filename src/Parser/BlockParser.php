@@ -2170,6 +2170,12 @@ class BlockParser
                     $maxContentIndent = $currentIndent;
                     $sawBlankLine = false;
                     $brokeForParentContent = false;
+                    // Trailing-block state over the collected nested lines, so a
+                    // base-level lazy line folds only when the nested content
+                    // ends in an OPEN paragraph (family-D rule). After a CLOSED
+                    // block (fenced code, table, div) the dedented line ends the
+                    // item instead of being absorbed.
+                    $subTrailingState = self::INITIAL_TRAILING_BLOCK_STATE;
                     while ($i < $count) {
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
@@ -2199,7 +2205,9 @@ class BlockParser
                                 $maxContentIndent = $lineIndent;
                             }
                             // Remove subIndent worth of indentation (handling tabs)
-                            $subLines[] = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                            $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                            $subLines[] = $stripped;
+                            $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped);
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -2224,8 +2232,20 @@ class BlockParser
                             if ($this->isBlockElementStart($trimmedLine) || $this->startsNewBlock($trimmedLine)) {
                                 break;
                             }
-                            // Otherwise it's lazy continuation at base level - include in nested content
+                            // Otherwise it's lazy continuation at base level. It
+                            // only folds into the nested content when that
+                            // content ends in an OPEN paragraph; after a closed
+                            // block (code/table/div) the dedented line ends the
+                            // item (family-D rule, matching carve-js/carve-rs).
+                            if (
+                                !$subTrailingState['openParagraph']
+                                && !$subTrailingState['inFence']
+                                && !$subTrailingState['inDiv']
+                            ) {
+                                break;
+                            }
                             $subLines[] = $trimmedLine;
+                            $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent > $baseIndent) {
@@ -2241,6 +2261,7 @@ class BlockParser
                                 && !$this->startsNewBlock($trimmedLine)
                             ) {
                                 $subLines[] = $trimmedLine;
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
                                 $i++;
 
                                 continue;
