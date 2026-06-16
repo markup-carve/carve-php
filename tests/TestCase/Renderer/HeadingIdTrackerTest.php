@@ -28,7 +28,7 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('hello-world', $id);
+        $this->assertSame('Hello-World', $id);
     }
 
     public function testDeduplicatesSameText(): void
@@ -46,9 +46,9 @@ class HeadingIdTrackerTest extends TestCase
         $id2 = $this->tracker->getIdForHeading($heading2);
         $id3 = $this->tracker->getIdForHeading($heading3);
 
-        $this->assertSame('final-thoughts', $id1);
-        $this->assertSame('final-thoughts-2', $id2);
-        $this->assertSame('final-thoughts-3', $id3);
+        $this->assertSame('Final-Thoughts', $id1);
+        $this->assertSame('Final-Thoughts-2', $id2);
+        $this->assertSame('Final-Thoughts-3', $id3);
     }
 
     public function testCachingReturnsSameId(): void
@@ -60,7 +60,7 @@ class HeadingIdTrackerTest extends TestCase
         $id2 = $this->tracker->getIdForHeading($heading);
 
         $this->assertSame($id1, $id2);
-        $this->assertSame('cached', $id1);
+        $this->assertSame('Cached', $id1);
     }
 
     public function testCachingDoesNotIncrementCounter(): void
@@ -78,9 +78,9 @@ class HeadingIdTrackerTest extends TestCase
         // Third call for different object with same text gets -1
         $id2 = $this->tracker->getIdForHeading($heading2);
 
-        $this->assertSame('same', $id1);
-        $this->assertSame('same', $id1Again);
-        $this->assertSame('same-2', $id2);
+        $this->assertSame('Same', $id1);
+        $this->assertSame('Same', $id1Again);
+        $this->assertSame('Same-2', $id2);
     }
 
     public function testExplicitIdAttribute(): void
@@ -112,7 +112,7 @@ class HeadingIdTrackerTest extends TestCase
         $heading1->appendChild(new Text('Title'));
 
         $id1 = $this->tracker->getIdForHeading($heading1);
-        $this->assertSame('title', $id1);
+        $this->assertSame('Title', $id1);
 
         $this->tracker->reset();
 
@@ -121,7 +121,7 @@ class HeadingIdTrackerTest extends TestCase
         $heading2->appendChild(new Text('Title'));
 
         $id2 = $this->tracker->getIdForHeading($heading2);
-        $this->assertSame('title', $id2);
+        $this->assertSame('Title', $id2);
     }
 
     public function testTrackIdPreventsConflict(): void
@@ -134,7 +134,7 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('my-heading-2', $id);
+        $this->assertSame('My-Heading', $id);
     }
 
     public function testTrackIdEmptyStringIgnored(): void
@@ -146,25 +146,25 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('test', $id);
+        $this->assertSame('Test', $id);
     }
 
     public function testNormalizeId(): void
     {
-        $this->assertSame('hello-world', $this->tracker->normalizeId('Hello World'));
-        $this->assertSame('no-hashes', $this->tracker->normalizeId('#No# #Hashes#'));
-        $this->assertSame('trim-me', $this->tracker->normalizeId('  Trim Me  '));
-        $this->assertSame('multiple-spaces', $this->tracker->normalizeId('Multiple   Spaces'));
+        $this->assertSame('Hello-World', $this->tracker->normalizeId('Hello World'));
+        $this->assertSame('No-Hashes', $this->tracker->normalizeId('#No# #Hashes#'));
+        $this->assertSame('Trim-Me', $this->tracker->normalizeId('  Trim Me  '));
+        $this->assertSame('Multiple-Spaces', $this->tracker->normalizeId('Multiple   Spaces'));
         $this->assertSame('this-t-key-params-fallback', $this->tracker->normalizeId("\$this->t(\$key, \$params = [], \$fallback = '')"));
-        $this->assertSame('my-title', $this->tracker->normalizeId('My --- title'));
-        // Non-ASCII is preserved by default (only case folded); see
-        // AsciiHeadingIdsExtension for the opt-in ASCII fold.
-        $this->assertSame('über-uns', $this->tracker->normalizeId('Über uns'));
+        $this->assertSame('My-title', $this->tracker->normalizeId('My --- title'));
+        // Non-ASCII is preserved verbatim and case is preserved (no fold, no
+        // NFC normalization); see AsciiHeadingIdsExtension for the opt-in ASCII fold.
+        $this->assertSame('Über-uns', $this->tracker->normalizeId('Über uns'));
         $this->assertSame('café-résumé', $this->tracker->normalizeId('café résumé'));
-        $this->assertSame('привет-мир', $this->tracker->normalizeId('Привет мир'));
+        $this->assertSame('Привет-мир', $this->tracker->normalizeId('Привет мир'));
         $this->assertSame('s', $this->tracker->normalizeId('###'));
-        $this->assertSame('s-123-things', $this->tracker->normalizeId('123 Things'));
-        $this->assertSame('s-1-introduction', $this->tracker->normalizeId('1. Introduction'));
+        $this->assertSame('s-123-Things', $this->tracker->normalizeId('123 Things'));
+        $this->assertSame('s-1-Introduction', $this->tracker->normalizeId('1. Introduction'));
     }
 
     public function testGetPlainText(): void
@@ -211,7 +211,7 @@ class HeadingIdTrackerTest extends TestCase
 
         $id = $this->tracker->getIdForHeading($heading);
 
-        $this->assertSame('c-programming', $id);
+        $this->assertSame('C-Programming', $id);
     }
 
     public function testGetPlainTextCachesForHeadings(): void
@@ -253,7 +253,7 @@ class HeadingIdTrackerTest extends TestCase
 
         // getIdForHeading internally calls getPlainText, which caches
         $id = $this->tracker->getIdForHeading($heading);
-        $this->assertSame('title', $id);
+        $this->assertSame('Title', $id);
 
         // Modify heading after ID generation
         $heading->appendChild(new Text(' modified'));

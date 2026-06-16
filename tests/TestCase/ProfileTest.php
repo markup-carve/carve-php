@@ -224,7 +224,7 @@ class ProfileTest extends TestCase
         $converter = new CarveConverter(profile: Profile::article());
         $html = $converter->convert('# Heading');
 
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
     }
 
@@ -313,7 +313,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
         $this->assertStringContainsString('<strong>', $html);
         $this->assertStringContainsString('<img', $html);
@@ -478,7 +478,7 @@ DJOT;
         $converter->setProfile(null);
 
         $html = $converter->convert('# Heading');
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
     }
 

@@ -142,12 +142,12 @@ class HeadingPermalinksExtensionTest extends TestCase
         $html = $converter->convert("## Summary\n\nFirst section.\n\n## Summary\n\nSecond section.");
 
         // Both sections should have unique IDs
-        $this->assertStringContainsString('id="summary"', $html);
-        $this->assertStringContainsString('id="summary-2"', $html);
+        $this->assertStringContainsString('id="Summary"', $html);
+        $this->assertStringContainsString('id="Summary-2"', $html);
 
         // Permalink links should point to the correct section
-        $this->assertStringContainsString('href="#summary"', $html);
-        $this->assertStringContainsString('href="#summary-2"', $html);
+        $this->assertStringContainsString('href="#Summary"', $html);
+        $this->assertStringContainsString('href="#Summary-2"', $html);
     }
 
     public function testHeadingWithLineBreak(): void
@@ -159,7 +159,7 @@ class HeadingPermalinksExtensionTest extends TestCase
         $html = $converter->convert("# Hello\\\nWorld");
 
         // The break should become a space in the ID
-        $this->assertStringContainsString('href="#hello-world"', $html);
+        $this->assertStringContainsString('href="#Hello-World"', $html);
     }
 
     public function testShowOnHover(): void
