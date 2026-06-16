@@ -55,16 +55,22 @@ class DjotToCarvePreserveIdsTest extends TestCase
     public function testScrapesIdsFromPublishedHtmlSectionWrapper(): void
     {
         // Carve and Djot both render <section id="..."><hN>…</hN></section>.
-        $published = '<section id="Hello-World"><h1>Hello World</h1></section>'
-            . '<section id="API-Reference"><h2>API Reference</h2></section>';
+        // The published site lowercased its ids (Carve's case-preserving slug
+        // would emit `Hello-World`), so they diverge and must be pinned.
+        $published = '<section id="hello-world"><h1>Hello World</h1></section>'
+            . '<section id="api-reference"><h2>API Reference</h2></section>';
         $djot = "# Hello World\n\n## API Reference\n";
 
         $out = (new DjotToCarve())
             ->preserveHeadingIds(new RenderedHtmlIds($published))
             ->convert($djot);
 
-        $this->assertStringContainsString("{#Hello-World}\n# Hello World", $out);
-        $this->assertStringContainsString("{#API-Reference}\n## API Reference", $out);
+        $this->assertStringContainsString("{#hello-world}\n# Hello World", $out);
+        $this->assertStringContainsString("{#api-reference}\n## API Reference", $out);
+        // And the pinned ids survive a Carve render.
+        $ids = $this->carveIds($out);
+        $this->assertContains('hello-world', $ids);
+        $this->assertContains('api-reference', $ids);
     }
 
     public function testScrapesIdFromHeadingElementWhenNotSectionWrapped(): void
