@@ -66,36 +66,11 @@ class PlainTextRenderer implements RendererInterface
 
     protected string $blockQuoteSuffix = '"';
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
-
     protected HeadingIdTracker $headingIdTracker;
 
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
-    }
-
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode How to render soft breaks:
-     *   - Newline: renders as "\n"
-     *   - Space: renders as " " (default)
-     *   - Break: renders as "\n" (same as Newline for plain text)
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
     }
 
     public function render(Document $document): string
@@ -162,7 +137,10 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof FootnoteRef => '[' . $node->getLabel() . ']',
             $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-            $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
+            // A soft break is a single source newline that stays inside the
+            // paragraph; in plain text it renders as a space. For a visible line
+            // break use a `::: |` line block or a trailing backslash hard break.
+            $node instanceof SoftBreak => ' ',
             $node instanceof HardBreak => "\n",
             $node instanceof RawInline => '', // Skip raw inlines (format-specific)
             default => $this->renderChildren($node),

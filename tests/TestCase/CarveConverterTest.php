@@ -13,7 +13,6 @@ use Carve\Node\Block\Heading;
 use Carve\Node\Inline\Symbol;
 use Carve\Profile;
 use Carve\Renderer\MarkdownRenderer;
-use Carve\Renderer\SoftBreakMode;
 use LengthException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -2389,8 +2388,6 @@ DJOT;
      */
     public function testSmartQuotesConsecutiveOpenersAtLineStart(): void
     {
-        $this->converter->getHtmlRenderer()->setSoftBreakMode(SoftBreakMode::Newline);
-
         $djot = "\"Hello,\" said the spider.\n\"'Shelob' is my name.\"";
         $result = $this->converter->convert($djot);
 
