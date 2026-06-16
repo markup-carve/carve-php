@@ -197,6 +197,13 @@ final class NodeType
     public const INLINE_FOOTNOTE = 'inline_footnote';
 
     /**
+     * Heading cross-reference (Carve: `</#id>`).
+     *
+     * @var string
+     */
+    public const HEADING_REF = 'heading_ref';
+
+    /**
      * @var string
      */
     public const SPAN = 'span';
@@ -293,6 +300,7 @@ final class NodeType
             self::ESCAPED_TEXT,
             self::FOOTNOTE_REF,
             self::INLINE_FOOTNOTE,
+            self::HEADING_REF,
             self::SPAN,
             self::SUPERSCRIPT,
             self::SUBSCRIPT,
