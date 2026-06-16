@@ -12,7 +12,6 @@ use Carve\Node\Block\Heading;
 use Carve\Node\Block\ListBlock;
 use Carve\Node\Block\Paragraph;
 use Carve\Parser\BlockParser;
-use Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -176,17 +175,6 @@ class ParagraphInterruptionTest extends TestCase
         $withBlank = $converter->convert("Here is a list:\n\n- item one\n- item two");
         $this->assertStringContainsString('<p>Here is a list:</p>', $withBlank);
         $this->assertStringContainsString('<ul>', $withBlank);
-    }
-
-    public function testConverterSoftBreaksWithExplicitBreakMode(): void
-    {
-        $converter = new CarveConverter(
-            softBreakMode: SoftBreakMode::Break,
-        );
-
-        $result = $converter->convert("Line one\nLine two");
-
-        $this->assertStringContainsString('<br>', $result);
     }
 
     public function testEscapedListMarkerNotAList(): void

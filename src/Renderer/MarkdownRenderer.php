@@ -78,8 +78,6 @@ class MarkdownRenderer implements RendererInterface
 
     protected bool $inBlockQuote = false;
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
-
     protected HeadingIdTracker $headingIdTracker;
 
     /**
@@ -102,26 +100,6 @@ class MarkdownRenderer implements RendererInterface
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
-    }
-
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode Newline (default) or Space
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
     }
 
     public function render(Document $document): string
@@ -201,11 +179,10 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof HardBreak => "  \n",
-            $node instanceof SoftBreak => match ($this->softBreakMode) {
-                SoftBreakMode::Newline => "\n",
-                SoftBreakMode::Space => ' ',
-                SoftBreakMode::Break => "  \n", // Markdown hard break
-            },
+            // A soft break is a single source newline that stays inside the
+            // paragraph. For a visible line break use a `::: |` line block or a
+            // trailing backslash hard break.
+            $node instanceof SoftBreak => "\n",
             $node instanceof Superscript => $this->renderSuperscript($node),
             $node instanceof Subscript => $this->renderSubscript($node),
             $node instanceof Highlight => $this->renderHighlight($node),

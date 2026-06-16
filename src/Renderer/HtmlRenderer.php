@@ -66,8 +66,6 @@ class HtmlRenderer implements RendererInterface
 {
     use EventDispatcherTrait;
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
-
     /**
      * Safe mode configuration (null = disabled)
      */
@@ -194,29 +192,6 @@ class HtmlRenderer implements RendererInterface
     public function isSafeModeEnabled(): bool
     {
         return $this->safeMode !== null;
-    }
-
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode How to render soft breaks:
-     *   - Newline: renders as "\n" (default, not visible in browser)
-     *   - Space: renders as " " (not visible in browser)
-     *   - Break: renders as "<br>" (visible line break)
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
     }
 
     /**
@@ -1211,16 +1186,17 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSoftBreak(): string
     {
-        // The trailing newline is emitted as the soft-break guard so block
-        // indentation (indentBlock) never treats an inline soft/hard break as a
-        // line boundary — a hard-wrapped paragraph or heading keeps its
-        // continuation flush at column 0, matching carve-js/carve-rs/djot. The
-        // guard is restored to a real newline at every public render exit.
-        return match ($this->softBreakMode) {
-            SoftBreakMode::Newline => self::SOFT_BREAK_GUARD,
-            SoftBreakMode::Space => ' ',
-            SoftBreakMode::Break => ($this->xhtml ? '<br />' : '<br>') . self::SOFT_BREAK_GUARD,
-        };
+        // A soft break is a single source newline that stays inside the
+        // paragraph; it renders as a newline (collapsed by the browser). For a
+        // visible line break use a `::: |` line block (poetry/addresses) or a
+        // trailing backslash hard break.
+        //
+        // The newline is emitted as the soft-break guard so block indentation
+        // (indentBlock) never treats an inline soft/hard break as a line
+        // boundary - a hard-wrapped paragraph or heading keeps its continuation
+        // flush at column 0, matching carve-js/carve-rs/djot. The guard is
+        // restored to a real newline at every public render exit.
+        return self::SOFT_BREAK_GUARD;
     }
 
     protected function renderHardBreak(): string
