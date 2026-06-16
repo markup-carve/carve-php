@@ -31,4 +31,14 @@ class TableHeaderRowspanTest extends TestCase
         $result = $this->converter->convert("| H | G |\n|---|---|\n| ^ | c |");
         $this->assertStringContainsString('<th rowspan="2">H</th>', $result);
     }
+
+    public function testHeaderRowspanCoexistsWithBodyRowspan(): void
+    {
+        // H spans header+row1; b spans row1+row2; x stays in row2 (its column
+        // is NOT covered by H, whose span ended). The cell must not be dropped.
+        $result = $this->converter->convert("|= H |= G |\n| ^ | b |\n| x | ^ |");
+        $this->assertStringContainsString('<th rowspan="2">H</th>', $result);
+        $this->assertStringContainsString('<td rowspan="2">b</td>', $result);
+        $this->assertStringContainsString('<td>x</td>', $result);
+    }
 }
