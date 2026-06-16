@@ -4,6 +4,18 @@ declare(strict_types=1);
 
 namespace Carve\Converter;
 
+use Carve\CarveConverter;
+use Carve\Converter\HeadingId\HeadingIdSource;
+use Carve\Converter\HeadingId\HtmlHeadingIds;
+use RuntimeException;
+use function array_splice;
+use function array_values;
+use function count;
+use function explode;
+use function implode;
+use function preg_match;
+use function sprintf;
+
 /**
  * Converts Djot markup to Carve markup.
  *
@@ -79,6 +91,27 @@ class DjotToCarve
         ],
     ];
 
+    protected ?HeadingIdSource $headingIdSource = null;
+
+    /**
+     * Preserve the published heading ids of the source document.
+     *
+     * Carve's auto id can differ from what a live Djot site already published
+     * (case, a custom id transformer, the permalink extension, an older
+     * renderer). Pass a source of the live ids and, for every heading whose
+     * Carve id would differ, the converter injects an explicit `{#id}`
+     * block-attribute line above it so inbound links keep resolving. Pass null
+     * to disable (the default).
+     *
+     * @return $this
+     */
+    public function preserveHeadingIds(?HeadingIdSource $source)
+    {
+        $this->headingIdSource = $source;
+
+        return $this;
+    }
+
     /**
      * Convert Djot markup to Carve markup.
      */
@@ -128,7 +161,75 @@ class DjotToCarve
             $source = substr($source, 0, $editStart) . $replacement . substr($source, $editEnd);
         }
 
-        return $this->normalizePlusBullets($source, $masked);
+        $carve = $this->normalizePlusBullets($source, $masked);
+
+        if ($this->headingIdSource !== null) {
+            $carve = $this->injectPreservedHeadingIds($djot, $carve, $this->headingIdSource);
+        }
+
+        return $carve;
+    }
+
+    /**
+     * Pin published heading ids that Carve would generate differently.
+     *
+     * For each heading in document order: compare the live id (from the
+     * configured source) against the id Carve actually renders for the migrated
+     * source (rendered + scraped, never a re-derived slug, so custom slugging
+     * and extensions are honored). Where they differ - and the heading is not
+     * already pinned - inject a `{#liveId}` block-attribute line above it.
+     *
+     * Headings are located by their start line. Adjacent or `#`-folded
+     * multi-line headings (a Carve-specific construct a published Djot doc is
+     * unlikely to contain) would desync the positional pairing, so a heading
+     * count mismatch throws rather than mis-pair.
+     *
+     * @throws \RuntimeException on a heading-count mismatch
+     */
+    protected function injectPreservedHeadingIds(
+        string $djot,
+        string $carve,
+        HeadingIdSource $source,
+    ): string {
+        $liveIds = array_values($source->idsInOrder($djot));
+        $carveIds = HtmlHeadingIds::extract((new CarveConverter())->convert($carve));
+
+        $lines = explode("\n", $carve);
+        $maskedLines = explode("\n", $this->maskCode($carve));
+        $headingLines = [];
+        foreach ($maskedLines as $index => $line) {
+            if (preg_match('/^[ ]{0,3}#{1,6} +.*\S.*$/', $line) === 1) {
+                $headingLines[] = $index;
+            }
+        }
+
+        $count = count($headingLines);
+        if ($count !== count($carveIds) || $count !== count($liveIds)) {
+            throw new RuntimeException(sprintf(
+                'preserveHeadingIds: heading count mismatch (source lines %d, Carve render %d, '
+                . 'live ids %d). Adjacent or multi-line `#` headings are not supported.',
+                $count,
+                count($carveIds),
+                count($liveIds),
+            ));
+        }
+
+        // Splice in reverse so earlier line indices stay valid.
+        for ($k = $count - 1; $k >= 0; $k--) {
+            $live = $liveIds[$k];
+            if ($live === '' || $live === $carveIds[$k]) {
+                continue;
+            }
+            $lineIndex = $headingLines[$k];
+            // Already pinned by an explicit `{#...}` block-attribute line above?
+            if ($lineIndex > 0 && preg_match('/^\s*\{#[^}\s][^}]*\}\s*$/', $lines[$lineIndex - 1]) === 1) {
+                continue;
+            }
+            preg_match('/^(\s*)/', $lines[$lineIndex], $indent);
+            array_splice($lines, $lineIndex, 0, [($indent[1] ?? '') . '{#' . $live . '}']);
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
