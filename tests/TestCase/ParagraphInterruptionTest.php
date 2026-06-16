@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Heading;
 use Carve\Node\Block\ListBlock;
 use Carve\Node\Block\Paragraph;
 use Carve\Parser\BlockParser;
@@ -32,15 +28,17 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
-    public function testBlockquoteInterruptsParagraph(): void
+    public function testBlockquoteDoesNotInterruptParagraph(): void
     {
+        // Djot variant: a visible block (here a block quote) does not interrupt an
+        // open paragraph. The `>` marker folds into the paragraph as literal text;
+        // a blank line is required to start the block quote.
         $parser = new BlockParser();
         $doc = $parser->parse("They said:\n> This is important");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
     public function testIndentedBulletDoesNotInterruptParagraph(): void
@@ -103,15 +101,17 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
-    public function testCodeFenceInterruptsParagraphWhenClosed(): void
+    public function testCodeFenceDoesNotInterruptParagraphWhenClosed(): void
     {
+        // Djot variant: a fenced code block does not interrupt an open paragraph
+        // even when it has a closer. The fence folds into the paragraph (the
+        // backtick run becomes an inline verbatim span); a blank line is required.
         $parser = new BlockParser();
         $doc = $parser->parse("Code:\n```\necho hello\n```");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(CodeBlock::class, $children[1]);
     }
 
     public function testUnterminatedCodeFenceDoesNotInterruptParagraph(): void
@@ -124,15 +124,17 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
-    public function testDivInterruptsParagraphWhenClosed(): void
+    public function testDivDoesNotInterruptParagraphWhenClosed(): void
     {
+        // Djot variant: a `:::` div/admonition does not interrupt an open
+        // paragraph even when closed. The opener folds into the paragraph as
+        // literal text; a blank line is required to start the div.
         $parser = new BlockParser();
         $doc = $parser->parse("Note:\n::: warning\nImportant\n:::");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(Div::class, $children[1]);
     }
 
     public function testUnterminatedDivDoesNotInterruptParagraph(): void
@@ -187,15 +189,17 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(Paragraph::class, $children[0]);
     }
 
-    public function testHeadingInterruptsParagraph(): void
+    public function testHeadingDoesNotInterruptParagraph(): void
     {
+        // Djot variant: a heading does not interrupt an open paragraph. The `#`
+        // line folds into the paragraph as inline text; a blank line is required
+        // to start the heading.
         $parser = new BlockParser();
         $doc = $parser->parse("Text\n# Heading");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(Heading::class, $children[1]);
     }
 
     public function testYearDoesNotBecomeList(): void

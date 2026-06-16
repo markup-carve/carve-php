@@ -49,12 +49,14 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
-     * A thematic break still interrupts a paragraph (it is not a list marker).
+     * Djot variant: a thematic break does not interrupt an open paragraph. The
+     * `---` folds into the paragraph and renders as a smart em-dash; a blank line
+     * is required to start the thematic break.
      */
-    public function testThematicBreakStillInterrupts(): void
+    public function testThematicBreakDoesNotInterrupt(): void
     {
         $this->assertSame(
-            "<p>intro</p>\n<hr>\n<p>more</p>\n",
+            "<p>intro\n\u{2014}\nmore</p>\n",
             $this->converter->convert("intro\n---\nmore"),
         );
     }

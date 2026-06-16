@@ -310,8 +310,11 @@ DJOT;
         $this->assertStringContainsString('The actual quote', $result);
     }
 
-    public function testTextThenBlockquoteNoBlankLineInList(): void
+    public function testTextThenBlockquoteFoldsIntoItemText(): void
     {
+        // Djot variant: a block quote after a prose line (no blank line) does not
+        // interrupt the item's paragraph. The `>` folds into the text and renders
+        // as literal `&gt;`; a blank line would be required to start the quote.
         $djot = <<<'DJOT'
 - Some intro text
   > The quote
@@ -320,12 +323,15 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringContainsString('<blockquote>', $result);
-        $this->assertStringContainsString('The quote', $result);
+        $this->assertStringContainsString('&gt; The quote', $result);
+        $this->assertStringNotContainsString('<blockquote>', $result);
     }
 
-    public function testTextThenCodeFenceNoBlankLineInList(): void
+    public function testTextThenCodeFenceFoldsIntoItemText(): void
     {
+        // Djot variant: a fenced code block after a prose line (no blank line) does
+        // not interrupt the item's paragraph. The fence folds into the text as an
+        // inline verbatim span; a blank line would be required to start the block.
         $djot = <<<'DJOT'
 - Some intro text
   ``` php
@@ -336,8 +342,8 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('Some intro text', $result);
-        $this->assertStringContainsString('<pre><code class="language-php">', $result);
-        $this->assertStringContainsString('echo 1;', $result);
+        $this->assertStringNotContainsString('<pre><code', $result);
+        $this->assertStringContainsString('<code> php' . "\n" . 'echo 1;' . "\n" . '</code>', $result);
     }
 
     public function testTextBeforeCodeBlockInList(): void

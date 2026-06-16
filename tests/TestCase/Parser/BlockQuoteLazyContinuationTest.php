@@ -25,11 +25,13 @@ class BlockQuoteLazyContinuationTest extends TestCase
     public function testNonMarkerLineInsideOpenFenceTerminatesQuote(): void
     {
         // The non-">" line must NOT be swallowed into the code block; the quote
-        // ends and `b` starts a paragraph. The trailing `> c` then interrupts
-        // that paragraph into a fresh block quote (§10 paragraph interruption).
+        // ends and `b` starts a paragraph. Djot variant: the trailing `> c` does
+        // NOT interrupt that paragraph (a block quote no longer interrupts an open
+        // paragraph) -- it lazily continues it, so `> c` folds in as literal
+        // `&gt; c` rather than opening a fresh block quote.
         $djot = "> ```\n> a\nb\n> c";
         $expected = "<blockquote>\n  <pre><code>a\n</code></pre>\n</blockquote>\n"
-            . "<p>b</p>\n<blockquote><p>c</p></blockquote>\n";
+            . "<p>b\n&gt; c</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -38,12 +40,13 @@ class BlockQuoteLazyContinuationTest extends TestCase
     {
         // The `:::note` opener inside the quote has no matching closer within
         // the quote, so it is NOT a div -- it stays literal (§12), and the
-        // non-">" `body` line ends the quote. The trailing `> :::` is likewise
-        // an unterminated fence: a quoted paragraph of literal `:::`. Matches
-        // carve-js / carve-rs (no more empty-div divergence).
+        // non-">" `body` line ends the quote. Djot variant: the trailing `> :::`
+        // does NOT interrupt the `body` paragraph (a block quote no longer
+        // interrupts an open paragraph) -- it lazily continues it, folding in as
+        // literal `&gt; :::` rather than opening a fresh quoted paragraph.
         $djot = "> :::note\nbody\n> :::";
         $expected = "<blockquote><p>:::note</p></blockquote>\n"
-            . "<p>body</p>\n<blockquote><p>:::</p></blockquote>\n";
+            . "<p>body\n&gt; :::</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

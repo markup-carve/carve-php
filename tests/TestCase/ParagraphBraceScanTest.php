@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Carve\Test\TestCase;
 
-use Carve\Node\Block\Heading;
+use Carve\Node\Block\Comment;
 use Carve\Node\Block\Paragraph;
 use Carve\Node\Node;
 use Carve\Parser\BlockParser;
@@ -17,13 +17,18 @@ use PHPUnit\Framework\TestCase;
  * in the paragraph so far suppresses block interruption - and (b) stay linear
  * in the number of lines. Re-scanning the whole growing content on every line
  * previously made a single multi-line paragraph parse in O(n^2).
+ *
+ * Note: in the djot variant a VISIBLE block (heading, etc.) no longer interrupts
+ * an open paragraph at all, so these tests use an INVISIBLE interrupter - a `%%`
+ * comment - which still interrupts and is the construct whose interruption the
+ * brace scan suppresses while a `{` attribute brace remains open.
  */
 class ParagraphBraceScanTest extends TestCase
 {
-    private function hasHeading(Node $doc): bool
+    private function hasInterrupter(Node $doc): bool
     {
         foreach ($doc->getChildren() as $child) {
-            if ($child instanceof Heading) {
+            if ($child instanceof Comment) {
                 return true;
             }
         }
@@ -34,19 +39,19 @@ class ParagraphBraceScanTest extends TestCase
     public function testUnclosedBraceSuppressesInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x\n# heading");
+        $doc = $parser->parse("text{a=x\n%% comment %%");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Paragraph::class, $doc->getChildren()[0]);
-        $this->assertFalse($this->hasHeading($doc));
+        $this->assertFalse($this->hasInterrupter($doc));
     }
 
     public function testClosedBraceAllowsInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x}\n# heading");
+        $doc = $parser->parse("text{a=x}\n%% comment %%");
 
-        $this->assertTrue($this->hasHeading($doc));
+        $this->assertTrue($this->hasInterrupter($doc));
     }
 
     public function testBraceInsideQuoteIsNotCounted(): void
@@ -55,17 +60,17 @@ class ParagraphBraceScanTest extends TestCase
         // heading must not interrupt - exercises quote state carried across the
         // segment boundary.
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=\"}\"\n# heading");
+        $doc = $parser->parse("text{a=\"}\"\n%% comment %%");
 
-        $this->assertFalse($this->hasHeading($doc));
+        $this->assertFalse($this->hasInterrupter($doc));
     }
 
     public function testPlainParagraphStillInterrupts(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n# heading");
+        $doc = $parser->parse("text\n%% comment %%");
 
-        $this->assertTrue($this->hasHeading($doc));
+        $this->assertTrue($this->hasInterrupter($doc));
     }
 
     /**
