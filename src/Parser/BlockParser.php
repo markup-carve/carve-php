@@ -3162,9 +3162,15 @@ class BlockParser
             return;
         }
 
-        // Build a set of column positions that are occupied by spanning cells from previous rows
-        $occupiedColumns = [];
-
+        // Column-occupancy map across all previous rows: per column, the
+        // EXCLUSIVE row index through which an active rowspan occupies it. Each
+        // cell is placed at the first column not already covered by a rowspan
+        // reaching its OWN row, so a column consumed by a rowspan from above
+        // shifts later cells right -- exactly as the grid renderer sees them.
+        // (The old code recomputed each row's columns from 0 ignoring within-row
+        // rowspan occupancy, mis-placing a cell whose left neighbour was covered
+        // by a header/body rowspan and then wrongly dropping a current-row cell.)
+        $occupiedUntil = [];
         foreach ($tableChildren as $rowIdx => $prevRow) {
             if (!($prevRow instanceof TableRow)) {
                 continue;
@@ -3176,23 +3182,25 @@ class BlockParser
                     continue;
                 }
 
-                // Skip columns occupied by even earlier rowspans
-                while (isset($occupiedColumns[$colPos])) {
+                while (isset($occupiedUntil[$colPos]) && $occupiedUntil[$colPos] > $rowIdx) {
                     $colPos++;
                 }
 
                 $colspan = $cell->getColspan();
                 $rowspan = $cell->getRowspan();
-
-                // Check if this cell's span reaches into the current row
-                if ($rowIdx + $rowspan > $currentRowIndex) {
-                    // Mark all columns covered by this cell as occupied
-                    for ($c = 0; $c < $colspan; $c++) {
-                        $occupiedColumns[$colPos + $c] = true;
-                    }
+                for ($c = $colPos; $c < $colPos + $colspan; $c++) {
+                    $occupiedUntil[$c] = $rowIdx + $rowspan;
                 }
 
                 $colPos += $colspan;
+            }
+        }
+
+        // Columns whose rowspan reaches into the current row.
+        $occupiedColumns = [];
+        foreach ($occupiedUntil as $c => $end) {
+            if ($end > $currentRowIndex) {
+                $occupiedColumns[$c] = true;
             }
         }
 
