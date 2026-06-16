@@ -292,6 +292,7 @@ final class NodeType
             self::RAW_INLINE,
             self::ESCAPED_TEXT,
             self::FOOTNOTE_REF,
+            self::INLINE_FOOTNOTE,
             self::SPAN,
             self::SUPERSCRIPT,
             self::SUBSCRIPT,
