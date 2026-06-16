@@ -21,7 +21,6 @@ use Carve\Renderer\HtmlRenderer;
 use Carve\Renderer\MarkdownRenderer;
 use Carve\Renderer\PlainTextRenderer;
 use Carve\Renderer\RendererInterface;
-use Carve\Renderer\SoftBreakMode;
 use Carve\Transform\RenderAwareTransformerInterface;
 use Carve\Transform\TransformerInterface;
 use Closure;
@@ -125,10 +124,14 @@ class CarveConverter
      * @param bool $strict Whether to throw exceptions on parse errors
      * @param \Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
-     * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). A marker-led line is interrupted into its own block before this applies; see SoftBreakMode for the caveat.
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
-     * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
+     * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/roundTripMode if set)
+     *
+     * There is no soft-break mode: a soft break is a single source newline that
+     * stays inside the paragraph (collapsed by the browser in HTML). For a
+     * visible line break use a `::: |` line block (poetry/addresses) or a
+     * trailing backslash `\` (hard break, always renders as <br>).
      */
     public function __construct(
         bool $xhtml = false,
@@ -136,7 +139,6 @@ class CarveConverter
         bool $strict = false,
         SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
-        ?SoftBreakMode $softBreakMode = null,
         bool $roundTripMode = false,
         ?BlockParser $parser = null,
         ?RendererInterface $renderer = null,
@@ -159,11 +161,6 @@ class CarveConverter
 
             // Configure safe mode
             $this->setSafeMode($safeMode);
-
-            // Configure soft break mode if explicitly provided
-            if ($softBreakMode !== null) {
-                $this->renderer->setSoftBreakMode($softBreakMode);
-            }
 
             // Configure round-trip mode
             if ($roundTripMode) {
