@@ -13,6 +13,7 @@ use Carve\Profile;
 use Carve\ProfileViolation;
 use LengthException;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 /**
  * Tests for Profile-based feature restriction
@@ -354,6 +355,31 @@ DJOT;
         $this->assertStringContainsString('<a href="#Setup">', $html);
         $this->assertFalse($converter->hasProfileViolations());
         $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::HEADING_REF));
+    }
+
+    /**
+     * Guard against profile-classification drift: every NodeType constant must be
+     * listed in allBlockTypes() or allInlineTypes(). Profile::isTypeAllowed()
+     * denies any type it finds in neither list, so an unclassified node type is
+     * silently filtered out under every profile (including full). This test fails
+     * the moment a new NodeType constant is added without registering it.
+     */
+    public function testEveryNodeTypeConstantIsClassifiedForProfiles(): void
+    {
+        $classified = array_merge(NodeType::allBlockTypes(), NodeType::allInlineTypes());
+
+        foreach ((new ReflectionClass(NodeType::class))->getConstants() as $name => $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $this->assertContains(
+                $value,
+                $classified,
+                "NodeType::{$name} ('{$value}') is not in allBlockTypes() or allInlineTypes(); "
+                . 'Profile::isTypeAllowed() will deny it under every profile.',
+            );
+        }
     }
 
     // ==================== Custom Profile Tests ====================
