@@ -447,10 +447,12 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->headingIdTracker->getTextForId($id);
+        $target = $node->getTargetId();
+        // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
+        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
         if ($label === null) {
-            return '</#' . $id . '>';
+            return '</#' . $target . '>';
         }
 
         return $this->style($label, self::UNDERLINE . self::FG_BLUE);

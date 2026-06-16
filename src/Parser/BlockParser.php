@@ -183,9 +183,20 @@ class BlockParser
      */
     protected ?Closure $headingIdTransformer = null;
 
+    /**
+     * Mirrors the render-time tracker's opt-in lowercase flag so implicit
+     * `[Heading][]` references agree with the (lowercased) emitted ids.
+     */
+    protected bool $headingIdLowercase = false;
+
     public function setHeadingIdTransformer(?Closure $headingIdTransformer): void
     {
         $this->headingIdTransformer = $headingIdTransformer;
+    }
+
+    public function setHeadingIdLowercase(bool $lowercase): void
+    {
+        $this->headingIdLowercase = $lowercase;
     }
 
     public function __construct(
@@ -776,6 +787,7 @@ class BlockParser
     {
         $headingIdTracker = new HeadingIdTracker();
         $headingIdTracker->setIdTransformer($this->headingIdTransformer);
+        $headingIdTracker->setLowercase($this->headingIdLowercase);
         $pendingId = null;
         $count = count($lines);
 
@@ -4206,7 +4218,12 @@ class BlockParser
         // From explicit {#id} attributes on any node in the AST
         $this->collectExplicitIds($document, $knownIds);
 
-        // Validate each tracked anchor link
+        // Validate each tracked anchor link. Matching is exact (case-sensitive):
+        // a plain `[link](#fragment)` href is emitted verbatim and HTML fragment
+        // navigation is case-sensitive, so a `#my-heading` link to a
+        // case-preserved `My-Heading` id is genuinely broken and must warn.
+        // (Contrast `</#id>` crossrefs, which rewrite the href to the resolved
+        // id and so resolve case-insensitively.)
         foreach ($this->anchorLinks as $anchor) {
             if (!isset($knownIds[$anchor['fragment']])) {
                 $this->addWarning(

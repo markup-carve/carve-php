@@ -17,8 +17,8 @@ class AsciiHeadingIdsExtensionTest extends TestCase
     {
         $html = (new CarveConverter())->convert('# Über uns');
 
-        // No extension: id keeps non-ASCII (only case folded).
-        $this->assertStringContainsString('<section id="über-uns">', $html);
+        // No extension: id keeps non-ASCII verbatim (case preserved).
+        $this->assertStringContainsString('<section id="Über-uns">', $html);
     }
 
     public function testExtensionFoldsLatinDiacriticsToAscii(): void
@@ -28,7 +28,7 @@ class AsciiHeadingIdsExtensionTest extends TestCase
 
         $html = $converter->convert('# Über uns');
 
-        $this->assertStringContainsString('<section id="uber-uns">', $html);
+        $this->assertStringContainsString('<section id="Uber-uns">', $html);
         $this->assertStringContainsString('>Über uns</h1>', $html);
     }
 
@@ -39,7 +39,7 @@ class AsciiHeadingIdsExtensionTest extends TestCase
 
         $html = $converter->convert('# Привет мир');
 
-        $this->assertStringContainsString('<section id="privet-mir">', $html);
+        $this->assertStringContainsString('<section id="Privet-mir">', $html);
     }
 
     public function testDigitLeadingSlugKeepsThePrefixAfterFold(): void
@@ -49,7 +49,7 @@ class AsciiHeadingIdsExtensionTest extends TestCase
 
         $html = $converter->convert('# 2024 Recap');
 
-        $this->assertStringContainsString('<section id="s-2024-recap">', $html);
+        $this->assertStringContainsString('<section id="s-2024-Recap">', $html);
     }
 
     public function testImplicitReferenceResolvesToTheFoldedId(): void
@@ -66,7 +66,7 @@ DJOT);
 
         // The parse-time tracker must apply the same fold, otherwise the
         // implicit [[...]] reference would point at the unfolded id.
-        $this->assertStringContainsString('href="#uber-uns"', $html);
+        $this->assertStringContainsString('href="#Uber-uns"', $html);
     }
 
     public function testCjkIsRomanizedWithIntl(): void

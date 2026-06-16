@@ -49,11 +49,11 @@ class CarveConverterTest extends TestCase
         // Carve headings are wrapped in nested <section> elements; the id
         // lives on the section, not the heading.
         $djot = "# Heading 1\n\n## Heading 2\n\n### Heading 3";
-        $expected = "<section id=\"heading-1\">\n"
+        $expected = "<section id=\"Heading-1\">\n"
             . "  <h1>Heading 1</h1>\n"
-            . "  <section id=\"heading-2\">\n"
+            . "  <section id=\"Heading-2\">\n"
             . "    <h2>Heading 2</h2>\n"
-            . "    <section id=\"heading-3\">\n"
+            . "    <section id=\"Heading-3\">\n"
             . "      <h3>Heading 3</h3>\n"
             . "    </section>\n"
             . "  </section>\n"
@@ -68,7 +68,7 @@ class CarveConverterTest extends TestCase
         // its content at column 0 (it is not re-indented by the section's
         // block indentation), matching carve-js. The block tag is indented;
         // the wrapped text is not.
-        $expected = "<section id=\"h\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
+        $expected = "<section id=\"H\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two"));
     }
@@ -76,7 +76,7 @@ class CarveConverterTest extends TestCase
     public function testMultiLineHeadingContinuationIsFlush(): void
     {
         // Carve headings are multi-line; the folded continuation renders flush.
-        $expected = "<section id=\"title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
+        $expected = "<section id=\"Title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
     }
@@ -104,16 +104,16 @@ class CarveConverterTest extends TestCase
         // list -- symmetric: a list marker folds only into a PARAGRAPH, not a
         // heading. Only plain text folds into the heading.
         $this->assertSame(
-            "<section id=\"t\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
         );
         $this->assertSame(
-            "<section id=\"t\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
+            "<section id=\"T\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
             $this->converter->convert("# T\n> quote"),
         );
         // An ordered marker ends the heading too (symmetric with the bullet).
         $this->assertSame(
-            "<section id=\"t\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
             $this->converter->convert("# T\n1. one"),
         );
     }
@@ -125,7 +125,7 @@ class CarveConverterTest extends TestCase
         // interrupters: each ends the heading and is consumed/floated by its own
         // parser, so the heading text does not absorb it. Matches carve-js /
         // carve-rs.
-        $expected = "<section id=\"h\">\n  <h1>H</h1>\n</section>\n";
+        $expected = "<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
         $this->assertSame($expected, $this->converter->convert("# H\n[r]: /url"));
         $this->assertSame($expected, $this->converter->convert("# H\n*[A]: Abbr"));
         $this->assertSame($expected, $this->converter->convert("# H\n%% comment"));
@@ -580,11 +580,11 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="welcome">', $result);
+        $this->assertStringContainsString('<section id="Welcome">', $result);
         $this->assertStringContainsString('<h1>Welcome</h1>', $result);
         $this->assertStringContainsString('<strong>comprehensive</strong>', $result);
         $this->assertStringContainsString('<em>Djot</em>', $result);
-        $this->assertStringContainsString('<section id="features">', $result);
+        $this->assertStringContainsString('<section id="Features">', $result);
         $this->assertStringContainsString('<h2>Features</h2>', $result);
         $this->assertStringContainsString('<ul>', $result);
         $this->assertStringContainsString('<li>', $result);
@@ -1156,7 +1156,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="hello-world-and-everyone">', $result);
+        $this->assertStringContainsString('<section id="Hello-world-and-everyone">', $result);
         $this->assertStringContainsString('<h1>Hello <strong>world</strong> and <em>everyone</em></h1>', $result);
     }
 
@@ -1342,11 +1342,11 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="one">', $result);
+        $this->assertStringContainsString('<section id="One">', $result);
         $this->assertStringContainsString('<h1>One</h1>', $result);
-        $this->assertStringContainsString('<section id="two">', $result);
+        $this->assertStringContainsString('<section id="Two">', $result);
         $this->assertStringContainsString('<h2>Two</h2>', $result);
-        $this->assertStringContainsString('<section id="three">', $result);
+        $this->assertStringContainsString('<section id="Three">', $result);
         $this->assertStringContainsString('<h3>Three</h3>', $result);
     }
 
@@ -1640,7 +1640,7 @@ DJOT;
             $this->assertCount(2, $document->getChildren());
 
             $result = $this->converter->render($document);
-            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<section id="Hello">', $result);
             $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
@@ -1656,7 +1656,7 @@ DJOT;
         try {
             $result = $this->converter->convertFile($tempFile);
 
-            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<section id="Hello">', $result);
             $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
@@ -3235,7 +3235,9 @@ DJOT;
     public function testValidAnchorLinkToHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# My Heading\n\n[link](#my-heading)");
+        // Heading ids are case-preserving and anchor matching is case-sensitive,
+        // so the link fragment must match the generated id exactly.
+        $converter->convert("# My Heading\n\n[link](#My-Heading)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3311,15 +3313,15 @@ DJOT;
         $converter = new CarveConverter();
         $html = $converter->convert("{* #foo}\n# Title\n\nSee [Title][].");
 
-        $this->assertStringContainsString('<section id="title">', $html);
-        $this->assertStringContainsString('href="#title"', $html);
+        $this->assertStringContainsString('<section id="Title">', $html);
+        $this->assertStringContainsString('href="#Title"', $html);
         $this->assertStringNotContainsString('href="#foo"', $html);
     }
 
     public function testValidAnchorLinkToPunctuationHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# Hello, world!\n\n[link](#hello-world)");
+        $converter->convert("# Hello, world!\n\n[link](#Hello-world)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3337,8 +3339,8 @@ DJOT;
         $converter = new CarveConverter();
         $html = $converter->convert("# Hello, world!\n\n[Hello, world!][]");
 
-        $this->assertStringContainsString('id="hello-world"', $html);
-        $this->assertStringContainsString('href="#hello-world"', $html);
+        $this->assertStringContainsString('id="Hello-world"', $html);
+        $this->assertStringContainsString('href="#Hello-world"', $html);
     }
 
     public function testHeadingReferenceUsesRendererCompatibleIdForCodeHeading(): void
@@ -3393,7 +3395,7 @@ DJOT;
         $djot = <<<'DJOT'
 # Valid Heading
 
-[valid link](#valid-heading)
+[valid link](#Valid-Heading)
 
 [broken link](#nonexistent)
 DJOT;

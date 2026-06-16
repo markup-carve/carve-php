@@ -100,11 +100,11 @@ class SymmetricListInterruptionTest extends TestCase
     public function testListMarkerEndsHeadingAndStartsSiblingList(): void
     {
         $this->assertSame(
-            "<section id=\"t\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
         );
         $this->assertSame(
-            "<section id=\"t\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
             $this->converter->convert("# T\n1. one"),
         );
     }

@@ -42,7 +42,7 @@ class InlineCommentTest extends TestCase
     public function testTrailingCommentInHeadingKeepsId(): void
     {
         $html = $this->html('# Title %% note');
-        $this->assertStringContainsString('<section id="title">', $html);
+        $this->assertStringContainsString('<section id="Title">', $html);
         $this->assertStringContainsString('<h1>Title</h1>', $html);
         $this->assertStringNotContainsString('note', $html);
     }

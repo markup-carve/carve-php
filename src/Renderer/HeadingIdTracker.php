@@ -16,7 +16,6 @@ use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
 use Closure;
-use Normalizer;
 
 /**
  * Shared service for generating and deduplicating heading IDs
@@ -73,9 +72,25 @@ class HeadingIdTracker
      */
     protected ?Closure $idTransformer = null;
 
+    /**
+     * When true, the base slug is lowercased per code point (no whole-string
+     * context mappings such as Greek final-sigma) after the idTransformer
+     * step. Off by default: Carve heading ids are case-preserving.
+     */
+    protected bool $lowercase = false;
+
     public function setIdTransformer(?Closure $idTransformer): void
     {
         $this->idTransformer = $idTransformer;
+    }
+
+    /**
+     * Enable opt-in per-code-point lowercasing of generated heading ids
+     * (GitHub/SSG-style anchors). Default is case-preserving.
+     */
+    public function setLowercase(bool $lowercase): void
+    {
+        $this->lowercase = $lowercase;
     }
 
     /**
@@ -160,39 +175,77 @@ class HeadingIdTracker
      * Normalize text to a Carve heading identifier (the normative
      * "Automatic Identifiers" algorithm, carve spec #73):
      *
-     * 1. NFC-normalize (so a decomposed `résumé` slugs identically to
-     *    its precomposed form).
-     * 2. Replace each maximal run of non-alphanumeric ASCII with a
-     *    single '-' and trim; non-ASCII characters are preserved.
-     * 3. If an id transformer is set (AsciiHeadingIdsExtension), apply
-     *    it to the slug and re-run step 2 (opt-in ASCII transliteration).
-     * 4. Lowercase, Unicode-aware: GitHub-style anchors that make ids
-     *    and `</#id>` / `[Heading][]` cross-references case-insensitive
-     *    with no special lookup logic.
-     * 5. If the result starts with a digit, prefix 's-' (a CSS
+     * 1. Replace each maximal run of non-alphanumeric ASCII with a
+     *    single '-' and trim; non-ASCII code points (>= U+0080) are kept
+     *    verbatim and letter case is preserved. There is NO Unicode
+     *    (NFC) normalization step -- the default is case-preserving.
+     * 2. If an id transformer is set (AsciiHeadingIdsExtension), apply
+     *    it to the slug and re-run step 1 (opt-in ASCII transliteration).
+     * 3. If lowercasing is enabled (opt-in), lowercase the slug PER CODE
+     *    POINT so no whole-string context mapping (e.g. Greek
+     *    final-sigma) applies. Off by default.
+     * 4. If the result starts with a Unicode number, prefix 's-' (a CSS
      *    identifier may not start with a digit).
-     * 6. If the result is empty, the identifier is 's'.
+     * 5. If the result is empty, the identifier is 's'.
+     *
+     * Cross-reference resolution is case-insensitive (see
+     * findIdCaseInsensitive()), so `</#getting-started>` still resolves
+     * to a case-preserved `Getting-Started` id.
      *
      * Deduplication against the document namespace (shared by explicit
      * {#id} and generated ids) is applied by the caller.
      */
     public function normalizeId(string $text): string
     {
-        if (class_exists(Normalizer::class)) {
-            $text = Normalizer::normalize($text, Normalizer::FORM_C) ?: $text;
-        }
-
         $id = $this->slugRun($text);
         if ($this->idTransformer !== null) {
             $id = $this->slugRun(($this->idTransformer)($id));
         }
 
-        $id = mb_strtolower($id, 'UTF-8');
+        if ($this->lowercase) {
+            $id = $this->foldCase($id);
+        }
         if ($id !== '' && preg_match('/^\p{N}/u', $id)) {
             $id = 's-' . $id;
         }
 
         return $id !== '' ? $id : 's';
+    }
+
+    /**
+     * Per-code-point lowercase fold (no whole-string context mappings such
+     * as Greek final-sigma), so opt-in lowercasing and case-insensitive
+     * cross-reference matching stay portable across implementations.
+     */
+    protected function foldCase(string $text): string
+    {
+        return (string)preg_replace_callback(
+            '/./us',
+            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
+            $text,
+        );
+    }
+
+    /**
+     * Resolve a `</#id>` cross-reference target case-insensitively: return
+     * the actual (verbatim) heading id whose case-folded form matches
+     * $target, with the exact match preferred and first-occurrence winning
+     * otherwise. Returns null when no heading id matches.
+     */
+    public function findIdCaseInsensitive(string $target): ?string
+    {
+        if (isset($this->textById[$target])) {
+            return $target;
+        }
+
+        $foldedTarget = $this->foldCase($target);
+        foreach ($this->textById as $id => $text) {
+            if ($this->foldCase((string)$id) === $foldedTarget) {
+                return (string)$id;
+            }
+        }
+
+        return null;
     }
 
     /**
