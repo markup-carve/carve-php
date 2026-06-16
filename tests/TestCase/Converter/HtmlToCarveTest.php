@@ -58,16 +58,29 @@ class HtmlToCarveTest extends TestCase
 
     public function testHighlight(): void
     {
-        $this->assertSame("{=highlighted=}\n", $this->converter->convert('<mark>highlighted</mark>'));
+        // Whitespace-bounded (here the whole paragraph) -> bare canonical form.
+        $this->assertSame("=highlighted=\n", $this->converter->convert('<mark>highlighted</mark>'));
     }
 
     public function testSuperscript(): void
     {
+        // Intraword (between word chars) -> forced brace form.
         $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup>2</sup>'));
+    }
+
+    public function testSuperscriptWhitespaceBoundedIsBare(): void
+    {
+        $this->assertSame("x ^2^ y\n", $this->converter->convert('x <sup>2</sup> y'));
+    }
+
+    public function testSubscriptWhitespaceBoundedIsBare(): void
+    {
+        $this->assertSame("x ,2, y\n", $this->converter->convert('x <sub>2</sub> y'));
     }
 
     public function testSubscript(): void
     {
+        // Intraword -> forced brace form.
         $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub>2</sub>O'));
     }
 
@@ -412,8 +425,9 @@ HTML;
 
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString('| Name | Age |', $result);
-        $this->assertStringContainsString('|---|---|', $result);
+        // Canonical Carve uses `|=` header cells, no separator row.
+        $this->assertStringContainsString('|= Name |= Age |', $result);
+        $this->assertStringNotContainsString('|---|', $result);
         $this->assertStringContainsString('| Alice | 30 |', $result);
     }
 
@@ -596,7 +610,7 @@ HTML;
 
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString('| Month | Sales |', $result);
+        $this->assertStringContainsString('|= Month |= Sales |', $result);
         $this->assertStringContainsString('^ Monthly Sales Data', $result);
     }
 
