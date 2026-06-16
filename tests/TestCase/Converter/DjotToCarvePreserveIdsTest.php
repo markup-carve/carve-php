@@ -152,4 +152,26 @@ class DjotToCarvePreserveIdsTest extends TestCase
         $twice = (new DjotToCarve())->preserveHeadingIds(new MapIds(['legacy']))->convert($once);
         $this->assertSame(1, substr_count($twice, '{#legacy}'));
     }
+
+    public function testPreservesIdForHeadingInsideBlockquote(): void
+    {
+        // The attr line carries the blockquote prefix so it attaches inside.
+        $out = (new DjotToCarve())
+            ->preserveHeadingIds(new MapIds(['legacy-quote']))
+            ->convert("> # Quote\n");
+
+        $this->assertStringContainsString("> {#legacy-quote}\n> # Quote", $out);
+        $this->assertContains('legacy-quote', $this->carveIds($out));
+    }
+
+    public function testPreservesMixedTopLevelAndBlockquotedHeadings(): void
+    {
+        $out = (new DjotToCarve())
+            ->preserveHeadingIds(new MapIds(['legacy-top', 'legacy-quoted']))
+            ->convert("# Top\n\n> # Quoted\n");
+
+        $ids = $this->carveIds($out);
+        $this->assertContains('legacy-top', $ids);
+        $this->assertContains('legacy-quoted', $ids);
+    }
 }

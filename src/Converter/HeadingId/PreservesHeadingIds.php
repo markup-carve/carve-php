@@ -34,6 +34,11 @@ use function strlen;
  */
 trait PreservesHeadingIds
 {
+    /**
+     * @var string
+     */
+    private const LINE_PREFIX = '[ \t]{0,3}(?:>[ \t]?)*';
+
     protected ?HeadingIdSource $headingIdSource = null;
 
     /**
@@ -95,11 +100,13 @@ trait PreservesHeadingIds
             }
             $lineIndex = $headingLines[$k];
             // Already pinned by an explicit `{#...}` block-attribute line above?
-            if ($lineIndex > 0 && preg_match('/^\s*\{#[^}\s][^}]*\}\s*$/', $lines[$lineIndex - 1]) === 1) {
+            $pinned = '/^' . self::LINE_PREFIX . '\{#[^}\s][^}]*\}[ \t]*$/';
+            if ($lineIndex > 0 && preg_match($pinned, $lines[$lineIndex - 1]) === 1) {
                 continue;
             }
-            preg_match('/^(\s*)/', $lines[$lineIndex], $indent);
-            array_splice($lines, $lineIndex, 0, [($indent[1] ?? '') . '{#' . $live . '}']);
+            // Carry the heading's blockquote / indent prefix onto the attr line.
+            preg_match('/^(' . self::LINE_PREFIX . ')/', $lines[$lineIndex], $prefix);
+            array_splice($lines, $lineIndex, 0, [($prefix[1] ?? '') . '{#' . $live . '}']);
         }
 
         return implode("\n", $lines);
@@ -122,20 +129,21 @@ trait PreservesHeadingIds
 
         foreach ($lines as $index => $line) {
             if ($inFence) {
-                if (preg_match('/^[ ]{0,3}(' . preg_quote($fenceChar, '/') . '{' . $fenceLen . ',})\s*$/', $line) === 1) {
+                $close = '/^' . self::LINE_PREFIX . '(' . preg_quote($fenceChar, '/') . '{' . $fenceLen . ',})[ \t]*$/';
+                if (preg_match($close, $line) === 1) {
                     $inFence = false;
                 }
 
                 continue;
             }
-            if (preg_match('/^[ ]{0,3}(`{3,}|~{3,})/', $line, $fence) === 1) {
+            if (preg_match('/^' . self::LINE_PREFIX . '(`{3,}|~{3,})/', $line, $fence) === 1) {
                 $inFence = true;
                 $fenceChar = $fence[1][0];
                 $fenceLen = strlen($fence[1]);
 
                 continue;
             }
-            if (preg_match('/^[ ]{0,3}#{1,6} +.*\S.*$/', $line) === 1) {
+            if (preg_match('/^' . self::LINE_PREFIX . '#{1,6} +.*\S.*$/', $line) === 1) {
                 $headingLines[] = $index;
             }
         }
