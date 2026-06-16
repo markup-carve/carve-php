@@ -6,6 +6,7 @@ namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
 use Carve\Exception\ProfileViolationException;
+use Carve\Extension\InlineFootnotesExtension;
 use Carve\LinkPolicy;
 use Carve\NodeType;
 use Carve\Profile;
@@ -323,6 +324,21 @@ DJOT;
         $this->assertStringContainsString('<ul>', $html);
 
         $this->assertFalse($converter->hasProfileViolations());
+    }
+
+    public function testFullProfileAllowsInlineFootnotes(): void
+    {
+        // inline_footnote is a registered inline node type, so the full profile
+        // must not filter it. Regression for it missing from allInlineTypes(),
+        // which made isTypeAllowed() treat it as an unknown, denied type.
+        $converter = new CarveConverter(profile: Profile::full());
+        $converter->addExtension(new InlineFootnotesExtension());
+
+        $html = $converter->convert('Text[an aside]{.fn} here.');
+
+        $this->assertStringContainsString('role="doc-noteref"', $html);
+        $this->assertFalse($converter->hasProfileViolations());
+        $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::INLINE_FOOTNOTE));
     }
 
     // ==================== Custom Profile Tests ====================
