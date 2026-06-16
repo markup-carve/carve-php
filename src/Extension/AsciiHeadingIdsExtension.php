@@ -11,16 +11,17 @@ use Carve\Renderer\HtmlRenderer;
 /**
  * Fold auto-generated heading ids to ASCII (opt-in)
  *
- * By default Carve heading ids are lowercased but keep non-ASCII
- * characters verbatim (`# Über uns` -> `über-uns`), per carve spec #73.
- * That is the GitHub/SSG convention and keeps `</#id>` / `[Heading][]`
- * cross-references case-insensitive.
+ * By default Carve heading ids are CASE-PRESERVING and keep non-ASCII
+ * characters verbatim (`# Über uns` -> `Über-uns`), per carve spec #73.
+ * Cross-references (`</#id>`, `[Heading][]`) resolve case-insensitively,
+ * so a lowercase reference still finds a case-preserved id.
  *
  * Add this extension when you need share-safe ASCII fragment ids - e.g.
  * URLs passed through auto-linkers that truncate or mis-encode non-ASCII.
- * It transliterates the slug to ASCII before the final lowercase step
- * (`# Über uns` -> `uber-uns`). Unmapped scripts (CJK, Arabic, Greek)
- * still pass through unchanged; attach an explicit `{#id}` for those.
+ * It transliterates the slug to ASCII (`# Über uns` -> `Uber-uns`). It does
+ * NOT lowercase: case is kept (combine with the lowercase option for a fully
+ * lowercase ASCII slug). Unmapped scripts (CJK, Arabic, Greek) still pass
+ * through unchanged; attach an explicit `{#id}` for those.
  *
  * The same transform is applied to the parse-time tracker so implicit
  * `[Heading][]` references resolve to the folded ids.

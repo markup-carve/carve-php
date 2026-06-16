@@ -88,7 +88,7 @@ class ListLazyContinuationTest extends TestCase
     public function testHeadingLineEndsList(): void
     {
         $djot = "- a\n# H";
-        $expected = "<ul>\n  <li>a</li>\n</ul>\n<section id=\"h\">\n  <h1>H</h1>\n</section>\n";
+        $expected = "<ul>\n  <li>a</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
