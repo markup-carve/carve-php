@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Carve\Converter;
 
+use Carve\Converter\HeadingId\PreservesHeadingIds;
 use RuntimeException;
 
 /**
@@ -19,6 +20,8 @@ use RuntimeException;
  */
 class MarkdownToCarve
 {
+    use PreservesHeadingIds;
+
     /**
      * Convert Markdown text to Carve text.
      */
@@ -215,7 +218,9 @@ class MarkdownToCarve
             }
         }
 
-        return preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+        $carve = preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+
+        return $this->applyHeadingIdPreservation($carve, $markdown);
     }
 
     /**
