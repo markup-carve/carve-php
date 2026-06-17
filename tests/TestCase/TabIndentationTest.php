@@ -323,16 +323,18 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * A tab-indented block opener under a list item dedents with its residual
-     * columns preserved: stripping the `1. ` content column (3) from a tab (4)
-     * leaves one column, so `\t> quote` nests as a block quote in the item.
+     * Djot variant: a tab-indented block opener under a list item no longer
+     * interrupts the item's open paragraph. With no blank line, `\t> quote`
+     * folds into the item text (the `>` renders literally as `&gt;`) rather than
+     * nesting as a block quote; a blank line would be required to start the quote.
      */
-    public function testTabIndentedBlockOpenerUnderItemNests(): void
+    public function testTabIndentedBlockOpenerUnderItemFolds(): void
     {
         $input = "1. a\n\t> quote";
         $result = $this->converter->convert($input);
 
-        $this->assertStringContainsString('<blockquote>', $result);
+        $this->assertStringNotContainsString('<blockquote>', $result);
+        $this->assertStringContainsString('&gt; quote', $result);
         $this->assertSame(1, substr_count($result, '<ol>'));
     }
 

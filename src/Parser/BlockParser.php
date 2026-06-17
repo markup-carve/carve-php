@@ -56,11 +56,14 @@ class BlockParser
      * Initial trailing-block tracker state for list-item lazy continuation.
      *
      * `openParagraph` starts true: an empty item (no block yet) can absorb a
-     * lazy line. See advanceTrailingBlockState().
+     * lazy line. `sawParaText` starts false: no paragraph text has been seen
+     * yet, so a fence / div / table on the FIRST content line still opens a
+     * real block (only AFTER paragraph text do those constructs fold, per the
+     * djot no-interruption rule). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
+     * @var array{openParagraph: bool, sawParaText: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
      */
-    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0];
+    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'sawParaText' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0];
 
     /**
      * Maximum block-container nesting depth. Every level of blockquote / div /
@@ -1916,14 +1919,20 @@ class BlockParser
                 $innerLines[] = $content;
                 $this->trackBlockQuoteLazyState($content, $lazyState);
                 $i++;
-            } elseif ($lazyState['paragraphOpen'] && !$this->endsHeadingOrQuote($currentLine)) {
+            } elseif ($lazyState['paragraphOpen'] && !$this->paragraphEndingConstruct($currentLine)) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
                 // block that left no open paragraph (a just-opened div, a closed
-                // fence), terminates the quote instead of being swallowed. A LIST
-                // marker (bullet OR ordered) also ends the quote and starts a
-                // sibling list -- it folds only into a paragraph, not a quote
-                // (symmetric §10, matches carve-js / carve-rs / djot).
+                // fence), terminates the quote (paragraphOpen is false there).
+                // DJOT VARIANT (§10): a VISIBLE block opener (heading, thematic
+                // break, nested quote, table row, fence, `:::`) and a LIST marker
+                // do NOT end the quote -- they fold into the open quoted paragraph
+                // as lazy continuation, exactly as at top level. djot agrees:
+                // such a line cannot be a block mid-paragraph, so it is paragraph
+                // text and lazily continues. A blank line is how you end the
+                // quote and start a sibling block. Only the attachment/invisible
+                // constructs in paragraphEndingConstruct() end it. (carve-js /
+                // carve-rs still terminate here -- parity update pending.)
                 $innerLines[] = $currentLine;
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState);
                 $i++;
@@ -3454,21 +3463,43 @@ class BlockParser
      */
     protected function interruptsParagraph(array $lines, int $i): bool
     {
-        $line = $lines[$i];
+        return $this->paragraphEndingConstruct($lines[$i]);
+    }
 
-        if ($this->startsNewBlock($line, $lines, $i)) {
+    /**
+     * Whether a line ends an OPEN paragraph with no blank line before it.
+     *
+     * DJOT VARIANT (grammar PART 9 §10): a VISIBLE block -- heading, thematic
+     * break, block quote, table row, fenced code, div/admonition -- does NOT
+     * end an open paragraph; it folds in as lazy continuation, matching djot
+     * ("paragraphs can never be interrupted by other block-level elements").
+     * So startsInterruptingBlock() is intentionally NOT consulted. Visible-block
+     * detection stays in endsHeadingOrQuote(), which governs the separate
+     * heading-continuation boundary only (a heading is a bounded title, not an
+     * open paragraph). Only the attachment + invisible constructs below, which
+     * fold no text into the paragraph, end it -- in EVERY prose context: a
+     * top-level paragraph, a list item, and a blockquote's lazy continuation.
+     */
+    protected function paragraphEndingConstruct(string $line): bool
+    {
+        // Caption `^ text` attaches to the immediately preceding block (a
+        // figure or table caption), so it ends the paragraph it follows -- e.g.
+        // an image-only paragraph picks up its `^ caption`.
+        if (isset($line[0], $line[1]) && $line[0] === '^' && $line[1] === ' ') {
             return true;
         }
 
         // A standalone block-attribute line floats forward to the next block
-        // (or is dropped when none follows), so it interrupts the paragraph
-        // rather than folding in as literal text (grammar PART 9 §15).
+        // (or is dropped when none follows), so it ends the paragraph rather
+        // than folding in as literal text (grammar PART 9 §15).
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
 
-        // Invisible constructs produce no rendered block of their own, so they
-        // are recognised next to prose rather than left as literal text.
+        // Invisible constructs -- reference / footnote / abbreviation
+        // definitions and comments (`%%`, `%%%`) -- produce no rendered block
+        // of their own, so they are recognised next to prose rather than left
+        // as literal text. A deliberate carve deviation from pure djot, kept.
         return preg_match('/^\[[^\]]+\]:/', $line) === 1
             || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
             || preg_match('/^%%/', $line) === 1;
@@ -3878,10 +3909,10 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $state
+     * @param array{openParagraph: bool, sawParaText: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
+     * @return array{openParagraph: bool, sawParaText: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
      */
     protected function advanceTrailingBlockState(array $state, string $line): array
     {
@@ -3915,12 +3946,19 @@ class BlockParser
             // A blank line closes the current block. Until a fresh block opens,
             // a dedented line is a new top-level block, not a continuation.
             $state['openParagraph'] = false;
+            $state['sawParaText'] = false;
 
             return $state;
         }
 
+        // DJOT VARIANT (grammar PART 9 §10): once paragraph text is open, a
+        // fence / div / table line does NOT open a block -- it folds into the
+        // paragraph (no interruption). Only at a block boundary (item start or
+        // after a blank line, i.e. sawParaText === false) does such a line open
+        // a real trailing block. This mirrors interruptsParagraph() so list-item
+        // lazy continuation stays consistent with top-level paragraphs.
         $opener = $this->fencedBlockParser->parseCodeFenceOpener($line);
-        if ($opener !== null) {
+        if ($opener !== null && !$state['sawParaText']) {
             /** @var string $fenceChar */
             $fenceChar = $opener['char'];
             /** @var int $fenceLength */
@@ -3934,7 +3972,7 @@ class BlockParser
         }
 
         $divOpener = $this->fencedBlockParser->parseDivFenceOpener($line);
-        if ($divOpener !== null) {
+        if ($divOpener !== null && !$state['sawParaText']) {
             /** @var int $divFenceLength */
             $divFenceLength = $divOpener['length'];
             $state['inDiv'] = true;
@@ -3944,18 +3982,20 @@ class BlockParser
             return $state;
         }
 
-        if ($this->tableParser->isTableRow($line)) {
-            // A table has no open paragraph for a dedented line to continue.
+        if ($this->tableParser->isTableRow($line) && !$state['sawParaText']) {
+            // A table at a block boundary has no open paragraph for a dedented
+            // line to continue.
             $state['openParagraph'] = false;
 
             return $state;
         }
 
-        // Any other non-blank line belongs to a paragraph-bearing block (plain
-        // paragraph, blockquote, heading text). Treat the trailing block
-        // as having an open paragraph and let the existing lazy-continuation
-        // behavior fold the dedented line in.
+        // Any other non-blank line -- plain paragraph / blockquote / heading
+        // text, or a fence/div/table line that FOLDS because paragraph text is
+        // already open -- keeps an open paragraph, so the existing
+        // lazy-continuation behavior folds the dedented line in.
         $state['openParagraph'] = true;
+        $state['sawParaText'] = true;
 
         return $state;
     }

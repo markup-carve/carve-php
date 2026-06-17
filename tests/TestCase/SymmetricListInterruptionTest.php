@@ -49,12 +49,14 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
-     * A thematic break still interrupts a paragraph (it is not a list marker).
+     * Djot variant: a thematic break does not interrupt an open paragraph. The
+     * `---` folds into the paragraph and renders as a smart em-dash; a blank line
+     * is required to start the thematic break.
      */
-    public function testThematicBreakStillInterrupts(): void
+    public function testThematicBreakDoesNotInterrupt(): void
     {
         $this->assertSame(
-            "<p>intro</p>\n<hr>\n<p>more</p>\n",
+            "<p>intro\n\u{2014}\nmore</p>\n",
             $this->converter->convert("intro\n---\nmore"),
         );
     }
@@ -110,14 +112,21 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
-     * A list marker ENDS an open blockquote and starts a top-level sibling list
-     * (it does not lazily extend the quote); plain text folds in.
+     * A col-0 list marker after a quoted prose line FOLDS into the open quoted
+     * paragraph as lazy continuation -- it does not end the quote (§10: a
+     * paragraph is never interrupted by a block-level element, so the unmarked
+     * line is paragraph text). A blank line is required to start a sibling list.
      */
-    public function testListMarkerEndsBlockquoteAndStartsSiblingList(): void
+    public function testListMarkerFoldsIntoBlockquoteLazyContinuation(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            "<blockquote><p>quoted\n- item</p></blockquote>\n",
             $this->converter->convert("> quoted\n- item"),
+        );
+        // A blank line ends the quote and starts the sibling list.
+        $this->assertSame(
+            "<blockquote><p>quoted</p></blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            $this->converter->convert("> quoted\n\n- item"),
         );
     }
 

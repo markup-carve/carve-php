@@ -2208,11 +2208,12 @@ DJOT;
     {
         // "> ```" opens a fence as the quote's first line; the next col-0 line
         // (no ">") ends the quote, leaving an empty (never-closed) block code
-        // fence. Pinned by spec corpus 80-...-fenced-block-3.
+        // fence. Djot variant: the trailing `> still` does NOT interrupt the
+        // `code no marker` paragraph (a block quote no longer interrupts an open
+        // paragraph) -- it lazily continues it, folding in as literal `&gt; still`.
         $this->assertSame(
             "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n"
-            . "<p>code no marker</p>\n"
-            . "<blockquote><p>still</p></blockquote>\n",
+            . "<p>code no marker\n&gt; still</p>\n",
             $this->converter->convert("> ```\ncode no marker\n> still\n"),
         );
     }
@@ -3306,9 +3307,12 @@ DJOT;
         // A `{...}` line the block parser rejects (first content char not
         // [.#a-zA-Z], e.g. a braced inline marker payload) is ordinary
         // paragraph text — the pre-scan must NOT mine an id out of it, or
-        // [Title][] would anchor to a #foo the heading never gets.
+        // [Title][] would anchor to a #foo the heading never gets. A blank line
+        // separates the rejected brace line from the heading: in the djot variant
+        // a heading no longer interrupts an open paragraph, so the blank line is
+        // required for `# Title` to form its own section.
         $converter = new CarveConverter();
-        $html = $converter->convert("{* #foo}\n# Title\n\nSee [Title][].");
+        $html = $converter->convert("{* #foo}\n\n# Title\n\nSee [Title][].");
 
         $this->assertStringContainsString('<section id="Title">', $html);
         $this->assertStringContainsString('href="#Title"', $html);

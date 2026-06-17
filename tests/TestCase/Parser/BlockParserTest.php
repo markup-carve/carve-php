@@ -470,8 +470,11 @@ DJOT;
         $this->assertSame(ListBlock::TYPE_ORDERED, $sublist->getListType());
     }
 
-    public function testParagraphInterruptionBlockquoteInList(): void
+    public function testParagraphInterruptionBlockquoteFoldsInList(): void
     {
+        // Djot variant: a block quote after a prose line (no blank line) does not
+        // interrupt the item's open paragraph. The `>` folds into the item text;
+        // a blank line would be required to start a nested block quote.
         $parser = new BlockParser();
         $doc = $parser->parse("- Item\n  > quoted");
 
@@ -479,9 +482,8 @@ DJOT;
         $item = $list->getChildren()[0];
         $children = $item->getChildren();
 
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
     public function testParagraphInterruptionBulletFoldsWithoutBlankLine(): void
@@ -503,15 +505,17 @@ DJOT;
         $this->assertInstanceOf(ListBlock::class, $blankChildren[1]);
     }
 
-    public function testParagraphInterruptionBlockquoteInterruptsParagraph(): void
+    public function testParagraphInterruptionBlockquoteFoldsIntoParagraph(): void
     {
+        // Djot variant: a block quote does not interrupt an open paragraph. The
+        // `>` marker folds into the paragraph as literal text; a blank line is
+        // required to start the block quote.
         $parser = new BlockParser();
         $doc = $parser->parse("They said:\n> This is important");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
     public function testCodeBlockTrimsLeadingAndTrailingBlankLines(): void
