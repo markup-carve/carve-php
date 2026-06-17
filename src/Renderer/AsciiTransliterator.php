@@ -15,16 +15,24 @@ use Transliterator;
  * broken deep links. Reducing IDs to ASCII keeps shared links robust.
  *
  * Two engines:
- *  - ICU `Transliterator` ("Any-Latin; Latin-ASCII") when ext-intl is
- *    available — also romanizes scripts the map does not cover (e.g. CJK);
- *  - a baked Unicode->ASCII map generated *from that same ICU transform*
- *    (see ascii_translit_map.php) as the fallback.
+ *  - a baked Unicode->ASCII map generated from ICU `Any-Latin; Latin-ASCII`
+ *    (see ascii_translit_map.php) -- the DEFAULT, deterministic and
+ *    dependency-free;
+ *  - the live ICU `Transliterator` ("Any-Latin; Latin-ASCII"), opt-in via
+ *    `new AsciiTransliterator(useIntl: true)`. It additionally romanizes
+ *    scripts the map does not cover (e.g. CJK), but its availability and
+ *    output depend on ext-intl.
  *
- * Because the fallback is generated from ICU, the common European / Cyrillic
- * / Greek / punctuation output is byte-identical with or without intl, so
- * shared anchors stay stable across environments. Only scripts outside the
- * baked ranges differ: intl romanizes them, the map drops them (the caller's
- * empty-result handling then yields a stable generated id).
+ * The default no longer auto-detects ext-intl. Auto-detection made a heading
+ * id depend on whether ext-intl happened to be installed: scripts outside the
+ * baked ranges (CJK, Arabic, ...) were romanized when intl was present but
+ * dropped when it was absent, so the SAME document produced different anchor
+ * ids across environments. The baked map (generated from the same ICU
+ * transform) is byte-identical to ICU for the covered European / Cyrillic /
+ * Greek / punctuation ranges; only out-of-map scripts differ, and the map
+ * drops them, yielding a stable generated id regardless of environment. ICU
+ * stays available for callers that explicitly want romanization and control
+ * their runtime.
  */
 class AsciiTransliterator
 {
@@ -40,11 +48,14 @@ class AsciiTransliterator
     protected bool $useIntl;
 
     /**
-     * @param bool|null $useIntl Force the engine; null auto-detects ext-intl.
+     * @param bool|null $useIntl Engine selector. Default (null) uses the
+     *   deterministic baked map so heading ids stay stable across
+     *   environments; pass `true` to opt into the live ICU transform
+     *   (requires ext-intl), or `false` to force the baked map explicitly.
      */
     public function __construct(?bool $useIntl = null)
     {
-        $this->useIntl = $useIntl ?? class_exists(Transliterator::class);
+        $this->useIntl = $useIntl ?? false;
     }
 
     public function transliterate(string $text): string
