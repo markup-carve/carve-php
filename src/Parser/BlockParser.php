@@ -1910,6 +1910,48 @@ class BlockParser
                 break;
             }
 
+            // Continuation marker (Carve, PART 9 §17): a lone `+` at column 0
+            // after a quoted line attaches the FOLLOWING flush-left block to the
+            // quote -- the un-prefixed analogue of the list-item form, so a real
+            // block (list, fenced code, table, ...) can join the quote without
+            // repeating `>`. Collect the block's lines (up to a blank line, a
+            // `>` line, or a further `+`) and splice them into the quote body
+            // behind a blank-line separator, so they parse as their own block
+            // instead of folding into the preceding quoted paragraph.
+            if (rtrim($currentLine) === '+') {
+                $i++; // consume the `+` marker
+                /** @var array<string> $attached */
+                $attached = [];
+                while ($i < $count) {
+                    $line = $lines[$i];
+                    if (IndentationHelper::isBlankLine($line)) {
+                        break;
+                    }
+                    if ($this->blockQuoteLineContent($line) !== null) {
+                        break; // a `>` line resumes the quote normally
+                    }
+                    if (rtrim($line) === '+') {
+                        break; // a further `+` starts the next attached block
+                    }
+                    $attached[] = $line;
+                    $i++;
+                }
+                if ($attached !== []) {
+                    // $innerLines always holds the quote's first content line, so
+                    // a leading blank separates the attached block from it.
+                    $innerLines[] = '';
+                    foreach ($attached as $attachedLine) {
+                        $innerLines[] = $attachedLine;
+                    }
+                    $innerLines[] = '';
+                    // The attached block closed any open paragraph: a following
+                    // unmarked line no longer lazily continues the quote.
+                    $lazyState['paragraphOpen'] = false;
+                }
+
+                continue;
+            }
+
             // Continue with "> " prefix (space required per spec)
             $content = $this->blockQuoteLineContent($currentLine);
             if ($content !== null) {
