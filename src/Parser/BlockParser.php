@@ -1180,6 +1180,10 @@ class BlockParser
         $headingIdTracker->setLowercase($this->headingIdLowercase);
         $pendingId = null;
         $count = count($lines);
+        // A `# H` line that folds into an open paragraph above it (§10) is
+        // literal text, not a heading, so it registers no id / implicit ref --
+        // the same open-paragraph guard the definition extractors use.
+        $openParaBefore = $this->computeOpenParagraphBefore($lines);
 
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
@@ -1208,6 +1212,12 @@ class BlockParser
             // Match heading: optional leading spaces, 1-6 # characters, followed by space(s) and content
             // Space after # is syntax delimiter, not indentation - must be space(s) per spec, not tab
             if (preg_match('/^[ ]{0,3}(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+                // A heading folding into an open paragraph is literal text:
+                // register nothing (else a folded `# H` would leave a dangling
+                // `[H][]` / `</#H>` target with no rendered heading).
+                if ($openParaBefore[$i]) {
+                    continue;
+                }
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
