@@ -552,6 +552,13 @@ class BlockParser
             $strippedLines[$k] = $l;
         }
 
+        // Precompute, once for the whole document, the largest div-closer fence
+        // length that appears AFTER each line index (a `:+` line of N colons
+        // closes any div opener of length <= N). This replaces a per-opener
+        // forward rescan -- which was O(n^2) on a document full of `:::`
+        // openers -- with an O(1) lookup. See maxDivCloserLengthAfter().
+        $maxDivCloserAfter = $this->maxDivCloserLengthAfter($strippedLines);
+
         for ($i = 0; $i < $count; $i++) {
             $result[$i] = $open;
 
@@ -649,7 +656,7 @@ class BlockParser
                     // SOLE authority for `:` here -- do not fall through to
                     // startsInterruptingBlock, whose closer lookahead is not
                     // fence-aware and would disagree.
-                    if ($this->hasStrippedDivCloserAhead($strippedLines, $i, $divInfo['length'])) {
+                    if ($maxDivCloserAfter[$i] >= $divInfo['length']) {
                         // WITH a closer ahead the div opens; its content is parsed
                         // recursively and the opener opens no paragraph (the closer
                         // line is handled above via $divLengths).
@@ -721,24 +728,37 @@ class BlockParser
     }
 
     /**
-     * Whether a div fence of the given length has a matching closer ahead, with
-     * div closer of the given length ahead, on already-blockquote-stripped
-     * lines (so a quoted div `> :::` … `> :::` is recognized). A `:::` that sits
-     * inside a fenced code block is skipped -- it is a literal sample, not a
-     * closer -- mirroring tryParseDiv / buildDivCloserSuffixMax, so the prepass
+     * For each line index, the largest div-closer fence length that appears at
+     * a LATER index. A `:+` line of N colons closes any div opener of length
+     * <= N (isDivFenceCloser), so a div opener at index i has a matching closer
+     * ahead exactly when its length <= the returned value at i. A `:::` that
+     * sits inside a fenced code block is a literal sample, not a closer, and is
+     * skipped -- mirroring tryParseDiv / buildDivCloserSuffixMax so the prepass
      * agrees with the recursive div parse.
      *
+     * This is computed ONCE per document in two linear passes (a forward pass
+     * to flag code-fence interior + per-line closer colon count, then a
+     * backward suffix-max pass), replacing a per-opener forward rescan that was
+     * O(n^2) on documents with many `:::` openers. A div opener is only ever
+     * consulted outside a code fence (computeOpenParagraphBefore handles the
+     * in-fence case earlier), so computing fence interior from the document
+     * start yields the same closer set as the previous opener-relative scan.
+     *
      * @param array<string> $strippedLines Lines with blockquote markers removed.
-     * @param int $index
-     * @param int $length
+     *
+     * @return array<int, int> Suffix-max closer length by line index (0 = none ahead).
      */
-    private function hasStrippedDivCloserAhead(array $strippedLines, int $index, int $length): bool
+    private function maxDivCloserLengthAfter(array $strippedLines): array
     {
         $count = count($strippedLines);
+
+        // Forward pass: the div-closer colon count contributed BY each line
+        // (0 when the line is inside a code fence or is not a `:+` closer line).
+        $closerLength = array_fill(0, $count, 0);
         $inFence = false;
         $fenceChar = '';
         $fenceLen = 0;
-        for ($j = $index + 1; $j < $count; $j++) {
+        for ($j = 0; $j < $count; $j++) {
             $candidate = $strippedLines[$j];
             if ($inFence) {
                 if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $fenceChar, $fenceLen)) {
@@ -755,12 +775,23 @@ class BlockParser
 
                 continue;
             }
-            if ($this->fencedBlockParser->isDivFenceCloser($candidate, $length)) {
-                return true;
+            if (preg_match('/^(:+)\s*$/', $candidate, $m) === 1) {
+                $closerLength[$j] = strlen($m[1]);
             }
         }
 
-        return false;
+        // Backward pass: suffix max so index i sees the largest closer length
+        // strictly AFTER it.
+        $maxAfter = array_fill(0, $count, 0);
+        $best = 0;
+        for ($j = $count - 1; $j >= 0; $j--) {
+            $maxAfter[$j] = $best;
+            if ($closerLength[$j] > $best) {
+                $best = $closerLength[$j];
+            }
+        }
+
+        return $maxAfter;
     }
 
     /**
@@ -2846,11 +2877,31 @@ class BlockParser
                     if ($nextTrimmed === '+') {
                         break;
                     }
-                    // Non-list content at base indent: a line that starts a block
-                    // ends the list (lazy continuation only extends a paragraph).
-                    // isBlockElementStart() detects blocks regardless of context;
-                    // startsNewBlock() additionally covers paragraph interruption.
-                    if ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)) {
+                    // Non-list content at base indent. Under the one-rule §10
+                    // model NOTHING but a caption interrupts an OPEN paragraph,
+                    // in every prose context including a list item. So a visible
+                    // block (heading, thematic break, block quote, table row,
+                    // fenced code, `:::` div) that follows the item's prose with
+                    // no blank line FOLDS into the item's open paragraph as lazy
+                    // continuation -- exactly as the top-level paragraph path
+                    // folds it. We only break (ending the item) at a block
+                    // BOUNDARY: when the item's trailing block is not an open
+                    // paragraph (a closed fence / table / div, or after a blank
+                    // line), where there is no paragraph for the line to fold
+                    // into. A caption still ends the item via paragraphEndingConstruct.
+                    if (
+                        ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                        && (
+                            !$trailingState['openParagraph']
+                            && !$trailingState['inFence']
+                            && !$trailingState['inDiv']
+                        )
+                    ) {
+                        break;
+                    }
+                    // A caption ends the open paragraph (§4 attachment) even when
+                    // the paragraph is open, mirroring paragraphEndingConstruct().
+                    if ($this->paragraphEndingConstruct($nextTrimmed)) {
                         break;
                     }
                 }
