@@ -110,13 +110,16 @@ class SymmetricListInterruptionTest extends TestCase
     }
 
     /**
-     * A list marker ENDS an open blockquote and starts a top-level sibling list
-     * (it does not lazily extend the quote); plain text folds in.
+     * A list marker on a lazy line FOLDS into the open quoted paragraph as
+     * literal text, mirroring the top-level rule where a list marker does not
+     * interrupt an open paragraph. It does not end the quote or start a sibling
+     * list. (A heading, by contrast, IS ended by a list marker -- see
+     * testListMarkerEndsHeadingAndStartsSiblingList.)
      */
-    public function testListMarkerEndsBlockquoteAndStartsSiblingList(): void
+    public function testListMarkerFoldsIntoOpenQuotedParagraph(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            "<blockquote><p>quoted\n- item</p></blockquote>\n",
             $this->converter->convert("> quoted\n- item"),
         );
     }

@@ -79,9 +79,11 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testIndentedMarkerIsNotaContinuationMarker(): void
     {
         // Only a column-0 `+` is the marker; an indented `+` folds as literal
-        // text and the col-0 list below is a separate top-level list.
+        // text. The following col-0 list marker also folds into the open quoted
+        // paragraph (a list marker no longer ends the quote), so the whole run
+        // stays inside one quoted paragraph.
         $this->assertSame(
-            "<blockquote><p>q\n+</p></blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            "<blockquote><p>q\n+\n- item</p></blockquote>\n",
             $this->converter->convert("> q\n  +\n- item"),
         );
     }

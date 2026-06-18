@@ -1895,6 +1895,7 @@ class BlockParser
             'inComment' => false,
             'commentLength' => 0,
             'paragraphOpen' => false,
+            'paragraphTextOpen' => false,
         ];
 
         $innerLines[] = $content;
@@ -1958,14 +1959,18 @@ class BlockParser
                 $innerLines[] = $content;
                 $this->trackBlockQuoteLazyState($content, $lazyState);
                 $i++;
-            } elseif ($lazyState['paragraphOpen'] && !$this->endsHeadingOrQuote($currentLine)) {
+            } elseif ($lazyState['paragraphOpen'] && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'])) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
                 // block that left no open paragraph (a just-opened div, a closed
                 // fence), terminates the quote instead of being swallowed. A LIST
-                // marker (bullet OR ordered) also ends the quote and starts a
-                // sibling list -- it folds only into a paragraph, not a quote
-                // (symmetric §10, matches carve-js / carve-rs / djot).
+                // marker (bullet OR ordered) FOLDS into an open quoted PARAGRAPH
+                // as literal text -- mirroring the top-level rule where a list
+                // marker does not interrupt an open paragraph. But it only folds
+                // when an open plain paragraph precedes it: after a heading,
+                // table, or other closed block there is no paragraph to fold
+                // into, so the list marker ENDS the quote and starts a sibling
+                // list (endsBlockQuote() handles this via paragraphTextOpen).
                 $innerLines[] = $currentLine;
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState);
                 $i++;
@@ -1994,8 +1999,15 @@ class BlockParser
      * open paragraph (a just-opened div, a closed fence), such a line must instead
      * terminate the quote - otherwise it is wrongly swallowed into the fence/div.
      *
+     * The separate `paragraphTextOpen` flag is narrower than `paragraphOpen`:
+     * it is true only after a plain PARAGRAPH-text line, and false after a
+     * heading, table, thematic break, fence, comment, div, or blank line. It
+     * decides whether a lazy list marker folds (open paragraph above) or ends
+     * the quote (no open paragraph), mirroring the top-level rule that a list
+     * marker folds into a paragraph but never into a heading.
+     *
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool} $state
+     * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool,paragraphTextOpen:bool} $state
      *     Running state, mutated in place.
      */
     private function trackBlockQuoteLazyState(string $content, array &$state): void
@@ -2005,6 +2017,7 @@ class BlockParser
                 $state['inComment'] = false;
             }
             $state['paragraphOpen'] = false;
+            $state['paragraphTextOpen'] = false;
 
             return;
         }
@@ -2014,12 +2027,14 @@ class BlockParser
                 $state['inFence'] = false;
             }
             $state['paragraphOpen'] = false;
+            $state['paragraphTextOpen'] = false;
 
             return;
         }
 
         if (IndentationHelper::isBlankLine($content)) {
             $state['paragraphOpen'] = false;
+            $state['paragraphTextOpen'] = false;
 
             return;
         }
@@ -2038,6 +2053,7 @@ class BlockParser
                 $state['fenceChar'] = $fenceInfo['char'];
                 $state['fenceLength'] = $fenceInfo['length'];
                 $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -2047,6 +2063,7 @@ class BlockParser
                 $state['inComment'] = true;
                 $state['commentLength'] = $commentInfo['length'];
                 $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -2054,6 +2071,7 @@ class BlockParser
             if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
                 // Div opener/closer line is structural; it opens no paragraph itself.
                 $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -2064,6 +2082,18 @@ class BlockParser
         // list item, heading, nested quote) - all leave an open paragraph a lazy line
         // may continue.
         $state['paragraphOpen'] = true;
+
+        // A list marker folds only into an open PLAIN paragraph. A heading,
+        // table row, or thematic break is a closed block that leaves no
+        // paragraph for a following list marker to fold into, so it clears
+        // paragraphTextOpen; plain text (including an open paragraph this line
+        // continues) sets it. Mirrors the top-level rule: `text\n- item` folds,
+        // `# h\n- item` is a heading plus a sibling list.
+        $trimmed = ltrim($content);
+        $isHeading = preg_match('/^#{1,6} .*\S/', $trimmed) === 1;
+        $isThematicBreak = preg_match('/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed) === 1;
+        $isTableRow = $this->tableParser->isTableRow($trimmed);
+        $state['paragraphTextOpen'] = !$isHeading && !$isThematicBreak && !$isTableRow;
     }
 
     /**
@@ -3722,11 +3752,12 @@ class BlockParser
     }
 
     /**
-     * Whether a line ENDS an open heading or blockquote (and starts a sibling
-     * block). A list marker (bullet, task, or ordered) ends them and starts a
-     * sibling list -- unlike paragraph interruption, where a list marker FOLDS
-     * in (symmetric §10): a list folds into a PARAGRAPH but ends a heading/quote,
-     * matching djot. Every paragraph-interrupter ends them too.
+     * Whether a line ENDS an open heading (and starts a sibling block). A list
+     * marker (bullet, task, or ordered) ends a heading and starts a sibling
+     * list: a heading is a bounded title, so a list marker folds into a
+     * PARAGRAPH but never into a heading. Every paragraph-interrupter ends the
+     * heading too. (Block quotes use endsBlockQuote(), which lets a list marker
+     * fold into the open quoted paragraph instead.)
      *
      * @param string $line
      * @param array<string>|null $lines
@@ -3735,6 +3766,39 @@ class BlockParser
     protected function endsHeadingOrQuote(string $line, ?array $lines = null, ?int $index = null): bool
     {
         if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+            return true;
+        }
+
+        return $this->startsNewBlock($line, $lines, $index);
+    }
+
+    /**
+     * Whether a non-">" line ENDS an open block quote (and starts a sibling
+     * block) during lazy continuation. A list marker (bullet OR ordered) ends
+     * the quote UNLESS an open plain paragraph precedes it: when one does, the
+     * marker folds into that paragraph as literal text (the top-level rule that
+     * a list marker does not interrupt an open paragraph, applied inside the
+     * quote). After a heading, table, fenced code, thematic break, `:::` div,
+     * or a blank line there is no open paragraph to fold into, so a list marker
+     * ENDS the quote and starts a sibling list -- mirroring the top level,
+     * where `# h\n- item` is a heading plus a sibling list. Visible
+     * block-openers, invisible constructs, and captions still end the quote via
+     * startsNewBlock().
+     *
+     * @param string $line
+     * @param bool $paragraphTextOpen Whether an open plain paragraph precedes this line.
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function endsBlockQuote(
+        string $line,
+        bool $paragraphTextOpen,
+        ?array $lines = null,
+        ?int $index = null,
+    ): bool {
+        // A list marker ends the quote only when there is no open paragraph to
+        // fold into; with an open paragraph it folds (does not end the quote).
+        if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line)) !== null) {
             return true;
         }
 
