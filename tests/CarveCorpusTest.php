@@ -143,9 +143,6 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * Empty: the symmetric-list-interruption / Option D pairs now match the
-     * bumped spec corpus, so they run as real assertions.
-     *
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [];
