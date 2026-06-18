@@ -491,6 +491,325 @@ class BlockParser
     }
 
     /**
+     * Whether an OPEN paragraph exists immediately before each line, for the
+     * first-pass definition extractors.
+     *
+     * Under the one-rule §10 model NOTHING interrupts an open paragraph, so a
+     * reference / footnote / abbreviation definition (and a `%%` comment, a
+     * `{...}` attribute line) that follows prose with no blank line is literal
+     * paragraph text, NOT a definition. The extractors run BEFORE block parsing,
+     * so they need to know, per line, whether the immediately preceding line
+     * left a paragraph open. They then skip extraction at any line where it did
+     * -- treating the candidate as folded text -- so the prepass and the real
+     * parse agree.
+     *
+     * The state mirrors trackBlockQuoteLazyState() / advanceTrailingBlockState():
+     * a blank line and an open code fence / fenced comment (interior + opener)
+     * close any open paragraph; every other non-blank line opens one. A
+     * blockquote-depth change is NOT a boundary -- under the one-rule model a
+     * deeper `>` opener after open prose folds in and a shallower line lazily
+     * continues an open quoted paragraph, so the paragraph stays open across a
+     * depth change. Fenced-code opacity is preserved (a line inside a ``` / ~~~
+     * block reports no open paragraph, and openers/closers are tracked on the
+     * blockquote-stripped content so a quoted fence still closes).
+     *
+     * @param array<string> $lines
+     *
+     * @return array<int, bool> Indexed by line; whether an open paragraph holds
+     *     just BEFORE the line.
+     */
+    protected function computeOpenParagraphBefore(array $lines): array
+    {
+        $result = [];
+        $open = false;
+        $inFence = false;
+        $fenceChar = '';
+        $fenceLen = 0;
+        $inComment = false;
+        $commentLen = 0;
+        // Stack of open div-fence lengths (`:::` … `:::`). A closer at or above
+        // the innermost opener's length pops it. Divs are tracked because the
+        // closing fence after div content must reset `open` to false, so a
+        // definition right after a closed div is still registered.
+        $divLengths = [];
+        // End index (inclusive) of a multi-line block-attribute block currently
+        // being skipped; -1 when none. Those lines open no paragraph.
+        $attrBlockEnd = -1;
+        $count = count($lines);
+
+        // Pre-strip leading blockquote markers (`>` then an optional literal
+        // space) from every line, exactly as extractReferences and
+        // blockQuoteLineContent strip. All fence / comment / div / attribute /
+        // block-opener detection (including the multi-line attribute and div
+        // closer lookaheads) runs on these stripped lines, so a quoted construct
+        // (`> :::`, `> {.note\n>   #id}`, …) is recognized the same as at top
+        // level and the prepass agrees with the recursive blockquote parse.
+        $strippedLines = [];
+        foreach ($lines as $k => $l) {
+            while (($l[0] ?? '') === '>') {
+                $l = ($l[1] ?? '') === ' ' ? substr($l, 2) : substr($l, 1);
+            }
+            $strippedLines[$k] = $l;
+        }
+
+        for ($i = 0; $i < $count; $i++) {
+            $result[$i] = $open;
+
+            if ($i <= $attrBlockEnd) {
+                // Interior / closing line of a multi-line `{...}` attribute block
+                // recognized at a boundary -- it opens no paragraph.
+                $open = false;
+
+                continue;
+            }
+
+            $stripped = $strippedLines[$i];
+
+            // Inside an open code fence or fenced comment: stay opaque (no open
+            // paragraph) until the matching closer is seen.
+            if ($inComment) {
+                if ($this->fencedBlockParser->isFencedCommentCloser($stripped, $commentLen)) {
+                    $inComment = false;
+                }
+                $open = false;
+
+                continue;
+            }
+            if ($inFence) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($stripped, $fenceChar, $fenceLen)) {
+                    $inFence = false;
+                }
+                $open = false;
+
+                continue;
+            }
+
+            // A div closer line ends the innermost open div and opens no
+            // paragraph -- even mid div-content (where `open` is true). This is
+            // why div nesting is tracked: a definition right after `:::` (the
+            // closer) sits at a block boundary and is registered.
+            if ($divLengths !== [] && $this->fencedBlockParser->isDivFenceCloser($stripped, (int)end($divLengths))) {
+                array_pop($divLengths);
+                $open = false;
+
+                continue;
+            }
+
+            // A blank line closes any open paragraph.
+            if (IndentationHelper::isBlankLine($stripped)) {
+                $open = false;
+
+                continue;
+            }
+
+            // A caption (`^ ` line) is the one §4 attachment that still ENDS an
+            // open paragraph (paragraphEndingConstruct). It attaches to the
+            // preceding block and opens no paragraph of its own, so the next line
+            // is at a block boundary and a definition there is registered.
+            if (($stripped[0] ?? '') === '^' && ($stripped[1] ?? '') === ' ') {
+                $open = false;
+
+                continue;
+            }
+
+            // At a block boundary (no paragraph open) certain lines open no
+            // paragraph for a following line to fold into: a fence / fenced
+            // comment / div block, AND an INVISIBLE construct that is itself
+            // consumed rather than rendered as prose -- a reference / footnote /
+            // abbreviation definition, a `%%` line comment, or a `{...}`
+            // attribute line. Each leaves `open` false, so a consecutive
+            // definition below stays a real definition (it does not fold into a
+            // phantom paragraph). Mid-paragraph (open === true) every such line
+            // FOLDS in (one-rule §10), so the paragraph stays open and the guard
+            // skips the following definition. (carve folds invisibles only into
+            // an OPEN paragraph; at a boundary they keep their own meaning.)
+            if (!$open) {
+                $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($stripped);
+                if ($fenceInfo !== null) {
+                    $inFence = true;
+                    $fenceChar = $fenceInfo['char'];
+                    $fenceLen = $fenceInfo['length'];
+                    $open = false;
+
+                    continue;
+                }
+                $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($stripped);
+                if ($commentInfo !== null) {
+                    $inComment = true;
+                    $commentLen = $commentInfo['length'];
+                    $open = false;
+
+                    continue;
+                }
+                $divInfo = $this->fencedBlockParser->parseDivFenceOpener($stripped);
+                if ($divInfo !== null) {
+                    // A `:::` opener line. This fence-aware lookahead (it strips
+                    // blockquote markers and skips closers inside code fences,
+                    // exactly like tryParseDiv / buildDivCloserSuffixMax) is the
+                    // SOLE authority for `:` here -- do not fall through to
+                    // startsInterruptingBlock, whose closer lookahead is not
+                    // fence-aware and would disagree.
+                    if ($this->hasStrippedDivCloserAhead($strippedLines, $i, $divInfo['length'])) {
+                        // WITH a closer ahead the div opens; its content is parsed
+                        // recursively and the opener opens no paragraph (the closer
+                        // line is handled above via $divLengths).
+                        $divLengths[] = $divInfo['length'];
+                        $open = false;
+
+                        continue;
+                    }
+                    // An UNTERMINATED `:::` is ordinary paragraph text: it opens a
+                    // paragraph and a following definition folds into it (§10).
+                    $open = true;
+
+                    continue;
+                }
+                // A single-line block-attribute line with a VALID payload is
+                // invisible at a boundary (it floats to the next block). Test the
+                // blockquote-STRIPPED content so a quoted `> {.note}` before a
+                // quoted `> [r]: /u` is recognized too (the def then stays a real
+                // quoted definition rather than being skipped as folded text).
+                if ($this->isSingleLineBlockAttribute($stripped)) {
+                    $open = false;
+
+                    continue;
+                }
+                // A MULTI-line `{...}` attribute block (`{` on one line, `}` on a
+                // later one) is also invisible at a boundary. Run on the
+                // blockquote-stripped lines so a quoted multi-line block
+                // (`> {.note\n>   #id}`) is recognized too; validate the payload so
+                // an invalid block stays prose. (Single-line handled above.)
+                $attrConsumed = 0;
+                $attrStr = $this->scanBlockAttributeLines($strippedLines, $i, $attrConsumed);
+                if (
+                    $attrStr !== null
+                    && $attrConsumed > 1
+                    && ($attrStr === '' || $this->inlineParser->isValidAttrPayload($attrStr))
+                ) {
+                    $attrBlockEnd = $i + $attrConsumed - 1;
+                    $open = false;
+
+                    continue;
+                }
+                if ($this->isInvisibleConstructLine($stripped)) {
+                    // Consumed invisibly at a boundary -- opens no paragraph.
+                    $open = false;
+
+                    continue;
+                }
+                if ($stripped !== '' && $this->startsInterruptingBlock($stripped, $strippedLines, $i)) {
+                    // A bounded / structural block opener at a boundary -- a
+                    // heading, thematic break, table row, or `>` quote -- forms
+                    // its own block and leaves no OPEN PARAGRAPH for a following
+                    // definition to fold into. So a definition right after a
+                    // heading is still extracted (it does not fold), exactly as
+                    // the heading parser ends the heading and hands the def line
+                    // to its own parser. Mid-paragraph (open === true) these same
+                    // lines fold in (one-rule §10).
+                    $open = false;
+
+                    continue;
+                }
+            }
+
+            // Any other non-blank line opens / continues a paragraph; an
+            // invisible-construct line that reaches here folds into the open one.
+            $open = true;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Whether a div fence of the given length has a matching closer ahead, with
+     * div closer of the given length ahead, on already-blockquote-stripped
+     * lines (so a quoted div `> :::` … `> :::` is recognized). A `:::` that sits
+     * inside a fenced code block is skipped -- it is a literal sample, not a
+     * closer -- mirroring tryParseDiv / buildDivCloserSuffixMax, so the prepass
+     * agrees with the recursive div parse.
+     *
+     * @param array<string> $strippedLines Lines with blockquote markers removed.
+     * @param int $index
+     * @param int $length
+     */
+    private function hasStrippedDivCloserAhead(array $strippedLines, int $index, int $length): bool
+    {
+        $count = count($strippedLines);
+        $inFence = false;
+        $fenceChar = '';
+        $fenceLen = 0;
+        for ($j = $index + 1; $j < $count; $j++) {
+            $candidate = $strippedLines[$j];
+            if ($inFence) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $fenceChar, $fenceLen)) {
+                    $inFence = false;
+                }
+
+                continue;
+            }
+            $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($candidate);
+            if ($fenceInfo !== null) {
+                $inFence = true;
+                $fenceChar = $fenceInfo['char'];
+                $fenceLen = $fenceInfo['length'];
+
+                continue;
+            }
+            if ($this->fencedBlockParser->isDivFenceCloser($candidate, $length)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a (blockquote-stripped) line is an INVISIBLE definition / comment
+     * construct that is consumed rather than rendered as prose: a reference /
+     * footnote / abbreviation definition or a `%%` line comment. At a block
+     * boundary such a line opens no paragraph (so a following definition is not
+     * folded into a phantom paragraph); only when a paragraph is already open
+     * does it fold in as literal text. Block-attribute lines are recognized
+     * separately by the caller (scanBlockAttributeLines + payload validation).
+     */
+    private function isInvisibleConstructLine(string $line): bool
+    {
+        // Block-attribute lines (single- and multi-line) are handled by the
+        // caller via scanBlockAttributeLines (with payload validation), so only
+        // the definition / line-comment forms are tested here.
+        // A line comment is recognized after leading whitespace, exactly as
+        // tryParseComment does (`str_starts_with(ltrim(...), '%%')`), so an
+        // indented `  %% note` at a boundary still opens no paragraph.
+        if (str_starts_with(ltrim($line), '%%')) {
+            return true;
+        }
+
+        // Definitions match only at column 0 (mirroring the extractors).
+        return preg_match('/^\[[^\]]+\]:/', $line) === 1
+            || preg_match('/^\*\[[^\]]+\]:/', $line) === 1;
+    }
+
+    /**
+     * Whether a line is a standalone single-line block-attribute line (`{...}`
+     * alone on the line) with a VALID payload. Mirrors the tryParseBlockAttributes
+     * gate exactly (first content char `.`, `#`, or a letter; not a `%` comment;
+     * the whole payload valid per isValidAttrPayload). An INVALID payload (e.g.
+     * `{.123}`) is NOT a block-attribute line -- the real parser keeps it as
+     * literal paragraph text -- so it must not count as invisible here either.
+     */
+    private function isSingleLineBlockAttribute(string $line): bool
+    {
+        if (preg_match('/^\{(.+)\}\s*$/', $line, $m) !== 1) {
+            return false;
+        }
+        $payload = $m[1];
+
+        return preg_match('/^[.#a-zA-Z]/', $payload) === 1
+            && !str_starts_with($payload, '%')
+            && $this->inlineParser->isValidAttrPayload($payload);
+    }
+
+    /**
      * Extract reference link definitions from the document
      *
      * @param array<string> $lines
@@ -505,6 +824,10 @@ class BlockParser
         // shown inside a code sample is not collected as a real def.
         $fenceChar = null;
         $fenceLen = 0;
+        // One-rule §10: a definition that folds into an open paragraph above is
+        // literal text, not a def -- never register it (see
+        // computeOpenParagraphBefore).
+        $openParaBefore = $this->computeOpenParagraphBefore($lines);
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -552,6 +875,23 @@ class BlockParser
             // and the real parse disagree on `>\t[r]: /u`.
             $bare = preg_replace('/^(?:> ?)+/', '', $line) ?? $line;
             $inQuote = ($bare !== $line);
+
+            // One-rule §10 guard: when ANY open paragraph sits immediately above
+            // (in any blockquote context), a `[r]: /u` (or `{...}`) line folds
+            // into it as literal text and must NOT be extracted -- nothing
+            // interrupts an open paragraph. A deeper `> [r]: /u` line after open
+            // top-level prose folds in, and an unquoted `[r]: /u` after open
+            // quoted prose lazily continues the quote, so the depth need not
+            // match. Leave it to the paragraph parser; the loop just advances.
+            // Defs after a blank line, at the start, or after a closed block
+            // (open === false) are still registered.
+            if ($openParaBefore[$i]) {
+                $pendingAttrs = [];
+                $pendingAttrsInQuote = false;
+                $i++;
+
+                continue;
+            }
 
             // Check for attributes that may precede a reference definition.
             // Tag the attrs with their origin context so a quoted
@@ -656,12 +996,20 @@ class BlockParser
     {
         $i = 0;
         $count = count($lines);
+        // One-rule §10: a footnote definition that folds into an open paragraph
+        // above is literal text, not a def (see computeOpenParagraphBefore).
+        $openParaBefore = $this->computeOpenParagraphBefore($lines);
 
         while ($i < $count) {
             $line = $lines[$i];
 
-            // Match footnote definition: [^label]: content
-            if (preg_match('/^\[\^([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+            // Match footnote definition: [^label]: content. One-rule §10: it
+            // folds (is not registered) when an open paragraph sits immediately
+            // above with no blank line between.
+            if (
+                preg_match('/^\[\^([^\]]+)\]:\s*(.*)$/', $line, $matches)
+                && !$openParaBefore[$i]
+            ) {
                 $label = $matches[1];
                 $content = $matches[2];
 
@@ -730,12 +1078,20 @@ class BlockParser
     {
         $i = 0;
         $count = count($lines);
+        // One-rule §10: an abbreviation definition that folds into an open
+        // paragraph above is literal text, not a def (computeOpenParagraphBefore).
+        $openParaBefore = $this->computeOpenParagraphBefore($lines);
 
         while ($i < $count) {
             $line = $lines[$i];
 
-            // Match abbreviation definition: *[abbr]: definition
-            if (preg_match('/^\*\[([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+            // Match abbreviation definition: *[abbr]: definition. One-rule §10:
+            // it folds (is not registered) when an open paragraph sits
+            // immediately above with no blank line between.
+            if (
+                preg_match('/^\*\[([^\]]+)\]:\s*(.*)$/', $line, $matches)
+                && !$openParaBefore[$i]
+            ) {
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
 
@@ -3452,10 +3808,16 @@ class BlockParser
     }
 
     /**
-     * Paragraph interruption (grammar PART 9 §10). Visible blocks interrupt
-     * open paragraphs without requiring a blank line. Captions and invisible
-     * constructs (reference definitions and comments) also interrupt, since
-     * they annotate/attach to prose with no rendered block of their own.
+     * Paragraph interruption (grammar PART 9 §10). One rule, zero carve-outs:
+     * NOTHING interrupts an open paragraph. Every block-level construct --
+     * visible (heading, thematic break, block quote, table row, fenced code,
+     * div/admonition, list marker) AND invisible (reference / footnote /
+     * abbreviation definition, comment, block-attribute line) -- folds into the
+     * open paragraph as lazy continuation when it follows prose with no blank
+     * line, matching djot ("paragraphs can never be interrupted by other
+     * block-level elements"). A blank line is required to start any of them.
+     * Only a caption (`^ ` line) still ends an open paragraph -- it is a §4
+     * attachment to a captionable block, not a §10 interruption.
      * Sublist nesting via indentation is handled in the list-item collector.
      *
      * @param array<string> $lines
@@ -3469,57 +3831,25 @@ class BlockParser
     /**
      * Whether a line ends an OPEN paragraph with no blank line before it.
      *
-     * DJOT VARIANT (grammar PART 9 §10): a VISIBLE block -- heading, thematic
-     * break, block quote, table row, fenced code, div/admonition -- does NOT
-     * end an open paragraph; it folds in as lazy continuation, matching djot
-     * ("paragraphs can never be interrupted by other block-level elements").
-     * So startsInterruptingBlock() is intentionally NOT consulted. Visible-block
-     * detection stays in endsHeadingOrQuote(), which governs the separate
+     * DJOT VARIANT (grammar PART 9 §10): ONE rule with no carve-outs --
+     * NOTHING interrupts an open paragraph. Visible blocks and invisible
+     * constructs alike fold in as lazy continuation; only a caption (`^ `
+     * line), a §4 attachment rather than a §10 interruption, ends the
+     * paragraph it follows. So neither startsInterruptingBlock() nor the
+     * invisible-construct probes are consulted here. Visible-block detection
+     * stays in endsHeadingOrQuote(), which governs the separate
      * heading-continuation boundary only (a heading is a bounded title, not an
-     * open paragraph). Only the attachment + invisible constructs below, which
-     * fold no text into the paragraph, end it -- in EVERY prose context: a
-     * top-level paragraph, a list item, and a blockquote's lazy continuation.
+     * open paragraph). This single caption-only rule applies in EVERY prose
+     * context: a top-level paragraph, a list item, and a blockquote's lazy
+     * continuation.
      */
     protected function paragraphEndingConstruct(string $line): bool
     {
         // Caption `^ text` attaches to the immediately preceding block (a
         // figure or table caption), so it ends the paragraph it follows -- e.g.
-        // an image-only paragraph picks up its `^ caption`.
-        if (isset($line[0], $line[1]) && $line[0] === '^' && $line[1] === ' ') {
-            return true;
-        }
-
-        // A standalone block-attribute line floats forward to the next block
-        // (or is dropped when none follows), so it ends the paragraph rather
-        // than folding in as literal text (grammar PART 9 §15).
-        if ($this->isBlockAttributeLine($line)) {
-            return true;
-        }
-
-        // Invisible constructs -- reference / footnote / abbreviation
-        // definitions and comments (`%%`, `%%%`) -- produce no rendered block
-        // of their own, so they are recognised next to prose rather than left
-        // as literal text. A deliberate carve deviation from pure djot, kept.
-        return preg_match('/^\[[^\]]+\]:/', $line) === 1
-            || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
-            || preg_match('/^%%/', $line) === 1;
-    }
-
-    /**
-     * Whether a line is a standalone single-line block-attribute line: a
-     * `{...}` block alone on the line that yields attributes (matching the
-     * single-line case recognised by tryParseBlockAttributes). Braced inline
-     * markers (`_ * = + - ~ ^`) and comment blocks (`%`) are excluded.
-     */
-    protected function isBlockAttributeLine(string $line): bool
-    {
-        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches) !== 1) {
-            return false;
-        }
-
-        $attrStr = $matches[1];
-
-        return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1 && !str_starts_with($attrStr, '%');
+        // an image-only paragraph picks up its `^ caption`. This is the only
+        // construct that ends an open paragraph.
+        return isset($line[0], $line[1]) && $line[0] === '^' && $line[1] === ' ';
     }
 
     /**

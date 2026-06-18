@@ -8,14 +8,14 @@ use Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A standalone `{...}` block-attribute line interrupts an open paragraph
- * (grammar PART 9 §10 + §15). It must not fold into the paragraph as literal
- * text: it ends the paragraph and floats forward to the next block element, or
- * is dropped when none follows. Canonical verified against carve-js.
+ * One-rule §10 paragraph interruption: NOTHING interrupts an open paragraph,
+ * so a standalone `{...}` block-attribute line that follows prose with NO blank
+ * line FOLDS into the open paragraph as literal text. A blank line is required
+ * to start it; only then does it float forward to the next block (§15).
+ * Canonical verified against carve-js / carve spec PR #156.
  *
- * Before this fix carve-php kept a trailing `{...}` line as literal paragraph
- * content (`<p>Para\n{.class}</p>`). The interrupted paragraph now closes the
- * same way every other interrupting construct closes it (`<p>Para</p>`).
+ * Earlier carve-php closed the paragraph on a trailing `{...}` line; under the
+ * collapsed one-rule model it folds instead (`<p>Para\n{.class}</p>`).
  */
 class BlockAttributeLineInterruptsTest extends TestCase
 {
@@ -26,25 +26,25 @@ class BlockAttributeLineInterruptsTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
-    public function testTrailingBlockAttributeLineIsDropped(): void
+    public function testTrailingBlockAttributeLineFoldsAsText(): void
     {
         $result = $this->converter->convert("Para\n{.class}");
 
-        $this->assertSame("<p>Para</p>\n", $result);
+        $this->assertSame("<p>Para\n{.class}</p>\n", $result);
     }
 
-    public function testTrailingBlockAttributeLineAfterMultiLineParagraph(): void
+    public function testTrailingBlockAttributeLineAfterMultiLineParagraphFolds(): void
     {
         $result = $this->converter->convert("a\nb\n{.c}\n");
 
-        $this->assertSame("<p>a\nb</p>\n", $result);
+        $this->assertSame("<p>a\nb\n{.c}</p>\n", $result);
     }
 
-    public function testBlockAttributeLineFloatsToFollowingBlock(): void
+    public function testBlockAttributeLineFloatsForwardOnlyAfterBlankLine(): void
     {
-        // After interrupting, the block-attribute line attaches to the next
-        // block (separated by a blank line).
-        $result = $this->converter->convert("Para\n{.class}\n\nNext\n");
+        // A blank line is required to end the paragraph; only then does the
+        // block-attribute line attach to the following block.
+        $result = $this->converter->convert("Para\n\n{.class}\n\nNext\n");
 
         $this->assertSame("<p>Para</p>\n<p class=\"class\">Next</p>\n", $result);
     }

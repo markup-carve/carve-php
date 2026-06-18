@@ -122,4 +122,129 @@ class BlockquoteRefDefTest extends TestCase
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('class="note"', $html);
     }
+
+    public function testUnquotedDefAfterQuotedProseFoldsAndIsNotRegistered(): void
+    {
+        // One-rule §10: an unquoted `[r]: /u` after an OPEN quoted paragraph
+        // lazily continues the quote as literal text -- it must NOT be
+        // registered, so a later `[x][r]` does not resolve. Depth need not match
+        // the open paragraph's (carve folds into ANY open paragraph).
+        $html = $this->converter->convert("> quote\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringContainsString('[r]: /u', $html);
+    }
+
+    public function testQuotedDefAfterTopLevelProseFoldsAndIsNotRegistered(): void
+    {
+        // A deeper `> [r]: /u` line after open top-level prose folds into the
+        // paragraph (the `>` opener does not interrupt), so the definition is
+        // literal text and not registered.
+        $html = $this->converter->convert("text\n> [r]: /u\n\nSee [x][r].\n");
+        $this->assertStringNotContainsString('href="/u"', $html);
+    }
+
+    public function testInvalidAttrLineBeforeDefDoesNotBlockFolding(): void
+    {
+        // `{.123}` is an INVALID attribute payload, so the real parser keeps it
+        // as paragraph text; the following `[r]: /u` then folds into that
+        // paragraph and is not registered. The prepass must agree (it must not
+        // treat the invalid line as an invisible construct opening a boundary).
+        $html = $this->converter->convert("{.123}\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringContainsString('[r]: /u', $html);
+    }
+
+    public function testDefAfterClosedDivIsRegistered(): void
+    {
+        // A `:::` div with content closes at its `:::`, so the following
+        // `[r]: /u` sits at a block boundary and IS registered. The prepass must
+        // track the div closer to reset its open-paragraph state, else the def
+        // would be wrongly skipped and the link lost.
+        $html = $this->converter->convert(":::\ntext\n:::\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testDefAfterMultiLineAttrBlockIsRegistered(): void
+    {
+        // A valid multi-line `{...}` attribute block floats to the next block;
+        // the `[r]: /u` after it is a real definition and IS registered.
+        $html = $this->converter->convert("{.note\n  #id}\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testDefAfterUnterminatedDivOpenerFoldsAndIsNotRegistered(): void
+    {
+        // An unterminated `:::` is ordinary paragraph text (no closer ahead), so
+        // the following `[r]: /u` folds into that paragraph and is NOT
+        // registered. The prepass must only treat a `:::` opener as a boundary
+        // when a closer exists ahead, matching tryParseDiv.
+        $html = $this->converter->convert(":::\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringNotContainsString('href="/u"', $html);
+    }
+
+    public function testQuotedAttrBeforeQuotedDefStillResolves(): void
+    {
+        // A quoted single-line attribute line `> {.note}` before a quoted
+        // `> [r]: /u` must not cause the def to be skipped: the prepass tests the
+        // blockquote-stripped content, so `{.note}` is recognized as invisible
+        // and the quoted definition is still collected (and its attrs apply).
+        $html = $this->converter->convert("> {.note}\n> [r]: /u\n\nSee [x][r].\n");
+        $this->assertStringContainsString('href="/u"', $html);
+        $this->assertStringContainsString('class="note"', $html);
+    }
+
+    public function testIndentedCommentBeforeDefStillRegistersDef(): void
+    {
+        // A line comment is recognized after leading whitespace (as the block
+        // parser does), so an indented `  %% note` at a boundary opens no
+        // paragraph and the following `[r]: /u` is still registered.
+        $html = $this->converter->convert("  %% note\n[r]: /u\n\nSee [x][r].\n");
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testDefAfterClosedQuotedDivIsRegistered(): void
+    {
+        // A div inside a blockquote (`> :::` … `> :::`) closes at its quoted
+        // closer; the following top-level `[r]: /u` is at a boundary and IS
+        // registered. The prepass strips quote markers in the closer lookahead.
+        $html = $this->converter->convert(
+            "> :::\n> text\n> :::\n[r]: /u\n\nSee [x][r].\n",
+        );
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testDefAfterCaptionAndHeadingIsRegistered(): void
+    {
+        // A caption (`^ `) ends the open (image) paragraph; the heading after it
+        // is a fresh block, so the `[r]: /u` is at a boundary and IS registered.
+        $html = $this->converter->convert(
+            "![a](img)\n^ cap\n# H\n[r]: /u\n\nSee [x][r].\n",
+        );
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testDivCloserInsideCodeFenceDoesNotOpenDivBoundary(): void
+    {
+        // A `:::` opener whose only matching `:::` lives inside a fenced code
+        // block has no real closer, so it is paragraph text; the `[r]: /u` after
+        // it folds in and is NOT registered. The prepass closer lookahead skips
+        // closers inside code fences (matching tryParseDiv).
+        $html = $this->converter->convert(
+            ":::\n```\n:::\n```\n[r]: /u\n\nSee [x][r].\n",
+        );
+        $this->assertStringNotContainsString('href="/u"', $html);
+    }
+
+    public function testQuotedMultiLineAttrBeforeQuotedDefStillResolves(): void
+    {
+        // A quoted multi-line attribute block (`> {.note` … `>   #id}`) before a
+        // quoted `> [r]: /u` is recognized as invisible (the prepass scans the
+        // blockquote-stripped lines), so the quoted definition is still
+        // collected and its attributes apply to the resolved link.
+        $html = $this->converter->convert(
+            "> {.note\n>   #id}\n> [r]: /u\n\nSee [x][r].\n",
+        );
+        $this->assertStringContainsString('href="/u"', $html);
+        $this->assertStringContainsString('class="note"', $html);
+    }
 }

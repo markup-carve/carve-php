@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Carve\Test\TestCase;
 
-use Carve\Node\Block\Comment;
 use Carve\Node\Block\Paragraph;
 use Carve\Node\Node;
 use Carve\Parser\BlockParser;
@@ -14,32 +13,31 @@ use PHPUnit\Framework\TestCase;
  * Covers the incremental brace scan used while collecting a paragraph.
  *
  * The scan must (a) keep its original semantics - an unclosed attribute brace
- * in the paragraph so far suppresses block interruption - and (b) stay linear
- * in the number of lines. Re-scanning the whole growing content on every line
- * previously made a single multi-line paragraph parse in O(n^2).
+ * in the paragraph so far suppresses paragraph interruption - and (b) stay
+ * linear in the number of lines. Re-scanning the whole growing content on every
+ * line previously made a single multi-line paragraph parse in O(n^2).
  *
- * Note: in the djot variant a VISIBLE block (heading, etc.) no longer interrupts
- * an open paragraph at all, so these tests use an INVISIBLE interrupter - a `%%`
- * comment - which still interrupts and is the construct whose interruption the
- * brace scan suppresses while a `{` attribute brace remains open.
+ * Note: under the one-rule §10 model NOTHING interrupts an open paragraph except
+ * a caption (`^ ` line, a §4 attachment). So these tests use a CAPTION line as
+ * the interrupter - the only construct whose interruption the brace scan
+ * suppresses while a `{` attribute brace remains open. A caption following a
+ * plain paragraph (no captionable image) ends it and forms its own block, so an
+ * interruption splits the input into two children; a suppressed one folds into a
+ * single paragraph.
  */
 class ParagraphBraceScanTest extends TestCase
 {
     private function hasInterrupter(Node $doc): bool
     {
-        foreach ($doc->getChildren() as $child) {
-            if ($child instanceof Comment) {
-                return true;
-            }
-        }
-
-        return false;
+        // An interruption ends the first paragraph and starts a second block;
+        // a suppressed interruption folds the caption line into one paragraph.
+        return count($doc->getChildren()) > 1;
     }
 
     public function testUnclosedBraceSuppressesInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x\n%% comment %%");
+        $doc = $parser->parse("text{a=x\n^ caption");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Paragraph::class, $doc->getChildren()[0]);
@@ -49,7 +47,7 @@ class ParagraphBraceScanTest extends TestCase
     public function testClosedBraceAllowsInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x}\n%% comment %%");
+        $doc = $parser->parse("text{a=x}\n^ caption");
 
         $this->assertTrue($this->hasInterrupter($doc));
     }
@@ -57,10 +55,10 @@ class ParagraphBraceScanTest extends TestCase
     public function testBraceInsideQuoteIsNotCounted(): void
     {
         // The `}` lives inside a quoted value, so the `{` stays unclosed and the
-        // heading must not interrupt - exercises quote state carried across the
+        // caption must not interrupt - exercises quote state carried across the
         // segment boundary.
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=\"}\"\n%% comment %%");
+        $doc = $parser->parse("text{a=\"}\"\n^ caption");
 
         $this->assertFalse($this->hasInterrupter($doc));
     }
@@ -68,7 +66,7 @@ class ParagraphBraceScanTest extends TestCase
     public function testPlainParagraphStillInterrupts(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n%% comment %%");
+        $doc = $parser->parse("text\n^ caption");
 
         $this->assertTrue($this->hasInterrupter($doc));
     }

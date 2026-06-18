@@ -605,11 +605,31 @@ DJOT;
         $this->assertStringContainsString('role="doc-endnotes"', $result);
     }
 
+    public function testFootnoteDefinitionAfterProseIsNotRegistered(): void
+    {
+        // One-rule §10: a footnote definition with no blank line above is NOT
+        // registered -- it folds into the open paragraph (the def text lands in
+        // the leading <p>), so the endnote body stays empty. A blank line is
+        // required to register the definition (the body then lands in the
+        // endnote list item, not the paragraph).
+        $registered = $this->converter->convert("See[^m].\n\n[^m]: the body");
+        $registeredParagraph = substr($registered, 0, (int)strpos($registered, '</p>'));
+        $this->assertStringNotContainsString('the body', $registeredParagraph);
+        $this->assertStringContainsString("<li id=\"fn1\">\n      <p>the body", $registered);
+
+        // Same label, def now follows prose with no blank line: it folds into
+        // the paragraph, so "the body" lands there and not in the endnote item.
+        $folded = $this->converter->convert("See[^m].\n[^m]: the body");
+        $foldedParagraph = substr($folded, 0, (int)strpos($folded, '</p>'));
+        $this->assertStringContainsString('the body', $foldedParagraph);
+    }
+
     public function testUnreferencedFootnoteDefinitionEmitsNoEndnotes(): void
     {
-        // A footnote defined but never referenced produces no endnotes
-        // section (an empty <ol> would otherwise leak); matches carve-js.
-        $result = $this->converter->convert("text\n[^f]: note");
+        // A footnote defined (after a blank line) but never referenced produces
+        // no endnotes section (an empty <ol> would otherwise leak); matches
+        // carve-js.
+        $result = $this->converter->convert("text\n\n[^f]: note");
 
         $this->assertStringNotContainsString('role="doc-endnotes"', $result);
         $this->assertSame('<p>text</p>', trim($result));
@@ -861,19 +881,20 @@ DJOT;
         $this->assertStringNotContainsString('Lorem ipsum dolor', $result);
     }
 
-    public function testFencedCommentInterruptsParagraph(): void
+    public function testFencedCommentAfterProseFoldsAsText(): void
     {
-        // Fenced comments can interrupt paragraphs without requiring blank lines
-        // This makes comments truly "invisible" from a formatting perspective
+        // One-rule §10: NOTHING interrupts an open paragraph, so a `%%%` fenced
+        // comment that follows prose with no blank line folds into the paragraph
+        // as literal text rather than being stripped. A blank line is required to
+        // start a comment block (see testFencedCommentWithBlankLinesAlsoWorks).
         $djot = "Lorem ipsum\n%%%\ncomment\n%%%\ndolor sit amet";
 
         $result = $this->converter->convert($djot);
 
-        // Should produce two separate paragraphs with comment stripped
-        $this->assertStringContainsString('<p>Lorem ipsum</p>', $result);
-        $this->assertStringContainsString('<p>dolor sit amet</p>', $result);
-        $this->assertStringNotContainsString('comment', $result);
-        $this->assertStringNotContainsString('%%%', $result);
+        $this->assertSame(
+            "<p>Lorem ipsum\n%%%\ncomment\n%%%\ndolor sit amet</p>",
+            trim($result),
+        );
     }
 
     public function testFencedCommentWithBlankLinesAlsoWorks(): void
@@ -2921,14 +2942,14 @@ DJOT;
     {
         // Inline `{#id}` after a space has no abutting host, so it is literal
         // (carve PART 9 §14): the `#id` renders as its normal inline tag span.
-        // The trailing `{.class}` line is a standalone block-attribute line: it
-        // interrupts the paragraph and floats forward (dropped here, no block
-        // follows), so it does not fold into the paragraph as literal text.
+        // One-rule §10: the trailing `{.class}` line has no blank line above, so
+        // it folds into the open paragraph as literal text rather than floating
+        // forward as a block-attribute line.
         $djot = "After {#id} space\n{.class}";
         $result = $this->converter->convert($djot);
 
         $this->assertSame(
-            "<p>After {<span class=\"tag\"><strong>#id</strong></span>} space</p>\n",
+            "<p>After {<span class=\"tag\"><strong>#id</strong></span>} space\n{.class}</p>\n",
             $result,
         );
     }

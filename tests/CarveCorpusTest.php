@@ -128,7 +128,7 @@ class CarveCorpusTest extends TestCase
         '90-superscript-in-a-table-cell',
         '91-nested-comment-fences',
         '92-strong-emphasis-starting-with-a-link',
-        '93-abbreviation-definition-interrupts-a-paragraph',
+        '93-abbreviation-definition',
         '94-literal-less-than-in-prose',
         '95-boolean-attributes',
         '96-table-span-marker-in-first-column',
