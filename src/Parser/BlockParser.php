@@ -821,12 +821,26 @@ class BlockParser
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
+                $level = strlen($matches[1]);
 
-                // Collect continuation lines
+                // Collect continuation lines. This mirrors tryParseHeading so
+                // the implicit-reference label agrees with the rendered id: a
+                // `#`-marker continuation line folds ONLY when its marker count
+                // EQUALS the open level; a different count (more OR fewer) ends
+                // the heading and starts a new one.
                 $j = $i + 1;
                 while ($j < $count) {
                     $nextLine = $lines[$j];
-                    if (trim($nextLine) === '' || preg_match('/^[ ]{0,3}#{1,6}/', $nextLine)) {
+                    if (trim($nextLine) === '') {
+                        break;
+                    }
+                    if (preg_match('/^[ ]{0,3}#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+                        $headingText .= ' ' . trim($contMatch[1]);
+                        $j++;
+
+                        continue;
+                    }
+                    if (preg_match('/^[ ]{0,3}#{1,6}/', $nextLine)) {
                         break;
                     }
                     if (!$this->startsNewBlock($nextLine)) {
@@ -1757,9 +1771,13 @@ class BlockParser
                 break;
             }
 
-            // Check for continuation with # prefix (same level or less) - these continue the heading
-            // e.g., "# Heading\n# more" becomes "Heading\nmore" for a level-1 heading
-            if (preg_match('/^[ ]{0,3}#{1,' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+            // Check for continuation with # prefix (SAME level only) - these
+            // continue the heading. e.g., "# Heading\n# more" becomes
+            // "Heading\nmore" for a level-1 heading. A `#`-marker line whose
+            // marker count DIFFERS from the open level (more OR fewer) ends the
+            // heading and starts a new one (handled by the next branch), per
+            // Djot: only an exactly-equal marker count folds.
+            if (preg_match('/^[ ]{0,3}#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
                 // The heading already has non-empty first-line content, so a
                 // newline always precedes a folded continuation.
                 $content .= "\n" . $contMatch[1];
