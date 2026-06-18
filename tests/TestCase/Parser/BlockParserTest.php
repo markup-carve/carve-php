@@ -97,6 +97,41 @@ class BlockParserTest extends TestCase
         }
     }
 
+    public function testHeadingContinuationFoldsOnlyOnSameMarkerCount(): void
+    {
+        // Djot rule: a `#`-marker continuation line continues the open heading
+        // ONLY when its marker count EQUALS the opener. A different count (more
+        // OR fewer) ends the heading and starts a new one. A no-`#` plain-text
+        // continuation line still folds.
+
+        // Same count folds into one heading.
+        foreach (["## H\n## more", "# H\n# more", "## H\nmore"] as $src) {
+            $children = $this->parser->parse($src)->getChildren();
+            $this->assertCount(1, $children, 'for ' . $src);
+            $this->assertInstanceOf(Heading::class, $children[0]);
+        }
+
+        // Fewer `#` ends the heading: "## H\n# more" -> h2 then h1.
+        $children = $this->parser->parse("## H\n# more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Heading::class, $children[0]);
+        $this->assertSame(2, $children[0]->getLevel());
+        $this->assertInstanceOf(Heading::class, $children[1]);
+        $this->assertSame(1, $children[1]->getLevel());
+
+        // Fewer `#`, deeper opener: "### H\n# more" -> h3 then h1.
+        $children = $this->parser->parse("### H\n# more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertSame(3, $children[0]->getLevel());
+        $this->assertSame(1, $children[1]->getLevel());
+
+        // More `#` ends the heading: "## H\n### more" -> h2 then h3.
+        $children = $this->parser->parse("## H\n### more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertSame(2, $children[0]->getLevel());
+        $this->assertSame(3, $children[1]->getLevel());
+    }
+
     public function testParseCodeBlock(): void
     {
         $doc = $this->parser->parse("```php\necho 'hello';\n```");
