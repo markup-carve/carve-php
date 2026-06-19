@@ -815,9 +815,12 @@ class BlockParser
                 continue;
             }
 
-            // Match heading: optional leading spaces, 1-6 # characters, followed by space(s) and content
-            // Space after # is syntax delimiter, not indentation - must be space(s) per spec, not tab
-            if (preg_match('/^[ ]{0,3}(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+            // Match heading: 1-6 # characters at column 0, followed by space(s) and content
+            // Space after # is syntax delimiter, not indentation - must be space(s) per spec, not tab.
+            // The marker MUST start at column 0 (no leading indent): an indented `#`-line is a
+            // paragraph, matching carve-js / carve-rs and the spec grammar (heading_first_line =
+            // heading_marker, space, ...).
+            if (preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
@@ -834,13 +837,13 @@ class BlockParser
                     if (trim($nextLine) === '') {
                         break;
                     }
-                    if (preg_match('/^[ ]{0,3}#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+                    if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
                         $headingText .= ' ' . trim($contMatch[1]);
                         $j++;
 
                         continue;
                     }
-                    if (preg_match('/^[ ]{0,3}#{1,6}/', $nextLine)) {
+                    if (preg_match('/^#{1,6}/', $nextLine)) {
                         break;
                     }
                     if (!$this->startsNewBlock($nextLine)) {
@@ -1747,13 +1750,14 @@ class BlockParser
             return null;
         }
 
-        // A heading is 1-6 `#` (after up to 3 leading spaces), a literal space,
-        // then NON-EMPTY content (grammar `atx_heading = heading_marker, space,
-        // inline_content`). Requiring content in the pattern itself means a bare
-        // `#`, `##`, or `# ` is ordinary paragraph text -- matching carve-js /
-        // carve-rs. `# \tx` (content after a tab) is still a heading: `.*\S.*`
-        // only requires a non-whitespace char somewhere after the space.
-        if (!preg_match('/^[ ]{0,3}(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+        // A heading is 1-6 `#` at COLUMN 0 (no leading indent), a literal space,
+        // then NON-EMPTY content (grammar `heading_first_line = heading_marker,
+        // space, inline_content`). The marker must start at column 0: an indented
+        // `#`-line is a paragraph, matching carve-js / carve-rs and the spec.
+        // Requiring content in the pattern itself means a bare `#`, `##`, or `# `
+        // is ordinary paragraph text. `# \tx` (content after a tab) is still a
+        // heading: `.*\S.*` only requires a non-whitespace char after the space.
+        if (!preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -1777,12 +1781,12 @@ class BlockParser
             // marker count DIFFERS from the open level (more OR fewer) ends the
             // heading and starts a new one (handled by the next branch), per
             // Djot: only an exactly-equal marker count folds.
-            if (preg_match('/^[ ]{0,3}#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+            if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
                 // The heading already has non-empty first-line content, so a
                 // newline always precedes a folded continuation.
                 $content .= "\n" . $contMatch[1];
                 $i++;
-            } elseif (preg_match('/^[ ]{0,3}#{1,6}(?: |$)/', $nextLine)) {
+            } elseif (preg_match('/^#{1,6}(?: |$)/', $nextLine)) {
                 // A `#`-marker line (any level, including a bare `#` / `# `)
                 // ENDS the open heading -- matching carve-js, whose heading
                 // continuation breaks on `/^#{1,6}([ \t]|$)/`. The bare-`#`
