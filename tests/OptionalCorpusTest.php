@@ -6,6 +6,7 @@ namespace Carve\Test;
 
 use Carve\CarveConverter;
 use Carve\Extension\AutolinkExtension;
+use Carve\Extension\CitationsExtension;
 use Carve\Extension\MentionsExtension;
 use Carve\Extension\SmartQuotesExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -86,6 +87,8 @@ class OptionalCorpusTest extends TestCase
             )),
             'smart-quotes-locale-de' => $converter->addExtension(new SmartQuotesExtension(locale: 'de')),
             'bare-url-autolink' => $converter->addExtension(new AutolinkExtension()),
+            'citations-numbered' => $converter->addExtension(new CitationsExtension()),
+            'citations-author-date' => $converter->addExtension(new CitationsExtension('author-date')),
             'emoji-map' => null,
             default => null,
         };
