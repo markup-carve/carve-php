@@ -136,6 +136,8 @@ class CarveCorpusTest extends TestCase
         '98-table-row-attributes',
         '99-table-header-cell-rowspan',
         '100-block-quote-continuation-marker',
+        '101-heading-marker-column-zero',
+        '102-paragraph-trailing-whitespace',
     ];
 
     /**
