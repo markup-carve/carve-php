@@ -2,10 +2,6 @@
 
 PHP parser and renderer for [Carve](https://github.com/markup-carve/carve), a post-Markdown lightweight markup language with visual mnemonics and human-centered design.
 
-## Status
-
-Carve's syntax is implemented - the delimiter swaps, table changes, captions, and custom extension syntax - and passes the shared Carve spec corpus.
-
 ## Origins
 
 Carve-PHP is a hard fork of [djot-php](https://github.com/php-collective/djot-php) by the PHP Collective. The fork preserves the architecture, AST, renderer pipeline, profiles, and extensions, and replaces Djot's syntax rules with Carve's. The MIT license carries over; copyright lines remain in `LICENSE`.
