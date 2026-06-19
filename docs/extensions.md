@@ -291,6 +291,44 @@ This is expanded by default.
 :::
 ~~~
 
+### DetailsExtension
+
+Renders `::: details` admonitions as the HTML5 `<details>`/`<summary>`
+disclosure widget instead of the default `<div class="details">`. The quoted
+title becomes the `<summary>`; a title-less block falls back to
+`<summary>Details</summary>` so the widget always has an accessible label.
+
+The summary renders as escaped plain text. Block attributes on the opener
+(`{#faq open}`) carry onto the `<details>` tag in source order, matching the
+default `<div class="details">` behavior (safe-mode attribute filtering still
+applies); only the auto `details` class is dropped because the `<details>` tag
+is itself the styling hook. HTML output only.
+
+~~~ php
+$converter->addExtension(new DetailsExtension());
+~~~
+
+Input:
+
+~~~
+::: details "More info"
+Hidden until the reader expands it.
+:::
+~~~
+
+Output:
+
+~~~ html
+<details>
+  <summary>More info</summary>
+  <p>Hidden until the reader expands it.</p>
+</details>
+~~~
+
+Without the extension the same block renders as the default
+`<div class="details"><p class="admonition-title">More info</p>…</div>`. Use
+`{open}` to expand the widget by default (`<details open="">`).
+
 ### TabsExtension
 
 Converts a wrapper div with class `tabs` containing child `tab` divs into an
