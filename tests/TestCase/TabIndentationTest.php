@@ -88,20 +88,16 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Block quote requires space after > (not tab) per djot spec.
-     *
-     * The space after > is a syntax delimiter, not indentation.
-     * Tab indentation rules apply to nested structures, not syntax delimiters.
+     * The space after `>` is OPTIONAL (grammar `blockquote_line = '>', [' '],
+     * inline_content`), so `>` followed by a tab (or by text with no space)
+     * still opens a block quote -- matching carve-js / carve-rs.
      */
-    public function testBlockQuoteWithTabNotBlockquote(): void
+    public function testBlockQuoteWithTabIsBlockquote(): void
     {
         $input = ">\tQuoted with tab";
         $result = $this->converter->convert($input);
 
-        // Per spec, > must be followed by space, not tab
-        // So this becomes a paragraph with > as text
-        $this->assertStringNotContainsString('<blockquote>', $result);
-        $this->assertStringContainsString('<p>', $result);
+        $this->assertSame("<blockquote><p>Quoted with tab</p></blockquote>\n", $result);
     }
 
     /**
@@ -173,19 +169,6 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Definition list with tab indent.
-     */
-    public function testDefinitionListWithTabIndent(): void
-    {
-        $input = ": Term\n\n\tDefinition with tab indent";
-        $result = $this->converter->convert($input);
-
-        // Check if definition list is created
-        $this->assertStringContainsString('<dl>', $result);
-        $this->assertStringContainsString('<dt>Term</dt>', $result);
-    }
-
-    /**
      * Footnote with tab-indented continuation.
      */
     public function testFootnoteWithTabIndent(): void
@@ -199,18 +182,15 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Block quote continuation requires space after > (not tab).
-     *
-     * Since >\t is not a blockquote marker, both lines become paragraphs.
+     * `>` + tab opens a quote on each line (the post-`>` space is optional), so
+     * two `>\t` lines form one block quote -- matching carve-js / carve-rs.
      */
-    public function testBlockQuoteContinuationWithTabNotBlockquote(): void
+    public function testBlockQuoteContinuationWithTabIsBlockquote(): void
     {
         $input = ">\tLine 1\n>\tLine 2";
         $result = $this->converter->convert($input);
 
-        // Per spec, > must be followed by space
-        $this->assertStringNotContainsString('<blockquote>', $result);
-        $this->assertStringContainsString('<p>', $result);
+        $this->assertSame("<blockquote><p>Line 1\nLine 2</p></blockquote>\n", $result);
     }
 
     /**

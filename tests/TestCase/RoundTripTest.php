@@ -295,10 +295,10 @@ DJOT;
     public function testTabsWithNestedCodeGroup(): void
     {
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Install}
-::: tab
+:::: tab
 ::: code-group
 ``` php
 composer require pkg
@@ -308,8 +308,8 @@ composer require pkg
 npm install pkg
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -387,13 +387,13 @@ DJOT;
 
     public function testNestedStructures(): void
     {
-        // Note: Parser has limitations with multiple tabs containing nested code-groups
-        // when both use ::: fences. This test uses a single tab with nested code-group.
+        // Nested divs use DECREASING fence lengths (outer longest), so each
+        // inner `:::`-fence is shorter than its parent and does not close it.
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Install}
-::: tab
+:::: tab
 Introduction text.
 
 ::: code-group
@@ -405,8 +405,8 @@ $x = 1;
 let x = 1;
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -682,9 +682,8 @@ DJOT;
     public function testDefinitionList(): void
     {
         $djot = <<<'DJOT'
-: Term
-
-  Definition text here
+:: Term
+:  Definition text here
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -692,13 +691,9 @@ DJOT;
     public function testDefinitionListMultipleTerms(): void
     {
         $djot = <<<'DJOT'
-: First Term
-
-  First definition
-
-: Second Term
-
-  Second definition
+:: First Term
+:: Second Term
+:  Shared definition
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -953,9 +948,11 @@ DJOT;
     public function testSimpleLineBlock(): void
     {
         $djot = <<<'DJOT'
-| Line one
-| Line two
-| Line three
+::: |
+Line one
+Line two
+Line three
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }
@@ -965,18 +962,24 @@ DJOT;
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
         $djot = <<<'DJOT'
-| This is *strong*
-| And _emphasis_
+::: |
+This is *strong*
+And _emphasis_
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }
 
     public function testLineBlockWithAttributes(): void
     {
+        // STRICT (djot): attributes attach via a preceding block-attribute
+        // line, not inline on the `::: |` fence.
         $djot = <<<'DJOT'
 {.poem}
-| Roses are red
-| Violets are blue
+::: |
+Roses are red
+Violets are blue
+:::
 DJOT;
         $this->assertRoundTrip($djot);
     }

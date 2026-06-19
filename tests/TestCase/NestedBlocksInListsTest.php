@@ -536,9 +536,8 @@ DJOT;
     public function testBlockquoteInDefinitionList(): void
     {
         $djot = <<<'DJOT'
-: Term
-
-  > Quote in definition
+:: Term
+:  > Quote in definition
 DJOT;
 
         $result = $this->converter->convert($djot);
@@ -550,11 +549,10 @@ DJOT;
     public function testCodeBlockInDefinitionList(): void
     {
         $djot = <<<'DJOT'
-: Term
-
-  ```
-  code in definition
-  ```
+:: Term
+:  ```
+   code in definition
+   ```
 DJOT;
 
         $result = $this->converter->convert($djot);

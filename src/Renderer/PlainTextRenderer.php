@@ -11,6 +11,7 @@ use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
+use Carve\Node\Block\Div;
 use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\LineBlock;
@@ -26,6 +27,7 @@ use Carve\Node\Document;
 use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -64,36 +66,11 @@ class PlainTextRenderer implements RendererInterface
 
     protected string $blockQuoteSuffix = '"';
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
-
     protected HeadingIdTracker $headingIdTracker;
 
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
-    }
-
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode How to render soft breaks:
-     *   - Newline: renders as "\n"
-     *   - Space: renders as " " (default)
-     *   - Break: renders as "\n" (same as Newline for plain text)
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
     }
 
     public function render(Document $document): string
@@ -106,7 +83,13 @@ class PlainTextRenderer implements RendererInterface
         // Normalize multiple blank lines to single
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
-        return trim($text) . "\n";
+        $text = trim($text) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) collapses to an
+        // ordinary space in plain text. Done after trimming so placeholder-derived
+        // leading indentation (e.g. in a line block) survives. A literal U+00A0 in
+        // the author's text is left intact.
+        return str_replace("\u{E000}", ' ', $text);
     }
 
     protected function renderNode(Node $node): string
@@ -123,6 +106,7 @@ class PlainTextRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Document => $this->renderChildren($node),
+            $node instanceof Div => $this->renderDiv($node),
             $node instanceof Paragraph => $this->renderParagraph($node),
             $node instanceof Heading => $this->renderHeading($node),
             $node instanceof CodeBlock => $this->renderCodeBlock($node),
@@ -141,6 +125,7 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $node->getContent(),
+            $node instanceof EscapedText => $node->getContent(),
             $node instanceof Code => $node->getContent(),
             $node instanceof Math => $node->getContent(),
             $node instanceof Image => $node->getAlt(),
@@ -152,7 +137,10 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof FootnoteRef => '[' . $node->getLabel() . ']',
             $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-            $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
+            // A soft break is a single source newline that stays inside the
+            // paragraph; in plain text it renders as a space. For a visible line
+            // break use a `::: |` line block or a trailing backslash hard break.
+            $node instanceof SoftBreak => ' ',
             $node instanceof HardBreak => "\n",
             $node instanceof RawInline => '', // Skip raw inlines (format-specific)
             default => $this->renderChildren($node),
@@ -161,10 +149,12 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->headingIdTracker->getTextForId($id);
+        $target = $node->getTargetId();
+        // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
+        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
 
-        return $label ?? '</#' . $id . '>';
+        return $label ?? '</#' . $target . '>';
     }
 
     protected function renderChildren(Node $node): string
@@ -180,6 +170,19 @@ class PlainTextRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";
+    }
+
+    protected function renderDiv(Div $node): string
+    {
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $title . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderHeading(Heading $node): string

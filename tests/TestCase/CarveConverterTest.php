@@ -13,7 +13,6 @@ use Carve\Node\Block\Heading;
 use Carve\Node\Inline\Symbol;
 use Carve\Profile;
 use Carve\Renderer\MarkdownRenderer;
-use Carve\Renderer\SoftBreakMode;
 use LengthException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -49,11 +48,11 @@ class CarveConverterTest extends TestCase
         // Carve headings are wrapped in nested <section> elements; the id
         // lives on the section, not the heading.
         $djot = "# Heading 1\n\n## Heading 2\n\n### Heading 3";
-        $expected = "<section id=\"heading-1\">\n"
+        $expected = "<section id=\"Heading-1\">\n"
             . "  <h1>Heading 1</h1>\n"
-            . "  <section id=\"heading-2\">\n"
+            . "  <section id=\"Heading-2\">\n"
             . "    <h2>Heading 2</h2>\n"
-            . "    <section id=\"heading-3\">\n"
+            . "    <section id=\"Heading-3\">\n"
             . "      <h3>Heading 3</h3>\n"
             . "    </section>\n"
             . "  </section>\n"
@@ -68,7 +67,7 @@ class CarveConverterTest extends TestCase
         // its content at column 0 (it is not re-indented by the section's
         // block indentation), matching carve-js. The block tag is indented;
         // the wrapped text is not.
-        $expected = "<section id=\"h\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
+        $expected = "<section id=\"H\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two"));
     }
@@ -76,9 +75,60 @@ class CarveConverterTest extends TestCase
     public function testMultiLineHeadingContinuationIsFlush(): void
     {
         // Carve headings are multi-line; the folded continuation renders flush.
-        $expected = "<section id=\"title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
+        $expected = "<section id=\"Title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
+    }
+
+    public function testAmbiguousRomanLetterResolvesToAlphaByConsecutiveLetter(): void
+    {
+        // `c.` + `d.`: the sibling is the consecutive LETTER (not the next roman
+        // numeral after 100), so the list is alphabetical (§11), matching
+        // carve-js / carve-rs. Previously `c` was read as roman 100.
+        $this->assertSame(
+            "<ol type=\"a\" start=\"3\">\n  <li>one</li>\n  <li>two</li>\n</ol>\n",
+            $this->converter->convert("c. one\nd. two"),
+        );
+        // consecutive roman numeral still resolves to roman
+        $this->assertStringContainsString(
+            '<ol type="i">',
+            $this->converter->convert("i. one\nii. two"),
+        );
+    }
+
+    public function testBlockOpenerInterruptsHeading(): void
+    {
+        // A block-opener ends a heading and starts that block (§10). A LIST
+        // marker (bullet AND ordered) also ends the heading and starts a sibling
+        // list -- symmetric: a list marker folds only into a PARAGRAPH, not a
+        // heading. Only plain text folds into the heading.
+        $this->assertSame(
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
+            $this->converter->convert("# T\n- item"),
+        );
+        $this->assertSame(
+            "<section id=\"T\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
+            $this->converter->convert("# T\n> quote"),
+        );
+        // An ordered marker ends the heading too (symmetric with the bullet).
+        $this->assertSame(
+            "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
+            $this->converter->convert("# T\n1. one"),
+        );
+    }
+
+    public function testInvisibleConstructInterruptsHeading(): void
+    {
+        // Invisible constructs -- reference / footnote / abbreviation
+        // definitions, comments, and block-attribute lines -- are §10
+        // interrupters: each ends the heading and is consumed/floated by its own
+        // parser, so the heading text does not absorb it. Matches carve-js /
+        // carve-rs.
+        $expected = "<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
+        $this->assertSame($expected, $this->converter->convert("# H\n[r]: /url"));
+        $this->assertSame($expected, $this->converter->convert("# H\n*[A]: Abbr"));
+        $this->assertSame($expected, $this->converter->convert("# H\n%% comment"));
+        $this->assertSame($expected, $this->converter->convert("# H\n{.x}"));
     }
 
     public function testEmphasis(): void
@@ -267,7 +317,7 @@ class CarveConverterTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'This is ==highlighted== text';
+        $djot = 'This is =highlighted= text';
         $expected = "<p>This is <mark>highlighted</mark> text</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -291,7 +341,7 @@ class CarveConverterTest extends TestCase
 
     public function testSuperscript(): void
     {
-        $djot = 'E=mc^2^';
+        $djot = 'E=mc{^2^}';
         $expected = "<p>E=mc<sup>2</sup></p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -299,7 +349,7 @@ class CarveConverterTest extends TestCase
 
     public function testSubscript(): void
     {
-        $djot = 'H,,2,,O';
+        $djot = 'H{,2,}O';
         $expected = "<p>H<sub>2</sub>O</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -376,6 +426,37 @@ class CarveConverterTest extends TestCase
         $this->assertStringContainsString('text-align: left', $result);
         $this->assertStringContainsString('text-align: center', $result);
         $this->assertStringContainsString('text-align: right', $result);
+    }
+
+    public function testTableRowWithTrailingWhitespace(): void
+    {
+        // Trailing whitespace after the closing pipe is insignificant (parity
+        // with carve-js / carve-rs); the row must still parse as a table row,
+        // and a separator with trailing whitespace must still promote a header.
+        $result = $this->converter->convert("| H |\n|---|   \n| c |");
+
+        $this->assertStringContainsString('<thead>', $result);
+        $this->assertStringContainsString('<th>H</th>', $result);
+        $this->assertStringNotContainsString('<p>', $result);
+    }
+
+    public function testTableDataRowWithTrailingWhitespace(): void
+    {
+        $result = $this->converter->convert('| a |   ');
+
+        $this->assertStringContainsString('<td>a</td>', $result);
+        $this->assertStringNotContainsString('<p>', $result);
+    }
+
+    public function testSeparatorRowWithEmptyCellIsNotASeparator(): void
+    {
+        // `|---||` has an empty second cell, so it is NOT a delimiter row: it
+        // stays an ordinary data row and the first row is not promoted (parity
+        // with carve-js / carve-rs).
+        $result = $this->converter->convert("| H | G |\n|---||\n| a | b |");
+
+        $this->assertStringNotContainsString('<thead>', $result);
+        $this->assertStringNotContainsString('<th>', $result);
     }
 
     public function testTableCaption(): void
@@ -498,11 +579,11 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="welcome">', $result);
+        $this->assertStringContainsString('<section id="Welcome">', $result);
         $this->assertStringContainsString('<h1>Welcome</h1>', $result);
         $this->assertStringContainsString('<strong>comprehensive</strong>', $result);
         $this->assertStringContainsString('<em>Djot</em>', $result);
-        $this->assertStringContainsString('<section id="features">', $result);
+        $this->assertStringContainsString('<section id="Features">', $result);
         $this->assertStringContainsString('<h2>Features</h2>', $result);
         $this->assertStringContainsString('<ul>', $result);
         $this->assertStringContainsString('<li>', $result);
@@ -546,7 +627,7 @@ DJOT;
 
     public function testDefinitionList(): void
     {
-        $djot = ": Term\n\n  Definition of the term";
+        $djot = ":: Term\n:  Definition of the term";
 
         $result = $this->converter->convert($djot);
 
@@ -578,7 +659,17 @@ DJOT;
 
     public function testRawBlock(): void
     {
-        $djot = "```raw html\n<div class=\"custom\">Raw HTML</div>\n```";
+        $djot = "```=html\n<div class=\"custom\">Raw HTML</div>\n```";
+
+        $result = $this->converter->convert($djot);
+
+        $this->assertStringContainsString('<div class="custom">Raw HTML</div>', $result);
+    }
+
+    public function testRawBlockWithTildeFence(): void
+    {
+        // A ~~~=html opener must close with ~~~ (same fence character), not ```.
+        $djot = "~~~=html\n<div class=\"custom\">Raw HTML</div>\n~~~";
 
         $result = $this->converter->convert($djot);
 
@@ -626,7 +717,7 @@ DJOT;
 
     public function testDefinitionListMultiple(): void
     {
-        $djot = ": Apple\n\n  A fruit\n\n: Banana\n\n  Another fruit";
+        $djot = ":: Apple\n:  A fruit\n:: Banana\n:  Another fruit";
 
         $result = $this->converter->convert($djot);
 
@@ -638,7 +729,7 @@ DJOT;
 
     public function testDefinitionListMultipleTerms(): void
     {
-        $djot = ": CLI\n: Command Line Interface\n\n  A text-based interface for interacting with computers.";
+        $djot = ":: CLI\n:: Command Line Interface\n:  A text-based interface for interacting with computers.";
 
         $result = $this->converter->convert($djot);
 
@@ -651,7 +742,7 @@ DJOT;
 
     public function testDefinitionListMultipleTermsWithBlankLines(): void
     {
-        $djot = ": color\n\n: colour\n\n  The visual property of objects.";
+        $djot = ":: color\n:: colour\n:  The visual property of objects.";
 
         $result = $this->converter->convert($djot);
 
@@ -662,8 +753,7 @@ DJOT;
 
     public function testDefinitionListMultipleTermsMultipleDefinitions(): void
     {
-        // Use `: +` continuation marker to create multiple dd elements
-        $djot = ": color\n: colour\n\n  The visual property of objects.\n\n: +\n\n  Used in art and design.";
+        $djot = ":: color\n:: colour\n:  The visual property of objects.\n:  Used in art and design.";
 
         $result = $this->converter->convert($djot);
 
@@ -671,53 +761,17 @@ DJOT;
         $this->assertStringContainsString('<dt>colour</dt>', $result);
         $this->assertStringContainsString('The visual property', $result);
         $this->assertStringContainsString('Used in art and design', $result);
-        // `: +` marker creates second dd element
         $this->assertSame(2, substr_count($result, '<dd>'));
     }
 
     public function testDefinitionListDlAttribute(): void
     {
-        $djot = "{.vocabulary}\n: Term\n\n  Definition";
+        $djot = "{.vocabulary}\n:: Term\n:  Definition";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<dl class="vocabulary">', $result);
         $this->assertStringContainsString('<dt>Term</dt>', $result);
-    }
-
-    public function testDefinitionListDtAttribute(): void
-    {
-        $djot = ": Term\n{.highlighted}\n\n  Definition";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dt class="highlighted">Term</dt>', $result);
-    }
-
-    public function testDefinitionListDdAttribute(): void
-    {
-        // DD attribute comes AFTER content (consistent with list items)
-        $djot = ": Term\n\n  Definition content\n  {.note}";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dd class="note">', $result);
-        $this->assertStringContainsString('Definition content', $result);
-    }
-
-    public function testDefinitionListAllAttributes(): void
-    {
-        // DD attributes come AFTER content (consistent with list items)
-        // Use `: +` continuation marker to create multiple dd elements with separate attributes
-        $djot = "{.vocabulary}\n: color\n{.american}\n: colour\n{.british}\n\n  The visual property.\n  {.primary}\n\n: +\n\n  Used in design.\n  {.secondary}";
-
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<dl class="vocabulary">', $result);
-        $this->assertStringContainsString('<dt class="american">color</dt>', $result);
-        $this->assertStringContainsString('<dt class="british">colour</dt>', $result);
-        $this->assertStringContainsString('<dd class="primary">', $result);
-        $this->assertStringContainsString('<dd class="secondary">', $result);
     }
 
     public function testComment(): void
@@ -848,7 +902,7 @@ DJOT;
 
     public function testStrongIntraword(): void
     {
-        $djot = 'foo*bar*baz';
+        $djot = 'foo{*bar*}baz';
         $expected = "<p>foo<strong>bar</strong>baz</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -1002,7 +1056,10 @@ DJOT;
 
     public function testNestedDivs(): void
     {
-        $djot = "::: outer\n::: inner\nNested\n:::\n:::";
+        // Nested divs need DIFFERENT fence lengths (outer longer): a same-length
+        // inner `:::` closes the outer fence, so the inner would stay literal --
+        // matching carve-js / carve-rs and djot (grammar §12).
+        $djot = ":::: outer\n::: inner\nNested\n:::\n::::";
 
         $result = $this->converter->convert($djot);
 
@@ -1010,22 +1067,83 @@ DJOT;
         $this->assertStringContainsString('class="inner"', $result);
     }
 
-    public function testDivAttributesOnlyOpener(): void
+    public function testSameLengthInnerFenceDoesNotNest(): void
     {
-        // `::: {…}` (no type word) parses the block as the div's
-        // attributes (grammar div_open, PART 9 §12), not a literal class.
-        $djot = "::: {.x #y}\nz\n:::";
+        // A same-length inner fence closes the outer div: `::: inner` is literal
+        // text and the trailing `:::` is a stray paragraph (carve-js / carve-rs).
+        $result = $this->converter->convert("::: outer\n::: inner\nNested\n:::\n:::");
+
+        $this->assertStringContainsString('class="outer"', $result);
+        $this->assertStringNotContainsString('class="inner"', $result);
+        $this->assertStringContainsString('::: inner', $result);
+    }
+
+    public function testDivAttributesViaPrecedingLine(): void
+    {
+        // STRICT (djot): the `:::` fence takes no inline attributes; a div is
+        // attributed by a preceding block-attribute line that floats onto it.
+        $djot = "{.x #y}\n:::\nz\n:::";
         $expected = "<div class=\"x\" id=\"y\">\n  <p>z</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testDivOpenerAttrsWinOverPendingBlockAttrs(): void
+    public function testDivInlineAttributeOpenerIsParagraph(): void
     {
-        // A standalone {…} line is earlier in source than the opener's
-        // own {…}; the opener wins on conflict (id last), classes
-        // accumulate (PART 9 §15).
-        $djot = "{#outer .a}\n::: {#inner .b}\nz\n:::";
+        // An inline `::: {…}` opener is not a fence (strict djot).
+        $html = $this->converter->convert("::: {.x}\nz\n:::");
+
+        $this->assertStringStartsWith('<p>', $html);
+        $this->assertStringNotContainsString('<div', $html);
+    }
+
+    public function testDigitFirstAttributeNameStaysLiteral(): void
+    {
+        // An attribute name (id, class, key) is a grammar identifier and may
+        // not start with a digit; the whole block is then not an attribute
+        // block and stays literal (§14), stricter than djot. Also guards a
+        // numeric key from a fatal int-to-escape() cast.
+        $this->assertSame("<p>[x]{.123}</p>\n", $this->converter->convert('[x]{.123}'));
+        $this->assertSame("<p>[x]{123=v}</p>\n", $this->converter->convert('[x]{123=v}'));
+        $this->assertSame("<p>x{.1a}</p>\n", $this->converter->convert('x{.1a}'));
+        // A digit after the first identifier character is fine.
+        $this->assertSame(
+            "<p><span class=\"a1\" id=\"b2\" k3=\"v\">x</span></p>\n",
+            $this->converter->convert('[x]{.a1 #b2 k3=v}'),
+        );
+    }
+
+    public function testDigitFirstBlockAttributeLineStaysLiteral(): void
+    {
+        $this->assertSame("<p>{.123}\np</p>\n", $this->converter->convert("{.123}\np"));
+    }
+
+    public function testInvalidCharAfterFirstIdentifierCharStaysLiteral(): void
+    {
+        // The identifier rule constrains every character, not just the first:
+        // a non-identifier char anywhere (`!`, ...) invalidates the whole
+        // block, so it stays literal (§14), matching carve-js.
+        $this->assertSame("<p>[x]{.a!b}</p>\n", $this->converter->convert('[x]{.a!b}'));
+        $this->assertSame("<p>[x]{a!b=v}</p>\n", $this->converter->convert('[x]{a!b=v}'));
+        // A hyphen or underscore after the first character is fine.
+        $this->assertSame("<p><span class=\"a-b\">x</span></p>\n", $this->converter->convert('[x]{.a-b}'));
+        $this->assertSame("<p><span class=\"a_b\">x</span></p>\n", $this->converter->convert('[x]{.a_b}'));
+    }
+
+    public function testMixedValidInvalidAttributeStaysLiteral(): void
+    {
+        // One invalid name invalidates the WHOLE block even mixed with valid
+        // attributes -- inline and block-attribute line alike (§14).
+        $this->assertSame("<p>[x]{.ok .1}</p>\n", $this->converter->convert('[x]{.ok .1}'));
+        $this->assertSame("<p>{.ok .1}\np</p>\n", $this->converter->convert("{.ok .1}\np"));
+        $this->assertSame("<p>{.a!b}\np</p>\n", $this->converter->convert("{.a!b}\np"));
+    }
+
+    public function testConsecutivePrecedingBlockAttrsAccumulate(): void
+    {
+        // Consecutive block-attribute lines before the opener accumulate:
+        // the last id wins, classes accumulate (PART 9 §15).
+        $djot = "{#outer .a}\n{#inner .b}\n:::\nz\n:::";
         $expected = "<div id=\"inner\" class=\"a b\">\n  <p>z</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
@@ -1037,7 +1155,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="hello-world-and-everyone">', $result);
+        $this->assertStringContainsString('<section id="Hello-world-and-everyone">', $result);
         $this->assertStringContainsString('<h1>Hello <strong>world</strong> and <em>everyone</em></h1>', $result);
     }
 
@@ -1112,10 +1230,10 @@ DJOT;
 
     public function testListItemAttributeInvalidPayloadIsNotMarker(): void
     {
-        // `-{=y=}` does not yield a valid attribute, so it is not a marker.
-        $result = $this->converter->convert('-{=y=} text');
+        // `-{?}` does not yield a valid attribute, so it is not a marker.
+        $result = $this->converter->convert('-{?} text');
 
-        $this->assertStringContainsString('<p>-{=y=} text</p>', $result);
+        $this->assertStringContainsString('<p>-{?} text</p>', $result);
     }
 
     public function testMathTrailingAttributes(): void
@@ -1223,11 +1341,11 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="one">', $result);
+        $this->assertStringContainsString('<section id="One">', $result);
         $this->assertStringContainsString('<h1>One</h1>', $result);
-        $this->assertStringContainsString('<section id="two">', $result);
+        $this->assertStringContainsString('<section id="Two">', $result);
         $this->assertStringContainsString('<h2>Two</h2>', $result);
-        $this->assertStringContainsString('<section id="three">', $result);
+        $this->assertStringContainsString('<section id="Three">', $result);
         $this->assertStringContainsString('<h3>Three</h3>', $result);
     }
 
@@ -1335,8 +1453,7 @@ DJOT;
 
     public function testDefinitionListWithMultipleDefinitions(): void
     {
-        // Use `: +` continuation marker to create multiple dd elements
-        $djot = ": Term\n\n  First definition\n\n: +\n\n  Second definition";
+        $djot = ":: Term\n:  First definition\n:  Second definition";
 
         $result = $this->converter->convert($djot);
 
@@ -1390,7 +1507,7 @@ DJOT;
 
     public function testLineBlock(): void
     {
-        $djot = "| Line one\n| Line two\n| Line three";
+        $djot = "::: |\nLine one\nLine two\nLine three\n:::";
 
         $result = $this->converter->convert($djot);
 
@@ -1402,15 +1519,15 @@ DJOT;
 
     public function testLineBlockMergesExistingClasses(): void
     {
-        $djot = "{.mine}\n| Line one\n| Line two";
-        $expected = "<div class=\"mine line-block\">\n<p>Line one<br>\nLine two</p>\n</div>\n";
+        $djot = "{.mine}\n::: |\nLine one\nLine two\n:::";
+        $expected = "<div class=\"mine line-block\">\n  <p>Line one<br>\nLine two</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
     public function testLineBlockWithFormatting(): void
     {
-        $djot = "| This is *strong*\n| And /emphasis/";
+        $djot = "::: |\nThis is *strong*\nAnd /emphasis/\n:::";
 
         $result = $this->converter->convert($djot);
 
@@ -1522,7 +1639,7 @@ DJOT;
             $this->assertCount(2, $document->getChildren());
 
             $result = $this->converter->render($document);
-            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<section id="Hello">', $result);
             $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
@@ -1538,7 +1655,7 @@ DJOT;
         try {
             $result = $this->converter->convertFile($tempFile);
 
-            $this->assertStringContainsString('<section id="hello">', $result);
+            $this->assertStringContainsString('<section id="Hello">', $result);
             $this->assertStringContainsString('<h1>Hello</h1>', $result);
             $this->assertStringContainsString('<p>World</p>', $result);
         } finally {
@@ -1627,14 +1744,18 @@ DJOT;
         $converter->convert("```php\ncode without closing fence");
     }
 
-    public function testStrictModeThrowsOnUnclosedDiv(): void
+    public function testUnclosedDivIsLiteralNotAnError(): void
     {
+        // An unterminated colon fence is not a div: it is valid literal text
+        // (grammar §12; carve-js / carve-rs parity). Even in strict mode it
+        // does NOT raise -- there is nothing malformed to flag.
         $converter = new CarveConverter(strict: true);
 
-        $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('Unclosed div');
+        $result = $converter->convert("::: warning\nSome content without closing");
 
-        $converter->convert("::: warning\nSome content without closing");
+        $this->assertStringNotContainsString('<div', $result);
+        $this->assertStringContainsString('::: warning', $result);
+        $this->assertStringContainsString('Some content without closing', $result);
     }
 
     public function testStrictModeThrowsOnUnclosedComment(): void
@@ -1654,7 +1775,7 @@ DJOT;
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Unclosed raw block');
 
-        $converter->convert("```raw html\n<div>no closing fence");
+        $converter->convert("```=html\n<div>no closing fence");
     }
 
     public function testWarningForUndefinedReference(): void
@@ -1909,7 +2030,9 @@ DJOT;
 
     public function testDeeplyNestedDivs(): void
     {
-        $djot = "::: outer\n::: middle\n::: inner\nContent\n:::\n:::\n:::";
+        // Decreasing fence lengths so each inner fence is shorter than its
+        // parent and does not prematurely close it (carve-js / carve-rs parity).
+        $djot = "::::: outer\n:::: middle\n::: inner\nContent\n:::\n::::\n:::::";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="outer"', $result);
@@ -2109,7 +2232,7 @@ DJOT;
 
     public function testStrongNotInMiddleOfWord(): void
     {
-        $djot = 'some*thing*else';
+        $djot = 'some{*thing*}else';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<strong>thing</strong>', $result);
@@ -2265,8 +2388,6 @@ DJOT;
      */
     public function testSmartQuotesConsecutiveOpenersAtLineStart(): void
     {
-        $this->converter->getHtmlRenderer()->setSoftBreakMode(SoftBreakMode::Newline);
-
         $djot = "\"Hello,\" said the spider.\n\"'Shelob' is my name.\"";
         $result = $this->converter->convert($djot);
 
@@ -2320,8 +2441,7 @@ DJOT;
 
     public function testDefinitionListWithMultipleTerms(): void
     {
-        // Two separate terms, second with multiple definitions using `: +` continuation
-        $djot = ": Term 1\n\n  Definition 1\n\n: Term 2\n\n  Definition 2a\n\n: +\n\n  Definition 2b";
+        $djot = ":: Term 1\n:  Definition 1\n:: Term 2\n:  Definition 2a\n:  Definition 2b";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<dt>Term 1</dt>', $result);
@@ -2435,7 +2555,7 @@ DJOT;
 
     public function testRawBlockNonHtml(): void
     {
-        $djot = "```raw latex\n\\frac{1}{2}\n```";
+        $djot = "```=latex\n\\frac{1}{2}\n```";
         $result = $this->converter->convert($djot);
 
         // Non-HTML raw blocks should not be rendered
@@ -2455,7 +2575,7 @@ DJOT;
 
     public function testLineBlockWithEmptyLines(): void
     {
-        $djot = "| Line 1\n|\n| Line 3";
+        $djot = "::: |\nLine 1\n\nLine 3\n:::";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('class="line-block"', $result);
@@ -2508,7 +2628,7 @@ DJOT;
 
     public function testParagraphWithAllInlineTypes(): void
     {
-        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,,sub,,, ==high==, {+ins+}, {-del-}.';
+        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,sub,, =high=, {+ins+}, {-del-}.';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<em>emphasis</em>', $result);
@@ -2796,15 +2916,20 @@ DJOT;
 
     // ==================== Paragraph Newline Handling ====================
 
-    public function testParagraphPreservesTrailingSoftBreak(): void
+    public function testHostlessInlineBraceAndTrailingBlockAttributeLine(): void
     {
-        // From official attributes_12: trailing softbreak should be preserved
+        // Inline `{#id}` after a space has no abutting host, so it is literal
+        // (carve PART 9 §14): the `#id` renders as its normal inline tag span.
+        // The trailing `{.class}` line is a standalone block-attribute line: it
+        // interrupts the paragraph and floats forward (dropped here, no block
+        // follows), so it does not fold into the paragraph as literal text.
         $djot = "After {#id} space\n{.class}";
         $result = $this->converter->convert($djot);
 
-        // The {.class} becomes a block attribute, leaving "After  space\n" in paragraph
-        // The newline before </p> should be preserved
-        $this->assertSame("<p>After  space\n</p>\n", $result);
+        $this->assertSame(
+            "<p>After {<span class=\"tag\"><strong>#id</strong></span>} space</p>\n",
+            $result,
+        );
     }
 
     public function testParagraphTrimsTrailingSpacesNotNewlines(): void
@@ -3107,7 +3232,9 @@ DJOT;
     public function testValidAnchorLinkToHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# My Heading\n\n[link](#my-heading)");
+        // Heading ids are case-preserving and anchor matching is case-sensitive,
+        // so the link fragment must match the generated id exactly.
+        $converter->convert("# My Heading\n\n[link](#My-Heading)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3136,10 +3263,62 @@ DJOT;
         $this->assertFalse($converter->hasWarnings());
     }
 
+    public function testImplicitHeadingRefUsesExplicitIdFromFullAttributeLine(): void
+    {
+        // The pre-scan must pick the `#id` out of a FULL preceding
+        // block-attribute line ({#foo .bar}), not only a bare {#foo} line —
+        // otherwise [Title][] anchors to the generated #title while the
+        // heading renders with id="foo" (a broken self-document link).
+        $converter = new CarveConverter();
+        $html = $converter->convert("{#foo .bar}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#title"', $html);
+    }
+
+    public function testImplicitHeadingRefUsesExplicitIdFromMultiLineAttributeBlock(): void
+    {
+        // A multi-line attribute block ({#foo\n  .bar}) applies to the
+        // heading; the implicit-ref pre-scan must consume it the same way.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{#foo\n  .bar}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#title"', $html);
+    }
+
+    public function testImplicitHeadingRefUsesSourceOrderIdMerge(): void
+    {
+        // Mixed `id=` / `#id` tokens merge in source order (later wins),
+        // both on the rendered heading and in the implicit-ref pre-scan.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{id=bar #foo}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="foo">', $html);
+        $this->assertStringContainsString('href="#foo"', $html);
+        $this->assertStringNotContainsString('href="#bar"', $html);
+    }
+
+    public function testImplicitHeadingRefIgnoresRejectedBraceLine(): void
+    {
+        // A `{...}` line the block parser rejects (first content char not
+        // [.#a-zA-Z], e.g. a braced inline marker payload) is ordinary
+        // paragraph text — the pre-scan must NOT mine an id out of it, or
+        // [Title][] would anchor to a #foo the heading never gets.
+        $converter = new CarveConverter();
+        $html = $converter->convert("{* #foo}\n# Title\n\nSee [Title][].");
+
+        $this->assertStringContainsString('<section id="Title">', $html);
+        $this->assertStringContainsString('href="#Title"', $html);
+        $this->assertStringNotContainsString('href="#foo"', $html);
+    }
+
     public function testValidAnchorLinkToPunctuationHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# Hello, world!\n\n[link](#hello-world)");
+        $converter->convert("# Hello, world!\n\n[link](#Hello-world)");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3157,8 +3336,8 @@ DJOT;
         $converter = new CarveConverter();
         $html = $converter->convert("# Hello, world!\n\n[Hello, world!][]");
 
-        $this->assertStringContainsString('id="hello-world"', $html);
-        $this->assertStringContainsString('href="#hello-world"', $html);
+        $this->assertStringContainsString('id="Hello-world"', $html);
+        $this->assertStringContainsString('href="#Hello-world"', $html);
     }
 
     public function testHeadingReferenceUsesRendererCompatibleIdForCodeHeading(): void
@@ -3213,7 +3392,7 @@ DJOT;
         $djot = <<<'DJOT'
 # Valid Heading
 
-[valid link](#valid-heading)
+[valid link](#Valid-Heading)
 
 [broken link](#nonexistent)
 DJOT;
@@ -3342,7 +3521,7 @@ DJOT;
             'comment-only block' => ['[x]{% c %}', "<p><span>x</span></p>\n"],
             // Invalid block: whole [text]{block} stays literal.
             'invalid junk block' => ['[x]{???}', "<p>[x]{???}</p>\n"],
-            'invalid equals block' => ['[x]{=y=}', "<p>[x]{=y=}</p>\n"],
+            'invalid equals block' => ['[x]{?y?}', "<p>[x]{?y?}</p>\n"],
             // Brackets + block render literally, but the inner content is still
             // inline-parsed (matches carve-js: `[*x*]{???}` keeps the strong).
             'invalid block keeps inner markup' => ['[*x*]{???}', "<p>[<strong>x</strong>]{???}</p>\n"],

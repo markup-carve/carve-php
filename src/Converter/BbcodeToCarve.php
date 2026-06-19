@@ -391,11 +391,12 @@ class BbcodeToCarve
             $text,
         ) ?? $text;
 
-        // [sup]...[/sup] -> ^...^
-        $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '^$1^', $text) ?? $text;
+        // [sup]...[/sup] -> {^...^}. Forced brace form: BBCode tags are often
+        // intraword (e.g. E=mc[sup]2[/sup]), where a bare ^2^ is literal.
+        $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '{^$1^}', $text) ?? $text;
 
-        // [sub]...[/sub] -> ,,...,,
-        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', ',,$1,,', $text) ?? $text;
+        // [sub]...[/sub] -> {,...,}. Forced brace form for the same reason.
+        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', '{,$1,}', $text) ?? $text;
 
         return $text;
     }

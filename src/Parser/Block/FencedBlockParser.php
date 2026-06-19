@@ -42,11 +42,8 @@ class FencedBlockParser
         $info = trim($matches[3]);
 
         // Check for inline code on a single line: ``` foo ``` should be inline code
-        if ($fenceChar === '`') {
-            $closingPattern = '/`{' . $fenceLength . ',}/';
-            if (preg_match($closingPattern, $info)) {
-                return null;
-            }
+        if ($fenceChar === '`' && self::hasRunAtLeast($info, '`', $fenceLength)) {
+            return null;
         }
 
         // Info string: a single language token, optionally followed by a
@@ -56,8 +53,9 @@ class FencedBlockParser
         // NOT allowed is a SECOND whitespace-separated token that is not a
         // bracketed label -- a bare word, a quoted value, key=val
         // (```js title="x", ``` php {.x}). Such a line is not a fenced code
-        // block; it falls back to inline parsing. (Raw ```raw FORMAT blocks are
-        // matched by parseRawBlockOpener first.)
+        // block; it falls back to inline parsing. (Raw ```=FORMAT blocks are
+        // matched by parseRawBlockOpener first; a leading `=` is never a
+        // language token.)
         $language = '';
         $label = null;
         if ($info !== '') {
@@ -94,7 +92,12 @@ class FencedBlockParser
      */
     public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
     {
-        return preg_match('/^\s*' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', $line) === 1;
+        $pattern = '/^\s*(' . preg_quote($fenceChar, '/') . '+)\s*$/';
+        if (preg_match($pattern, $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
     }
 
     /**
@@ -111,15 +114,27 @@ class FencedBlockParser
             return null;
         }
 
-        // Match opening fence: 3+ colons with optional class
+        // Match opening fence: 3+ colons, then an optional type word and an
+        // optional quoted title -- and NOTHING else.
         if (!preg_match('/^(:{3,})\s*(.*)$/', $line, $matches)) {
+            return null;
+        }
+
+        // STRICT (djot): the opener carries no inline attributes. The text
+        // after the fence must be empty (bare div), a type token, or a type
+        // token followed by a quoted title. A type token is a word or the bare
+        // pipe `|` (the line-block opener). Any trailing `{...}` (or other
+        // non-title text) makes the line an ordinary paragraph, not a fence;
+        // attributes attach via a preceding block-attribute line (§15).
+        $rest = trim($matches[2]);
+        if ($rest !== '' && !preg_match('/^(?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?$/', $rest)) {
             return null;
         }
 
         return [
             'fence' => $matches[1],
             'length' => strlen($matches[1]),
-            'className' => trim($matches[2]),
+            'className' => $rest,
         ];
     }
 
@@ -133,7 +148,11 @@ class FencedBlockParser
      */
     public function isDivFenceCloser(string $line, int $fenceLength): bool
     {
-        return preg_match('/^:{' . $fenceLength . ',}\s*$/', $line) === 1;
+        if (preg_match('/^(:+)\s*$/', $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
     }
 
     /**
@@ -145,13 +164,16 @@ class FencedBlockParser
      */
     public function parseRawBlockOpener(string $line): ?array
     {
-        // Fast early exit: raw blocks start with `.
-        if (!isset($line[0]) || $line[0] !== '`') {
+        // Fast early exit: raw blocks start with a code fence (` or ~).
+        if (!isset($line[0]) || ($line[0] !== '`' && $line[0] !== '~')) {
             return null;
         }
 
-        // Carve raw block opener: ```raw FORMAT (two info tokens, §4.15).
-        if (!preg_match('/^(`{3,})\s*raw\s+(\w[\w-]*)\s*$/', $line, $matches)) {
+        // Carve raw block opener: ```=FORMAT (djot raw-block syntax, §4.15). The
+        // leading `=`, immediately followed by the format name, is the block
+        // parallel of the inline raw `{=format}` attribute; the former
+        // ```raw FORMAT keyword form was removed.
+        if (!preg_match('/^([`~]{3,})\s*=([a-zA-Z][\w-]*)\s*$/', $line, $matches)) {
             return null;
         }
 
@@ -238,7 +260,31 @@ class FencedBlockParser
      */
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
-        return preg_match('/^\s*%{' . $fenceLength . ',}\s*$/', $line) === 1;
+        if (preg_match('/^\s*(%+)\s*$/', $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $fenceLength;
+    }
+
+    /**
+     * Does $haystack contain a run of $char at least $min long? Length-agnostic
+     * match + strlen compare, NOT a `{$min,}` quantifier: PCRE rejects a
+     * quantifier bound above 65535, so interpolating a huge fence length there
+     * throws "number too big in {} quantifier" on adversarial input.
+     */
+    private static function hasRunAtLeast(string $haystack, string $char, int $min): bool
+    {
+        if (preg_match_all('/' . preg_quote($char, '/') . '+/', $haystack, $m) === 0) {
+            return false;
+        }
+        foreach ($m[0] as $run) {
+            if (strlen($run) >= $min) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

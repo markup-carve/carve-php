@@ -58,17 +58,30 @@ class HtmlToCarveTest extends TestCase
 
     public function testHighlight(): void
     {
-        $this->assertSame("==highlighted==\n", $this->converter->convert('<mark>highlighted</mark>'));
+        // Whitespace-bounded (here the whole paragraph) -> bare canonical form.
+        $this->assertSame("=highlighted=\n", $this->converter->convert('<mark>highlighted</mark>'));
     }
 
     public function testSuperscript(): void
     {
-        $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc<sup>2</sup>'));
+        // Intraword (between word chars) -> forced brace form.
+        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup>2</sup>'));
+    }
+
+    public function testSuperscriptWhitespaceBoundedIsBare(): void
+    {
+        $this->assertSame("x ^2^ y\n", $this->converter->convert('x <sup>2</sup> y'));
+    }
+
+    public function testSubscriptWhitespaceBoundedIsBare(): void
+    {
+        $this->assertSame("x ,2, y\n", $this->converter->convert('x <sub>2</sub> y'));
     }
 
     public function testSubscript(): void
     {
-        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub>2</sub>O'));
+        // Intraword -> forced brace form.
+        $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub>2</sub>O'));
     }
 
     public function testNestedFormatting(): void
@@ -119,8 +132,8 @@ class HtmlToCarveTest extends TestCase
     public function testWhitespaceInInlineTags(): void
     {
         // Whitespace should be trimmed
-        $this->assertSame("E=mc^2^\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
-        $this->assertSame("H,,2,,O\n", $this->converter->convert('H<sub> 2 </sub>O'));
+        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
+        $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub> 2 </sub>O'));
         $this->assertSame("*bold*\n", $this->converter->convert('<strong> bold </strong>'));
         $this->assertSame("{-deleted-}\n", $this->converter->convert('<del> deleted </del>'));
     }
@@ -289,7 +302,7 @@ class HtmlToCarveTest extends TestCase
     {
         $result = $this->converter->convert('<div class="line-block"><p>one</p><p>two</p></div>');
 
-        $this->assertSame("| one\n| two\n", $result);
+        $this->assertSame("::: |\none\n\ntwo\n:::\n", $result);
     }
 
     // ==================== Block Elements ====================
@@ -412,8 +425,9 @@ HTML;
 
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString('| Name | Age |', $result);
-        $this->assertStringContainsString('|---|---|', $result);
+        // Canonical Carve uses `|=` header cells, no separator row.
+        $this->assertStringContainsString('|= Name |= Age |', $result);
+        $this->assertStringNotContainsString('|---|', $result);
         $this->assertStringContainsString('| Alice | 30 |', $result);
     }
 
@@ -441,9 +455,8 @@ HTML;
         $html = '<dl><dt>Term</dt><dd>Definition</dd></dl>';
         $result = $this->converter->convert($html);
 
-        // Djot format: `: term` for term, indented content for definition
-        $this->assertStringContainsString(': Term', $result);
-        $this->assertStringContainsString('  Definition', $result);
+        $this->assertStringContainsString(':: Term', $result);
+        $this->assertStringContainsString(':  Definition', $result);
     }
 
     public function testDefinitionListMultipleTerms(): void
@@ -452,23 +465,20 @@ HTML;
         $result = $this->converter->convert($html);
 
         // Multiple terms share one definition
-        $this->assertStringContainsString(': color', $result);
-        $this->assertStringContainsString(': colour', $result);
-        $this->assertStringContainsString('  The visual property.', $result);
+        $this->assertStringContainsString(':: color', $result);
+        $this->assertStringContainsString(':: colour', $result);
+        $this->assertStringContainsString(':  The visual property.', $result);
     }
 
     public function testDefinitionListMultipleDefinitions(): void
     {
-        // Multiple dd elements use `: +` continuation marker
         $html = '<dl><dt>color</dt><dt>colour</dt><dd>The visual property.</dd><dd>Used in design.</dd></dl>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString(': color', $result);
-        $this->assertStringContainsString(': colour', $result);
-        // First dd is indented content
-        $this->assertStringContainsString('  The visual property.', $result);
-        // Second dd uses continuation marker
-        $this->assertStringContainsString(": +\n\n  Used in design.", $result);
+        $this->assertStringContainsString(':: color', $result);
+        $this->assertStringContainsString(':: colour', $result);
+        $this->assertStringContainsString(':  The visual property.', $result);
+        $this->assertStringContainsString(':  Used in design.', $result);
     }
 
     // ==================== Spans with Attributes ====================
@@ -600,7 +610,7 @@ HTML;
 
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString('| Month | Sales |', $result);
+        $this->assertStringContainsString('|= Month |= Sales |', $result);
         $this->assertStringContainsString('^ Monthly Sales Data', $result);
     }
 
@@ -948,24 +958,6 @@ HTML;
         $this->assertStringContainsString('Used in design.', $htmlBack);
     }
 
-    public function testDefinitionListAttributesRoundtrip(): void
-    {
-        $html = '<dl class="vocabulary"><dt class="american">color</dt><dt class="british">colour</dt>'
-            . '<dd class="primary"><p>Visual property.</p></dd><dd class="secondary"><p>Used in design.</p></dd></dl>';
-        $djot = $this->converter->convert($html);
-
-        // Convert back to HTML
-        $djotConverter = new CarveConverter();
-        $htmlBack = $djotConverter->convert($djot);
-
-        // All attributes should roundtrip
-        $this->assertStringContainsString('<dl class="vocabulary">', $htmlBack);
-        $this->assertStringContainsString('<dt class="american">color</dt>', $htmlBack);
-        $this->assertStringContainsString('<dt class="british">colour</dt>', $htmlBack);
-        $this->assertStringContainsString('<dd class="primary">', $htmlBack);
-        $this->assertStringContainsString('<dd class="secondary">', $htmlBack);
-    }
-
     // ==================== Attribute Extraction ====================
 
     public function testHeadingWithIdAndClass(): void
@@ -1077,16 +1069,6 @@ HTML;
         // DOMDocument doesn't preserve empty tags well, but we test the concept
         $result = $this->converter->convert('<a href="#" download>Link</a>');
         $this->assertStringContainsString('download', $result);
-    }
-
-    public function testDefinitionListWithAttributes(): void
-    {
-        $html = '<dl class="glossary"><dt class="term">Term</dt><dd class="def">Definition</dd></dl>';
-        $result = $this->converter->convert($html);
-
-        $this->assertStringContainsString('{.glossary}', $result);
-        $this->assertStringContainsString('{.term}', $result);
-        $this->assertStringContainsString('{.def}', $result);
     }
 
     public function testMultipleClassesPreserved(): void
@@ -1477,10 +1459,10 @@ DJOT;
         $converter->addExtension(new CodeGroupExtension());
 
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Demo}
-::: tab
+:::: tab
 ::: code-group
 ``` php [One]
 echo 1;
@@ -1490,8 +1472,8 @@ echo 1;
 echo 2;
 ```
 :::
-:::
 ::::
+:::::
 DJOT;
 
         $html = $converter->convert($djot);
@@ -1663,9 +1645,8 @@ DJOT;
 
 {label=Defs}
 ::: tab
-: Term
-
-  Desc with *em*
+:: Term
+:  Desc with *em*
 :::
 ::::
 DJOT;
@@ -1693,16 +1674,16 @@ DJOT;
         $converter->addExtension(new TabsExtension());
 
         $djot = <<<'DJOT'
-:::: tabs
+::::: tabs
 
 {label=Div}
-::: tab
+:::: tab
 {#callout .note data-x=1}
 ::: box
 Nested content
 :::
-:::
 ::::
+:::::
 DJOT;
 
         $html = $converter->convert($djot);

@@ -152,16 +152,6 @@ class InlineParser
      */
     protected string $apostrophe = "\u{2019}";
 
-    /**
-     * Cached single quote opener→closer matches for the current text block.
-     *
-     * Pre-computed once per parseInlines() call to avoid O(n²) scanning.
-     * Keys are opener positions, values are closer positions.
-     *
-     * @var array<int, int>|null
-     */
-    protected ?array $singleQuoteMatchCache = null;
-
     public function __construct(protected BlockParser $blockParser)
     {
     }
@@ -360,9 +350,6 @@ class InlineParser
         $length = strlen($text);
         $pos = 0;
         $textBuffer = '';
-
-        // Pre-compute single quote matches to avoid O(n²) complexity
-        $this->singleQuoteMatchCache = $this->buildSingleQuoteMatchCache($text);
 
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
@@ -713,11 +700,11 @@ class InlineParser
                 }
             }
 
-            // Subscript: ,,text,,
-            if ($char === ',' && ($text[$pos + 1] ?? '') === ',') {
+            // Subscript: ,text,
+            if ($char === ',') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDoubleDelimited($text, $pos, ',,', Subscript::class);
+                $result = $this->parseDelimited($text, $pos, ',', Subscript::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -726,11 +713,11 @@ class InlineParser
                 }
             }
 
-            // Highlight: ==text==
-            if ($char === '=' && ($text[$pos + 1] ?? '') === '=') {
+            // Highlight: =text=
+            if ($char === '=') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDoubleDelimited($text, $pos, '==', Highlight::class);
+                $result = $this->parseDelimited($text, $pos, '=', Highlight::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -1582,22 +1569,27 @@ class InlineParser
             return null;
         }
 
+        // Keep the smart typography fat-arrow token literal for the symbol pass.
+        if ($delimiter === '=' && $nextChar === '>') {
+            return null;
+        }
+
         // No same-type nesting (spec §4.2), unlike djot: a bare single-char
         // delimiter immediately PRECEDED or FOLLOWED by the same delimiter does
         // not open. A doubled delimiter is therefore literal text, never nested
-        // same-type emphasis. This is uniform across all five single-char
+        // same-type emphasis. This is uniform across all single-char
         // delimiters, so `**x**`, `~~x~~`, `^^x^^` stay literal exactly like
         // `//x//` and `__x__`.
         if ($prevChar === $delimiter || $nextChar === $delimiter) {
             return null;
         }
 
-        // Additional intraword rule for the italic (/) and underline (_)
-        // delimiters only: they also cannot open when preceded by an
-        // alphanumeric or `_`, keeping paths/identifiers literal (a/b/c,
-        // foo_bar). Strong (*) and friends are exempt, so intraword bold like
-        // foo*bar*baz still works.
-        if (($delimiter === '/' || $delimiter === '_') && ($prevChar === '_' || ctype_alnum($prevChar))) {
+        // Bare single-char delimiters never open inside words. Slash and
+        // underscore also keep their path-protection rule after slash.
+        if ($prevChar === '_' || ctype_alnum($prevChar)) {
+            return null;
+        }
+        if (($delimiter === '/' || $delimiter === '_') && $prevChar === '/') {
             return null;
         }
 
@@ -1679,17 +1671,14 @@ class InlineParser
                     // `**x**` -> `*<strong>x</strong>*`, `~b~~` -> `<s>b</s>~`.
                     $actualClose = $searchPos;
 
-                    // Intraword closer rule for / and _: a closer immediately
-                    // followed by an alphanumeric (or _) is not a valid
-                    // closer, so inner delimiters stay literal content
-                    // (e.g. /usr/local/ -> <em>usr/local</em>).
-                    if ($delimiter === '/' || $delimiter === '_') {
-                        $afterClose = $text[$actualClose + 1] ?? '';
-                        if ($afterClose !== '' && ($afterClose === '_' || ctype_alnum($afterClose))) {
-                            $searchPos = $actualClose + 1;
+                    // Bare single-char delimiters never close before an
+                    // alphanumeric (right word boundary, grammar §9). Unlike the
+                    // opener's left boundary, `_` does NOT block a closer.
+                    $afterClose = $text[$actualClose + 1] ?? '';
+                    if ($afterClose !== '' && ctype_alnum($afterClose)) {
+                        $searchPos = $actualClose + 1;
 
-                            continue;
-                        }
+                        continue;
                     }
 
                     // Check content isn't empty
@@ -1715,84 +1704,6 @@ class InlineParser
                         'pos' => $endPos,
                     ];
                 }
-            }
-
-            $searchPos++;
-        }
-
-        return null;
-    }
-
-    /**
-     * Parse a double-character delimited span: ,,sub,, or ==highlight==
-     *
-     * Content must be non-empty and may not begin or end with whitespace.
-     * Inner content is parsed recursively as inlines.
-     *
-     * @param string $text
-     * @param int $pos Position of the first delimiter character
-     * @param string $delimiter Two-character delimiter (e.g. ',,' or '==')
-     * @param class-string<\Carve\Node\Inline\InlineNode> $nodeClass
-     *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
-     */
-    protected function parseDoubleDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
-    {
-        $length = strlen($text);
-        $dl = strlen($delimiter);
-        $start = $pos + $dl;
-
-        // Can't open if followed by whitespace.
-        if ($start >= $length || ctype_space($text[$start])) {
-            return null;
-        }
-
-        // A run of 3+ of the same char does not open: the doubled delimiter IS
-        // the token, so an adjacent third char (before the pair or right after
-        // it) makes it literal -- consistent with the single-char same-delimiter
-        // adjacency rule. So `====x====` and `,,,,y,,,,` stay literal.
-        $runChar = $delimiter[0];
-        if (($pos > 0 && $text[$pos - 1] === $runChar) || $text[$start] === $runChar) {
-            return null;
-        }
-
-        $searchPos = $start;
-        while ($searchPos + $dl <= $length) {
-            // Skip over code spans so delimiters inside them stay literal.
-            if ($text[$searchPos] === '`') {
-                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
-                if ($codeEnd !== null) {
-                    $searchPos = $codeEnd + 1;
-
-                    continue;
-                }
-
-                // Unclosed backtick run: opaque to the end of the block, so no
-                // closer can follow it and this delimiter cannot form emphasis.
-                return null;
-            }
-
-            if (substr($text, $searchPos, $dl) === $delimiter) {
-                $content = substr($text, $start, $searchPos - $start);
-                // Closer may not be preceded by whitespace; content non-empty.
-                if ($content === '' || ctype_space($content[strlen($content) - 1])) {
-                    $searchPos++;
-
-                    continue;
-                }
-
-                $node = new $nodeClass();
-                $this->parseInlines($node, $content);
-
-                $endPos = $searchPos + $dl;
-                if ($endPos < $length && $text[$endPos] === '{') {
-                    $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
-                }
-
-                return [
-                    'node' => $node,
-                    'pos' => $endPos,
-                ];
             }
 
             $searchPos++;
@@ -1888,9 +1799,7 @@ class InlineParser
 
     /**
      * Parse braced inline syntax: {+insert+}, {-delete-},
-     * {~old~>new~} substitution, {'} and {"}. (Highlight is `==text==` only;
-     * the djot `{=text=}` form is intentionally not parsed -- it is flagged
-     * for migration to `==`.)
+     * forced delimiter spans, {~old~>new~} substitution, {'} and {"}.
      *
      * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
      */
@@ -1967,10 +1876,13 @@ class InlineParser
         $nodeClass = match ($marker) {
             '+' => Insert::class,
             '-' => Delete::class,
-            '~' => Subscript::class,
+            '/' => Emphasis::class,
+            '~' => Strike::class,
             '^' => Superscript::class,
-            '_' => Emphasis::class,
+            '_' => Underline::class,
             '*' => Strong::class,
+            ',' => Subscript::class,
+            '=' => Highlight::class,
             default => null,
         };
 
@@ -1989,12 +1901,12 @@ class InlineParser
 
                 $endPos = $searchPos + 2;
 
-                // Check for trailing attributes: {=text=}{.class}{.more}
-                // But NOT if it's another braced inline like {=text=}{=more=}
+                // Check for trailing attributes: {*text*}{.class}{.more}
+                // But NOT if it's another braced inline like {*text*}{=more=}
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $nextChar = $text[$endPos + 1] ?? '';
                     // Braced inline markers that should NOT be treated as attributes
-                    if (!in_array($nextChar, ['=', '+', '-', '~', '^', '_', '*'], true)) {
+                    if (!in_array($nextChar, ['=', '+', '-', '/', '~', '^', '_', '*', ','], true)) {
                         $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
                     }
                 }
@@ -2055,16 +1967,14 @@ class InlineParser
             return $prevIsSpace && !$nextIsSpace ? $this->openDoubleQuote : $this->closeDoubleQuote;
         }
 
-        // For single quotes, use pre-computed cache to determine if this could be an opener
-        // A potential opener at position can only be an opener if there's a matching closer later
+        // A single quote in opener position (preceded by whitespace / start,
+        // followed by a non-space) is an OPENING quote, per the §8 flanking
+        // rule -- regardless of whether a matching closer exists later
+        // (`'twas`, `say 'hi` -> `‘`). This matches carve-js / carve-rs; the
+        // earlier rules already peel off the apostrophe cases (`'70s` before a
+        // digit, mid-word `it's`).
         if ($prevIsSpace && !$nextIsSpace) {
-            // This could be an opener - check the pre-computed cache
-            if (isset($this->singleQuoteMatchCache[$pos])) {
-                return $this->openSingleQuote;
-            }
-
-            // No matching closer found, treat as apostrophe
-            return $this->apostrophe;
+            return $this->openSingleQuote;
         }
 
         // Check if this is mid-word (next char is a word character) — apostrophe
@@ -2074,167 +1984,6 @@ class InlineParser
 
         // Closing single quote
         return $this->closeSingleQuote;
-    }
-
-    /**
-     * Find a matching single quote closer for a potential opener at $pos
-     *
-     * Returns the position of the closer if found, null otherwise.
-     * Uses a matching algorithm similar to emphasis - potential openers and closers
-     * are matched from innermost pairs outward.
-     */
-    protected function findMatchingSingleQuoteCloser(string $text, int $openerPos): ?int
-    {
-        $length = strlen($text);
-
-        // Collect all potential openers and closers after this position
-        $openers = [$openerPos];
-        $closers = [];
-
-        for ($i = $openerPos + 1; $i < $length; $i++) {
-            if ($text[$i] !== "'") {
-                continue;
-            }
-
-            $prevChar = $text[$i - 1] ?? ' ';
-            $nextChar = $text[$i + 1] ?? ' ';
-            $prevIsSpace = ctype_space($prevChar);
-            // Closer can be followed by space, punctuation, or end of string
-            $nextIsSpaceOrPunct = ctype_space($nextChar) || $i === $length - 1
-                || preg_match('/^[\p{P}\p{S}]/u', $nextChar);
-
-            // Skip quotes before digits (always apostrophe)
-            if (ctype_digit($nextChar)) {
-                continue;
-            }
-
-            // Skip quotes after ] or )
-            if ($prevChar === ']' || $prevChar === ')') {
-                continue;
-            }
-
-            $nextIsSpace = ctype_space($nextChar);
-            if ($prevIsSpace && !$nextIsSpace) {
-                // Could be opener (after space, before non-space)
-                $openers[] = $i;
-            } elseif (!$prevIsSpace && $nextIsSpaceOrPunct) {
-                // Could be closer (after non-space, before space/punct)
-                $closers[] = $i;
-            } elseif (!$prevIsSpace) {
-                // Mid-word quote (like Jane's) - typically apostrophe
-                continue;
-            }
-        }
-
-        // Now match openers with closers, innermost first
-        // For each closer, find the nearest preceding unmatched opener
-        $matched = [];
-        foreach ($closers as $closer) {
-            for ($j = count($openers) - 1; $j >= 0; $j--) {
-                $opener = $openers[$j];
-                if ($opener < $closer && !isset($matched[$opener])) {
-                    $matched[$opener] = $closer;
-
-                    break;
-                }
-            }
-        }
-
-        // Return the closer for our position, if any
-        return $matched[$openerPos] ?? null;
-    }
-
-    /**
-     * Build a cache of all single quote opener→closer matches for the text.
-     *
-     * This is called once per parseInlines() to avoid O(n²) complexity
-     * when processing many single quotes.
-     *
-     * @return array<int, int> Map of opener position to closer position
-     */
-    protected function buildSingleQuoteMatchCache(string $text): array
-    {
-        // No apostrophe -> no single-quote matches. Skips a full-text char scan
-        // (a long quote-free paragraph parses ~34% faster); byte-identical.
-        if (!str_contains($text, "'")) {
-            return [];
-        }
-
-        $length = strlen($text);
-        $openers = [];
-        $closers = [];
-
-        // Single pass: collect all potential openers and closers
-        for ($i = 0; $i < $length; $i++) {
-            if ($text[$i] !== "'") {
-                continue;
-            }
-
-            $prevChar = $i > 0 ? $text[$i - 1] : ' ';
-            $nextChar = $text[$i + 1] ?? ' ';
-
-            // Skip quotes before digits (always apostrophe)
-            if (ctype_digit($nextChar)) {
-                continue;
-            }
-
-            // Skip quotes after ] or )
-            if ($prevChar === ']' || $prevChar === ')') {
-                continue;
-            }
-
-            $prevIsSpace = ctype_space($prevChar) || $i === 0;
-            $nextIsSpace = ctype_space($nextChar);
-            $nextIsSpaceOrPunct = $nextIsSpace || $i === $length - 1
-                || preg_match('/^[\p{P}\p{S}]/u', $nextChar) === 1;
-
-            // A quote following another quote at line start should be considered opener
-            $prevIsQuoteOpener = ($prevChar === '"' || $prevChar === "'");
-            if ($prevIsQuoteOpener && !$prevIsSpace) {
-                // $i >= 2 here because: $i=0 means prevChar=' ', so $prevIsQuoteOpener=false;
-                // $i=1 means prevChar=$text[0], if quote, then $prevIsSpace=true (start of string)
-                if ($i === 1) {
-                    $prevIsSpace = true;
-                } elseif (ctype_space($text[$i - 2])) {
-                    $prevIsSpace = true;
-                }
-            }
-
-            if ($prevIsSpace && !$nextIsSpace) {
-                // Potential opener
-                $openers[] = $i;
-            } elseif (!$prevIsSpace && $nextIsSpaceOrPunct) {
-                // Potential closer
-                $closers[] = $i;
-            }
-            // Mid-word quotes are skipped (apostrophes)
-        }
-
-        // Match openers with closers, innermost first. Both lists are already in
-        // ascending position order, so a single stack merge pairs each closer
-        // with the nearest unmatched opener before it in O(n) -- the previous
-        // closer x opener nested scan was O(n^2) (16k quotes ~7s).
-        $matched = [];
-        $stack = [];
-        $oi = 0;
-        $ci = 0;
-        $oc = count($openers);
-        $cc = count($closers);
-        while ($oi < $oc || $ci < $cc) {
-            $oPos = $oi < $oc ? $openers[$oi] : PHP_INT_MAX;
-            $cPos = $ci < $cc ? $closers[$ci] : PHP_INT_MAX;
-            if ($oPos < $cPos) {
-                $stack[] = $oPos;
-                $oi++;
-            } else {
-                if ($stack !== []) {
-                    $matched[(int)array_pop($stack)] = $cPos;
-                }
-                $ci++;
-            }
-        }
-
-        return $matched;
     }
 
     /**
@@ -2350,21 +2099,42 @@ class InlineParser
 
         $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
 
+        // A genuinely empty/whitespace-only block (`{}`, `{ }`) abutting a word
+        // or an inline node is NOT consumed -- it stays literal (`hi{}` ->
+        // `hi{}`, `*x*{}` -> `<strong>x</strong>{}`, `[x]{}{}` keeps the second
+        // block), matching carve-js / carve-rs. The one place an empty block is
+        // meaningful, the `[text]{}` span form, is handled by the bracket path
+        // before this standalone-attribute handler runs. (A block that becomes
+        // empty only AFTER comment removal, e.g. `{% note %}`, is still a
+        // consumed comment -- handled below.)
+        if (trim($attrStr) === '') {
+            return null;
+        }
+
         // Check if this looks like valid attributes (starts with ., #, % comment, or key=)
         // Exclude _ * = + - ~ ^ which are braced inline markers
-        if ($attrStr !== '' && !preg_match('/^[.#a-zA-Z%]/', $attrStr)) {
+        if (!preg_match('/^[.#a-zA-Z%]/', $attrStr)) {
             return null;
         }
 
         // Remove comments from attributes: % ... % or % to end
         $attrStr = $this->removeAttributeComments($attrStr);
 
-        // Empty attributes: hi{} - just skip them
+        // A comment-only block (`{% note %}`) reduces to empty here: consume it
+        // (the comment vanishes) rather than leaving it literal.
         if (trim($attrStr) === '') {
             return [
                 'textBuffer' => $textBuffer,
                 'pos' => $attrEnd + 1,
             ];
+        }
+
+        // The block must yield a valid attribute, else it is not an attribute
+        // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
+        // unrecognized content makes the whole `{...}` stay literal. Decline
+        // so the caller emits `{` literally and re-parses the content.
+        if (!$this->isValidAttrPayload($attrStr)) {
+            return null;
         }
 
         // Find the preceding word to attach attributes to
@@ -2401,16 +2171,13 @@ class InlineParser
             $textBuffer = substr($textBuffer, 0, $wordStart);
         }
 
-        // If no preceding word, attributes don't attach to anything
-        // But they still consume the braces (according to the spec)
+        // No inline element abuts the block (it sits at the start of the
+        // content or after whitespace), so it is not an attribute block:
+        // decline here and let the caller emit `{` literally and re-parse the
+        // content inline (grammar PART 9 §14, inline_span requires a `[...]`
+        // host). Consuming it would silently drop the braces and lose content.
         if ($precedingWord === '') {
-            // Flush text and skip attributes - they produce nothing
-            $this->flushText($parent, $textBuffer);
-
-            return [
-                'textBuffer' => '',
-                'pos' => $attrEnd + 1,
-            ];
+            return null;
         }
 
         // Flush any text before the word
@@ -2454,15 +2221,41 @@ class InlineParser
      * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
      * so the whole bracketed run stays literal text (PART 9 §14).
      */
-    protected function isValidAttrPayload(string $attrStr): bool
+    public function isValidAttrPayload(string $attrStr): bool
     {
-        if (AttributeParser::parse($attrStr) !== []) {
+        // Strip every RECOGNIZED token; if anything non-whitespace remains the
+        // block is invalid and stays literal (§14). A name (key, class, id)
+        // is a grammar identifier (letter/`_` first), so a digit-first or
+        // hyphen-first name is NOT recognized -- one bad name invalidates the
+        // WHOLE block, even mixed with valid ones, matching carve-js.
+        // Booleans, colon-bearing keys, and an invalid unquoted VALUE (which
+        // is tolerated and skipped) all stay accepted.
+        $rest = $attrStr;
+        // Quoted key=values first, so `%`, dots and braces inside quotes are
+        // protected from the comment stripper and the shorthand patterns.
+        $rest = preg_replace(
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')/',
+            ' ',
+            $rest,
+        ) ?? $rest;
+        $rest = $this->removeAttributeComments($rest);
+        if (trim($rest) === '') {
             return true;
         }
+        $patterns = [
+            // unquoted key=value (the key is an identifier; the value is
+            // tolerant like carve-js's `\S+`, so an invalid value is skipped)
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
+            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
+            '/\s+/',
+        ];
+        foreach ($patterns as $pattern) {
+            $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
+        }
 
-        // No attribute extracted: valid only if the block is empty or
-        // whitespace/comment-only. Otherwise it is invalid and stays literal.
-        return trim($this->removeAttributeComments($attrStr)) === '';
+        return trim($rest) === '';
     }
 
     /**
@@ -2477,6 +2270,13 @@ class InlineParser
 
         while ($i < $length) {
             $char = $text[$i];
+
+            // An inline attribute block is single-line: a newline before the
+            // closing `}` means this is not an inline attr block, so the `{`
+            // stays literal (`[x]{.a\n.b}` is text). Matches carve-js / carve-rs.
+            if ($char === "\n") {
+                return null;
+            }
 
             // Handle escape sequences
             if ($char === '\\' && $i + 1 < $length) {
@@ -2758,9 +2558,19 @@ class InlineParser
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
         }
 
+        $node = new FootnoteRef($label);
+        $endPos = $pos + strlen($matches[0]);
+
+        // A trailing `{...}` attaches to the noteref <a> (grammar PART 9 §note;
+        // mirrors the inline-footnote `^[...]{attrs}` path).
+        $length = strlen($text);
+        if ($endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
         return [
-            'node' => new FootnoteRef($label),
-            'pos' => $pos + strlen($matches[0]),
+            'node' => $node,
+            'pos' => $endPos,
         ];
     }
 

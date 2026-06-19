@@ -66,8 +66,6 @@ class HtmlRenderer implements RendererInterface
 {
     use EventDispatcherTrait;
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
-
     /**
      * Safe mode configuration (null = disabled)
      */
@@ -194,29 +192,6 @@ class HtmlRenderer implements RendererInterface
     public function isSafeModeEnabled(): bool
     {
         return $this->safeMode !== null;
-    }
-
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode How to render soft breaks:
-     *   - Newline: renders as "\n" (default, not visible in browser)
-     *   - Space: renders as " " (not visible in browser)
-     *   - Break: renders as "<br>" (visible line break)
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
     }
 
     /**
@@ -962,7 +937,21 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->getRenderableAttributes($node);
         $attrs = $this->mergeAttribute($attrs, 'class', 'line-block');
 
-        return '<div' . $this->renderAttributeArray($attrs) . ">\n" . $this->renderChildren($node) . "</div>\n";
+        // Indent only the FIRST line of each child block; lines produced by an
+        // internal hard break stay at column 0 inside the <p> (matching the
+        // hard-break continuation convention used across the renderers).
+        $inner = '';
+        foreach ($node->getChildren() as $child) {
+            $rendered = rtrim($this->renderNode($child), "\n");
+            $newline = strpos($rendered, "\n");
+            $inner .= $newline === false
+                ? '  ' . $rendered . "\n"
+                : '  ' . substr($rendered, 0, $newline) . substr($rendered, $newline) . "\n";
+        }
+
+        $html = '<div' . $this->renderAttributeArray($attrs) . ">\n" . $inner . "</div>\n";
+
+        return str_replace("\u{00A0}", '&nbsp;', $html);
     }
 
     protected function renderFigure(Figure $node): string
@@ -1197,16 +1186,17 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSoftBreak(): string
     {
-        // The trailing newline is emitted as the soft-break guard so block
-        // indentation (indentBlock) never treats an inline soft/hard break as a
-        // line boundary — a hard-wrapped paragraph or heading keeps its
-        // continuation flush at column 0, matching carve-js/carve-rs/djot. The
-        // guard is restored to a real newline at every public render exit.
-        return match ($this->softBreakMode) {
-            SoftBreakMode::Newline => self::SOFT_BREAK_GUARD,
-            SoftBreakMode::Space => ' ',
-            SoftBreakMode::Break => ($this->xhtml ? '<br />' : '<br>') . self::SOFT_BREAK_GUARD,
-        };
+        // A soft break is a single source newline that stays inside the
+        // paragraph; it renders as a newline (collapsed by the browser). For a
+        // visible line break use a `::: |` line block (poetry/addresses) or a
+        // trailing backslash hard break.
+        //
+        // The newline is emitted as the soft-break guard so block indentation
+        // (indentBlock) never treats an inline soft/hard break as a line
+        // boundary - a hard-wrapped paragraph or heading keeps its continuation
+        // flush at column 0, matching carve-js/carve-rs/djot. The guard is
+        // restored to a real newline at every public render exit.
+        return self::SOFT_BREAK_GUARD;
     }
 
     protected function renderHardBreak(): string
@@ -1251,12 +1241,18 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->getRenderContext()->headingIdTracker->getTextForId($id);
-        if ($label === null) {
+        $target = $node->getTargetId();
+        $tracker = $this->getRenderContext()->headingIdTracker;
+
+        // Exact match first, then a case-insensitive (case-folded) fallback so
+        // a lowercase `</#getting-started>` resolves to a case-preserved
+        // `Getting-Started` id. The emitted href uses the ACTUAL id.
+        $id = $tracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $tracker->getTextForId($id);
+        if ($id === null || $label === null) {
             // An unresolved </#id> renders as its literal source text,
             // not a dangling self-link (matches the spec and carve-js).
-            return $this->escape('</#' . $id . '>');
+            return $this->escape('</#' . $target . '>');
         }
 
         return '<a href="#' . $this->escapeAttribute($id) . '">'
@@ -1377,10 +1373,14 @@ class HtmlRenderer implements RendererInterface
             return '';
         }
 
-        // Preserve source order of attributes (matching JS reference implementation)
+        // Preserve source order of attributes (matching JS reference implementation).
+        // Cast the key to string: PHP silently coerces an all-digit array key
+        // (e.g. "123") to int, so a programmatically-built attribute array would
+        // otherwise pass an int into escape() and throw a TypeError. The parser
+        // never produces digit-first names, but setAttributes() is public.
         $html = '';
         foreach ($attrs as $key => $value) {
-            $html .= ' ' . $this->escape($key) . '="' . $this->escapeAttribute($value) . '"';
+            $html .= ' ' . $this->escape((string)$key) . '="' . $this->escapeAttribute($value) . '"';
         }
 
         return $html;

@@ -216,10 +216,10 @@ DJOT;
         $html = $converter->convert($djot);
         $tocHtml = $toc->getTocHtml();
 
-        $this->assertStringContainsString('id="before"', $html);
-        $this->assertStringContainsString('id="after"', $html);
-        $this->assertStringContainsString('href="#before"', $tocHtml);
-        $this->assertStringContainsString('href="#after"', $tocHtml);
+        $this->assertStringContainsString('id="Before"', $html);
+        $this->assertStringContainsString('id="After"', $html);
+        $this->assertStringContainsString('href="#Before"', $tocHtml);
+        $this->assertStringContainsString('href="#After"', $tocHtml);
     }
 
     public function testAriaMode(): void

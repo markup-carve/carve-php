@@ -237,9 +237,13 @@ class HtmlToCarve
             'ins' => $this->processInlineFormatting($node, '{+', '+}'),
             's', 'strike' => $this->processInlineFormatting($node, '~', '~'),
             'del' => $this->processInlineFormatting($node, '{-', '-}'),
-            'mark' => $this->processInlineFormatting($node, '==', '=='),
-            'sup' => $this->processInlineFormatting($node, '^', '^'),
-            'sub' => $this->processInlineFormatting($node, ',,', ',,'),
+            // Single-char delimiters (`=` mark, `^` sup, `,` sub): bare when the
+            // element is whitespace-bounded (canonical), forced brace form only
+            // intraword (H<sub>2</sub>O, E=mc<sup>2</sup>) where a bare delimiter
+            // would not open under the word-boundary rule.
+            'mark' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '=')),
+            'sup' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '^')),
+            'sub' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, ',')),
             'kbd' => $this->processSemanticSpan($node, 'kbd'),
             'dfn' => $this->processSemanticSpan($node, 'dfn'),
             'abbr' => $this->processSemanticSpan($node, 'abbr'),
@@ -379,6 +383,24 @@ class HtmlToCarve
         return $prefix . $content;
     }
 
+    /**
+     * Choose a colon-fence string at least one longer than any colon-only line
+     * in `$content`, so a NESTED div/admonition (whose closer is a `:::` line)
+     * does not prematurely close this fence. A same-length inner fence would
+     * close the outer one, so the outer must be longer (grammar §12).
+     */
+    protected function colonFenceFor(string $content): string
+    {
+        $fenceLength = 3;
+        foreach (explode("\n", $content) as $line) {
+            if (preg_match('/^(:{3,})\s*$/', trim($line), $m) === 1) {
+                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+            }
+        }
+
+        return str_repeat(':', $fenceLength);
+    }
+
     protected function processDiv(DOMElement $node): string
     {
         // Check for admonition div (round-trip support)
@@ -415,12 +437,13 @@ class HtmlToCarve
             }
 
             $content = trim($this->processChildren($node));
-            $output = $attrs . ":::\n";
+            $fence = $this->colonFenceFor($content);
+            $output = $attrs . $fence . "\n";
             if ($content !== '') {
                 $output .= $content . "\n";
             }
 
-            return $output . ":::\n\n";
+            return $output . $fence . "\n\n";
         }
         if ($fenceClass === 'djot-content' && $classes === [] && $node->getAttribute('id') === '') {
             $hasExtraAttrs = false;
@@ -456,12 +479,13 @@ class HtmlToCarve
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $fenceClass . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $fenceClass . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -508,12 +532,13 @@ class HtmlToCarve
         $content = $this->processAdmonitionContent($node);
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $type . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $type . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -562,12 +587,13 @@ class HtmlToCarve
         }
 
         $content = trim($this->processBlock($node));
-        $output = $attrs . '::: ' . $tagName . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $tagName . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -619,12 +645,13 @@ class HtmlToCarve
 
         // Collapsible admonitions always have at least the 'collapsible' attribute
         $attrs = '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs . '::: ' . $type . "\n";
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' ' . $type . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -662,14 +689,26 @@ class HtmlToCarve
         // Extract lines from the content - handle <br> as line separators
         $lines = $this->extractLineBlockLines($node);
 
-        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $output = $attrs;
+        // Choose a fence longer than any colon-only content line, so a verse
+        // line that is itself `:::` (or longer) cannot be read as the closer.
+        $fenceLength = 3;
+        foreach ($lines as $line) {
+            if (preg_match('/^(:{3,})\s*$/', $line, $m) === 1) {
+                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+            }
+        }
+        $fence = str_repeat(':', $fenceLength);
+
+        // STRICT (djot): the `:::` fence takes no inline attributes, so any
+        // extra id/classes go on a PRECEDING block-attribute line.
+        $attrLine = $parts === [] ? '' : '{' . implode(' ', $parts) . '}' . "\n";
+        $output = $attrLine . $fence . ' |' . "\n";
 
         foreach ($lines as $line) {
-            $output .= '| ' . $line . "\n";
+            $output .= $line . "\n";
         }
 
-        return $output . "\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -685,14 +724,16 @@ class HtmlToCarve
         $processNode = function (DOMNode $child) use (&$lines, &$currentLine): void {
             if ($child instanceof DOMText) {
                 $text = $child->textContent;
-                // Normalize whitespace but preserve content
-                $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+                $text = str_replace("\u{00A0}", ' ', $text);
+                if ($currentLine === '') {
+                    $text = preg_replace('/^\n/', '', $text) ?? $text;
+                }
                 $currentLine .= $text;
             } elseif ($child instanceof DOMElement) {
                 $tag = strtolower($child->tagName);
                 if ($tag === 'br') {
                     // <br> marks end of current line
-                    $lines[] = trim($currentLine);
+                    $lines[] = rtrim($currentLine);
                     $currentLine = '';
                 } else {
                     // Process other elements inline (strong, em, etc.)
@@ -702,17 +743,29 @@ class HtmlToCarve
         };
 
         // Find inner content (may be wrapped in <p> or direct children)
+        $sawParagraph = false;
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'p') {
+                if ($sawParagraph && ($lines === [] || end($lines) !== '')) {
+                    $lines[] = '';
+                }
+                $sawParagraph = true;
+
                 // Process paragraph's children
                 foreach ($child->childNodes as $pChild) {
                     $processNode($pChild);
                 }
 
                 if (trim($currentLine) !== '') {
-                    $lines[] = trim($currentLine);
+                    $lines[] = rtrim($currentLine);
                     $currentLine = '';
                 }
+            } elseif ($child instanceof DOMText && trim($child->textContent) === '') {
+                // Structural whitespace between block children (e.g. the
+                // indentation before a <p>) is not content - skip it so it does
+                // not bleed into the first verse line. Real indentation lives
+                // inside the <p> as NBSP and is handled above.
+                continue;
             } else {
                 $processNode($child);
             }
@@ -720,7 +773,7 @@ class HtmlToCarve
 
         // Don't forget the last line if any content remains
         if (trim($currentLine) !== '') {
-            $lines[] = trim($currentLine);
+            $lines[] = rtrim($currentLine);
         }
 
         return $lines;
@@ -800,6 +853,29 @@ class HtmlToCarve
         $attrs = $this->formatBlockAttributes($node, $skipAttrs);
 
         return $attrs . $prefix . $content . "\n\n";
+    }
+
+    /**
+     * Choose bare vs forced-brace delimiters for a single-char inline mark
+     * (`=` mark, `^` sup, `,` sub). A bare delimiter parses only at a word
+     * boundary, so emit the bare form (`^x^`) when the element is whitespace-
+     * bounded on both sides (or at the start/end of its container) and the
+     * forced form (`{^x^}`) otherwise, so an intraword mark still round-trips.
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected function boundaryDelimiters(DOMElement $node, string $ch): array
+    {
+        $prev = $node->previousSibling;
+        $next = $node->nextSibling;
+        $prevOk = $prev === null
+            || ($prev instanceof DOMText
+                && ($prev->textContent === '' || ctype_space(substr($prev->textContent, -1))));
+        $nextOk = $next === null
+            || ($next instanceof DOMText
+                && ($next->textContent === '' || ctype_space($next->textContent[0])));
+
+        return ($prevOk && $nextOk) ? [$ch, $ch] : ['{' . $ch, $ch . '}'];
     }
 
     protected function processInlineFormatting(DOMElement $node, string $open, string $close): string
@@ -1503,6 +1579,7 @@ class HtmlToCarve
         $rows = [];
         $headerRow = null;
         $headerRowAttrs = '';
+        $headerCells = [];
         $columnCount = 0;
         $captionText = '';
         $alignments = [];
@@ -1557,6 +1634,7 @@ class HtmlToCarve
                 if ($isHeader && $headerRow === null) {
                     $headerRow = $row;
                     $headerRowAttrs = $rowAttrSuffix;
+                    $headerCells = $cells;
                 } else {
                     $rows[] = $row;
                 }
@@ -1568,30 +1646,54 @@ class HtmlToCarve
         $output = $tableAttrs . "\n";
 
         if ($headerRow !== null) {
-            $output .= $headerRow . "\n";
-
-            // Use original separator widths if available for round-trip
-            $separator = [];
             $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
-            if ($colWidthsAttr !== '') {
-                $colWidths = array_map('intval', explode(',', $colWidthsAttr));
-                foreach ($colWidths as $width) {
-                    // Use exact width from original for round-trip fidelity
-                    $separator[] = $this->buildTableSeparator($width, $alignments[count($separator)] ?? TableCell::ALIGN_DEFAULT);
-                }
-                // Fill remaining columns with default width
-                $separatorCount = count($separator);
-                while ($separatorCount < $columnCount) {
-                    $separator[] = $this->buildTableSeparator(3, $alignments[$separatorCount] ?? TableCell::ALIGN_DEFAULT);
-                    $separatorCount++;
-                }
-            } else {
-                for ($i = 0; $i < $columnCount; $i++) {
-                    $separator[] = $this->buildTableSeparator(3, $alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+
+            // A header cell carrying an attribute block can't use the tight
+            // `|=` form unambiguously, so fall back to the separator form.
+            $headerHasCellAttrs = false;
+            foreach ($headerCells as $hc) {
+                if (str_starts_with($hc, '{')) {
+                    $headerHasCellAttrs = true;
+
+                    break;
                 }
             }
 
-            $output .= '|' . implode('|', $separator) . '|' . "\n";
+            if ($colWidthsAttr === '' && !$headerHasCellAttrs) {
+                // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
+                // markers on the header cell), no separator row. Used unless the
+                // source was a GFM table (recorded via data-djot-col-widths).
+                $headerLine = '|';
+                foreach ($headerCells as $i => $cell) {
+                    $marker = $this->tableAlignMarker($alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+                    $headerLine .= '=' . $marker . ' ' . $cell . ' |';
+                }
+                $output .= $headerLine . $headerRowAttrs . "\n";
+            } else {
+                $output .= $headerRow . "\n";
+
+                // Use original separator widths if available for round-trip
+                $separator = [];
+                if ($colWidthsAttr !== '') {
+                    $colWidths = array_map('intval', explode(',', $colWidthsAttr));
+                    foreach ($colWidths as $width) {
+                        // Use exact width from original for round-trip fidelity
+                        $separator[] = $this->buildTableSeparator($width, $alignments[count($separator)] ?? TableCell::ALIGN_DEFAULT);
+                    }
+                    // Fill remaining columns with default width
+                    $separatorCount = count($separator);
+                    while ($separatorCount < $columnCount) {
+                        $separator[] = $this->buildTableSeparator(3, $alignments[$separatorCount] ?? TableCell::ALIGN_DEFAULT);
+                        $separatorCount++;
+                    }
+                } else {
+                    for ($i = 0; $i < $columnCount; $i++) {
+                        $separator[] = $this->buildTableSeparator(3, $alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+                    }
+                }
+
+                $output .= '|' . implode('|', $separator) . '|' . "\n";
+            }
         }
 
         $output .= implode("\n", $rows) . "\n";
@@ -1712,48 +1814,26 @@ class HtmlToCarve
 
     protected function processDefinitionList(DOMElement $node): string
     {
-        // Definition list level attributes
+        // Carve definition list: `:: term` for each term, `:  definition` for
+        // each definition (grammar definition_term = "::", definition_body =
+        // ":  "); a multi-line definition continues on three-space-indented
+        // lines. dl-level attributes attach on a preceding block-attribute line.
+        // (dt/dd-level attributes have no `::` representation and are dropped.)
         $dlAttrs = $this->formatBlockAttributes($node);
-        $output = $dlAttrs . "\n";
-        $lastWasTerm = false;
-        $ddCount = 0;
+        $output = $dlAttrs !== '' ? $dlAttrs . "\n" : '';
 
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $tag = strtolower($child->tagName);
-                if ($tag === 'dt') {
-                    // Term: `: term` format
-                    $output .= ': ' . trim($this->processChildren($child)) . "\n";
-                    // dt attributes on next line
-                    $dtAttrs = $this->getElementAttributes($child);
-                    if ($dtAttrs !== '') {
-                        $output .= '{' . $dtAttrs . "}\n";
-                    }
-                    $lastWasTerm = true;
-                    $ddCount = 0;
-                } elseif ($tag === 'dd') {
-                    // Definition: indented content after blank line
-                    if ($lastWasTerm) {
-                        $output .= "\n";
-                    } elseif ($ddCount > 0) {
-                        // Multiple dd elements for same term - use continuation marker
-                        $output .= ": +\n\n";
-                    }
-                    $content = trim($this->processChildren($child));
-                    // Indent definition content
-                    $lines = explode("\n", $content);
-                    foreach ($lines as $line) {
-                        $output .= '  ' . $line . "\n";
-                    }
-                    // Output dd attributes as last indented line (after content)
-                    $ddAttrs = $this->getElementAttributes($child);
-                    if ($ddAttrs !== '') {
-                        $output .= '  {' . $ddAttrs . "}\n";
-                    }
-                    // Add blank line after dd for visual separation
-                    $output .= "\n";
-                    $lastWasTerm = false;
-                    $ddCount++;
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if ($tag === 'dt') {
+                $output .= ':: ' . trim($this->processChildren($child)) . "\n";
+            } elseif ($tag === 'dd') {
+                $lines = explode("\n", trim($this->processChildren($child)));
+                $output .= ':  ' . array_shift($lines) . "\n";
+                foreach ($lines as $line) {
+                    $output .= '   ' . $line . "\n";
                 }
             }
         }
@@ -1781,6 +1861,20 @@ class HtmlToCarve
             TableCell::ALIGN_RIGHT => str_repeat('-', max(2, $width)) . ':',
             TableCell::ALIGN_CENTER => ':' . str_repeat('-', max(1, $width)) . ':',
             default => str_repeat('-', max(2, $width)),
+        };
+    }
+
+    /**
+     * The tight alignment marker glued to a `|=` header cell: `<` left,
+     * `>` right, `~` center, empty for default.
+     */
+    protected function tableAlignMarker(string $alignment): string
+    {
+        return match ($alignment) {
+            TableCell::ALIGN_LEFT => '<',
+            TableCell::ALIGN_RIGHT => '>',
+            TableCell::ALIGN_CENTER => '~',
+            default => '',
         };
     }
 
@@ -2326,9 +2420,27 @@ class HtmlToCarve
         $inDefinitionList = false;
         $inList = false;
         $inFootnote = false;
+        $lineBlockFence = 0;
         $result = [];
 
         foreach ($lines as $line) {
+            // Track line blocks (::: line-block ... :::) so verse indentation
+            // is preserved verbatim - the default branch below ltrims lines.
+            if ($lineBlockFence > 0) {
+                $result[] = $line;
+                if (preg_match('/^(:{3,})\s*$/', $line, $lbm) === 1 && strlen($lbm[1]) >= $lineBlockFence) {
+                    $lineBlockFence = 0;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})\s+\|/', $line, $lbm) === 1) {
+                $lineBlockFence = strlen($lbm[1]);
+                $result[] = $line;
+
+                continue;
+            }
+
             // Track code blocks
             if (str_starts_with(trim($line), '```')) {
                 $inCodeBlock = !$inCodeBlock;
@@ -2352,8 +2464,8 @@ class HtmlToCarve
                 continue;
             }
 
-            // Track definition lists (`: term` starts one)
-            if (str_starts_with($line, ': ')) {
+            // Track definition lists (`:: term` / `:  definition`)
+            if (str_starts_with($line, ':: ') || str_starts_with($line, ':  ')) {
                 $inDefinitionList = true;
                 $inList = false;
                 $inFootnote = false;

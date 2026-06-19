@@ -233,7 +233,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testSuperscript(): void
     {
-        $djot = 'E=mc^2^';
+        $djot = 'E=mc{^2^}';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -242,7 +242,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testSubscript(): void
     {
-        $djot = 'H,,2,,O';
+        $djot = 'H{,2,}O';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -251,7 +251,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testHighlight(): void
     {
-        $djot = 'Text ==highlighted== here';
+        $djot = 'Text =highlighted= here';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -325,7 +325,7 @@ class MarkdownRendererTest extends TestCase
 
     public function testDefinitionList(): void
     {
-        $djot = ": Term\n\n  Definition";
+        $djot = ":: Term\n:  Definition";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -336,15 +336,14 @@ class MarkdownRendererTest extends TestCase
 
     public function testDefinitionListMultipleTermsMultipleDefinitions(): void
     {
-        // Use `: +` continuation marker to create multiple dd elements
-        $djot = ": color\n: colour\n\n  The visual property.\n\n: +\n\n  Used in design.";
+        $djot = ":: color\n:: colour\n:  The visual property.\n:  Used in design.";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
         // Multiple terms
         $this->assertStringContainsString('**color**', $result);
         $this->assertStringContainsString('**colour**', $result);
-        // Multiple definitions (created via `: +` marker)
+        // Multiple definitions
         $this->assertSame(2, substr_count($result, ': '));
         $this->assertStringContainsString('The visual property.', $result);
         $this->assertStringContainsString('Used in design.', $result);

@@ -31,6 +31,7 @@ use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -306,8 +307,6 @@ class AnsiRenderer implements RendererInterface
 
     protected bool $useUnicode = true;
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
-
     protected HeadingIdTracker $headingIdTracker;
 
     /**
@@ -353,26 +352,6 @@ class AnsiRenderer implements RendererInterface
         return $this;
     }
 
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode Space (default) or Newline
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
-    }
-
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
@@ -383,7 +362,12 @@ class AnsiRenderer implements RendererInterface
         // Normalize multiple blank lines
         $output = preg_replace("/\n{3,}/", "\n\n", $output) ?? $output;
 
-        return trim($output) . "\n";
+        $output = trim($output) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) collapses to an
+        // ordinary space in terminal output. Done after trimming so placeholder-
+        // derived leading indentation survives; a literal U+00A0 is left intact.
+        return str_replace("\u{E000}", ' ', $output);
     }
 
     protected function renderNode(Node $node): string
@@ -410,6 +394,7 @@ class AnsiRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $node->getContent(),
+            $node instanceof EscapedText => $node->getContent(),
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
@@ -420,7 +405,11 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof HardBreak => "\n",
-            $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
+            // A soft break is a single source newline that stays inside the
+            // paragraph; in terminal output it renders as a space. For a visible
+            // line break use a `::: |` line block or a trailing backslash hard
+            // break.
+            $node instanceof SoftBreak => ' ',
             $node instanceof Superscript => $this->renderSuperscript($node),
             $node instanceof Subscript => $this->renderSubscript($node),
             $node instanceof Highlight => $this->renderHighlight($node),
@@ -440,10 +429,12 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->headingIdTracker->getTextForId($id);
+        $target = $node->getTargetId();
+        // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
+        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
         if ($label === null) {
-            return '</#' . $id . '>';
+            return '</#' . $target . '>';
         }
 
         return $this->style($label, self::UNDERLINE . self::FG_BLUE);
@@ -632,7 +623,15 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        return $this->renderChildren($node);
+        $body = $this->renderChildren($node);
+        // An admonition's quoted title is stored as the `title` attribute
+        // (PART 9 §12); preserve it as a leading bold line instead of dropping.
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return $this->style($title, self::BOLD) . "\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string
@@ -886,30 +885,12 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderSymbol(Symbol $node): string
     {
-        $name = $node->getName();
-
-        // Common emoji mappings
-        $emoji = match ($name) {
-            'heart' => '❤',
-            'star' => '★',
-            'check' => '✓',
-            'x' => '✗',
-            'warning' => '⚠',
-            'info' => 'ℹ',
-            'arrow_right' => '→',
-            'arrow_left' => '←',
-            'arrow_up' => '↑',
-            'arrow_down' => '↓',
-            'sunny' => '☀',
-            'cloud' => '☁',
-            'thumbsup' => '👍',
-            'thumbsdown' => '👎',
-            'smile' => '😊',
-            'sad' => '😢',
-            default => ':' . $name . ':',
-        };
-
-        return $this->useUnicode ? $emoji : ':' . $name . ':';
+        // A symbol renders as its literal `:name:` by default, matching the HTML
+        // renderer, carve-js, and carve-rs (the HTML output keeps `:name:` too).
+        // Emoji substitution is opt-in via an emoji map, not a built-in default,
+        // so the ANSI renderer must not silently map names the other outputs do
+        // not.
+        return ':' . $node->getName() . ':';
     }
 
     protected function renderFootnoteRef(FootnoteRef $node): string

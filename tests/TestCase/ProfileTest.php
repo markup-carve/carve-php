@@ -6,12 +6,14 @@ namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
 use Carve\Exception\ProfileViolationException;
+use Carve\Extension\InlineFootnotesExtension;
 use Carve\LinkPolicy;
 use Carve\NodeType;
 use Carve\Profile;
 use Carve\ProfileViolation;
 use LengthException;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 /**
  * Tests for Profile-based feature restriction
@@ -224,7 +226,7 @@ class ProfileTest extends TestCase
         $converter = new CarveConverter(profile: Profile::article());
         $html = $converter->convert('# Heading');
 
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
     }
 
@@ -313,7 +315,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
         $this->assertStringContainsString('<strong>', $html);
         $this->assertStringContainsString('<img', $html);
@@ -323,6 +325,61 @@ DJOT;
         $this->assertStringContainsString('<ul>', $html);
 
         $this->assertFalse($converter->hasProfileViolations());
+    }
+
+    public function testFullProfileAllowsInlineFootnotes(): void
+    {
+        // inline_footnote is a registered inline node type, so the full profile
+        // must not filter it. Regression for it missing from allInlineTypes(),
+        // which made isTypeAllowed() treat it as an unknown, denied type.
+        $converter = new CarveConverter(profile: Profile::full());
+        $converter->addExtension(new InlineFootnotesExtension());
+
+        $html = $converter->convert('Text[an aside]{.fn} here.');
+
+        $this->assertStringContainsString('role="doc-noteref"', $html);
+        $this->assertFalse($converter->hasProfileViolations());
+        $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::INLINE_FOOTNOTE));
+    }
+
+    public function testFullProfileAllowsHeadingReferences(): void
+    {
+        // </#id> cross-references produce heading_ref inline nodes, so the full
+        // profile must keep them. Regression for heading_ref missing from
+        // NodeType::allInlineTypes(), which made isTypeAllowed() treat it as an
+        // unknown, denied type and silently drop the cross-reference.
+        $converter = new CarveConverter(profile: Profile::full());
+
+        $html = $converter->convert("# Setup\n\nJump to </#setup>.");
+
+        $this->assertStringContainsString('<a href="#Setup">', $html);
+        $this->assertFalse($converter->hasProfileViolations());
+        $this->assertTrue(Profile::full()->isTypeAllowed(NodeType::HEADING_REF));
+    }
+
+    /**
+     * Guard against profile-classification drift: every NodeType constant must be
+     * listed in allBlockTypes() or allInlineTypes(). Profile::isTypeAllowed()
+     * denies any type it finds in neither list, so an unclassified node type is
+     * silently filtered out under every profile (including full). This test fails
+     * the moment a new NodeType constant is added without registering it.
+     */
+    public function testEveryNodeTypeConstantIsClassifiedForProfiles(): void
+    {
+        $classified = array_merge(NodeType::allBlockTypes(), NodeType::allInlineTypes());
+
+        foreach ((new ReflectionClass(NodeType::class))->getConstants() as $name => $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $this->assertContains(
+                $value,
+                $classified,
+                "NodeType::{$name} ('{$value}') is not in allBlockTypes() or allInlineTypes(); "
+                . 'Profile::isTypeAllowed() will deny it under every profile.',
+            );
+        }
     }
 
     // ==================== Custom Profile Tests ====================
@@ -478,7 +535,7 @@ DJOT;
         $converter->setProfile(null);
 
         $html = $converter->convert('# Heading');
-        $this->assertStringContainsString('<section id="heading">', $html);
+        $this->assertStringContainsString('<section id="Heading">', $html);
         $this->assertStringContainsString('<h1>', $html);
     }
 
@@ -1100,13 +1157,10 @@ DJOT;
         $converter = new CarveConverter(profile: $profile);
 
         $djot = <<<'DJOT'
-: Djot
-
-  A lightweight markup language.
-
-: Markdown
-
-  The predecessor.
+:: Djot
+:  A lightweight markup language.
+:: Markdown
+:  The predecessor.
 DJOT;
 
         $html = $converter->convert($djot);

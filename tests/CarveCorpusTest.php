@@ -122,16 +122,28 @@ class CarveCorpusTest extends TestCase
         '84-block-attribute-lines',
         '85-numbered-cross-references',
         '86-inline-footnotes',
+        '87-list-item-attributes',
+        '88-line-blocks',
+        '89-mention-and-tag-name-boundaries',
+        '90-superscript-in-a-table-cell',
+        '91-nested-comment-fences',
+        '92-strong-emphasis-starting-with-a-link',
+        '93-abbreviation-definition-interrupts-a-paragraph',
+        '94-literal-less-than-in-prose',
+        '95-boolean-attributes',
+        '96-table-span-marker-in-first-column',
+        '97-table-cell-attributes',
+        '98-table-row-attributes',
+        '99-table-header-cell-rowspan',
+        '100-block-quote-continuation-marker',
+        '101-heading-marker-column-zero',
+        '102-paragraph-trailing-whitespace',
     ];
 
     /**
      * Sub-examples inside an IMPLEMENTED category that still fail because
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
-     *
-     * Empty: paragraph interruption is now the canonical §10 default and the
-     * spec corpus reflects it, so the former interrupt-divergence skips
-     * (76/05/80) now pass against the interrupt parser.
      *
      * @var array<string, string>
      */

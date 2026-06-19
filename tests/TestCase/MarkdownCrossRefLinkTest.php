@@ -22,8 +22,8 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("# Installation\n\nSee </#installation> for setup.\n");
 
-        $this->assertStringContainsString('# Installation {#installation}', $out);
-        $this->assertStringContainsString('[Installation](#installation)', $out);
+        $this->assertStringContainsString('# Installation {#Installation}', $out);
+        $this->assertStringContainsString('[Installation](#Installation)', $out);
     }
 
     public function testUnreferencedHeadingHasNoId(): void
@@ -38,13 +38,15 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("See </#setup>.\n\n# Setup\n");
 
-        $this->assertStringContainsString('[Setup](#setup)', $out);
-        $this->assertStringContainsString('# Setup {#setup}', $out);
+        $this->assertStringContainsString('[Setup](#Setup)', $out);
+        $this->assertStringContainsString('# Setup {#Setup}', $out);
     }
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
     {
-        $out = $this->md("# Title {#foo}\n\nSee </#foo>.\n");
+        // The explicit id comes from a preceding block-attribute line
+        // (djot-strict: a heading line carries no trailing attribute block).
+        $out = $this->md("{#foo}\n# Title\n\nSee </#foo>.\n");
 
         $this->assertStringContainsString('# Title {#foo}', $out);
         $this->assertStringContainsString('[Title](#foo)', $out);
@@ -61,13 +63,16 @@ class MarkdownCrossRefLinkTest extends TestCase
         $this->assertStringNotContainsString('{#fig}', $out);
     }
 
-    public function testIdWithParensUsesAngleBracketDestination(): void
+    public function testParenInIdIsNotAValidIdentifier(): void
     {
-        // carve accepts `)` in an explicit id; a bare `(#foo))` would break the
-        // CommonMark destination, so it is wrapped as `<#foo)>`.
-        $out = $this->md("# Title {#foo)}\n\nSee </#foo)>.\n");
+        // An id is a grammar identifier (letter/digit/`_`/`-`/`:`); a `)` is
+        // not, so the preceding block-attribute line `{#foo)}` is not a valid
+        // attribute block and stays literal (§14). No id is set on the heading,
+        // so the crossref does not resolve.
+        $out = $this->md("{#foo)}\n# Title\n\nSee </#foo)>.\n");
 
-        $this->assertStringContainsString('[Title](<#foo)>)', $out);
+        $this->assertStringContainsString('{\\#foo)}', $out);
+        $this->assertStringNotContainsString('[Title]', $out);
     }
 
     public function testMultiLineHeadingIsFlattenedWithIdOnTheHeadingLine(): void
@@ -76,9 +81,9 @@ class MarkdownCrossRefLinkTest extends TestCase
         // is flattened; the `{#id}` stays on the heading line so the link anchors.
         $out = $this->md("# Foo\nbar\n\nSee </#foo-bar>.\n");
 
-        $this->assertStringContainsString('# Foo bar {#foo-bar}', $out);
-        $this->assertStringContainsString('[Foo bar](#foo-bar)', $out);
-        $this->assertStringNotContainsString("bar {#foo-bar}\n\n# ", $out);
+        $this->assertStringContainsString('# Foo bar {#Foo-bar}', $out);
+        $this->assertStringContainsString('[Foo bar](#Foo-bar)', $out);
+        $this->assertStringNotContainsString("bar {#Foo-bar}\n\n# ", $out);
     }
 
     public function testUnresolvedReferenceStaysLiteral(): void

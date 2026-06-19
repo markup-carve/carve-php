@@ -6,12 +6,14 @@ namespace Carve\Renderer;
 
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\BlockQuote;
+use Carve\Node\Block\Caption;
 use Carve\Node\Block\CodeBlock;
 use Carve\Node\Block\Comment;
 use Carve\Node\Block\DefinitionDescription;
 use Carve\Node\Block\DefinitionList;
 use Carve\Node\Block\DefinitionTerm;
 use Carve\Node\Block\Div;
+use Carve\Node\Block\Figure;
 use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\LineBlock;
@@ -24,10 +26,12 @@ use Carve\Node\Block\TableCell;
 use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
+use Carve\Node\Inline\Abbreviation;
 use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
 use Carve\Node\Inline\Delete;
 use Carve\Node\Inline\Emphasis;
+use Carve\Node\Inline\EscapedText;
 use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\HeadingRef;
@@ -74,8 +78,6 @@ class MarkdownRenderer implements RendererInterface
 
     protected bool $inBlockQuote = false;
 
-    protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
-
     protected HeadingIdTracker $headingIdTracker;
 
     /**
@@ -100,26 +102,6 @@ class MarkdownRenderer implements RendererInterface
         $this->headingIdTracker = new HeadingIdTracker();
     }
 
-    /**
-     * Set how soft breaks are rendered
-     *
-     * @param \Carve\Renderer\SoftBreakMode $mode Newline (default) or Space
-     */
-    public function setSoftBreakMode(SoftBreakMode $mode): self
-    {
-        $this->softBreakMode = $mode;
-
-        return $this;
-    }
-
-    /**
-     * Get the current soft break mode
-     */
-    public function getSoftBreakMode(): SoftBreakMode
-    {
-        return $this->softBreakMode;
-    }
-
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
@@ -138,7 +120,15 @@ class MarkdownRenderer implements RendererInterface
         // Normalize multiple blank lines
         $markdown = preg_replace("/\n{3,}/", "\n\n", $markdown) ?? $markdown;
 
-        return trim($markdown) . "\n";
+        $markdown = trim($markdown) . "\n";
+
+        // The internal non-breaking-space placeholder (U+E000) becomes a literal
+        // non-breaking space (U+00A0). Markdown is a re-parseable round-trip
+        // format, so unlike the display renderers it keeps the real nbsp: that
+        // survives a re-render as `&nbsp;` and is never mistaken for an indented
+        // code-block prefix the way ordinary leading spaces would be. Done after
+        // trimming so placeholder-derived leading indentation survives.
+        return str_replace("\u{E000}", "\u{00A0}", $markdown);
     }
 
     protected function renderNode(Node $node): string
@@ -172,6 +162,14 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Text => $this->escapeText($node->getContent()),
+            // Keep the backslash so the literal stays literal when re-parsed as
+            // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
+            // ordered list. EscapedText only ever holds escaped ASCII
+            // punctuation, all of which CommonMark allows a `\` before.
+            $node instanceof EscapedText => '\\' . $node->getContent(),
+            $node instanceof Figure => $this->renderFigure($node),
+            $node instanceof Caption => $this->renderCaption($node),
+            $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
             $node instanceof Underline => $this->renderUnderline($node),
@@ -181,11 +179,10 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof HardBreak => "  \n",
-            $node instanceof SoftBreak => match ($this->softBreakMode) {
-                SoftBreakMode::Newline => "\n",
-                SoftBreakMode::Space => ' ',
-                SoftBreakMode::Break => "  \n", // Markdown hard break
-            },
+            // A soft break is a single source newline that stays inside the
+            // paragraph. For a visible line break use a `::: |` line block or a
+            // trailing backslash hard break.
+            $node instanceof SoftBreak => "\n",
             $node instanceof Superscript => $this->renderSuperscript($node),
             $node instanceof Subscript => $this->renderSubscript($node),
             $node instanceof Highlight => $this->renderHighlight($node),
@@ -205,11 +202,15 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderHeadingRef(HeadingRef $node): string
     {
-        $id = $node->getTargetId();
-        $label = $this->headingIdTracker->getTextForId($id);
-        if ($label === null) {
+        $target = $node->getTargetId();
+        // Exact match first, then a case-insensitive fallback so a lowercase
+        // `</#getting-started>` resolves to a case-preserved id and the emitted
+        // href uses the ACTUAL id (matches HtmlRenderer).
+        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
+        if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
-            return '</#' . $id . '>';
+            return '</#' . $target . '>';
         }
 
         // A heading target gets a real `[label](#id)` link — renderHeading emits a
@@ -267,7 +268,13 @@ class MarkdownRenderer implements RendererInterface
         if ($node instanceof Heading) {
             $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
         } elseif ($node instanceof HeadingRef) {
-            $referencedIds[$node->getTargetId()] = true;
+            // Record the ACTUAL (case-preserved) heading id a `</#id>` resolves
+            // to, so a heading that is a case-insensitive crossref target still
+            // emits its `{#id}` anchor.
+            $resolvedId = $this->headingIdTracker->findIdCaseInsensitive($node->getTargetId());
+            if ($resolvedId !== null) {
+                $referencedIds[$resolvedId] = true;
+            }
         }
 
         foreach ($node->getChildren() as $child) {
@@ -390,8 +397,16 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        // Divs don't exist in Markdown, just render content
-        return $this->renderChildren($node);
+        // Divs/admonitions don't exist in Markdown; render the content. An
+        // admonition's quoted title is stored as the `title` attribute (PART 9
+        // §12) and would otherwise be lost — preserve it as a leading bold line.
+        $body = $this->renderChildren($node);
+        $title = $node->getAttribute('title');
+        if (is_string($title) && $title !== '') {
+            return '**' . $this->escapeText($title) . "**\n\n" . $body;
+        }
+
+        return $body;
     }
 
     protected function renderTable(Table $node): string
@@ -597,6 +612,47 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return '';
+    }
+
+    /**
+     * A figure renders its target then its caption as a separate block
+     * (Markdown has no <figure>). A BLANK line before the caption is required,
+     * not just a newline: against a block-quote target a single newline would
+     * make the caption a lazy continuation of the quote and swallow it.
+     */
+    protected function renderFigure(Figure $node): string
+    {
+        $output = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                $output = rtrim($output) . "\n\n" . $this->renderCaption($child);
+            } else {
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        return $output;
+    }
+
+    protected function renderCaption(Caption $node): string
+    {
+        return trim($this->renderChildren($node)) . "\n\n";
+    }
+
+    /**
+     * Markdown has no abbreviation syntax; emit inline <abbr> so the title is
+     * preserved (mirrors how subscript/superscript fall back to inline HTML).
+     */
+    protected function renderAbbreviation(Abbreviation $node): string
+    {
+        // The whole element is raw inline HTML, so both the title (attribute)
+        // and the text (element content) need HTML escaping, NOT Markdown text
+        // escaping: a `"` in the title or a `<` in the text would otherwise
+        // break the tag / be misparsed as markup downstream.
+        $title = htmlspecialchars($node->getTitle(), ENT_QUOTES, 'UTF-8');
+        $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
+
+        return '<abbr title="' . $title . '">' . $text . '</abbr>';
     }
 
     protected function escapeText(string $text): string

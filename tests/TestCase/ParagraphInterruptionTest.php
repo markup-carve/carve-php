@@ -12,7 +12,6 @@ use Carve\Node\Block\Heading;
 use Carve\Node\Block\ListBlock;
 use Carve\Node\Block\Paragraph;
 use Carve\Parser\BlockParser;
-use Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,15 +19,17 @@ use PHPUnit\Framework\TestCase;
  */
 class ParagraphInterruptionTest extends TestCase
 {
-    public function testListInterruptsParagraph(): void
+    public function testBulletDoesNotInterruptParagraph(): void
     {
+        // Symmetric interruption: a bullet needs a blank line before it, exactly
+        // like an ordered marker. Without the blank line the bullet folds into
+        // the open paragraph (lazy continuation).
         $parser = new BlockParser();
         $doc = $parser->parse("Here is a list:\n- item one\n- item two");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
     public function testBlockquoteInterruptsParagraph(): void
@@ -42,28 +43,27 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testIndentedBulletInterruptsParagraph(): void
+    public function testIndentedBulletDoesNotInterruptParagraph(): void
     {
-        // Rule B: a bullet opens a list at any indentation, so an indented one
-        // interrupts a paragraph just like a column-0 one.
+        // Symmetric interruption: an indented bullet no longer interrupts an open
+        // paragraph (the former "Rule B" interrupt is gone). It folds in, exactly
+        // like an indented ordered marker already did.
         $parser = new BlockParser();
         $doc = $parser->parse("text\n  - item");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
-    public function testTabIndentedBulletInterruptsParagraph(): void
+    public function testTabIndentedBulletDoesNotInterruptParagraph(): void
     {
         $parser = new BlockParser();
         $doc = $parser->parse("text\n\t- item");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
     public function testTopLevelIndentedBulletIsAList(): void
@@ -161,25 +161,20 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(ListBlock::class, $children[1]);
     }
 
-    public function testConverterUsesParagraphInterruptionByDefault(): void
+    public function testConverterFoldsBulletIntoParagraphByDefault(): void
     {
+        // Symmetric interruption: a bullet right after a prose line folds into
+        // the paragraph (no <ul>); a blank line is required to start the list.
         $converter = new CarveConverter();
 
         $result = $converter->convert("Here is a list:\n- item one\n- item two");
 
-        $this->assertStringContainsString('<p>Here is a list:</p>', $result);
-        $this->assertStringContainsString('<ul>', $result);
-    }
+        $this->assertStringNotContainsString('<ul>', $result);
+        $this->assertStringContainsString('Here is a list:', $result);
 
-    public function testConverterSoftBreaksWithExplicitBreakMode(): void
-    {
-        $converter = new CarveConverter(
-            softBreakMode: SoftBreakMode::Break,
-        );
-
-        $result = $converter->convert("Line one\nLine two");
-
-        $this->assertStringContainsString('<br>', $result);
+        $withBlank = $converter->convert("Here is a list:\n\n- item one\n- item two");
+        $this->assertStringContainsString('<p>Here is a list:</p>', $withBlank);
+        $this->assertStringContainsString('<ul>', $withBlank);
     }
 
     public function testEscapedListMarkerNotAList(): void

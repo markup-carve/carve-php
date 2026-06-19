@@ -490,7 +490,7 @@ class CustomPatternsTest extends TestCase
 
         $this->assertStringContainsString('class="details"', $result);
         // Headings inside nested blocks get id attribute directly (no section wrapper)
-        $this->assertStringContainsString('<h1 id="summary">', $result);
+        $this->assertStringContainsString('<h1 id="Summary">', $result);
         $this->assertStringContainsString('<ul>', $result);
         $this->assertStringContainsString('<p>After details.</p>', $result);
     }
@@ -693,7 +693,7 @@ class CustomPatternsTest extends TestCase
 
         $this->assertStringNotContainsString('class="draft-heading"', $result);
         $this->assertStringContainsString('<h2>DRAFT: Work in Progress</h2>', $result);
-        $this->assertStringContainsString('<section id="regular-heading">', $result);
+        $this->assertStringContainsString('<section id="Regular-Heading">', $result);
         $this->assertStringContainsString('<h2>Regular Heading</h2>', $result);
     }
 

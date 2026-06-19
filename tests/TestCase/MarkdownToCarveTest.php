@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Carve\Test\TestCase;
 
+use Carve\CarveConverter;
 use Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -81,9 +82,9 @@ class MarkdownToCarveTest extends TestCase
                 'a ~~gone~~ word',
                 'a ~gone~ word',
             ],
-            'leaves ==highlight== unchanged' => [
+            'converts ==highlight== to a single = (Carve highlight)' => [
                 'a ==hot== word',
-                'a ==hot== word',
+                'a =hot= word',
             ],
             'leaves ^superscript^ unchanged' => [
                 'x^2^ end',
@@ -189,17 +190,17 @@ class MarkdownToCarveTest extends TestCase
                 '<strong>a</strong> <b>b</b>',
                 '*a* *b*',
             ],
-            'converts <mark> to ==x==' => [
+            'converts <mark> to the forced highlight {=x=}' => [
                 '<mark>hot</mark>',
-                '==hot==',
+                '{=hot=}',
             ],
-            'converts <sub> to ,,x,,' => [
+            'converts <sub> to the forced subscript {,x,} (renders intraword)' => [
                 'H<sub>2</sub>O',
-                'H,,2,,O',
+                'H{,2,}O',
             ],
-            'converts <sup> to ^x^' => [
+            'converts <sup> to the forced superscript {^x^} (renders intraword)' => [
                 'x<sup>2</sup>',
-                'x^2^',
+                'x{^2^}',
             ],
             'converts <del>/<s> to ~x~' => [
                 '<del>a</del> <s>b</s>',
@@ -358,5 +359,31 @@ class MarkdownToCarveTest extends TestCase
         $markdown = "   \n\n   ";
 
         $this->assertSame($markdown, $this->converter->convert($markdown));
+    }
+
+    public function testGfmTableHeaderBecomesCarveHeader(): void
+    {
+        $carve = $this->converter->convert("| a | b |\n|---|---|\n| c | d |");
+        $this->assertSame("|= a |= b |\n| c | d |", trim($carve));
+    }
+
+    public function testGfmTableAlignmentBecomesCarveMarkers(): void
+    {
+        $carve = $this->converter->convert("| Name | Age |\n|:-----|----:|\n| Alice | 28 |");
+        $this->assertSame("|=< Name |=> Age |\n| Alice | 28 |", trim($carve));
+    }
+
+    public function testTableWithoutSeparatorIsUnchanged(): void
+    {
+        $md = "| a | b |\n| c | d |";
+        $this->assertSame($md, trim($this->converter->convert($md)));
+    }
+
+    public function testGfmTableRoundTripsToSameHtml(): void
+    {
+        $md = "| Name | Age |\n|:-----|----:|\n| Alice | 28 |";
+        $carve = $this->converter->convert($md);
+        $c = new CarveConverter();
+        $this->assertSame(trim($c->convert($md)), trim($c->convert($carve)));
     }
 }

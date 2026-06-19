@@ -217,15 +217,10 @@ class ListParser
             ];
         }
 
-        // Definition list: :
-        if (preg_match('/^: +(.*)$/', $line, $matches)) {
-            return [
-                'type' => ListBlock::TYPE_DEFINITION,
-                'marker' => ':',
-                'content' => $matches[1],
-            ];
-        }
-
+        // A definition-list term is `::` (double colon), parsed by
+        // BlockParser::tryParseDefinitionList. A single-colon `: term` is NOT a
+        // carve definition list (grammar definition_term = "::"); it stays
+        // ordinary paragraph text, matching carve-js and carve-rs.
         return null;
     }
 
@@ -303,6 +298,23 @@ class ListParser
                 $hasNonRomanLetter = true;
 
                 break;
+            }
+
+            // A single-letter sibling that is the consecutive LETTER of the
+            // first marker (c -> d, v -> w) but NOT its consecutive roman
+            // numeral means alphabetical (§11). This catches `c.`/`d.`: `d` is a
+            // roman char (500) so the non-roman check above misses it, yet it
+            // is the next letter after `c`, not the next roman after 100.
+            if (strlen($markerText) === 1 && $firstMarkerLetter !== null) {
+                $firstRoman = $this->romanToInt(strtoupper($firstMarkerLetter));
+                $sibRoman = $this->romanToInt(strtoupper($markerText));
+                $firstAlpha = ord($firstMarkerLetter) - ord('a') + 1;
+                $sibAlpha = ord($markerText) - ord('a') + 1;
+                if ($sibAlpha === $firstAlpha + 1 && $sibRoman !== $firstRoman + 1) {
+                    $hasNonRomanLetter = true;
+
+                    break;
+                }
             }
 
             // Check if all letters are the same

@@ -441,4 +441,62 @@ DJOT;
         // Should have all classes merged
         $this->assertStringContainsString('class="admonition warning extra-class another-class"', $html);
     }
+
+    public function testInlineAttributeOnOpenerIsNotAFence(): void
+    {
+        // STRICT (djot): a trailing `{...}` on a `:::` opener makes the line
+        // an ordinary paragraph, not an admonition. Covers spaced, abutting,
+        // and post-title forms.
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        foreach (
+            [
+                "::: note {.x}\nbody\n:::",
+                "::: note{.x}\nbody\n:::",
+                "::: warning {#w foo=bar}\nbody\n:::",
+                "::: note \"Heads up\" {.x}\nbody\n:::",
+            ] as $input
+        ) {
+            $html = $converter->convert($input);
+            $this->assertStringNotContainsString('<aside', $html);
+            $this->assertStringContainsString('<p>', $html);
+        }
+    }
+
+    public function testInlineAttributeOnGenericTypedDivIsNotAFence(): void
+    {
+        $converter = new CarveConverter();
+
+        $html = $converter->convert("::: box {.x}\nbody\n:::");
+
+        $this->assertStringNotContainsString('<div', $html);
+        $this->assertStringContainsString('<p>', $html);
+    }
+
+    public function testQuotedTitleStillRendersWithBraces(): void
+    {
+        // The opener still accepts a quoted title (which may contain braces);
+        // only inline ATTRIBUTES are rejected.
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        $html = $converter->convert("::: note \"Use {x}\"\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition note"', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Use {x}</p>', $html);
+    }
+
+    public function testAttributesAttachViaPrecedingLine(): void
+    {
+        // The only way to attribute an admonition (strict): a block-attribute
+        // line before the opener, which floats onto it (§15).
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        $html = $converter->convert("{#w .highlight}\n::: warning\nbody\n:::");
+
+        $this->assertStringContainsString('class="admonition warning highlight"', $html);
+        $this->assertStringContainsString('id="w"', $html);
+    }
 }

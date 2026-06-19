@@ -55,22 +55,33 @@ class BlockParserTest extends TestCase
         $this->assertSame(1, $heading->getLevel());
     }
 
-    public function testParseHeadingTrailingAttributesQuoteAware(): void
+    public function testParseHeadingPrecedingAttributesQuoteAware(): void
     {
-        // A trailing attribute block tolerates a `}` inside a quoted value
-        // (the close `}` is the first one outside quotes), in either quote
-        // form, and a `\"` escape does not end the value early — matching
-        // how spans consume their attribute block.
+        // Heading attributes come from a PRECEDING block-attribute line
+        // (djot-strict, spec PART 2 headings / PART 9 §15). The attribute
+        // line tolerates a `}` inside a quoted value, in either quote form,
+        // and a `\"` escape does not end the value early.
         $cases = [
-            '# H {k="{y}"}' => '{y}',
-            "# H {k='{y}'}" => '{y}',
-            '# H {k="a\"b"}' => 'a"b',
+            "{k=\"{y}\"}\n# H" => '{y}',
+            "{k='{y}'}\n# H" => '{y}',
+            "{k=\"a\\\"b\"}\n# H" => 'a"b',
         ];
         foreach ($cases as $src => $expected) {
             $heading = $this->parser->parse($src)->getChildren()[0];
             $this->assertInstanceOf(Heading::class, $heading);
             $this->assertSame($expected, $heading->getAttribute('k'), 'for ' . $src);
         }
+    }
+
+    public function testParseHeadingTrailingBraceBlockIsLiteralText(): void
+    {
+        // djot-strict: a heading line carries NO trailing attribute block —
+        // a trailing `{…}` is ordinary inline content (matches carve-js #153
+        // and corpus 02-headings).
+        $heading = $this->parser->parse('## Setup {#install .featured}')->getChildren()[0];
+        $this->assertInstanceOf(Heading::class, $heading);
+        $this->assertNull($heading->getAttribute('id'));
+        $this->assertNull($heading->getAttribute('class'));
     }
 
     public function testParseHeadingLevels(): void
@@ -84,6 +95,41 @@ class BlockParserTest extends TestCase
             $this->assertInstanceOf(Heading::class, $children[$i]);
             $this->assertSame($i + 1, $children[$i]->getLevel());
         }
+    }
+
+    public function testHeadingContinuationFoldsOnlyOnSameMarkerCount(): void
+    {
+        // Djot rule: a `#`-marker continuation line continues the open heading
+        // ONLY when its marker count EQUALS the opener. A different count (more
+        // OR fewer) ends the heading and starts a new one. A no-`#` plain-text
+        // continuation line still folds.
+
+        // Same count folds into one heading.
+        foreach (["## H\n## more", "# H\n# more", "## H\nmore"] as $src) {
+            $children = $this->parser->parse($src)->getChildren();
+            $this->assertCount(1, $children, 'for ' . $src);
+            $this->assertInstanceOf(Heading::class, $children[0]);
+        }
+
+        // Fewer `#` ends the heading: "## H\n# more" -> h2 then h1.
+        $children = $this->parser->parse("## H\n# more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Heading::class, $children[0]);
+        $this->assertSame(2, $children[0]->getLevel());
+        $this->assertInstanceOf(Heading::class, $children[1]);
+        $this->assertSame(1, $children[1]->getLevel());
+
+        // Fewer `#`, deeper opener: "### H\n# more" -> h3 then h1.
+        $children = $this->parser->parse("### H\n# more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertSame(3, $children[0]->getLevel());
+        $this->assertSame(1, $children[1]->getLevel());
+
+        // More `#` ends the heading: "## H\n### more" -> h2 then h3.
+        $children = $this->parser->parse("## H\n### more")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertSame(2, $children[0]->getLevel());
+        $this->assertSame(3, $children[1]->getLevel());
     }
 
     public function testParseCodeBlock(): void
@@ -167,65 +213,15 @@ class BlockParserTest extends TestCase
 
     public function testParseDefinitionList(): void
     {
-        $doc = $this->parser->parse(": Term\n\n    Definition");
+        $doc = $this->parser->parse(":: Term\n:  Definition");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(DefinitionList::class, $doc->getChildren()[0]);
     }
 
-    public function testParseDefinitionListDdAttributeAfterContent(): void
+    public function testParseDefinitionListContinuationLineKeepsSameDd(): void
     {
-        // DD attribute must come AFTER content (consistent with list items)
-        $djot = ": Term\n\n  Definition content\n  {.highlight}";
-        $doc = $this->parser->parse($djot);
-
-        $this->assertCount(1, $doc->getChildren());
-        $dl = $doc->getChildren()[0];
-        $this->assertInstanceOf(DefinitionList::class, $dl);
-
-        // Get the definition_description (dd)
-        $children = $dl->getChildren();
-        $dd = null;
-        foreach ($children as $child) {
-            if ($child->getType() === 'definition_description') {
-                $dd = $child;
-
-                break;
-            }
-        }
-        $this->assertNotNull($dd);
-        $this->assertSame('highlight', $dd->getAttribute('class'));
-    }
-
-    public function testParseDefinitionListDdAttributeBeforeContentNotParsed(): void
-    {
-        // Attribute BEFORE content should NOT be parsed as dd attribute
-        // (this is the old syntax that we've changed)
-        $djot = ": Term\n\n  {.highlight}\n  Definition content";
-        $doc = $this->parser->parse($djot);
-
-        $dl = $doc->getChildren()[0];
-        $this->assertInstanceOf(DefinitionList::class, $dl);
-
-        // Get the definition_description (dd)
-        $children = $dl->getChildren();
-        $dd = null;
-        foreach ($children as $child) {
-            if ($child->getType() === 'definition_description') {
-                $dd = $child;
-
-                break;
-            }
-        }
-        $this->assertNotNull($dd);
-        // The attribute should NOT be on the dd - it's just content now
-        $this->assertNull($dd->getAttribute('class'));
-    }
-
-    public function testParseDefinitionListBlankLineKeepsSameDd(): void
-    {
-        // Blank lines within definition content create paragraphs in same dd (spec behavior)
-        $djot = ": Term\n\n  First paragraph\n\n  Second paragraph";
+        $djot = ":: Term\n:  First line\n   Second line";
         $doc = $this->parser->parse($djot);
 
         $dl = $doc->getChildren()[0];
@@ -237,25 +233,9 @@ class BlockParserTest extends TestCase
         $this->assertCount(1, $dds);
     }
 
-    public function testParseDefinitionListContinuationMarker(): void
-    {
-        // `: +` marker creates additional dd for same term
-        $djot = ": Term\n\n  First definition\n\n: +\n\n  Second definition";
-        $doc = $this->parser->parse($djot);
-
-        $dl = $doc->getChildren()[0];
-        $this->assertInstanceOf(DefinitionList::class, $dl);
-
-        // Should have: dt + dd + dd = 3 children
-        $children = $dl->getChildren();
-        $dds = array_filter($children, fn ($c) => $c->getType() === 'definition_description');
-        $this->assertCount(2, $dds);
-    }
-
     public function testParseDefinitionListEmptyDd(): void
     {
-        // Term with no definition content should still create empty dd
-        $djot = ': Term';
+        $djot = ':: Term';
         $doc = $this->parser->parse($djot);
 
         $dl = $doc->getChildren()[0];
@@ -263,7 +243,7 @@ class BlockParserTest extends TestCase
 
         $children = $dl->getChildren();
         $dds = array_filter($children, fn ($c) => $c->getType() === 'definition_description');
-        $this->assertCount(1, $dds);
+        $this->assertCount(0, $dds);
     }
 
     public function testParseThematicBreak(): void
@@ -539,15 +519,23 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testParagraphInterruptionListInterruptsParagraph(): void
+    public function testParagraphInterruptionBulletFoldsWithoutBlankLine(): void
     {
+        // Symmetric interruption: a bullet without a preceding blank line folds
+        // into the paragraph (like an ordered marker). A blank line is required
+        // to start the list.
         $parser = new BlockParser();
         $doc = $parser->parse("Here is a list:\n- item one\n- item two");
 
         $children = $doc->getChildren();
-        $this->assertCount(2, $children);
+        $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(ListBlock::class, $children[1]);
+
+        $withBlank = $parser->parse("Here is a list:\n\n- item one\n- item two");
+        $blankChildren = $withBlank->getChildren();
+        $this->assertCount(2, $blankChildren);
+        $this->assertInstanceOf(Paragraph::class, $blankChildren[0]);
+        $this->assertInstanceOf(ListBlock::class, $blankChildren[1]);
     }
 
     public function testParagraphInterruptionBlockquoteInterruptsParagraph(): void

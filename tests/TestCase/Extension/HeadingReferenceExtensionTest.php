@@ -24,7 +24,7 @@ See [[Getting Started]].
 # Getting Started
 DJOT);
 
-        $this->assertStringContainsString('href="#getting-started"', $html);
+        $this->assertStringContainsString('href="#Getting-Started"', $html);
         $this->assertStringContainsString('class="heading-ref"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
     }
@@ -55,7 +55,7 @@ See [[Getting Started|the introduction]] for details.
 # Getting Started
 DJOT);
 
-        $this->assertStringContainsString('href="#getting-started"', $html);
+        $this->assertStringContainsString('href="#Getting-Started"', $html);
         $this->assertStringContainsString('>the introduction</a>', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
     }
@@ -126,7 +126,7 @@ See [[Summary]].
 ## Summary
 DJOT);
 
-        $this->assertStringContainsString('href="#summary"', $html);
+        $this->assertStringContainsString('href="#Summary"', $html);
         $this->assertStringContainsString('class="permalink"', $html);
     }
 
@@ -143,7 +143,7 @@ DJOT);
 
         $html = $converter->render($document);
 
-        $this->assertStringContainsString('href="#getting-started"', $html);
+        $this->assertStringContainsString('href="#Getting-Started"', $html);
         $this->assertStringNotContainsString('__djot_heading_ref_', $html);
     }
 
@@ -166,7 +166,7 @@ DJOT);
 
         $html = $converter->render($first);
 
-        $this->assertStringContainsString('href="#one"', $html);
+        $this->assertStringContainsString('href="#One"', $html);
         $this->assertStringNotContainsString('__djot_heading_ref_', $html);
     }
 
@@ -184,10 +184,10 @@ See [[Say "Hello"]].
 # Say "Hello"
 DJOT);
 
-        // Both the heading and the reference smart-convert the quotes, and
-        // ids now keep non-ASCII verbatim (carve spec #73), so they share
-        // the smart-quoted id and still resolve.
-        $this->assertStringContainsString('href="#say-“hello”"', $html);
+        // Smart typography is reversed to ASCII before the id is computed, so
+        // the curly quotes do not leak into the id (`Say "Hello"` -> id
+        // `Say-Hello`); the wiki reference still resolves on heading text.
+        $this->assertStringContainsString('href="#Say-Hello"', $html);
         $this->assertStringNotContainsString('[[Say "Hello"]]', $html);
     }
 
@@ -202,7 +202,7 @@ See [[Say Hello]].
 # Say _Hello_
 DJOT);
 
-        $this->assertStringContainsString('href="#say-hello"', $html);
+        $this->assertStringContainsString('href="#Say-Hello"', $html);
     }
 
     public function testHeadingWithApostropheResolvesCorrectly(): void
@@ -216,11 +216,11 @@ See [[Bob's Guide]].
 # Bob's Guide
 DJOT);
 
-        // Smart-punctuation turns the straight apostrophe into U+2019, which
-        // is non-ASCII and now kept verbatim in the id (carve spec #73):
-        // `Bob's Guide` -> `bob’s-guide`. The href must match the heading id.
-        $this->assertStringContainsString('id="bob’s-guide"', $html);
-        $this->assertStringContainsString('href="#bob’s-guide"', $html);
+        // Smart-punctuation turns the straight apostrophe into U+2019, but it
+        // is reversed to ASCII before the id is computed, so the curly quote
+        // does not leak in: `Bob's Guide` -> `Bob-s-Guide`. The href must match.
+        $this->assertStringContainsString('id="Bob-s-Guide"', $html);
+        $this->assertStringContainsString('href="#Bob-s-Guide"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $this->assertStringNotContainsString('[[Bob\'s Guide]]', $html);
     }
@@ -256,7 +256,7 @@ See [[Real Heading]].
 DJOT);
 
         // Reference resolves to the text heading, image heading is ignored
-        $this->assertStringContainsString('href="#real-heading"', $html);
+        $this->assertStringContainsString('href="#Real-Heading"', $html);
     }
 
     public function testUserAuthoredLinkWithMatchingPlaceholderIsNotRewritten(): void
@@ -280,7 +280,7 @@ See [[Test]].
 DJOT);
 
         $this->assertStringContainsString('<a href="collision-placeholder-0__">outside</a>', $html);
-        $this->assertStringContainsString('href="#test"', $html);
+        $this->assertStringContainsString('href="#Test"', $html);
     }
 
     public function testConflictsWithWikilinksWhenAddedAfter(): void
