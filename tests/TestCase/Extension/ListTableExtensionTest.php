@@ -98,6 +98,54 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($expected, $this->render($djot));
     }
 
+    public function testBooleanHeaderRowsPromotesFirstRow(): void
+    {
+        // `{header-rows}` with no value is the boolean form: the first row is
+        // the header, the default behavior a table with headers wants.
+        $djot = implode("\n", [
+            '{header-rows}',
+            '::: list-table',
+            '- - Region',
+            '  - Notes',
+            '- - EMEA',
+            '  - ok',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <thead><tr><th>Region</th><th>Notes</th></tr></thead>',
+            '  <tbody>',
+            '    <tr><td>EMEA</td><td>ok</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
+    }
+
+    public function testBooleanHeaderColsPromotesFirstColumn(): void
+    {
+        $djot = implode("\n", [
+            '{header-cols}',
+            '::: list-table',
+            '- - Region',
+            '  - Notes',
+            '- - EMEA',
+            '  - ok',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th>Region</th><td>Notes</td></tr>',
+            '    <tr><th>EMEA</th><td>ok</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
+    }
+
     public function testHeaderRowsAndHeaderColsCombine(): void
     {
         $djot = implode("\n", [
