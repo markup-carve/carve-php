@@ -758,4 +758,88 @@ DJOT;
             trim($this->converter->convert("- a\n- b")),
         );
     }
+
+    // ============ Marker-line sub-lists (reference djot parity) ============
+
+    /**
+     * A sub-list opened on the item's MARKER LINE (`- - A`) is a normal,
+     * persistent nested list: following same-indent markers MERGE into it
+     * instead of splitting off a second sub-list. Matches reference djot.js.
+     */
+    public function testMarkerLineSubListMergesFollowingMarkers(): void
+    {
+        $expected = <<<'HTML'
+<ul>
+  <li>
+    <ul>
+      <li>A</li>
+      <li>B</li>
+      <li>C</li>
+    </ul>
+  </li>
+</ul>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert("- - A\n  - B\n  - C")));
+    }
+
+    /**
+     * A post-blank indented block after a marker-line sub-list is ABSORBED
+     * into the sub-list item it belongs to (A gets a second paragraph), not
+     * leaked to the parent row. Matches reference djot.js.
+     */
+    public function testMarkerLineSubListAbsorbsPostBlankBlock(): void
+    {
+        $expected = <<<'HTML'
+<ul>
+  <li>
+    <ul>
+      <li><p>A</p>
+        <p>second</p>
+      </li>
+      <li><p>B</p></li>
+    </ul>
+  </li>
+</ul>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert("- - A\n\n    second\n  - B")));
+    }
+
+    /**
+     * A marker-line ordered sub-list (`- 1. A`) merges following ordered
+     * markers the same way.
+     */
+    public function testMarkerLineOrderedSubListMerges(): void
+    {
+        $expected = <<<'HTML'
+<ul>
+  <li>
+    <ol>
+      <li>A</li>
+      <li>B</li>
+    </ol>
+  </li>
+</ul>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert("- 1. A\n  2. B")));
+    }
+
+    /**
+     * A base-column sibling marker after a marker-line sub-list still starts a
+     * sibling of the OUTER list, not a child of the sub-list.
+     */
+    public function testMarkerLineSubListThenOuterSibling(): void
+    {
+        $expected = <<<'HTML'
+<ul>
+  <li>
+    <ul>
+      <li>A</li>
+      <li>B</li>
+    </ul>
+  </li>
+  <li>next</li>
+</ul>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert("- - A\n  - B\n- next")));
+    }
 }

@@ -2491,6 +2491,45 @@ class BlockParser
             }
             $contentIndent = $baseIndent + $markerWidth;
 
+            // When the item's content BEGINS, on the marker line, with another
+            // list marker (`- - A`, `* - A`, `1. - A`, ...), the lead is itself
+            // a sub-list, not a paragraph. Carve then parses the lead together
+            // with every following dedented line as ONE block stream so the
+            // marker-line sub-list behaves exactly like a sub-list opened on a
+            // *following* line: following same-indent markers MERGE into it as
+            // siblings, and post-blank indented blocks are ABSORBED into its
+            // items. This MATCHES reference djot.js (the djot/djot package
+            // 0.3.2) and CommonMark, which both treat a marker-line sub-list as
+            // a normal nested list. It corrects Carve's prior line-scoping
+            // (which split the sub-list from following items and leaked later
+            // indented blocks to the parent row) -- a bug inherited from
+            // djot-php, whose marker-line handling deviates from reference djot
+            // (a parallel fix is in flight on php-collective/djot-php). The
+            // single combined stream reuses the normal nested-list/absorption
+            // logic -- no separate path.
+            $leadIsMarker = $this->listParser->parseListItemMarker($itemContent) !== null;
+            if ($leadIsMarker) {
+                $i = $this->collectMarkerLeadItem(
+                    $lines,
+                    $i,
+                    $count,
+                    $baseIndent,
+                    $contentIndent,
+                    $itemLines,
+                );
+                $this->parseBlocks($listItem, $itemLines, 0);
+                $list->appendChild($listItem);
+
+                // A blank line directly before the next sibling marker still
+                // loosens the list; mirror the plain-item rule by remembering
+                // any trailing blank consumed inside the combined stream.
+                if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
+                    $lastItemHadBlankAfter = true;
+                }
+
+                continue;
+            }
+
             while ($i < $count) {
                 $nextLine = $lines[$i];
 
@@ -2598,6 +2637,79 @@ class BlockParser
         $parent->appendChild($list);
 
         return $i - $start;
+    }
+
+    /**
+     * Collect the body of a list item whose lead content (on the marker line)
+     * is itself a list marker, as a SINGLE block stream.
+     *
+     * The lead marker line is already in $itemLines (dedented to column 0). This
+     * appends every following line that belongs to the item -- nested content at
+     * or past the content column, and internal blank lines -- dedented by
+     * $contentIndent, so the combined stream parses through the normal
+     * nested-list/absorption path (one persistent sub-list rather than a split
+     * sub-list plus a leaked parent-row block). Collection stops at end of
+     * input, a line dedented below the content column, or a blank line that is
+     * NOT followed by further item-owned indented content.
+     *
+     * @param array<string> $lines All lines being parsed.
+     * @param int $i Index of the first line AFTER the lead marker line.
+     * @param int $count Total line count.
+     * @param int $baseIndent The list's base column.
+     * @param int $contentIndent The item's content column.
+     * @param array<string> $itemLines Collected stream (lead marker line already present); appended in place.
+     *
+     * @return int The index of the first line NOT consumed.
+     */
+    protected function collectMarkerLeadItem(
+        array $lines,
+        int $i,
+        int $count,
+        int $baseIndent,
+        int $contentIndent,
+        array &$itemLines,
+    ): int {
+        while ($i < $count) {
+            $nextLine = $lines[$i];
+
+            if (IndentationHelper::isBlankLine($nextLine)) {
+                // A blank only stays inside the item when item-owned indented
+                // content (>= content column) follows it; otherwise it ends the
+                // item (the next non-blank starts a sibling or an outer block).
+                $look = $i + 1;
+                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
+                    $look++;
+                }
+                if ($look >= $count || IndentationHelper::getLeadingColumns($lines[$look]) < $contentIndent) {
+                    break;
+                }
+                $itemLines[] = '';
+                $i++;
+
+                continue;
+            }
+
+            // Content dedented below the content column ends the item: a sibling
+            // marker or outer block at the base column, or anything further left,
+            // is handled by the caller's loop. Unlike the plain-lead case there
+            // is no lazy paragraph continuation here -- the lead is a sub-list,
+            // not a paragraph, so a dedented line never folds in.
+            if (IndentationHelper::getLeadingColumns($nextLine) < $contentIndent) {
+                break;
+            }
+
+            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $i++;
+        }
+
+        // Drop trailing blank lines from the collected stream.
+        $lineCount = count($itemLines);
+        while ($lineCount > 0 && $itemLines[$lineCount - 1] === '') {
+            array_pop($itemLines);
+            $lineCount--;
+        }
+
+        return $i;
     }
 
     /**
