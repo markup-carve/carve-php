@@ -8,7 +8,6 @@ use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\CodeBlock;
 use Carve\Renderer\HtmlRenderer;
-use Carve\SafeMode;
 use Carve\Util\StringUtil;
 use InvalidArgumentException;
 
@@ -78,7 +77,7 @@ class FencedRenderExtension implements ExtensionInterface
 
     protected bool $roundTripMode = false;
 
-    protected ?SafeMode $safeMode = null;
+    protected ?HtmlRenderer $renderer = null;
 
     /**
      * @var array<string>
@@ -184,7 +183,7 @@ class FencedRenderExtension implements ExtensionInterface
         $renderer = $converter->getRenderer();
         if ($renderer instanceof HtmlRenderer) {
             $this->roundTripMode = $renderer->isRoundTripMode();
-            $this->safeMode = $renderer->getSafeMode();
+            $this->renderer = $renderer;
         }
 
         $converter->on('render.code_block', function (RenderEvent $event): void {
@@ -280,19 +279,25 @@ class FencedRenderExtension implements ExtensionInterface
     /**
      * Build the extra-attribute string from author attributes.
      *
-     * `class` is rendered separately. The remaining attributes are filtered
-     * through the active SafeMode (when enabled) so that copying author
-     * attributes onto the raw output element cannot bypass the attribute
-     * sanitizer the core renderer applies everywhere else (event handlers,
-     * srcdoc, formaction, and style under strict mode).
+     * `class` is rendered separately. The remaining attributes get the same
+     * treatment the core renderer applies to every element: always-on
+     * hardening (strip event handlers / `srcdoc` / `formaction`, neutralize
+     * dangerous URL and `expression()` values) plus any additional safe-mode
+     * name filtering (e.g. `style` under strict mode). Without this the raw
+     * setHtml() output would bypass the sanitizer the renderer applies
+     * everywhere else.
      */
     protected function buildExtraAttributes(CodeBlock $node): string
     {
         $attrs = $node->getAttributes();
         unset($attrs['class']);
 
-        if ($this->safeMode !== null) {
-            $attrs = $this->safeMode->filterAttributes($attrs);
+        if ($this->renderer !== null) {
+            $attrs = $this->renderer->sanitizeAttributes($attrs);
+            $safeMode = $this->renderer->getSafeMode();
+            if ($safeMode !== null) {
+                $attrs = $safeMode->filterAttributes($attrs);
+            }
         }
 
         $out = '';

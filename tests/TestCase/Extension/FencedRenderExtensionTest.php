@@ -104,17 +104,29 @@ class FencedRenderExtensionTest extends TestCase
         $this->assertStringContainsString('data-theme="dark"', $html);
     }
 
-    public function testSafeModeStripsEventHandlerButKeepsSafeAttributes(): void
+    public function testStripsEventHandlerAlwaysOnEvenWithoutSafeMode(): void
     {
-        // The core SafeMode attribute filter (blocks the `on` prefix) is applied
-        // to copied author attributes, so an event handler cannot ride along on
-        // the raw output element while safe attributes survive.
+        // Always-on attribute hardening (the core renderer's baseline) strips
+        // event handlers regardless of safe mode, so an `onclick` cannot ride
+        // along on the raw output element while safe attributes survive.
         $djot = "{#chart1 .tall onclick=\"alert(1)\"}\n``` d2\na -> b\n```";
 
-        $html = $this->render($djot, FencedRenderExtension::d2(), SafeMode::defaults());
+        $html = $this->render($djot, FencedRenderExtension::d2());
 
         $this->assertStringNotContainsString('onclick', $html);
         $this->assertStringContainsString('class="d2 tall"', $html);
+        $this->assertStringContainsString('id="chart1"', $html);
+    }
+
+    public function testSafeModeStrictStripsStyleOnTopOfBaseline(): void
+    {
+        // Safe mode strips ADDITIONAL names on top of the always-on baseline;
+        // strict mode adds `style`.
+        $djot = "{#chart1 style=\"color:red\"}\n``` d2\na -> b\n```";
+
+        $html = $this->render($djot, FencedRenderExtension::d2(), SafeMode::strict());
+
+        $this->assertStringNotContainsString('style=', $html);
         $this->assertStringContainsString('id="chart1"', $html);
     }
 

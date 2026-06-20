@@ -633,13 +633,13 @@ $converter->addExtension(new FencedRenderExtension(language: ['dot', 'graphviz']
 
 > [!NOTE]
 > Author attributes on the fence (a `{#id .class key=val}` block-attribute line
-> above it) are copied onto the wrapper, but filtered through the active safe
-> mode exactly as the core renderer filters every other element: event handlers
-> (`on*`), `srcdoc`, `formaction` (and `style` under strict mode) are dropped,
-> and values are HTML-escaped so a quote cannot break out of the attribute. A
-> `{onclick="..."}` on the fence therefore cannot smuggle an event handler past
-> safe mode. (This differs from `MathBlockExtension`, which drops author
-> attributes entirely.)
+> above it) are copied onto the wrapper, but get the same treatment the core
+> renderer applies to every element: always-on hardening
+> (`HtmlRenderer::sanitizeAttributes()`) strips event handlers (`on*`),
+> `srcdoc`, `formaction` and neutralizes dangerous URL / `expression()` values
+> regardless of safe mode, then safe mode strips any additional names (e.g.
+> `style` under strict). Values are HTML-escaped so a quote cannot break out. So
+> a `{onclick="..."}` on the fence can never reach the output.
 
 ### MermaidExtension
 
