@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\CodeBlock;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
-
 /**
  * Transforms code blocks with language "mermaid" into Mermaid.js-compatible markup
  *
@@ -92,10 +86,8 @@ use Carve\Util\StringUtil;
  *
  * See https://mermaid.js.org/ for full documentation.
  */
-class MermaidExtension implements ExtensionInterface
+class MermaidExtension extends FencedRenderExtension
 {
-    protected bool $roundTripMode = false;
-
     /**
      * @param string $tag HTML tag to use ('pre' or 'div')
      * @param string $cssClass CSS class for Mermaid.js to detect
@@ -103,166 +95,18 @@ class MermaidExtension implements ExtensionInterface
      * @param string $figureClass CSS class for the figure element
      */
     public function __construct(
-        protected string $tag = 'pre',
-        protected string $cssClass = 'mermaid',
-        protected bool $wrapInFigure = false,
-        protected string $figureClass = 'mermaid-figure',
+        string $tag = 'pre',
+        string $cssClass = 'mermaid',
+        bool $wrapInFigure = false,
+        string $figureClass = 'mermaid-figure',
     ) {
-    }
-
-    public function register(CarveConverter $converter): void
-    {
-        // Check for round-trip mode from HTML renderer
-        $renderer = $converter->getRenderer();
-        if ($renderer instanceof HtmlRenderer) {
-            $this->roundTripMode = $renderer->isRoundTripMode();
-        }
-
-        $converter->on('render.code_block', function (RenderEvent $event): void {
-            $node = $event->getNode();
-            if (!$node instanceof CodeBlock) {
-                return;
-            }
-
-            if ($node->getLanguage() !== 'mermaid') {
-                return;
-            }
-
-            $html = $this->renderMermaid($node);
-            $event->setHtml($html);
-        });
-    }
-
-    /**
-     * Render the mermaid diagram markup
-     */
-    protected function renderMermaid(CodeBlock $node): string
-    {
-        $content = $node->getContent();
-
-        // Build CSS classes
-        $classes = [$this->cssClass];
-        foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-        $classAttr = implode(' ', $classes);
-
-        // Build additional attributes (excluding class and language-related)
-        $extraAttrs = $this->buildExtraAttributes($node);
-
-        // Add data-djot-src for round-trip support
-        if ($this->roundTripMode) {
-            $djotSrc = $this->reconstructCodeBlockSource($node);
-            $extraAttrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
-        }
-
-        // Build the main element
-        // Mermaid content needs special escaping:
-        // - Escape < and & to prevent XSS (e.g., <script> becomes &lt;script>)
-        // - Preserve > for Mermaid arrow syntax (e.g., -->)
-        $escapedContent = str_replace(['&', '<'], ['&amp;', '&lt;'], $content);
-        $element = '<' . $this->tag . ' class="' . StringUtil::escapeHtml($classAttr) . '"' . $extraAttrs . '>';
-        $element .= $escapedContent;
-        $element .= '</' . $this->tag . ">\n";
-
-        if ($this->wrapInFigure) {
-            $html = '<figure class="' . StringUtil::escapeHtml($this->figureClass) . "\">\n";
-            $html .= $element;
-            $html .= "</figure>\n";
-
-            return $html;
-        }
-
-        return $element;
-    }
-
-    /**
-     * Reconstruct the original Djot source for a mermaid code block
-     */
-    protected function reconstructCodeBlockSource(CodeBlock $node): string
-    {
-        $content = $node->getContent();
-
-        // Choose a fence that does not conflict with the content
-        $fence = StringUtil::findSafeCodeFence($content, 3);
-
-        // Build the code fence
-        $djot = $this->renderDjotAttributeBlock($node);
-        $djot .= $fence . ' mermaid' . "\n";
-        $djot .= $content;
-        if (!str_ends_with($content, "\n")) {
-            $djot .= "\n";
-        }
-        $djot .= $fence . "\n";
-
-        return $djot;
-    }
-
-    /**
-     * @param \Carve\Node\Block\CodeBlock $node
-     * @param array<string> $skipAttrs
-     * @param array<string> $skipClasses
-     */
-    protected function renderDjotAttributeBlock(CodeBlock $node, array $skipAttrs = [], array $skipClasses = []): string
-    {
-        $parts = [];
-
-        $id = $node->getAttribute('id');
-        if ($id !== null && $id !== '' && !in_array('id', $skipAttrs, true)) {
-            $parts[] = '#' . $id;
-        }
-
-        if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
-                if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = '.' . $class;
-                }
-            }
-        }
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if ($name === 'id' || $name === 'class' || in_array($name, $skipAttrs, true)) {
-                continue;
-            }
-
-            $parts[] = $value === ''
-                ? $name
-                : $name . '=' . $this->quoteDjotAttributeValue($value);
-        }
-
-        if ($parts === []) {
-            return '';
-        }
-
-        return '{' . implode(' ', $parts) . "}\n";
-    }
-
-    protected function quoteDjotAttributeValue(string $value): string
-    {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
-    }
-
-    /**
-     * Build extra attributes string, excluding processed ones
-     */
-    protected function buildExtraAttributes(CodeBlock $node): string
-    {
-        $excluded = ['class'];
-        $attrs = '';
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if (in_array($name, $excluded, true)) {
-                continue;
-            }
-            $attrs .= ' ' . StringUtil::escapeHtml($name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
-        }
-
-        return $attrs;
+        parent::__construct(
+            language: 'mermaid',
+            cssClass: $cssClass,
+            tag: $tag,
+            contentMode: self::MODE_TEXT,
+            wrapInFigure: $wrapInFigure,
+            figureClass: $figureClass,
+        );
     }
 }

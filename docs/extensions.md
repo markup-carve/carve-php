@@ -575,11 +575,79 @@ When deciding between this and `TabsExtension`: use `CodeGroupExtension` for
 multiple code blocks with labels from language hints; use `TabsExtension` for
 arbitrary content with labels from headings/attributes and optional ARIA mode.
 
+### FencedRenderExtension
+
+Generic client-rendered fenced-block factory. Claims fenced code blocks by
+language word and emits one hydration element for a client-side library; the
+block body is passed through verbatim (no Carve parsing). This is the same
+client-hydration shape `MermaidExtension` uses - Mermaid is one preset of it -
+generalized so D2, Graphviz, WaveDrom, ABC, Vega-Lite, Chart.js, etc. need no
+new code. HTML output only. Tier-3 (opt-in, never corpus-pinned).
+
+Constructor options:
+
+- `language` (`string|array<string>`, required) - fence info word(s) claimed.
+- `cssClass` (`string`, default first `language` word) - class on the element.
+- `tag` (`string`, default `'div'` for json mode else `'pre'`) - wrapper element.
+- `contentMode` (`string`, default `FencedRenderExtension::MODE_TEXT`) - `MODE_TEXT`
+  or `MODE_JSON` (see below).
+- `wrapInFigure` (`bool`, default `false`) - wrap in `<figure class="{cssClass}-figure">`.
+- `figureClass` (`string`, default `'{cssClass}-figure'`).
+
+Content modes:
+
+- **`MODE_TEXT`** (Mermaid, D2, Graphviz, WaveDrom, ABC): body is HTML-escaped
+  text inside the wrapper. `&` and `<` are escaped (blocking tag injection), but
+  `>` is preserved so arrow syntax (`-->`) survives.
+
+  ~~~
+  ``` d2
+  a -> b
+  ```
+  ~~~
+  renders as `<pre class="d2">a -> b</pre>`.
+
+- **`MODE_JSON`** (Vega-Lite, Chart.js): body is emitted verbatim inside a
+  `<script type="application/json">` (default wrapper `<div>`). Any `</` in the
+  body is rewritten to `<\/` so the JSON cannot close the script element early
+  (byte-equivalent JSON).
+
+  ~~~
+  ``` vega-lite
+  {"mark": "bar"}
+  ```
+  ~~~
+  renders as
+  `<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>`.
+
+Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
+(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
+
+~~~ php
+use Carve\Extension\FencedRenderExtension;
+
+$converter->addExtension(FencedRenderExtension::d2());
+$converter->addExtension(FencedRenderExtension::vegaLite());
+$converter->addExtension(new FencedRenderExtension(language: ['dot', 'graphviz'], cssClass: 'graphviz'));
+~~~
+
+> [!NOTE]
+> Author attributes on the fence (a `{#id .class key=val}` block-attribute line
+> above it) are copied onto the wrapper, but filtered through the active safe
+> mode exactly as the core renderer filters every other element: event handlers
+> (`on*`), `srcdoc`, `formaction` (and `style` under strict mode) are dropped,
+> and values are HTML-escaped so a quote cannot break out of the attribute. A
+> `{onclick="..."}` on the fence therefore cannot smuggle an event handler past
+> safe mode. (This differs from `MathBlockExtension`, which drops author
+> attributes entirely.)
+
 ### MermaidExtension
 
+Mermaid preset of `FencedRenderExtension` (text mode, `<pre class="mermaid">`).
 Transforms fenced code blocks with the `mermaid` language into Mermaid.js
-compatible markup (`<pre class="mermaid">...</pre>` by default). You must include
-Mermaid.js on the page to render the diagrams. HTML output only.
+compatible markup. You must include Mermaid.js on the page to render the
+diagrams. HTML output only. Kept as a named alias for back-compat; its
+constructor signature and output are unchanged.
 
 Constructor options:
 
@@ -591,6 +659,8 @@ Constructor options:
 ~~~ php
 $converter->addExtension(new MermaidExtension());
 $converter->addExtension(new MermaidExtension(wrapInFigure: true));
+// Equivalent factory form:
+$converter->addExtension(FencedRenderExtension::mermaid());
 ~~~
 
 Input:
