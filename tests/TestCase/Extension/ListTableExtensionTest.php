@@ -197,14 +197,14 @@ class ListTableExtensionTest extends TestCase
         $converter = new CarveConverter();
         $html = trim($converter->convert($djot));
 
+        // Marker-line sublists merge+absorb into a single nested list (carve
+        // main #170 / #196), so `- - A` / `  - B` is one <ul> with two items.
         $expected = implode("\n", [
             '<div class="list-table">',
             '  <ul>',
             '    <li>',
             '      <ul>',
             '        <li>A</li>',
-            '      </ul>',
-            '      <ul>',
             '        <li>B</li>',
             '      </ul>',
             '    </li>',
