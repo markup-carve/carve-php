@@ -7,6 +7,8 @@ namespace Carve\Extension;
 use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\CodeBlock;
+use Carve\Renderer\HtmlRenderer;
+use Carve\Util\StringUtil;
 
 /**
  * Renders a fenced code block tagged `math` as block-level display math.
@@ -43,10 +45,22 @@ use Carve\Node\Block\CodeBlock;
  * the core renderer, and without the extension a ` ```math ` block stays an
  * ordinary `language-math` code block so documents remain readable.
  *
- * Ported alongside carve-js's `mathBlock()` extension (byte-parity).
+ * Author attributes on the fence (a `{#id .class key=val}` block-attribute line
+ * above it) are merged onto the `<div>` - classes after the `math display`
+ * base, then id and other attributes in source order - exactly as core inline /
+ * display `$…$` math carries its attributes. They get the same treatment the
+ * core renderer applies to every element: always-on hardening
+ * ({@see HtmlRenderer::sanitizeAttributes()} - strips `on*`, `srcdoc`,
+ * `formaction`, neutralizes dangerous URL / `expression()` values) plus any
+ * additional safe-mode name filtering, and values are HTML-escaped. So a
+ * `{onclick=...}` on a ` ```math ` fence can never reach the output.
+ *
+ * Ported alongside carve-js's `mathBlock()` extension.
  */
 class MathBlockExtension implements ExtensionInterface
 {
+    protected ?HtmlRenderer $renderer = null;
+
     /**
      * @param string $language Language tag that marks a display-math block
      */
@@ -56,6 +70,11 @@ class MathBlockExtension implements ExtensionInterface
 
     public function register(CarveConverter $converter): void
     {
+        $renderer = $converter->getRenderer();
+        if ($renderer instanceof HtmlRenderer) {
+            $this->renderer = $renderer;
+        }
+
         $converter->on('render.code_block', function (RenderEvent $event): void {
             $node = $event->getNode();
             if (!$node instanceof CodeBlock) {
@@ -75,11 +94,55 @@ class MathBlockExtension implements ExtensionInterface
      */
     protected function renderMath(CodeBlock $node): string
     {
-        // Emit only the fixed `math display` class. Author attributes from the
-        // fence are intentionally NOT copied: rendering them here would bypass
-        // safe-mode attribute filtering (an `{onclick=...}` on a ```math fence
-        // would become an executable handler on the <div>).
-        return '<div class="math display">\\[' . $this->escapeMath($node->getContent()) . '\\]</div>';
+        $classAttr = StringUtil::escapeHtml($this->classAttr($node));
+
+        return '<div class="' . $classAttr . '"' . $this->buildExtraAttributes($node) . '>\\['
+            . $this->escapeMath($node->getContent()) . '\\]</div>';
+    }
+
+    /**
+     * Merge the fixed `math display` base classes with any author classes
+     * (deduped, in source order).
+     */
+    protected function classAttr(CodeBlock $node): string
+    {
+        $classes = ['math', 'display'];
+        foreach ($node->getClassList() as $class) {
+            if (!in_array($class, $classes, true)) {
+                $classes[] = $class;
+            }
+        }
+
+        return implode(' ', $classes);
+    }
+
+    /**
+     * Build the extra-attribute string from author attributes (all but `class`).
+     *
+     * Attributes get the same treatment the core renderer applies to every
+     * element: always-on hardening plus any additional safe-mode name filtering,
+     * with values HTML-escaped - so copying author attributes onto the raw output
+     * element cannot bypass the sanitizer the renderer applies everywhere else.
+     */
+    protected function buildExtraAttributes(CodeBlock $node): string
+    {
+        $attrs = $node->getAttributes();
+        unset($attrs['class']);
+
+        if ($this->renderer !== null) {
+            $attrs = $this->renderer->sanitizeAttributes($attrs);
+            $safeMode = $this->renderer->getSafeMode();
+            if ($safeMode !== null) {
+                $attrs = $safeMode->filterAttributes($attrs);
+            }
+        }
+
+        $out = '';
+        foreach ($attrs as $name => $value) {
+            $out .= ' ' . StringUtil::escapeHtml((string)$name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
+        }
+
+        return $out;
     }
 
     /**
