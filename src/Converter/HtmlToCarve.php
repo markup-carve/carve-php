@@ -565,15 +565,10 @@ class HtmlToCarve
     }
 
     /**
-     * Process details element (potentially collapsible admonition)
+     * Process details element (generic disclosure container)
      */
     protected function processDetails(DOMElement $node): string
     {
-        // Check for collapsible admonition (round-trip support)
-        if ($node->hasAttribute('data-djot-admonition-type')) {
-            return $this->processCollapsibleAdmonition($node);
-        }
-
         return $this->processGenericBlockContainer($node);
     }
 
@@ -589,64 +584,6 @@ class HtmlToCarve
         $content = trim($this->processBlock($node));
         $fence = $this->colonFenceFor($content);
         $output = $attrs . $fence . ' ' . $tagName . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * Process collapsible admonition (details element with data-djot-admonition-type)
-     */
-    protected function processCollapsibleAdmonition(DOMElement $node): string
-    {
-        $type = $node->getAttribute('data-djot-admonition-type');
-        $customTitle = $node->getAttribute('data-djot-admonition-title');
-        $isOpen = $node->hasAttribute('open');
-
-        // Build attributes
-        $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
-        }
-
-        // Add collapsible attribute
-        $parts[] = $isOpen ? 'collapsible=open' : 'collapsible';
-
-        // Add custom title if provided
-        if ($customTitle !== '') {
-            $parts[] = 'title=' . $this->quoteAttributeValue($customTitle);
-        }
-
-        // Get remaining classes (exclude 'admonition' and the type)
-        $classes = $this->getElementClassList($node);
-        foreach ($classes as $class) {
-            if ($class !== 'admonition' && $class !== $type) {
-                $parts[] = '.' . $class;
-            }
-        }
-
-        // Add other attributes (excluding special ones)
-        $skipAttrs = ['id', 'class', 'open', 'data-djot-admonition-type', 'data-djot-admonition-title', ...$this->skipAttributes];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || str_starts_with($name, 'data-djot-')) {
-                continue;
-            }
-            $value = $attr->value;
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-
-        // Process content, excluding the summary (title) element
-        $content = $this->processAdmonitionContent($node);
-
-        // Collapsible admonitions always have at least the 'collapsible' attribute
-        $attrs = '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor($content);
-        $output = $attrs . $fence . ' ' . $type . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
