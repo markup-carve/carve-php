@@ -628,18 +628,29 @@ x^2
 ```
 ~~~
 
-renders as `<div class="math display">\[x^2\]</div>`.
+renders as `<div class="math display">\[x^2\]</div>`. A preceding
+`{#eq .big data-ref=x}` block-attribute line merges onto the `<div>` - author
+classes after the `math display` base, then id and other attributes in source
+order:
 
-> [!IMPORTANT]
-> Unlike `MermaidExtension`, this extension does **not** copy any author
-> attributes onto the output `<div>` - neither a fence info-string nor a
-> preceding `{#id .class}` block-attribute line. The extension emits raw HTML
-> directly, bypassing the core safe-mode attribute sanitizer, so copying
-> attributes would let `{onclick="…"}` through unfiltered on untrusted
-> documents. The class is always the fixed `math display`. For
-> styleable/targetable math, use the **core** inline `` $`…` `` / display
-> `` $$`…` `` forms instead: they carry `{...}` attributes through the core
-> renderer, where safe mode strips dangerous handlers but keeps classes and id.
+~~~
+{#eq .big data-ref=x}
+``` math
+x^2
+```
+~~~
+
+renders as `<div class="math display big" id="eq" data-ref="x">\[x^2\]</div>`.
+
+> [!NOTE]
+> Author attributes get the same treatment the core renderer applies to every
+> element (and as `FencedRenderExtension`): always-on hardening
+> (`HtmlRenderer::sanitizeAttributes()`) strips event handlers (`on*`),
+> `srcdoc`, `formaction` and neutralizes dangerous URL / `expression()` values
+> regardless of safe mode, then safe mode strips any additional names (e.g.
+> `style` under strict). Values are HTML-escaped so a quote cannot break out. So
+> a `{onclick="…"}` on a ` ``` math ` fence can never reach the output. This
+> matches how core inline `` $`…` `` / display `` $$`…` `` math carry `{...}`.
 
 ### FrontmatterExtension (default)
 
