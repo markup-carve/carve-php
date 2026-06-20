@@ -84,6 +84,8 @@ use Carve\Renderer\HtmlRenderer;
  * $converter = new CarveConverter();
  * $converter->addExtension(new ListTableExtension());
  * ```
+ *
+ * @phpstan-type GridEntry array{cell: \Carve\Node\Block\ListItem, marker: string|null, rowspan: int, colspan: int, skip: bool}
  */
 class ListTableExtension implements ExtensionInterface
 {
@@ -199,21 +201,27 @@ class ListTableExtension implements ExtensionInterface
         $headerRows = $this->headerCount($node->getAttribute('header-rows'));
         $headerCols = $this->headerCount($node->getAttribute('header-cols'));
 
-        // Resolve `^`/`<` span markers into a grid of placed cells, reusing the
-        // SAME continuation model the pipe-table parser uses (see resolveSpans()).
-        // The header-row count clamps rowspans at the header/body boundary: an
-        // HTML cell cannot reliably span across <thead>/<tbody>, so a `^` that
-        // would extend a header cell down into the body is treated as having no
-        // origin and degrades to an empty cell instead.
+        // Resolve `^`/`<` span markers into a positional grid (one entry per
+        // SOURCE cell), EXACTLY mirroring the pipe-table span model so the output
+        // matches the equivalent pipe table. A `^` grows the rowspan of the
+        // nearest non-skipped cell above it in the same source column; a `<` grows
+        // the colspan of the nearest non-skipped cell to its left (scanning past
+        // already-merged columns). A merged marker is flagged `skip` and emits
+        // nothing; an unmergeable marker stays a rendered-empty cell. The
+        // header-row count clamps rowspans at the header/body boundary: an HTML
+        // cell cannot reliably span across <thead>/<tbody>, so a `^` that would
+        // extend a header cell down into the body is not merged and degrades to an
+        // empty cell instead.
         $grid = $this->resolveSpans($rows, $headerRows, $extras);
 
-        // Ragged rows: pad short rows with empty cells to the widest effective
-        // row so no content is dropped and the grid stays rectangular. The
-        // effective width accounts for colspans and rowspan reservations.
-        $columnCount = 0;
-        foreach ($grid as $placedRow) {
-            $columnCount = max($columnCount, $placedRow['width']);
-        }
+        // Flow each non-skipped cell to an output column, past any column a
+        // rowspan from an earlier row still holds - the same flow a browser uses.
+        // Unlike a pipe table, a list-table pads every row to the widest row's
+        // reach so the grid stays rectangular (carve-js list-table parity); a
+        // rowspan from above that already covers a trailing column suppresses the
+        // padding there.
+        $placement = $this->placeColumns($grid);
+        $columnCount = $placement['columnCount'];
 
         $lines = [];
 
@@ -222,49 +230,48 @@ class ListTableExtension implements ExtensionInterface
             $lines[] = '  <caption>' . $this->escapeHtml($title) . '</caption>';
         }
 
-        $renderRow = function (array $placedRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras): string {
+        $renderRow = function (array $gridRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras, $placement): string {
             $isHeaderRow = $rowIndex < $headerRows;
+            $cols = $placement['cols'][$rowIndex];
             $html = '';
-            // Walk every grid column so trailing columns are padded; columns
-            // covered by a span (rowspan from above, or the body of a colspan)
-            // are skipped - the spanning cell already covers them.
-            for ($col = 0; $col < $columnCount; $col++) {
-                $placed = $placedRow['cells'][$col] ?? null;
-                // A dropped cell overlaps a rowspan from above; it is kept only
-                // for span tracking and emits nothing (its column is covered).
-                if ($placed !== null && !empty($placed['dropped'])) {
-                    continue;
-                }
-                if ($placed === null) {
-                    if (isset($placedRow['covered'][$col])) {
-                        continue;
-                    }
-                    // A genuinely empty padding column.
-                    $tag = ($isHeaderRow || $col < $headerCols) ? 'th' : 'td';
-                    $html .= '<' . $tag . '></' . $tag . '>';
-
+            $nextCol = 0;
+            foreach ($gridRow as $i => $entry) {
+                // A merged `^`/`<` emits nothing - its column was absorbed by the
+                // cell it merged into (a rowspan above, or the cell to its left).
+                if ($entry['skip']) {
                     continue;
                 }
 
+                $col = $cols[$i];
                 $isHeaderCell = $isHeaderRow || $col < $headerCols;
                 $tag = $isHeaderCell ? 'th' : 'td';
                 $attrHtml = '';
-                if ($placed['rowspan'] > 1) {
-                    $attrHtml .= ' rowspan="' . $placed['rowspan'] . '"';
+                if ($entry['rowspan'] > 1) {
+                    $attrHtml .= ' rowspan="' . $entry['rowspan'] . '"';
                 }
-                if ($placed['colspan'] > 1) {
-                    $attrHtml .= ' colspan="' . $placed['colspan'] . '"';
+                if ($entry['colspan'] > 1) {
+                    $attrHtml .= ' colspan="' . $entry['colspan'] . '"';
                 }
                 // Carry the cell's own list-item attributes (e.g. `{.x}`) onto
                 // the <td>/<th> so authored cell styling is not dropped. The
                 // structural span attributes above always win on conflict.
-                $attrHtml .= $this->renderCellAttributes($placed['cell'], $renderer);
-                // A `^`/`<` marker with nothing to merge into became an empty
-                // cell (pipe-table parity): render no content, not literal `^`.
-                $content = empty($placed['empty'])
-                    ? $this->renderCell($placed['cell'], $renderer, $extras[spl_object_id($placed['cell'])] ?? [])
-                    : '';
+                $attrHtml .= $this->renderCellAttributes($entry['cell'], $renderer);
+                // A `^`/`<` marker (merged or not) renders no content, not literal
+                // `^` (pipe-table parity).
+                $content = $entry['marker'] !== null
+                    ? ''
+                    : $this->renderCell($entry['cell'], $renderer, $extras[spl_object_id($entry['cell'])] ?? []);
                 $html .= '<' . $tag . $attrHtml . '>' . $content . '</' . $tag . '>';
+                $nextCol = $col + $entry['colspan'];
+            }
+
+            // Pad trailing columns so a ragged row stays rectangular. A rowspan
+            // from above that reaches the end of the row already covers those
+            // columns, so it suppresses padding (rowReach accounts for it).
+            $col = max($nextCol, $placement['rowReach'][$rowIndex]);
+            for (; $col < $columnCount; $col++) {
+                $tag = ($isHeaderRow || $col < $headerCols) ? 'th' : 'td';
+                $html .= '<' . $tag . '></' . $tag . '>';
             }
 
             return '<tr>' . $html . '</tr>';
@@ -275,16 +282,16 @@ class ListTableExtension implements ExtensionInterface
 
         if ($headGrid !== []) {
             $thead = '';
-            foreach ($headGrid as $rowIndex => $placedRow) {
-                $thead .= $renderRow($placedRow, $rowIndex);
+            foreach ($headGrid as $rowIndex => $gridRow) {
+                $thead .= $renderRow($gridRow, $rowIndex);
             }
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
 
         if ($bodyGrid !== []) {
             $tbody = '';
-            foreach ($bodyGrid as $offset => $placedRow) {
-                $tbody .= '    ' . $renderRow($placedRow, $offset + $headerRows) . "\n";
+            foreach ($bodyGrid as $offset => $gridRow) {
+                $tbody .= '    ' . $renderRow($gridRow, $offset + $headerRows) . "\n";
             }
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
         }
@@ -339,361 +346,185 @@ class ListTableExtension implements ExtensionInterface
     }
 
     /**
-     * Resolve `^` / `<` span markers into a placed grid.
+     * Resolve `^` / `<` span markers into a positional grid, EXACTLY mirroring
+     * the pipe-table span model (BlockParser grid walk / carve-js render-html
+     * `renderTable`) so the output is identical to the equivalent pipe table.
      *
-     * This mirrors the pipe-table parser's continuation model so the output
-     * matches an equivalent pipe table:
+     * Each row becomes a positional list of grid entries (one per SOURCE cell;
+     * ragged rows simply have fewer columns). A single left-to-right walk then:
      *
-     * - A `<` cell merges into the nearest content cell to its LEFT in the same
-     *   row, growing that cell's colspan. Leading `<` (no cell to the left)
-     *   becomes an empty cell rather than being dropped.
-     * - A `^` cell merges into the cell currently "open" in its column above,
-     *   growing that cell's rowspan. A `^` with no cell above (first row, or a
-     *   column with no origin) becomes an empty cell.
-     * - A cell carrying its own attribute block is never a bare marker; its
-     *   `^`/`<` content is literal (the same escape pipe tables use).
+     * - a `^` cell grows the rowspan of the nearest non-skipped cell directly
+     *   above it in the same source column, then is flagged `skip`. The origin is
+     *   tracked per column via `$lastNonSkip`, so an all-`^` column resolves in
+     *   O(1).
+     * - a `<` cell grows the colspan of the nearest non-skipped cell to its LEFT,
+     *   scanning PAST columns already merged by another span, then is flagged
+     *   `skip`. A leading `<` (or one whose leftward scan runs off the table edge)
+     *   finds no source: it stays an unmerged marker and renders as an empty cell.
+     * - a marker that cannot merge (first-row `^`, leading/blocked `<`, or a `^`
+     *   clamped at the header/body boundary) stays non-skipped; its content is
+     *   still suppressed at render time (an empty `<td>`/`<th>`).
+     * - a cell carrying its own attribute block, or one that owns trailing blocks,
+     *   is never a bare marker (its `^`/`<` is literal); see markerOf().
      *
-     * The result is one entry per input row:
-     * `['cells' => array<int, array{cell, rowspan, colspan}>, 'covered' => array<int,bool>, 'width' => int]`
-     * keyed by the starting column of each placed cell. `covered` marks columns
-     * occupied by a rowspan reaching down from a previous row (so the renderer
-     * skips them); `width` is the effective column count of the row.
+     * `headerRows` clamps a rowspan so it never crosses the header/body boundary:
+     * a `^` in a body row whose origin sits in the header rows is NOT merged and
+     * degrades to an empty cell (an HTML cell cannot span row groups reliably).
+     *
+     * Every grid entry is `{cell, marker, rowspan, colspan, skip}`; output columns
+     * are assigned separately by placeColumns().
      *
      * @param array<array<\Carve\Node\Block\ListItem>> $rows
-     * @param int $headerRows Number of leading rows that form the `<thead>`. A
-     *   rowspan is clamped so it never crosses this header/body boundary: a `^`
-     *   in a body row whose origin sits in the header rows finds no valid origin
-     *   and becomes an empty cell (an HTML cell cannot span row groups reliably).
+     * @param int $headerRows Number of leading rows that form the `<thead>`.
      * @param array<int, array<\Carve\Node\Node>> $extras Per-cell trailing blocks
      *   (keyed by cell object id). A cell that owns trailing blocks is multi-block
      *   and is therefore never a bare span marker, even if its first paragraph is
      *   a lone `^`/`<` - the extra block keeps it a real content cell.
      *
-     * @return array<array{cells: array<int, array{cell: \Carve\Node\Block\ListItem, rowspan: int, colspan: int, startCol: int, empty?: bool, dropped?: bool}>, covered: array<int, bool>, width: int}>
+     * @return array<array<int, GridEntry>>
      */
     protected function resolveSpans(array $rows, int $headerRows = 0, array $extras = []): array
     {
-        // Per-column origin: for each column, the {rowIndex, col} of the cell
-        // currently open in it, so a `^` in a later row can locate and extend
-        // that cell in the grid. Populated across a cell's full colspan width.
-        $columnOrigin = [];
-        // Per-column exclusive row index through which an active rowspan still
-        // occupies the column (so later rows skip those columns).
-        $occupiedUntil = [];
-
+        // Build the positional grid: one entry per source cell, in source order.
+        /** @var array<array<int, GridEntry>> $grid */
         $grid = [];
-        $maxOverflow = false;
-        // True once any rowspan has been created. The overlap scans below only
-        // matter when a rowspan can reach down into a row, so a table that is
-        // marker-free or colspan-only never pays for them (keeps the common,
-        // span-free case O(cells) instead of O(rows^2 * cols)).
-        $hasRowspan = false;
-
-        foreach ($rows as $rowIndex => $cells) {
-            // First, collapse colspan: a `<` increments the colspan of the most
-            // recent content cell; a leading `<` becomes its own empty cell.
-            /** @var array<array{cell: \Carve\Node\Block\ListItem, marker: string|null, colspan: int}> $resolvedCells */
-            $resolvedCells = [];
+        foreach ($rows as $cells) {
+            /** @var array<int, GridEntry> $gridRow */
+            $gridRow = [];
             foreach ($cells as $cell) {
-                $marker = $this->markerOf($cell, $extras);
-                // A `<` folds into the entry to its left, growing its colspan -
-                // but only into a CONTENT cell. It must NOT fold into another
-                // span marker: a `<` to its left is itself an empty cell, and a
-                // `^` rowspan marker produces no output cell to widen (a `<`
-                // beside a `^` has no real origin to merge into). In those cases
-                // - and for a LEADING `<` with no entry to its left - the `<`
-                // becomes its own EMPTY cell, occupying its grid position rather
-                // than being dropped or merged (pipe-table / carve-js parity).
-                if ($marker === '<' && $resolvedCells !== []) {
-                    $lastIndex = count($resolvedCells) - 1;
-                    if ($resolvedCells[$lastIndex]['marker'] === null) {
-                        $last = $resolvedCells[$lastIndex];
-                        $last['colspan']++;
-                        $resolvedCells[$lastIndex] = $last;
-
-                        continue;
-                    }
-                }
-
-                $resolvedCells[] = [
+                $gridRow[] = [
                     'cell' => $cell,
-                    'marker' => $marker,
+                    'marker' => $this->markerOf($cell, $extras),
+                    'rowspan' => 1,
                     'colspan' => 1,
+                    'skip' => false,
                 ];
             }
+            $grid[] = $gridRow;
+        }
 
-            // PASS 1: place each cell at a running column position. Every item -
-            // content cell, `<` (already folded into colspan above) or `^` -
-            // advances $col by its OWN colspan; covered columns are NOT skipped.
-            // A `^` extends the cell currently open in its column, looked up via
-            // $columnOrigin which is populated across a cell's FULL width so a
-            // `^` under any column of a wide cell finds it. This mirrors the
-            // parser's per-column origin model.
-            /** @var array<int, array{cell: \Carve\Node\Block\ListItem, rowspan: int, colspan: int, startCol: int, empty?: bool, dropped?: bool}> $placed */
-            $placed = [];
-            $col = 0;
-            // Origins already extended by a `^` in THIS row, so multiple `^`
-            // under one wide cell extend its rowspan only once.
-            $extendedThisRow = [];
-            // Columns consumed by a `^` marker (its own colspan) that emit no
-            // cell of their own; the renderer must skip them, not pad them.
-            $markerConsumed = [];
-            // Columns held by a rowspan from a PREVIOUS row that reaches into
-            // this row. A `^` over such a column is the body of that rowspan, not
-            // a new span - it is consumed silently (pipe-table parity). No
-            // rowspan yet means nothing can be covered - skip the scan.
-            $coveredFromAbove = $hasRowspan
-                ? $this->columnsCoveredByPreviousRows($grid, $rowIndex)
-                : [];
-
-            foreach ($resolvedCells as $resolved) {
-                $colspan = $resolved['colspan'];
-
-                if ($resolved['marker'] === '^') {
-                    // A `^` over a column already covered from above belongs to
-                    // that rowspan; consume it without emitting a cell.
-                    if (isset($coveredFromAbove[$col])) {
-                        for ($c = $col; $c < $col + $colspan; $c++) {
-                            $markerConsumed[$c] = true;
-                        }
-                        $col += $colspan;
-
-                        continue;
-                    }
-
-                    $origin = $columnOrigin[$col] ?? null;
-                    // The origin must still exist: a cell can be dropped in a
-                    // later pass (it overlapped a rowspan from above), leaving a
-                    // stale origin pointer. Then there is nothing to extend. It
-                    // must ALSO be contiguous: a `^` only continues a cell whose
-                    // column was occupied in the IMMEDIATELY preceding row. A
-                    // ragged row that omitted the column breaks the chain (the
-                    // column simply did not exist there), so the `^` starts a
-                    // fresh empty cell instead of jumping the gap to an older
-                    // cell - matching the pipe table, which has no cell there.
-                    $originExists = $origin !== null
-                        && $origin['rowIndex'] < $rowIndex
-                        && isset($grid[$origin['rowIndex']]['cells'][$origin['col']])
-                        && $this->columnOccupiedInRow($grid, $rowIndex - 1, $col)
-                        // Clamp at the header/body boundary: a `^` in a body row
-                        // (rowIndex >= headerRows) must NOT extend a cell that
-                        // originated in the header rows, because the resulting
-                        // <th rowspan> would reach from <thead> into <tbody>,
-                        // which browsers misrender. Treat it as no origin so the
-                        // marker degrades to an empty cell.
-                        && !($origin['rowIndex'] < $headerRows && $rowIndex >= $headerRows);
-                    // A cell kept only for tracking after being dropped must NOT
-                    // gain a rowspan; a `^` over it is consumed silently so it
-                    // does not occupy later columns and skip real cells.
-                    if ($originExists && !empty($grid[$origin['rowIndex']]['cells'][$origin['col']]['dropped'])) {
-                        for ($c = $col; $c < $col + $colspan; $c++) {
-                            $markerConsumed[$c] = true;
-                        }
-                        $col += $colspan;
-
-                        continue;
-                    }
-                    if ($originExists) {
-                        // Extend the open cell above (only once per origin per
-                        // row; a chain of `^` keeps pointing at the same origin).
-                        $originCell = &$grid[$origin['rowIndex']]['cells'][$origin['col']];
-                        if (!isset($extendedThisRow[spl_object_id($originCell['cell'])])) {
-                            $originCell['rowspan']++;
-                            $extendedThisRow[spl_object_id($originCell['cell'])] = true;
-                            $hasRowspan = true;
-                        }
-                        $originCol = $origin['col'];
-                        $originWidth = $originCell['colspan'];
-                        $reachUntil = $origin['rowIndex'] + $originCell['rowspan'];
-                        unset($originCell);
-                        // The whole origin width stays occupied for this and the
-                        // rows the rowspan now reaches.
-                        for ($c = $originCol; $c < $originCol + $originWidth; $c++) {
-                            $occupiedUntil[$c] = max($occupiedUntil[$c] ?? 0, $reachUntil);
-                        }
-                        // Columns this marker consumes beyond the origin width
-                        // (e.g. a `^` widened by a following `<`) emit no cell;
-                        // skip them so the renderer does not pad them.
-                        for ($c = $col; $c < $col + $colspan; $c++) {
-                            $markerConsumed[$c] = true;
-                        }
-                        $col += $colspan;
-
-                        continue;
-                    }
-
-                    // No cell above to extend: the `^` becomes an empty cell so
-                    // content is never silently dropped (pipe-table parity).
-                    $placed[$col] = [
-                        'cell' => $resolved['cell'],
-                        'rowspan' => 1,
-                        'colspan' => $colspan,
-                        'startCol' => $col,
-                        'empty' => true,
-                    ];
-                    for ($c = $col; $c < $col + $colspan; $c++) {
-                        $occupiedUntil[$c] = $rowIndex + 1;
-                        $columnOrigin[$c] = ['rowIndex' => $rowIndex, 'col' => $col];
-                    }
-                    $col += $colspan;
-
+        // Per source column, the last row index (above the current one) whose
+        // cell is not skipped - the nearest source a `^` can extend.
+        $lastNonSkip = [];
+        $rowCount = count($grid);
+        for ($r = 0; $r < $rowCount; $r++) {
+            $colCount = count($grid[$r]);
+            for ($c = 0; $c < $colCount; $c++) {
+                $entry = $grid[$r][$c];
+                if ($entry['skip']) {
                     continue;
                 }
 
-                $placed[$col] = [
-                    'cell' => $resolved['cell'],
-                    'rowspan' => 1,
-                    'colspan' => $colspan,
-                    'startCol' => $col,
-                    // A leftover leading `<` (no cell to its left to merge into)
-                    // is an empty cell, not literal `<` (pipe-table parity).
-                    'empty' => $resolved['marker'] === '<',
-                ];
-                for ($c = $col; $c < $col + $colspan; $c++) {
-                    $occupiedUntil[$c] = $rowIndex + 1;
-                    $columnOrigin[$c] = ['rowIndex' => $rowIndex, 'col' => $col];
-                }
-                $col += $colspan;
-            }
-            $rowWidth = $col;
-
-            // PASS 2: drop placed cells whose start column is covered by a
-            // rowspan reaching into THIS row from a previous one (mirrors the
-            // parser's removeOverlappingCells()). Recompute occupancy now that
-            // pass 1 may have extended a previous row's rowspan into this row.
-            $occupiedByPrevious = $hasRowspan
-                ? $this->columnsCoveredByPreviousRows($grid, $rowIndex)
-                : [];
-            $droppedSpan = [];
-            foreach ($placed as $startCol => $placedCell) {
-                if (isset($occupiedByPrevious[$startCol])) {
-                    // The cell overlaps a rowspan from above. Flag it dropped
-                    // (the renderer emits nothing) but KEEP it in the grid so a
-                    // later `^` in its column can still extend it - mirroring the
-                    // parser, where a removed cell's object stays live for
-                    // rowspan tracking. Cover its full width so it is not padded.
-                    $placed[$startCol]['dropped'] = true;
-                    for ($c = $startCol; $c < $startCol + $placedCell['colspan']; $c++) {
-                        $droppedSpan[$c] = true;
+                if ($entry['marker'] === '^' && $r > 0) {
+                    $up = $lastNonSkip[$c] ?? null;
+                    // Clamp at the header/body boundary: a `^` in a body row must
+                    // not extend a cell that originated in the header rows. Leave
+                    // it unmerged (renders as an empty cell) so no <th rowspan>
+                    // crosses into <tbody>.
+                    $crossesHeader = $up !== null && $up < $headerRows && $r >= $headerRows;
+                    if ($up !== null && isset($grid[$up][$c]) && !$crossesHeader) {
+                        $grid[$up][$c]['rowspan'] = $grid[$up][$c]['rowspan'] + 1;
+                        $grid[$r][$c]['skip'] = true;
+                    }
+                } elseif ($entry['marker'] === '<' && $c > 0) {
+                    $left = $c - 1;
+                    while ($left >= 0 && $grid[$r][$left]['skip']) {
+                        $left--;
+                    }
+                    if ($left >= 0) {
+                        $grid[$r][$left]['colspan'] = $grid[$r][$left]['colspan'] + 1;
+                        $grid[$r][$c]['skip'] = true;
                     }
                 }
-            }
 
-            // Mark every grid column the renderer must skip: the body columns of
-            // a colspan, any column held by a rowspan from a previous row, every
-            // column a dropped overlapping cell occupied, and `^`-consumed ones.
-            $covered = [];
-            foreach ($placed as $startCol => $placedCell) {
-                for ($c = $startCol + 1; $c < $startCol + $placedCell['colspan']; $c++) {
-                    $covered[$c] = true;
+                // A cell that ends up non-skipped becomes the nearest source for
+                // the cells below it in this column.
+                if (!$grid[$r][$c]['skip']) {
+                    $lastNonSkip[$c] = $r;
                 }
             }
-            foreach (array_keys($droppedSpan) as $c) {
-                $covered[$c] = true;
-            }
-            foreach (array_keys($occupiedByPrevious) as $c) {
-                $covered[$c] = true;
-            }
-            foreach (array_keys($markerConsumed) as $c) {
-                $covered[$c] = true;
-            }
-
-            $grid[$rowIndex] = [
-                'cells' => $placed,
-                'covered' => $covered,
-                'width' => $rowWidth,
-            ];
         }
 
-        // Detect overflow: rowspans reaching past the last row would point at a
-        // row that does not exist. Warn rather than silently corrupt.
-        foreach ($occupiedUntil as $end) {
-            if ($end > count($rows)) {
-                $maxOverflow = true;
+        // Warn (rather than silently corrupt) when a rowspan reaches past the
+        // last row - a `^` chain longer than the rows beneath its origin. The
+        // spanning cell is then clamped to the table by the browser, but the
+        // author likely has a typo, so surface it (pipe-table / carve-js parity).
+        // The in-place span mutations above leave PHPStan unable to prove the
+        // entry shape is still sealed, so re-assert it (no key is ever unset).
+        /** @var array<array<int, GridEntry>> $resolved */
+        $resolved = $grid;
+        foreach ($resolved as $rowIndex => $gridRow) {
+            foreach ($gridRow as $entry) {
+                if ($entry['rowspan'] > 1 && $rowIndex + $entry['rowspan'] > $rowCount) {
+                    trigger_error(
+                        'list-table: a rowspan marker extends past the last row; the spanning cell is clamped to the table.',
+                        E_USER_WARNING,
+                    );
 
-                break;
+                    break 2;
+                }
             }
         }
-        if ($maxOverflow) {
-            trigger_error(
-                'list-table: a rowspan marker extends past the last row; the spanning cell is clamped to the table.',
-                E_USER_WARNING,
-            );
-        }
 
-        return $grid;
+        return $resolved;
     }
 
     /**
-     * Columns covered, in the row at `$currentRowIndex`, by a rowspan that
-     * started in an EARLIER row and reaches into it.
+     * Assign each rendered cell an output column by flowing it top-down past any
+     * column a rowspan from an earlier row still holds - the same flow a browser
+     * (and the pipe table) uses. Skip cells (merged markers) take no column.
      *
-     * Mirrors the parser's removeOverlappingCells() occupancy scan: it walks the
-     * already-built rows and, per column, records the exclusive row index through
-     * which an active rowspan occupies it. A column is "covered" for the current
-     * row when that index is greater than the current row index.
+     * @param array<array<int, GridEntry>> $grid
      *
-     * @param array<array{cells: array<int, array{cell: \Carve\Node\Block\ListItem, rowspan: int, colspan: int, startCol: int, empty?: bool, dropped?: bool}>, covered: array<int, bool>, width: int}> $grid
-     * @param int $currentRowIndex
-     *
-     * @return array<int, bool>
+     * @return array{cols: array<array<int, int>>, rowReach: array<int, int>, columnCount: int}
      */
-    protected function columnsCoveredByPreviousRows(array $grid, int $currentRowIndex): array
+    protected function placeColumns(array $grid): array
     {
+        // occupiedUntil[col] = exclusive row index through which a rowspan holds.
         $occupiedUntil = [];
-        foreach ($grid as $rowIndex => $placedRow) {
-            if ($rowIndex >= $currentRowIndex) {
-                break;
-            }
-            foreach ($placedRow['cells'] as $startCol => $placedCell) {
-                $end = $rowIndex + $placedCell['rowspan'];
-                for ($c = $startCol; $c < $startCol + $placedCell['colspan']; $c++) {
-                    $occupiedUntil[$c] = max($occupiedUntil[$c] ?? 0, $end);
+        $cols = [];
+        $rowReach = [];
+        $columnCount = 0;
+
+        $rowCount = count($grid);
+        for ($r = 0; $r < $rowCount; $r++) {
+            $rowCols = [];
+            $col = 0;
+            $reach = 0;
+            // A rowspan descending from above into this row reaches at least its
+            // column, so the row stays as wide as that coverage.
+            foreach ($occupiedUntil as $heldCol => $end) {
+                if ($end > $r) {
+                    $reach = max($reach, $heldCol + 1);
                 }
             }
-        }
 
-        $covered = [];
-        foreach ($occupiedUntil as $col => $end) {
-            if ($end > $currentRowIndex) {
-                $covered[$col] = true;
+            foreach ($grid[$r] as $entry) {
+                if ($entry['skip']) {
+                    $rowCols[] = -1;
+
+                    continue;
+                }
+                // Flow past columns a rowspan from above still holds in this row.
+                while (($occupiedUntil[$col] ?? 0) > $r) {
+                    $col++;
+                }
+                $rowCols[] = $col;
+                if ($entry['rowspan'] > 1) {
+                    for ($c = $col; $c < $col + $entry['colspan']; $c++) {
+                        $occupiedUntil[$c] = max($occupiedUntil[$c] ?? 0, $r + $entry['rowspan']);
+                    }
+                }
+                $col += $entry['colspan'];
+                $reach = max($reach, $col);
             }
+
+            $cols[] = $rowCols;
+            $rowReach[] = $reach;
+            $columnCount = max($columnCount, $reach);
         }
 
-        return $covered;
-    }
-
-    /**
-     * Whether `$col` was occupied in the already-built row at `$rowIndex`.
-     *
-     * A column counts as occupied if that row placed a cell whose colspan covers
-     * it, or it is in that row's `covered` set (a rowspan reaching through, or a
-     * span body). Used to gate `^` continuation: a ragged row that omits a column
-     * breaks the rowspan chain, so a `^` below it starts a fresh empty cell.
-     *
-     * @param array<array{cells: array<int, array{cell: \Carve\Node\Block\ListItem, rowspan: int, colspan: int, startCol: int, empty?: bool, dropped?: bool}>, covered: array<int, bool>, width: int}> $grid
-     * @param int $rowIndex
-     * @param int $col
-     *
-     * @return bool
-     */
-    protected function columnOccupiedInRow(array $grid, int $rowIndex, int $col): bool
-    {
-        if ($rowIndex < 0 || !isset($grid[$rowIndex])) {
-            return false;
-        }
-
-        if (isset($grid[$rowIndex]['covered'][$col])) {
-            return true;
-        }
-
-        foreach ($grid[$rowIndex]['cells'] as $startCol => $placedCell) {
-            if ($col >= $startCol && $col < $startCol + $placedCell['colspan']) {
-                return true;
-            }
-        }
-
-        return false;
+        return ['cols' => $cols, 'rowReach' => $rowReach, 'columnCount' => $columnCount];
     }
 
     /**

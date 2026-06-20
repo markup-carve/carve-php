@@ -3043,7 +3043,6 @@ class BlockParser
         // keyed by column position; propagates to the column's body cells.
         $columnAligns = [];
         $headerFound = false;
-        $hasRowspans = false;
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
@@ -3105,14 +3104,15 @@ class BlockParser
                                     $headerCell->appendChild($child);
                                 }
                                 $headerRow->appendChild($headerCell);
-                                // The promoted header cell replaces the original at
-                                // these column positions; repoint the rowspan origin
-                                // so a `^` in a later row extends the NEW header cell
-                                // (otherwise it extends the detached old cell and the
-                                // header rowspan is lost). Matches carve-js / carve-rs.
-                                for ($c = $colPos; $c < $colPos + $colspan; $c++) {
-                                    $columnOrigin[$c] = $headerCell;
-                                }
+                                // The promoted header cell replaces the original, so
+                                // repoint the rowspan origin to the NEW cell (else a
+                                // later `^` extends the detached old cell and the
+                                // header rowspan is lost). Seed only the cell's START
+                                // column -- a colspan does not claim the columns it
+                                // merely covers, so a `^` under a covered column has
+                                // no origin and degrades to an empty cell (matching
+                                // the body-row grid walk and carve-js / carve-rs).
+                                $columnOrigin[$colPos] = $headerCell;
                                 $colPos += $colspan;
                                 $cellIndex++;
                             }
@@ -3155,52 +3155,11 @@ class BlockParser
                 ];
             }
 
-            // Process colspan markers (<) - must process before creating cells
-            // Cells marked with < are merged into the cell to their left
-            $processedCells = [];
-            $colspanAccumulator = 1;
-
-            for ($cellIdx = count($mergedCellsWithAttrs) - 1; $cellIdx >= 0; $cellIdx--) {
-                $cellData = $mergedCellsWithAttrs[$cellIdx];
-                $isColspanMarker = $cellData['attributes'] === ''
-                    && $this->tableParser->isColspanMarker($cellData['content']);
-                $isRowspanMarker = $cellData['attributes'] === ''
-                    && $this->tableParser->isRowspanMarker($cellData['content']);
-                // A cell carrying attributes is never a bare span marker, so its
-                // `<` content is literal (carve-js / carve-rs parity).
-                if ($isColspanMarker) {
-                    // This cell is a colspan marker, add to accumulator
-                    $colspanAccumulator++;
-                } elseif ($isRowspanMarker) {
-                    // A `^` rowspan marker cannot absorb a pending `<` to its
-                    // right: a `<` only merges into a real content cell, and a
-                    // rowspan marker produces no output cell of its own. The
-                    // pending `<` markers therefore have no valid origin to the
-                    // left, so each becomes an EMPTY cell (occupying its grid
-                    // position, never dropped -- spec "Table span marker in first
-                    // column", carve-js / carve-rs parity). They sit to the right
-                    // of the `^`, so unshift them before the `^`.
-                    while ($colspanAccumulator > 1) {
-                        array_unshift($processedCells, ['content' => '', 'attributes' => '', 'colspan' => 1]);
-                        $colspanAccumulator--;
-                    }
-                    $cellData['colspan'] = 1;
-                    array_unshift($processedCells, $cellData);
-                } else {
-                    // Regular cell, apply accumulated colspan
-                    $cellData['colspan'] = $colspanAccumulator;
-                    array_unshift($processedCells, $cellData);
-                    $colspanAccumulator = 1;
-                }
-            }
-
-            // Leading colspan markers (`<` with no cell to their left) cannot
-            // merge: each becomes an empty cell rather than being dropped
-            // (carve-js / carve-rs parity).
-            while ($colspanAccumulator > 1) {
-                array_unshift($processedCells, ['content' => '', 'attributes' => '', 'colspan' => 1]);
-                $colspanAccumulator--;
-            }
+            // Resolve `<`/`^` span markers into the row's output cells with the
+            // same single grid walk the carve-js renderer uses (see resolveRowSpans).
+            $resolved = $this->resolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
+            $processedCells = $resolved['cells'];
+            $consumedRowspanColumns = $resolved['consumedRowspanColumns'];
 
             // Carve header row: every cell is "=" prefixed (|= Header |).
             // No separator row is used. "==x==" stays a normal cell
@@ -3208,12 +3167,12 @@ class BlockParser
             $isHeaderRow = $processedCells !== [];
             foreach ($processedCells as $cellData) {
                 $content = $cellData['content'];
-                // A cell carrying an attribute block is not a `|=` header cell
-                // (its content is literal, so a leading `=` is text), so it
-                // never makes the row a Carve all-header row -- matching carve-js.
+                // An empty span cell (a `<`/`^` that became its own slot) and a
+                // cell carrying an attribute block are never `|=` header cells, so
+                // they never make the row a Carve all-header row (carve-js parity).
                 if (
-                    $cellData['attributes'] !== ''
-                    || $this->tableParser->isRowspanMarker($content)
+                    $cellData['isEmpty']
+                    || $cellData['attributes'] !== ''
                     || preg_match('/^=([^=]|$)/', $content) !== 1
                 ) {
                     $isHeaderRow = false;
@@ -3228,123 +3187,88 @@ class BlockParser
                 $row->setAttributes($rowAttributes);
             }
 
-            // Store row data for rowspan processing
-            // Track column positions for cells accounting for rowspan markers
+            // Build the row's cells. Spans are already resolved in the grid above,
+            // so every entry in $processedCells emits exactly one cell; its
+            // gridColumn keys per-column alignment, matching the carve-js renderer.
+            /** @var array<array{cell: \Carve\Node\Block\TableCell, colPosition: int}> $rowCellData */
             $rowCellData = [];
-            $colPosition = 0;
-
-            foreach ($processedCells as $index => $cellData) {
+            foreach ($processedCells as $cellData) {
                 $colspan = $cellData['colspan'];
+                $col = $cellData['gridColumn'];
 
-                // Check for rowspan marker (a cell with attributes is never a
-                // bare span marker -- its `^` content is literal).
-                if ($cellData['attributes'] === '' && $this->tableParser->isRowspanMarker($cellData['content'])) {
-                    $origin = $columnOrigin[$colPosition] ?? null;
-                    if (!($origin instanceof TableCell)) {
-                        // No cell above to extend (first row, or a column with
-                        // no origin): the `^` becomes an empty cell instead of
-                        // being dropped (carve-js / carve-rs parity).
-                        $emptyCell = new TableCell($isHeaderRow, TableCell::ALIGN_DEFAULT, 1, $colspan);
-                        $row->appendChild($emptyCell);
-                        $rowCellData[] = [
-                            'type' => 'cell',
-                            'cell' => $emptyCell,
-                            'colPosition' => $colPosition,
-                        ];
-                        $colPosition += $colspan;
-
-                        continue;
-                    }
-                    // Mark this position for rowspan processing
-                    $rowCellData[] = [
-                        'type' => 'rowspan_marker',
-                        'colPosition' => $colPosition,
-                    ];
-                    $colPosition += $colspan;
-                } else {
-                    // Parse the tight alignment/header marker. A header row
-                    // fixes per-column alignment; a cell's own marker overrides
-                    // it; a djot separator row is the final fallback. A cell
-                    // carrying a `{...}` attribute block has no tight marker --
-                    // its content is literal (so `{.x} <` keeps the `<`).
-                    $marker = $cellData['attributes'] !== ''
-                        ? ['align' => null, 'header' => false, 'content' => $cellData['content']]
-                        : $this->parseTableCellMarker($cellData['content']);
-                    if ($isHeaderRow && $marker['align'] !== null) {
-                        $columnAligns[$colPosition] = $marker['align'];
-                    }
-                    $alignment = $marker['align']
-                        ?? $columnAligns[$colPosition]
-                        ?? $alignments[$index]
+                if ($cellData['isEmpty']) {
+                    // A `<`/`^` marker that became an empty cell of its own (left
+                    // edge, or a degenerate `^` with no cell above). It occupies
+                    // its grid position and is never dropped. It still takes the
+                    // column's alignment -- the Carve header marker first, then the
+                    // GFM separator alignment -- so an empty span cell lines up with
+                    // the real cells in its column (carve-js parity).
+                    $alignment = $columnAligns[$col]
+                        ?? $alignments[$col]
                         ?? TableCell::ALIGN_DEFAULT;
-                    // A cell carries its own `=` marker even in a body row, so a
-                    // `|=` cell in a data row becomes a row header (<th> inside
-                    // <tbody>). The row stays a body row; only the cell is a header.
-                    $cell = new TableCell($isHeaderRow || $marker['header'], $alignment, 1, $colspan);
-                    if ($cellData['attributes'] !== '') {
-                        // Apply in source order (matching inline attributes and
-                        // carve-js), not via setAttributes() which reorders.
-                        AttributeParser::applyToNode($cell, $cellData['attributes']);
-                    }
-                    $trimmedContent = trim($marker['content']);
-                    if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
-                        $cell->appendChild(new Text($trimmedContent));
-                    } else {
-                        $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow);
-                    }
+                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
                     $row->appendChild($cell);
-                    $rowCellData[] = [
-                        'type' => 'cell',
-                        'cell' => $cell,
-                        'colPosition' => $colPosition,
-                    ];
-                    $colPosition += $colspan;
+                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+
+                    continue;
                 }
-            }
 
-            // Index where the current row will be added. Read the count without
-            // binding the children array to a variable: a live reference here
-            // would alias $table's internal array, forcing appendChild() below
-            // to copy-on-write the whole array on EVERY row -- turning a plain
-            // table into O(rows^2).
-            $currentRowIndex = count($table->getChildren());
-
-            // Resolve rowspan markers against the per-column origin cells carried
-            // down from previous rows. Each `^` extends the cell currently "open"
-            // in its column, so the whole table stays O(cells); the previous
-            // approach rescanned every prior row per marker (rebuilding a full
-            // occupancy map each time), making an all-`^` table O(rows^3).
-            // Multiple `^` under one colspan extend the origin only once per row.
-            $extendedCells = [];
-            foreach ($rowCellData as $cellInfo) {
-                $col = $cellInfo['colPosition'];
-                if ($cellInfo['type'] === 'rowspan_marker') {
-                    $origin = $columnOrigin[$col] ?? null;
-                    if ($origin instanceof TableCell) {
-                        $originId = spl_object_id($origin);
-                        if (!isset($extendedCells[$originId])) {
-                            $origin->setRowspan($origin->getRowspan() + 1);
-                            $extendedCells[$originId] = true;
-                            $hasRowspans = true;
-                        }
-                    }
+                // Parse the tight alignment/header marker. A header row fixes
+                // per-column alignment; a cell's own marker overrides it; a djot
+                // separator row is the final fallback. A cell carrying a `{...}`
+                // attribute block has no tight marker -- its content is literal
+                // (so `{.x} <` keeps the `<`).
+                $marker = $cellData['attributes'] !== ''
+                    ? ['align' => null, 'header' => false, 'content' => $cellData['content']]
+                    : $this->parseTableCellMarker($cellData['content']);
+                if ($isHeaderRow && $marker['align'] !== null) {
+                    $columnAligns[$col] = $marker['align'];
+                }
+                $alignment = $marker['align']
+                    ?? $columnAligns[$col]
+                    ?? $alignments[$col]
+                    ?? TableCell::ALIGN_DEFAULT;
+                // A cell carries its own `=` marker even in a body row, so a
+                // `|=` cell in a data row becomes a row header (<th> inside
+                // <tbody>). The row stays a body row; only the cell is a header.
+                $cell = new TableCell($isHeaderRow || $marker['header'], $alignment, 1, $colspan);
+                if ($cellData['attributes'] !== '') {
+                    // Apply in source order (matching inline attributes and
+                    // carve-js), not via setAttributes() which reorders.
+                    AttributeParser::applyToNode($cell, $cellData['attributes']);
+                }
+                $trimmedContent = trim($marker['content']);
+                if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
+                    $cell->appendChild(new Text($trimmedContent));
                 } else {
-                    $cell = $cellInfo['cell'] ?? null;
-                    if ($cell instanceof TableCell) {
-                        $colspan = $cell->getColspan();
-                        for ($c = $col; $c < $col + $colspan; $c++) {
-                            $columnOrigin[$c] = $cell;
-                        }
+                    $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow);
+                }
+                $row->appendChild($cell);
+                $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+            }
+
+            // Resolve rowspan markers: each consumed `^` extends the cell open in
+            // its column from a row above. Multiple `^` against one origin extend
+            // it only once per row. The grid pass already flagged which columns
+            // hold a consumed `^` ($consumedRowspanColumns).
+            $extendedCells = [];
+            foreach ($consumedRowspanColumns as $col) {
+                $origin = $columnOrigin[$col] ?? null;
+                if ($origin instanceof TableCell) {
+                    $originId = spl_object_id($origin);
+                    if (!isset($extendedCells[$originId])) {
+                        $origin->setRowspan($origin->getRowspan() + 1);
+                        $extendedCells[$originId] = true;
                     }
                 }
             }
 
-            // Remove cells that overlap with spanning cells from previous rows
-            // This handles the case where a cell has both rowspan and colspan,
-            // and the intersection area contains content that should be dropped
-            // Only needed when rowspans exist (avoids O(n²) scan for simple tables)
-            if ($hasRowspans) {
-                $this->removeOverlappingCells($table, $row, $rowCellData, $currentRowIndex);
+            // Carry each emitted cell down as the open origin for its grid column.
+            // Only the cell's own start column is seeded (matching the carve-js
+            // renderer, where a colspan does not claim the columns it merely
+            // covers); a column consumed by a `^` keeps the origin above it.
+            foreach ($rowCellData as $cellInfo) {
+                $columnOrigin[$cellInfo['colPosition']] = $cellInfo['cell'];
             }
 
             $table->appendChild($row);
@@ -3365,89 +3289,111 @@ class BlockParser
     }
 
     /**
-     * Remove cells from a row that overlap with spanning cells from previous rows.
+     * Resolve a table row's `<`/`^` span markers into output cells using the
+     * same single LEFT-TO-RIGHT grid walk the carve-js renderer uses (carve spec
+     * section 96).
      *
-     * This handles the edge case where a cell has both rowspan and colspan:
-     * when a rowspan marker extends such a cell, cells in the "intersection"
-     * area of the current row must be removed to avoid invalid overlapping HTML.
+     * At this stage no cell has been collapsed yet, so each source cell occupies
+     * exactly one grid column and its index IS its grid column. For each column:
+     *  - a `<` (colspan marker) grows the nearest NON-SKIPPED cell to its left,
+     *    scanning PAST columns already consumed by another span; the `<`'s own
+     *    column is then skipped. At the very left edge (no cell to the left) the
+     *    `<` becomes an empty cell, which a following `<` can in turn grow.
+     *  - a `^` (rowspan marker) whose column has an open origin from a row above
+     *    is consumed: its column is skipped and recorded so the rowspan pass can
+     *    extend that origin. With no cell above it is a degenerate marker and
+     *    becomes an empty cell of its own.
+     *  - any other cell is a normal content cell.
+     * A skipped column emits no cell; its slot is covered by the span that
+     * consumed it. Surviving cells remember their grid column so rowspan origins
+     * and per-column alignment stay keyed by the true column even when a colspan
+     * jumps a consumed `^`.
      *
-     * @param \Carve\Node\Block\Table $table The table being built
-     * @param \Carve\Node\Block\TableRow $row The current row
-     * @param array<array{type: string, colPosition: int, cell?: \Carve\Node\Block\TableCell}> $rowCellData Cell data with positions
-     * @param int $currentRowIndex The index where this row will be added
+     * @param array<int, array{content: string, attributes: string}> $mergedCellsWithAttrs
+     * @param array<int, \Carve\Node\Block\TableCell> $columnOrigin Per-column open
+     *   origin cell carried down from earlier rows.
+     *
+     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool}>, consumedRowspanColumns: array<int>}
      */
-    protected function removeOverlappingCells(
-        Table $table,
-        TableRow $row,
-        array $rowCellData,
-        int $currentRowIndex,
-    ): void {
-        $tableChildren = $table->getChildren();
-        if ($tableChildren === []) {
-            return;
-        }
+    protected function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
+    {
+        // Parallel per-column state (keyed by grid column = source index). Plain
+        // scalar maps so the colspan++ / skip mutations stay simple for the
+        // static analyzer.
+        $count = count($mergedCellsWithAttrs);
+        /** @var array<int, bool> $skip */
+        $skip = array_fill(0, $count, false);
+        /** @var array<int, bool> $empty */
+        $empty = array_fill(0, $count, false);
+        /** @var array<int, int> $colspan */
+        $colspan = array_fill(0, $count, 1);
+        $consumedRowspanColumns = [];
 
-        // Column-occupancy map across all previous rows: per column, the
-        // EXCLUSIVE row index through which an active rowspan occupies it. Each
-        // cell is placed at the first column not already covered by a rowspan
-        // reaching its OWN row, so a column consumed by a rowspan from above
-        // shifts later cells right -- exactly as the grid renderer sees them.
-        // (The old code recomputed each row's columns from 0 ignoring within-row
-        // rowspan occupancy, mis-placing a cell whose left neighbour was covered
-        // by a header/body rowspan and then wrongly dropping a current-row cell.)
-        $occupiedUntil = [];
-        foreach ($tableChildren as $rowIdx => $prevRow) {
-            if (!($prevRow instanceof TableRow)) {
+        foreach ($mergedCellsWithAttrs as $col => $cellData) {
+            $isColspanMarker = $cellData['attributes'] === ''
+                && $this->tableParser->isColspanMarker($cellData['content']);
+            $isRowspanMarker = $cellData['attributes'] === ''
+                && $this->tableParser->isRowspanMarker($cellData['content']);
+
+            // A cell carrying attributes is never a bare span marker, so its
+            // `<`/`^` content is literal (carve-js / carve-rs parity).
+            if ($isColspanMarker && $col > 0) {
+                // Scan left, skipping columns already consumed by a span.
+                $left = $col - 1;
+                while ($left >= 0 && ($skip[$left] ?? false)) {
+                    $left--;
+                }
+                if ($left >= 0) {
+                    // Merge into the available cell to the left. Its content (or
+                    // empty-cell slot) grows by one column; this column is covered,
+                    // so it emits nothing.
+                    $colspan[$left] = ($colspan[$left] ?? 1) + 1;
+                    $skip[$col] = true;
+
+                    continue;
+                }
+                // Ran off the left edge: the `<` becomes an empty cell of its own
+                // (a later `<` can still grow it).
+                $empty[$col] = true;
+
                 continue;
             }
 
-            $colPos = 0;
-            foreach ($prevRow->getChildren() as $cell) {
-                if (!($cell instanceof TableCell)) {
-                    continue;
-                }
+            if ($isRowspanMarker && isset($columnOrigin[$col])) {
+                // Consumed `^`: it extends the cell open above (resolved in the
+                // rowspan pass) and its column is covered.
+                $skip[$col] = true;
+                $consumedRowspanColumns[] = $col;
 
-                while (isset($occupiedUntil[$colPos]) && $occupiedUntil[$colPos] > $rowIdx) {
-                    $colPos++;
-                }
+                continue;
+            }
 
-                $colspan = $cell->getColspan();
-                $rowspan = $cell->getRowspan();
-                for ($c = $colPos; $c < $colPos + $colspan; $c++) {
-                    $occupiedUntil[$c] = $rowIdx + $rowspan;
-                }
-
-                $colPos += $colspan;
+            if ($isColspanMarker || $isRowspanMarker) {
+                // A leading `<` (col 0), or a degenerate `^` with no cell above,
+                // becomes an empty cell occupying its own grid position (never
+                // dropped -- spec "Table span marker in first column").
+                $empty[$col] = true;
             }
         }
 
-        // Columns whose rowspan reaches into the current row.
-        $occupiedColumns = [];
-        foreach ($occupiedUntil as $c => $end) {
-            if ($end > $currentRowIndex) {
-                $occupiedColumns[$c] = true;
+        // Flatten: skipped columns produce no cell.
+        $cells = [];
+        foreach ($mergedCellsWithAttrs as $col => $cellData) {
+            if ($skip[$col] ?? false) {
+                continue;
             }
+            $isEmpty = $empty[$col] ?? false;
+            $width = $colspan[$col] ?? 1;
+            $cells[] = [
+                'content' => $isEmpty ? '' : $cellData['content'],
+                'attributes' => $isEmpty ? '' : $cellData['attributes'],
+                'colspan' => max(1, $width),
+                'gridColumn' => $col,
+                'isEmpty' => $isEmpty,
+            ];
         }
 
-        if ($occupiedColumns === []) {
-            return;
-        }
-
-        // Find cells in the current row that are in occupied positions and remove them
-        $cellsToRemove = [];
-        foreach ($rowCellData as $cellInfo) {
-            if ($cellInfo['type'] === 'cell' && isset($cellInfo['cell'])) {
-                $cellColPos = $cellInfo['colPosition'];
-                if (isset($occupiedColumns[$cellColPos])) {
-                    $cellsToRemove[] = $cellInfo['cell'];
-                }
-            }
-        }
-
-        // Remove the overlapping cells from the row
-        foreach ($cellsToRemove as $cellToRemove) {
-            $row->removeChild($cellToRemove);
-        }
+        return ['cells' => $cells, 'consumedRowspanColumns' => $consumedRowspanColumns];
     }
 
     /**

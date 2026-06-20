@@ -582,39 +582,49 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringEndsWith('</table>', $html);
     }
 
-    public function testDroppedOverlapCellDoesNotGainRowspan(): void
+    public function testOverlappingSpanCellsAreKeptNotDropped(): void
     {
-        // A cell dropped for overlapping a rowspan is kept only for tracking and
-        // must not itself gain a rowspan from a later `^`, which would wrongly
-        // skip real cells in following rows. Output must match the pipe table.
-        $rows = [['A', '<', '<'], ['A', '<', '^'], ['^', 'A', 'A']];
+        // Span markers only ever grow an existing cell or, when blocked, become
+        // an empty cell; a cell whose grid position falls under another cell's
+        // span is KEPT, never dropped (carve-js parity). A list-table also pads
+        // each row to the table's full column count, so the resolved grid is
+        // rectangular even when spans shorten a row - this is the one place a
+        // list-table legitimately differs from the equivalent pipe table, which
+        // does not pad. Output is byte-identical to carve-js's list-table.
+        $djot = implode("\n", [
+            '::: list-table',
+            '- - A',
+            '  - <',
+            '  - <',
+            '- - A',
+            '  - <',
+            '  - ^',
+            '- - ^',
+            '  - A',
+            '  - A',
+            ':::',
+        ]);
 
-        $listLines = ['::: list-table'];
-        foreach ($rows as $row) {
-            $first = true;
-            foreach ($row as $cell) {
-                $listLines[] = ($first ? '- - ' : '  - ') . $cell;
-                $first = false;
-            }
-        }
-        $listLines[] = ':::';
-
-        $pipeLines = [];
-        foreach ($rows as $row) {
-            $pipeLines[] = '| ' . implode(' | ', $row) . ' |';
-        }
-
-        $pipeHtml = trim((new CarveConverter())->convert(implode("\n", $pipeLines)));
-
-        $this->assertSame($pipeHtml, $this->render(implode("\n", $listLines)));
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td colspan="3">A</td><td></td></tr>',
+            '    <tr><td rowspan="2" colspan="2">A</td><td></td><td></td></tr>',
+            '    <tr><td>A</td><td>A</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
     }
 
-    public function testRaggedRowBelowRowspanProducesValidGrid(): void
+    public function testCaretBelowRaggedGapExtendsNearestCellAbove(): void
     {
-        // A `^` whose column was omitted by the immediately preceding (ragged)
-        // row does NOT jump the gap to extend an older cell; it becomes a plain
-        // empty cell. The result is a valid, non-overlapping grid - no column
-        // appears twice in a row and no synthetic rowspan is invented.
+        // A `^` extends the nearest non-skipped cell in its column from any row
+        // above, even when the immediately preceding row was ragged and omitted
+        // that column: the grid pads short rows, so the column still has an open
+        // origin to continue (carve-js parity via the per-column lastNonSkip
+        // walk). Here B (row 0, column 1) gains rowspan="2" from the `^` two rows
+        // below it.
         $djot = implode("\n", [
             '::: list-table',
             '- - A',
@@ -628,8 +638,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><td>A</td><td>B</td></tr>',
-            '    <tr><td>C</td><td></td></tr>',
+            '    <tr><td>A</td><td rowspan="2">B</td></tr>',
+            '    <tr><td>C</td></tr>',
             '    <tr><td>X</td><td></td></tr>',
             '  </tbody>',
             '</table>',
