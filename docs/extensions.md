@@ -399,6 +399,75 @@ filtering still applies); the structural `title`, `header-rows`, `header-cols`,
 and the auto `list-table` class are consumed by the extension and not emitted.
 HTML output only.
 
+#### Spanning cells (`^` rowspan, `<` colspan)
+
+Cells can span rows and columns using the **same continuation markers** Carve's
+native pipe tables use, so the output `<table>` matches what an equivalent pipe
+table produces:
+
+- A cell whose sole content is a lone `^` merges with the cell **above**
+  (rowspan). A rowspan of `N` is the cell plus `N - 1` `^` cells in the
+  following rows.
+- A cell whose sole content is a lone `<` merges with the cell to the **left**
+  (colspan). A colspan of `K` is the cell plus `K - 1` `<` cells (so `colspan=3`
+  is `Total`, `<`, `<`).
+
+A cell carrying its **own** attribute block (for example `-{.x} ^`) is never a
+span marker - its `^`/`<` content stays literal. This is the same escape pipe
+tables use.
+
+Input:
+
+~~~
+{header-rows=1}
+::: list-table "Sales"
+- - Region
+  - Q1
+  - Q2
+- - EMEA
+  - 10
+  - 12
+- - ^
+  - 14
+  - 16
+- - Total
+  - <
+  - <
+:::
+~~~
+
+Output:
+
+~~~ html
+<table>
+  <caption>Sales</caption>
+  <thead><tr><th>Region</th><th>Q1</th><th>Q2</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2">EMEA</td><td>10</td><td>12</td></tr>
+    <tr><td>14</td><td>16</td></tr>
+    <tr><td colspan="3">Total</td></tr>
+  </tbody>
+</table>
+~~~
+
+`EMEA`'s cell gets `rowspan="2"` (it plus the `^` below it); `Total` gets
+`colspan="3"` (it plus the two `<`). The column count accounts for spans, so a
+`colspan=K` cell fills `K` columns and a `rowspan=K` cell reserves its column in
+the next `K - 1` rows; a span that overflows the grid is clamped (and a warning
+is emitted) rather than corrupting the table. A `^` only continues a cell whose
+column also existed in the immediately preceding row - below a ragged row that
+omitted that column it renders as a plain empty cell, never a span across the
+gap.
+
+> [!NOTE]
+> Span resolution matches the pipe table for all well-formed inputs. Heavily
+> overlapping markers (for example a `^` placed inside the interior of an
+> existing rowspan-and-colspan cell) are degenerate and may differ slightly from
+> the equivalent pipe table - the same kind of input the native pipe table
+> itself resolves ambiguously. Ragged rows are padded with empty `<td>` so the
+> grid stays rectangular (this is the existing list-table behavior, unchanged by
+> spans).
+
 Without the extension the same block degrades gracefully to the default
 `<div class="list-table">` holding the literal nested list, so source is never
 lost.
