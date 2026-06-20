@@ -86,13 +86,13 @@ DJOT;
         $this->assertStringNotContainsString('math display', $html);
     }
 
-    public function testPreservesAttributesAndAuthorClasses(): void
+    public function testDoesNotCopyFenceAttributesOntoDiv(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new MathBlockExtension());
 
         $djot = <<<'DJOT'
-{#eq1 .numbered data-label="E=mc^2"}
+{#eq1 .numbered onclick="alert(1)"}
 ``` math
 E = mc^2
 ```
@@ -100,10 +100,11 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        // Base classes lead, author class follows; id and key=value preserved.
-        $this->assertStringContainsString('class="math display numbered"', $html);
-        $this->assertStringContainsString('id="eq1"', $html);
-        $this->assertStringContainsString('data-label="E=mc^2"', $html);
+        // Only the fixed `math display` class is emitted; author attributes are
+        // dropped so they cannot bypass safe-mode attribute filtering.
+        $this->assertStringContainsString('<div class="math display">\[E = mc^2\]</div>', $html);
+        $this->assertStringNotContainsString('onclick', $html);
+        $this->assertStringNotContainsString('id="eq1"', $html);
     }
 
     public function testCustomLanguageTag(): void

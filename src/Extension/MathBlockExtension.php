@@ -7,7 +7,6 @@ namespace Carve\Extension;
 use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\CodeBlock;
-use Carve\Util\StringUtil;
 
 /**
  * Renders a fenced code block tagged `math` as block-level display math.
@@ -76,30 +75,11 @@ class MathBlockExtension implements ExtensionInterface
      */
     protected function renderMath(CodeBlock $node): string
     {
-        // Mandatory base classes first, then any author classes from the
-        // block's own `{#id .class}` attribute group (matching inline math).
-        $classes = ['math', 'display'];
-        foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = ' class="' . StringUtil::escapeHtml(implode(' ', $classes)) . '"';
-
-        $id = $node->getAttribute('id');
-        if ($id !== null && $id !== '') {
-            $attrs .= ' id="' . StringUtil::escapeHtml($id) . '"';
-        }
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if ($name === 'id' || $name === 'class') {
-                continue;
-            }
-            $attrs .= ' ' . StringUtil::escapeHtml($name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
-        }
-
-        return '<div' . $attrs . '>\\[' . $this->escapeMath($node->getContent()) . '\\]</div>';
+        // Emit only the fixed `math display` class. Author attributes from the
+        // fence are intentionally NOT copied: rendering them here would bypass
+        // safe-mode attribute filtering (an `{onclick=...}` on a ```math fence
+        // would become an executable handler on the <div>).
+        return '<div class="math display">\\[' . $this->escapeMath($node->getContent()) . '\\]</div>';
     }
 
     /**
