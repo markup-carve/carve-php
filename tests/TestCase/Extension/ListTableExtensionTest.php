@@ -849,4 +849,14 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringContainsString('<li>B</li>', $html);
         $this->assertStringNotContainsString('<table', $html);
     }
+
+    public function testDefersOverLargeTableToPlainDiv(): void
+    {
+        // Beyond MAX_ROWS the span resolver would go quadratic; the block must
+        // defer to the plain nested-list div (content preserved, no blow-up).
+        $rows = str_repeat("- - a\n  - b\n", 10001);
+        $out = $this->render("::: list-table\n{$rows}:::");
+        $this->assertStringStartsWith('<div class="list-table">', $out);
+        $this->assertStringNotContainsString('<table>', $out);
+    }
 }

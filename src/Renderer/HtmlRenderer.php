@@ -1356,12 +1356,71 @@ class HtmlRenderer implements RendererInterface
             $attrs = array_diff_key($attrs, array_flip($exclude));
         }
 
-        // Filter dangerous attributes in safe mode
+        // Always-on attribute hardening (independent of safe mode): strip
+        // event-handler / injection-sink names and neutralize dangerous values.
+        // There is no legitimate use of these in a content-markup document.
+        $attrs = $this->sanitizeAttributes($attrs);
+
+        // Safe mode may strip ADDITIONAL attribute names (e.g. `style` in strict).
         if ($this->safeMode !== null) {
             $attrs = $this->safeMode->filterAttributes($attrs);
         }
 
         return $attrs;
+    }
+
+    /**
+     * URL schemes that must never appear in an attribute value.
+     *
+     * @var array<string>
+     */
+    private const DANGEROUS_VALUE_SCHEMES = ['javascript', 'vbscript', 'data', 'file'];
+
+    /**
+     * Always-on attribute hardening, applied regardless of safe mode.
+     *
+     * Drops event-handler names (`on*`) and the injection sinks `srcdoc` /
+     * `formaction`, and blanks a value carrying a dangerous URL scheme or a CSS
+     * `expression(...)`. Public so extensions that build their own element tags
+     * (e.g. the list-table extension) can apply the same baseline.
+     *
+     * @param array<string, string> $attrs
+     *
+     * @return array<string, string>
+     */
+    public function sanitizeAttributes(array $attrs): array
+    {
+        $out = [];
+        foreach ($attrs as $key => $value) {
+            $name = strtolower((string)$key);
+            if (str_starts_with($name, 'on') || $name === 'srcdoc' || $name === 'formaction') {
+                continue;
+            }
+            $out[$key] = $this->sanitizeAttributeValue($name, (string)$value);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Blank an attribute value that carries a dangerous URL scheme or a CSS
+     * `expression(...)`. The scheme is normalized (C0 controls + spaces removed)
+     * before comparison to defeat `java\tscript:` style evasion.
+     */
+    private function sanitizeAttributeValue(string $name, string $value): string
+    {
+        $colon = strpos($value, ':');
+        if ($colon !== false) {
+            $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
+            if (in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true)) {
+                return '';
+            }
+        }
+        if ($name === 'style' && preg_match('/expression\s*\(/i', $value) === 1) {
+            return '';
+        }
+
+        return $value;
     }
 
     /**
