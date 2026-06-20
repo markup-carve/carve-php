@@ -436,6 +436,44 @@ graph TD;
 ```
 ~~~
 
+### MathBlockExtension
+
+Renders a fenced code block tagged `math` (a ` ``` math ` fence) as
+`<div class="math display">\[ … \]</div>`, the GFM-style block form of Carve's
+core `$$` display math. The body is HTML-escaped (`&`, `<`, `>`) and wrapped in
+`\[ … \]` for a client-side math engine (KaTeX/MathJax). Non-`math` code blocks
+defer to the core renderer. HTML output only.
+
+Constructor options:
+
+- `language` (`string`, default `'math'`) - language tag that marks a block.
+
+~~~ php
+$converter->addExtension(new MathBlockExtension());
+$converter->addExtension(new MathBlockExtension(language: 'latex'));
+~~~
+
+Input / output:
+
+~~~
+``` math
+x^2
+```
+~~~
+
+renders as `<div class="math display">\[x^2\]</div>`.
+
+> [!IMPORTANT]
+> Unlike `MermaidExtension`, this extension does **not** copy any author
+> attributes onto the output `<div>` - neither a fence info-string nor a
+> preceding `{#id .class}` block-attribute line. The extension emits raw HTML
+> directly, bypassing the core safe-mode attribute sanitizer, so copying
+> attributes would let `{onclick="…"}` through unfiltered on untrusted
+> documents. The class is always the fixed `math display`. For
+> styleable/targetable math, use the **core** inline `` $`…` `` / display
+> `` $$`…` `` forms instead: they carry `{...}` attributes through the core
+> renderer, where safe mode strips dangerous handlers but keeps classes and id.
+
 ### FrontmatterExtension (default)
 
 Parses a leading frontmatter block. Active by default. The block opens with
