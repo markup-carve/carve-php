@@ -374,13 +374,16 @@ class ListTableExtension implements ExtensionInterface
             foreach ($cells as $cell) {
                 $marker = $this->markerOf($cell, $extras);
                 // A `<` folds into the entry to its left, growing its colspan -
-                // but only into a content cell or a `^` marker (which can itself
-                // widen). A LEADING `<` (no foldable entry to the left) becomes
-                // its own empty cell, so a run of leading `<` stays separate
-                // empty cells rather than merging (pipe-table parity).
+                // but only into a CONTENT cell. It must NOT fold into another
+                // span marker: a `<` to its left is itself an empty cell, and a
+                // `^` rowspan marker produces no output cell to widen (a `<`
+                // beside a `^` has no real origin to merge into). In those cases
+                // - and for a LEADING `<` with no entry to its left - the `<`
+                // becomes its own EMPTY cell, occupying its grid position rather
+                // than being dropped or merged (pipe-table / carve-js parity).
                 if ($marker === '<' && $resolvedCells !== []) {
                     $lastIndex = count($resolvedCells) - 1;
-                    if ($resolvedCells[$lastIndex]['marker'] !== '<') {
+                    if ($resolvedCells[$lastIndex]['marker'] === null) {
                         $last = $resolvedCells[$lastIndex];
                         $last['colspan']++;
                         $resolvedCells[$lastIndex] = $last;
