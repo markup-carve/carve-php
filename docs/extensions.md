@@ -385,6 +385,10 @@ control header promotion (both default `0`):
 - `header-rows=N` promotes the first `N` rows to `<thead>` with `<th>` cells.
 - `header-cols=N` promotes the first `N` cells of **every** row to row-header
   `<th>`.
+- The **boolean form** `{header-rows}` (no value) means the first row, the
+  common "this table has a header row" case, so you rarely need `=1`. Likewise
+  `{header-cols}` promotes the first column. An explicit `=N` still wins, and an
+  absent attribute means no header.
 
 A cell whose only content is a single plain paragraph collapses to inline
 content (`<td>text</td>`), exactly like a tight list item; a cell with multiple

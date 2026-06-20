@@ -173,8 +173,8 @@ class ListTableExtension implements ExtensionInterface
             }
         }
 
-        $headerRows = max(0, (int)($node->getAttribute('header-rows') ?? '0'));
-        $headerCols = max(0, (int)($node->getAttribute('header-cols') ?? '0'));
+        $headerRows = $this->headerCount($node->getAttribute('header-rows'));
+        $headerCols = $this->headerCount($node->getAttribute('header-cols'));
 
         // Resolve `^`/`<` span markers into a grid of placed cells, reusing the
         // SAME continuation model the pipe-table parser uses (see resolveSpans()).
@@ -842,6 +842,27 @@ class ListTableExtension implements ExtensionInterface
         }
 
         return $html;
+    }
+
+    /**
+     * Resolve a `header-rows` / `header-cols` attribute to a count.
+     *
+     * - absent (`null`) -> 0 (no header rows/cols)
+     * - present but empty (the boolean form `{header-rows}`, which Carve stores
+     *   as `header-rows=""`) -> 1, i.e. the first row/column is the header - the
+     *   default behavior most tables want, so `{header-rows}` alone suffices
+     * - an explicit number (`{header-rows=2}`) -> that count (clamped at 0)
+     */
+    protected function headerCount(?string $value): int
+    {
+        if ($value === null) {
+            return 0;
+        }
+        if (trim($value) === '') {
+            return 1;
+        }
+
+        return max(0, (int)$value);
     }
 
     /**
