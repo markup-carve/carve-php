@@ -3162,11 +3162,30 @@ class BlockParser
 
             for ($cellIdx = count($mergedCellsWithAttrs) - 1; $cellIdx >= 0; $cellIdx--) {
                 $cellData = $mergedCellsWithAttrs[$cellIdx];
+                $isColspanMarker = $cellData['attributes'] === ''
+                    && $this->tableParser->isColspanMarker($cellData['content']);
+                $isRowspanMarker = $cellData['attributes'] === ''
+                    && $this->tableParser->isRowspanMarker($cellData['content']);
                 // A cell carrying attributes is never a bare span marker, so its
                 // `<` content is literal (carve-js / carve-rs parity).
-                if ($cellData['attributes'] === '' && $this->tableParser->isColspanMarker($cellData['content'])) {
+                if ($isColspanMarker) {
                     // This cell is a colspan marker, add to accumulator
                     $colspanAccumulator++;
+                } elseif ($isRowspanMarker) {
+                    // A `^` rowspan marker cannot absorb a pending `<` to its
+                    // right: a `<` only merges into a real content cell, and a
+                    // rowspan marker produces no output cell of its own. The
+                    // pending `<` markers therefore have no valid origin to the
+                    // left, so each becomes an EMPTY cell (occupying its grid
+                    // position, never dropped -- spec "Table span marker in first
+                    // column", carve-js / carve-rs parity). They sit to the right
+                    // of the `^`, so unshift them before the `^`.
+                    while ($colspanAccumulator > 1) {
+                        array_unshift($processedCells, ['content' => '', 'attributes' => '', 'colspan' => 1]);
+                        $colspanAccumulator--;
+                    }
+                    $cellData['colspan'] = 1;
+                    array_unshift($processedCells, $cellData);
                 } else {
                     // Regular cell, apply accumulated colspan
                     $cellData['colspan'] = $colspanAccumulator;

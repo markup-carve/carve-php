@@ -362,6 +362,37 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($expected, $this->render($djot));
     }
 
+    /**
+     * A `<` whose left neighbour is a `^` rowspan marker has no real cell to
+     * merge into, so it renders as an EMPTY cell occupying its grid position
+     * rather than being dropped or folded into the marker. Mirrors the pipe
+     * table's blocked-`<` case (carve-js / carve-rs parity). Regression guard:
+     * the `<` used to widen the `^` colspan and disappear, shifting later cells.
+     */
+    public function testBlockedColspanMarkerRendersAsEmptyCell(): void
+    {
+        $djot = implode("\n", [
+            '::: list-table',
+            '- - A',
+            '  - B',
+            '  - C',
+            '- - ^',
+            '  - <',
+            '  - D',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td rowspan="2">A</td><td>B</td><td>C</td></tr>',
+            '    <tr><td></td><td>D</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
+    }
+
     public function testRowspanAndColspanCombinedMatchesPipeTable(): void
     {
         $djot = implode("\n", [
@@ -817,5 +848,15 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringContainsString('<li>A</li>', $html);
         $this->assertStringContainsString('<li>B</li>', $html);
         $this->assertStringNotContainsString('<table', $html);
+    }
+
+    public function testDefersOverLargeTableToPlainDiv(): void
+    {
+        // Beyond MAX_ROWS the span resolver would go quadratic; the block must
+        // defer to the plain nested-list div (content preserved, no blow-up).
+        $rows = str_repeat("- - a\n  - b\n", 10001);
+        $out = $this->render("::: list-table\n{$rows}:::");
+        $this->assertStringStartsWith('<div class="list-table">', $out);
+        $this->assertStringNotContainsString('<table>', $out);
     }
 }

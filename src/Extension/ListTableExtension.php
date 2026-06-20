@@ -94,6 +94,20 @@ class ListTableExtension implements ExtensionInterface
      */
     public const KIND = 'list-table';
 
+    /**
+     * DoS guards: span resolution is ~O(rows^2), so cap the dimensions and defer
+     * anything larger to the plain nested-list div. Far beyond any legitimate
+     * hand-authored table; kept identical across carve-php / carve-js / carve-rs.
+     *
+     * @var int
+     */
+    public const MAX_ROWS = 10000;
+
+    /**
+     * @var int
+     */
+    public const MAX_CELLS = 100000;
+
     public function register(CarveConverter $converter): void
     {
         $renderer = $converter->getRenderer();
@@ -167,10 +181,19 @@ class ListTableExtension implements ExtensionInterface
         // rendered as table cells without dropping its content. Defer the whole
         // div to the default renderer so the literal nested list is emitted and
         // nothing is lost. This mirrors the sibling djot-php extension's guard.
+        $totalCells = 0;
         foreach ($rows as $cells) {
             if ($cells === []) {
                 return null;
             }
+            $totalCells += count($cells);
+        }
+
+        // DoS guard: span resolution rescans prior rows (~O(rows^2)). Cap the
+        // dimensions and defer an over-large table to the plain div (content
+        // preserved, no quadratic blow-up). Limits match carve-js / carve-rs.
+        if (count($rows) > self::MAX_ROWS || $totalCells > self::MAX_CELLS) {
+            return null;
         }
 
         $headerRows = $this->headerCount($node->getAttribute('header-rows'));
@@ -374,13 +397,16 @@ class ListTableExtension implements ExtensionInterface
             foreach ($cells as $cell) {
                 $marker = $this->markerOf($cell, $extras);
                 // A `<` folds into the entry to its left, growing its colspan -
-                // but only into a content cell or a `^` marker (which can itself
-                // widen). A LEADING `<` (no foldable entry to the left) becomes
-                // its own empty cell, so a run of leading `<` stays separate
-                // empty cells rather than merging (pipe-table parity).
+                // but only into a CONTENT cell. It must NOT fold into another
+                // span marker: a `<` to its left is itself an empty cell, and a
+                // `^` rowspan marker produces no output cell to widen (a `<`
+                // beside a `^` has no real origin to merge into). In those cases
+                // - and for a LEADING `<` with no entry to its left - the `<`
+                // becomes its own EMPTY cell, occupying its grid position rather
+                // than being dropped or merged (pipe-table / carve-js parity).
                 if ($marker === '<' && $resolvedCells !== []) {
                     $lastIndex = count($resolvedCells) - 1;
-                    if ($resolvedCells[$lastIndex]['marker'] !== '<') {
+                    if ($resolvedCells[$lastIndex]['marker'] === null) {
                         $last = $resolvedCells[$lastIndex];
                         $last['colspan']++;
                         $resolvedCells[$lastIndex] = $last;
@@ -791,6 +817,9 @@ class ListTableExtension implements ExtensionInterface
             }
         }
 
+        // Always-on attribute hardening (matches the core renderer), plus any
+        // additional safe-mode name filtering.
+        $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $attrs = $safeMode->filterAttributes($attrs);

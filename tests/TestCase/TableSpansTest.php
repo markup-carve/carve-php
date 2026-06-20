@@ -454,6 +454,67 @@ HTML;
         $this->assertSame($expected, trim($html));
     }
 
+    /**
+     * A `<` whose only neighbour to its left is a `^` rowspan marker has no real
+     * cell to merge into (the `^` produces no output cell of its own and its
+     * column is taken by the rowspan from above). The blocked `<` must render as
+     * an EMPTY cell that occupies its grid position - never dropped, never
+     * merged into the marker (carve spec "Table span marker in first column",
+     * carve-js / carve-rs parity). Regression guard: the `<` used to be folded
+     * into the `^` colspan and silently dropped, shifting later cells left.
+     */
+    public function testBlockedColspanMarkerRendersAsEmptyCell(): void
+    {
+        $djot = <<<'DJOT'
+| A | B | C |
+|---|---|---|
+| x | y | z |
+| ^ | < | d |
+DJOT;
+
+        $html = $this->converter->convert($djot);
+
+        $expected = <<<'HTML'
+<table>
+  <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2">x</td><td>y</td><td>z</td></tr>
+    <tr><td></td><td>d</td></tr>
+  </tbody>
+</table>
+HTML;
+
+        $this->assertSame($expected, trim($html));
+    }
+
+    /**
+     * Mirror of the blocked-`<` case where the row ends right after the marker:
+     * the `<` next to a `^` still becomes an empty cell, not a dropped one.
+     */
+    public function testBlockedTrailingColspanMarkerRendersAsEmptyCell(): void
+    {
+        $djot = <<<'DJOT'
+| A | B |
+|---|---|
+| x | y |
+| ^ | < |
+DJOT;
+
+        $html = $this->converter->convert($djot);
+
+        $expected = <<<'HTML'
+<table>
+  <thead><tr><th>A</th><th>B</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2">x</td><td>y</td></tr>
+    <tr><td></td></tr>
+  </tbody>
+</table>
+HTML;
+
+        $this->assertSame($expected, trim($html));
+    }
+
     public function testColspanAndRowspanSameCell(): void
     {
         // A cell can have both colspan and rowspan
