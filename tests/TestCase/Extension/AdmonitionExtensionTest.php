@@ -68,40 +68,31 @@ class AdmonitionExtensionTest extends TestCase
         $this->assertStringNotContainsString('>Warning<', $html);
     }
 
-    public function testCollapsible(): void
+    public function testCollapsibleIsPassThroughAttribute(): void
     {
+        // Disclosure widgets are provided by DetailsExtension, not here. A
+        // {collapsible} attribute on an admonition is rendered as an ordinary
+        // pass-through HTML attribute on the static <div> (no <details>).
         $converter = new CarveConverter();
         $converter->addExtension(new AdmonitionExtension());
 
         $html = $converter->convert("{collapsible}\n::: tip\nHidden content.\n:::");
 
-        $this->assertStringContainsString('<details class="admonition tip">', $html);
-        $this->assertStringContainsString('<summary>Tip</summary>', $html);
-        $this->assertStringContainsString('</details>', $html);
-        $this->assertStringNotContainsString('role=', $html);
-        $this->assertStringNotContainsString(' open', $html);
+        $this->assertStringContainsString('<div class="admonition tip" role="note" collapsible="">', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Tip</p>', $html);
+        $this->assertStringNotContainsString('<details', $html);
+        $this->assertStringNotContainsString('<summary', $html);
     }
 
-    public function testCollapsibleOpen(): void
+    public function testCollapsibleOpenIsPassThroughAttribute(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new AdmonitionExtension());
 
         $html = $converter->convert("{collapsible=open}\n::: danger\nExpanded by default.\n:::");
 
-        $this->assertStringContainsString('<details class="admonition danger" open>', $html);
-        $this->assertStringContainsString('<summary>Danger</summary>', $html);
-    }
-
-    public function testCollapsibleWithCustomTitle(): void
-    {
-        $converter = new CarveConverter();
-        $converter->addExtension(new AdmonitionExtension());
-
-        $html = $converter->convert("{collapsible title=\"Click Me\"}\n::: info\nContent.\n:::");
-
-        $this->assertStringContainsString('<details class="admonition info">', $html);
-        $this->assertStringContainsString('<summary>Click Me</summary>', $html);
+        $this->assertStringContainsString('<div class="admonition danger" role="alert" collapsible="open">', $html);
+        $this->assertStringNotContainsString('<details', $html);
     }
 
     public function testNonAdmonitionDivUnchanged(): void
@@ -371,16 +362,6 @@ DJOT;
 
         $this->assertStringContainsString('<span class="custom-icon">📝</span> Note', $html);
         $this->assertStringNotContainsString('admonition-icon', $html);
-    }
-
-    public function testIconsInCollapsible(): void
-    {
-        $converter = new CarveConverter();
-        $converter->addExtension(new AdmonitionExtension(icons: true));
-
-        $html = $converter->convert("{collapsible}\n::: tip\nContent.\n:::");
-
-        $this->assertStringContainsString('<summary><span class="admonition-icon">💡</span> Tip</summary>', $html);
     }
 
     public function testIconsWithCustomTitle(): void

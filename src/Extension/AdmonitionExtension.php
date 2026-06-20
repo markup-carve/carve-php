@@ -48,16 +48,6 @@ use Carve\Util\StringUtil;
  * ::: warning
  * Be careful here.
  * :::
- *
- * {collapsible}
- * ::: tip
- * Click to expand this tip.
- * :::
- *
- * {collapsible=open}
- * ::: danger
- * This is expanded by default.
- * :::
  * ```
  *
  * Output HTML (with icons: true):
@@ -71,17 +61,11 @@ use Carve\Util\StringUtil;
  *   <p class="admonition-title"><span class="admonition-icon">⚠️</span> Watch Out!</p>
  *   <p>Be careful here.</p>
  * </div>
- *
- * <details class="admonition tip">
- *   <summary><span class="admonition-icon">💡</span> Tip</summary>
- *   <p>Click to expand this tip.</p>
- * </details>
- *
- * <details class="admonition danger" open>
- *   <summary><span class="admonition-icon">🚨</span> Danger</summary>
- *   <p>This is expanded by default.</p>
- * </details>
  * ```
+ *
+ * Note: disclosure/collapsible widgets are provided by DetailsExtension
+ * (`::: details "title"`), not by this extension. A `{collapsible}` attribute on
+ * an admonition is passed through as an ordinary HTML attribute.
  */
 class AdmonitionExtension implements ExtensionInterface
 {
@@ -211,8 +195,6 @@ class AdmonitionExtension implements ExtensionInterface
      */
     protected function renderAdmonition(Div $node, string $type, string $childrenHtml, HtmlRenderer $renderer): string
     {
-        $isCollapsible = $node->hasAttribute('collapsible');
-        $isOpen = $node->getAttribute('collapsible') === 'open';
         $customTitle = $node->getAttribute('title');
         $title = $customTitle !== null ? (string)$customTitle : ($this->defaultTitle ? ucfirst($type) : null);
 
@@ -225,7 +207,7 @@ class AdmonitionExtension implements ExtensionInterface
         }
         $classAttr = implode(' ', $classes);
 
-        // Build additional attributes (excluding class, title, collapsible)
+        // Build additional attributes (excluding class and title)
         $extraAttrs = $this->buildExtraAttributes($node);
 
         // Add round-trip data attributes
@@ -238,10 +220,6 @@ class AdmonitionExtension implements ExtensionInterface
         }
 
         $icon = $this->getIcon($type);
-
-        if ($isCollapsible) {
-            return $this->renderCollapsible($classAttr, $extraAttrs, $title, $childrenHtml, $isOpen, $icon);
-        }
 
         return $this->renderStatic($type, $classAttr, $extraAttrs, $title, $childrenHtml, $icon);
     }
@@ -285,29 +263,11 @@ class AdmonitionExtension implements ExtensionInterface
     }
 
     /**
-     * Render a collapsible admonition using details/summary
-     */
-    protected function renderCollapsible(string $classAttr, string $extraAttrs, ?string $title, string $childrenHtml, bool $isOpen, ?string $icon): string
-    {
-        $openAttr = $isOpen ? ' open' : '';
-        $html = '<details class="' . StringUtil::escapeHtml($classAttr) . '"' . $openAttr . $extraAttrs . ">\n";
-
-        if ($title !== null) {
-            $html .= '<summary>' . $this->renderTitleContent($title, $icon) . "</summary>\n";
-        }
-
-        $html .= $childrenHtml;
-        $html .= "</details>\n";
-
-        return $html;
-    }
-
-    /**
      * Build extra attributes string, excluding processed ones
      */
     protected function buildExtraAttributes(Div $node): string
     {
-        $excluded = ['class', 'title', 'collapsible'];
+        $excluded = ['class', 'title'];
         $attrs = '';
 
         foreach ($node->getAttributes() as $name => $value) {

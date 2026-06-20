@@ -908,8 +908,11 @@ DJOT;
         $this->assertRoundTrip($djot);
     }
 
-    public function testCollapsibleAdmonition(): void
+    public function testCollapsibleAdmonitionRoundTripsAsStaticDiv(): void
     {
+        // {collapsible} is no longer a disclosure widget here (that lives in
+        // DetailsExtension). It is an ordinary pass-through attribute, so it
+        // round-trips through the static admonition div path.
         $djot = <<<'DJOT'
 {collapsible}
 ::: tip
@@ -919,7 +922,7 @@ DJOT;
         $this->assertRoundTrip($djot);
     }
 
-    public function testCollapsibleAdmonitionOpen(): void
+    public function testCollapsibleOpenAdmonitionRoundTripsAsStaticDiv(): void
     {
         $djot = <<<'DJOT'
 {collapsible=open}
@@ -930,10 +933,12 @@ DJOT;
         $this->assertRoundTrip($djot);
     }
 
-    public function testCollapsibleAdmonitionWithTitle(): void
+    public function testCollapsibleAdmonitionWithTitleRoundTrips(): void
     {
+        // The custom title is restored via the round-trip data attribute; the
+        // pass-through collapsible attribute is re-emitted after the title.
         $djot = <<<'DJOT'
-{collapsible title="Click me"}
+{title="Click me" collapsible}
 ::: note
 Hidden content.
 :::

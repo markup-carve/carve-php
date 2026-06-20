@@ -253,8 +253,11 @@ $tocData = $toc->getToc();            // [['level' => 1, 'text' => '...', 'id' =
 
 Turns standard Carve divs (`::: note`, `::: warning`, etc.) into semantic
 admonition markup with accessibility roles. `warning` and `danger` get
-`role="alert"`. A `{title="..."}` attribute overrides the heading; a
-`{collapsible}` / `{collapsible=open}` attribute renders `<details>`/`<summary>`.
+`role="alert"`. A `{title="..."}` attribute overrides the heading.
+
+For disclosure/collapsible widgets use the separate `DetailsExtension`
+(`::: details "title"`). This extension does not produce `<details>`; any
+`{collapsible}` attribute is passed through as an ordinary HTML attribute.
 
 Constructor options:
 
@@ -283,11 +286,6 @@ This is a note.
 {title="Watch Out!"}
 ::: warning
 Be careful here.
-:::
-
-{collapsible=open}
-::: danger
-This is expanded by default.
 :::
 ~~~
 
