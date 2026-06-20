@@ -74,4 +74,27 @@ class AttributeHardeningTest extends TestCase
             $this->render('[x]{title="hello" data-id="42" class="a b"}'),
         );
     }
+
+    public function testUrlSchemeDenylistAlwaysOn(): void
+    {
+        // Dangerous schemes blanked on href/src without any safe mode.
+        $this->assertStringContainsString('href=""', $this->render('[x](javascript:alert(1))'));
+        $this->assertStringContainsString('src=""', $this->render('![i](javascript:alert(1))'));
+        $this->assertStringContainsString('href=""', $this->render('[x](data:text/html,foo)'));
+    }
+
+    public function testOrdinaryUrlSchemesPassUnderDenylist(): void
+    {
+        $this->assertStringContainsString('href="https://e.com"', $this->render('[x](https://e.com)'));
+        $this->assertStringContainsString('href="tel:+1"', $this->render('[c](tel:+1)'));
+        $this->assertStringContainsString('href="/p"', $this->render('[r](/p)'));
+    }
+
+    public function testCssStyleHardeningBlanksFetchAndScriptConstructs(): void
+    {
+        $this->assertStringContainsString('style=""', $this->render('[x]{style="background:url(javascript:1)"}'));
+        $this->assertStringContainsString('style=""', $this->render('[x]{style="@import url(evil.css)"}'));
+        $this->assertStringContainsString('style=""', $this->render('[x]{style="behavior:url(x.htc)"}'));
+        $this->assertStringContainsString('style="color:red"', $this->render('[x]{style="color:red"}'));
+    }
 }

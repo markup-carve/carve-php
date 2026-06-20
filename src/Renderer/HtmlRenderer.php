@@ -1115,9 +1115,13 @@ class HtmlRenderer implements RendererInterface
         $href = $node->getDestination();
         $title = $node->getTitle();
 
-        // Sanitize URL in safe mode
-        if ($this->safeMode !== null && $href !== null) {
-            $href = $this->safeMode->sanitizeUrl($href);
+        // Always-on baseline: blank dangerous URL schemes (independent of safe
+        // mode). Safe mode may then apply stricter (allowlist) URL policy.
+        if ($href !== null) {
+            $href = $this->sanitizeUrlBaseline($href);
+            if ($this->safeMode !== null) {
+                $href = $this->safeMode->sanitizeUrl($href);
+            }
         }
 
         $html = '<a';
@@ -1151,7 +1155,8 @@ class HtmlRenderer implements RendererInterface
         $src = $node->getSource();
         $title = $node->getTitle();
 
-        // Sanitize URL in safe mode
+        // Always-on baseline; safe mode may add stricter URL policy.
+        $src = $this->sanitizeUrlBaseline($src);
         if ($this->safeMode !== null) {
             $src = $this->safeMode->sanitizeUrl($src);
         }
@@ -1285,6 +1290,8 @@ class HtmlRenderer implements RendererInterface
                 . $this->renderChildren($node) . '</strong></span>';
         }
 
+        // Always-on baseline; safe mode may add stricter URL policy.
+        $href = $this->sanitizeUrlBaseline($href);
         if ($this->safeMode !== null) {
             $href = $this->safeMode->sanitizeUrl($href);
         }
@@ -1416,11 +1423,50 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
         }
-        if ($name === 'style' && preg_match('/expression\s*\(/i', $value) === 1) {
+        if ($name === 'style' && $this->hasDangerousCss($value)) {
             return '';
         }
 
         return $value;
+    }
+
+    /**
+     * Detect script-bearing / fetching constructs in a CSS `style` value.
+     * Blanks the whole value rather than attempting CSS surgery: `expression()`
+     * (legacy IE script), `url(...)` (can fetch or carry `javascript:`),
+     * `@import`, and the legacy `behavior` / `-moz-binding` script bindings.
+     * Whitespace is collapsed first so `expr ession (` cannot evade.
+     */
+    private function hasDangerousCss(string $value): bool
+    {
+        $compact = strtolower((string)preg_replace('/\s+/', '', $value));
+
+        return str_contains($compact, 'expression(')
+            || str_contains($compact, 'url(')
+            || str_contains($compact, '@import')
+            || str_contains($compact, 'behavior:')
+            || str_contains($compact, '-moz-binding');
+    }
+
+    /**
+     * Always-on URL hardening for `href` / `src`, independent of safe mode.
+     *
+     * Blanks a URL whose (normalized) scheme is one of the dangerous denylist
+     * schemes (`javascript`, `vbscript`, `data`, `file`); every other scheme
+     * and any scheme-less URL passes. Safe mode may apply a stricter allowlist
+     * on top. Scheme detection strips C0 controls + spaces to defeat
+     * `java\tscript:` evasion.
+     */
+    private function sanitizeUrlBaseline(string $url): string
+    {
+        $probe = (string)preg_replace('/[\x00-\x20]+/', '', $url);
+        if (preg_match('/^([a-zA-Z][a-zA-Z0-9+.\-]*):/', $probe, $m) === 1) {
+            if (in_array(strtolower($m[1]), self::DANGEROUS_VALUE_SCHEMES, true)) {
+                return '';
+            }
+        }
+
+        return $url;
     }
 
     /**

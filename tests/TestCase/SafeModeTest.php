@@ -240,14 +240,16 @@ class SafeModeTest extends TestCase
 
     // ==================== Safe Mode Configuration ====================
 
-    public function testSafeModeDisabledByDefault(): void
+    public function testDangerousUrlBlankedEvenWithoutSafeMode(): void
     {
         $converter = new CarveConverter();
         $djot = '[click](javascript:alert(1))';
         $result = $converter->convert($djot);
 
-        // Without safe mode, dangerous URLs are allowed
-        $this->assertStringContainsString('javascript:alert(1)', $result);
+        // URL scheme hardening is an always-on baseline (independent of safe
+        // mode): a javascript: href is blanked, not emitted.
+        $this->assertStringNotContainsString('javascript:', $result);
+        $this->assertStringContainsString('href=""', $result);
     }
 
     public function testSafeModeCanBeEnabledAfterConstruction(): void
@@ -266,10 +268,12 @@ class SafeModeTest extends TestCase
         $converter = new CarveConverter(safeMode: true);
         $converter->setSafeMode(false);
 
+        // Disabling safe mode turns off its STRICTER policy, but the always-on
+        // URL-scheme baseline still blanks a dangerous javascript: href.
         $djot = '[click](javascript:alert(1))';
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('javascript:alert(1)', $result);
+        $this->assertStringNotContainsString('javascript:', $result);
     }
 
     public function testCustomSafeModeConfiguration(): void
