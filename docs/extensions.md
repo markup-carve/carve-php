@@ -396,8 +396,17 @@ the widest row, so no content is ever silently dropped. Inline markup inside a
 cell renders normally (`` `flat` `` becomes `<code>flat</code>`). Block
 attributes on the opener carry onto the `<table>` tag in source order (safe-mode
 filtering still applies); the structural `title`, `header-rows`, `header-cols`,
-and the auto `list-table` class are consumed by the extension and not emitted.
-HTML output only.
+and the auto `list-table` class are consumed by the extension and not emitted. A
+cell that carries its **own** list-item attributes (id, classes, `key=value`)
+carries them onto its `<td>`/`<th>` tag; the computed structural `rowspan`/
+`colspan` always win, so an author-written `rowspan`/`colspan` (in any case) on a
+cell is dropped rather than duplicated. HTML output only.
+
+If a row is authored without an inner cell list - for example a plain paragraph
+row like `- not-a-cell-row` - it cannot become table cells without dropping its
+text. The whole block then **defers** to the default renderer and degrades to the
+literal `<div class="list-table">` nested list, so the content is preserved
+verbatim rather than emitted as empty cells.
 
 #### Spanning cells (`^` rowspan, `<` colspan)
 
@@ -459,13 +468,22 @@ column also existed in the immediately preceding row - below a ragged row that
 omitted that column it renders as a plain empty cell, never a span across the
 gap.
 
+A rowspan is clamped at the `<thead>`/`<tbody>` boundary: with `header-rows=N`, a
+`^` in a body row whose origin cell sits in the header rows does **not** pull a
+rowspan across the row-group boundary (an HTML cell cannot reliably span from
+`<thead>` into `<tbody>`). The header cell stays a plain `<th>` and the `^`
+degrades to an empty body cell. This is a deliberate divergence from the
+equivalent pipe table, which has no such row-group boundary. Rowspans that stay
+entirely within the body (or entirely within the header) are unaffected.
+
 > [!NOTE]
-> Span resolution matches the pipe table for all well-formed inputs. Heavily
-> overlapping markers (for example a `^` placed inside the interior of an
-> existing rowspan-and-colspan cell) are degenerate and may differ slightly from
-> the equivalent pipe table - the same kind of input the native pipe table
-> itself resolves ambiguously. Ragged rows are padded with empty `<td>` so the
-> grid stays rectangular (this is the existing list-table behavior, unchanged by
+> Span resolution matches the pipe table for all well-formed inputs, except for
+> the header/body boundary clamp described above. Heavily overlapping markers
+> (for example a `^` placed inside the interior of an existing
+> rowspan-and-colspan cell) are degenerate and may differ slightly from the
+> equivalent pipe table - the same kind of input the native pipe table itself
+> resolves ambiguously. Ragged rows are padded with empty `<td>` so the grid
+> stays rectangular (this is the existing list-table behavior, unchanged by
 > spans).
 
 Without the extension the same block degrades gracefully to the default

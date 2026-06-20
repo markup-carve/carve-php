@@ -7,6 +7,7 @@ namespace Carve\Test\TestCase\Extension;
 use Carve\CarveConverter;
 use Carve\Extension\ListTableExtension;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 class ListTableExtensionTest extends TestCase
 {
@@ -386,9 +387,13 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($pipeHtml, $this->render($listTable));
     }
 
-    public function testRowspanInFirstColumnShiftsLaterCells(): void
+    public function testRowspanInColumnZeroDoesNotCrossHeaderBoundary(): void
     {
-        // A `^` in column 0 only covers column 0; later cells keep their place.
+        // A `^` in a BODY row whose origin sits in the header rows must NOT pull
+        // a rowspan across the <thead>/<tbody> boundary (an HTML cell cannot
+        // reliably span row groups). The header cell stays a plain <th> and the
+        // `^` degrades to an empty body cell. This deliberately diverges from the
+        // equivalent pipe table, which has no such row-group boundary.
         $djot = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -403,19 +408,22 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th rowspan="2">A</th><th>B</th><th>C</th></tr></thead>',
+            '  <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>',
             '  <tbody>',
-            '    <tr><td>E</td><td>F</td></tr>',
+            '    <tr><td></td><td>E</td><td>F</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
         $this->assertSame($expected, $this->render($djot));
     }
 
-    public function testRowspanUnderColspanBodyMatchesPipeTable(): void
+    public function testRowspanUnderColspanBodyClampedAtHeaderBoundary(): void
     {
-        // A `^` under the BODY column of a wide cell still extends that cell,
-        // so it grows both colspan and rowspan - matching the pipe table.
+        // A `^` under the BODY column of a wide HEADER cell would extend it both
+        // down and across, but the down-span is clamped at the header/body
+        // boundary: the header cell keeps only its colspan, and the body row gets
+        // plain cells (the `^` degrades to an empty cell). HTML cannot span a
+        // <th> from <thead> into <tbody>, so this diverges from the pipe table.
         $listTable = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -428,16 +436,45 @@ class ListTableExtensionTest extends TestCase
             ':::',
         ]);
 
-        $pipe = implode("\n", [
-            '| A | < | C |',
-            '|---|---|---|',
-            '| x | ^ | y |',
+        $expected = implode("\n", [
+            '<table>',
+            '  <thead><tr><th colspan="2">A</th><th>C</th></tr></thead>',
+            '  <tbody>',
+            '    <tr><td>x</td><td></td><td>y</td></tr>',
+            '  </tbody>',
+            '</table>',
         ]);
 
-        $pipeHtml = trim((new CarveConverter())->convert($pipe));
+        $this->assertSame($expected, $this->render($listTable));
+        $this->assertStringNotContainsString('rowspan', $this->render($listTable));
+    }
 
-        $this->assertSame($pipeHtml, $this->render($listTable));
-        $this->assertStringContainsString('rowspan="2" colspan="2"', $this->render($listTable));
+    public function testRowspanWithinBodyStillWorks(): void
+    {
+        // The clamp only affects spans CROSSING the header boundary. A `^` whose
+        // origin and target are both in the body still produces a normal rowspan.
+        $djot = implode("\n", [
+            '{header-rows=1}',
+            '::: list-table',
+            '- - H1',
+            '  - H2',
+            '- - A',
+            '  - B',
+            '- - ^',
+            '  - C',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <tbody>',
+            '    <tr><td rowspan="2">A</td><td>B</td></tr>',
+            '    <tr><td>C</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
     }
 
     public function testOverlappingSpanMarkersDoNotCrash(): void
@@ -557,6 +594,156 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringContainsString('^', $html);
         // Two cells survive (the escaped marker cell and B); no merge happened.
         $this->assertStringContainsString('<td>B</td>', $html);
+    }
+
+    public function testRowWithNoCellListDefersAndPreservesContent(): void
+    {
+        // A row authored without an inner cell list (a plain paragraph row)
+        // cannot become table cells without dropping its text. The whole div
+        // defers to the default renderer so the literal nested list is emitted
+        // and no content is lost - byte-identical to the extension-off output.
+        $djot = implode("\n", [
+            '::: list-table',
+            '- - A',
+            '  - B',
+            '- not-a-cell-row',
+            ':::',
+        ]);
+
+        $withExtension = $this->render($djot);
+        $plain = trim((new CarveConverter())->convert($djot));
+
+        $this->assertSame($plain, $withExtension);
+        $this->assertStringStartsWith('<div class="list-table">', $withExtension);
+        $this->assertStringContainsString('not-a-cell-row', $withExtension);
+        $this->assertStringNotContainsString('<table', $withExtension);
+    }
+
+    public function testMalformedDeferRendersIdenticalToPlainDivNoDuplication(): void
+    {
+        // The extension records stray blocks against a cell while building. If it
+        // then defers (a later row has no cells), that bookkeeping must NOT have
+        // mutated the AST - otherwise the default renderer would emit the stray
+        // block twice. The deferred render must be byte-identical to plain.
+        $djot = implode("\n", [
+            '::: list-table',
+            '- - A',
+            '  - B',
+            '',
+            '  stray block',
+            '- not-a-cell-row',
+            ':::',
+        ]);
+
+        $withExtension = $this->render($djot);
+        $plain = trim((new CarveConverter())->convert($djot));
+
+        $this->assertSame($plain, $withExtension);
+        // The stray block appears exactly once (no duplication from a mutated AST).
+        $this->assertSame(1, substr_count($withExtension, 'stray block'));
+    }
+
+    public function testHeaderRowRowspanDoesNotCrossIntoBody(): void
+    {
+        // With header-rows=1, a `^` in the body under a header cell must not
+        // create a <th rowspan> reaching from <thead> into <tbody>. The header
+        // cell stays a plain <th> and the `^` degrades to an empty body cell.
+        $djot = implode("\n", [
+            '{header-rows=1}',
+            '::: list-table',
+            '- - H1',
+            '  - H2',
+            '- - ^',
+            '  - x',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <tbody>',
+            '    <tr><td></td><td>x</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+
+        $html = $this->render($djot);
+        $this->assertSame($expected, $html);
+        $this->assertStringNotContainsString('rowspan', $html);
+    }
+
+    public function testMultiBlockCellStartingWithMarkerCharIsNotASpanMarker(): void
+    {
+        // A multi-block cell whose first paragraph is a lone `^` (or `<`) is NOT
+        // a span marker - the trailing block makes it real content, so the `^`
+        // stays literal and the extra block is preserved (not dropped).
+        $djot = implode("\n", [
+            '::: list-table',
+            '- - A',
+            '- - ^',
+            '',
+            '  extra',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td>A</td></tr>',
+            '    <tr><td><p>^</p>',
+            '<p>extra</p></td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+
+        $html = $this->render($djot);
+        $this->assertSame($expected, $html);
+        $this->assertStringNotContainsString('rowspan', $html);
+    }
+
+    public function testCellOwnAttributesCarryOntoCellTagAndStructuralSpanWins(): void
+    {
+        // A cell's own list-item attributes are carried onto its <td>/<th>. Any
+        // author-written rowspan/colspan (in any case) is dropped so the computed
+        // structural span is the only one emitted (no duplicate, ambiguous attr).
+        $converter = new CarveConverter();
+        $ast = $converter->parse(implode("\n", [
+            '::: list-table',
+            '- - A',
+            '  - B',
+            '- - ^',
+            '  - C',
+            ':::',
+        ]));
+
+        $div = $ast->getChildren()[0];
+        $row0 = $div->getChildren()[0]->getChildren()[0];
+        $cellA = $row0->getChildren()[0]->getChildren()[0];
+        $cellA->setAttribute('class', 'hi');
+        $cellA->setAttribute('id', 'a1');
+        // Author-written span in non-canonical case must NOT survive.
+        $cellA->setAttribute('RowSpan', '99');
+
+        $rendered = new CarveConverter();
+        $rendered->addExtension(new ListTableExtension());
+        $renderer = $rendered->getRenderer();
+
+        $ext = new ListTableExtension();
+        $method = new ReflectionMethod($ext, 'renderListTable');
+        $html = trim((string)$method->invoke($ext, $div, $renderer));
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td rowspan="2" class="hi" id="a1">A</td><td>B</td></tr>',
+            '    <tr><td>C</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $html);
+        // Exactly one rowspan attribute survives (the computed one).
+        $this->assertSame(1, substr_count($html, 'rowspan'));
+        $this->assertStringNotContainsString('RowSpan', $html);
     }
 
     public function testStraySiblingContentDefersToDefaultAndIsNotDropped(): void

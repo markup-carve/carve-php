@@ -141,17 +141,36 @@ class ListTableExtension implements ExtensionInterface
 
         // Each outer list item is a row; its cells are the items of all inner
         // ListBlock children, in document order, with any trailing non-list
-        // block appended to the most recently opened cell.
+        // block recorded against the most recently opened cell.
+        //
+        // Cell extraction is NON-MUTATING: trailing stray blocks are collected
+        // into $extras (keyed by the cell's object id) rather than appended onto
+        // the cell node. This is deliberate - the defer decision below must be
+        // made on a pristine AST, so that a deferred render (e.g. a later row
+        // with no cells) leaves the tree exactly as the parser produced it and
+        // the default div renderer cannot duplicate content.
         $rows = [];
+        $extras = [];
         foreach ($outerList->getChildren() as $rowItem) {
             if (!$rowItem instanceof ListItem) {
                 continue;
             }
-            $rows[] = $this->extractCells($rowItem);
+            $rows[] = $this->extractCells($rowItem, $extras);
         }
 
         if ($rows === []) {
             return null;
+        }
+
+        // A row that yielded zero cells (e.g. a row authored as a plain
+        // paragraph, `- not-a-cell-row`, with no inner cell list) cannot be
+        // rendered as table cells without dropping its content. Defer the whole
+        // div to the default renderer so the literal nested list is emitted and
+        // nothing is lost. This mirrors the sibling djot-php extension's guard.
+        foreach ($rows as $cells) {
+            if ($cells === []) {
+                return null;
+            }
         }
 
         $headerRows = max(0, (int)($node->getAttribute('header-rows') ?? '0'));
@@ -159,7 +178,11 @@ class ListTableExtension implements ExtensionInterface
 
         // Resolve `^`/`<` span markers into a grid of placed cells, reusing the
         // SAME continuation model the pipe-table parser uses (see resolveSpans()).
-        $grid = $this->resolveSpans($rows);
+        // The header-row count clamps rowspans at the header/body boundary: an
+        // HTML cell cannot reliably span across <thead>/<tbody>, so a `^` that
+        // would extend a header cell down into the body is treated as having no
+        // origin and degrades to an empty cell instead.
+        $grid = $this->resolveSpans($rows, $headerRows, $extras);
 
         // Ragged rows: pad short rows with empty cells to the widest effective
         // row so no content is dropped and the grid stays rectangular. The
@@ -176,7 +199,7 @@ class ListTableExtension implements ExtensionInterface
             $lines[] = '  <caption>' . $this->escapeHtml($title) . '</caption>';
         }
 
-        $renderRow = function (array $placedRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount): string {
+        $renderRow = function (array $placedRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras): string {
             $isHeaderRow = $rowIndex < $headerRows;
             $html = '';
             // Walk every grid column so trailing columns are padded; columns
@@ -209,10 +232,14 @@ class ListTableExtension implements ExtensionInterface
                 if ($placed['colspan'] > 1) {
                     $attrHtml .= ' colspan="' . $placed['colspan'] . '"';
                 }
+                // Carry the cell's own list-item attributes (e.g. `{.x}`) onto
+                // the <td>/<th> so authored cell styling is not dropped. The
+                // structural span attributes above always win on conflict.
+                $attrHtml .= $this->renderCellAttributes($placed['cell'], $renderer);
                 // A `^`/`<` marker with nothing to merge into became an empty
                 // cell (pipe-table parity): render no content, not literal `^`.
                 $content = empty($placed['empty'])
-                    ? $this->renderCell($placed['cell'], $renderer)
+                    ? $this->renderCell($placed['cell'], $renderer, $extras[spl_object_id($placed['cell'])] ?? [])
                     : '';
                 $html .= '<' . $tag . $attrHtml . '>' . $content . '</' . $tag . '>';
             }
@@ -245,18 +272,26 @@ class ListTableExtension implements ExtensionInterface
     }
 
     /**
-     * Extract the cells of a row.
+     * Extract the cells of a row WITHOUT mutating the AST.
      *
      * Carve parses a row like `- - A` / ` - B` / ` - C` as the outer item
      * holding MULTIPLE inner ListBlocks (`list[A]` + `list[B, C]`), so a row's
      * cells are the flattened items of every inner ListBlock child, in document
      * order. Any non-list block sibling (e.g. a trailing paragraph that the
-     * parser left outside the inner list) is appended to the most recently
-     * opened cell so multi-block content is never dropped.
+     * parser left outside the inner list) belongs to the most recently opened
+     * cell so multi-block content is never dropped.
+     *
+     * Those stray blocks are recorded in $extras (keyed by the cell's object id)
+     * rather than appended onto the cell node, so the source tree stays pristine
+     * for the defer decision (see renderListTable). renderCell() reads them back.
+     *
+     * @param \Carve\Node\Block\ListItem $rowItem
+     * @param array<int, array<\Carve\Node\Node>> $extras Receives, per cell
+     *   object id, the trailing blocks that belong to that cell.
      *
      * @return array<\Carve\Node\Block\ListItem>
      */
-    protected function extractCells(ListItem $rowItem): array
+    protected function extractCells(ListItem $rowItem, array &$extras): array
     {
         $cells = [];
         foreach ($rowItem->getChildren() as $child) {
@@ -270,9 +305,10 @@ class ListTableExtension implements ExtensionInterface
                 continue;
             }
 
-            // A stray block following the inner list belongs to the last cell.
+            // A stray block following the inner list belongs to the last cell;
+            // record it against that cell without touching the node tree.
             if ($cells !== []) {
-                $cells[count($cells) - 1]->appendChild($child);
+                $extras[spl_object_id($cells[count($cells) - 1])][] = $child;
             }
         }
 
@@ -301,10 +337,18 @@ class ListTableExtension implements ExtensionInterface
      * skips them); `width` is the effective column count of the row.
      *
      * @param array<array<\Carve\Node\Block\ListItem>> $rows
+     * @param int $headerRows Number of leading rows that form the `<thead>`. A
+     *   rowspan is clamped so it never crosses this header/body boundary: a `^`
+     *   in a body row whose origin sits in the header rows finds no valid origin
+     *   and becomes an empty cell (an HTML cell cannot span row groups reliably).
+     * @param array<int, array<\Carve\Node\Node>> $extras Per-cell trailing blocks
+     *   (keyed by cell object id). A cell that owns trailing blocks is multi-block
+     *   and is therefore never a bare span marker, even if its first paragraph is
+     *   a lone `^`/`<` - the extra block keeps it a real content cell.
      *
      * @return array<array{cells: array<int, array{cell: \Carve\Node\Block\ListItem, rowspan: int, colspan: int, startCol: int, empty?: bool, dropped?: bool}>, covered: array<int, bool>, width: int}>
      */
-    protected function resolveSpans(array $rows): array
+    protected function resolveSpans(array $rows, int $headerRows = 0, array $extras = []): array
     {
         // Per-column origin: for each column, the {rowIndex, col} of the cell
         // currently open in it, so a `^` in a later row can locate and extend
@@ -328,7 +372,7 @@ class ListTableExtension implements ExtensionInterface
             /** @var array<array{cell: \Carve\Node\Block\ListItem, marker: string|null, colspan: int}> $resolvedCells */
             $resolvedCells = [];
             foreach ($cells as $cell) {
-                $marker = $this->markerOf($cell);
+                $marker = $this->markerOf($cell, $extras);
                 // A `<` folds into the entry to its left, growing its colspan -
                 // but only into a content cell or a `^` marker (which can itself
                 // widen). A LEADING `<` (no foldable entry to the left) becomes
@@ -404,7 +448,14 @@ class ListTableExtension implements ExtensionInterface
                     $originExists = $origin !== null
                         && $origin['rowIndex'] < $rowIndex
                         && isset($grid[$origin['rowIndex']]['cells'][$origin['col']])
-                        && $this->columnOccupiedInRow($grid, $rowIndex - 1, $col);
+                        && $this->columnOccupiedInRow($grid, $rowIndex - 1, $col)
+                        // Clamp at the header/body boundary: a `^` in a body row
+                        // (rowIndex >= headerRows) must NOT extend a cell that
+                        // originated in the header rows, because the resulting
+                        // <th rowspan> would reach from <thead> into <tbody>,
+                        // which browsers misrender. Treat it as no origin so the
+                        // marker degrades to an empty cell.
+                        && !($origin['rowIndex'] < $headerRows && $rowIndex >= $headerRows);
                     // A cell kept only for tracking after being dropped must NOT
                     // gain a rowspan; a `^` over it is consumed silently so it
                     // does not occupy later columns and skip real cells.
@@ -625,11 +676,21 @@ class ListTableExtension implements ExtensionInterface
      * Returns `'^'` or `'<'` when the cell's sole inline content is exactly that
      * marker character, or null otherwise. A cell carrying its own attribute
      * block is never a marker (the `^`/`<` is then literal), matching the escape
-     * rule pipe tables use.
+     * rule pipe tables use. A cell that owns trailing blocks (recorded in
+     * $extras) is multi-block content, so it is never a bare marker either - the
+     * extra block keeps it a real cell whose `^`/`<` first line stays literal.
+     *
+     * @param \Carve\Node\Block\ListItem $cell
+     * @param array<int, array<\Carve\Node\Node>> $extras Per-cell trailing blocks.
      */
-    protected function markerOf(ListItem $cell): ?string
+    protected function markerOf(ListItem $cell, array $extras = []): ?string
     {
         if ($cell->getAttributes() !== []) {
+            return null;
+        }
+
+        // Trailing blocks make this a multi-block cell, not a bare marker.
+        if (($extras[spl_object_id($cell)] ?? []) !== []) {
             return null;
         }
 
@@ -668,13 +729,23 @@ class ListTableExtension implements ExtensionInterface
      * inline content (no `<p>` wrapper), matching tight list-item/table-cell
      * rendering. Otherwise the block children render normally and keep their
      * wrappers.
+     *
+     * Trailing stray blocks (collected non-mutatingly in $extras by
+     * extractCells) render after the cell's own children, so multi-block content
+     * the parser left outside the inner list is preserved without ever having
+     * mutated the source tree.
+     *
+     * @param \Carve\Node\Block\ListItem $cell
+     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param array<\Carve\Node\Node> $extras Trailing blocks belonging to this cell.
      */
-    protected function renderCell(ListItem $cell, HtmlRenderer $renderer): string
+    protected function renderCell(ListItem $cell, HtmlRenderer $renderer, array $extras = []): string
     {
         $children = $cell->getChildren();
+        $blocks = array_merge($children, $extras);
 
-        if (count($children) === 1 && $children[0] instanceof Paragraph && $children[0]->getAttributes() === []) {
-            $html = rtrim($renderer->renderNodeFragment($children[0]), "\n");
+        if (count($blocks) === 1 && $blocks[0] instanceof Paragraph && $blocks[0]->getAttributes() === []) {
+            $html = rtrim($renderer->renderNodeFragment($blocks[0]), "\n");
 
             // Strip the single <p>…</p> wrapper to inline the content.
             if (preg_match('/^<p>(.*)<\/p>$/s', $html, $m) === 1) {
@@ -685,11 +756,52 @@ class ListTableExtension implements ExtensionInterface
         }
 
         $html = '';
-        foreach ($children as $child) {
+        foreach ($blocks as $child) {
             $html .= $renderer->renderNodeFragment($child);
         }
 
         return rtrim($html, "\n");
+    }
+
+    /**
+     * Build a cell's own attribute markup for its `<td>`/`<th>` tag.
+     *
+     * Carries a cell list-item's authored attributes (id, classes, key=value)
+     * onto the rendered cell tag, so cell-level styling is not silently dropped.
+     * The structural span attributes (`rowspan`/`colspan`) are emitted by the
+     * caller and take precedence; any `rowspan`/`colspan` the author wrote on the
+     * cell itself is ignored here to avoid a duplicate attribute. Safe-mode
+     * filtering matches the core renderer.
+     */
+    protected function renderCellAttributes(ListItem $cell, HtmlRenderer $renderer): string
+    {
+        $attrs = $cell->getAttributes();
+        if ($attrs === []) {
+            return '';
+        }
+
+        // Drop any author-written span attribute case-insensitively (HTML
+        // attribute names are case-insensitive). The structural rowspan/colspan
+        // the caller emits must be the only one, so `{RowSpan=9}` cannot produce
+        // a duplicate, ambiguous attribute alongside the computed one.
+        foreach (array_keys($attrs) as $key) {
+            $lower = strtolower((string)$key);
+            if ($lower === 'rowspan' || $lower === 'colspan') {
+                unset($attrs[$key]);
+            }
+        }
+
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
+        }
+
+        $html = '';
+        foreach ($attrs as $key => $value) {
+            $html .= ' ' . $this->escapeHtml((string)$key) . '="' . $renderer->escapeAttribute((string)$value) . '"';
+        }
+
+        return $html;
     }
 
     /**
