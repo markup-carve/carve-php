@@ -16,8 +16,8 @@ use InvalidArgumentException;
  *
  * Claims fenced code blocks by language word and emits a single hydration
  * element for a client-side library to render. The block body is passed through
- * verbatim (no Carve parsing). This is the same client-hydration shape
- * {@see MermaidExtension} already uses; Mermaid is one configuration of it.
+ * verbatim (no Carve parsing). Mermaid is just one configuration of this
+ * client-hydration shape (see the {@see self::mermaid()} preset).
  *
  * Two content modes:
  *
@@ -43,8 +43,8 @@ use InvalidArgumentException;
  *   renders as
  *   `<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>`.
  *
- * Like {@see MermaidExtension} it is a renderer (emits structural tags), so it
- * stays active under raw-HTML stripping. Author attributes copied onto the
+ * It is a renderer (emits structural tags), so it stays active under raw-HTML
+ * stripping. Author attributes copied onto the
  * wrapper are filtered through the active {@see SafeMode} exactly as the core
  * renderer filters every other element, so a `{onclick="..."}` on the fence
  * cannot smuggle an event handler past safe mode.
@@ -124,10 +124,22 @@ class FencedRenderExtension implements ExtensionInterface
 
     /**
      * Mermaid preset (text mode, `<pre class="mermaid">`).
+     *
+     * Mermaid.js must be loaded on the page to render the emitted diagrams.
      */
-    public static function mermaid(bool $wrapInFigure = false): self
-    {
-        return new self(language: 'mermaid', wrapInFigure: $wrapInFigure);
+    public static function mermaid(
+        bool $wrapInFigure = false,
+        string $tag = 'pre',
+        string $cssClass = 'mermaid',
+        string $figureClass = 'mermaid-figure',
+    ): self {
+        return new self(
+            language: 'mermaid',
+            cssClass: $cssClass,
+            tag: $tag,
+            wrapInFigure: $wrapInFigure,
+            figureClass: $figureClass,
+        );
     }
 
     /**

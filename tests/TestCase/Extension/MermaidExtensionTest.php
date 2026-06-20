@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase\Extension;
 
 use Carve\CarveConverter;
-use Carve\Extension\MermaidExtension;
+use Carve\Extension\FencedRenderExtension;
 use Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
@@ -14,7 +14,7 @@ class MermaidExtensionTest extends TestCase
     public function testBasicFlowchart(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -35,7 +35,7 @@ DJOT;
     public function testSequenceDiagram(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -55,7 +55,7 @@ DJOT;
     public function testNonMermaidCodeBlockUnaffected(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` php
@@ -72,7 +72,7 @@ DJOT;
     public function testCodeBlockWithoutLanguageUnaffected(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ```
@@ -89,7 +89,7 @@ DJOT;
     public function testCustomTag(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension(tag: 'div'));
+        $converter->addExtension(FencedRenderExtension::mermaid(tag: 'div'));
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -108,7 +108,7 @@ DJOT;
     public function testCustomCssClass(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension(cssClass: 'diagram'));
+        $converter->addExtension(FencedRenderExtension::mermaid(cssClass: 'diagram'));
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -126,7 +126,7 @@ DJOT;
     public function testWrapInFigure(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension(wrapInFigure: true));
+        $converter->addExtension(FencedRenderExtension::mermaid(wrapInFigure: true));
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -146,7 +146,7 @@ DJOT;
     public function testCustomFigureClass(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension(
+        $converter->addExtension(FencedRenderExtension::mermaid(
             wrapInFigure: true,
             figureClass: 'diagram-wrapper',
         ));
@@ -166,7 +166,7 @@ DJOT;
     public function testPreservesAdditionalClasses(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 {.custom-diagram .large}
@@ -184,7 +184,7 @@ DJOT;
     public function testPreservesCustomAttributes(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 {#my-diagram data-theme="dark"}
@@ -209,7 +209,7 @@ DJOT;
     public function testEscapesHtmlWhilePreservingArrows(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -231,7 +231,7 @@ DJOT;
     public function testClassDiagram(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -254,7 +254,7 @@ DJOT;
     public function testGanttChart(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -275,7 +275,7 @@ DJOT;
     public function testErDiagram(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -295,7 +295,7 @@ DJOT;
     public function testGitGraph(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -320,7 +320,7 @@ DJOT;
     public function testStateDiagram(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -343,7 +343,7 @@ DJOT;
     public function testMultipleMermaidBlocks(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 First diagram:
@@ -372,7 +372,7 @@ DJOT;
     public function testDivTagWithFigure(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension(
+        $converter->addExtension(FencedRenderExtension::mermaid(
             tag: 'div',
             wrapInFigure: true,
         ));
@@ -397,7 +397,7 @@ DJOT;
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
         $converter = CarveConverter::create(renderer: $renderer);
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid
@@ -415,7 +415,7 @@ DJOT;
     public function testNonRoundTripModeNoDjotSrc(): void
     {
         $converter = new CarveConverter();
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = <<<'DJOT'
 ``` mermaid

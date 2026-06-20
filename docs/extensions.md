@@ -579,10 +579,10 @@ arbitrary content with labels from headings/attributes and optional ARIA mode.
 
 Generic client-rendered fenced-block factory. Claims fenced code blocks by
 language word and emits one hydration element for a client-side library; the
-block body is passed through verbatim (no Carve parsing). This is the same
-client-hydration shape `MermaidExtension` uses - Mermaid is one preset of it -
-generalized so D2, Graphviz, WaveDrom, ABC, Vega-Lite, Chart.js, etc. need no
-new code. HTML output only. Tier-3 (opt-in, never corpus-pinned).
+block body is passed through verbatim (no Carve parsing). Mermaid is just one
+preset of this client-hydration shape, generalized so D2, Graphviz, WaveDrom,
+ABC, Vega-Lite, Chart.js, etc. need no new code. HTML output only. Tier-3
+(opt-in, never corpus-pinned).
 
 Constructor options:
 
@@ -626,10 +626,16 @@ Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
 ~~~ php
 use Carve\Extension\FencedRenderExtension;
 
+$converter->addExtension(FencedRenderExtension::mermaid());
 $converter->addExtension(FencedRenderExtension::d2());
 $converter->addExtension(FencedRenderExtension::vegaLite());
 $converter->addExtension(new FencedRenderExtension(language: ['dot', 'graphviz'], cssClass: 'graphviz'));
 ~~~
+
+The `mermaid()` preset emits `<pre class="mermaid">…</pre>` from a ` ``` mermaid `
+fence; you must load Mermaid.js on the page to render the diagrams. It accepts
+`wrapInFigure`, `tag`, `cssClass`, and `figureClass` for the same customization
+the other text-mode presets allow.
 
 > [!NOTE]
 > Author attributes on the fence (a `{#id .class key=val}` block-attribute line
@@ -640,38 +646,6 @@ $converter->addExtension(new FencedRenderExtension(language: ['dot', 'graphviz']
 > regardless of safe mode, then safe mode strips any additional names (e.g.
 > `style` under strict). Values are HTML-escaped so a quote cannot break out. So
 > a `{onclick="..."}` on the fence can never reach the output.
-
-### MermaidExtension
-
-Mermaid preset of `FencedRenderExtension` (text mode, `<pre class="mermaid">`).
-Transforms fenced code blocks with the `mermaid` language into Mermaid.js
-compatible markup. You must include Mermaid.js on the page to render the
-diagrams. HTML output only. Kept as a named alias for back-compat; its
-constructor signature and output are unchanged.
-
-Constructor options:
-
-- `tag` (`string`, default `'pre'`).
-- `cssClass` (`string`, default `'mermaid'`).
-- `wrapInFigure` (`bool`, default `false`) - wrap output in a `<figure>`.
-- `figureClass` (`string`, default `'mermaid-figure'`).
-
-~~~ php
-$converter->addExtension(new MermaidExtension());
-$converter->addExtension(new MermaidExtension(wrapInFigure: true));
-// Equivalent factory form:
-$converter->addExtension(FencedRenderExtension::mermaid());
-~~~
-
-Input:
-
-~~~
-``` mermaid
-graph TD;
-    A-->B;
-    A-->C;
-```
-~~~
 
 ### MathBlockExtension
 
@@ -701,7 +675,7 @@ x^2
 renders as `<div class="math display">\[x^2\]</div>`.
 
 > [!IMPORTANT]
-> Unlike `MermaidExtension`, this extension does **not** copy any author
+> Unlike `FencedRenderExtension`, this extension does **not** copy any author
 > attributes onto the output `<div>` - neither a fence info-string nor a
 > preceding `{#id .class}` block-attribute line. The extension emits raw HTML
 > directly, bypassing the core safe-mode attribute sanitizer, so copying

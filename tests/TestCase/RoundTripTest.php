@@ -8,7 +8,7 @@ use Carve\CarveConverter;
 use Carve\Converter\HtmlToCarve;
 use Carve\Extension\AdmonitionExtension;
 use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\MermaidExtension;
+use Carve\Extension\FencedRenderExtension;
 use Carve\Extension\TabsExtension;
 use PHPUnit\Framework\TestCase;
 
@@ -29,7 +29,7 @@ class RoundTripTest extends TestCase
         $this->converter = new CarveConverter(roundTripMode: true);
         $this->converter->addExtension(new CodeGroupExtension());
         $this->converter->addExtension(new TabsExtension());
-        $this->converter->addExtension(new MermaidExtension());
+        $this->converter->addExtension(FencedRenderExtension::mermaid());
         $this->converter->addExtension(new AdmonitionExtension());
         $this->htmlToDjot = new HtmlToCarve();
     }
