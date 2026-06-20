@@ -86,7 +86,29 @@ DJOT;
         $this->assertStringNotContainsString('math display', $html);
     }
 
-    public function testDoesNotCopyFenceAttributesOntoDiv(): void
+    public function testMergesAuthorClassesAndCopiesAttributes(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new MathBlockExtension());
+
+        $djot = <<<'DJOT'
+{#eq1 .numbered data-ref="x"}
+``` math
+E = mc^2
+```
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        // Author classes merge after the `math display` base; id and other
+        // attributes follow in source order, like core inline / display math.
+        $this->assertStringContainsString(
+            '<div class="math display numbered" id="eq1" data-ref="x">\[E = mc^2\]</div>',
+            $html,
+        );
+    }
+
+    public function testStripsEventHandlerAlwaysOnEvenWithoutSafeMode(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new MathBlockExtension());
@@ -100,11 +122,10 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        // Only the fixed `math display` class is emitted; author attributes are
-        // dropped so they cannot bypass safe-mode attribute filtering.
-        $this->assertStringContainsString('<div class="math display">\[E = mc^2\]</div>', $html);
+        // Always-on attribute hardening strips event handlers regardless of safe
+        // mode, while safe author attributes (id, classes) survive.
+        $this->assertStringContainsString('<div class="math display numbered" id="eq1">\[E = mc^2\]</div>', $html);
         $this->assertStringNotContainsString('onclick', $html);
-        $this->assertStringNotContainsString('id="eq1"', $html);
     }
 
     public function testCustomLanguageTag(): void
