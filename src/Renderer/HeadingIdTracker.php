@@ -66,6 +66,14 @@ class HeadingIdTracker
     protected array $textById = [];
 
     /**
+     * Folded id => first registered id, for case-insensitive cross-reference
+     * lookup without refolding every known id for each reference.
+     *
+     * @var array<string, string>
+     */
+    protected array $idByFoldedId = [];
+
+    /**
      * Optional transform applied to the base slug (e.g. ASCII
      * transliteration). Set by AsciiHeadingIdsExtension; null leaves
      * non-ASCII characters in the id verbatim (the default).
@@ -110,6 +118,7 @@ class HeadingIdTracker
         $this->resolvedIds[$objectId] = $id;
         if (!isset($this->textById[$id])) {
             $this->textById[$id] = $this->getPlainText($node);
+            $this->registerFoldedId($id);
         }
 
         return $id;
@@ -135,6 +144,7 @@ class HeadingIdTracker
 
         if (!isset($this->textById[$id])) {
             $this->textById[$id] = $plainText;
+            $this->registerFoldedId($id);
         }
 
         return $id;
@@ -155,6 +165,7 @@ class HeadingIdTracker
     {
         if ($id !== '' && !isset($this->textById[$id])) {
             $this->textById[$id] = $text;
+            $this->registerFoldedId($id);
         }
     }
 
@@ -238,14 +249,12 @@ class HeadingIdTracker
             return $target;
         }
 
-        $foldedTarget = $this->foldCase($target);
-        foreach ($this->textById as $id => $text) {
-            if ($this->foldCase((string)$id) === $foldedTarget) {
-                return (string)$id;
-            }
-        }
+        return $this->idByFoldedId[$this->foldCase($target)] ?? null;
+    }
 
-        return null;
+    protected function registerFoldedId(string $id): void
+    {
+        $this->idByFoldedId[$this->foldCase($id)] ??= $id;
     }
 
     /**
@@ -356,6 +365,7 @@ class HeadingIdTracker
         $this->resolvedIds = [];
         $this->resolvedTexts = [];
         $this->textById = [];
+        $this->idByFoldedId = [];
     }
 
     /**
