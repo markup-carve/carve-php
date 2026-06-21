@@ -575,33 +575,137 @@ When deciding between this and `TabsExtension`: use `CodeGroupExtension` for
 multiple code blocks with labels from language hints; use `TabsExtension` for
 arbitrary content with labels from headings/attributes and optional ARIA mode.
 
-### MermaidExtension
+### FencedRenderExtension
 
-Transforms fenced code blocks with the `mermaid` language into Mermaid.js
-compatible markup (`<pre class="mermaid">...</pre>` by default). You must include
-Mermaid.js on the page to render the diagrams. HTML output only.
+Generic client-rendered fenced-block factory. Claims fenced code blocks by
+language word and emits one hydration element for a client-side library; the
+block body is passed through verbatim (no Carve parsing). Mermaid is just one
+preset of this client-hydration shape, generalized so D2, Graphviz, WaveDrom,
+ABC, Vega-Lite, Chart.js, etc. need no new code. HTML output only. Tier-3
+(opt-in, never corpus-pinned).
 
 Constructor options:
 
-- `tag` (`string`, default `'pre'`).
-- `cssClass` (`string`, default `'mermaid'`).
-- `wrapInFigure` (`bool`, default `false`) - wrap output in a `<figure>`.
-- `figureClass` (`string`, default `'mermaid-figure'`).
+- `language` (`string|array<string>`, required) - fence info word(s) claimed.
+- `cssClass` (`string`, default first `language` word) - class on the element.
+- `tag` (`string`, default `'div'` for json mode else `'pre'`) - wrapper element.
+- `contentMode` (`string`, default `FencedRenderExtension::MODE_TEXT`) - `MODE_TEXT`
+  or `MODE_JSON` (see below).
+- `wrapInFigure` (`bool`, default `false`) - wrap in `<figure class="{cssClass}-figure">`.
+- `figureClass` (`string`, default `'{cssClass}-figure'`).
+
+Content modes:
+
+- **`MODE_TEXT`** (Mermaid, D2, Graphviz, WaveDrom, ABC): body is HTML-escaped
+  text inside the wrapper. `&` and `<` are escaped (blocking tag injection), but
+  `>` is preserved so arrow syntax (`-->`) survives.
+
+  ~~~
+  ``` d2
+  a -> b
+  ```
+  ~~~
+  renders as `<pre class="d2">a -> b</pre>`.
+
+- **`MODE_JSON`** (Vega-Lite, Chart.js): body is emitted verbatim inside a
+  `<script type="application/json">` (default wrapper `<div>`). Any `</` in the
+  body is rewritten to `<\/` so the JSON cannot close the script element early
+  (byte-equivalent JSON).
+
+  ~~~
+  ``` vega-lite
+  {"mark": "bar"}
+  ```
+  ~~~
+  renders as
+  `<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>`.
+
+Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
+(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
 
 ~~~ php
-$converter->addExtension(new MermaidExtension());
-$converter->addExtension(new MermaidExtension(wrapInFigure: true));
+use Carve\Extension\FencedRenderExtension;
+
+$converter->addExtension(FencedRenderExtension::mermaid());
+$converter->addExtension(FencedRenderExtension::d2());
+$converter->addExtension(FencedRenderExtension::vegaLite());
+$converter->addExtension(new FencedRenderExtension(language: ['dot', 'graphviz'], cssClass: 'graphviz'));
 ~~~
 
-Input:
+The `mermaid()` preset emits `<pre class="mermaid">…</pre>` from a ` ``` mermaid `
+fence; you must load Mermaid.js on the page to render the diagrams. It accepts
+`wrapInFigure`, `tag`, `cssClass`, and `figureClass` for the same customization
+the other text-mode presets allow.
 
+#### Client rendering
+
+Carve only emits the marker element (the `class`-tagged `<pre>`, or `<div>` with
+a child `<script>`); it never renders the diagram itself. Loading the client-side
+library and hydrating each emitted element is the host page's job: read the
+element's text (text mode) or its `<script type="application/json">` (json mode)
+and hand it to the library. The library to load per built-in preset:
+
+| Preset | Fence word(s) | Mode | Client library |
+|--------|---------------|------|----------------|
+| `mermaid()` | `mermaid` | text | mermaid.js |
+| `d2()` | `d2` | text | the d2 WASM build (`terrastruct/d2`) or the `d2` CLI server-side |
+| `graphviz()` | `dot`, `graphviz` | text | viz.js / d3-graphviz |
+| `wavedrom()` | `wavedrom` | text | wavedrom.js |
+| `abc()` | `abc` | text | abcjs |
+| `vegaLite()` | `vega-lite` | json | vega-embed |
+| `chart()` | `chart` | json | Chart.js |
+
+(`MathBlockExtension` shares the shape for ` ``` math ` fences; load KaTeX or
+MathJax.)
+
+Text-mode hydration reads `textContent` (Graphviz shown):
+
+~~~ js
+for (const el of document.querySelectorAll('pre.graphviz')) {
+  el.replaceWith(viz.renderSVGElement(el.textContent));
+}
 ~~~
-``` mermaid
-graph TD;
-    A-->B;
-    A-->C;
-```
+
+JSON-mode hydration reads the child script (Chart.js shown):
+
+~~~ js
+for (const el of document.querySelectorAll('.chart')) {
+  const cfg = JSON.parse(el.querySelector('script[type="application/json"]').textContent);
+  new Chart(el.appendChild(document.createElement('canvas')), cfg);
+}
 ~~~
+
+#### Custom languages (no preset)
+
+Any library that hydrates from element text or a JSON spec needs **no new PHP** -
+register the generic constructor with your own fence word:
+
+~~~ php
+// Text mode: a library that reads the element's textContent (e.g. nomnoml).
+$converter->addExtension(new FencedRenderExtension(language: 'nomnoml'));
+// -> <pre class="nomnoml">…escaped source…</pre>
+
+// JSON mode: a spec-driven library with no preset (e.g. ECharts).
+$converter->addExtension(new FencedRenderExtension(
+    language: 'echarts',
+    contentMode: FencedRenderExtension::MODE_JSON,
+));
+// -> <div class="echarts"><script type="application/json">{…}</script></div>
+~~~
+
+Then hydrate `pre.nomnoml` / `.echarts` on the client exactly as the presets
+above. Pass an array as `language` to claim several fence words (aliases), and
+set `cssClass` when the wrapper class should differ from the first word.
+
+> [!NOTE]
+> Author attributes on the fence (a `{#id .class key=val}` block-attribute line
+> above it) are copied onto the wrapper, but get the same treatment the core
+> renderer applies to every element: always-on hardening
+> (`HtmlRenderer::sanitizeAttributes()`) strips event handlers (`on*`),
+> `srcdoc`, `formaction` and neutralizes dangerous URL / `expression()` values
+> regardless of safe mode, then safe mode strips any additional names (e.g.
+> `style` under strict). Values are HTML-escaped so a quote cannot break out. So
+> a `{onclick="..."}` on the fence can never reach the output.
 
 ### MathBlockExtension
 
