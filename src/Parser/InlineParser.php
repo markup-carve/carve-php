@@ -64,7 +64,12 @@ class InlineParser
     /**
      * Registered scanner-function inline matchers.
      *
-     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null}>
+     * `pattern` is the source regex (when registered via addInlinePattern), used
+     * to derive the trigger-byte gate. `triggerChars` is an explicit set of
+     * first bytes for a raw-closure matcher (addInlineMatcher) that has no
+     * pattern but still only fires on known characters.
+     *
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, triggerChars: string|null}>
      */
     protected array $inlineMatchers = [];
 
@@ -76,13 +81,13 @@ class InlineParser
     protected ?array $sortedInlineMatchers = null;
 
     /**
-     * Inline matchers in priority order, each paired with the single literal
-     * ASCII byte its pattern must begin with (or null when it can start
-     * anywhere). Lets the per-position scan skip a matcher whose trigger byte
-     * differs from the current char without running its (always-failing)
-     * preg_match -- the dominant cost on plain prose.
+     * Inline matchers in priority order, each paired with the SET of literal
+     * ASCII bytes its pattern can begin with (a map byte => true), or null when
+     * it can start anywhere. Lets the per-position scan skip a matcher whose
+     * trigger set does not contain the current char without running its
+     * (always-failing) preg_match -- the dominant cost on plain prose.
      *
-     * @var array<array{matcher: \Closure, first: string|null}>|null
+     * @var array<array{matcher: \Closure, first: array<string, true>|null}>|null
      */
     protected ?array $compiledInlineMatchers = null;
 
@@ -234,26 +239,41 @@ class InlineParser
     }
 
     /**
+     * Register a raw-closure inline matcher.
+     *
+     * A matcher with no regex pattern would otherwise run at every scan position
+     * (and disable the whole-document fast-skip). Pass `$triggerChars` -- the
+     * set of literal first bytes the matcher can ever fire on (e.g. `'['` for a
+     * citation `[@key]`) -- to gate it to those positions. Each byte of the
+     * string is treated as an independent trigger.
+     *
      * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
      * @param int $priority
+     * @param string|null $triggerChars Literal first bytes this matcher fires on; null = runs everywhere
      */
-    public function addInlineMatcher(Closure $matcher, int $priority = 0): void
+    public function addInlineMatcher(Closure $matcher, int $priority = 0, ?string $triggerChars = null): void
     {
-        $this->registerInlineMatcher($matcher, $priority);
+        $this->registerInlineMatcher($matcher, $priority, triggerChars: $triggerChars);
     }
 
     /**
      * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
      * @param int $priority
      * @param string|null $pattern
+     * @param string|null $triggerChars
      */
-    protected function registerInlineMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null): void
-    {
+    protected function registerInlineMatcher(
+        Closure $matcher,
+        int $priority = 0,
+        ?string $pattern = null,
+        ?string $triggerChars = null,
+    ): void {
         $this->inlineMatchers[] = [
             'matcher' => $matcher,
             'priority' => $priority,
             'seq' => $this->inlineMatcherSeq++,
             'pattern' => $pattern,
+            'triggerChars' => $triggerChars,
         ];
         $this->sortedInlineMatchers = null;
         $this->compiledInlineMatchers = null;
@@ -954,9 +974,10 @@ class InlineParser
         $char = $text[$pos];
         $ctx = $this->inlineMatcherContext ??= new MatcherContext($this->blockParser, $this);
         foreach ($this->compiledInlineMatchers() as $entry) {
-            // Skip a matcher whose pattern must begin with a different literal
-            // byte: its anchored preg_match would fail here anyway.
-            if ($entry['first'] !== null && $entry['first'] !== $char) {
+            // Skip a matcher whose trigger set does not contain the current
+            // byte: its anchored preg_match would fail here anyway. A null set
+            // means "runs everywhere".
+            if ($entry['first'] !== null && !isset($entry['first'][$char])) {
                 continue;
             }
             $result = ($entry['matcher'])($text, $pos, $ctx);
@@ -972,7 +993,7 @@ class InlineParser
      * Build (once) the priority-ordered matcher list paired with each pattern's
      * required first literal byte, for first-char gating in tryInlineMatchers().
      *
-     * @return array<array{matcher: \Closure, first: string|null}>
+     * @return array<array{matcher: \Closure, first: array<string, true>|null}>
      */
     protected function compiledInlineMatchers(): array
     {
@@ -988,33 +1009,87 @@ class InlineParser
         return $this->compiledInlineMatchers = array_map(
             fn (array $entry): array => [
                 'matcher' => $entry['matcher'],
-                'first' => $this->patternFirstByte($entry['pattern']),
+                'first' => $this->matcherFirstBytes($entry['pattern'], $entry['triggerChars']),
             ],
             $entries,
         );
     }
 
     /**
-     * The single literal ASCII byte a delimited regex pattern must start with,
-     * or null when it cannot be determined (regex metacharacter, multibyte, or
-     * a non-pattern Closure matcher) -- in which case the matcher always runs.
+     * Resolve the trigger-byte set for a registered matcher: explicit
+     * `triggerChars` (each byte its own trigger) take precedence; otherwise it
+     * is derived from the regex pattern. Null = run everywhere.
+     *
+     * @return array<string, true>|null
      */
-    protected function patternFirstByte(?string $pattern): ?string
+    protected function matcherFirstBytes(?string $pattern, ?string $triggerChars): ?array
+    {
+        if ($triggerChars !== null && $triggerChars !== '') {
+            $set = [];
+            $len = strlen($triggerChars);
+            for ($i = 0; $i < $len; $i++) {
+                $set[$triggerChars[$i]] = true;
+            }
+
+            return $set;
+        }
+
+        return $this->patternFirstBytes($pattern);
+    }
+
+    /**
+     * The SET of literal ASCII bytes a delimited regex pattern can legally start
+     * with (a map byte => true), or null when the set cannot be safely bounded
+     * (regex metacharacter, multibyte, anchor, wildcard class, ...) -- in which
+     * case the matcher must run at every position.
+     *
+     * CORRECTNESS: the returned set is a pure gating optimization, so it MUST be
+     * a complete superset of every byte that can begin a match. When in doubt,
+     * return null (run everywhere). Handles: a leading escaped literal (`\[`),
+     * an alternation/group of literals (`(http|https|ftp)`), a positive char
+     * class (`[abc]`), a plain literal, and the `i` (case-insensitive) flag
+     * (adds both cases of each letter).
+     *
+     * @return array<string, true>|null
+     */
+    protected function patternFirstBytes(?string $pattern): ?array
     {
         if ($pattern === null || strlen($pattern) < 2) {
             return null;
         }
 
-        // Delimited form: <delim>BODY<delim>flags. The first INPUT-consuming
-        // char of BODY is the candidate trigger.
         $delim = $pattern[0];
         $len = strlen($pattern);
+
+        // Locate the closing delimiter (last occurrence of $delim) so the flags
+        // segment after it can be inspected. The body is everything between the
+        // opening and closing delimiter.
+        $closeDelim = strrpos($pattern, $delim);
+        if ($closeDelim === false || $closeDelim < 1) {
+            return null;
+        }
+        $flags = substr($pattern, $closeDelim + 1);
+        // Extended/free-spacing mode (`x`) makes literal whitespace and `#`
+        // comments insignificant, so the first BYTE of the body is not the first
+        // token consumed. Deriving a trigger from it would be unsound -> run
+        // everywhere.
+        if (str_contains($flags, 'x')) {
+            return null;
+        }
+        $caseInsensitive = str_contains($flags, 'i');
+        // Unicode case-insensitive (`iu`) applies full Unicode case folding, so a
+        // letter trigger can also match a multibyte fold (e.g. `k` matches the
+        // Kelvin sign U+212A). ASCII-only case expansion is not a complete
+        // superset then -> run everywhere.
+        if ($caseInsensitive && str_contains($flags, 'u')) {
+            return null;
+        }
+
         $i = 1;
 
         // Skip a leading lookbehind assertion (zero-width: consumes no input, so
-        // the real trigger follows it). Gating on the trigger is still safe --
-        // the anchored matcher requires that byte at the position regardless of
-        // the lookbehind, which only further restricts the match.
+        // the real trigger follows it). Safe -- the anchored matcher still
+        // requires the trigger byte at the position regardless of the lookbehind.
         if (substr($pattern, $i, 4) === '(?<!' || substr($pattern, $i, 4) === '(?<=') {
             $depth = 0;
             while ($i < $len) {
@@ -1047,18 +1122,324 @@ class InlineParser
             }
         }
 
+        $bytes = $this->firstBytesOf($pattern, $i, $closeDelim);
+        if ($bytes === null) {
+            return null;
+        }
+
+        if (!$caseInsensitive) {
+            return $bytes;
+        }
+
+        // Case-insensitive: every letter trigger can appear in either case.
+        $expanded = [];
+        foreach (array_keys($bytes) as $b) {
+            $expanded[$b] = true;
+            if (ctype_alpha($b)) {
+                $expanded[strtoupper($b)] = true;
+                $expanded[strtolower($b)] = true;
+            }
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * Compute the trigger-byte set of the regex SEQUENCE spanning [$i, $end).
+     * The sequence may itself be a top-level alternation `A|B|C` -- each
+     * alternative's first bytes are unioned. Returns null if any alternative is
+     * indeterminate (so the matcher must run everywhere).
+     *
+     * @return array<string, true>|null
+     */
+    protected function firstBytesOf(string $pattern, int $i, int $end): ?array
+    {
+        if ($i >= $end) {
+            return null;
+        }
+
+        // Split on top-level `|` (not inside groups or char classes) and union
+        // the first bytes of every alternative.
+        $bytes = [];
+        $altStart = $i;
+        $depth = 0;
+        $j = $i;
+        while ($j <= $end) {
+            $ch = $j < $end ? $pattern[$j] : '';
+            $atEnd = $j === $end;
+            if (!$atEnd && $ch === '\\') {
+                $j += 2;
+
+                continue;
+            }
+            if (!$atEnd && $ch === '[') {
+                $j++;
+                while ($j < $end && $pattern[$j] !== ']') {
+                    $j += $pattern[$j] === '\\' ? 2 : 1;
+                }
+                $j++;
+
+                continue;
+            }
+            if (!$atEnd && $ch === '(') {
+                $depth++;
+            } elseif (!$atEnd && $ch === ')') {
+                $depth--;
+            }
+
+            if ($atEnd || ($ch === '|' && $depth === 0)) {
+                $altBytes = $this->branchFirstBytes($pattern, $altStart, $j);
+                if ($altBytes === null) {
+                    return null;
+                }
+                foreach (array_keys($altBytes) as $b) {
+                    $bytes[$b] = true;
+                }
+                $altStart = $j + 1;
+            }
+            $j++;
+        }
+
+        return $bytes === [] ? null : $bytes;
+    }
+
+    /**
+     * First-byte set of a SINGLE alternative (no top-level `|`) spanning
+     * [$i, $end): the first token's bytes, unless a quantifier makes that token
+     * optional (then the following token could also start the match, so the set
+     * is indeterminate -> null).
+     *
+     * @return array<string, true>|null
+     */
+    protected function branchFirstBytes(string $pattern, int $i, int $end): ?array
+    {
         $c = $pattern[$i] ?? '';
-        if ($c === '' || $c === $delim) {
+        if ($c === '' || $i >= $end) {
             return null;
         }
-        if (in_array($c, ['\\', '(', '[', '^', '.', '$', '|', '?', '*', '+', '{', ')', ']', '}'], true)) {
+
+        // Escaped first char. Only a literal punctuation escape (`\[`, `\.`,
+        // `\$`) has a determinate first byte; a class shorthand (`\d`, `\w`,
+        // `\b`, ...) does not.
+        if ($c === '\\') {
+            $next = $pattern[$i + 1] ?? '';
+            if ($next === '' || ctype_alnum($next) || ord($next) > 127) {
+                return null;
+            }
+            if ($this->isOptionalQuantifier($pattern, $i + 2)) {
+                return null;
+            }
+
+            return [$next => true];
+        }
+
+        // Group `(...)`: the union of its branches' first bytes (handles its own
+        // optional-quantifier check).
+        if ($c === '(') {
+            return $this->groupFirstBytes($pattern, $i, $end);
+        }
+
+        // Positive char class `[abc]` / enumerable range (handles its own
+        // optional-quantifier check). A negated class, shorthand, or multibyte
+        // bound -> null.
+        if ($c === '[') {
+            return $this->charClassFirstBytes($pattern, $i, $end);
+        }
+
+        // Any other metacharacter (anchor ^, wildcard ., $, quantifiers, ...)
+        // cannot be reduced to a literal trigger set.
+        if (in_array($c, ['^', '.', '$', '|', '?', '*', '+', '{', ')', ']', '}'], true)) {
             return null;
         }
+
+        // Multibyte / non-ASCII first byte.
         if (ord($c) > 127) {
             return null;
         }
 
-        return $c;
+        // Plain literal byte. A quantifier directly after it that permits zero
+        // repetitions (`a?`, `a*`, `a{0,n}`, `a{,n}`) makes it optional, so the
+        // following token could also start the match -> indeterminate.
+        if ($this->isOptionalQuantifier($pattern, $i + 1)) {
+            return null;
+        }
+
+        return [$c => true];
+    }
+
+    /**
+     * Whether the quantifier at offset $i (if any) makes the immediately
+     * preceding token optional, i.e. permits zero repetitions: `?`, `*`, or a
+     * counted form whose minimum is zero (`{0}`, `{0,n}`, `{,n}`). A non-zero
+     * minimum (`{2}`, `{1,3}`) keeps the token mandatory. An unparseable `{...}`
+     * is treated conservatively as optional (returns true).
+     */
+    protected function isOptionalQuantifier(string $pattern, int $i): bool
+    {
+        $ch = $pattern[$i] ?? '';
+        if ($ch === '?' || $ch === '*') {
+            return true;
+        }
+        if ($ch !== '{') {
+            return false;
+        }
+
+        $close = strpos($pattern, '}', $i);
+        if ($close === false) {
+            // Not a quantifier ({ is a literal here) -- token stays mandatory.
+            return false;
+        }
+        $body = substr($pattern, $i + 1, $close - $i - 1);
+        // {,n} -> minimum 0; {0...} -> minimum 0. Anything else with a nonzero
+        // leading integer keeps the token mandatory.
+        if ($body === '' || $body[0] === ',') {
+            return true;
+        }
+        if (!ctype_digit($body[0])) {
+            // Not a real counted quantifier; treat `{` as literal -> mandatory.
+            return false;
+        }
+        $min = (int)$body;
+
+        return $min === 0;
+    }
+
+    /**
+     * First-byte set of a leading group `(...)` -- the union of every
+     * alternative's first bytes. Null if the group is non-capturing-but-special
+     * (lookahead/lookbehind), unbalanced, or any alternative is indeterminate.
+     *
+     * @return array<string, true>|null
+     */
+    protected function groupFirstBytes(string $pattern, int $start, int $end): ?array
+    {
+        // Reject lookarounds and other (?...) extensions: their first consuming
+        // byte is not the byte after `(`.
+        if (($pattern[$start + 1] ?? '') === '?') {
+            return null;
+        }
+
+        // Find the matching close paren (respecting escapes and nested classes),
+        // bounded by $end.
+        $depth = 0;
+        $groupEnd = null;
+        $i = $start;
+        while ($i < $end) {
+            $ch = $pattern[$i];
+            if ($ch === '\\') {
+                $i += 2;
+
+                continue;
+            }
+            if ($ch === '[') {
+                $i++;
+                while ($i < $end && $pattern[$i] !== ']') {
+                    $i += $pattern[$i] === '\\' ? 2 : 1;
+                }
+                $i++;
+
+                continue;
+            }
+            if ($ch === '(') {
+                $depth++;
+            } elseif ($ch === ')') {
+                $depth--;
+                if ($depth === 0) {
+                    $groupEnd = $i;
+
+                    break;
+                }
+            }
+            $i++;
+        }
+        if ($groupEnd === null) {
+            return null;
+        }
+
+        // A quantifier making the whole group optional means the trigger could
+        // be whatever follows the group -> indeterminate.
+        if ($this->isOptionalQuantifier($pattern, $groupEnd + 1)) {
+            return null;
+        }
+
+        // The group body is itself a (possibly alternated) sequence; its first
+        // bytes are computed by the alternation-aware firstBytesOf().
+        return $this->firstBytesOf($pattern, $start + 1, $groupEnd);
+    }
+
+    /**
+     * First-byte set of a leading positive char class `[abc]` or `[a-z0-9._-]`.
+     *
+     * Enumerable ASCII ranges (`a-z`, `A-Z`, `0-9`, ...) are expanded to their
+     * member bytes -- still a complete, correct superset, and the dominant gain
+     * for matchers whose pattern starts with a bounded class (bare-email
+     * autolink starts with `[a-zA-Z0-9._%+-]`). Returns null for a negated class
+     * `[^...]`, a shorthand escape (`\d`, `\w`) anywhere inside, a multibyte
+     * range bound, an empty class, or an unterminated class -- all too broad or
+     * indeterminate to enumerate safely.
+     *
+     * @return array<string, true>|null
+     */
+    protected function charClassFirstBytes(string $pattern, int $start, int $end): ?array
+    {
+        $i = $start + 1;
+        if (($pattern[$i] ?? '') === '^') {
+            return null;
+        }
+
+        $bytes = [];
+        while ($i < $end) {
+            $ch = $pattern[$i];
+            if ($ch === ']') {
+                // Class closed. A quantifier making it optional -> indeterminate.
+                if ($this->isOptionalQuantifier($pattern, $i + 1)) {
+                    return null;
+                }
+
+                return $bytes === [] ? null : $bytes;
+            }
+            // A shorthand escape (`\d`, `\w`, `\s`, ...) inside the class is too
+            // broad to enumerate.
+            if ($ch === '\\') {
+                return null;
+            }
+            // A `[` inside the class begins a POSIX class `[:alpha:]`, an
+            // equivalence class `[=e=]`, or a collating element `[.ch.]` -- all
+            // far broader than the literal bytes they are spelled with, and the
+            // inner `]` would be misread as the class terminator. Indeterminate.
+            if ($ch === '[') {
+                return null;
+            }
+            if (ord($ch) > 127) {
+                return null;
+            }
+
+            // Range `X-Y`: enumerate the inclusive ASCII span. A `-` at the very
+            // start/end of the class or with a non-literal bound is a literal
+            // hyphen, handled by the literal branch below.
+            $next = $pattern[$i + 1] ?? '';
+            $after2 = $pattern[$i + 2] ?? '';
+            if ($next === '-' && $after2 !== '' && $after2 !== ']' && $after2 !== '\\' && ord($after2) <= 127) {
+                $from = ord($ch);
+                $to = ord($after2);
+                if ($to < $from) {
+                    // Malformed range -- do not guess.
+                    return null;
+                }
+                for ($b = $from; $b <= $to; $b++) {
+                    $bytes[chr($b)] = true;
+                }
+                $i += 3;
+
+                continue;
+            }
+
+            $bytes[$ch] = true;
+            $i++;
+        }
+
+        // Unterminated class.
+        return null;
     }
 
     /**
@@ -1091,9 +1472,13 @@ class InlineParser
 
         foreach ($this->compiledInlineMatchers() as $entry) {
             if ($entry['first'] === null) {
+                // A matcher with no determinable trigger set runs at every
+                // position, so the document-wide fast-skip cannot apply.
                 return $this->inlineSignificantBytes = null;
             }
-            $sig[$entry['first']] = true;
+            foreach (array_keys($entry['first']) as $b) {
+                $sig[$b] = true;
+            }
         }
 
         return $this->inlineSignificantBytes = $sig;
