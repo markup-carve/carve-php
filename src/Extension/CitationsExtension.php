@@ -58,6 +58,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $converter->getParser()->getInlineParser()->addInlineMatcher(
             fn (string $text, int $pos, MatcherContext $ctx): ?array => $this->matchCitation($text, $pos, $ctx),
             priority: 10,
+            triggerChars: '[',
         );
 
         $renderer = $converter->getRenderer();
