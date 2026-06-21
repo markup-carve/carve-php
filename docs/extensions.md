@@ -773,6 +773,86 @@ renders as `<div class="math display big" id="eq" data-ref="x">\[x^2\]</div>`.
 > a `{onclick="…"}` on a ` ``` math ` fence can never reach the output. This
 > matches how core inline `` $`…` `` / display `` $$`…` `` math carry `{...}`.
 
+### SpoilerExtension
+
+Hidden / blurred content revealed on interaction (inline + block). Implements
+the standard `spoiler` role from the spec's Extension Registry - no new syntax.
+
+- **Inline** `:spoiler[text]` → `<span class="spoiler">text</span>`. Without the
+  extension this stays the generic `<span class="ext-spoiler">text</span>`.
+- **Block** `::: spoiler "Title"` → an HTML5 `<details class="spoiler">`
+  disclosure (native, keyboard- and screen-reader-accessible); a title-less
+  block falls back to `<summary>Spoiler</summary>`. Without the extension this
+  stays a plain `<div class="spoiler">`.
+
+~~~ php
+$converter->addExtension(new SpoilerExtension());
+
+$converter->convert('Plot: :spoiler[the butler did it].');
+// <p>Plot: <span class="spoiler">the butler did it</span>.</p>
+
+$converter->convert("::: spoiler \"Ending\"\nEveryone lives.\n:::");
+// <details class="spoiler">
+//   <summary>Ending</summary>
+//   <p>Everyone lives.</p>
+// </details>
+~~~
+
+Carve emits only the marker; the blur + reveal is the host's CSS (like
+`MermaidExtension`). Author attributes merge onto the output element - the
+`spoiler` base class ahead of author classes, then id / key-values - with the
+always-on hardening (`HtmlRenderer::sanitizeAttributes()`) plus safe-mode name
+filtering and value escaping, so a `{onclick="…"}` can never reach the output.
+
+Carve emits only the marker; the blur / collapse + reveal is the host's CSS/JS.
+Three host looks over the same markup (hover never reveals - it would spoil by
+accident; content stays in the DOM for screen readers):
+
+- inline `:spoiler[text]` → `<span class="spoiler">` styled as a **blur** that
+  reveals on click;
+- a generic `{.spoiler}` block div → `<div class="spoiler">` styled as a
+  **blurred panel that keeps its space**, revealing on click;
+- `::: spoiler` → `<details class="spoiler">` left as a **native collapse**
+  (summary only, expands on click - no JS, fully keyboard/screen-reader accessible).
+
+A `.masked` variant gives a credit-card / PIN look (every char a dot):
+`:spoiler[1234]{.masked}`.
+
+~~~ css
+/* Inline: blurred until clicked. */
+span.spoiler { filter: blur(.3em); cursor: pointer; border-radius: 3px; padding: 0 .15em;
+  background: rgba(127, 127, 127, .14); user-select: none; transition: filter .2s; }
+span.spoiler.revealed { filter: none; background: transparent; user-select: text; }
+/* Credit-card / PIN variant ({.masked}): every char a dot. */
+span.spoiler.masked { filter: none; -webkit-text-security: disc; }
+span.spoiler.masked.revealed { -webkit-text-security: none; }
+/* Block as a blurred panel that keeps its space (a generic {.spoiler} div). */
+div.spoiler { filter: blur(.4em); cursor: pointer; border-radius: 8px; padding: 10px 14px;
+  border-left: 3px solid #e0af68; user-select: none; transition: filter .25s; }
+div.spoiler.revealed { filter: none; cursor: auto; user-select: text; }
+/* Block as a native collapse (::: spoiler): summary only until clicked. */
+details.spoiler { border-left: 4px solid #e0af68; border-radius: 8px; padding: 6px 14px; }
+details.spoiler > summary { color: #e0af68; cursor: pointer; list-style: none; }
+details.spoiler > summary::before { content: "👁 "; }
+details.spoiler > summary::after { content: " (click to reveal)"; font-weight: 400; }
+details.spoiler[open] > summary::after { content: ""; }
+~~~
+
+~~~ js
+// The two blur forms (inline span, block div) reveal on click / Enter / Space.
+for (const el of document.querySelectorAll('span.spoiler, div.spoiler')) {
+  el.tabIndex = 0
+  el.setAttribute('role', 'button')
+  el.setAttribute('aria-label', 'Spoiler, activate to reveal')
+  const toggle = () => el.classList.toggle('revealed')
+  el.addEventListener('click', toggle)
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
+  })
+}
+// `::: spoiler` → <details> is a native disclosure - it collapses/expands on its own.
+~~~
+
 ### FrontmatterExtension (default)
 
 Parses a leading frontmatter block. Active by default. The block opens with
