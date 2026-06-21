@@ -321,7 +321,9 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        return $node->getDestination() ?? $this->renderChildren($node);
+        $destination = $node->getDestination();
+
+        return $destination === null ? $this->renderChildren($node) : $this->stripControls($destination);
     }
 
     /**

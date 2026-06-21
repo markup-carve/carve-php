@@ -6,8 +6,14 @@ namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
 use Carve\Converter\HtmlToCarve;
+use Carve\Node\Block\Paragraph;
+use Carve\Node\Document;
+use Carve\Node\Inline\Image;
+use Carve\Node\Inline\Link;
+use Carve\Node\Inline\Text;
 use Carve\Renderer\AnsiRenderer;
 use Carve\Renderer\MarkdownRenderer;
+use Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +65,41 @@ class NonHtmlRendererSecurityTest extends TestCase
         $this->assertStringNotContainsString("\x1b[31m", $out);
         $this->assertStringNotContainsString("\x07", $out);
         $this->assertStringContainsString('there', $out);
+    }
+
+    public function testAnsiAndPlainTextStripControlBytesFromLinkDestinations(): void
+    {
+        $doc = new Document();
+        $paragraph = new Paragraph();
+        $link = new Link("https://example.com/\x1b]8;;evil\x07");
+        $link->appendChild(new Text('link'));
+        $paragraph->appendChild($link);
+        $doc->appendChild($paragraph);
+
+        $ansi = (new AnsiRenderer(useColors: false))->render($doc);
+        $plain = (new PlainTextRenderer())->render($doc);
+
+        $this->assertStringNotContainsString("\x1b", $ansi);
+        $this->assertStringNotContainsString("\x07", $ansi);
+        $this->assertStringNotContainsString("\x1b", $plain);
+        $this->assertStringNotContainsString("\x07", $plain);
+    }
+
+    public function testMarkdownEscapesLinkAndImageTitles(): void
+    {
+        $doc = new Document();
+        $paragraph = new Paragraph();
+        $link = new Link('https://example.com', 'a "quote" and \\ slash');
+        $link->appendChild(new Text('link'));
+        $paragraph->appendChild($link);
+        $paragraph->appendChild(new Text(' '));
+        $paragraph->appendChild(new Image('image.png', 'alt', 'a "quote" and \\ slash'));
+        $doc->appendChild($paragraph);
+
+        $markdown = trim((new MarkdownRenderer())->render($doc));
+
+        $this->assertStringContainsString('[link](https://example.com "a \\"quote\\" and \\\\ slash")', $markdown);
+        $this->assertStringContainsString('![alt](image.png "a \\"quote\\" and \\\\ slash")', $markdown);
     }
 
     public function testHtmlImportDropsEventHandlers(): void

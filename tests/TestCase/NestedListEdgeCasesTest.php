@@ -203,6 +203,23 @@ DJOT;
         $this->assertStringContainsString('<p>C</p>', $result);
     }
 
+    public function testDeepNestedListsRenderWithinSaneBounds(): void
+    {
+        $lines = [];
+        for ($i = 0; $i < 180; $i++) {
+            $lines[] = str_repeat('  ', $i) . '- item ' . $i;
+        }
+        $source = implode("\n", $lines);
+        $before = memory_get_usage(true);
+        $start = microtime(true);
+
+        $html = $this->converter->convert($source);
+
+        $this->assertStringContainsString('<ul>', $html);
+        $this->assertLessThan(1.5, microtime(true) - $start);
+        $this->assertLessThan(16 * 1024 * 1024, memory_get_usage(true) - $before);
+    }
+
     // ==================== Tight vs loose list behavior ====================
 
     public function testTightNestedListWithHeading(): void

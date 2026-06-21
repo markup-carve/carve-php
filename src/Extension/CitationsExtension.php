@@ -49,6 +49,15 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      */
     protected array $order = [];
 
+    /**
+     * Per-text cache of balanced `[`->`]` bracket pairs (open offset => close
+     * offset), precomputed in one pass so each matchCitation() call is O(1)
+     * instead of re-scanning to EOF (which is O(n^2) on inputs like `[[[[`).
+     *
+     * @var array<string, array<int, int>>
+     */
+    protected array $bracketPairs = [];
+
     public function __construct(protected string $mode = 'numbered')
     {
     }
@@ -89,6 +98,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $this->definitions = [];
         $this->numbers = [];
         $this->order = [];
+        $this->bracketPairs = [];
 
         $this->collectDefinitions($document);
     }
@@ -136,7 +146,6 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         if (($text[$pos] ?? '') !== '[') {
             return null;
         }
-
         $close = $this->findClosingBracket($text, $pos);
         if ($close === null) {
             return null;
@@ -247,9 +256,28 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
     protected function findClosingBracket(string $text, int $open): ?int
     {
-        $depth = 0;
+        return $this->bracketPairs($text)[$open] ?? null;
+    }
+
+    /**
+     * Precompute balanced `[`->`]` pairs for the whole text in a single pass
+     * (stack of open offsets), so matchCitation() resolves each opener in O(1).
+     * Mirrors the previous per-opener depth scan: each `]` matches the nearest
+     * still-open `[`; `\` escapes the next character; unmatched `[` get no
+     * entry (findClosingBracket returns null for them, as before).
+     *
+     * @return array<int, int>
+     */
+    protected function bracketPairs(string $text): array
+    {
+        if (isset($this->bracketPairs[$text])) {
+            return $this->bracketPairs[$text];
+        }
+
+        $pairs = [];
+        $stack = [];
         $length = strlen($text);
-        for ($i = $open; $i < $length; $i++) {
+        for ($i = 0; $i < $length; $i++) {
             $char = $text[$i];
             if ($char === '\\') {
                 $i++;
@@ -257,16 +285,13 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 continue;
             }
             if ($char === '[') {
-                $depth++;
-            } elseif ($char === ']') {
-                $depth--;
-                if ($depth === 0) {
-                    return $i;
-                }
+                $stack[] = $i;
+            } elseif ($char === ']' && $stack !== []) {
+                $pairs[array_pop($stack)] = $i;
             }
         }
 
-        return null;
+        return $this->bracketPairs[$text] = $pairs;
     }
 
     /**

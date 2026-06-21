@@ -814,7 +814,7 @@ class AnsiRenderer implements RendererInterface
         $styled = $this->style($text, self::UNDERLINE . self::FG_BLUE);
 
         if ($url !== null && $url !== '' && $url !== $text) {
-            $styled .= $this->style(' (' . $url . ')', self::DIM);
+            $styled .= $this->style(' (' . $this->stripControls($url) . ')', self::DIM);
         }
 
         return $styled;

@@ -656,12 +656,7 @@ class ListTableExtension implements ExtensionInterface
             $attrs = $safeMode->filterAttributes($attrs);
         }
 
-        $html = '';
-        foreach ($attrs as $key => $value) {
-            $html .= ' ' . $this->escapeHtml((string)$key) . '="' . $renderer->escapeAttribute((string)$value) . '"';
-        }
-
-        return $html;
+        return $renderer->renderAttributeArray($attrs);
     }
 
     /**
@@ -678,6 +673,7 @@ class ListTableExtension implements ExtensionInterface
         $attrs = $node->getAttributes();
         unset($attrs['title'], $attrs['header-rows'], $attrs['header-cols']);
 
+        $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $attrs = $safeMode->filterAttributes($attrs);
@@ -696,12 +692,7 @@ class ListTableExtension implements ExtensionInterface
             }
         }
 
-        $html = '';
-        foreach ($attrs as $key => $value) {
-            $html .= ' ' . $this->escapeHtml((string)$key) . '="' . $renderer->escapeAttribute((string)$value) . '"';
-        }
-
-        return $html;
+        return $renderer->renderAttributeArray($attrs);
     }
 
     /**

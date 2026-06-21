@@ -25,6 +25,11 @@ use Carve\Node\Node;
 
 class CrossReferenceResolver
 {
+    /**
+     * @var int
+     */
+    private const MAX_RESOLVE_DEPTH = 512;
+
     public function resolve(Document $document, HeadingIdTracker $tracker): void
     {
         $this->trackIdFromNode($document, $tracker);
@@ -60,13 +65,17 @@ class CrossReferenceResolver
         $this->enforceNoNesting($node, $tracker, false);
     }
 
-    protected function enforceNoNesting(Node $node, HeadingIdTracker $tracker, bool $insideLink): void
+    protected function enforceNoNesting(Node $node, HeadingIdTracker $tracker, bool $insideLink, int $depth = 0): void
     {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Link) {
                 // Recurse the link's own label first (insideLink = true), so a
                 // link buried deeper in the label is unwrapped too.
-                $this->enforceNoNesting($child, $tracker, true);
+                $this->enforceNoNesting($child, $tracker, true, $depth + 1);
 
                 if ($insideLink) {
                     // A link inside another link: drop the inner destination,
@@ -92,7 +101,7 @@ class CrossReferenceResolver
             if ($child instanceof InlineFootnote) {
                 // The footnote body renders outside the anchor, so its links are
                 // not nested: re-enter with insideLink reset to false.
-                $this->enforceNoNesting($child, $tracker, false);
+                $this->enforceNoNesting($child, $tracker, false, $depth + 1);
 
                 continue;
             }
@@ -101,7 +110,7 @@ class CrossReferenceResolver
             // block containers, footnote definition bodies, …) is recursed with
             // the inside-link flag carried unchanged.
             if ($child->hasChildren()) {
-                $this->enforceNoNesting($child, $tracker, $insideLink);
+                $this->enforceNoNesting($child, $tracker, $insideLink, $depth + 1);
             }
         }
     }
@@ -126,8 +135,12 @@ class CrossReferenceResolver
     /**
      * Track ID usage from non-heading elements (like paragraphs with explicit IDs)
      */
-    protected function trackIdFromNode(Node $node, HeadingIdTracker $tracker): void
+    protected function trackIdFromNode(Node $node, HeadingIdTracker $tracker, int $depth = 0): void
     {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
         if ($node->hasAttribute('id')) {
             $idAttr = $node->getAttribute('id');
             $id = $idAttr ?? '';
@@ -135,7 +148,7 @@ class CrossReferenceResolver
         }
 
         foreach ($node->getChildren() as $child) {
-            $this->trackIdFromNode($child, $tracker);
+            $this->trackIdFromNode($child, $tracker, $depth + 1);
         }
     }
 
@@ -143,13 +156,17 @@ class CrossReferenceResolver
      * Resolve the id (and capture the text) of every heading in the
      * document so </#id> cross-references can be rendered.
      */
-    protected function preresolveHeadingIds(Node $node, HeadingIdTracker $tracker): void
+    protected function preresolveHeadingIds(Node $node, HeadingIdTracker $tracker, int $depth = 0): void
     {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Heading) {
                 $tracker->getIdForHeading($child);
             } else {
-                $this->preresolveHeadingIds($child, $tracker);
+                $this->preresolveHeadingIds($child, $tracker, $depth + 1);
             }
         }
     }
@@ -168,9 +185,14 @@ class CrossReferenceResolver
      * @param \Carve\Node\Node $node
      * @param \Carve\Renderer\HeadingIdTracker $tracker
      * @param array<string, int> $counters
+     * @param int $depth
      */
-    protected function resolveNumberedCaptionsInNode(Node $node, HeadingIdTracker $tracker, array &$counters): void
+    protected function resolveNumberedCaptionsInNode(Node $node, HeadingIdTracker $tracker, array &$counters, int $depth = 0): void
     {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
         if ($node instanceof Figure) {
             $caption = $this->findFigureCaption($node);
             if ($caption !== null) {
@@ -187,7 +209,7 @@ class CrossReferenceResolver
             if ($child instanceof Caption) {
                 continue;
             }
-            $this->resolveNumberedCaptionsInNode($child, $tracker, $counters);
+            $this->resolveNumberedCaptionsInNode($child, $tracker, $counters, $depth + 1);
         }
     }
 
@@ -234,8 +256,12 @@ class CrossReferenceResolver
     /**
      * @return array{text: string, node: \Carve\Node\Inline\CaptionNumber|null}
      */
-    protected function captionTextBeforeNumber(Node $node): array
+    protected function captionTextBeforeNumber(Node $node, int $depth = 0): array
     {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return ['text' => '', 'node' => null];
+        }
+
         $text = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof CaptionNumber) {
@@ -255,7 +281,7 @@ class CrossReferenceResolver
             } elseif ($child instanceof RawInline) {
                 continue;
             } else {
-                $result = $this->captionTextBeforeNumber($child);
+                $result = $this->captionTextBeforeNumber($child, $depth + 1);
                 $text .= $result['text'];
                 if ($result['node'] instanceof CaptionNumber) {
                     return ['text' => $text, 'node' => $result['node']];

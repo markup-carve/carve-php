@@ -5,7 +5,14 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
+use Carve\Filter\ProfileFilter;
 use Carve\Node\Block\BlockQuote;
+use Carve\Node\Block\Paragraph;
+use Carve\Node\Document;
+use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Text;
+use Carve\Profile;
+use Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -47,5 +54,26 @@ class DeepNestingTest extends TestCase
             $children = $children[0]->getChildren();
         }
         $this->assertSame(3, $depth);
+    }
+
+    public function testProgrammaticDeepDocumentDoesNotCrashRenderOrFilter(): void
+    {
+        $doc = new Document();
+        $paragraph = new Paragraph();
+        $doc->appendChild($paragraph);
+        $parent = $paragraph;
+        for ($i = 0; $i < 60000; $i++) {
+            $span = new Span();
+            $parent->appendChild($span);
+            $parent = $span;
+        }
+        $parent->appendChild(new Text('too deep'));
+
+        $html = (new HtmlRenderer())->render($doc);
+        (new ProfileFilter())->filter($doc, new Profile());
+
+        $this->assertStringStartsWith('<p><span>', $html);
+        $this->assertStringNotContainsString('too deep', $html);
+        $this->assertLessThan(20000, strlen($html));
     }
 }
