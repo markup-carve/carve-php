@@ -204,6 +204,15 @@ class DetailsExtensionTest extends TestCase
         $this->assertStringNotContainsString('onclick', $html);
     }
 
+    public function testDefaultModeHardensDangerousAttributes(): void
+    {
+        $html = $this->render("{onclick=\"alert(1)\" style=\"background:url(javascript:alert(1))\"}\n::: details \"T\"\nx\n:::");
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('background:url', $html);
+        $this->assertStringContainsString('<details style="">', $html);
+    }
+
     public function testLeavesCanonicalAdmonitionsUntouched(): void
     {
         $html = $this->render("::: note\nhi\n:::");

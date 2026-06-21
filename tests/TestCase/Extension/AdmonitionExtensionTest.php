@@ -374,6 +374,19 @@ DJOT;
         $this->assertStringContainsString('<span class="admonition-icon">⚠️</span> Custom Title', $html);
     }
 
+    public function testCustomIconIsEscaped(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension(
+            icons: ['note' => '<script>alert(1)</script>'],
+        ));
+
+        $html = $converter->convert("::: note\nContent.\n:::");
+
+        $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+    }
+
     public function testIconsPreserveDefaultConstants(): void
     {
         $this->assertSame('📝', AdmonitionExtension::DEFAULT_ICONS['note']);

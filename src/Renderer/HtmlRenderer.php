@@ -67,6 +67,13 @@ class HtmlRenderer implements RendererInterface
     use EventDispatcherTrait;
 
     /**
+     * Absolute recursion ceiling for public Document-accepting render paths.
+     *
+     * @var int
+     */
+    private const MAX_RENDER_DEPTH = 512;
+
+    /**
      * Safe mode configuration (null = disabled)
      */
     protected ?SafeMode $safeMode = null;
@@ -87,6 +94,8 @@ class HtmlRenderer implements RendererInterface
     protected RenderContext $sharedRenderContext;
 
     protected ?RenderContext $activeRenderContext = null;
+
+    protected int $renderDepth = 0;
 
     /**
      * Dispatch table mapping node class names to render method names
@@ -393,9 +402,14 @@ class HtmlRenderer implements RendererInterface
      * carve-js renderer and djot's structural model.
      *
      * @param array<\Carve\Node\Node> $nodes
+     * @param int $depth
      */
-    protected function renderSectionRange(array $nodes): string
+    protected function renderSectionRange(array $nodes, int $depth = 0): string
     {
+        if ($depth >= self::MAX_RENDER_DEPTH) {
+            return '';
+        }
+
         $html = '';
         $count = count($nodes);
         $i = 0;
@@ -449,7 +463,7 @@ class HtmlRenderer implements RendererInterface
             if ($this->roundTripMode && $node->hasAttribute('id')) {
                 $explicitIdAttr = ' data-djot-explicit-id="1"';
             }
-            $body = $headingHtml . $this->renderSectionRange($inner);
+            $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
             $html .= '<section id="' . $this->escape($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
                 . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</section>\n";
             $i = $j;
@@ -510,39 +524,48 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
-        // Only dispatch events if listeners are registered (avoid object allocation)
-        if ($this->hasAnyListeners()) {
-            $eventName = 'render.' . $node->getType();
-            $event = new RenderEvent($node);
-
-            // Provide lazy children renderer for extensions that need to wrap children
-            $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
-
-            // Call specific listeners
-            $this->dispatchEvent($eventName, $event);
-
-            // Call wildcard listeners
-            $this->dispatchEvent('render.*', $event);
-
-            // If listener provided custom HTML, use it
-            if ($event->isDefaultPrevented()) {
-                return $event->getHtml() ?? '';
-            }
+        if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
         }
 
-        // Use dispatch table for O(1) lookup instead of instanceof chain
-        $class = $node::class;
-        if (isset($this->nodeRenderers[$class])) {
-            $method = $this->nodeRenderers[$class];
-            if ($method === '') {
-                return ''; // Comment nodes
+        $this->renderDepth++;
+        try {
+            // Only dispatch events if listeners are registered (avoid object allocation)
+            if ($this->hasAnyListeners()) {
+                $eventName = 'render.' . $node->getType();
+                $event = new RenderEvent($node);
+
+                // Provide lazy children renderer for extensions that need to wrap children
+                $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
+
+                // Call specific listeners
+                $this->dispatchEvent($eventName, $event);
+
+                // Call wildcard listeners
+                $this->dispatchEvent('render.*', $event);
+
+                // If listener provided custom HTML, use it
+                if ($event->isDefaultPrevented()) {
+                    return $event->getHtml() ?? '';
+                }
             }
 
-            /** @var string */
-            return $this->$method($node);
-        }
+            // Use dispatch table for O(1) lookup instead of instanceof chain
+            $class = $node::class;
+            if (isset($this->nodeRenderers[$class])) {
+                $method = $this->nodeRenderers[$class];
+                if ($method === '') {
+                    return ''; // Comment nodes
+                }
 
-        return $this->renderChildren($node);
+                /** @var string */
+                return $this->$method($node);
+            }
+
+            return $this->renderChildren($node);
+        } finally {
+            $this->renderDepth--;
+        }
     }
 
     protected function renderChildren(Node $node): string
@@ -1472,7 +1495,7 @@ class HtmlRenderer implements RendererInterface
     /**
      * @param array<string, string> $attrs
      */
-    protected function renderAttributeArray(array $attrs): string
+    public function renderAttributeArray(array $attrs): string
     {
         if ($attrs === []) {
             return '';
@@ -1708,6 +1731,7 @@ class HtmlRenderer implements RendererInterface
 
         // Sort footnotes by their reference number order
         ksort($renderedContents);
+        $footnoteLabelsByNumber = array_flip($context->footnoteNumbers);
 
         // Indentation matches carve-js: hr/ol at 2, li at 4, body at 6.
         $html = '<section role="doc-endnotes">' . "\n";
@@ -1717,8 +1741,7 @@ class HtmlRenderer implements RendererInterface
         foreach ($renderedContents as $number => $content) {
             $liAttrs = '';
 
-            // Find the label for this footnote number
-            $label = array_search($number, $context->footnoteNumbers, true);
+            $label = $footnoteLabelsByNumber[$number] ?? false;
 
             if ($this->roundTripMode && isset($context->inlineFootnoteRenderers[$number])) {
                 $liAttrs = ' data-djot-inline-footnote="1"';

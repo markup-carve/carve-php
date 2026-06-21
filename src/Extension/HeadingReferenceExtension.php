@@ -196,45 +196,49 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
 
     protected function resolveRenderedReferences(string $html): string
     {
-        foreach ($this->placeholders as $placeholder => $data) {
+        if ($this->placeholders === []) {
+            return $html;
+        }
+
+        $pattern = '/<a\b(?P<attrs>[^>]*\bhref="(?P<placeholder>[^"]+)"[^>]*)>(?P<body>.*?)<\/a>/u';
+        $html = (string)preg_replace_callback($pattern, function (array $matches): string {
+            $placeholder = html_entity_decode($matches['placeholder'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if (!isset($this->placeholders[$placeholder])) {
+                return $matches[0];
+            }
+
+            $data = $this->placeholders[$placeholder];
             $target = $data['target'];
             $displayText = $data['displayText'];
             $normalizedTarget = $this->normalizeQuotes($target);
             $count = $this->headingTargetCounts[$normalizedTarget] ?? 0;
-            $quotedPlaceholder = preg_quote($this->escapeAttribute($placeholder), '/');
-            $quotedTarget = preg_quote($this->escapeAttribute($target), '/');
-            $quotedDisplayText = preg_quote($this->escape($displayText), '/');
+            $attrs = $matches['attrs'];
+            $body = $matches['body'];
+
+            if (!str_contains($attrs, 'data-heading-ref="' . $this->escapeAttribute($target) . '"')) {
+                return $matches[0];
+            }
+
+            if ($body !== $this->escape($displayText)) {
+                return $matches[0];
+            }
 
             if ($count === 1 && isset($this->headingTargets[$normalizedTarget])) {
-                $html = (string)preg_replace_callback(
-                    '/<a\b(?=[^>]*\bhref="' . $quotedPlaceholder . '")(?=[^>]*\bdata-heading-ref="' . $quotedTarget . '")(?P<before>[^>]*)\bhref="' . $quotedPlaceholder . '"(?P<after>[^>]*)>'
-                    . $quotedDisplayText
-                    . '<\/a>/u',
-                    function (array $matches) use ($target, $displayText, $normalizedTarget): string {
-                        $before = $this->stripInternalHeadingReferenceAttribute($matches['before']);
-                        $after = $this->stripInternalHeadingReferenceAttribute($matches['after']);
-
-                        if ($this->roundTripMode) {
-                            $after .= ' data-djot-heading-ref="' . $this->escapeAttribute($target) . '"';
-                            if ($displayText !== $target) {
-                                $after .= ' data-djot-heading-ref-display="'
-                                    . $this->escapeAttribute($displayText) . '"';
-                            }
-                        }
-
-                        return '<a'
-                            . $before
-                            . 'href="#' . $this->escapeAttribute($this->headingTargets[$normalizedTarget]) . '"'
-                            . $after
-                            . '>'
-                            . $this->escape($displayText)
-                            . '</a>';
-                    },
-                    $html,
+                $attrs = $this->stripInternalHeadingReferenceAttribute($attrs);
+                $attrs = (string)preg_replace(
+                    '/\bhref="' . preg_quote($this->escapeAttribute($placeholder), '/') . '"/u',
+                    'href="#' . $this->escapeAttribute($this->headingTargets[$normalizedTarget]) . '"',
+                    $attrs,
                     1,
                 );
+                if ($this->roundTripMode) {
+                    $attrs .= ' data-djot-heading-ref="' . $this->escapeAttribute($target) . '"';
+                    if ($displayText !== $target) {
+                        $attrs .= ' data-djot-heading-ref-display="' . $this->escapeAttribute($displayText) . '"';
+                    }
+                }
 
-                continue;
+                return '<a' . $attrs . '>' . $this->escape($displayText) . '</a>';
             }
 
             // Fallback: replace link with literal [[target]] or [[target|text]] syntax
@@ -242,18 +246,8 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
                 ? '[[' . $target . ']]'
                 : '[[' . $target . '|' . $displayText . ']]';
 
-            $pattern = '/<a\b[^>]*href="'
-                . $quotedPlaceholder
-                . '"(?=[^>]*\bdata-heading-ref="' . $quotedTarget . '")[^>]*>'
-                . $quotedDisplayText
-                . '<\/a>/u';
-            $html = (string)preg_replace(
-                $pattern,
-                $this->escape($fallback),
-                $html,
-                1,
-            );
-        }
+            return $this->escape($fallback);
+        }, $html);
 
         $this->placeholders = [];
         $this->placeholderCounter = 0;

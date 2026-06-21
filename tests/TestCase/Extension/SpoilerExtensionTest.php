@@ -71,4 +71,13 @@ class SpoilerExtensionTest extends TestCase
             $converter->convert("::: spoiler\nHidden.\n:::"),
         );
     }
+
+    public function testBlockHardensDangerousAttributes(): void
+    {
+        $html = $this->convert("{onclick=\"alert(1)\" style=\"background:url(javascript:alert(1))\"}\n::: spoiler \"T\"\nx\n:::");
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('background:url', $html);
+        $this->assertStringContainsString('<details class="spoiler" style="">', $html);
+    }
 }

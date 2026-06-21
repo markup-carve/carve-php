@@ -43,6 +43,11 @@ use Carve\ProfileViolation;
 class ProfileFilter
 {
     /**
+     * @var int
+     */
+    private const MAX_FILTER_DEPTH = 512;
+
+    /**
      * @var list<\Carve\ProfileViolation>
      */
     protected array $violations = [];
@@ -64,7 +69,7 @@ class ProfileFilter
     {
         $this->violations = [];
         $this->filterChildren($doc, $profile, 0);
-        $this->cleanupEmptyContainers($doc);
+        $this->cleanupEmptyContainers($doc, 0);
 
         return $doc;
     }
@@ -84,6 +89,10 @@ class ProfileFilter
 
     protected function filterChildren(Node $parent, Profile $profile, int $depth): void
     {
+        if ($depth >= self::MAX_FILTER_DEPTH) {
+            return;
+        }
+
         // Get a copy of children since we may modify during iteration
         $children = $parent->getChildren();
 
@@ -204,7 +213,7 @@ class ProfileFilter
             return;
         }
 
-        $textContent = $this->extractTextContent($node);
+        $textContent = $this->extractTextContent($node, 0);
 
         if ($textContent === '') {
             // If no text content, just remove the node
@@ -248,16 +257,20 @@ class ProfileFilter
     /**
      * Remove empty container nodes (list items, paragraphs with no content, empty lists)
      */
-    protected function cleanupEmptyContainers(Node $parent): void
+    protected function cleanupEmptyContainers(Node $parent, int $depth): void
     {
+        if ($depth >= self::MAX_FILTER_DEPTH) {
+            return;
+        }
+
         $children = $parent->getChildren();
 
         foreach ($children as $child) {
             // Recursively clean up children first
-            $this->cleanupEmptyContainers($child);
+            $this->cleanupEmptyContainers($child, $depth + 1);
 
             // Check if this node is now empty and should be removed
-            if ($this->isEmptyContainer($child)) {
+            if ($this->isEmptyContainer($child, $depth + 1)) {
                 $parent->removeChild($child);
             }
         }
@@ -266,8 +279,12 @@ class ProfileFilter
     /**
      * Check if a node is an empty container that should be removed
      */
-    protected function isEmptyContainer(Node $node): bool
+    protected function isEmptyContainer(Node $node, int $depth): bool
     {
+        if ($depth >= self::MAX_FILTER_DEPTH) {
+            return false;
+        }
+
         // Text nodes are empty if they have no content
         if ($node instanceof Text) {
             return $node->getContent() === '';
@@ -296,7 +313,7 @@ class ProfileFilter
 
         // If all children are empty, this container is empty
         foreach ($children as $child) {
-            if (!$this->isEmptyContainer($child)) {
+            if (!$this->isEmptyContainer($child, $depth + 1)) {
                 return false;
             }
         }
@@ -304,8 +321,12 @@ class ProfileFilter
         return true;
     }
 
-    protected function extractTextContent(Node $node): string
+    protected function extractTextContent(Node $node, int $depth): string
     {
+        if ($depth >= self::MAX_FILTER_DEPTH) {
+            return '';
+        }
+
         // Special handling for images - show as [img: alt] or [img]
         if ($node instanceof Image) {
             $alt = $node->getAlt();
@@ -318,7 +339,7 @@ class ProfileFilter
             $prefix = str_repeat('#', $node->getLevel()) . ' ';
             $text = '';
             foreach ($node->getChildren() as $child) {
-                $text .= $this->extractTextContent($child);
+                $text .= $this->extractTextContent($child, $depth + 1);
             }
 
             return $prefix . $text;
@@ -339,7 +360,7 @@ class ProfileFilter
         if ($node instanceof Link) {
             $text = '';
             foreach ($node->getChildren() as $child) {
-                $text .= $this->extractTextContent($child);
+                $text .= $this->extractTextContent($child, $depth + 1);
             }
 
             return $text;
@@ -352,7 +373,7 @@ class ProfileFilter
                 if ($row instanceof TableRow) {
                     $cells = [];
                     foreach ($row->getChildren() as $cell) {
-                        $cells[] = $this->extractTextContent($cell);
+                        $cells[] = $this->extractTextContent($cell, $depth + 1);
                     }
                     $rows[] = implode(' | ', $cells);
                 }
@@ -365,7 +386,7 @@ class ProfileFilter
         if ($node instanceof BlockQuote) {
             $paragraphs = [];
             foreach ($node->getChildren() as $child) {
-                $text = $this->extractTextContent($child);
+                $text = $this->extractTextContent($child, $depth + 1);
                 if ($text !== '') {
                     $paragraphs[] = '> ' . $text;
                 }
@@ -378,7 +399,7 @@ class ProfileFilter
         if ($node instanceof DefinitionList) {
             $parts = [];
             foreach ($node->getChildren() as $child) {
-                $text = $this->extractTextContent($child);
+                $text = $this->extractTextContent($child, $depth + 1);
                 if ($text !== '') {
                     // Add prefix for terms to distinguish from descriptions
                     if ($child instanceof DefinitionTerm) {
@@ -401,7 +422,7 @@ class ProfileFilter
             $index = $node->getStart();
             foreach ($node->getChildren() as $child) {
                 if ($child instanceof ListItem) {
-                    $text = $this->extractTextContent($child);
+                    $text = $this->extractTextContent($child, $depth + 1);
                     if ($text !== '') {
                         // Use appropriate marker based on list type
                         $marker = match ($node->getListType()) {
@@ -431,7 +452,7 @@ class ProfileFilter
         if ($node instanceof Footnote) {
             $content = [];
             foreach ($node->getChildren() as $child) {
-                $text = $this->extractTextContent($child);
+                $text = $this->extractTextContent($child, $depth + 1);
                 if ($text !== '') {
                     $content[] = $text;
                 }
@@ -459,7 +480,7 @@ class ProfileFilter
 
         $parts = [];
         foreach ($node->getChildren() as $child) {
-            $childText = $this->extractTextContent($child);
+            $childText = $this->extractTextContent($child, $depth + 1);
             if ($childText !== '') {
                 $parts[] = $childText;
             }
