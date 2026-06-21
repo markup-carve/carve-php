@@ -43,6 +43,10 @@ use InvalidArgumentException;
  *   renders as
  *   `<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>`.
  *
+ *   Note: json mode emits a `<script type="application/json">`, so consumers
+ *   that sanitize the HTML after conversion should whitelist that tag or use
+ *   text mode (the config then rides in a `<pre>` as escaped text).
+ *
  * It is a renderer (emits structural tags), so it stays active under raw-HTML
  * stripping. Author attributes copied onto the
  * wrapper are filtered through the active {@see SafeMode} exactly as the core
