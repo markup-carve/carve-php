@@ -7,6 +7,7 @@ namespace Carve\Extension;
 use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Node\Inline\Span;
+use Carve\Renderer\HtmlRenderer;
 use Carve\Util\StringUtil;
 
 /**
@@ -60,7 +61,12 @@ class SemanticSpanExtension implements ExtensionInterface
 {
     public function register(CarveConverter $converter): void
     {
-        $converter->on('render.span', function (RenderEvent $event): void {
+        $renderer = $converter->getRenderer();
+        if (!$renderer instanceof HtmlRenderer) {
+            return;
+        }
+
+        $converter->on('render.span', function (RenderEvent $event) use ($renderer): void {
             $node = $event->getNode();
             if (!$node instanceof Span) {
                 return;
@@ -123,7 +129,7 @@ class SemanticSpanExtension implements ExtensionInterface
 
             // Wrap in span with remaining attributes if any exist
             if ($remainingAttrs !== []) {
-                $attrsHtml = $this->renderAttributes($remainingAttrs);
+                $attrsHtml = $this->renderAttributes($remainingAttrs, $renderer);
                 $html = '<span' . $attrsHtml . '>' . $html . '</span>';
             }
 
@@ -135,15 +141,16 @@ class SemanticSpanExtension implements ExtensionInterface
      * Render attributes as HTML attribute string
      *
      * @param array<string, string> $attrs
+     * @param \Carve\Renderer\HtmlRenderer $renderer
      */
-    protected function renderAttributes(array $attrs): string
+    protected function renderAttributes(array $attrs, HtmlRenderer $renderer): string
     {
-        $html = '';
-        foreach ($attrs as $key => $value) {
-            $html .= ' ' . StringUtil::escapeHtml($key)
-                . '="' . StringUtil::escapeHtml((string)$value) . '"';
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
         }
 
-        return $html;
+        return $renderer->renderAttributeArray($attrs);
     }
 }

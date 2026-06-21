@@ -77,11 +77,11 @@ class SafeModeTest extends TestCase
     public function testAllowedLinkUrlIsEscapedInAttributeContext(): void
     {
         $converter = new CarveConverter(safeMode: true);
-        $djot = '[link](https://example.com " onclick="alert(1))';
+        $djot = '[link](https://example.com " onclick="alert)';
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href="https://example.com &quot; onclick=&quot;alert(1)"', $result);
-        $this->assertStringNotContainsString('" onclick="alert(1)"', $result);
+        $this->assertStringContainsString('href="https://example.com &quot; onclick=&quot;alert"', $result);
+        $this->assertStringNotContainsString('" onclick="alert"', $result);
     }
 
     public function testRelativeUrlIsAllowed(): void
@@ -403,11 +403,11 @@ class SafeModeTest extends TestCase
         // scheme to block. Matches carve-js / carve-rs. (A genuine
         // `javascript:` is still blocked; see the tests above.)
         $converter = new CarveConverter(safeMode: true);
-        $djot = "[click](java\x00script:alert(1))";
+        $djot = "[click](java\x00script:alert)";
         $result = $converter->convert($djot);
 
         $this->assertStringNotContainsString('href=""', $result);
-        $this->assertStringContainsString("java\u{FFFD}script:alert(1)", $result);
+        $this->assertStringContainsString("java\u{FFFD}script:alert", $result);
     }
 
     public function testJavascriptUrlWithSpaceBeforeColonIsBlocked(): void

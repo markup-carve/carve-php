@@ -94,14 +94,15 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
-        // Dispatch render events
-        $eventName = 'render.' . $node->getType();
-        $event = new RenderEvent($node);
-        $this->dispatchEvent($eventName, $event);
-        $this->dispatchEvent('render.*', $event);
+        if ($this->hasAnyListeners()) {
+            $eventName = 'render.' . $node->getType();
+            $event = new RenderEvent($node);
+            $this->dispatchEvent($eventName, $event);
+            $this->dispatchEvent('render.*', $event);
 
-        if ($event->isDefaultPrevented()) {
-            return $event->getHtml() ?? '';
+            if ($event->isDefaultPrevented()) {
+                return $event->getHtml() ?? '';
+            }
         }
 
         return match (true) {
@@ -128,13 +129,13 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof EscapedText => $this->stripControls($node->getContent()),
             $node instanceof Code => $this->stripControls($node->getContent()),
             $node instanceof Math => $this->stripControls($node->getContent()),
-            $node instanceof Image => $node->getAlt(),
+            $node instanceof Image => $this->stripControls($node->getAlt()),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
-            $node instanceof Symbol => ':' . $node->getName() . ':',
+            $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
             $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
-            $node instanceof FootnoteRef => '[' . $node->getLabel() . ']',
+            $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
             $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             // A soft break is a single source newline that stays inside the
@@ -154,7 +155,7 @@ class PlainTextRenderer implements RendererInterface
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
 
-        return $label ?? '</#' . $target . '>';
+        return $label === null ? '</#' . $this->stripControls($target) . '>' : $this->stripControls($label);
     }
 
     protected function renderChildren(Node $node): string
@@ -179,7 +180,7 @@ class PlainTextRenderer implements RendererInterface
         // (PART 9 §12); preserve it as a leading line instead of dropping.
         $title = $node->getAttribute('title');
         if (is_string($title) && $title !== '') {
-            return $title . "\n\n" . $body;
+            return $this->stripControls($title) . "\n\n" . $body;
         }
 
         return $body;
@@ -306,7 +307,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        return '[' . $node->getLabel() . ']: ' . trim($this->renderChildren($node)) . "\n";
+        return '[' . $this->stripControls($node->getLabel()) . ']: ' . trim($this->renderChildren($node)) . "\n";
     }
 
     protected function renderMention(Mention $node): string

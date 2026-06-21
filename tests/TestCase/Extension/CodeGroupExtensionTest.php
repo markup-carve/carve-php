@@ -584,4 +584,25 @@ DJOT;
         $this->assertStringContainsString('[Composer]', $html);
         $this->assertStringContainsString('[NPM]', $html);
     }
+
+    public function testWrapperAttributesUseHtmlHardening(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new CodeGroupExtension());
+
+        $djot = <<<'DJOT'
+{onclick="alert(1)" style="x:expression(1)"}
+::: code-group
+``` php
+echo "Hello";
+```
+:::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('expression(', $html);
+        $this->assertStringContainsString('style=""', $html);
+    }
 }

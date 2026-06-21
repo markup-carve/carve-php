@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
+use Carve\Node\Block\Paragraph;
+use Carve\Node\Document;
+use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Text;
+use Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -108,5 +113,31 @@ class AttributeHardeningTest extends TestCase
         $this->assertStringContainsString('style=""', $this->render('[x]{style="@import url(evil.css)"}'));
         $this->assertStringContainsString('style=""', $this->render('[x]{style="behavior:url(x.htc)"}'));
         $this->assertStringContainsString('style="color:red"', $this->render('[x]{style="color:red"}'));
+    }
+
+    public function testDropsInvalidProgrammaticAttributeNames(): void
+    {
+        $doc = new Document();
+        $paragraph = new Paragraph();
+        $span = new Span();
+        $span->appendChild(new Text('x'));
+        $span->setAttributes([
+            'data-ok' => '1',
+            'bad"name' => 'x',
+        ]);
+        $paragraph->appendChild($span);
+        $doc->appendChild($paragraph);
+
+        $html = trim((new HtmlRenderer())->render($doc));
+
+        $this->assertSame('<p><span data-ok="1">x</span></p>', $html);
+    }
+
+    public function testCssEscapesAreNormalizedBeforeStyleHardening(): void
+    {
+        $this->assertSame(
+            '<p><span style="">x</span></p>',
+            $this->render('[x]{style="background:u\72l(http://e/p)"}'),
+        );
     }
 }
