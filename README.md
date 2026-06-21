@@ -79,6 +79,8 @@ $converter->getParser()->getInlineParser()->addInlineMatcher(
 
         return ['node' => new Text('VAR:' . $m[1]), 'end' => $pos + strlen($m[0])];
     },
+    priority: 0,
+    triggerChars: '{', // only run this matcher at a `{`
 );
 ~~~
 
@@ -87,6 +89,13 @@ $converter->getParser()->getInlineParser()->addInlineMatcher(
 `parseBlocks()`). Matchers run by descending `priority`, then registration
 order. `addInlinePattern()` and `addBlockPattern()` remain available as regex
 sugar over the same matcher contract.
+
+For a raw-closure `addInlineMatcher()`, pass `triggerChars` (the literal first
+bytes the matcher can ever fire on, e.g. `'{'` above) so the parser only invokes
+it at those positions. Without it, the matcher runs at **every** scan position
+and disables the per-character fast path for the whole document — a measurable
+slowdown on long inputs. A matcher registered through `addInlinePattern()`
+derives its trigger bytes from the pattern automatically.
 
 The normative extension contract lives in
 [`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
