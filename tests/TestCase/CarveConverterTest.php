@@ -2086,7 +2086,8 @@ DJOT;
         $djot = '[Wikipedia](https://en.wikipedia.org/wiki/Example_(disambiguation))';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('href="https://en.wikipedia.org/wiki/Example_(disambiguation)"', $result);
+        $this->assertStringContainsString('href="https://en.wikipedia.org/wiki/Example_(disambiguation"', $result);
+        $this->assertStringContainsString('</a>)', $result);
     }
 
     public function testLinkWithEscapedBracket(): void

@@ -133,14 +133,15 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
-        // Dispatch render events
-        $eventName = 'render.' . $node->getType();
-        $event = new RenderEvent($node);
-        $this->dispatchEvent($eventName, $event);
-        $this->dispatchEvent('render.*', $event);
+        if ($this->hasAnyListeners()) {
+            $eventName = 'render.' . $node->getType();
+            $event = new RenderEvent($node);
+            $this->dispatchEvent($eventName, $event);
+            $this->dispatchEvent('render.*', $event);
 
-        if ($event->isDefaultPrevented()) {
-            return $event->getHtml() ?? '';
+            if ($event->isDefaultPrevented()) {
+                return $event->getHtml() ?? '';
+            }
         }
 
         return match (true) {
@@ -161,12 +162,12 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Table => $this->renderTable($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $this->escapeText($node->getContent()),
+            $node instanceof Text => $this->escapeText($this->stripControls($node->getContent())),
             // Keep the backslash so the literal stays literal when re-parsed as
             // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
             // ordered list. EscapedText only ever holds escaped ASCII
             // punctuation, all of which CommonMark allows a `\` before.
-            $node instanceof EscapedText => '\\' . $node->getContent(),
+            $node instanceof EscapedText => '\\' . $this->stripControls($node->getContent()),
             $node instanceof Figure => $this->renderFigure($node),
             $node instanceof Caption => $this->renderCaption($node),
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
@@ -190,9 +191,9 @@ class MarkdownRenderer implements RendererInterface
             $node instanceof Delete => $this->renderDelete($node),
             $node instanceof Span => $this->renderSpan($node),
             $node instanceof Math => $this->renderMath($node),
-            $node instanceof Symbol => ':' . $node->getName() . ':',
+            $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
             $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
-            $node instanceof FootnoteRef => '[^' . $node->getLabel() . ']',
+            $node instanceof FootnoteRef => '[^' . $this->stripControls($node->getLabel()) . ']',
             $node instanceof HeadingRef => $this->renderHeadingRef($node),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => $this->renderRawInline($node),
@@ -210,7 +211,7 @@ class MarkdownRenderer implements RendererInterface
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
         if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
-            return '</#' . $target . '>';
+            return '</#' . $this->stripControls($target) . '>';
         }
 
         // A heading target gets a real `[label](#id)` link — renderHeading emits a
@@ -299,8 +300,8 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        $language = $node->getLanguage() ?? '';
-        $content = $node->getContent();
+        $language = $this->stripControls($node->getLanguage() ?? '');
+        $content = $this->stripControls($node->getContent());
 
         $backticks = StringUtil::findSafeCodeFence($content, 3);
 
@@ -403,7 +404,7 @@ class MarkdownRenderer implements RendererInterface
         $body = $this->renderChildren($node);
         $title = $node->getAttribute('title');
         if (is_string($title) && $title !== '') {
-            return '**' . $this->escapeText($title) . "**\n\n" . $body;
+            return '**' . $this->escapeText($this->stripControls($title)) . "**\n\n" . $body;
         }
 
         return $body;
@@ -474,7 +475,7 @@ class MarkdownRenderer implements RendererInterface
     {
         $content = trim($this->renderChildren($node));
 
-        return '[^' . $node->getLabel() . ']: ' . $content . "\n";
+        return '[^' . $this->stripControls($node->getLabel()) . ']: ' . $content . "\n";
     }
 
     protected function renderEmphasis(Emphasis $node): string
@@ -489,7 +490,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderCode(Code $node): string
     {
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
 
         $backticks = StringUtil::findSafeCodeFence($content, 1);
 
@@ -518,7 +519,7 @@ class MarkdownRenderer implements RendererInterface
         $title = $node->getTitle();
 
         if ($title !== null) {
-            return '[' . $text . '](' . $url . ' "' . $this->escapeTitle($title) . '")';
+            return '[' . $text . '](' . $url . ' "' . $this->escapeTitle($this->stripControls($title)) . '")';
         }
 
         return '[' . $text . '](' . $url . ')';
@@ -526,12 +527,12 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $alt = $node->getAlt();
+        $alt = $this->stripControls($node->getAlt());
         $src = $this->encodeMarkdownDestination((string)$node->getSource());
         $title = $node->getTitle();
 
         if ($title !== null) {
-            return '![' . $alt . '](' . $src . ' "' . $this->escapeTitle($title) . '")';
+            return '![' . $alt . '](' . $src . ' "' . $this->escapeTitle($this->stripControls($title)) . '")';
         }
 
         return '![' . $alt . '](' . $src . ')';
@@ -592,7 +593,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderMath(Math $node): string
     {
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
 
         if ($node->isDisplay()) {
             return '$$' . $content . '$$';
@@ -606,7 +607,7 @@ class MarkdownRenderer implements RendererInterface
         if ($node->getFormat() === 'html') {
             // Escape, not emit: raw HTML in Markdown output would be live again
             // when the Markdown is rendered to HTML downstream.
-            return $this->escapeHtml($node->getContent()) . "\n\n";
+            return $this->escapeHtml($this->stripControls($node->getContent())) . "\n\n";
         }
 
         return '';
@@ -615,7 +616,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderRawInline(RawInline $node): string
     {
         if ($node->getFormat() === 'html') {
-            return $this->escapeHtml($node->getContent());
+            return $this->escapeHtml($this->stripControls($node->getContent()));
         }
 
         return '';
@@ -656,7 +657,7 @@ class MarkdownRenderer implements RendererInterface
         // and the text (element content) need HTML escaping, NOT Markdown text
         // escaping: a `"` in the title or a `<` in the text would otherwise
         // break the tag / be misparsed as markup downstream.
-        $title = htmlspecialchars($node->getTitle(), ENT_QUOTES, 'UTF-8');
+        $title = htmlspecialchars($this->stripControls($node->getTitle()), ENT_QUOTES, 'UTF-8');
         $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $text . '</abbr>';

@@ -434,10 +434,10 @@ class AnsiRenderer implements RendererInterface
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
         if ($label === null) {
-            return '</#' . $target . '>';
+            return '</#' . $this->stripControls($target) . '>';
         }
 
-        return $this->style($label, self::UNDERLINE . self::FG_BLUE);
+        return $this->style($this->stripControls($label), self::UNDERLINE . self::FG_BLUE);
     }
 
     protected function renderChildren(Node $node): string
@@ -496,6 +496,9 @@ class AnsiRenderer implements RendererInterface
     {
         $content = $this->stripControls($node->getContent());
         $lang = $node->getLanguage();
+        if ($lang !== null) {
+            $lang = $this->stripControls($lang);
+        }
 
         $lines = explode("\n", rtrim($content));
         $output = '';
@@ -628,7 +631,7 @@ class AnsiRenderer implements RendererInterface
         // (PART 9 §12); preserve it as a leading bold line instead of dropping.
         $title = $node->getAttribute('title');
         if (is_string($title) && $title !== '') {
-            return $this->style($title, self::BOLD) . "\n\n" . $body;
+            return $this->style($this->stripControls($title), self::BOLD) . "\n\n" . $body;
         }
 
         return $body;
@@ -770,7 +773,7 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        $label = $node->getLabel();
+        $label = $this->stripControls($node->getLabel());
         $content = trim($this->renderChildren($node));
         $marker = $this->style('[' . $label . ']', self::FG_CYAN . self::DIM);
 
@@ -822,7 +825,7 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $alt = $node->getAlt();
+        $alt = $this->stripControls($node->getAlt());
         $marker = $this->style('[img:', self::FG_MAGENTA);
         $altText = $alt !== '' ? ' ' . $alt : '';
 
@@ -890,12 +893,12 @@ class AnsiRenderer implements RendererInterface
         // Emoji substitution is opt-in via an emoji map, not a built-in default,
         // so the ANSI renderer must not silently map names the other outputs do
         // not.
-        return ':' . $node->getName() . ':';
+        return ':' . $this->stripControls($node->getName()) . ':';
     }
 
     protected function renderFootnoteRef(FootnoteRef $node): string
     {
-        $label = $node->getLabel();
+        $label = $this->stripControls($node->getLabel());
 
         return $this->style('[' . $label . ']', self::FG_CYAN . self::BOLD);
     }
@@ -903,7 +906,7 @@ class AnsiRenderer implements RendererInterface
     protected function renderRawBlock(RawBlock $node): string
     {
         // Show raw blocks dimmed
-        $format = $node->getFormat();
+        $format = $this->stripControls($node->getFormat());
         $content = $this->stripControls($node->getContent());
 
         return $this->style('[raw:' . $format . '] ' . $content, self::DIM) . "\n\n";
@@ -947,7 +950,7 @@ class AnsiRenderer implements RendererInterface
     protected function renderAbbreviation(Abbreviation $node): string
     {
         $text = $this->renderChildren($node);
-        $title = $node->getTitle();
+        $title = $this->stripControls($node->getTitle());
 
         // Show abbreviation with definition in parentheses
         return $text . $this->style(' (' . $title . ')', self::DIM);

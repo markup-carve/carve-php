@@ -206,7 +206,7 @@ class CodeGroupExtension implements ResettableExtensionInterface
         $groupId = $this->idPrefix . '-' . $this->groupCounter;
 
         // Build wrapper attributes
-        $attrs = $this->buildWrapperAttributes($wrapper);
+        $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
@@ -366,7 +366,7 @@ class CodeGroupExtension implements ResettableExtensionInterface
     /**
      * Build wrapper div attributes
      */
-    protected function buildWrapperAttributes(Div $wrapper): string
+    protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer): string
     {
         $classes = [$this->wrapperClass];
 
@@ -377,16 +377,16 @@ class CodeGroupExtension implements ResettableExtensionInterface
             }
         }
 
-        $attrs = ' class="' . StringUtil::escapeHtml(implode(' ', $classes)) . '"';
+        $attrs = $wrapper->getAttributes();
+        unset($attrs['class']);
 
-        // Copy other attributes (except class)
-        foreach ($wrapper->getAttributes() as $name => $value) {
-            if ($name === 'class') {
-                continue;
-            }
-            $attrs .= ' ' . StringUtil::escapeHtml($name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
         }
 
-        return $attrs;
+        return ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"'
+            . $renderer->renderAttributeArray($attrs);
     }
 }

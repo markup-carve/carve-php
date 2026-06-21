@@ -480,7 +480,9 @@ class InlineParserTest extends TestCase
 
         $emChildren = $children[0]->getChildren();
         $this->assertInstanceOf(Link::class, $emChildren[0]);
-        $this->assertSame('http://en.wikipedia.org/wiki/Foo_(bar)', $emChildren[0]->getDestination());
+        $this->assertSame('http://en.wikipedia.org/wiki/Foo_(bar', $emChildren[0]->getDestination());
+        $this->assertInstanceOf(Text::class, $emChildren[1]);
+        $this->assertSame(')', $emChildren[1]->getContent());
     }
 
     /**
@@ -925,5 +927,26 @@ class InlineParserTest extends TestCase
         $em = $this->getFirstChild($para);
         $this->assertInstanceOf(Emphasis::class, $em);
         $this->assertEmpty($em->getAttributes());
+    }
+
+    public function testInlineLinkDestinationEndsAtFirstClosingParen(): void
+    {
+        $para = $this->parseInline('[x](http://a/b(c))');
+        $children = $para->getChildren();
+
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Link::class, $children[0]);
+        $this->assertSame('http://a/b(c', $children[0]->getDestination());
+        $this->assertInstanceOf(Text::class, $children[1]);
+        $this->assertSame(')', $children[1]->getContent());
+    }
+
+    public function testInlineLinkTitlesDoNotUseBackslashEscapes(): void
+    {
+        $para = $this->parseInline('[x](url "a \" b")');
+        $link = $this->getFirstChild($para);
+
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertNull($link->getTitle());
     }
 }

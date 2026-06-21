@@ -208,7 +208,7 @@ class AdmonitionExtension implements ExtensionInterface
         $classAttr = implode(' ', $classes);
 
         // Build additional attributes (excluding class and title)
-        $extraAttrs = $this->buildExtraAttributes($node);
+        $extraAttrs = $this->buildExtraAttributes($node, $renderer);
 
         // Add round-trip data attributes
         if ($renderer->isRoundTripMode()) {
@@ -266,18 +266,23 @@ class AdmonitionExtension implements ExtensionInterface
     /**
      * Build extra attributes string, excluding processed ones
      */
-    protected function buildExtraAttributes(Div $node): string
+    protected function buildExtraAttributes(Div $node, HtmlRenderer $renderer): string
     {
         $excluded = ['class', 'title'];
-        $attrs = '';
+        $attrs = $node->getAttributes();
 
-        foreach ($node->getAttributes() as $name => $value) {
+        foreach (array_keys($attrs) as $name) {
             if (in_array($name, $excluded, true)) {
-                continue;
+                unset($attrs[$name]);
             }
-            $attrs .= ' ' . StringUtil::escapeHtml($name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
         }
 
-        return $attrs;
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
+        }
+
+        return $renderer->renderAttributeArray($attrs);
     }
 }
