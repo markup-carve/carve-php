@@ -1134,7 +1134,7 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrs = $this->renderAttributesExcluding($node, ['href']);
         $href = $node->getDestination();
         $title = $node->getTitle();
 
@@ -1173,7 +1173,7 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrs = $this->renderAttributesExcluding($node, ['src']);
         $alt = $this->escapeAttribute($node->getAlt());
         $src = $node->getSource();
         $title = $node->getTitle();
@@ -1383,7 +1383,12 @@ class HtmlRenderer implements RendererInterface
         }
 
         if ($exclude !== []) {
-            $attrs = array_diff_key($attrs, array_flip($exclude));
+            $excludedNames = array_flip(array_map('strtolower', $exclude));
+            foreach (array_keys($attrs) as $key) {
+                if (isset($excludedNames[strtolower((string)$key)])) {
+                    unset($attrs[$key]);
+                }
+            }
         }
 
         // Always-on attribute hardening (independent of safe mode): strip
