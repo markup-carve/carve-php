@@ -1634,37 +1634,33 @@ class InlineParser
         // Inline link: [text](url) or [text](url){.class}
         if ($afterBracket < $length && $text[$afterBracket] === '(') {
             $urlStart = $afterBracket + 1;
-            $parenDepth = 1;
             $urlEnd = $urlStart;
 
-            while ($urlEnd < $length && $parenDepth > 0) {
-                if ($text[$urlEnd] === '(') {
-                    $parenDepth++;
-                } elseif ($text[$urlEnd] === ')') {
-                    $parenDepth--;
-                } elseif ($text[$urlEnd] === '\\' && $urlEnd + 1 < $length) {
+            while ($urlEnd < $length) {
+                if ($text[$urlEnd] === '\\' && $urlEnd + 1 < $length) {
                     $urlEnd++;
-                }
-                if ($parenDepth > 0) {
+                } elseif ($text[$urlEnd] === ')') {
+                    break;
+                } else {
                     $urlEnd++;
                 }
             }
 
-            if ($parenDepth === 0) {
+            if ($urlEnd < $length && $text[$urlEnd] === ')') {
                 $raw = trim(substr($text, $urlStart, $urlEnd - $urlStart));
 
                 // Optional title after the destination, separated by
                 // whitespace (a soft line break counts): "title",
-                // 'title', or (title). Escaped delimiters are allowed
-                // inside the title.
+                // 'title', or (title). Delimiters are not escaped inside
+                // inline titles.
                 $title = null;
                 if (
-                    preg_match('/^([\s\S]*?)\s+"((?:[^"\\\\]|\\\\.)*)"$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?)\s+\'((?:[^\'\\\\]|\\\\.)*)\'$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?)\s+\(((?:[^()\\\\]|\\\\.)*)\)$/', $raw, $tm)
+                    preg_match('/^([\s\S]*?)\s+"([^"]*)"$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?)\s+\'([^\']*)\'$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?)\s+\(([^()]*)\)$/', $raw, $tm)
                 ) {
                     $raw = $tm[1];
-                    $title = preg_replace('/\\\\(.)/', '$1', $tm[2]) ?? $tm[2];
+                    $title = $tm[2];
                 }
 
                 // Soft breaks are ignored in the destination itself.
@@ -2797,30 +2793,21 @@ class InlineParser
             return null;
         }
 
-        $parenDepth = 1;
         $i = $pos + 1;
 
-        while ($i < $length && $parenDepth > 0) {
+        while ($i < $length) {
             $char = $text[$i];
-            if ($char === '(') {
-                $parenDepth++;
-            } elseif ($char === ')') {
-                $parenDepth--;
-            } elseif ($char === '\\' && $i + 1 < $length) {
+            if ($char === '\\' && $i + 1 < $length) {
                 // Skip escaped character
                 $i++;
             }
-            if ($parenDepth > 0) {
-                $i++;
+            if ($char === ')') {
+                return $i + 1;
             }
+            $i++;
         }
 
-        if ($parenDepth !== 0) {
-            return null;
-        }
-
-        // Return position after the closing )
-        return $i + 1;
+        return null;
     }
 
     /**

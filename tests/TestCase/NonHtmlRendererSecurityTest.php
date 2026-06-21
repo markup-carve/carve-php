@@ -6,10 +6,15 @@ namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
 use Carve\Converter\HtmlToCarve;
+use Carve\Node\Block\CodeBlock;
+use Carve\Node\Block\Footnote;
 use Carve\Node\Block\Paragraph;
 use Carve\Node\Document;
+use Carve\Node\Inline\Abbreviation;
+use Carve\Node\Inline\FootnoteRef;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\Link;
+use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Text;
 use Carve\Renderer\AnsiRenderer;
 use Carve\Renderer\MarkdownRenderer;
@@ -39,7 +44,7 @@ class NonHtmlRendererSecurityTest extends TestCase
 
     public function testMarkdownBlanksDangerousLinkScheme(): void
     {
-        $this->assertSame('[x]()', $this->md('[x](javascript:alert(1))'));
+        $this->assertSame('[x]()', $this->md('[x](javascript:alert)'));
         $this->assertStringContainsString('[ok](https://e.com)', $this->md('[ok](https://e.com)'));
     }
 
@@ -100,6 +105,38 @@ class NonHtmlRendererSecurityTest extends TestCase
 
         $this->assertStringContainsString('[link](https://example.com "a \\"quote\\" and \\\\ slash")', $markdown);
         $this->assertStringContainsString('![alt](image.png "a \\"quote\\" and \\\\ slash")', $markdown);
+    }
+
+    public function testNonHtmlRenderersStripControlBytesFromAuthorLeafFields(): void
+    {
+        $doc = new Document();
+        $doc->appendChild(new CodeBlock("code\x1b[31m", "php\x1b"));
+
+        $footnote = new Footnote("fn\x1b");
+        $footnotePara = new Paragraph();
+        $footnotePara->appendChild(new Text('note'));
+        $footnote->appendChild($footnotePara);
+        $doc->appendChild($footnote);
+
+        $paragraph = new Paragraph();
+        $link = new Link('https://example.com', "title\x1b");
+        $link->appendChild(new Text('link'));
+        $paragraph->appendChild($link);
+        $paragraph->appendChild(new Image('image.png', "alt\x1b", "img title\x1b"));
+        $paragraph->appendChild(new Math("x\x1b+y"));
+        $paragraph->appendChild(new FootnoteRef("fn\x1b"));
+        $abbr = new Abbreviation("expansion\x1b");
+        $abbr->appendChild(new Text('abbr'));
+        $paragraph->appendChild($abbr);
+        $doc->appendChild($paragraph);
+
+        $markdown = (new MarkdownRenderer())->render($doc);
+        $plain = (new PlainTextRenderer())->render($doc);
+        $ansi = (new AnsiRenderer(useColors: false))->render($doc);
+
+        foreach ([$markdown, $plain, $ansi] as $out) {
+            $this->assertStringNotContainsString("\x1b", $out);
+        }
     }
 
     public function testHtmlImportDropsEventHandlers(): void

@@ -183,4 +183,13 @@ class SemanticSpanExtensionTest extends TestCase
         $this->assertStringContainsString('<span kbd="">Ctrl+C</span>', $html);
         $this->assertStringNotContainsString('<kbd>', $html);
     }
+
+    public function testRemainingAttributesUseHtmlHardening(): void
+    {
+        $html = $this->converter->convert('[x]{kbd onclick="alert(1)" style="x:expression(1)"}');
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('expression(', $html);
+        $this->assertStringContainsString('style=""', $html);
+    }
 }

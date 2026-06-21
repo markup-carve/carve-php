@@ -493,4 +493,16 @@ DJOT;
         $this->assertStringContainsString('class="admonition warning highlight"', $html);
         $this->assertStringContainsString('id="w"', $html);
     }
+
+    public function testExtraAttributesUseHtmlHardening(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+
+        $html = $converter->convert("{onclick=\"alert(1)\" style=\"x:expression(1)\"}\n::: note\nbody\n:::");
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('expression(', $html);
+        $this->assertStringContainsString('style=""', $html);
+    }
 }

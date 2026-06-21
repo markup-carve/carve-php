@@ -1431,6 +1431,9 @@ class HtmlRenderer implements RendererInterface
             if (str_starts_with($name, 'on') || $name === 'srcdoc' || $name === 'formaction') {
                 continue;
             }
+            if (preg_match('/^[A-Za-z_:][A-Za-z0-9_.:-]*$/', (string)$key) !== 1) {
+                continue;
+            }
             $out[$key] = $this->sanitizeAttributeValue($name, (string)$value);
         }
 
@@ -1467,7 +1470,25 @@ class HtmlRenderer implements RendererInterface
      */
     private function hasDangerousCss(string $value): bool
     {
-        $compact = strtolower((string)preg_replace('/\s+/', '', $value));
+        $withoutComments = preg_replace('/\/\*.*?\*\//s', '', $value) ?? $value;
+        $decoded = preg_replace_callback(
+            '/\\\\([0-9A-Fa-f]{1,6}\s?|.)/s',
+            static function (array $m): string {
+                $escape = $m[1];
+                if (preg_match('/^([0-9A-Fa-f]{1,6})\s?$/', $escape, $hex) === 1) {
+                    $codepoint = (int)hexdec($hex[1]);
+                    if ($codepoint <= 0 || $codepoint > 0x10FFFF) {
+                        return '';
+                    }
+
+                    return mb_chr($codepoint, 'UTF-8');
+                }
+
+                return $escape;
+            },
+            $withoutComments,
+        ) ?? $withoutComments;
+        $compact = strtolower((string)preg_replace('/\s+/', '', $decoded));
 
         return str_contains($compact, 'expression(')
             || str_contains($compact, 'url(')
