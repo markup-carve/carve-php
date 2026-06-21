@@ -2158,6 +2158,12 @@ class HtmlToCarve
             if (in_array($name, $allSkip, true)) {
                 continue;
             }
+            // Drop ALL event-handler attributes (onerror, onfocus, …), not just
+            // the few named in the skip list, so imported HTML cannot launder an
+            // XSS handler into Carve attributes.
+            if (str_starts_with(strtolower($name), 'on')) {
+                continue;
+            }
             if (str_starts_with($name, 'data-djot-')) {
                 continue;
             }

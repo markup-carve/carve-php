@@ -124,10 +124,10 @@ class PlainTextRenderer implements RendererInterface
             $node instanceof TableCell => $this->renderTableCell($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $node->getContent(),
-            $node instanceof EscapedText => $node->getContent(),
-            $node instanceof Code => $node->getContent(),
-            $node instanceof Math => $node->getContent(),
+            $node instanceof Text => $this->stripControls($node->getContent()),
+            $node instanceof EscapedText => $this->stripControls($node->getContent()),
+            $node instanceof Code => $this->stripControls($node->getContent()),
+            $node instanceof Math => $this->stripControls($node->getContent()),
             $node instanceof Image => $node->getAlt(),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link => $this->renderLink($node),
@@ -192,7 +192,17 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        return $node->getContent() . "\n\n";
+        return $this->stripControls($node->getContent()) . "\n\n";
+    }
+
+    /**
+     * Strip C0 control bytes (keeping tab and newline) from author content so
+     * attacker text cannot inject terminal escape sequences into plain-text
+     * output displayed in a terminal.
+     */
+    protected function stripControls(string $text): string
+    {
+        return (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/', '', $text);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
