@@ -69,9 +69,12 @@ class MarkdownRendererTest extends TestCase
 
     public function testLinkDestinationsEncodeMarkdownBreakoutCharacters(): void
     {
-        $document = $this->converter->parse('[x](https://e.com/a(b)c)');
+        // A `)` reaching a destination via a reference definition (URL runs to
+        // end-of-line, not `)`-delimited) is percent-encoded so it cannot break
+        // out of the `(...)` in Markdown output.
+        $document = $this->converter->parse("[x][r]\n\n[r]: https://e.com/a)b");
 
-        $this->assertSame("[x](https://e.com/a%28b%29c)\n", $this->renderer->render($document));
+        $this->assertSame("[x](https://e.com/a%29b)\n", $this->renderer->render($document));
     }
 
     public function testDangerousAutolinkDestinationIsSanitized(): void
