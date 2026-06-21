@@ -40,6 +40,16 @@ class CitationsExtensionTest extends TestCase
         $this->assertNull($this->firstCitationGroup('[just text]'));
     }
 
+    public function testRecognizesCitationAfterUnmatchedOpeningBracket(): void
+    {
+        // An earlier unmatched `[` must not suppress a later balanced citation
+        // in the same text node (regression for the bracket-pair precompute).
+        $group = $this->firstCitationGroup('x [bad [@doe]');
+
+        $this->assertInstanceOf(CitationGroup::class, $group);
+        $this->assertSame('doe', $group->getItems()[0]['key']);
+    }
+
     public function testParsesLocator(): void
     {
         $group = $this->firstCitationGroup('[@smith2020, p. 33]');
@@ -148,6 +158,17 @@ class CitationsExtensionTest extends TestCase
         $html = $this->html("[@a].\n\n::: references\n:::\n\n[@a]: A.");
 
         $this->assertMatchesRegularExpression('/<div class="references">[\s\S]*<ol class="references">/', $html);
+    }
+
+    public function testUnmatchedBracketRunParsesFast(): void
+    {
+        $source = str_repeat('[', 8000);
+        $start = microtime(true);
+
+        $html = $this->html($source);
+
+        $this->assertSame('<p>' . $source . '</p>', $html);
+        $this->assertLessThan(1.0, microtime(true) - $start);
     }
 
     private function converter(string $mode = 'numbered'): CarveConverter

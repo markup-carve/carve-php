@@ -121,9 +121,7 @@ class DetailsExtension implements ExtensionInterface
         $attrs = $node->getAttributes();
         unset($attrs['title']);
 
-        // Apply the same safe-mode attribute filtering the core div renderer
-        // does, so this extension cannot reintroduce dangerous attributes
-        // (e.g. `onclick`) that the default `<div class="details">` would strip.
+        $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $attrs = $safeMode->filterAttributes($attrs);
@@ -142,12 +140,7 @@ class DetailsExtension implements ExtensionInterface
             }
         }
 
-        $html = '';
-        foreach ($attrs as $key => $value) {
-            $html .= ' ' . $this->escapeHtml((string)$key) . '="' . $renderer->escapeAttribute($value) . '"';
-        }
-
-        return $html;
+        return $renderer->renderAttributeArray($attrs);
     }
 
     /**

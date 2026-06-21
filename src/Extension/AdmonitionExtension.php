@@ -235,7 +235,8 @@ class AdmonitionExtension implements ExtensionInterface
 
         $content = '';
         if ($icon !== null) {
-            $content .= '<span class="' . StringUtil::escapeHtml($this->iconClass) . '">' . $icon . '</span> ';
+            $content .= '<span class="' . StringUtil::escapeHtml($this->iconClass) . '">'
+                . StringUtil::escapeHtml($icon) . '</span> ';
         }
         $content .= StringUtil::escapeHtml($title);
 

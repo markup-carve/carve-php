@@ -518,7 +518,7 @@ class MarkdownRenderer implements RendererInterface
         $title = $node->getTitle();
 
         if ($title !== null) {
-            return '[' . $text . '](' . $url . ' "' . $title . '")';
+            return '[' . $text . '](' . $url . ' "' . $this->escapeTitle($title) . '")';
         }
 
         return '[' . $text . '](' . $url . ')';
@@ -531,7 +531,7 @@ class MarkdownRenderer implements RendererInterface
         $title = $node->getTitle();
 
         if ($title !== null) {
-            return '![' . $alt . '](' . $src . ' "' . $title . '")';
+            return '![' . $alt . '](' . $src . ' "' . $this->escapeTitle($title) . '")';
         }
 
         return '![' . $alt . '](' . $src . ')';
@@ -541,6 +541,11 @@ class MarkdownRenderer implements RendererInterface
     {
         // Markdown doesn't have native superscript, use HTML
         return '<sup>' . $this->renderChildren($node) . '</sup>';
+    }
+
+    protected function escapeTitle(string $title): string
+    {
+        return str_replace(['\\', '"'], ['\\\\', '\\"'], $title);
     }
 
     protected function renderSubscript(Subscript $node): string

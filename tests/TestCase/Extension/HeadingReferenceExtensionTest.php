@@ -283,6 +283,19 @@ DJOT);
         $this->assertStringContainsString('href="#Test"', $html);
     }
 
+    public function testManyReferencesResolveFast(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new HeadingReferenceExtension());
+        $source = str_repeat('[[Target]] ', 1500) . "\n\n# Target";
+        $start = microtime(true);
+
+        $html = $converter->convert($source);
+
+        $this->assertSame(1500, substr_count($html, 'href="#Target"'));
+        $this->assertLessThan(1.5, microtime(true) - $start);
+    }
+
     public function testConflictsWithWikilinksWhenAddedAfter(): void
     {
         $converter = new CarveConverter();

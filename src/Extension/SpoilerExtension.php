@@ -144,11 +144,8 @@ class SpoilerExtension implements ExtensionInterface
         }
 
         $out = ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-        foreach ($attrs as $key => $value) {
-            $out .= ' ' . $this->escapeHtml((string)$key) . '="' . $renderer->escapeAttribute((string)$value) . '"';
-        }
 
-        return $out;
+        return $out . $renderer->renderAttributeArray($attrs);
     }
 
     /**

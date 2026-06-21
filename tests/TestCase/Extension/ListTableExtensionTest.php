@@ -835,6 +835,35 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringNotContainsString('RowSpan', $html);
     }
 
+    public function testTableAndCellAttributesAreHardened(): void
+    {
+        $converter = new CarveConverter();
+        $ast = $converter->parse(implode("\n", [
+            '{onclick="alert(1)" style="background:url(javascript:alert(1))"}',
+            '::: list-table',
+            '- - A',
+            ':::',
+        ]));
+
+        $div = $ast->getChildren()[0];
+        $row0 = $div->getChildren()[0]->getChildren()[0];
+        $cellA = $row0->getChildren()[0]->getChildren()[0];
+        $cellA->setAttribute('onclick', 'alert(1)');
+        $cellA->setAttribute('style', 'background:url(javascript:alert(1))');
+
+        $rendered = new CarveConverter();
+        $rendered->addExtension(new ListTableExtension());
+        $renderer = $rendered->getRenderer();
+
+        $ext = new ListTableExtension();
+        $method = new ReflectionMethod($ext, 'renderListTable');
+        $html = trim((string)$method->invoke($ext, $div, $renderer));
+
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('background:url', $html);
+        $this->assertSame(2, substr_count($html, 'style=""'));
+    }
+
     public function testStraySiblingContentDefersToDefaultAndIsNotDropped(): void
     {
         $djot = implode("\n", [
