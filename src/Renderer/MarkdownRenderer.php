@@ -514,7 +514,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderLink(Link $node): string
     {
         $text = $this->renderChildren($node);
-        $url = $node->getDestination();
+        $url = $this->sanitizeUrl((string)$node->getDestination());
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -527,7 +527,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderImage(Image $node): string
     {
         $alt = $node->getAlt();
-        $src = $node->getSource();
+        $src = $this->sanitizeUrl((string)$node->getSource());
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -599,7 +599,9 @@ class MarkdownRenderer implements RendererInterface
     protected function renderRawBlock(RawBlock $node): string
     {
         if ($node->getFormat() === 'html') {
-            return $node->getContent() . "\n\n";
+            // Escape, not emit: raw HTML in Markdown output would be live again
+            // when the Markdown is rendered to HTML downstream.
+            return $this->escapeHtml($node->getContent()) . "\n\n";
         }
 
         return '';
@@ -608,7 +610,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderRawInline(RawInline $node): string
     {
         if ($node->getFormat() === 'html') {
-            return $node->getContent();
+            return $this->escapeHtml($node->getContent());
         }
 
         return '';
@@ -657,8 +659,43 @@ class MarkdownRenderer implements RendererInterface
 
     protected function escapeText(string $text): string
     {
-        // Escape special Markdown characters in text
-        // But be careful not to over-escape
+        // Neutralize embedded HTML first, so Markdown later re-rendered to HTML
+        // cannot execute it: carve's "HTML is text" guarantee holds for the
+        // Markdown target too (a literal `<img onerror=…>` in text becomes
+        // inert `&lt;img …&gt;`). `&` first so the entities are not re-escaped.
+        $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
+
+        // Escape special Markdown characters in text (be careful not to
+        // over-escape). None overlap with the HTML chars escaped above.
         return preg_replace('/([\\\\`*_\[\]#])/', '\\\\$1', $text) ?? $text;
+    }
+
+    /**
+     * Blank a URL whose (normalized) scheme is on the dangerous denylist, so a
+     * `javascript:` link/image does not survive into Markdown output (and from
+     * there into a downstream Markdown -> HTML render). Mirrors the HTML
+     * renderer's always-on URL baseline.
+     */
+
+    /**
+     * Escape `<`, `>`, `&` so embedded HTML cannot become live markup when the
+     * Markdown is re-rendered to HTML.
+     */
+    protected function escapeHtml(string $text): string
+    {
+        return str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
+    }
+
+    protected function sanitizeUrl(string $url): string
+    {
+        $probe = (string)preg_replace('/[\x00-\x20]+/', '', $url);
+        if (preg_match('/^([a-zA-Z][a-zA-Z0-9+.\-]*):/', $probe, $m) === 1) {
+            $dangerous = ['javascript', 'vbscript', 'data', 'file'];
+            if (in_array(strtolower($m[1]), $dangerous, true)) {
+                return '';
+            }
+        }
+
+        return $url;
     }
 }
