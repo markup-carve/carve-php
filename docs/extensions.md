@@ -620,6 +620,24 @@ Content modes:
   renders as
   `<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>`.
 
+  > **Note:** json mode emits a `<script type="application/json">`. If you
+  > sanitize the HTML *after* converting, that inert script is usually stripped -
+  > whitelist `<script type="application/json">` in your sanitizer, or render the
+  > config in **text mode** so it rides in a `<pre>` as escaped text (read it
+  > from `textContent`):
+  >
+  > ~~~ php
+  > // Text mode (not the json-mode chart() preset) so the config rides in
+  > // <pre class="chart"> as escaped text and survives HTML sanitizing; the
+  > // json preset's inert <script type="application/json"> wrapper would be
+  > // stripped.
+  > $converter->addExtension(new FencedRenderExtension(
+  >     language: 'chart',
+  >     contentMode: FencedRenderExtension::MODE_TEXT,
+  >     cssClass: 'chart',
+  > ));
+  > ~~~
+
 Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
 (claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
 
