@@ -393,8 +393,8 @@ class AnsiRenderer implements RendererInterface
             $node instanceof Table => $this->renderTable($node),
             $node instanceof LineBlock => $this->renderLineBlock($node),
             $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $node->getContent(),
-            $node instanceof EscapedText => $node->getContent(),
+            $node instanceof Text => $this->stripControls($node->getContent()),
+            $node instanceof EscapedText => $this->stripControls($node->getContent()),
             $node instanceof Abbreviation => $this->renderAbbreviation($node),
             $node instanceof Emphasis => $this->renderEmphasis($node),
             $node instanceof Strong => $this->renderStrong($node),
@@ -494,7 +494,7 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
         $lang = $node->getLanguage();
 
         $lines = explode("\n", rtrim($content));
@@ -789,7 +789,7 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderCode(Code $node): string
     {
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
 
         return $this->style($content, self::FG_BRIGHT_YELLOW);
     }
@@ -878,7 +878,7 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderMath(Math $node): string
     {
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
 
         return $this->style($content, self::FG_BRIGHT_MAGENTA);
     }
@@ -904,9 +904,20 @@ class AnsiRenderer implements RendererInterface
     {
         // Show raw blocks dimmed
         $format = $node->getFormat();
-        $content = $node->getContent();
+        $content = $this->stripControls($node->getContent());
 
         return $this->style('[raw:' . $format . '] ' . $content, self::DIM) . "\n\n";
+    }
+
+    /**
+     * Strip C0 control bytes from author-derived content (keeping tab and
+     * newline) so attacker text cannot inject terminal escape / OSC sequences
+     * (cursor moves, color resets, clipboard writes) into ANSI output. The
+     * renderer's own styling escapes are added separately and are not affected.
+     */
+    protected function stripControls(string $text): string
+    {
+        return (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/', '', $text);
     }
 
     protected function renderFigure(Figure $node): string

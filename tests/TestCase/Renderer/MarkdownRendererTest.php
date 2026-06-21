@@ -316,11 +316,14 @@ class MarkdownRendererTest extends TestCase
 
     public function testRawHtml(): void
     {
+        // Raw HTML is ESCAPED, not emitted, in Markdown output: it would become
+        // live again when the Markdown is rendered to HTML downstream.
         $djot = 'Text `<span>raw</span>`{=html} more';
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertStringContainsString('<span>raw</span>', $result);
+        $this->assertStringContainsString('&lt;span&gt;raw&lt;/span&gt;', $result);
+        $this->assertStringNotContainsString('<span>raw</span>', $result);
     }
 
     public function testDefinitionList(): void
