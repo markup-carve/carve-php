@@ -340,7 +340,43 @@ class InlineParser
         }
     }
 
+    /**
+     * Inline-nesting DoS guard: deeply nested inline constructs (e.g. a bomb
+     * of nested links `[[[…](#)](#)…`) recurse through parseInlines and rescan
+     * balanced brackets at each level, which is ~O(n^2). Beyond this depth the
+     * remaining text is emitted literally instead of recursing further. Far
+     * deeper than any real document; mirrors the block-nesting cap.
+     *
+     * @var int
+     */
+    protected const MAX_INLINE_DEPTH = 100;
+
+    /**
+     * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
+     */
+    protected int $inlineDepth = 0;
+
     protected function parseInlines(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
+    {
+        if ($this->inlineDepth >= self::MAX_INLINE_DEPTH) {
+            // Too deeply nested (DoS guard): stop recursing and keep the
+            // remaining text as a literal text node rather than re-parsing it.
+            if ($text !== '') {
+                $parent->appendChild(new Text($text));
+            }
+
+            return;
+        }
+
+        $this->inlineDepth++;
+        try {
+            $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
+        } finally {
+            $this->inlineDepth--;
+        }
+    }
+
+    protected function parseInlinesImpl(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
     {
         $previousFootnoteRecognition = $this->footnoteRecognitionEnabled;
         if ($footnoteRecognitionEnabled !== null) {
