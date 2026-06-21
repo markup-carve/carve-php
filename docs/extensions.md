@@ -773,6 +773,44 @@ renders as `<div class="math display big" id="eq" data-ref="x">\[x^2\]</div>`.
 > a `{onclick="…"}` on a ` ``` math ` fence can never reach the output. This
 > matches how core inline `` $`…` `` / display `` $$`…` `` math carry `{...}`.
 
+### SpoilerExtension
+
+Hidden / blurred content revealed on interaction (inline + block). Implements
+the standard `spoiler` role from the spec's Extension Registry - no new syntax.
+
+- **Inline** `:spoiler[text]` → `<span class="spoiler">text</span>`. Without the
+  extension this stays the generic `<span class="ext-spoiler">text</span>`.
+- **Block** `::: spoiler "Title"` → an HTML5 `<details class="spoiler">`
+  disclosure (native, keyboard- and screen-reader-accessible); a title-less
+  block falls back to `<summary>Spoiler</summary>`. Without the extension this
+  stays a plain `<div class="spoiler">`.
+
+~~~ php
+$converter->addExtension(new SpoilerExtension());
+
+$converter->convert('Plot: :spoiler[the butler did it].');
+// <p>Plot: <span class="spoiler">the butler did it</span>.</p>
+
+$converter->convert("::: spoiler \"Ending\"\nEveryone lives.\n:::");
+// <details class="spoiler">
+//   <summary>Ending</summary>
+//   <p>Everyone lives.</p>
+// </details>
+~~~
+
+Carve emits only the marker; the blur + reveal is the host's CSS (like
+`MermaidExtension`). Author attributes merge onto the output element - the
+`spoiler` base class ahead of author classes, then id / key-values - with the
+always-on hardening (`HtmlRenderer::sanitizeAttributes()`) plus safe-mode name
+filtering and value escaping, so a `{onclick="…"}` can never reach the output. A
+reference accessible stylesheet (blur, reveal on `:hover` / `:focus-within`,
+content kept in the DOM for screen readers):
+
+~~~ css
+.spoiler { background: #222; color: transparent; border-radius: 3px; cursor: pointer; }
+.spoiler:hover, .spoiler:focus-within { color: inherit; background: transparent; }
+~~~
+
 ### FrontmatterExtension (default)
 
 Parses a leading frontmatter block. Active by default. The block opens with
