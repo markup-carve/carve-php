@@ -637,6 +637,66 @@ fence; you must load Mermaid.js on the page to render the diagrams. It accepts
 `wrapInFigure`, `tag`, `cssClass`, and `figureClass` for the same customization
 the other text-mode presets allow.
 
+#### Client rendering
+
+Carve only emits the marker element (the `class`-tagged `<pre>`, or `<div>` with
+a child `<script>`); it never renders the diagram itself. Loading the client-side
+library and hydrating each emitted element is the host page's job: read the
+element's text (text mode) or its `<script type="application/json">` (json mode)
+and hand it to the library. The library to load per built-in preset:
+
+| Preset | Fence word(s) | Mode | Client library |
+|--------|---------------|------|----------------|
+| `mermaid()` | `mermaid` | text | mermaid.js |
+| `d2()` | `d2` | text | the d2 WASM build (`terrastruct/d2`) or the `d2` CLI server-side |
+| `graphviz()` | `dot`, `graphviz` | text | viz.js / d3-graphviz |
+| `wavedrom()` | `wavedrom` | text | wavedrom.js |
+| `abc()` | `abc` | text | abcjs |
+| `vegaLite()` | `vega-lite` | json | vega-embed |
+| `chart()` | `chart` | json | Chart.js |
+
+(`MathBlockExtension` shares the shape for ` ``` math ` fences; load KaTeX or
+MathJax.)
+
+Text-mode hydration reads `textContent` (Graphviz shown):
+
+~~~ js
+for (const el of document.querySelectorAll('pre.graphviz')) {
+  el.replaceWith(viz.renderSVGElement(el.textContent));
+}
+~~~
+
+JSON-mode hydration reads the child script (Chart.js shown):
+
+~~~ js
+for (const el of document.querySelectorAll('.chart')) {
+  const cfg = JSON.parse(el.querySelector('script[type="application/json"]').textContent);
+  new Chart(el.appendChild(document.createElement('canvas')), cfg);
+}
+~~~
+
+#### Custom languages (no preset)
+
+Any library that hydrates from element text or a JSON spec needs **no new PHP** -
+register the generic constructor with your own fence word:
+
+~~~ php
+// Text mode: a library that reads the element's textContent (e.g. nomnoml).
+$converter->addExtension(new FencedRenderExtension(language: 'nomnoml'));
+// -> <pre class="nomnoml">…escaped source…</pre>
+
+// JSON mode: a spec-driven library with no preset (e.g. ECharts).
+$converter->addExtension(new FencedRenderExtension(
+    language: 'echarts',
+    contentMode: FencedRenderExtension::MODE_JSON,
+));
+// -> <div class="echarts"><script type="application/json">{…}</script></div>
+~~~
+
+Then hydrate `pre.nomnoml` / `.echarts` on the client exactly as the presets
+above. Pass an array as `language` to claim several fence words (aliases), and
+set `cssClass` when the wrapper class should differ from the first word.
+
 > [!NOTE]
 > Author attributes on the fence (a `{#id .class key=val}` block-attribute line
 > above it) are copied onto the wrapper, but get the same treatment the core
