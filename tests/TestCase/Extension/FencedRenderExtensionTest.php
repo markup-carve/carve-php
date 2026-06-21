@@ -196,4 +196,30 @@ class FencedRenderExtensionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         new FencedRenderExtension(language: 'd2', contentMode: 'binary');
     }
+
+    public function testPresetsReturnsEveryBundledPreset(): void
+    {
+        $presets = FencedRenderExtension::presets();
+
+        $this->assertCount(7, $presets);
+        foreach ($presets as $preset) {
+            $this->assertInstanceOf(FencedRenderExtension::class, $preset);
+        }
+    }
+
+    public function testPresetsRegisterAllFenceLanguages(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtensions(FencedRenderExtension::presets());
+
+        $mermaid = trim($converter->convert("``` mermaid\ngraph TD; A-->B\n```"));
+        $this->assertStringContainsString('<pre class="mermaid">', $mermaid);
+
+        $dot = trim($converter->convert("``` dot\ndigraph { a -> b }\n```"));
+        $this->assertStringContainsString('<pre class="graphviz">', $dot);
+
+        $chart = trim($converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
+        $this->assertStringContainsString('<div class="chart">', $chart);
+        $this->assertStringContainsString('<script type="application/json">', $chart);
+    }
 }

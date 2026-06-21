@@ -7,6 +7,7 @@ namespace Carve\Test\TestCase;
 use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Exception\ParseException;
+use Carve\Extension\FencedRenderExtension;
 use Carve\Extension\HeadingLevelShiftExtension;
 use Carve\Extension\TabsExtension;
 use Carve\Node\Block\Heading;
@@ -3543,5 +3544,38 @@ DJOT;
     public function testInlineSpanAttributeBlockEdge(string $input, string $expected): void
     {
         $this->assertSame($expected, $this->converter->convert($input));
+    }
+
+    public function testAddExtensionsRegistersAllAndChains(): void
+    {
+        $converter = new CarveConverter();
+        $result = $converter->addExtensions([
+            FencedRenderExtension::mermaid(),
+            FencedRenderExtension::vegaLite(),
+        ]);
+
+        $this->assertSame($converter, $result);
+        $this->assertStringContainsString(
+            '<pre class="mermaid">',
+            $converter->convert("``` mermaid\ngraph TD; A-->B\n```"),
+        );
+        $this->assertStringContainsString(
+            '<div class="vega-lite">',
+            $converter->convert("``` vega-lite\n{\"mark\":\"bar\"}\n```"),
+        );
+    }
+
+    public function testAddExtensionsAcceptsGenerator(): void
+    {
+        $converter = new CarveConverter();
+        $extensions = (function () {
+            yield FencedRenderExtension::d2();
+            yield FencedRenderExtension::chart();
+        })();
+
+        $converter->addExtensions($extensions);
+
+        $this->assertStringContainsString('<pre class="d2">', $converter->convert("``` d2\na -> b\n```"));
+        $this->assertStringContainsString('<div class="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
     }
 }
