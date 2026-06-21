@@ -7,10 +7,10 @@ namespace Carve\Test\TestCase\Converter;
 use Carve\CarveConverter;
 use Carve\Converter\HtmlToCarve;
 use Carve\Extension\CodeGroupExtension;
+use Carve\Extension\FencedRenderExtension;
 use Carve\Extension\HeadingLevelShiftExtension;
 use Carve\Extension\HeadingReferenceExtension;
 use Carve\Extension\InlineFootnotesExtension;
-use Carve\Extension\MermaidExtension;
 use Carve\Extension\TabsExtension;
 use Carve\Profile;
 use PHPUnit\Framework\TestCase;
@@ -1387,7 +1387,7 @@ DJOT;
     public function testMermaidRoundTripUsesDjotSrc(): void
     {
         $converter = new CarveConverter(roundTripMode: true);
-        $converter->addExtension(new MermaidExtension());
+        $converter->addExtension(FencedRenderExtension::mermaid());
 
         $djot = "{#flow data-theme=dark}\n``` mermaid\ngraph TD;\n    A-->B;\n```\n";
 
