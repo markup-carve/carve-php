@@ -637,6 +637,23 @@ fence; you must load Mermaid.js on the page to render the diagrams. It accepts
 `wrapInFigure`, `tag`, `cssClass`, and `figureClass` for the same customization
 the other text-mode presets allow.
 
+To turn them all on without listing each, `FencedRenderExtension::presets()`
+returns every bundled preset instance, and `CarveConverter::addExtensions()`
+bulk-registers any iterable of extensions:
+
+~~~ php
+$converter->addExtensions([
+    ...FencedRenderExtension::presets(),
+    new MathBlockExtension(),
+]);
+~~~
+
+> [!NOTE]
+> `presets()` claims every preset fence word (`mermaid`, `d2`, `dot`,
+> `graphviz`, `wavedrom`, `abc`, `vega-lite`, `chart`), so a literal code sample
+> in one of those languages becomes a hydration element. Register only the
+> presets whose client library you actually load if that matters.
+
 #### Client rendering
 
 Carve only emits the marker element (the `class`-tagged `<pre>`, or `<div>` with

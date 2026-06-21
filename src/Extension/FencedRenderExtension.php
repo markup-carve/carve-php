@@ -190,6 +190,31 @@ class FencedRenderExtension implements ExtensionInterface
         return new self(language: 'chart', contentMode: self::MODE_JSON);
     }
 
+    /**
+     * Every bundled diagram preset as ready-to-register instances.
+     *
+     * Convenience for turning on all built-in fence languages at once, e.g.
+     * `$converter->addExtensions(FencedRenderExtension::presets())`. This claims
+     * every preset fence word (`mermaid`, `d2`, `dot`, `graphviz`, `wavedrom`,
+     * `abc`, `vega-lite`, `chart`), so a literal code sample in one of those
+     * languages becomes a hydration element; register only the presets whose
+     * client library you actually load if that matters.
+     *
+     * @return array<self>
+     */
+    public static function presets(): array
+    {
+        return [
+            self::mermaid(),
+            self::d2(),
+            self::graphviz(),
+            self::wavedrom(),
+            self::abc(),
+            self::vegaLite(),
+            self::chart(),
+        ];
+    }
+
     public function register(CarveConverter $converter): void
     {
         $renderer = $converter->getRenderer();

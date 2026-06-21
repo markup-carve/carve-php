@@ -481,6 +481,31 @@ class CarveConverter
     }
 
     /**
+     * Register multiple extensions at once.
+     *
+     * Convenience wrapper around {@see self::addExtension()}; each extension is
+     * registered in iteration order with the same conflict checks.
+     *
+     * Example:
+     * ```php
+     * $converter->addExtensions([
+     *     ...FencedRenderExtension::presets(),
+     *     new MathBlockExtension(),
+     * ]);
+     * ```
+     *
+     * @param iterable<\Carve\Extension\ExtensionInterface> $extensions
+     */
+    public function addExtensions(iterable $extensions): self
+    {
+        foreach ($extensions as $extension) {
+            $this->addExtension($extension);
+        }
+
+        return $this;
+    }
+
+    /**
      * @throws \LogicException When the extension conflicts with an already registered extension
      */
     protected function assertCompatibleExtension(ExtensionInterface $extension): void
