@@ -83,6 +83,18 @@ class AttributeHardeningTest extends TestCase
         $this->assertStringContainsString('href=""', $this->render('[x](data:text/html,foo)'));
     }
 
+    public function testLinkAndImageAttributeBlocksCannotOverrideDestination(): void
+    {
+        $this->assertSame(
+            '<p><a href="https://example.com">safe</a></p>',
+            $this->render('[safe](https://example.com){href="javascript:steal"}'),
+        );
+        $this->assertSame(
+            '<img src="https://example.com/x.png" alt="logo">',
+            $this->render('![logo](https://example.com/x.png){src="javascript:steal"}'),
+        );
+    }
+
     public function testOrdinaryUrlSchemesPassUnderDenylist(): void
     {
         $this->assertStringContainsString('href="https://e.com"', $this->render('[x](https://e.com)'));
