@@ -67,6 +67,34 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('[Example](https://example.com)', $this->renderer->render($document));
     }
 
+    public function testLinkDestinationsEncodeMarkdownBreakoutCharacters(): void
+    {
+        $document = $this->converter->parse('[x](https://e.com/a(b)c)');
+
+        $this->assertSame("[x](https://e.com/a%28b%29c)\n", $this->renderer->render($document));
+    }
+
+    public function testDangerousAutolinkDestinationIsSanitized(): void
+    {
+        $document = $this->converter->parse('<javascript:alert(1)>');
+
+        $this->assertSame("[javascript:alert(1)]()\n", $this->renderer->render($document));
+    }
+
+    public function testAutolinkDestinationIsUnchangedWhenSafe(): void
+    {
+        $document = $this->converter->parse('<https://example.com>');
+
+        $this->assertSame("[https://example.com](https://example.com)\n", $this->renderer->render($document));
+    }
+
+    public function testImageDestinationsEncodeMarkdownBreakoutCharacters(): void
+    {
+        $document = $this->converter->parse('![x](https://e.com/a <b>)');
+
+        $this->assertSame("![x](https://e.com/a%20%3Cb%3E)\n", $this->renderer->render($document));
+    }
+
     public function testLinkWithTitle(): void
     {
         $djot = '[Example](https://example.com "Title")';

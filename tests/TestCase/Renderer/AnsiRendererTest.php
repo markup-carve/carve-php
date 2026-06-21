@@ -63,6 +63,16 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('php', $output);
     }
 
+    public function testUtf8C1ControlsAreStrippedAndTabNewlineArePreserved(): void
+    {
+        $renderer = new AnsiRenderer(80, false);
+        $doc = $this->converter->parse("```\na\tb\nc\xC2\x9Bd\n```");
+        $output = $renderer->render($doc);
+
+        $this->assertStringContainsString("a\tb\n  cd", $output);
+        $this->assertStringNotContainsString("\xC2\x9B", $output);
+    }
+
     public function testRenderLink(): void
     {
         $doc = $this->converter->parse('Visit [Example](https://example.com).');

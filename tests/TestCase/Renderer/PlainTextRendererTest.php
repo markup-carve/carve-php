@@ -106,6 +106,13 @@ class PlainTextRendererTest extends TestCase
         $this->assertSame($expected, $this->renderer->render($document));
     }
 
+    public function testUtf8C1ControlsAreStrippedAndTabNewlineArePreserved(): void
+    {
+        $document = $this->converter->parse("```\na\tb\nc\xC2\x9Bd\n```");
+
+        $this->assertSame("a\tb\ncd\n", $this->renderer->render($document));
+    }
+
     public function testInlineCode(): void
     {
         $djot = 'Use the `print()` function.';

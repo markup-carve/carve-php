@@ -262,4 +262,19 @@ class HeadingIdTrackerTest extends TestCase
         $text = $this->tracker->getPlainText($heading);
         $this->assertSame('Title', $text);
     }
+
+    public function testManyLowercaseReferencesResolveFast(): void
+    {
+        for ($i = 0; $i < 3000; $i++) {
+            $this->tracker->getIdForText('Heading ' . $i);
+        }
+
+        $startedAt = microtime(true);
+        for ($i = 0; $i < 3000; $i++) {
+            $this->assertSame('Heading-' . $i, $this->tracker->findIdCaseInsensitive('heading-' . $i));
+        }
+        $elapsed = microtime(true) - $startedAt;
+
+        $this->assertLessThan(1.0, $elapsed);
+    }
 }
