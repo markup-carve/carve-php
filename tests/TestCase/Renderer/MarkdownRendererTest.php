@@ -67,6 +67,37 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('[Example](https://example.com)', $this->renderer->render($document));
     }
 
+    public function testLinkDestinationsEncodeMarkdownBreakoutCharacters(): void
+    {
+        // A `)` reaching a destination via a reference definition (URL runs to
+        // end-of-line, not `)`-delimited) is percent-encoded so it cannot break
+        // out of the `(...)` in Markdown output.
+        $document = $this->converter->parse("[x][r]\n\n[r]: https://e.com/a)b");
+
+        $this->assertSame("[x](https://e.com/a%29b)\n", $this->renderer->render($document));
+    }
+
+    public function testDangerousAutolinkDestinationIsSanitized(): void
+    {
+        $document = $this->converter->parse('<javascript:alert(1)>');
+
+        $this->assertSame("[javascript:alert(1)]()\n", $this->renderer->render($document));
+    }
+
+    public function testAutolinkDestinationIsUnchangedWhenSafe(): void
+    {
+        $document = $this->converter->parse('<https://example.com>');
+
+        $this->assertSame("[https://example.com](https://example.com)\n", $this->renderer->render($document));
+    }
+
+    public function testImageDestinationsEncodeMarkdownBreakoutCharacters(): void
+    {
+        $document = $this->converter->parse('![x](https://e.com/a <b>)');
+
+        $this->assertSame("![x](https://e.com/a%20%3Cb%3E)\n", $this->renderer->render($document));
+    }
+
     public function testLinkWithTitle(): void
     {
         $djot = '[Example](https://example.com "Title")';

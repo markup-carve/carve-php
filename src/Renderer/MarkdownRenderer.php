@@ -514,7 +514,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderLink(Link $node): string
     {
         $text = $this->renderChildren($node);
-        $url = $this->sanitizeUrl((string)$node->getDestination());
+        $url = $this->encodeMarkdownDestination((string)$node->getDestination());
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -527,7 +527,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderImage(Image $node): string
     {
         $alt = $node->getAlt();
-        $src = $this->sanitizeUrl((string)$node->getSource());
+        $src = $this->encodeMarkdownDestination((string)$node->getSource());
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -702,5 +702,24 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return $url;
+    }
+
+    protected function encodeMarkdownDestination(string $url): string
+    {
+        $url = $this->sanitizeUrl($url);
+        $url = strtr($url, [
+            ' ' => '%20',
+            '(' => '%28',
+            ')' => '%29',
+            '<' => '%3C',
+            '>' => '%3E',
+        ]);
+
+        return $this->stripControls($url);
+    }
+
+    protected function stripControls(string $text): string
+    {
+        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
     }
 }

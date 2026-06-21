@@ -910,14 +910,15 @@ class AnsiRenderer implements RendererInterface
     }
 
     /**
-     * Strip C0 control bytes from author-derived content (keeping tab and
-     * newline) so attacker text cannot inject terminal escape / OSC sequences
-     * (cursor moves, color resets, clipboard writes) into ANSI output. The
-     * renderer's own styling escapes are added separately and are not affected.
+     * Strip Unicode control characters from author-derived content (keeping tab
+     * and newline) so attacker text cannot inject terminal escape / OSC
+     * sequences (cursor moves, color resets, clipboard writes) into ANSI output.
+     * The renderer's own styling escapes are added separately and are not
+     * affected.
      */
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/', '', $text);
+        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
     }
 
     protected function renderFigure(Figure $node): string

@@ -49,6 +49,18 @@ class MentionsExtensionTest extends TestCase
         $this->assertStringContainsString('<a class="topic" href="/topic/php">#php</a>', $html);
     }
 
+    public function testTemplateHrefIsSanitized(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new MentionsExtension(
+            mentionUrl: 'javascript:alert({name})',
+        ));
+
+        $html = $converter->convert('@alice');
+
+        $this->assertStringContainsString('<a class="mention" href="">@alice</a>', $html);
+    }
+
     public function testMultipleMentions(): void
     {
         $html = (new CarveConverter())->convert('@alice and @bob discussed the issue.');

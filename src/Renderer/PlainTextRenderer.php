@@ -196,13 +196,13 @@ class PlainTextRenderer implements RendererInterface
     }
 
     /**
-     * Strip C0 control bytes (keeping tab and newline) from author content so
-     * attacker text cannot inject terminal escape sequences into plain-text
-     * output displayed in a terminal.
+     * Strip Unicode control characters (keeping tab and newline) from author
+     * content so attacker text cannot inject terminal escape sequences into
+     * plain-text output displayed in a terminal.
      */
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/', '', $text);
+        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
