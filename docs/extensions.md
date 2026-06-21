@@ -804,24 +804,30 @@ Carve emits only the marker; the blur + reveal is the host's CSS (like
 always-on hardening (`HtmlRenderer::sanitizeAttributes()`) plus safe-mode name
 filtering and value escaping, so a `{onclick="…"}` can never reach the output.
 
-Recommended host pattern: a **click-to-reveal** chip (hover does not reveal - it
-would spoil by accident), visibly marked as a spoiler (an eye cue + an accent
-distinct from a neutral `<details>`), content kept in the DOM for screen readers:
+Recommended host pattern: **blurred until clicked** (hover does not reveal - it
+would spoil by accident), content kept in the DOM for screen readers. A `.masked`
+variant gives a credit-card / PIN look (every char a dot) - add `.masked` on the
+fence (`:spoiler[1234]{.masked}`):
 
 ~~~ css
-/* Inline: a clearly-marked, click-to-reveal spoiler. */
-.spoiler { background: #2a2f3a; color: transparent; border-radius: 4px;
-  padding: 0 .4em; cursor: pointer; user-select: none; box-shadow: inset 0 0 0 1px #4a4030; }
-.spoiler::before { content: "👁"; color: #e0af68; font-size: .8em; margin-right: .35em; }
-.spoiler.revealed { background: transparent; color: inherit; box-shadow: none; user-select: text; }
-.spoiler.revealed::before { content: ""; margin: 0; }
-/* Block: amber accent, distinct from a neutral <details>. */
-details.spoiler { border-left: 3px solid #e0af68; }
-details.spoiler > summary { color: #e0af68; cursor: pointer; }
+/* Inline: blurred until revealed (the familiar spoiler look). */
+.spoiler { filter: blur(.3em); cursor: pointer; border-radius: 3px; padding: 0 .15em;
+  background: rgba(127, 127, 127, .14); user-select: none; transition: filter .2s; }
+.spoiler.revealed { filter: none; background: transparent; user-select: text; }
+/* Variant: masked like a credit-card / PIN field (every char a dot). */
+.spoiler.masked { filter: none; -webkit-text-security: disc; }
+.spoiler.masked.revealed { -webkit-text-security: none; }
+/* Block: blur the body and reveal on click, so it reads as a spoiler rather
+   than a bare collapse. Amber accent + eye, distinct from a neutral <details>. */
+details.spoiler { border-left: 3px solid #e0af68; border-radius: 6px; padding: 4px 12px; }
+details.spoiler > summary { color: #e0af68; cursor: pointer; list-style: none; user-select: none; }
+details.spoiler > summary::before { content: "👁 "; }
+details.spoiler > *:not(summary) { filter: blur(.4em); transition: filter .25s; }
+details.spoiler.revealed > *:not(summary) { filter: none; }
 ~~~
 
 ~~~ js
-// Inline reveal on click / Enter / Space, as an accessible button.
+// Inline: reveal on click / Enter / Space, as an accessible button.
 for (const s of document.querySelectorAll('span.spoiler')) {
   s.tabIndex = 0
   s.setAttribute('role', 'button')
@@ -832,10 +838,19 @@ for (const s of document.querySelectorAll('span.spoiler')) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
   })
 }
+// Block: keep <details> open so the body is present, blur it, reveal on click.
+for (const d of document.querySelectorAll('details.spoiler')) {
+  d.open = true
+  d.querySelector('summary').addEventListener('click', (e) => {
+    e.preventDefault()
+    d.classList.toggle('revealed')
+  })
+}
 ~~~
 
-The block form is a native `<details>`, so it needs no JS - it toggles on click
-and is keyboard/screen-reader accessible out of the box.
+Prefer this blur look, or drop the block JS and let `<details>` collapse natively
+(no JS, fully keyboard/screen-reader accessible) - both are valid; the extension
+emits the same `<details class="spoiler">` either way.
 
 ### FrontmatterExtension (default)
 
