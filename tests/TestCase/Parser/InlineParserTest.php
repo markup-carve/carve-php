@@ -101,6 +101,15 @@ class InlineParserTest extends TestCase
         $this->assertSame('`code`', $code->getContent());
     }
 
+    public function testClosedCodeSpanStripsOneSpaceAtEachEnd(): void
+    {
+        $para = $this->parseInline('`  a  `');
+
+        $code = $this->getFirstChild($para);
+        $this->assertInstanceOf(Code::class, $code);
+        $this->assertSame(' a ', $code->getContent());
+    }
+
     public function testParseLink(): void
     {
         $para = $this->parseInline('[Example](https://example.com)');
@@ -108,6 +117,26 @@ class InlineParserTest extends TestCase
         $link = $this->getFirstChild($para);
         $this->assertInstanceOf(Link::class, $link);
         $this->assertSame('https://example.com', $link->getDestination());
+    }
+
+    public function testAngleBracketWrappedInlineLinkDestinationStaysLiteral(): void
+    {
+        $para = $this->parseInline('[a](<u v>)');
+
+        $this->assertCount(1, $para->getChildren());
+        $text = $this->getFirstChild($para);
+        $this->assertInstanceOf(Text::class, $text);
+        $this->assertSame('[a](<u v>)', $text->getContent());
+    }
+
+    public function testEmptyInlineLinkDestinationStaysLiteral(): void
+    {
+        $para = $this->parseInline('[]( )');
+
+        $this->assertCount(1, $para->getChildren());
+        $text = $this->getFirstChild($para);
+        $this->assertInstanceOf(Text::class, $text);
+        $this->assertSame('[]( )', $text->getContent());
     }
 
     public function testParseImage(): void
