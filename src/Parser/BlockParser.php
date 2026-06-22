@@ -731,7 +731,7 @@ class BlockParser
             $line = $lines[$i];
 
             // Match abbreviation definition: *[abbr]: definition
-            if (preg_match('/^\*\[([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+            if (preg_match('/^\*\[([^\]]+)\]: (.*)$/', $line, $matches)) {
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
 
@@ -743,7 +743,7 @@ class BlockParser
                         break;
                     }
                     // Check if next line starts a new abbreviation definition
-                    if (preg_match('/^\*\[([^\]]+)\]:/', $nextLine)) {
+                    if (preg_match('/^\*\[([^\]]+)\]: /', $nextLine)) {
                         break;
                     }
                     if ($this->startsNewBlock($nextLine)) {
@@ -3552,7 +3552,7 @@ class BlockParser
         $line = $lines[$start];
 
         // Match abbreviation definition: *[abbr]: definition
-        if (!preg_match('/^\*\[([^\]]+)\]:\s*/', $line)) {
+        if (!preg_match('/^\*\[([^\]]+)\]: /', $line)) {
             return null;
         }
 
@@ -3566,7 +3566,7 @@ class BlockParser
                 break;
             }
             // Check if next line starts a new abbreviation definition
-            if (preg_match('/^\*\[([^\]]+)\]:/', $nextLine)) {
+            if (preg_match('/^\*\[([^\]]+)\]: /', $nextLine)) {
                 break;
             }
             if ($this->startsNewBlock($nextLine)) {

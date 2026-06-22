@@ -195,6 +195,20 @@ DJOT;
         $this->assertStringContainsString('<abbr title="Hyper Text Markup Language">HTML</abbr>', $html);
     }
 
+    public function testAbbreviationDefinitionRequiresSpaceAfterColon(): void
+    {
+        $input = <<<'DJOT'
+*[A]:x
+
+A
+DJOT;
+
+        $this->parser->parse($input);
+
+        $this->assertSame([], $this->parser->getAbbreviations());
+        $this->assertSame("<p>*[A]:x</p>\n<p>A</p>\n", $this->converter->convert($input));
+    }
+
     public function testAbbreviationDefinitionMultiline(): void
     {
         $input = <<<'DJOT'
