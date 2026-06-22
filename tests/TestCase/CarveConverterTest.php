@@ -1085,6 +1085,11 @@ DJOT;
         $this->assertStringContainsString('Content', $result);
     }
 
+    public function testEmptyDivWithTrailingWhitespaceOpenerHasNoExtraBlankLine(): void
+    {
+        $this->assertSame("<div>\n</div>\n", $this->converter->convert("::: \n:::"));
+    }
+
     public function testNestedDivs(): void
     {
         // Nested divs need DIFFERENT fence lengths (outer longer): a same-length
