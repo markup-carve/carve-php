@@ -943,6 +943,10 @@ class HtmlRenderer implements RendererInterface
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
+            if ($body === '') {
+                return '<aside' . $this->renderAttributeArray($attrs) . ">\n</aside>\n";
+            }
+
             return '<aside' . $this->renderAttributeArray($attrs) . ">\n"
                 . $body . "\n</aside>\n";
         }
@@ -951,6 +955,10 @@ class HtmlRenderer implements RendererInterface
         // the fenced-div primitive the block-extension mechanism builds on.
         $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node, ['title']));
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
+
+        if ($body === '') {
+            return '<div' . $attrs . ">\n</div>\n";
+        }
 
         return '<div' . $attrs . ">\n" . $body . "\n</div>\n";
     }
