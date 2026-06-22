@@ -681,13 +681,12 @@ class BlockParser
 
                         continue;
                     }
-                    // Check if line has at least base indentation (2 spaces or 1 tab)
+                    // A footnote body extends only to lines indented by at least
+                    // base indentation (2 spaces or a tab), per grammar PART 9
+                    // §16. A line with less indentation (e.g. a single space) is
+                    // a top-level block, not part of the footnote -- matches
+                    // carve-js / carve-rs.
                     if (preg_match('/^(?:[ ]{' . $baseIndent . '}|\t)(.*)$/', $nextLine, $contMatch)) {
-                        $contentLines[] = $contMatch[1];
-                        $hasContent = true;
-                        $j++;
-                    } elseif (!$hasContent && preg_match('/^\s+(.+)$/', $nextLine, $contMatch)) {
-                        // Allow flexible indentation for first content line
                         $contentLines[] = $contMatch[1];
                         $hasContent = true;
                         $j++;
@@ -3459,11 +3458,18 @@ class BlockParser
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
-                $i++;
+                // A blank line continues the footnote only if a >= 2-indented
+                // line follows; otherwise it ends the footnote. Must mirror the
+                // body-collection logic so a line is never skipped here without
+                // being collected there (grammar PART 9 §16).
+                if ($i + 1 < $count && preg_match('/^(?:[ ]{2}|\t)/', $lines[$i + 1])) {
+                    $i++;
 
-                continue;
+                    continue;
+                }
+                break;
             }
-            if (preg_match('/^\s+/', $nextLine)) {
+            if (preg_match('/^(?:[ ]{2}|\t)/', $nextLine)) {
                 $i++;
             } else {
                 break;
