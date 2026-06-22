@@ -107,10 +107,11 @@ class AttributeParserTest extends TestCase
     /**
      * Tests for unquoted attribute value validation.
      *
-     * Per djot spec, unquoted values may only contain:
-     * ASCII alphanumeric characters, underscore (_), colon (:), or hyphen (-)
+     * Per carve conformance, unquoted values may contain:
+     * ASCII alphanumeric characters, underscore (_), colon (:), hyphen (-),
+     * or dot (.)
      *
-     * Invalid characters like dots, slashes, etc. should cause the attribute
+     * Invalid characters like slashes, at signs, etc. should cause the attribute
      * to not be recognized (matching the reference JS implementation behavior).
      */
     public function testValidUnquotedValueWithUnderscore(): void
@@ -141,14 +142,11 @@ class AttributeParserTest extends TestCase
         $this->assertSame('abc123', $result['key']);
     }
 
-    public function testInvalidUnquotedValueWithDotIsNotParsed(): void
+    public function testValidUnquotedValueWithDot(): void
     {
-        // Dots are not allowed in unquoted values per djot spec
-        // The attribute should not be recognized
         $result = AttributeParser::parse('key=foo.bar');
 
-        $this->assertArrayNotHasKey('key', $result);
-        // And importantly, .bar should NOT become a class
+        $this->assertSame('foo.bar', $result['key']);
         $this->assertArrayNotHasKey('class', $result);
     }
 
@@ -177,21 +175,21 @@ class AttributeParserTest extends TestCase
 
     public function testMixedValidAndInvalidUnquotedValues(): void
     {
-        // valid=good should be parsed, invalid=bad.value should not
+        // valid=good and dotted=bad.value should both be parsed.
         $result = AttributeParser::parse('valid=good invalid=bad.value');
 
         $this->assertSame('good', $result['valid']);
-        $this->assertArrayNotHasKey('invalid', $result);
+        $this->assertSame('bad.value', $result['invalid']);
         $this->assertArrayNotHasKey('class', $result);
     }
 
     public function testRealClassWithInvalidUnquotedValue(): void
     {
-        // .myclass should work, but key=foo.bar should not create spurious class
+        // .myclass should work, and key=foo.bar should not create spurious class
         $result = AttributeParser::parse('.myclass key=foo.bar');
 
         $this->assertSame('myclass', $result['class']);
-        $this->assertArrayNotHasKey('key', $result);
+        $this->assertSame('foo.bar', $result['key']);
     }
 
     /**
@@ -270,19 +268,19 @@ class AttributeParserTest extends TestCase
         $this->assertLessThan($titlePos, $classPos, 'class should appear before title');
     }
 
-    public function testInvalidUnquotedValueDoesNotAffectOrder(): void
+    public function testDottedUnquotedValuePreservesOrder(): void
     {
-        // Invalid unquoted value should be skipped, not affect ordering of valid attrs
         $result = $this->converter->convert('[text]{.myclass invalid=foo.bar data-x=valid}');
 
         $classPos = strpos($result, 'class="myclass"');
+        $invalidPos = strpos($result, 'invalid="foo.bar"');
         $dataPos = strpos($result, 'data-x="valid"');
 
         $this->assertNotFalse($classPos);
+        $this->assertNotFalse($invalidPos);
         $this->assertNotFalse($dataPos);
-        // invalid=foo.bar should be skipped entirely
-        $this->assertStringNotContainsString('invalid=', $result);
-        $this->assertLessThan($dataPos, $classPos, 'class should appear before data-x');
+        $this->assertLessThan($invalidPos, $classPos, 'class should appear before invalid');
+        $this->assertLessThan($dataPos, $invalidPos, 'invalid should appear before data-x');
     }
 
     /**

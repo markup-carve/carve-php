@@ -38,11 +38,11 @@ class AttributeParser
 
         // Strip quoted values and unquoted key=value pairs before matching .class and #id
         // to avoid matching dots/hashes inside attribute values like key="file.txt"
-        // or partial matches from invalid unquoted values like key=foo.bar
+        // or partial matches from invalid unquoted values like key=foo/bar
         $strippedForShorthand = preg_replace('/"(?:[^"\\\\]|\\\\.)*"/', '', $attrStr) ?? $attrStr;
         $strippedForShorthand = preg_replace("/'(?:[^'\\\\]|\\\\.)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
         // Strip unquoted key=value tokens entirely (up to whitespace) to prevent
-        // invalid chars like dots from being misinterpreted as .class shorthand
+        // invalid chars like slashes from being misinterpreted as shorthand
         $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^\s}]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
 
         // Parse .class -- the class name is a grammar identifier and may not
@@ -60,8 +60,9 @@ class AttributeParser
 
         // Parse key="double quoted value", key='single quoted value', or key=unquoted
         // The regex uses ([^"\\]|\\.)* to match content with escaped characters
-        // Per djot spec, unquoted values may only contain: alphanumerics, underscore, colon, hyphen
-        // Unquoted values must be followed by whitespace or } to be valid (not invalid chars like dots)
+        // Per carve conformance, unquoted values may contain:
+        // alphanumerics, underscore, colon, hyphen, and dot.
+        // Unquoted values must be followed by whitespace or } to be valid.
         // Keys can contain letters, digits, underscore, hyphen, colon (permissive like JS reference)
         // The key is a grammar identifier and may not start with a digit, so
         // a digit-first key (`123=v`) is not matched -- the block then yields
@@ -69,7 +70,7 @@ class AttributeParser
         // string key being cast to int when used as an array key.
         $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="((?:[^"\\\\]|\\\\.)*)"|'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\''
-            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_:-]+)(?=\s|}|$)/';
+            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)/';
 
         if (preg_match_all($kvPattern, $attrStr, $kvMatches, PREG_SET_ORDER)) {
             foreach ($kvMatches as $match) {
@@ -90,7 +91,7 @@ class AttributeParser
         // First, strip out quoted values and key=value pairs to avoid matching words inside them
         $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+="(?:[^"\\\\]|\\\\.)*"/', '', $attrStr) ?? $attrStr;
         $strippedAttr = preg_replace("/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+='(?:[^'\\\\]|\\\\.)*'/", '', $strippedAttr) ?? $strippedAttr;
-        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[a-zA-Z0-9_:-]+/', '', $strippedAttr) ?? $strippedAttr;
+        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[a-zA-Z0-9_.:-]+/', '', $strippedAttr) ?? $strippedAttr;
 
         // Now match bare words (must not start with . or #)
         if (preg_match_all('/(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|$)/', $strippedAttr, $boolMatches)) {
@@ -129,8 +130,8 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_:-]+)(?=\s|}|$)|'
-            // Skip invalid unquoted values (e.g. key=foo.bar, 1=v) - consume but don't capture
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
+            // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
             . '\.([a-zA-Z_][a-zA-Z0-9_:-]*)|'
@@ -205,7 +206,8 @@ class AttributeParser
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
-        // Per djot spec, unquoted values may only contain: alphanumerics, underscore, colon, hyphen
+        // Unquoted values may contain alphanumerics, underscore, colon,
+        // hyphen, and dot.
         // An attribute name (key, class, id) is a grammar identifier and may
         // not start with a digit, so a digit-first name is not captured (a
         // digit-first key=value is consumed by the invalid-value skip). This
@@ -216,8 +218,8 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_:-]+)(?=\s|}|$)|'
-            // Skip invalid unquoted values (e.g. key=foo.bar, 1=v) - consume but don't capture
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
+            // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
