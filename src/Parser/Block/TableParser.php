@@ -48,6 +48,10 @@ class TableParser
             return false;
         }
 
+        if ($lineWithoutRowAttrs === '||') {
+            return false;
+        }
+
         // Verify the line truly ends with | outside of code spans
         return $this->lineEndsWithPipeOutsideCodeSpan($lineWithoutRowAttrs);
     }

@@ -561,8 +561,9 @@ class BlockParser
             // Check for attributes that may precede a reference definition.
             // Tag the attrs with their origin context so a quoted
             // `> {.note}` cannot leak onto a top-level definition below.
-            if (preg_match('/^\{([^}]+)\}\s*$/', $bare, $attrMatches)) {
-                $pendingAttrs = AttributeParser::parse($attrMatches[1]);
+            $refAttrStr = $this->parseSingleLineBlockAttributePayload($bare);
+            if ($refAttrStr !== null && $refAttrStr !== '') {
+                $pendingAttrs = AttributeParser::parse($refAttrStr);
                 $pendingAttrsInQuote = $inQuote;
                 $i++;
 
@@ -935,9 +936,11 @@ class BlockParser
             return '';
         }
 
-        // Single-line block: {.class #id key=value}
-        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches)) {
-            $attrStr = $matches[1];
+        // Single-line block: {.class #id key=value}, including adjacent
+        // blocks that merge in order: {.class}{#id}.
+        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
+        if ($singleLineAttrStr !== null) {
+            $attrStr = $singleLineAttrStr;
             if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
@@ -1172,9 +1175,11 @@ class BlockParser
             return 1;
         }
 
-        // Check for single-line attribute: {.class} or {#id} or {key=value}
-        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches)) {
-            $attrStr = $matches[1];
+        // Check for single-line attribute: {.class}, {#id}, {key=value}, or
+        // adjacent blocks like {.class}{#id}.
+        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
+        if ($singleLineAttrStr !== null) {
+            $attrStr = $singleLineAttrStr;
             // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
             // Exclude % which starts comments (handled by tryParseComment)
             if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
@@ -3077,7 +3082,7 @@ class BlockParser
 
             // Trailing whitespace after the closing pipe is insignificant
             // (parity with carve-js / carve-rs).
-            if (!preg_match('/^\|.*\|[ \t]*$/', $lineWithoutRowAttrs)) {
+            if ($lineWithoutRowAttrs === '||' || !preg_match('/^\|.*\|[ \t]*$/', $lineWithoutRowAttrs)) {
                 break;
             }
 
@@ -3708,13 +3713,77 @@ class BlockParser
      */
     protected function isBlockAttributeLine(string $line): bool
     {
-        if (preg_match('/^\{(.+)\}\s*$/', $line, $matches) !== 1) {
+        $attrStr = $this->parseSingleLineBlockAttributePayload($line);
+        if ($attrStr === null) {
             return false;
         }
 
-        $attrStr = $matches[1];
-
         return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1 && !str_starts_with($attrStr, '%');
+    }
+
+    /**
+     * Normalize one standalone single-line block-attribute line. Adjacent
+     * `{...}` blocks merge as if their contents were separated by spaces.
+     */
+    protected function parseSingleLineBlockAttributePayload(string $line): ?string
+    {
+        $line = rtrim($line, " \t");
+        $length = strlen($line);
+        if ($length === 0 || $line[0] !== '{') {
+            return null;
+        }
+
+        $parts = [];
+        $pos = 0;
+        while ($pos < $length) {
+            if ($line[$pos] !== '{') {
+                return null;
+            }
+
+            $end = $this->findSingleLineAttributeBlockEnd($line, $pos);
+            if ($end === null) {
+                return null;
+            }
+
+            $parts[] = trim(substr($line, $pos + 1, $end - $pos - 1));
+            $pos = $end + 1;
+        }
+
+        return trim(implode(' ', $parts));
+    }
+
+    protected function findSingleLineAttributeBlockEnd(string $line, int $start): ?int
+    {
+        $length = strlen($line);
+        $quote = null;
+        for ($i = $start + 1; $i < $length; $i++) {
+            $char = $line[$i];
+            if ($char === "\n") {
+                return null;
+            }
+            if ($char === '\\' && $i + 1 < $length) {
+                $i++;
+
+                continue;
+            }
+            if ($quote !== null) {
+                if ($char === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+
+                continue;
+            }
+            if ($char === '}') {
+                return $i;
+            }
+        }
+
+        return null;
     }
 
     /**
