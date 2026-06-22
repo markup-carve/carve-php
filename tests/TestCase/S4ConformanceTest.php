@@ -125,4 +125,37 @@ class S4ConformanceTest extends TestCase
             $this->c->convert('|{.x} = A |{.y} = B |'),
         );
     }
+
+    public function testHeadingTrailingAttributeBlockStaysLiteral(): void
+    {
+        $this->assertSame(
+            "<section id=\"H-c\">\n  <h1>H{.c}</h1>\n</section>\n",
+            $this->c->convert('# H{.c}'),
+        );
+    }
+
+    public function testInlineLinkDestinationRejectsSurroundingSpaces(): void
+    {
+        $this->assertSame("<p>[a]( u )</p>\n", $this->c->convert('[a]( u )'));
+    }
+
+    public function testInlineLinkRejectsTwoTitleStrings(): void
+    {
+        $this->assertSame("<p>[a](u “x” “y”)</p>\n", $this->c->convert('[a](u "x" "y")'));
+    }
+
+    public function testAsteriskSpaceStartsBulletList(): void
+    {
+        $this->assertSame("<ul>\n  <li>a *</li>\n</ul>\n", $this->c->convert('* a *'));
+    }
+
+    public function testReferenceDefinitionRequiresSpaceAfterColon(): void
+    {
+        $this->assertSame("<p>[a]:u</p>\n", $this->c->convert('[a]:u'));
+    }
+
+    public function testFootnoteDefinitionRequiresSpaceAfterColon(): void
+    {
+        $this->assertSame("<p>[^1]</p>\n<p>[^1]:x</p>\n", $this->c->convert("[^1]\n\n[^1]:x"));
+    }
 }

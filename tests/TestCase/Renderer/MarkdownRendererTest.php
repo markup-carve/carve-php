@@ -95,7 +95,7 @@ class MarkdownRendererTest extends TestCase
     {
         $document = $this->converter->parse('![x](https://e.com/a <b>)');
 
-        $this->assertSame("![x](https://e.com/a%20%3Cb%3E)\n", $this->renderer->render($document));
+        $this->assertSame("!\\[x\\](https://e.com/a &lt;b&gt;)\n", $this->renderer->render($document));
     }
 
     public function testLinkWithTitle(): void
