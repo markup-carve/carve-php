@@ -209,6 +209,35 @@ DJOT;
         $this->assertSame("<p>*[A]:x</p>\n<p>A</p>\n", $this->converter->convert($input));
     }
 
+    public function testInvalidAbbreviationDefinitionDoesNotSplitParagraph(): void
+    {
+        $input = <<<'DJOT'
+*[A]:x
+*[A]:y
+
+A
+DJOT;
+
+        $this->parser->parse($input);
+
+        $this->assertSame([], $this->parser->getAbbreviations());
+        $this->assertSame("<p>*[A]:x\n*[A]:y</p>\n<p>A</p>\n", $this->converter->convert($input));
+    }
+
+    public function testAbbreviationTermMayNotContainSpaces(): void
+    {
+        $input = <<<'DJOT'
+*[A B]: x
+
+A B
+DJOT;
+
+        $this->parser->parse($input);
+
+        $this->assertSame([], $this->parser->getAbbreviations());
+        $this->assertSame("<p>*[A B]: x</p>\n<p>A B</p>\n", $this->converter->convert($input));
+    }
+
     public function testAbbreviationDefinitionMultiline(): void
     {
         $input = <<<'DJOT'

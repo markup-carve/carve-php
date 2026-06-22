@@ -63,6 +63,14 @@ class BlockParser
     private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0];
 
     /**
+     * Abbreviation definitions use a space-free alphanumeric term and require
+     * one space after the colon.
+     *
+     * @var string
+     */
+    private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: (.*)$/';
+
+    /**
      * Maximum block-container nesting depth. Every level of blockquote / div /
      * list / footnote recurses through parseBlocks(), so unbounded nesting (e.g.
      * `> ` repeated thousands of times) exhausts the stack or memory. Past this
@@ -731,7 +739,7 @@ class BlockParser
             $line = $lines[$i];
 
             // Match abbreviation definition: *[abbr]: definition
-            if (preg_match('/^\*\[([^\]]+)\]: (.*)$/', $line, $matches)) {
+            if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)) {
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
 
@@ -743,7 +751,7 @@ class BlockParser
                         break;
                     }
                     // Check if next line starts a new abbreviation definition
-                    if (preg_match('/^\*\[([^\]]+)\]: /', $nextLine)) {
+                    if ($this->isAbbreviationDefinitionLine($nextLine)) {
                         break;
                     }
                     if ($this->startsNewBlock($nextLine)) {
@@ -1812,7 +1820,7 @@ class BlockParser
                 break;
             } elseif (
                 preg_match('/^\[[^\]]+\]: /', $nextLine)
-                || preg_match('/^\*\[[^\]]+\]:/', $nextLine)
+                || $this->isAbbreviationDefinitionLine($nextLine)
                 || preg_match('/^%%/', $nextLine)
                 || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
                     && $this->inlineParser->isValidAttrPayload($invisibleAttr[1]))
@@ -3552,7 +3560,7 @@ class BlockParser
         $line = $lines[$start];
 
         // Match abbreviation definition: *[abbr]: definition
-        if (!preg_match('/^\*\[([^\]]+)\]: /', $line)) {
+        if (!$this->isAbbreviationDefinitionLine($line)) {
             return null;
         }
 
@@ -3566,7 +3574,7 @@ class BlockParser
                 break;
             }
             // Check if next line starts a new abbreviation definition
-            if (preg_match('/^\*\[([^\]]+)\]: /', $nextLine)) {
+            if ($this->isAbbreviationDefinitionLine($nextLine)) {
                 break;
             }
             if ($this->startsNewBlock($nextLine)) {
@@ -3585,6 +3593,11 @@ class BlockParser
         }
 
         return $i - $start;
+    }
+
+    protected function isAbbreviationDefinitionLine(string $line): bool
+    {
+        return preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line) === 1;
     }
 
     /**
@@ -3669,7 +3682,7 @@ class BlockParser
         // Invisible constructs produce no rendered block of their own, so they
         // are recognised next to prose rather than left as literal text.
         return preg_match('/^\[[^\]]+\]: /', $line) === 1
-            || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
+            || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^%%/', $line) === 1;
     }
 
