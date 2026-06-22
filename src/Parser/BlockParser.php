@@ -3467,6 +3467,7 @@ class BlockParser
 
                     continue;
                 }
+
                 break;
             }
             if (preg_match('/^(?:[ ]{2}|\t)/', $nextLine)) {
