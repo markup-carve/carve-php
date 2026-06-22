@@ -2795,13 +2795,13 @@ class BlockParser
         // Skip leading blank lines using index (avoid O(n) array_shift)
         $start = 0;
         $count = count($lines);
-        while ($start < $count && $lines[$start] === '') {
+        while ($start < $count && IndentationHelper::isBlankLine($lines[$start])) {
             $start++;
         }
 
         for ($i = $start; $i < $count; $i++) {
             $line = $lines[$i];
-            if ($line === '') {
+            if (IndentationHelper::isBlankLine($line)) {
                 if ($current !== []) {
                     $blocks[] = $current;
                     $current = [];

@@ -36,6 +36,11 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testWhitespaceOnlyInputIsBlank(): void
+    {
+        $this->assertSame('', $this->converter->convert(' '));
+    }
+
     public function testMultipleParagraphs(): void
     {
         $djot = "First paragraph\n\nSecond paragraph";
@@ -2075,7 +2080,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         // Triple backticks with closing on same line is inline code (official djot behavior)
-        $this->assertStringContainsString('<code> code </code>', $result);
+        $this->assertStringContainsString('<code>code</code>', $result);
         $this->assertStringNotContainsString('<pre>', $result);
     }
 

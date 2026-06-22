@@ -1544,9 +1544,10 @@ class InlineParser
             // Found exact match
             $content = substr($text, $contentStart, $closePos - $contentStart);
 
-            // Strip single leading and trailing space if content starts/ends with backtick
+            // Strip one leading and one trailing space when the closed span is
+            // space-wrapped but not entirely spaces (CommonMark/djot rule).
             if (strlen($content) >= 2 && $content[0] === ' ' && $content[strlen($content) - 1] === ' ') {
-                if (str_contains($content, '`')) {
+                if (strspn($content, ' ') !== strlen($content)) {
                     $content = substr($content, 1, -1);
                 }
             }
@@ -1665,6 +1666,10 @@ class InlineParser
 
                 // Soft breaks are ignored in the destination itself.
                 $url = trim(str_replace(["\r\n", "\r", "\n"], '', $raw));
+                if ($url === '' || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
+                    return null;
+                }
+
                 // Process escape sequences in URL (e.g., \* -> *)
                 $url = preg_replace('/\\\\(.)/', '$1', $url) ?? $url;
                 $link = new Link($url, $title);
