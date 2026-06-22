@@ -20,7 +20,7 @@ class FencedBlockParser
      *
      * @param string $line The line to check
      *
-     * @return array{fence: string, char: string, length: int, info: string, label: string|null, indent: string}|null
+     * @return array{fence: string, char: string, length: int, info: string, header: string|null, label: string|null, indent: string}|null
      */
     public function parseCodeFenceOpener(string $line): ?array
     {
@@ -46,28 +46,67 @@ class FencedBlockParser
             return null;
         }
 
-        // Info string: a single language token, optionally followed by a
-        // bracketed [label] (structured metadata, e.g. ```php [NPM]), or a bare
-        // [label]. The token itself may be any non-whitespace run (carve-php is
-        // permissive here: ```=html djot-raw, ```text/html MIME tags). What is
-        // NOT allowed is a SECOND whitespace-separated token that is not a
-        // bracketed label -- a bare word, a quoted value, key=val
-        // (```js title="x", ``` php {.x}). Such a line is not a fenced code
-        // block; it falls back to inline parsing. (Raw ```=FORMAT blocks are
-        // matched by parseRawBlockOpener first; a leading `=` is never a
-        // language token.)
+        // Info string (NORMATIVE, grammar PART 9 §2): an optional language
+        // token, then an optional quoted "header", then an optional bracketed
+        // [label], in that fixed order. The language is any run of non-space,
+        // non-quote, non-bracket characters (carve-php is permissive here:
+        // ```=html djot-raw, ```text/html MIME tags). The "header" is a visible
+        // title carried as the `title` attribute on the <pre> (rendering A);
+        // the [label] is structured metadata a group extension (code-group)
+        // uses as the tab name. Anything else -- a bare second word, a key=val
+        // pair (```js title="x"), an inline {...} (``` php {.x}), or the
+        // header/label in the wrong order (```php [l] "h") -- is NOT a fenced
+        // code block and falls back to inline parsing. (Raw ```=FORMAT blocks
+        // are matched by parseRawBlockOpener first; a leading `=` is never a
+        // language token, and a raw block takes no header.)
         $language = '';
+        $header = null;
         $label = null;
         if ($info !== '') {
-            if (preg_match('/^\[([^\]]*)\]$/', $info, $im)) {
-                $label = $im[1];
-            } elseif (preg_match('/^(\S+)(?:\s+\[([^\]]*)\])?$/', $info, $im)) {
-                $language = $im[1];
-                if (isset($im[2])) {
-                    $label = $im[2];
+            $rest = $info;
+            // optional language token (skipped when a "header" or [label] leads)
+            if ($rest[0] !== '"' && $rest[0] !== '[') {
+                if (!preg_match('/^([^\s"\[]+)/', $rest, $im)) {
+                    return null;
                 }
-            } else {
-                return null;
+                $language = $im[1];
+                // A leading `=` is the raw-block opener's territory, never a
+                // language (parseRawBlockOpener runs first; a malformed raw
+                // opener with trailing text must fall back, not become a code
+                // fence with language `=FORMAT`).
+                if ($language[0] === '=') {
+                    return null;
+                }
+                $rest = substr($rest, strlen($language));
+                // Header/label must be whitespace-separated from the language
+                // (grammar: space+). A language glued to a quote or bracket
+                // (```php"x", ```php[x]) is not valid metadata -> fall back.
+                if ($rest !== '' && !ctype_space($rest[0])) {
+                    return null;
+                }
+                $rest = ltrim($rest);
+            }
+            // optional quoted "header" (no escape inside, like the admonition title)
+            if ($rest !== '' && $rest[0] === '"') {
+                if (!preg_match('/^"([^"]*)"/', $rest, $im)) {
+                    return null;
+                }
+                $header = $im[1];
+                $rest = substr($rest, strlen($im[0]));
+                // A [label] must be whitespace-separated from the header
+                // (grammar: space+). A label glued to the header (```php "x"[y])
+                // is not valid metadata -> fall back.
+                if ($rest !== '' && !ctype_space($rest[0])) {
+                    return null;
+                }
+                $rest = ltrim($rest);
+            }
+            // optional bracketed [label]; nothing else may follow
+            if ($rest !== '') {
+                if (!preg_match('/^\[([^\]]*)\]$/', $rest, $im)) {
+                    return null;
+                }
+                $label = $im[1];
             }
         }
 
@@ -76,6 +115,7 @@ class FencedBlockParser
             'char' => $fenceChar,
             'length' => $fenceLength,
             'info' => $language,
+            'header' => $header,
             'label' => $label,
             'indent' => $indent,
         ];
@@ -105,7 +145,7 @@ class FencedBlockParser
      *
      * @param string $line The line to check
      *
-     * @return array{fence: string, length: int, className: string}|null
+     * @return array{fence: string, length: int, className: string, label: string|null}|null
      */
     public function parseDivFenceOpener(string $line): ?array
     {
@@ -114,27 +154,44 @@ class FencedBlockParser
             return null;
         }
 
-        // Match opening fence: 3+ colons, then an optional type word and an
-        // optional quoted title -- and NOTHING else.
+        // Match opening fence: 3+ colons, then an optional type word, an
+        // optional quoted "header", an optional bracketed [label] -- in that
+        // order -- and NOTHING else.
         if (!preg_match('/^(:{3,})\s*(.*)$/', $line, $matches)) {
             return null;
         }
 
-        // STRICT (djot): the opener carries no inline attributes. The text
-        // after the fence must be empty (bare div), a type token, or a type
-        // token followed by a quoted title. A type token is a word or the bare
-        // pipe `|` (the line-block opener). Any trailing `{...}` (or other
-        // non-title text) makes the line an ordinary paragraph, not a fence;
-        // attributes attach via a preceding block-attribute line (§15).
+        // STRICT (djot): the opener carries no inline {...} attributes. The
+        // text after the fence must be empty (bare div), a type token, a type
+        // token + quoted header, optionally followed by a [label] -- or a bare
+        // [label] with no type. A type token is a word or the bare pipe `|`
+        // (the line-block opener). The header keeps its role (admonition title
+        // / summary); the [label] is a grouping id the core renderer ignores (a
+        // group extension such as tabs consumes it). Any trailing `{...}` or
+        // other text makes the line an ordinary paragraph, not a fence;
+        // class/id attach via a preceding block-attribute line (§15).
         $rest = trim($matches[2]);
-        if ($rest !== '' && !preg_match('/^(?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?$/', $rest)) {
-            return null;
+        $label = null;
+        if ($rest !== '') {
+            if (preg_match('/^\[([^\]]*)\]$/', $rest, $m)) {
+                // bare [label], no type -- a typeless generic div (tab member)
+                $label = $m[1];
+                $rest = '';
+            } elseif (preg_match('/^((?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?)(?:\s+\[([^\]]*)\])?$/', $rest, $m)) {
+                $rest = $m[1];
+                if (isset($m[2])) {
+                    $label = $m[2];
+                }
+            } else {
+                return null;
+            }
         }
 
         return [
             'fence' => $matches[1],
             'length' => strlen($matches[1]),
             'className' => $rest,
+            'label' => $label,
         ];
     }
 

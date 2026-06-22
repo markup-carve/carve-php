@@ -303,12 +303,19 @@ class TabsExtension implements ResettableExtensionInterface
      */
     protected function extractLabel(Div $tab): string
     {
-        // Priority 1: label attribute
+        // Priority 1: opener `[label]` (canonical, inert node metadata)
+        $label = $tab->getLabel();
+        if ($label !== null && $label !== '') {
+            return $label;
+        }
+
+        // Priority 2: `label` attribute from a preceding `{label="..."}` line
+        // (deprecated in favor of the `[label]` opener token, still honored)
         if ($tab->hasAttribute('label')) {
             return (string)$tab->getAttribute('label');
         }
 
-        // Priority 2: First heading
+        // Priority 3: First heading
         foreach ($tab->getChildren() as $child) {
             if ($child instanceof Heading) {
                 return $this->getTextContent($child);
@@ -327,7 +334,12 @@ class TabsExtension implements ResettableExtensionInterface
      */
     protected function renderTabContent(Div $tab, HtmlRenderer $renderer): string
     {
-        $skipFirstHeading = !$tab->hasAttribute('label');
+        // The first heading is consumed as the label ONLY when no explicit
+        // label was given. An opener `[label]` or a `{label="..."}` attribute
+        // takes priority (see extractLabel), so a real content heading must be
+        // preserved in those cases.
+        $hasExplicitLabel = ($tab->getLabel() ?? '') !== '' || $tab->hasAttribute('label');
+        $skipFirstHeading = !$hasExplicitLabel;
         $skippedHeading = false;
         $html = '';
 
@@ -571,7 +583,12 @@ class TabsExtension implements ResettableExtensionInterface
     protected function reconstructTabContent(Div $tab, HtmlRenderer $renderer): string
     {
         $parts = [];
-        $skipFirstHeading = !$tab->hasAttribute('label');
+        // The first heading is consumed as the label ONLY when no explicit
+        // label was given. An opener `[label]` or a `{label="..."}` attribute
+        // takes priority (see extractLabel), so a real content heading must be
+        // preserved in those cases.
+        $hasExplicitLabel = ($tab->getLabel() ?? '') !== '' || $tab->hasAttribute('label');
+        $skipFirstHeading = !$hasExplicitLabel;
         $skippedHeading = false;
 
         foreach ($tab->getChildren() as $child) {
