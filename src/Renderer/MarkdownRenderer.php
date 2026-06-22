@@ -74,11 +74,18 @@ class MarkdownRenderer implements RendererInterface
 {
     use EventDispatcherTrait;
 
+    /**
+     * @var int
+     */
+    private const MAX_RENDER_DEPTH = 512;
+
     protected int $listDepth = 0;
 
     protected bool $inBlockQuote = false;
 
     protected HeadingIdTracker $headingIdTracker;
+
+    protected int $renderDepth = 0;
 
     /**
      * Resolved ids of headings that are the target of a `</#id>` cross-reference.
@@ -133,72 +140,81 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
-        if ($this->hasAnyListeners()) {
-            $eventName = 'render.' . $node->getType();
-            $event = new RenderEvent($node);
-            $this->dispatchEvent($eventName, $event);
-            $this->dispatchEvent('render.*', $event);
-
-            if ($event->isDefaultPrevented()) {
-                return $event->getHtml() ?? '';
-            }
+        if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
         }
 
-        return match (true) {
-            $node instanceof Document => $this->renderChildren($node),
-            $node instanceof Paragraph => $this->renderParagraph($node),
-            $node instanceof Heading => $this->renderHeading($node),
-            $node instanceof CodeBlock => $this->renderCodeBlock($node),
-            $node instanceof Comment => '', // Skip comments
-            $node instanceof RawBlock => $this->renderRawBlock($node),
-            $node instanceof BlockQuote => $this->renderBlockQuote($node),
-            $node instanceof ListBlock => $this->renderList($node),
-            $node instanceof ListItem => $this->renderListItem($node),
-            $node instanceof DefinitionList => $this->renderDefinitionList($node),
-            $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
-            $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
-            $node instanceof ThematicBreak => str_repeat($node->char, 3) . "\n\n",
-            $node instanceof Div => $this->renderDiv($node),
-            $node instanceof Table => $this->renderTable($node),
-            $node instanceof LineBlock => $this->renderLineBlock($node),
-            $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $this->escapeText($this->stripControls($node->getContent())),
-            // Keep the backslash so the literal stays literal when re-parsed as
-            // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
-            // ordered list. EscapedText only ever holds escaped ASCII
-            // punctuation, all of which CommonMark allows a `\` before.
-            $node instanceof EscapedText => '\\' . $this->stripControls($node->getContent()),
-            $node instanceof Figure => $this->renderFigure($node),
-            $node instanceof Caption => $this->renderCaption($node),
-            $node instanceof Abbreviation => $this->renderAbbreviation($node),
-            $node instanceof Emphasis => $this->renderEmphasis($node),
-            $node instanceof Strong => $this->renderStrong($node),
-            $node instanceof Underline => $this->renderUnderline($node),
-            $node instanceof Strike => $this->renderStrike($node),
-            $node instanceof Code => $this->renderCode($node),
-            $node instanceof Mention => $this->renderMention($node),
-            $node instanceof Link => $this->renderLink($node),
-            $node instanceof Image => $this->renderImage($node),
-            $node instanceof HardBreak => "  \n",
-            // A soft break is a single source newline that stays inside the
-            // paragraph. For a visible line break use a `::: |` line block or a
-            // trailing backslash hard break.
-            $node instanceof SoftBreak => "\n",
-            $node instanceof Superscript => $this->renderSuperscript($node),
-            $node instanceof Subscript => $this->renderSubscript($node),
-            $node instanceof Highlight => $this->renderHighlight($node),
-            $node instanceof Insert => $this->renderInsert($node),
-            $node instanceof Delete => $this->renderDelete($node),
-            $node instanceof Span => $this->renderSpan($node),
-            $node instanceof Math => $this->renderMath($node),
-            $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
-            $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
-            $node instanceof FootnoteRef => '[^' . $this->stripControls($node->getLabel()) . ']',
-            $node instanceof HeadingRef => $this->renderHeadingRef($node),
-            $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-            $node instanceof RawInline => $this->renderRawInline($node),
-            default => $this->renderChildren($node),
-        };
+        $this->renderDepth++;
+        try {
+            if ($this->hasAnyListeners()) {
+                $eventName = 'render.' . $node->getType();
+                $event = new RenderEvent($node);
+                $this->dispatchEvent($eventName, $event);
+                $this->dispatchEvent('render.*', $event);
+
+                if ($event->isDefaultPrevented()) {
+                    return $event->getHtml() ?? '';
+                }
+            }
+
+            return match (true) {
+                $node instanceof Document => $this->renderChildren($node),
+                $node instanceof Paragraph => $this->renderParagraph($node),
+                $node instanceof Heading => $this->renderHeading($node),
+                $node instanceof CodeBlock => $this->renderCodeBlock($node),
+                $node instanceof Comment => '', // Skip comments
+                $node instanceof RawBlock => $this->renderRawBlock($node),
+                $node instanceof BlockQuote => $this->renderBlockQuote($node),
+                $node instanceof ListBlock => $this->renderList($node),
+                $node instanceof ListItem => $this->renderListItem($node),
+                $node instanceof DefinitionList => $this->renderDefinitionList($node),
+                $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
+                $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
+                $node instanceof ThematicBreak => str_repeat($node->char, 3) . "\n\n",
+                $node instanceof Div => $this->renderDiv($node),
+                $node instanceof Table => $this->renderTable($node),
+                $node instanceof LineBlock => $this->renderLineBlock($node),
+                $node instanceof Footnote => $this->renderFootnote($node),
+                $node instanceof Text => $this->escapeText($this->stripControls($node->getContent())),
+                // Keep the backslash so the literal stays literal when re-parsed as
+                // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
+                // ordered list. EscapedText only ever holds escaped ASCII
+                // punctuation, all of which CommonMark allows a `\` before.
+                $node instanceof EscapedText => '\\' . $this->stripControls($node->getContent()),
+                $node instanceof Figure => $this->renderFigure($node),
+                $node instanceof Caption => $this->renderCaption($node),
+                $node instanceof Abbreviation => $this->renderAbbreviation($node),
+                $node instanceof Emphasis => $this->renderEmphasis($node),
+                $node instanceof Strong => $this->renderStrong($node),
+                $node instanceof Underline => $this->renderUnderline($node),
+                $node instanceof Strike => $this->renderStrike($node),
+                $node instanceof Code => $this->renderCode($node),
+                $node instanceof Mention => $this->renderMention($node),
+                $node instanceof Link => $this->renderLink($node),
+                $node instanceof Image => $this->renderImage($node),
+                $node instanceof HardBreak => "  \n",
+                // A soft break is a single source newline that stays inside the
+                // paragraph. For a visible line break use a `::: |` line block or a
+                // trailing backslash hard break.
+                $node instanceof SoftBreak => "\n",
+                $node instanceof Superscript => $this->renderSuperscript($node),
+                $node instanceof Subscript => $this->renderSubscript($node),
+                $node instanceof Highlight => $this->renderHighlight($node),
+                $node instanceof Insert => $this->renderInsert($node),
+                $node instanceof Delete => $this->renderDelete($node),
+                $node instanceof Span => $this->renderSpan($node),
+                $node instanceof Math => $this->renderMath($node),
+                $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
+                $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
+                $node instanceof FootnoteRef => '[^' . $this->stripControls($node->getLabel()) . ']',
+                $node instanceof HeadingRef => $this->renderHeadingRef($node),
+                $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
+                $node instanceof RawInline => $this->renderRawInline($node),
+                default => $this->renderChildren($node),
+            };
+        } finally {
+            $this->renderDepth--;
+        }
     }
 
     protected function renderHeadingRef(HeadingRef $node): string
@@ -263,9 +279,14 @@ class MarkdownRenderer implements RendererInterface
      *
      * @param \Carve\Node\Node $node
      * @param array<string, true> $referencedIds
+     * @param int $depth
      */
-    protected function collectHeadingAndRefIds(Node $node, array &$referencedIds): void
+    protected function collectHeadingAndRefIds(Node $node, array &$referencedIds, int $depth = 0): void
     {
+        if ($depth >= self::MAX_RENDER_DEPTH) {
+            return;
+        }
+
         if ($node instanceof Heading) {
             $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
         } elseif ($node instanceof HeadingRef) {
@@ -279,7 +300,7 @@ class MarkdownRenderer implements RendererInterface
         }
 
         foreach ($node->getChildren() as $child) {
-            $this->collectHeadingAndRefIds($child, $referencedIds);
+            $this->collectHeadingAndRefIds($child, $referencedIds, $depth + 1);
         }
     }
 
@@ -300,7 +321,13 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
+        // Keep only the first whitespace-delimited token (the language word);
+        // drop it if it still contains a backtick (would break the fence).
         $language = $this->stripControls($node->getLanguage() ?? '');
+        $language = preg_split('/\s/', $language, 2)[0] ?? '';
+        if (str_contains($language, '`')) {
+            $language = '';
+        }
         $content = $this->stripControls($node->getContent());
 
         $backticks = StringUtil::findSafeCodeFence($content, 3);
@@ -527,7 +554,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $alt = $this->stripControls($node->getAlt());
+        $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
         $src = $this->encodeMarkdownDestination((string)$node->getSource());
         $title = $node->getTitle();
 
@@ -547,6 +574,11 @@ class MarkdownRenderer implements RendererInterface
     protected function escapeTitle(string $title): string
     {
         return str_replace(['\\', '"'], ['\\\\', '\\"'], $title);
+    }
+
+    protected function escapeImageAlt(string $alt): string
+    {
+        return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $alt);
     }
 
     protected function renderSubscript(Subscript $node): string

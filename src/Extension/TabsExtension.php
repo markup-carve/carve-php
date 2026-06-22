@@ -376,7 +376,7 @@ class TabsExtension implements ResettableExtensionInterface
         $setId = $this->idPrefix . '-' . $this->tabSetCounter;
 
         // Build wrapper attributes
-        $attrs = $this->buildWrapperAttributes($wrapper);
+        $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
@@ -427,7 +427,7 @@ class TabsExtension implements ResettableExtensionInterface
         $setId = $this->idPrefix . '-' . $this->tabSetCounter;
 
         // Build wrapper attributes with tablist role
-        $attrs = $this->buildWrapperAttributes($wrapper, 'tablist');
+        $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
 
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
@@ -475,7 +475,7 @@ class TabsExtension implements ResettableExtensionInterface
     /**
      * Build wrapper div attributes
      */
-    protected function buildWrapperAttributes(Div $wrapper, ?string $role = null): string
+    protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer, ?string $role = null): string
     {
         $classes = [$this->wrapperClass];
 
@@ -486,10 +486,10 @@ class TabsExtension implements ResettableExtensionInterface
             }
         }
 
-        $attrs = ' class="' . StringUtil::escapeHtml(implode(' ', $classes)) . '"';
+        $attrs = ['class' => implode(' ', $classes)];
 
         if ($role !== null) {
-            $attrs .= ' role="' . $role . '"';
+            $attrs['role'] = $role;
         }
 
         // Copy other attributes (except class)
@@ -497,10 +497,16 @@ class TabsExtension implements ResettableExtensionInterface
             if ($name === 'class') {
                 continue;
             }
-            $attrs .= ' ' . StringUtil::escapeHtml($name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
+            $attrs[(string)$name] = (string)$value;
         }
 
-        return $attrs;
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
+        }
+
+        return $renderer->renderAttributeArray($attrs);
     }
 
     /**

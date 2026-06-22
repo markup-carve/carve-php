@@ -56,6 +56,11 @@ class PlainTextRenderer implements RendererInterface
 {
     use EventDispatcherTrait;
 
+    /**
+     * @var int
+     */
+    private const MAX_RENDER_DEPTH = 512;
+
     protected string $listItemPrefix = '- ';
 
     protected string $orderedListItemPrefix = '. ';
@@ -67,6 +72,8 @@ class PlainTextRenderer implements RendererInterface
     protected string $blockQuoteSuffix = '"';
 
     protected HeadingIdTracker $headingIdTracker;
+
+    protected int $renderDepth = 0;
 
     public function __construct()
     {
@@ -94,58 +101,67 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
-        if ($this->hasAnyListeners()) {
-            $eventName = 'render.' . $node->getType();
-            $event = new RenderEvent($node);
-            $this->dispatchEvent($eventName, $event);
-            $this->dispatchEvent('render.*', $event);
-
-            if ($event->isDefaultPrevented()) {
-                return $event->getHtml() ?? '';
-            }
+        if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
         }
 
-        return match (true) {
-            $node instanceof Document => $this->renderChildren($node),
-            $node instanceof Div => $this->renderDiv($node),
-            $node instanceof Paragraph => $this->renderParagraph($node),
-            $node instanceof Heading => $this->renderHeading($node),
-            $node instanceof CodeBlock => $this->renderCodeBlock($node),
-            $node instanceof Comment => '', // Skip comments
-            $node instanceof RawBlock => '', // Skip raw blocks (format-specific)
-            $node instanceof BlockQuote => $this->renderBlockQuote($node),
-            $node instanceof ListBlock => $this->renderList($node),
-            $node instanceof ListItem => $this->renderListItem($node),
-            $node instanceof DefinitionList => $this->renderDefinitionList($node),
-            $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
-            $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
-            $node instanceof ThematicBreak => $this->renderThematicBreak(),
-            $node instanceof Table => $this->renderTable($node),
-            $node instanceof TableRow => $this->renderTableRow($node),
-            $node instanceof TableCell => $this->renderTableCell($node),
-            $node instanceof LineBlock => $this->renderLineBlock($node),
-            $node instanceof Footnote => $this->renderFootnote($node),
-            $node instanceof Text => $this->stripControls($node->getContent()),
-            $node instanceof EscapedText => $this->stripControls($node->getContent()),
-            $node instanceof Code => $this->stripControls($node->getContent()),
-            $node instanceof Math => $this->stripControls($node->getContent()),
-            $node instanceof Image => $this->stripControls($node->getAlt()),
-            $node instanceof Mention => $this->renderMention($node),
-            $node instanceof Link => $this->renderLink($node),
-            $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
-            $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
-            $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
-            $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
-            $node instanceof HeadingRef => $this->renderHeadingRef($node),
-            $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-            // A soft break is a single source newline that stays inside the
-            // paragraph; in plain text it renders as a space. For a visible line
-            // break use a `::: |` line block or a trailing backslash hard break.
-            $node instanceof SoftBreak => ' ',
-            $node instanceof HardBreak => "\n",
-            $node instanceof RawInline => '', // Skip raw inlines (format-specific)
-            default => $this->renderChildren($node),
-        };
+        $this->renderDepth++;
+        try {
+            if ($this->hasAnyListeners()) {
+                $eventName = 'render.' . $node->getType();
+                $event = new RenderEvent($node);
+                $this->dispatchEvent($eventName, $event);
+                $this->dispatchEvent('render.*', $event);
+
+                if ($event->isDefaultPrevented()) {
+                    return $event->getHtml() ?? '';
+                }
+            }
+
+            return match (true) {
+                $node instanceof Document => $this->renderChildren($node),
+                $node instanceof Div => $this->renderDiv($node),
+                $node instanceof Paragraph => $this->renderParagraph($node),
+                $node instanceof Heading => $this->renderHeading($node),
+                $node instanceof CodeBlock => $this->renderCodeBlock($node),
+                $node instanceof Comment => '', // Skip comments
+                $node instanceof RawBlock => '', // Skip raw blocks (format-specific)
+                $node instanceof BlockQuote => $this->renderBlockQuote($node),
+                $node instanceof ListBlock => $this->renderList($node),
+                $node instanceof ListItem => $this->renderListItem($node),
+                $node instanceof DefinitionList => $this->renderDefinitionList($node),
+                $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
+                $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
+                $node instanceof ThematicBreak => $this->renderThematicBreak(),
+                $node instanceof Table => $this->renderTable($node),
+                $node instanceof TableRow => $this->renderTableRow($node),
+                $node instanceof TableCell => $this->renderTableCell($node),
+                $node instanceof LineBlock => $this->renderLineBlock($node),
+                $node instanceof Footnote => $this->renderFootnote($node),
+                $node instanceof Text => $this->stripControls($node->getContent()),
+                $node instanceof EscapedText => $this->stripControls($node->getContent()),
+                $node instanceof Code => $this->stripControls($node->getContent()),
+                $node instanceof Math => $this->stripControls($node->getContent()),
+                $node instanceof Image => $this->stripControls($node->getAlt()),
+                $node instanceof Mention => $this->renderMention($node),
+                $node instanceof Link => $this->renderLink($node),
+                $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
+                $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
+                $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
+                $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
+                $node instanceof HeadingRef => $this->renderHeadingRef($node),
+                $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
+                // A soft break is a single source newline that stays inside the
+                // paragraph; in plain text it renders as a space. For a visible line
+                // break use a `::: |` line block or a trailing backslash hard break.
+                $node instanceof SoftBreak => ' ',
+                $node instanceof HardBreak => "\n",
+                $node instanceof RawInline => '', // Skip raw inlines (format-specific)
+                default => $this->renderChildren($node),
+            };
+        } finally {
+            $this->renderDepth--;
+        }
     }
 
     protected function renderHeadingRef(HeadingRef $node): string

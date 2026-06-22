@@ -99,6 +99,24 @@ DJOT;
         $this->assertSame($expected, $this->convert($format, 'See </#nope>.'));
     }
 
+    public function testReferenceLinksAndCrossReferencesResolveInsideFootnoteDefinitions(): void
+    {
+        $html = (new CarveConverter())->convert(<<<'DJOT'
+# H
+
+Use[^n].
+
+[^n]: [x][r] and </#h>.
+
+[r]: https://e.example
+DJOT);
+
+        $this->assertStringContainsString('<a href="https://e.example">x</a>', $html);
+        $this->assertStringContainsString('<a href="#H">H</a>', $html);
+        $this->assertStringNotContainsString('[x][r]', $html);
+        $this->assertStringNotContainsString('&lt;/#h&gt;', $html);
+    }
+
     protected function convert(string $format, string $djot): string
     {
         $converter = match ($format) {
