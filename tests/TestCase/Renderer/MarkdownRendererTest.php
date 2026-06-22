@@ -125,6 +125,54 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('```', $result);
     }
 
+    public function testCodeBlockFenceHeaderIsPreserved(): void
+    {
+        $document = $this->converter->parse("```php \"config/app.php\"\necho 1;\n```");
+        $result = $this->renderer->render($document);
+
+        $this->assertStringContainsString('```php "config/app.php"', $result);
+    }
+
+    public function testCodeBlockLabelIsPreserved(): void
+    {
+        $document = $this->converter->parse("```php [Installation]\necho 1;\n```");
+        $result = $this->renderer->render($document);
+
+        $this->assertStringContainsString('```php [Installation]', $result);
+    }
+
+    public function testCodeBlockHeaderAndLabelInSpecOrder(): void
+    {
+        $document = $this->converter->parse("```php \"app.php\" [Main]\necho 1;\n```");
+        $result = $this->renderer->render($document);
+
+        $this->assertStringContainsString('```php "app.php" [Main]', $result);
+    }
+
+    public function testCodeBlockHeaderAndLabelRoundTrip(): void
+    {
+        $source = "```php \"app.php\" [Main]\necho 1;\n```";
+        $once = $this->renderer->render($this->converter->parse($source));
+        $twice = $this->renderer->render($this->converter->parse($once));
+
+        // Re-parsing the rendered Markdown reproduces the fence header and label.
+        $this->assertSame($once, $twice);
+        $this->assertStringContainsString('"app.php"', $twice);
+        $this->assertStringContainsString('[Main]', $twice);
+    }
+
+    public function testCodeBlockHeaderBacktickIsStrippedSoOutputRoundTrips(): void
+    {
+        // A longer fence lets the title carry a backtick; the emitted opener must
+        // not reintroduce a clashing backtick run.
+        $source = "````php \"a`b\"\necho 1;\n````";
+        $once = $this->renderer->render($this->converter->parse($source));
+        $twice = $this->renderer->render($this->converter->parse($once));
+
+        $this->assertStringContainsString('```php "ab"', $once);
+        $this->assertSame($once, $twice);
+    }
+
     public function testInlineCode(): void
     {
         $djot = 'Use `print()` function.';
