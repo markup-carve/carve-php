@@ -107,6 +107,19 @@ class NonHtmlRendererSecurityTest extends TestCase
         $this->assertStringContainsString('![alt](image.png "a \\"quote\\" and \\\\ slash")', $markdown);
     }
 
+    public function testMarkdownEscapesImageAltLabelMetacharacters(): void
+    {
+        $doc = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Image('safe.png', 'x](url)![y\\z'));
+        $doc->appendChild($paragraph);
+
+        $markdown = trim((new MarkdownRenderer())->render($doc));
+
+        $this->assertSame('![x\\](url)!\\[y\\\\z](safe.png)', $markdown);
+        $this->assertStringNotContainsString('](url)![', $markdown);
+    }
+
     public function testNonHtmlRenderersStripControlBytesFromAuthorLeafFields(): void
     {
         $doc = new Document();

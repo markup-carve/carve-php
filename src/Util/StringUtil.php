@@ -22,13 +22,24 @@ final class StringUtil
      */
     public static function findSafeCodeFence(string $content, int $minTicks = 1): string
     {
-        $backticks = str_repeat('`', $minTicks);
+        $maxRun = 0;
+        $currentRun = 0;
+        $length = strlen($content);
 
-        while (str_contains($content, $backticks)) {
-            $backticks .= '`';
+        for ($i = 0; $i < $length; $i++) {
+            if ($content[$i] === '`') {
+                $currentRun++;
+                if ($currentRun > $maxRun) {
+                    $maxRun = $currentRun;
+                }
+
+                continue;
+            }
+
+            $currentRun = 0;
         }
 
-        return $backticks;
+        return str_repeat('`', max($minTicks, $maxRun + 1));
     }
 
     /**
