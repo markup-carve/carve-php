@@ -126,6 +126,33 @@ class S4ConformanceTest extends TestCase
         );
     }
 
+    public function testUnquotedAttributeValuesAllowDotAndColon(): void
+    {
+        $this->assertSame("<p><span k=\"v.w\">a</span></p>\n", $this->c->convert('[a]{k=v.w}'));
+        $this->assertSame("<p><span k=\"a:b\">a</span></p>\n", $this->c->convert('[a]{k=a:b}'));
+    }
+
+    public function testTwoPipesIsParagraphNotTable(): void
+    {
+        $this->assertSame("<p>||</p>\n", $this->c->convert('||'));
+    }
+
+    public function testAdjacentBlockAttributeLinesMergeForFollowingBlock(): void
+    {
+        $this->assertSame(
+            "<section id=\"i\">\n  <h1 class=\"c\">H</h1>\n</section>\n",
+            $this->c->convert("{.c}{#i}\n# H"),
+        );
+        $this->assertSame(
+            "<section id=\"i\">\n  <h1 class=\"c\">H</h1>\n</section>\n",
+            $this->c->convert("{#i}{.c}\n# H"),
+        );
+        $this->assertSame(
+            "<section id=\"H\">\n  <h1 class=\"a b\">H</h1>\n</section>\n",
+            $this->c->convert("{.a}{.b}\n# H"),
+        );
+    }
+
     public function testHeadingTrailingAttributeBlockStaysLiteral(): void
     {
         $this->assertSame(
