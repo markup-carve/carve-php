@@ -1309,6 +1309,7 @@ class BlockParser
         $fenceChar = $fenceInfo['char'];
         $fenceLength = $fenceInfo['length'];
         $info = $fenceInfo['info'];
+        $header = $fenceInfo['header'];
         $label = $fenceInfo['label'];
         $indentLen = strlen($fenceInfo['indent']);
 
@@ -1349,6 +1350,12 @@ class BlockParser
 
         $codeBlock = new CodeBlock(trim($content, "\n"), $language, $label);
         $this->applyPendingAttributes($codeBlock);
+        // The opener "header" becomes the <pre> title attribute (rendering A),
+        // unless a preceding {title=...} block-attribute line already set one
+        // (the explicit attribute channel wins).
+        if ($header !== null && !$codeBlock->hasAttribute('title')) {
+            $codeBlock->setAttribute('title', $header);
+        }
         $parent->appendChild($codeBlock);
 
         return $i - $start;
@@ -1567,6 +1574,7 @@ class BlockParser
 
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
+        $label = $divInfo['label'];
 
         // A colon fence opens only when a matching closer (a `:::` line of
         // equal-or-greater length, not inside a nested code block) exists
@@ -1594,6 +1602,13 @@ class BlockParser
         }
 
         $div = new Div();
+
+        // The opener `[label]` is inert structured metadata (NOT rendered); a
+        // group extension (tabs) reads it as the tab name. Mirrors a code
+        // fence's `[label]` on CodeBlock.
+        if ($label !== null) {
+            $div->setLabel($label);
+        }
 
         // Leading block-attribute lines (`{.x}` before the opener) are the
         // only attribute source; they apply to the div in source order.
