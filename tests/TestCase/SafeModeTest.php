@@ -80,7 +80,7 @@ class SafeModeTest extends TestCase
         $djot = '[link](https://example.com " onclick="alert)';
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href="https://example.com &quot; onclick=&quot;alert"', $result);
+        $this->assertStringNotContainsString('href=', $result);
         $this->assertStringNotContainsString('" onclick="alert"', $result);
     }
 
@@ -372,7 +372,7 @@ class SafeModeTest extends TestCase
         $djot = "[click](java\tscript:alert(1))";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=', $result);
         $this->assertStringNotContainsString('javascript', $result);
     }
 
@@ -382,7 +382,7 @@ class SafeModeTest extends TestCase
         $djot = "[click](java\x0bscript:alert(1))";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=', $result);
     }
 
     public function testJavascriptUrlWithFormFeedIsBlocked(): void
@@ -391,7 +391,7 @@ class SafeModeTest extends TestCase
         $djot = "[click](java\x0cscript:alert(1))";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=', $result);
     }
 
     public function testNullByteInSchemeMakesUrlInertNotDangerous(): void
@@ -416,7 +416,7 @@ class SafeModeTest extends TestCase
         $djot = '[click](javascript :alert(1))';
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=', $result);
     }
 
     public function testJavascriptUrlWithCarriageReturnIsBlocked(): void
@@ -434,7 +434,7 @@ class SafeModeTest extends TestCase
         $djot = "[click](da\tta:text/html,<script>)";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        $this->assertStringNotContainsString('href=', $result);
     }
 
     public function testSafeModeUrlWhitespaceBypasses(): void

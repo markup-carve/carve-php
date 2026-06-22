@@ -139,6 +139,8 @@ class InlineParser
 
     protected bool $captionNumberEmitted = false;
 
+    protected bool $wordAttributesEnabled = true;
+
     /**
      * Smart quote characters (configurable via SmartQuotesExtension for locale support)
      */
@@ -357,6 +359,18 @@ class InlineParser
         } finally {
             $this->captionContextEnabled = $previousCaptionContext;
             $this->captionNumberEmitted = $previousCaptionNumberEmitted;
+        }
+    }
+
+    public function parseHeading(Node $parent, string $text, int $sourceLine = 0): void
+    {
+        $previousWordAttributes = $this->wordAttributesEnabled;
+        $this->wordAttributesEnabled = false;
+
+        try {
+            $this->parse($parent, $text, $sourceLine);
+        } finally {
+            $this->wordAttributesEnabled = $previousWordAttributes;
         }
     }
 
@@ -797,12 +811,14 @@ class InlineParser
                 }
 
                 // First check for inline attributes that apply to preceding word
-                $attrResult = $this->parseInlineAttributes($text, $pos, $textBuffer, $parent);
-                if ($attrResult !== null) {
-                    $textBuffer = $attrResult['textBuffer'];
-                    $pos = $attrResult['pos'];
+                if ($this->wordAttributesEnabled) {
+                    $attrResult = $this->parseInlineAttributes($text, $pos, $textBuffer, $parent);
+                    if ($attrResult !== null) {
+                        $textBuffer = $attrResult['textBuffer'];
+                        $pos = $attrResult['pos'];
 
-                    continue;
+                        continue;
+                    }
                 }
 
                 // Then try special braced syntax
@@ -1648,7 +1664,10 @@ class InlineParser
             }
 
             if ($urlEnd < $length && $text[$urlEnd] === ')') {
-                $raw = trim(substr($text, $urlStart, $urlEnd - $urlStart));
+                $raw = substr($text, $urlStart, $urlEnd - $urlStart);
+                if ($raw !== trim($raw)) {
+                    return null;
+                }
 
                 // Optional title after the destination, separated by
                 // whitespace (a soft line break counts): "title",
@@ -1665,8 +1684,8 @@ class InlineParser
                 }
 
                 // Soft breaks are ignored in the destination itself.
-                $url = trim(str_replace(["\r\n", "\r", "\n"], '', $raw));
-                if ($url === '' || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
+                $url = str_replace(["\r\n", "\r", "\n"], '', $raw);
+                if ($url === '' || preg_match('/\s/', $url) || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
                     return null;
                 }
 
@@ -2969,6 +2988,8 @@ class InlineParser
         // Warn if footnote is not defined
         if (!$this->blockParser->hasFootnote($label)) {
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
+
+            return null;
         }
 
         $node = new FootnoteRef($label);
