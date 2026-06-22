@@ -146,17 +146,6 @@ class ListParser
             $marker = $matches[1];
             $content = $matches[2];
 
-            // Don't treat as list if content ends with the same marker (likely
-            // emphasis), e.g. `* foo *` / `- bar -`. `-` and `*` double as
-            // emphasis delimiters; `+` does not, so `+ foo +` is a real bullet.
-            $trimmed = rtrim($content);
-            if ($marker !== '+' && $trimmed !== '' && substr($trimmed, -1) === $marker) {
-                $inner = substr($trimmed, 0, -1);
-                if (trim($inner) !== '' && !str_contains($inner, "\n")) {
-                    return null;
-                }
-            }
-
             return [
                 'type' => ListBlock::TYPE_BULLET,
                 'marker' => $marker,

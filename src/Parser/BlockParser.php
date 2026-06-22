@@ -562,10 +562,10 @@ class BlockParser
             }
 
             // Match reference definition: [label]: url (url can be empty, on next line)
-            if (preg_match('/^\[(?!@)([^\]]+)\]:\s*(.*)$/', $bare, $matches)) {
+            if (preg_match('/^\[(?!@)([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
-                $url = trim($matches[2]);
+                $url = trim($matches[2] ?? '');
 
                 // Collect continuation lines (URL can start on continuation line)
                 $j = $i + 1;
@@ -591,7 +591,7 @@ class BlockParser
                         break;
                     }
                     // Check if next line starts a new reference definition
-                    if (preg_match('/^\[(?!@)([^\]]+)\]:/', $nextLine)) {
+                    if (preg_match('/^\[(?!@)([^\]]+)\]: /', $nextLine)) {
                         break;
                     }
                     if ($this->startsNewBlock($nextLine)) {
@@ -658,9 +658,9 @@ class BlockParser
             $line = $lines[$i];
 
             // Match footnote definition: [^label]: content
-            if (preg_match('/^\[\^([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+            if (preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $line, $matches)) {
                 $label = $matches[1];
-                $content = $matches[2];
+                $content = $matches[2] ?? '';
 
                 // Determine base indentation (2 spaces for footnotes)
                 $baseIndent = 2;
@@ -875,7 +875,7 @@ class BlockParser
                     $heading->setAttribute('id', $pendingId);
                     $pendingId = null;
                 }
-                $this->inlineParser->parse($heading, $headingText, $i);
+                $this->inlineParser->parseHeading($heading, $headingText, $i);
 
                 $plainText = $headingIdTracker->getPlainText($heading);
                 $id = $headingIdTracker->getIdForHeading($heading);
@@ -1189,7 +1189,7 @@ class BlockParser
             while ($nextIdx < $count && IndentationHelper::isBlankLine($lines[$nextIdx])) {
                 $nextIdx++;
             }
-            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]:/', $lines[$nextIdx])) {
+            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]: /', $lines[$nextIdx])) {
                 // Attributes precede a reference definition, don't store them as block attrs
                 return 1;
             }
@@ -1811,7 +1811,7 @@ class BlockParser
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
             } elseif (
-                preg_match('/^\[[^\]]+\]:/', $nextLine)
+                preg_match('/^\[[^\]]+\]: /', $nextLine)
                 || preg_match('/^\*\[[^\]]+\]:/', $nextLine)
                 || preg_match('/^%%/', $nextLine)
                 || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
@@ -1846,7 +1846,7 @@ class BlockParser
         // block-attribute line (applyPendingAttributes below, PART 9 §15).
         $content = trim($content);
 
-        $this->inlineParser->parse($heading, $content, $start);
+        $this->inlineParser->parseHeading($heading, $content, $start);
         $this->applyPendingAttributes($heading);
         $parent->appendChild($heading);
 
@@ -3462,7 +3462,7 @@ class BlockParser
         $line = $lines[$start];
 
         // Match footnote definition: [^label]: content
-        if (!preg_match('/^\[\^([^\]]+)\]:\s*/', $line)) {
+        if (!preg_match('/^\[\^([^\]]+)\]:(?: |[ \t]*$)/', $line)) {
             return null;
         }
 
@@ -3506,7 +3506,7 @@ class BlockParser
         $line = $lines[$start];
 
         // Match reference definition: [label]: url (url can be empty, on next line)
-        if (!preg_match('/^\[(?!@)([^\]]+)\]:\s*(.*)$/', $line, $matches)) {
+        if (!preg_match('/^\[(?!@)([^\]]+)\]:(?: +(.*)|\s*)$/', $line, $matches)) {
             return null;
         }
 
@@ -3520,7 +3520,7 @@ class BlockParser
                 break;
             }
             // Check if next line starts a new reference definition
-            if (preg_match('/^\[(?!@)([^\]]+)\]:/', $nextLine)) {
+            if (preg_match('/^\[(?!@)([^\]]+)\]: /', $nextLine)) {
                 break;
             }
             if ($this->startsNewBlock($nextLine)) {
@@ -3668,7 +3668,7 @@ class BlockParser
 
         // Invisible constructs produce no rendered block of their own, so they
         // are recognised next to prose rather than left as literal text.
-        return preg_match('/^\[[^\]]+\]:/', $line) === 1
+        return preg_match('/^\[[^\]]+\]: /', $line) === 1
             || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
             || preg_match('/^%%/', $line) === 1;
     }

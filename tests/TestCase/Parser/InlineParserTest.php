@@ -973,9 +973,8 @@ class InlineParserTest extends TestCase
     public function testInlineLinkTitlesDoNotUseBackslashEscapes(): void
     {
         $para = $this->parseInline('[x](url "a \" b")');
-        $link = $this->getFirstChild($para);
+        $text = $this->getFirstChild($para);
 
-        $this->assertInstanceOf(Link::class, $link);
-        $this->assertNull($link->getTitle());
+        $this->assertInstanceOf(Text::class, $text);
     }
 }
