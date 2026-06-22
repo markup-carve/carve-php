@@ -48,6 +48,55 @@ DJOT;
         $this->assertStringContainsString('Content two.', $html);
     }
 
+    public function testTabLabelFromBracketLabelOpener(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        // The opener `[label]` token (grammar PART 9 §12) feeds the tab name,
+        // the canonical replacement for the `{label="..."}` / heading forms.
+        $djot = <<<'DJOT'
+:::: tabs
+::: tab [First]
+Content one.
+:::
+
+::: tab [Second]
+Content two.
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString('>First</label>', $html);
+        $this->assertStringContainsString('>Second</label>', $html);
+        // the [label] is inert structured metadata: never a rendered attribute
+        $this->assertStringNotContainsString('label="First"', $html);
+    }
+
+    public function testOpenerLabelPreservesContentHeading(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        // With an explicit opener `[label]`, the first heading is real content
+        // and must NOT be consumed as the tab name.
+        $djot = <<<'DJOT'
+:::: tabs
+::: tab [First]
+### Visible Heading
+Content one.
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString('>First</label>', $html);
+        $this->assertStringContainsString('Visible Heading', $html);
+    }
+
     public function testWrapperAttributesUseCoreHardening(): void
     {
         $converter = new CarveConverter();
