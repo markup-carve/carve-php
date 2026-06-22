@@ -49,6 +49,31 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testCaptionLineAfterPlainParagraphIsSoftContinuation(): void
+    {
+        $djot = "a\n^ attr";
+        $expected = "<p>a\n^ attr</p>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testCaptionLineAfterPlainBlockQuoteTextIsSoftContinuation(): void
+    {
+        $djot = "> a\n> ^ attr";
+        $expected = "<blockquote><p>a\n^ attr</p></blockquote>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testCaptionLineAfterImageStillCreatesFigure(): void
+    {
+        $result = $this->converter->convert("![x](i)\n^ cap");
+
+        $this->assertStringContainsString('<figure>', $result);
+        $this->assertStringContainsString('<img src="i" alt="x">', $result);
+        $this->assertStringContainsString('<figcaption>cap</figcaption>', $result);
+    }
+
     public function testHeadings(): void
     {
         // Carve headings are wrapped in nested <section> elements; the id

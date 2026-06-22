@@ -3615,7 +3615,7 @@ class BlockParser
 
             // An unclosed brace in the content so far suppresses block
             // interruption (e.g. `text{a=x` then `# not-a-heading`).
-            if ($braceState['depth'] <= 0 && $this->interruptsParagraph($lines, $i)) {
+            if ($braceState['depth'] <= 0 && $this->interruptsParagraph($lines, $i, $content, $start)) {
                 break;
             }
 
@@ -3644,10 +3644,16 @@ class BlockParser
      *
      * @param array<string> $lines
      * @param int $i
+     * @param string $content Current paragraph content before the candidate line.
+     * @param int $sourceLine
      */
-    protected function interruptsParagraph(array $lines, int $i): bool
+    protected function interruptsParagraph(array $lines, int $i, string $content, int $sourceLine): bool
     {
         $line = $lines[$i];
+
+        if (($line[0] ?? '') === '^' && ($line[1] ?? '') === ' ') {
+            return $this->isCaptionableParagraphContent($content, $sourceLine);
+        }
 
         if ($this->startsNewBlock($line, $lines, $i)) {
             return true;
@@ -3665,6 +3671,20 @@ class BlockParser
         return preg_match('/^\[[^\]]+\]:/', $line) === 1
             || preg_match('/^\*\[[^\]]+\]:/', $line) === 1
             || preg_match('/^%%/', $line) === 1;
+    }
+
+    protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool
+    {
+        $paragraph = new Paragraph();
+        $this->inlineParser->parse($paragraph, $content, $sourceLine);
+
+        $children = $paragraph->getChildren();
+
+        return count($children) === 1
+            && (
+                $children[0] instanceof Image
+                || ($children[0] instanceof Math && $children[0]->isDisplay())
+            );
     }
 
     /**
