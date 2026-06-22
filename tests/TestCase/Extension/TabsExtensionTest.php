@@ -8,6 +8,7 @@ use Carve\CarveConverter;
 use Carve\Extension\TableOfContentsExtension;
 use Carve\Extension\TabsExtension;
 use Carve\Renderer\HtmlRenderer;
+use Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 class TabsExtensionTest extends TestCase
@@ -45,6 +46,52 @@ DJOT;
         $this->assertStringContainsString('class="tabs-panel"', $html);
         $this->assertStringContainsString('Content one.', $html);
         $this->assertStringContainsString('Content two.', $html);
+    }
+
+    public function testWrapperAttributesUseCoreHardening(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        $djot = <<<'DJOT'
+{onclick="alert(1)" srcdoc="<script>" style="background:url(javascript:alert(1))" data-ok="1"}
+:::: tabs
+::: tab
+### Tab
+
+Content.
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString('data-ok="1"', $html);
+        $this->assertStringContainsString('style=""', $html);
+        $this->assertStringNotContainsString('onclick=', $html);
+        $this->assertStringNotContainsString('srcdoc=', $html);
+    }
+
+    public function testWrapperAttributesUseSafeModeFiltering(): void
+    {
+        $converter = new CarveConverter(safeMode: SafeMode::strict());
+        $converter->addExtension(new TabsExtension());
+
+        $djot = <<<'DJOT'
+{style="color:red" data-ok="1"}
+:::: tabs
+::: tab
+### Tab
+
+Content.
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString('data-ok="1"', $html);
+        $this->assertStringNotContainsString('style=', $html);
     }
 
     public function testFirstTabSelectedByDefault(): void

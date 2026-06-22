@@ -12,7 +12,10 @@ use Carve\Node\Document;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Text;
 use Carve\Profile;
+use Carve\Renderer\AnsiRenderer;
 use Carve\Renderer\HtmlRenderer;
+use Carve\Renderer\MarkdownRenderer;
+use Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -58,6 +61,32 @@ class DeepNestingTest extends TestCase
 
     public function testProgrammaticDeepDocumentDoesNotCrashRenderOrFilter(): void
     {
+        $doc = $this->buildProgrammaticDeepDocument();
+
+        $html = (new HtmlRenderer())->render($doc);
+        (new ProfileFilter())->filter($doc, new Profile());
+
+        $this->assertStringStartsWith('<p><span>', $html);
+        $this->assertStringNotContainsString('too deep', $html);
+        $this->assertLessThan(20000, strlen($html));
+    }
+
+    public function testProgrammaticDeepDocumentDoesNotCrashNonHtmlRenderers(): void
+    {
+        $doc = $this->buildProgrammaticDeepDocument();
+
+        $markdown = (new MarkdownRenderer())->render($doc);
+        $plain = (new PlainTextRenderer())->render($doc);
+        $ansi = (new AnsiRenderer(useColors: false))->render($doc);
+
+        foreach ([$markdown, $plain, $ansi] as $output) {
+            $this->assertStringNotContainsString('too deep', $output);
+            $this->assertLessThan(20000, strlen($output));
+        }
+    }
+
+    private function buildProgrammaticDeepDocument(): Document
+    {
         $doc = new Document();
         $paragraph = new Paragraph();
         $doc->appendChild($paragraph);
@@ -69,11 +98,6 @@ class DeepNestingTest extends TestCase
         }
         $parent->appendChild(new Text('too deep'));
 
-        $html = (new HtmlRenderer())->render($doc);
-        (new ProfileFilter())->filter($doc, new Profile());
-
-        $this->assertStringStartsWith('<p><span>', $html);
-        $this->assertStringNotContainsString('too deep', $html);
-        $this->assertLessThan(20000, strlen($html));
+        return $doc;
     }
 }
