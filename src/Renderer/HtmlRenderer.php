@@ -1594,9 +1594,9 @@ class HtmlRenderer implements RendererInterface
         // Only escape <, >, and & for HTML safety
         $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
 
-        // Convert escaped space placeholder (U+E000) to &nbsp; entity
-        // Literal NBSP characters in source are preserved as-is
-        return str_replace("\u{E000}", '&nbsp;', $escaped);
+        // Convert both Carve's escaped-space placeholder and literal NBSP to
+        // the stable HTML entity.
+        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
     }
 
     /**
@@ -1609,8 +1609,8 @@ class HtmlRenderer implements RendererInterface
         // ENT_QUOTES: Escape both single and double quotes for attribute values
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // Convert escaped space placeholder (U+E000) to &nbsp; entity
-        return str_replace("\u{E000}", '&nbsp;', $escaped);
+        // Convert escaped space placeholder (U+E000) and literal NBSP to &nbsp;.
+        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
     }
 
     protected function renderRawBlock(RawBlock $node): string

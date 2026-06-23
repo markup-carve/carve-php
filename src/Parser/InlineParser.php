@@ -474,7 +474,8 @@ class InlineParser
 
                         continue;
                     }
-                    // Not at end of line - treat as escaped space/tab
+                    // Not at end of line: `\ ` is Carve's explicit NBSP form.
+                    // Backslash-tab is not an escape; only ASCII punctuation escapes.
                     if ($escaped === ' ') {
                         // Non-breaking space - use placeholder that renderer converts to &nbsp;
                         // We use U+E000 (private use area) to distinguish from literal NBSP
@@ -483,13 +484,8 @@ class InlineParser
 
                         continue;
                     }
-                    // Escaped tab becomes literal tab
-                    $textBuffer .= $escaped;
-                    $pos += 2;
-
-                    continue;
                 }
-                if (ctype_punct($escaped)) {
+                if (strpos('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~', $escaped) !== false) {
                     // Create EscapedText node for round-trip support
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
