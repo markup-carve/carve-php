@@ -640,8 +640,8 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDelete(Delete $node): string
     {
-        // Some Markdown flavors support ~~strikethrough~~
-        return '~~' . $this->renderChildren($node) . '~~';
+        // Markdown has no native critic deletion distinct from strikethrough.
+        return '<del>' . $this->renderChildren($node) . '</del>';
     }
 
     protected function renderUnderline(Underline $node): string
