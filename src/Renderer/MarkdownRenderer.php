@@ -296,6 +296,14 @@ class MarkdownRenderer implements RendererInterface
             if ($resolvedId !== null) {
                 $referencedIds[$resolvedId] = true;
             }
+        } elseif ($node instanceof Link) {
+            $destination = $node->getDestination();
+            if ($destination !== null && str_starts_with($destination, '#')) {
+                $resolvedId = $this->headingIdTracker->findIdCaseInsensitive(substr($destination, 1));
+                if ($resolvedId !== null) {
+                    $referencedIds[$resolvedId] = true;
+                }
+            }
         }
 
         foreach ($node->getChildren() as $child) {

@@ -680,6 +680,9 @@ class AnsiRenderer implements RendererInterface
                     'isHeader' => $row['isHeader'],
                 ];
             }
+            while ($cells !== [] && end($cells)['content'] === '') {
+                array_pop($cells);
+            }
             $rows[] = $cells;
         }
 
@@ -834,7 +837,7 @@ class AnsiRenderer implements RendererInterface
         // Format: \033]8;;URL\033\\TEXT\033]8;;\033\\
         $styled = $this->style($text, self::UNDERLINE . self::FG_BLUE);
 
-        if ($url !== null && $url !== '' && $url !== $text) {
+        if ($url !== null && $url !== '' && $url !== $text && !str_starts_with($url, '#')) {
             $styled .= $this->style(' (' . $this->stripControls($url) . ')', self::DIM);
         }
 

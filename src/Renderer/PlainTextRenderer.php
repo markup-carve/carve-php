@@ -287,6 +287,9 @@ class PlainTextRenderer implements RendererInterface
             foreach ($row['cells'] as $cell) {
                 $cells[] = is_string($cell) ? $cell : '';
             }
+            while ($cells !== [] && end($cells) === '') {
+                array_pop($cells);
+            }
             $text .= implode($this->tableCellSeparator, $cells) . "\n";
         }
 
@@ -344,9 +347,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        $destination = $node->getDestination();
-
-        return $destination === null ? $this->renderChildren($node) : $this->stripControls($destination);
+        return $this->renderChildren($node);
     }
 
     /**
