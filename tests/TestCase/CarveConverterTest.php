@@ -574,6 +574,22 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testBackslashBeforeTabIsLiteral(): void
+    {
+        $djot = "a\\\tb";
+        $expected = "<p>a\\\tb</p>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testLiteralNonBreakingSpaceRendersAsEntity(): void
+    {
+        $djot = "#\u{00A0}h";
+        $expected = "<p>#&nbsp;h</p>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
     public function testXhtmlMode(): void
     {
         $converter = new CarveConverter(true);

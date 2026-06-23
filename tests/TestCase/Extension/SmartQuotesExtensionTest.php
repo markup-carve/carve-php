@@ -37,8 +37,8 @@ class SmartQuotesExtensionTest extends TestCase
 
         $html = $converter->convert('"Hello"');
 
-        // French double: «\u{00A0}...\u{00A0}»
-        $this->assertStringContainsString("\u{00AB}\u{00A0}Hello\u{00A0}\u{00BB}", $html);
+        // French double uses NBSP, serialized as &nbsp; in HTML.
+        $this->assertStringContainsString("\u{00AB}&nbsp;Hello&nbsp;\u{00BB}", $html);
     }
 
     public function testSwissGermanQuotes(): void
@@ -70,7 +70,7 @@ class SmartQuotesExtensionTest extends TestCase
 
         $html = $converter->convert('"Hello"');
 
-        $this->assertStringContainsString("\u{00AB}\u{00A0}Hello\u{00A0}\u{00BB}", $html);
+        $this->assertStringContainsString("\u{00AB}&nbsp;Hello&nbsp;\u{00BB}", $html);
     }
 
     public function testLocaleFallbackUnknownToEnglish(): void

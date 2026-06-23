@@ -16,8 +16,8 @@ use PHPUnit\Framework\TestCase;
  * The line-block indent and the escaped space (`\ `) share one private-use
  * sentinel. It renders as `&nbsp;` in HTML, a real non-breaking space (U+00A0)
  * in Markdown (so it survives a round-trip re-render and is not mistaken for an
- * indented code block), and an ordinary space in plain-text and ANSI output. A
- * literal U+00A0 in the author's own text is never altered.
+ * indented code block), and an ordinary space in plain-text and ANSI output.
+ * Literal U+00A0 in the author's own HTML text renders as `&nbsp;`.
  */
 class NonBreakingSpaceTest extends TestCase
 {
@@ -91,5 +91,12 @@ class NonBreakingSpaceTest extends TestCase
 
         $this->assertStringContainsString('ice' . self::NBSP . 'cream', (new PlainTextRenderer())->render($document));
         $this->assertStringContainsString('ice' . self::NBSP . 'cream', (new MarkdownRenderer())->render($document));
+    }
+
+    public function testLiteralNonBreakingSpaceIsEntityInHtml(): void
+    {
+        $html = $this->converter->convert('#' . self::NBSP . 'h');
+
+        $this->assertSame("<p>#&nbsp;h</p>\n", $html);
     }
 }
