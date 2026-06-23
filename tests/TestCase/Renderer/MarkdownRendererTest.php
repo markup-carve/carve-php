@@ -343,7 +343,16 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertStringContainsString('~~deleted~~', $result);
+        $this->assertSame("Text <del>deleted</del> here\n", $result);
+    }
+
+    public function testSubstitutionUsesDelAndInsTags(): void
+    {
+        $djot = 'Text {~a~>b~} here';
+        $document = $this->converter->parse($djot);
+        $result = $this->renderer->render($document);
+
+        $this->assertSame("Text <del>a</del><ins>b</ins> here\n", $result);
     }
 
     public function testInsert(): void
