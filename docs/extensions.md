@@ -46,6 +46,91 @@ Note: `HeadingReferenceExtension` and `WikilinksExtension` both parse `[[...]]`
 syntax and therefore cannot be registered on the same converter instance - doing
 so throws a `LogicException`.
 
+## Static render mode
+
+A render carries a **mode** - a render option, not document syntax:
+
+- `RenderMode::INTERACTIVE` (the default) - online HTML; extensions render their
+  interactive form (live tabs, mermaid via a client script, `\[ ... \]` math for
+  KaTeX/MathJax).
+- `RenderMode::STATIC` - HTML for a medium that cannot interact or run client
+  scripts (print, PDF source, archival HTML).
+
+Omitting the mode means interactive, so existing callers are unaffected. An
+unknown mode value is **rejected** (`InvalidArgumentException`); `print`,
+`email` and similar are reserved for future named presets.
+
+~~~ php
+use Carve\CarveConverter;
+use Carve\Renderer\RenderMode;
+
+$converter = new CarveConverter(mode: RenderMode::STATIC);
+// or: $converter->setRenderMode(RenderMode::STATIC);
+~~~
+
+The `MarkdownRenderer`, `PlainTextRenderer` and `AnsiRenderer` are inherently
+static; they flatten interactive constructs and keep client-script blocks as
+source regardless of this option (the `mode` option is HTML-only).
+
+### Resolution order (`renderStaticHtml`)
+
+In static mode, an extension renders through an optional static-HTML path
+(`StaticRenderExtensionInterface::renderStaticHtml()`). Per node:
+
+1. the extension's `renderStaticHtml()`, if it claims the node;
+2. else the extension's ordinary renderer (correct for extensions that are
+   already static - list-table, citations, heading-permalinks - which need no
+   static path);
+3. else, for a fenced div whose grouping `[label]` no extension consumed, the
+   core caption floor (`<p class="div-label">`, see Graceful Degradation).
+
+No construct falls through to "dropped": every authored token reaches at least
+the floor.
+
+### The `renderers` map (client-script extensions)
+
+Client-script extensions (mermaid, chart, math) cannot produce their visual
+inside the engine. A static render therefore accepts a **renderers** map of
+`source -> string` callables keyed by extension name. When the needed renderer
+is absent, the static path falls back to source, never blank.
+
+~~~ php
+use Carve\CarveConverter;
+use Carve\Renderer\RenderMode;
+
+$converter = new CarveConverter(mode: RenderMode::STATIC, renderers: [
+    'math' => fn (string $tex): string => $katex->renderToString($tex),
+    'mermaid' => fn (string $src): string => $mmdc->renderSvg($src),
+]);
+// or: $converter->setRenderers([...]);
+~~~
+
+### Which extensions carve-php applies `renderStaticHtml` to
+
+`carve-php` ships these interactive extensions; the table is their static
+output:
+
+| Extension | Static (`renderStaticHtml`) output |
+| --- | --- |
+| `TabsExtension` | each panel as a `<section class="tabs-panel">` headed by `<p class="tabs-label">[label]</p>` (no radio inputs) |
+| `CodeGroupExtension` | each code block as a `<section class="code-group-panel">` headed by its `[label]` |
+| `MathBlockExtension` | the `math` renderer's server-side output (MathML/HTML) inside `<div class="math display">`, else the LaTeX source inside `<pre class="math display">` |
+| `FencedRenderExtension` (mermaid, chart, ...) | the renderer's image (keyed by the fence's CSS class) inside `<div class="...">`, else the source inside `<pre><code class="language-...">` |
+
+`DetailsExtension` and `SpoilerExtension` already degrade natively - both emit an
+HTML5 `<details>` disclosure whose content is present and whose quoted title is
+the `<summary>` - so they need no separate static path. The
+`ListTableExtension`, citations and heading-permalink extensions are already
+static and render identically in both modes (resolution step 2).
+
+Extensions that exist in the carve-js reference but **not** in carve-php (a
+standalone non-`<details>` `Details`/`Spoiler` shape) gain a `renderStaticHtml`
+in carve-php only when/if carve-php gains the extension; until then the same
+graceful-degradation guarantee is met by the core caption floor (step 3).
+
+The CLI exposes the mode via `bin/carve --static` (HTML format only); see
+`examples/static-render-demo.php` for a runnable interactive-vs-static demo.
+
 ## Links and references
 
 ### AutolinkExtension

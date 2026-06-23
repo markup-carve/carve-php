@@ -11,6 +11,7 @@ use Carve\Extension\HeadingReferenceExtension;
 use Carve\Extension\MentionsExtension;
 use Carve\Extension\ParsedDocumentExtensionInterface;
 use Carve\Extension\ResettableExtensionInterface;
+use Carve\Extension\StaticRenderExtensionInterface;
 use Carve\Extension\WikilinksExtension;
 use Carve\Filter\ProfileFilter;
 use Carve\Node\Document;
@@ -21,6 +22,7 @@ use Carve\Renderer\HtmlRenderer;
 use Carve\Renderer\MarkdownRenderer;
 use Carve\Renderer\PlainTextRenderer;
 use Carve\Renderer\RendererInterface;
+use Carve\Renderer\RenderMode;
 use Carve\Transform\RenderAwareTransformerInterface;
 use Carve\Transform\TransformerInterface;
 use Closure;
@@ -125,6 +127,8 @@ class CarveConverter
      * @param \Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
+     * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
+     * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
      * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/roundTripMode if set)
      *
@@ -140,6 +144,8 @@ class CarveConverter
         SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
         bool $roundTripMode = false,
+        string $mode = RenderMode::INTERACTIVE,
+        array $renderers = [],
         ?BlockParser $parser = null,
         ?RendererInterface $renderer = null,
     ) {
@@ -166,6 +172,14 @@ class CarveConverter
             if ($roundTripMode) {
                 $this->renderer->setRoundTripMode(true);
             }
+        }
+
+        // Configure render mode + build-time renderers (HTML renderer only).
+        // The mode value is validated even when it equals the default, so an
+        // unknown mode is rejected for every caller (RenderMode::validate()).
+        $this->setRenderMode($mode);
+        if ($renderers !== []) {
+            $this->setRenderers($renderers);
         }
 
         // Configure profile
@@ -233,6 +247,56 @@ class CarveConverter
             $this->renderer->setSafeMode($safeMode);
         } else {
             $this->renderer->setSafeMode(null);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set the render mode (HtmlRenderer only).
+     *
+     * `RenderMode::INTERACTIVE` (default) renders the live extension forms;
+     * `RenderMode::STATIC` renders through each extension's static path (and
+     * the core caption floor for any unconsumed label). The Markdown,
+     * plain-text and ANSI renderers are inherently static and ignore this.
+     * An unknown value is rejected (see {@see RenderMode::validate()}).
+     *
+     * @param string $mode RenderMode::INTERACTIVE or RenderMode::STATIC.
+     */
+    public function setRenderMode(string $mode): self
+    {
+        $validated = RenderMode::validate($mode);
+        if ($this->renderer instanceof HtmlRenderer) {
+            $this->renderer->setRenderMode($validated);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the current render mode (HtmlRenderer only; INTERACTIVE otherwise).
+     */
+    public function getRenderMode(): string
+    {
+        if ($this->renderer instanceof HtmlRenderer) {
+            return $this->renderer->getRenderMode();
+        }
+
+        return RenderMode::INTERACTIVE;
+    }
+
+    /**
+     * Set the build-time renderers for client-script extensions (HtmlRenderer
+     * only). Each maps a source string to a rendered string and is used only in
+     * static mode (math → MathML/HTML, mermaid/chart → SVG/PNG markup). When the
+     * needed renderer is absent the extension falls back to source, never blank.
+     *
+     * @param array<string, \Closure(string): string> $renderers Source-to-string callables keyed by extension name.
+     */
+    public function setRenderers(array $renderers): self
+    {
+        if ($this->renderer instanceof HtmlRenderer) {
+            $this->renderer->setStaticRenderers($renderers);
         }
 
         return $this;
@@ -476,6 +540,12 @@ class CarveConverter
         $registeredExtension = $extension instanceof BeforeRenderExtensionInterface ? clone $extension : $extension;
         $this->extensions[] = $registeredExtension;
         $registeredExtension->register($this);
+
+        // An extension offering a static-HTML render path is consulted first in
+        // static mode, before its ordinary interactive listener fires.
+        if ($registeredExtension instanceof StaticRenderExtensionInterface && $this->renderer instanceof HtmlRenderer) {
+            $this->renderer->addStaticRenderExtension($registeredExtension);
+        }
 
         return $this;
     }
