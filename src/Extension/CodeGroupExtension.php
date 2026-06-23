@@ -74,7 +74,7 @@ use Closure;
  * - Labels come from headings or attributes
  * - You need ARIA mode with full keyboard navigation
  */
-class CodeGroupExtension implements ResettableExtensionInterface
+class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
     /**
      * Counter for generating unique group IDs
@@ -130,6 +130,43 @@ class CodeGroupExtension implements ResettableExtensionInterface
     public function clear(): void
     {
         $this->groupCounter = 0;
+    }
+
+    /**
+     * Static render: flatten the code group into a sequence of `<section>`s,
+     * each headed by its `[label]` (the tab header in interactive mode). No
+     * click, but every code panel and its language label survives - the
+     * graceful degradation rule for tabs / code-group.
+     */
+    public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+    {
+        $node = $event->getNode();
+        if (!$node instanceof Div) {
+            return false;
+        }
+        if (!$node->hasClass('code-group')) {
+            return false;
+        }
+
+        $codeBlocks = $this->extractCodeBlocks($node);
+        if ($codeBlocks === []) {
+            return false;
+        }
+
+        $attrs = $this->buildWrapperAttributes($node, $renderer);
+        $html = '<div' . $attrs . ">\n";
+        foreach ($codeBlocks as $item) {
+            $html .= '<section class="' . StringUtil::escapeHtml($this->panelClass) . "\">\n"
+                . '<p class="' . StringUtil::escapeHtml($this->labelClass) . '">'
+                . StringUtil::escapeHtml($item['label']) . "</p>\n"
+                . $this->renderCodeBlock($item['block'], $item['language'], $renderer)
+                . "</section>\n";
+        }
+        $html .= "</div>\n";
+
+        $event->setHtml($html);
+
+        return true;
     }
 
     /**

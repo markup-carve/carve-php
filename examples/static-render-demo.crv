@@ -1,0 +1,39 @@
+# Static render mode demo
+
+A document mixing interactive constructs. The demo renders it twice - once in
+the default interactive mode, once in static mode - to show how each construct
+degrades when the target cannot run client scripts.
+
+## Tabs
+
+:::: tabs
+::: tab [Installation]
+`composer require markup-carve/carve-php`
+:::
+::: tab [Usage]
+`$converter->convert($carve)`
+:::
+::::
+
+## Code group
+
+::: code-group
+``` php [PHP]
+$converter = new CarveConverter();
+```
+``` bash [Shell]
+composer require markup-carve/carve-php
+```
+:::
+
+## Display math
+
+``` math
+\int_0^1 x^2 \, dx = \frac{1}{3}
+```
+
+## Mermaid diagram
+
+``` mermaid
+graph TD; A[Start] --> B[Finish]
+```

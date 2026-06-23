@@ -57,8 +57,15 @@ use Carve\Util\StringUtil;
  *
  * Ported alongside carve-js's `mathBlock()` extension.
  */
-class MathBlockExtension implements ExtensionInterface
+class MathBlockExtension implements StaticRenderExtensionInterface
 {
+    /**
+     * Static renderers map key for the build-time math renderer.
+     *
+     * @var string
+     */
+    public const RENDERER_NAME = 'math';
+
     protected ?HtmlRenderer $renderer = null;
 
     /**
@@ -87,6 +94,41 @@ class MathBlockExtension implements ExtensionInterface
 
             $event->setHtml($this->renderMath($node));
         });
+    }
+
+    /**
+     * Static render: server-side output if a `math` renderer is supplied, else
+     * the LaTeX source preserved verbatim (never blank). A KaTeX/MathJax client
+     * script cannot run in a static target, so the interactive `\[ ... \]` div
+     * would otherwise show as raw markup; this keeps it self-contained.
+     */
+    public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+    {
+        $node = $event->getNode();
+        if (!$node instanceof CodeBlock) {
+            return false;
+        }
+        if ($node->getLanguage() !== $this->language) {
+            return false;
+        }
+
+        $source = $node->getContent();
+        $build = $renderer->getStaticRenderer(self::RENDERER_NAME);
+        if ($build !== null) {
+            // The build-time renderer owns its own escaping (it emits MathML /
+            // HTML), so its output is used verbatim inside the math div.
+            $event->setHtml('<div class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"'
+                . $this->buildExtraAttributes($node) . '>' . $build($source) . '</div>');
+
+            return true;
+        }
+
+        // No renderer: keep the source readable as an escaped block.
+        $event->setHtml('<pre class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"'
+            . $this->buildExtraAttributes($node) . '>'
+            . $this->escapeMath($source) . "</pre>\n");
+
+        return true;
     }
 
     /**
