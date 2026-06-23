@@ -929,6 +929,18 @@ class HtmlRenderer implements RendererInterface
             $titleLine = '  <p class="admonition-title">' . $this->escape($titleAttr) . "</p>\n";
         }
 
+        // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
+        // §12) is structured metadata normally consumed by a group extension
+        // (e.g. tabs). When no extension replaced this div, the label would be
+        // silently dropped in static output; surface it as a visible caption so
+        // stacked panels stay distinguishable. Title (if any) renders first,
+        // then the label. Diverges from the current spec corpus pending
+        // adoption (companion: carve-rs proto/div-label-fallback, spec PR #205).
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+        }
+
         // Tier 1: a canonical admonition type renders as a semantic
         // <aside class="admonition …">. Any extra classes and all other
         // node attributes (id, data-*, …) are preserved; `title` and
