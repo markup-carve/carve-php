@@ -1714,7 +1714,7 @@ class HtmlRenderer implements RendererInterface
             return '  <dd' . $attrs . "></dd>\n";
         }
 
-        return '  <dd' . $attrs . ">\n" . $content . "\n  </dd>\n";
+        return '  <dd' . $attrs . ">\n" . $this->indentBlock($content, 4) . "\n  </dd>\n";
     }
 
     protected function renderFootnote(Footnote $node): string
