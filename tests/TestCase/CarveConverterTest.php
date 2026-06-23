@@ -127,6 +127,21 @@ class CarveConverterTest extends TestCase
         );
     }
 
+    public function testDefinitionDescriptionNestedBlocksAreIndented(): void
+    {
+        $expected = "<dl>\n"
+            . "  <dt>t</dt>\n"
+            . "  <dd>\n"
+            . "    <ul>\n"
+            . "      <li>a</li>\n"
+            . "      <li>b</li>\n"
+            . "    </ul>\n"
+            . "  </dd>\n"
+            . "</dl>\n";
+
+        $this->assertSame($expected, $this->converter->convert(":: t\n:  - a\n   - b"));
+    }
+
     public function testBlockOpenerInterruptsHeading(): void
     {
         // A block-opener ends a heading and starts that block (§10). A LIST
