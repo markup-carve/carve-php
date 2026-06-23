@@ -23,7 +23,6 @@ use Carve\Node\Block\RawBlock;
 use Carve\Node\Block\Section;
 use Carve\Node\Block\Table;
 use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
 use Carve\Node\Inline\Abbreviation;
@@ -53,6 +52,7 @@ use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
+use Carve\Util\StringUtil;
 
 /**
  * Renders AST to ANSI-formatted terminal output
@@ -501,7 +501,7 @@ class AnsiRenderer implements RendererInterface
             if (!$this->useUnicode) {
                 $underlineChar = $level === 1 ? '=' : '-';
             }
-            $underline = str_repeat($underlineChar, mb_strlen($content));
+            $underline = str_repeat($underlineChar, StringUtil::visibleWidth($content));
             $styled .= "\n" . $this->style($underline, $color);
         }
 
@@ -659,24 +659,26 @@ class AnsiRenderer implements RendererInterface
         $colWidths = [];
         $rows = [];
 
-        foreach ($node->getChildren() as $row) {
-            if (!$row instanceof TableRow) {
-                continue;
-            }
+        $layout = TableLayout::expand(
+            $node,
+            fn (TableCell $cell): array => [
+                'content' => trim($this->renderChildren($cell)),
+                'isHeader' => $cell->isHeader(),
+            ],
+        );
 
+        foreach ($layout['rows'] as $row) {
             $cells = [];
-            $colIndex = 0;
-            foreach ($row->getChildren() as $cell) {
-                if (!$cell instanceof TableCell) {
-                    continue;
-                }
-                $content = trim($this->renderChildren($cell));
-                // Strip ANSI codes for width calculation
-                $plainContent = preg_replace('/\033\[[0-9;]*m/', '', $content) ?? $content;
-                $width = mb_strlen($plainContent);
+            foreach ($row['cells'] as $colIndex => $cell) {
+                $content = is_array($cell) && isset($cell['content']) && is_string($cell['content'])
+                    ? $cell['content']
+                    : '';
+                $width = StringUtil::visibleWidth($content);
                 $colWidths[$colIndex] = max($colWidths[$colIndex] ?? 0, $width);
-                $cells[] = ['content' => $content, 'plain' => $plainContent, 'isHeader' => $row->isHeader()];
-                $colIndex++;
+                $cells[] = [
+                    'content' => $content,
+                    'isHeader' => $row['isHeader'],
+                ];
             }
             $rows[] = $cells;
         }
@@ -758,7 +760,7 @@ class AnsiRenderer implements RendererInterface
     }
 
     /**
-     * @param array<int, array{content: string, plain: string, isHeader: bool}> $cells
+     * @param array<int, array{content: string, isHeader: bool}> $cells
      * @param array<int, int> $colWidths
      */
     protected function renderTableRow(array $cells, array $colWidths): string
@@ -769,11 +771,11 @@ class AnsiRenderer implements RendererInterface
         $parts = [];
         foreach ($cells as $index => $cell) {
             $width = $colWidths[$index] ?? 0;
-            $padding = $width - mb_strlen($cell['plain']);
+            $padding = $width - StringUtil::visibleWidth($cell['content']);
             $content = $cell['content'] . str_repeat(' ', $padding);
 
             if ($cell['isHeader']) {
-                $content = $this->style($cell['plain'] . str_repeat(' ', $padding), self::BOLD);
+                $content = $this->style($cell['content'] . str_repeat(' ', $padding), self::BOLD);
             }
 
             $parts[] = ' ' . $content . ' ';

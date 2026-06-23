@@ -1736,7 +1736,9 @@ class InlineParser
                 // Store original bracket content before normalization
                 $originalRefBracket = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
-                $refDef = $this->blockParser->getReference($ref);
+                $refDef = $originalRefBracket === ''
+                    ? $this->blockParser->getCollapsedReference($ref)
+                    : $this->blockParser->getReference($ref);
                 if ($refDef !== null) {
                     // Track reference usage for validation
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
