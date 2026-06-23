@@ -84,6 +84,27 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString("\033[4m", $output);
     }
 
+    public function testFragmentLinkDoesNotAppendUrlSuffix(): void
+    {
+        $doc = $this->converter->parse("See [name][]\n\n# Name");
+        $output = $this->renderer->render($doc);
+
+        $this->assertStringContainsString('name', $output);
+        $this->assertStringNotContainsString('(#Name)', $output);
+        $this->assertStringNotContainsString(' (#Name)', $output);
+    }
+
+    public function testHeaderRowspanTableOmitsTrailingPlaceholderCell(): void
+    {
+        $renderer = new AnsiRenderer(80, false, false);
+        $doc = $this->converter->parse("|=A|\n|^|x|");
+        $output = $renderer->render($doc);
+
+        $this->assertStringContainsString("| A |\n", $output);
+        $this->assertStringNotContainsString('| A |   |', $output);
+        $this->assertStringContainsString('|   | x |', $output);
+    }
+
     public function testRenderImage(): void
     {
         $doc = $this->converter->parse('![A photo](image.jpg)');

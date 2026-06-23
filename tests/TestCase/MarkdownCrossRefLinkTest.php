@@ -42,6 +42,13 @@ class MarkdownCrossRefLinkTest extends TestCase
         $this->assertStringContainsString('# Setup {#Setup}', $out);
     }
 
+    public function testCollapsedReferenceToHeadingEmitsTargetHeadingId(): void
+    {
+        $out = $this->md("See [name][]\n\n# Name");
+
+        $this->assertSame("See [name](#Name)\n\n# Name {#Name}\n", $out);
+    }
+
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
     {
         // The explicit id comes from a preceding block-attribute line
