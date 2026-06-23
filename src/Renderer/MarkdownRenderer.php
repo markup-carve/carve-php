@@ -23,7 +23,6 @@ use Carve\Node\Block\Paragraph;
 use Carve\Node\Block\RawBlock;
 use Carve\Node\Block\Table;
 use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
 use Carve\Node\Inline\Abbreviation;
@@ -461,41 +460,51 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderTable(Table $node): string
     {
-        $rows = [];
-        $headerRow = null;
+        $layout = TableLayout::expand(
+            $node,
+            fn (TableCell $cell): array => [
+                'content' => trim($this->renderChildren($cell)),
+                'alignment' => $cell->getAlignment(),
+            ],
+        );
+
+        $headerCells = null;
+        $bodyRows = [];
         $alignments = [];
 
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof TableRow) {
-                $cells = [];
-                $cellIndex = 0;
-
-                foreach ($child->getChildren() as $cell) {
-                    if ($cell instanceof TableCell) {
-                        $cells[] = trim($this->renderChildren($cell));
-                        // Get alignment from first body row (where it's stored)
-                        if (!$child->isHeader() && !isset($alignments[$cellIndex])) {
-                            $alignments[$cellIndex] = $cell->getAlignment();
-                        }
-                        $cellIndex++;
+        foreach ($layout['rows'] as $row) {
+            $cells = [];
+            foreach ($row['cells'] as $index => $cell) {
+                if (is_array($cell) && isset($cell['content']) && is_string($cell['content'])) {
+                    $cells[] = $cell['content'];
+                    if (!$row['isHeader'] && !isset($alignments[$index])) {
+                        $alignments[$index] = is_string($cell['alignment'] ?? null)
+                            ? $cell['alignment']
+                            : TableCell::ALIGN_DEFAULT;
                     }
-                }
-
-                if ($child->isHeader()) {
-                    $headerRow = '| ' . implode(' | ', $cells) . ' |';
                 } else {
-                    $rows[] = '| ' . implode(' | ', $cells) . ' |';
+                    $cells[] = '';
                 }
+            }
+
+            if ($row['isHeader'] && $headerCells === null) {
+                while ($cells !== [] && end($cells) === '') {
+                    array_pop($cells);
+                }
+                $headerCells = $cells;
+            } else {
+                $bodyRows[] = '| ' . implode(' | ', $cells) . ' |';
             }
         }
 
         $output = '';
-        if ($headerRow !== null) {
-            $output .= $headerRow . "\n";
+        if ($headerCells !== null) {
+            $output .= '| ' . implode(' | ', $headerCells) . ' |' . "\n";
 
             // Generate separator row with alignments
             $separators = [];
-            foreach ($alignments as $align) {
+            for ($index = 0; $index < $layout['columnCount']; $index++) {
+                $align = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
                 $separators[] = match ($align) {
                     TableCell::ALIGN_LEFT => ':---',
                     TableCell::ALIGN_CENTER => ':---:',
@@ -506,7 +515,7 @@ class MarkdownRenderer implements RendererInterface
             $output .= '| ' . implode(' | ', $separators) . ' |' . "\n";
         }
 
-        $output .= implode("\n", $rows) . "\n\n";
+        $output .= implode("\n", $bodyRows) . "\n\n";
 
         return $output;
     }

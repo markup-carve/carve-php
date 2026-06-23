@@ -277,11 +277,17 @@ class PlainTextRenderer implements RendererInterface
     protected function renderTable(Table $node): string
     {
         $text = '';
+        $layout = TableLayout::expand(
+            $node,
+            fn (TableCell $cell): string => trim($this->renderChildren($cell)),
+        );
 
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof TableRow) {
-                $text .= $this->renderTableRow($child);
+        foreach ($layout['rows'] as $row) {
+            $cells = [];
+            foreach ($row['cells'] as $cell) {
+                $cells[] = is_string($cell) ? $cell : '';
             }
+            $text .= implode($this->tableCellSeparator, $cells) . "\n";
         }
 
         if ($node->hasCaption()) {
