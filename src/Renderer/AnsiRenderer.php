@@ -643,14 +643,23 @@ class AnsiRenderer implements RendererInterface
     protected function renderDiv(Div $node): string
     {
         $body = $this->renderChildren($node);
+        $prefix = '';
         // An admonition's quoted title is stored as the `title` attribute
         // (PART 9 §12); preserve it as a leading bold line instead of dropping.
         $title = $node->getAttribute('title');
         if (is_string($title) && $title !== '') {
-            return $this->style($this->stripControls($title), self::BOLD) . "\n\n" . $body;
+            $prefix .= $this->style($this->stripControls($title), self::BOLD) . "\n\n";
+        }
+        // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
+        // §12) is normally consumed by a group extension (e.g. tabs). When no
+        // extension replaced this div, surface the label as a leading bold line
+        // so it is not silently dropped. Title (if any) renders first.
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $prefix .= $this->style($this->stripControls($label), self::BOLD) . "\n\n";
         }
 
-        return $body;
+        return $prefix . $body;
     }
 
     protected function renderTable(Table $node): string
