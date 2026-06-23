@@ -43,7 +43,21 @@ class PlainTextRendererTest extends TestCase
         $djot = '[Click here](https://example.com) to visit.';
         $document = $this->converter->parse($djot);
 
-        $this->assertSame("https://example.com to visit.\n", $this->renderer->render($document));
+        $this->assertSame("Click here to visit.\n", $this->renderer->render($document));
+    }
+
+    public function testCollapsedReferenceLinkToHeadingRendersText(): void
+    {
+        $document = $this->converter->parse("See [name][]\n\n# Name");
+
+        $this->assertSame("See name\n\nName\n", $this->renderer->render($document));
+    }
+
+    public function testHeaderRowspanTableOmitsTrailingPlaceholderCell(): void
+    {
+        $document = $this->converter->parse("|=A|\n|^|x|");
+
+        $this->assertSame("A\n | x\n", $this->renderer->render($document));
     }
 
     public function testImages(): void
@@ -310,7 +324,7 @@ DJOT;
 
         $this->assertStringContainsString('Welcome', $result);
         $this->assertStringContainsString('first paragraph', $result);
-        $this->assertStringContainsString('https://example.com', $result);
+        $this->assertStringContainsString('link', $result);
         $this->assertStringContainsString('Features', $result);
         $this->assertStringContainsString('- Item one', $result);
         $this->assertStringContainsString('echo "Hello";', $result);
