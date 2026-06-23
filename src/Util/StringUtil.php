@@ -54,4 +54,15 @@ final class StringUtil
 
         return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
     }
+
+    public static function visibleWidth(string $value): int
+    {
+        $plain = preg_replace('/\033\[[0-9;]*m/', '', $value) ?? $value;
+
+        if (function_exists('mb_strwidth')) {
+            return mb_strwidth($plain, 'UTF-8');
+        }
+
+        return mb_strlen($plain, 'UTF-8');
+    }
 }

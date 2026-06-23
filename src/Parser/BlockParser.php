@@ -97,6 +97,14 @@ class BlockParser
     protected array $references = [];
 
     /**
+     * Heading-derived references keyed by folded heading text. Used only for
+     * unresolved collapsed references (`[text][]`), after exact definitions lose.
+     *
+     * @var array<string, \Carve\Parser\ReferenceDefinition>
+     */
+    protected array $headingReferencesByFoldedLabel = [];
+
+    /**
      * @var array<string, \Carve\Node\Block\Footnote>
      */
     protected array $footnotes = [];
@@ -443,6 +451,7 @@ class BlockParser
     public function parse(string $input): Document
     {
         $this->references = [];
+        $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->abbreviations = [];
         $this->pendingAttributes = [];
@@ -872,9 +881,8 @@ class BlockParser
                     $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
                     $id = $headingIdTracker->getIdForText($label);
                     $this->headingIds[$id] = true;
-                    if (!isset($this->references[$label])) {
-                        $this->references[$label] = new ReferenceDefinition('#' . $id, [], $i);
-                    }
+                    $reference = new ReferenceDefinition('#' . $id, [], $i);
+                    $this->registerHeadingReference($label, $reference);
 
                     continue;
                 }
@@ -893,9 +901,8 @@ class BlockParser
                 // Register as reference if not already defined
                 // Use normalized plain text as the label (for [Heading][] style links)
                 $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
-                if (!isset($this->references[$label])) {
-                    $this->references[$label] = new ReferenceDefinition('#' . $id, [], $i);
-                }
+                $reference = new ReferenceDefinition('#' . $id, [], $i);
+                $this->registerHeadingReference($label, $reference);
             } else {
                 // Non-heading, non-attribute line - clear pending ID
                 if (!IndentationHelper::isBlankLine($line)) {
@@ -4483,6 +4490,29 @@ class BlockParser
     public function getReference(string $label): ?ReferenceDefinition
     {
         return $this->references[$label] ?? null;
+    }
+
+    public function getCollapsedReference(string $label): ?ReferenceDefinition
+    {
+        return $this->references[$label] ?? $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ?? null;
+    }
+
+    protected function registerHeadingReference(string $label, ReferenceDefinition $reference): void
+    {
+        if (!isset($this->references[$label])) {
+            $this->references[$label] = $reference;
+        }
+
+        $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ??= $reference;
+    }
+
+    protected function foldReferenceLabel(string $label): string
+    {
+        return (string)preg_replace_callback(
+            '/./us',
+            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
+            $label,
+        );
     }
 
     /**
