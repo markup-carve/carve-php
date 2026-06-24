@@ -6,6 +6,7 @@ namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
 use Carve\Extension\CodeGroupExtension;
+use Carve\Extension\DetailsExtension;
 use Carve\Extension\FencedRenderExtension;
 use Carve\Extension\MathBlockExtension;
 use Carve\Extension\TabsExtension;
@@ -261,6 +262,80 @@ class StaticRenderModeTest extends TestCase
         // Interactive text mode preserves `>` so arrow syntax survives for the
         // client library (only `&` and `<` are escaped).
         $this->assertSame('<pre class="mermaid">graph TD; A-->B</pre>', $html);
+    }
+
+    protected function detailsSource(): string
+    {
+        return implode("\n", [
+            ':::: details "More info"',
+            'Hidden until the reader expands it.',
+            '::::',
+        ]) . "\n";
+    }
+
+    public function testDetailsStaysNativeWithoutOpenInInteractiveMode(): void
+    {
+        // A disclosure is a native `<details>` element in all modes; the
+        // interactive consumer can click to expand, so no forced `open`.
+        $converter = new CarveConverter();
+        $converter->addExtension(new DetailsExtension());
+
+        $html = trim($converter->convert($this->detailsSource()));
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>More info</summary>',
+            '  <p>Hidden until the reader expands it.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+        $this->assertStringNotContainsString('open', $html);
+    }
+
+    public function testDetailsCarriesOpenInStaticMode(): void
+    {
+        // Static mode targets a non-interactive consumer (print / PDF engine)
+        // that never clicks to expand, so the disclosure MUST carry `open` to
+        // keep the body visible. See docs/graceful-degradation.md.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new DetailsExtension());
+
+        $html = trim($converter->convert($this->detailsSource()));
+
+        $expected = implode("\n", [
+            '<details open>',
+            '  <summary>More info</summary>',
+            '  <p>Hidden until the reader expands it.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testDetailsDoesNotDuplicateAuthorOpenInStaticMode(): void
+    {
+        // An author-supplied `open` attribute already renders via the normal
+        // attribute path, so static mode must not append a second `open`.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new DetailsExtension());
+
+        $html = trim($converter->convert("{#faq open}\n" . $this->detailsSource()));
+
+        $this->assertSame(1, substr_count($html, 'open'));
+        $this->assertStringContainsString('<details id="faq" open="">', $html);
+    }
+
+    public function testDetailsDoesNotDuplicateCaseVariantAuthorOpenInStaticMode(): void
+    {
+        // HTML attribute names are case-insensitive; a `{Open}` variant the
+        // parser preserves verbatim must still suppress the forced fallback so
+        // the tag never carries a duplicate equivalent `open` attribute.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new DetailsExtension());
+
+        $html = trim($converter->convert("{Open}\n" . $this->detailsSource()));
+
+        $this->assertSame(1, substr_count(strtolower($html), 'open'));
+        $this->assertStringContainsString('<details Open="">', $html);
     }
 
     public function testUnconsumedLabelFloorAppliesInStaticModeWithoutGroupExtension(): void
