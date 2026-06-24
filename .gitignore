@@ -23,6 +23,7 @@
 /.phpunit.result.cache
 /tests/benchmark_alternatives/results/
 /tests/benchmark/results/
+/examples/output/
 /tmp/
 /vendor/
 vendor/

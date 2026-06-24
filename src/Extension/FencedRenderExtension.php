@@ -63,7 +63,7 @@ use InvalidArgumentException;
  * ));
  * ```
  */
-class FencedRenderExtension implements ExtensionInterface
+class FencedRenderExtension implements StaticRenderExtensionInterface
 {
     /**
      * Body placed as HTML-escaped text inside the wrapper element.
@@ -239,6 +239,55 @@ class FencedRenderExtension implements ExtensionInterface
 
             $event->setHtml($this->render($node));
         });
+    }
+
+    /**
+     * Static render: a build-rendered image if a renderer keyed by this
+     * instance's cssClass is supplied (e.g. `mermaid`, `chart`, `graphviz`), else the
+     * diagram source preserved as a readable code block (never blank). A
+     * client library cannot run in a static target, so the interactive
+     * hydration element would otherwise stay empty.
+     */
+    public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+    {
+        $node = $event->getNode();
+        if (!$node instanceof CodeBlock) {
+            return false;
+        }
+        if (!in_array($node->getLanguage(), $this->languages, true)) {
+            return false;
+        }
+
+        // Author attributes (id, extra classes, data-*) ride onto the wrapper
+        // exactly as the interactive path keeps them via classAttr() /
+        // buildExtraAttributes(), so static output never loses authored metadata.
+        $classAttr = ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
+        $extraAttrs = $this->buildExtraAttributes($node);
+
+        // Round-trip mode: carry the same data-djot-src the interactive openTag()
+        // emits, so Djot -> static HTML -> Djot still reconstructs the fence.
+        if ($this->roundTripMode) {
+            $extraAttrs .= ' data-djot-src="' . StringUtil::escapeHtml($this->reconstructCodeBlockSource($node)) . '"';
+        }
+
+        $source = $node->getContent();
+        $build = $renderer->getStaticRenderer($this->cssClass);
+        $element = $build !== null
+            // The build-time renderer owns its escaping (it emits SVG / <img>).
+            ? '<div' . $classAttr . $extraAttrs . '>' . $build($source) . "</div>\n"
+            // No renderer: keep the source as a language-tagged code block.
+            : '<pre' . $classAttr . $extraAttrs . '><code class="language-'
+                . StringUtil::escapeHtml($this->cssClass) . '">'
+                . StringUtil::escapeHtml($source) . "</code></pre>\n";
+
+        if ($this->wrapInFigure) {
+            $element = '<figure class="' . StringUtil::escapeHtml($this->figureClass) . "\">\n"
+                . $element . "</figure>\n";
+        }
+
+        $event->setHtml($element);
+
+        return true;
     }
 
     /**
