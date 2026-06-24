@@ -2373,6 +2373,13 @@ class InlineParser
 
         // = acts as word boundary for quotes (e.g., key="value" in attributes)
         $prevIsSpace = ctype_space($prevChar) || $pos === 0;
+
+        // A non-breaking space (U+00A0, bytes C2 A0) is whitespace for quote
+        // flanking, so a quote after it opens (matches carve-js / carve-rs).
+        // $prevChar is a single byte, so test the two preceding bytes.
+        if (!$prevIsSpace && $pos >= 2 && substr($text, $pos - 2, 2) === "\xC2\xA0") {
+            $prevIsSpace = true;
+        }
         $nextIsSpace = ctype_space($nextChar);
 
         // A quote following another quote should also be considered as having "space" before
