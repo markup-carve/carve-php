@@ -516,6 +516,7 @@ class BlockParser
         $count = count($lines);
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
+        $pendingAttrsInList = false;
         // Track open fenced code block so `[r]: /u` (or `> [r]: /u`)
         // shown inside a code sample is not collected as a real def.
         $fenceChar = null;
@@ -547,26 +548,41 @@ class BlockParser
                 continue;
             }
 
-            // Reference definitions are allowed inside blockquotes
-            // (a `> [r]: /u` line is consumed by the blockquote parser
-            // without rendering, but must still populate the global ref
-            // map). Strip leading `>` markers -- including nested
-            // `> > ` -- before the def regex tests.
+            // Reference definitions are allowed inside blockquotes and list
+            // items (those containers consume the definition line without
+            // rendering it, but it must still populate the global ref map).
+            // Strip leading container markers before the def regex tests.
             // The `>` must sit at column 0 (no preceding whitespace) so
             // an indented `    > [r]: /u` line, which is paragraph or
             // code continuation, is not misclassified as a definition.
-            // List markers are intentionally NOT stripped: `- [r]: /u`
-            // is left to the list parser as inline content (the
-            // underspecified case where the grammar does not put
-            // `reference_definition` inside `list_item_content`).
             // The space after each `>` is OPTIONAL (blockQuoteLineContent), so
             // a reference definition inside a tight (`>[r]: /u`) or nested
             // (`>>[r]: /u`) blockquote must be stripped the same way the quote
             // parser strips it -- `>` then an optional LITERAL space (not a
             // tab), exactly mirroring blockQuoteLineContent -- else the prepass
             // and the real parse disagree on `>\t[r]: /u`.
-            $bare = preg_replace('/^(?:> ?)+/', '', $line) ?? $line;
-            $inQuote = ($bare !== $line);
+            $bare = $line;
+            $inQuote = false;
+            $inList = false;
+            do {
+                $previousBare = $bare;
+                if (preg_match('/^> ?/', $bare)) {
+                    $inQuote = true;
+                    $bare = preg_replace('/^> ?/', '', $bare) ?? $bare;
+                }
+                // Bullet or DECIMAL-ordered marker, plus an optional task
+                // checkbox, then the content (matches carve-js / carve-rs;
+                // alpha/roman ordered markers are intentionally NOT stripped).
+                $afterMarker = preg_replace(
+                    '/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+                    '',
+                    $bare,
+                ) ?? $bare;
+                if ($afterMarker !== $bare) {
+                    $inList = true;
+                    $bare = $afterMarker;
+                }
+            } while ($bare !== $previousBare);
 
             // Check for attributes that may precede a reference definition.
             // Tag the attrs with their origin context so a quoted
@@ -575,6 +591,7 @@ class BlockParser
             if ($refAttrStr !== null && $refAttrStr !== '') {
                 $pendingAttrs = AttributeParser::parse($refAttrStr);
                 $pendingAttrsInQuote = $inQuote;
+                $pendingAttrsInList = $inList;
                 $i++;
 
                 continue;
@@ -586,9 +603,20 @@ class BlockParser
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2] ?? '');
 
-                // Collect continuation lines (URL can start on continuation line)
                 $j = $i + 1;
-                while ($j < $count) {
+                // A list-item definition (carve-js parity) must be complete on
+                // its own line: no continuation gathering, and an empty url is
+                // NOT a definition -- the list item renders it as content.
+                if ($inList && $url === '') {
+                    $i++;
+
+                    continue;
+                }
+
+                // Collect continuation lines (URL can start on continuation
+                // line). Only for top-level / blockquote defs; a list-item def
+                // is single-line (above).
+                while (!$inList && $j < $count) {
                     $nextLineRaw = $lines[$j];
                     // A blockquoted def's continuation must itself stay
                     // inside the blockquote. Strip `>` from the next
@@ -635,7 +663,9 @@ class BlockParser
                 // definition share the same context (both quoted or both
                 // top-level). This prevents a `> {.note}` line from leaking
                 // its attrs onto a top-level `[r]: /u` below it.
-                $attrsToUse = ($pendingAttrsInQuote === $inQuote) ? $pendingAttrs : [];
+                $attrsToUse = ($pendingAttrsInQuote === $inQuote && $pendingAttrsInList === $inList)
+                    ? $pendingAttrs
+                    : [];
                 // Split a trailing quoted title: `url "title"` / `url 'title'`.
                 $title = null;
                 if (preg_match('/^(.*?)\s+"([^"]*)"$/', $url, $tm)) {
@@ -648,6 +678,7 @@ class BlockParser
                 $this->references[$label] = new ReferenceDefinition(trim($url), $attrsToUse, $i, $title);
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
+                $pendingAttrsInList = false;
                 $i = $j;
 
                 continue;
@@ -657,6 +688,7 @@ class BlockParser
             if (!IndentationHelper::isBlankLine($line)) {
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
+                $pendingAttrsInList = false;
             }
 
             $i++;

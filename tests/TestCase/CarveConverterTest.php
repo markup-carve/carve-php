@@ -2836,6 +2836,14 @@ DJOT;
         $this->assertStringContainsString('href="https://example.com"', $result);
     }
 
+    public function testReferenceDefinitionInsideListItemResolves(): void
+    {
+        $djot = "- [ref]: /url\n\nSee [it][ref].";
+        $expected = "<ul>\n  <li></li>\n</ul>\n<p>See <a href=\"/url\">it</a>.</p>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
     public function testUnclosedLinkEmphasisBoundary(): void
     {
         // Emphasis should NOT cross [text]( boundary when link is unclosed
