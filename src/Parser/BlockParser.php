@@ -30,6 +30,7 @@ use Carve\Node\Document;
 use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Image;
 use Carve\Node\Inline\Math;
+use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
 use Carve\Parser\Block\FencedBlockParser;
@@ -1098,6 +1099,7 @@ class BlockParser
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseLineBlock($parent, $lines, $i)
+                ?? $this->tryParseHardBreaksBlock($parent, $lines, $i, $divCloserSuffix)
                 ?? $this->tryParseDiv($parent, $lines, $i, $divCloserSuffix)
                 ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
@@ -1713,6 +1715,119 @@ class BlockParser
         $parent->appendChild($div);
 
         return $i - $start;
+    }
+
+    /**
+     * Try to parse a local hard-break container (`::: \`).
+     *
+     * Unlike `::: |` line blocks, this parses ordinary block content and only
+     * upgrades soft breaks in direct paragraph children. Nested blocks keep their
+     * normal soft-break behavior.
+     *
+     * @param \Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     * @param array<int, int> $divCloserSuffix
+     */
+    protected function tryParseHardBreaksBlock(Node $parent, array $lines, int $start, array $divCloserSuffix): ?int
+    {
+        $line = $lines[$start];
+        if (preg_match('/^(?<fence>:{3,})[ \t]+\\\\[ \t]*$/', $line, $matches) !== 1) {
+            return null;
+        }
+
+        $fenceLength = strlen($matches['fence']);
+        if (($divCloserSuffix[$start + 1] ?? 0) < $fenceLength) {
+            return null;
+        }
+
+        $div = new Div();
+        $div->addClass('hardbreaks');
+        foreach ($this->pendingAttributes as $name => $value) {
+            if ($name === 'class') {
+                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
+                    if ($class !== '') {
+                        $div->addClass($class);
+                    }
+                }
+            } else {
+                $div->setAttribute($name, $value);
+            }
+        }
+        $this->pendingAttributes = [];
+
+        $innerLines = [];
+        $i = $start + 1;
+        $count = count($lines);
+        $closed = false;
+        $inCodeBlock = false;
+        $codeBlockFence = '';
+        $codeBlockFenceLength = 0;
+
+        while ($i < $count) {
+            $currentLine = $lines[$i];
+
+            if (!$inCodeBlock) {
+                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
+                if ($codeFenceInfo !== null) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $codeFenceInfo['char'];
+                    $codeBlockFenceLength = $codeFenceInfo['length'];
+                    $innerLines[] = $currentLine;
+                    $i++;
+
+                    continue;
+                }
+            }
+            if ($inCodeBlock) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
+                    $inCodeBlock = false;
+                }
+                $innerLines[] = $currentLine;
+                $i++;
+
+                continue;
+            }
+
+            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $fenceLength)) {
+                $i++;
+                $closed = true;
+
+                break;
+            }
+
+            $innerLines[] = $currentLine;
+            $i++;
+        }
+
+        if (!$closed) {
+            return null;
+        }
+
+        $previousOffset = $this->lineOffset;
+        $this->lineOffset = $previousOffset + $start + 1;
+        $this->parseBlocks($div, $innerLines, 0);
+        $this->lineOffset = $previousOffset;
+
+        $this->convertDirectParagraphSoftBreaksToHardBreaks($div);
+        $parent->appendChild($div);
+
+        return $i - $start;
+    }
+
+    protected function convertDirectParagraphSoftBreaksToHardBreaks(Div $div): void
+    {
+        foreach ($div->getChildren() as $child) {
+            if (!$child instanceof Paragraph) {
+                continue;
+            }
+
+            foreach ($child->getChildren() as $index => $inline) {
+                if ($inline instanceof SoftBreak) {
+                    $child->replaceChild($index, new HardBreak());
+                }
+            }
+        }
     }
 
     /**
