@@ -39,8 +39,8 @@ class AttributeParser
         // Strip quoted values and unquoted key=value pairs before matching .class and #id
         // to avoid matching dots/hashes inside attribute values like key="file.txt"
         // or partial matches from invalid unquoted values like key=foo/bar
-        $strippedForShorthand = preg_replace('/"(?:[^"\\\\]|\\\\.)*"/', '', $attrStr) ?? $attrStr;
-        $strippedForShorthand = preg_replace("/'(?:[^'\\\\]|\\\\.)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
+        $strippedForShorthand = preg_replace('/"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
+        $strippedForShorthand = preg_replace("/'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
         // Strip unquoted key=value tokens entirely (up to whitespace) to prevent
         // invalid chars like slashes from being misinterpreted as shorthand
         $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^\s}]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
@@ -59,7 +59,10 @@ class AttributeParser
         }
 
         // Parse key="double quoted value", key='single quoted value', or key=unquoted
-        // The regex uses ([^"\\]|\\.)* to match content with escaped characters
+        // The regex uses the unrolled form [^"\\]*(?:\\.[^"\\]*)* to match
+        // content with escaped characters in linear time (the naive
+        // ([^"\\]|\\.)* shape is catastrophic and trips the PCRE JIT
+        // stacklimit on long values, see the engine-error guards below).
         // Per carve conformance, unquoted values may contain:
         // alphanumerics, underscore, colon, hyphen, and dot.
         // Unquoted values must be followed by whitespace or } to be valid.
@@ -68,11 +71,12 @@ class AttributeParser
         // a digit-first key (`123=v`) is not matched -- the block then yields
         // no attribute and stays literal (§14). This also avoids a numeric
         // string key being cast to int when used as an array key.
-        $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="((?:[^"\\\\]|\\\\.)*)"|'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\''
+        $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
             . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)/';
 
-        if (preg_match_all($kvPattern, $attrStr, $kvMatches, PREG_SET_ORDER)) {
+        $kvMatches = [];
+        if (self::safeMatchAll($kvPattern, $attrStr, $kvMatches)) {
             foreach ($kvMatches as $match) {
                 if (($match[1] ?? '') !== '') {
                     // key="double quoted value"
@@ -89,8 +93,8 @@ class AttributeParser
 
         // Parse boolean attributes (bare words like "reversed", "hidden")
         // First, strip out quoted values and key=value pairs to avoid matching words inside them
-        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+="(?:[^"\\\\]|\\\\.)*"/', '', $attrStr) ?? $attrStr;
-        $strippedAttr = preg_replace("/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+='(?:[^'\\\\]|\\\\.)*'/", '', $strippedAttr) ?? $strippedAttr;
+        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+="[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
+        $strippedAttr = preg_replace("/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+='[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedAttr) ?? $strippedAttr;
         $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[a-zA-Z0-9_.:-]+/', '', $strippedAttr) ?? $strippedAttr;
 
         // Now match bare words (must not start with . or #)
@@ -126,9 +130,9 @@ class AttributeParser
         // the block yields no such attribute and stays literal (§14).
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="((?:[^"\\\\]|\\\\.)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
@@ -141,7 +145,8 @@ class AttributeParser
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
 
-        preg_match_all($pattern, $attrStr, $matches, PREG_SET_ORDER);
+        $matches = [];
+        self::safeMatchAll($pattern, $attrStr, $matches);
 
         foreach ($matches as $match) {
             if (($match[1] ?? '') !== '') {
@@ -214,9 +219,9 @@ class AttributeParser
         // also prevents a numeric key being cast to int and crashing escape().
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="((?:[^"\\\\]|\\\\.)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'((?:[^\'\\\\]|\\\\.)*)\'|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
@@ -230,7 +235,8 @@ class AttributeParser
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
 
-        preg_match_all($pattern, $attrStr, $matches, PREG_SET_ORDER);
+        $matches = [];
+        self::safeMatchAll($pattern, $attrStr, $matches);
 
         foreach ($matches as $match) {
             if (($match[1] ?? '') !== '') {
@@ -269,7 +275,7 @@ class AttributeParser
     {
         // Quoted key=values first, so dots/braces/% inside quotes are protected.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $attrStr,
         ) ?? $attrStr;
@@ -289,6 +295,55 @@ class AttributeParser
         }
 
         return trim($rest) === '';
+    }
+
+    /**
+     * Run preg_match_all defensively so a PCRE engine failure is never
+     * mistaken for "no matches".
+     *
+     * The attribute value sub-patterns are unrolled (linear), so the classic
+     * PREG_JIT_STACKLIMIT_ERROR on long quoted values is no longer reachable.
+     * This guard is defense-in-depth: if PCRE ever reports an engine error
+     * (JIT stack/back-track limit, recursion limit, etc.) we retry once with
+     * the JIT compiler disabled rather than silently dropping every attribute
+     * on the element (which would leak the literal `{...}` and could strip
+     * security-relevant attributes such as rel="noopener" or a CSP nonce).
+     *
+     * @param-out list<array<string>> $matches
+     *
+     * @param string $pattern PCRE pattern.
+     * @param string $subject Subject string.
+     * @param array<int, array<int, string>> $matches Filled with PREG_SET_ORDER matches.
+     *
+     * @return int Number of full matches found (0 on a clean no-match).
+     */
+    protected static function safeMatchAll(string $pattern, string $subject, array &$matches): int
+    {
+        $count = preg_match_all($pattern, $subject, $matches, PREG_SET_ORDER);
+        if ($count !== false && preg_last_error() === PREG_NO_ERROR) {
+            return $count;
+        }
+
+        // Engine error (e.g. JIT stack limit). Retry with the JIT disabled so
+        // the value is matched by the PCRE interpreter instead of being
+        // silently dropped.
+        $jit = ini_get('pcre.jit');
+        ini_set('pcre.jit', '0');
+        try {
+            $count = preg_match_all($pattern, $subject, $matches, PREG_SET_ORDER);
+        } finally {
+            ini_set('pcre.jit', $jit === false ? '1' : $jit);
+        }
+
+        if ($count === false) {
+            // Non-JIT PCRE still failed; fall back to a clean no-match result so
+            // callers behave deterministically rather than dropping attributes.
+            $matches = [];
+
+            return 0;
+        }
+
+        return $count;
     }
 
     /**

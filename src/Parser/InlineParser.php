@@ -2680,7 +2680,7 @@ class InlineParser
         // Quoted key=values first, so `%`, dots and braces inside quotes are
         // protected from the comment stripper and the shorthand patterns.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $rest,
         ) ?? $rest;
