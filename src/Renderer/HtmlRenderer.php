@@ -320,7 +320,7 @@ class HtmlRenderer implements RendererInterface
     /**
      * Get the build-time renderer for a client-script extension, if supplied.
      *
-     * @param string $name Extension name (e.g. `mermaid`, `chart`, `math`).
+     * @param string $name Extension name (e.g. `mermaid`, `chart`, `graphviz`, `math`).
      *
      * @return \Closure(string): string|null
      */

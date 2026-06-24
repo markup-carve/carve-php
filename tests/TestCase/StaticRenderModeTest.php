@@ -240,6 +240,47 @@ class StaticRenderModeTest extends TestCase
         $this->assertStringContainsString('data-djot-src="``` mermaid', $html);
     }
 
+    public function testGraphvizStaticFallsBackToSourceWithoutRenderer(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(FencedRenderExtension::graphviz());
+
+        $html = trim($converter->convert("```graphviz\ndigraph { A -> B }\n```\n"));
+
+        $this->assertSame(
+            '<pre class="graphviz"><code class="language-graphviz">digraph { A -&gt; B }</code></pre>',
+            $html,
+        );
+    }
+
+    public function testGraphvizStaticUsesSuppliedRenderer(): void
+    {
+        $converter = new CarveConverter(
+            mode: RenderMode::STATIC,
+            renderers: ['graphviz' => fn (string $src): string => '<svg data-src="' . trim($src) . '"></svg>'],
+        );
+        $converter->addExtension(FencedRenderExtension::graphviz());
+
+        $html = trim($converter->convert("```graphviz\ndigraph { A -> B }\n```\n"));
+
+        $this->assertSame('<div class="graphviz"><svg data-src="digraph { A -> B }"></svg></div>', $html);
+    }
+
+    public function testGraphvizDotAliasConsultsTheGraphvizRendererKey(): void
+    {
+        // The graphviz preset also claims the `dot` fence word; both map to the
+        // same `graphviz` renderer key (keyed by cssClass).
+        $converter = new CarveConverter(
+            mode: RenderMode::STATIC,
+            renderers: ['graphviz' => fn (string $src): string => '<svg/>'],
+        );
+        $converter->addExtension(FencedRenderExtension::graphviz());
+
+        $html = trim($converter->convert("```dot\ndigraph { A -> B }\n```\n"));
+
+        $this->assertSame('<div class="graphviz"><svg/></div>', $html);
+    }
+
     public function testMathStaticPreservesAuthorAttributes(): void
     {
         $source = "{#eq .big}\n```math\n\\pi\n```\n";
