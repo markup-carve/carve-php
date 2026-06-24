@@ -103,6 +103,26 @@ class AnsiRenderer implements RendererInterface
      */
     public const REVERSE = "\033[7m";
 
+    protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
+
+    /**
+     * Set how soft breaks are rendered.
+     */
+    public function setSoftBreakMode(SoftBreakMode $mode): self
+    {
+        $this->softBreakMode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * Get the current soft break mode.
+     */
+    public function getSoftBreakMode(): SoftBreakMode
+    {
+        return $this->softBreakMode;
+    }
+
     // Foreground colors
     /**
      * @var string
@@ -418,11 +438,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
                 $node instanceof HardBreak => "\n",
-                // A soft break is a single source newline that stays inside the
-                // paragraph; in terminal output it renders as a space. For a visible
-                // line break use a `::: |` line block or a trailing backslash hard
-                // break.
-                $node instanceof SoftBreak => ' ',
+                $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof Superscript => $this->renderSuperscript($node),
                 $node instanceof Subscript => $this->renderSubscript($node),
                 $node instanceof Highlight => $this->renderHighlight($node),
@@ -689,6 +705,9 @@ class AnsiRenderer implements RendererInterface
                     'isHeader' => $row['isHeader'],
                 ];
             }
+            while ($cells !== [] && end($cells)['content'] === '') {
+                array_pop($cells);
+            }
             $rows[] = $cells;
         }
 
@@ -843,7 +862,7 @@ class AnsiRenderer implements RendererInterface
         // Format: \033]8;;URL\033\\TEXT\033]8;;\033\\
         $styled = $this->style($text, self::UNDERLINE . self::FG_BLUE);
 
-        if ($url !== null && $url !== '' && $url !== $text) {
+        if ($url !== null && $url !== '' && $url !== $text && !str_starts_with($url, '#')) {
             $styled .= $this->style(' (' . $this->stripControls($url) . ')', self::DIM);
         }
 

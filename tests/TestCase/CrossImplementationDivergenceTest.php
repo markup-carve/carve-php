@@ -31,11 +31,12 @@ class CrossImplementationDivergenceTest extends TestCase
     {
         $source = "See [name][]\n\n# Name";
 
-        $this->assertStringContainsString('[name](#Name)', CarveConverter::markdown()->convert($source));
-        $this->assertStringContainsString('#Name', CarveConverter::plainText()->convert($source));
+        $this->assertSame("See [name](#Name)\n\n# Name {#Name}\n", CarveConverter::markdown()->convert($source));
+        $this->assertSame("See name\n\nName\n", CarveConverter::plainText()->convert($source));
 
         $ansi = CarveConverter::ansi()->convert($source);
         $this->assertStringContainsString('name', $this->stripSgr($ansi));
+        $this->assertStringNotContainsString(' (#Name)', $this->stripSgr($ansi));
         $this->assertStringNotContainsString('[name][]', $ansi);
     }
 
@@ -55,10 +56,11 @@ class CrossImplementationDivergenceTest extends TestCase
         $source = "|=A|\n|^|x|";
 
         $this->assertSame("| A |\n| --- | --- |\n|  | x |\n", CarveConverter::markdown()->convert($source));
-        $this->assertSame("A | \n | x\n", CarveConverter::plainText()->convert($source));
+        $this->assertSame("A\n | x\n", CarveConverter::plainText()->convert($source));
 
         $ansi = $this->stripSgr(CarveConverter::ansi()->convert($source));
-        $this->assertStringContainsString('│ A │   │', $ansi);
+        $this->assertStringContainsString('│ A │', $ansi);
+        $this->assertStringNotContainsString('│ A │   │', $ansi);
         $this->assertStringContainsString('│   │ x │', $ansi);
     }
 

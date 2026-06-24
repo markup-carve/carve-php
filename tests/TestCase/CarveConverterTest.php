@@ -1592,6 +1592,33 @@ DJOT;
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testHardBreaksBlockConvertsDirectParagraphSoftBreaks(): void
+    {
+        $djot = "::: \\\none\ntwo\n:::";
+        $expected = "<div class=\"hardbreaks\">\n  <p>one<br>\ntwo</p>\n</div>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testHardBreaksBlockMergesExistingClasses(): void
+    {
+        $djot = "{.mine}\n::: \\\none\ntwo\n:::";
+        $expected = "<div class=\"hardbreaks mine\">\n  <p>one<br>\ntwo</p>\n</div>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testHardBreaksBlockDoesNotAffectNestedBlocks(): void
+    {
+        $djot = ":::: \\\none\ntwo\n\n::: note\na\nb\n:::\n::::";
+        $result = $this->converter->convert($djot);
+
+        $this->assertStringContainsString("<p>one<br>\ntwo</p>", $result);
+        $this->assertStringContainsString('<aside class="admonition note">', $result);
+        $this->assertStringContainsString("<p>a\nb</p>", $result);
+        $this->assertStringNotContainsString("<p>a<br>\nb</p>", $result);
+    }
+
     public function testLineBlockWithFormatting(): void
     {
         $djot = "::: |\nThis is *strong*\nAnd /emphasis/\n:::";

@@ -71,6 +71,8 @@ class PlainTextRenderer implements RendererInterface
 
     protected string $blockQuoteSuffix = '"';
 
+    protected SoftBreakMode $softBreakMode = SoftBreakMode::Space;
+
     protected HeadingIdTracker $headingIdTracker;
 
     protected int $renderDepth = 0;
@@ -78,6 +80,24 @@ class PlainTextRenderer implements RendererInterface
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
+    }
+
+    /**
+     * Set how soft breaks are rendered.
+     */
+    public function setSoftBreakMode(SoftBreakMode $mode): self
+    {
+        $this->softBreakMode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * Get the current soft break mode.
+     */
+    public function getSoftBreakMode(): SoftBreakMode
+    {
+        return $this->softBreakMode;
     }
 
     public function render(Document $document): string
@@ -151,10 +171,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-                // A soft break is a single source newline that stays inside the
-                // paragraph; in plain text it renders as a space. For a visible line
-                // break use a `::: |` line block or a trailing backslash hard break.
-                $node instanceof SoftBreak => ' ',
+                $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => '', // Skip raw inlines (format-specific)
                 default => $this->renderChildren($node),
@@ -296,6 +313,9 @@ class PlainTextRenderer implements RendererInterface
             foreach ($row['cells'] as $cell) {
                 $cells[] = is_string($cell) ? $cell : '';
             }
+            while ($cells !== [] && end($cells) === '') {
+                array_pop($cells);
+            }
             $text .= implode($this->tableCellSeparator, $cells) . "\n";
         }
 
@@ -353,9 +373,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        $destination = $node->getDestination();
-
-        return $destination === null ? $this->renderChildren($node) : $this->stripControls($destination);
+        return $this->renderChildren($node);
     }
 
     /**
