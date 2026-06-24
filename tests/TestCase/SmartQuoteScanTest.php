@@ -44,6 +44,20 @@ class SmartQuoteScanTest extends TestCase
         );
     }
 
+    public function testQuoteAfterNonBreakingSpaceOpens(): void
+    {
+        // A non-breaking space is whitespace for quote flanking, so a quote
+        // after one opens -- both the escaped `\ ` form and a literal U+00A0.
+        $this->assertSame(
+            "<p>say&nbsp;\u{2018}twas a fine&nbsp;\u{201C}day\u{201D}</p>",
+            trim($this->converter->convert("say\\ 'twas a fine\\ \"day\"")),
+        );
+        $this->assertSame(
+            "<p>a&nbsp;\u{2018}tis</p>",
+            trim($this->converter->convert("a\u{00A0}'tis")),
+        );
+    }
+
     public function testApostropheCasesStayApostrophe(): void
     {
         // Mid-word and before-digit single quotes are apostrophes, not openers.
