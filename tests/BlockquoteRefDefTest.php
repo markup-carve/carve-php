@@ -49,14 +49,10 @@ class BlockquoteRefDefTest extends TestCase
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
 
-    public function testListItemRefDefIsNotCollectedGlobally(): void
+    public function testListItemRefDefResolvesGlobally(): void
     {
-        // List markers are deliberately NOT stripped (avoids the
-        // ambiguous "is `- [r]: /u` a list item or a definition?" trap).
-        // `[x][r]` stays unresolved when the only "definition" lives
-        // inside a list item.
         $html = $this->converter->convert("[x][r] here.\n\n- [r]: /u");
-        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testIndentedQuoteLikeLineIsNotCollected(): void
