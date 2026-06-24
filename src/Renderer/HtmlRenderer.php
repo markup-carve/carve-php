@@ -1657,12 +1657,21 @@ class HtmlRenderer implements RendererInterface
      * Blanks a URL whose (normalized) scheme is one of the dangerous denylist
      * schemes (`javascript`, `vbscript`, `data`, `file`); every other scheme
      * and any scheme-less URL passes. Safe mode may apply a stricter allowlist
-     * on top. Scheme detection strips C0 controls + spaces to defeat
-     * `java\tscript:` evasion.
+     * on top. Scheme detection strips C0 controls + spaces and any Unicode
+     * whitespace / separator (NBSP, line/paragraph separators, etc.) to defeat
+     * `java\tscript:` and `\u{00A0}javascript:` evasion.
      */
     private function sanitizeUrlBaseline(string $url): string
     {
-        $probe = (string)preg_replace('/[\x00-\x20]+/', '', $url);
+        // Strip ASCII C0/space plus Unicode whitespace and separators before the
+        // scheme probe so a leading NBSP (U+00A0) or other Unicode space cannot
+        // hide a `javascript:` / `data:` scheme from the denylist.
+        $probe = preg_replace('/[\x00-\x20]+|[\p{Z}\p{Cc}]+/u', '', $url);
+        if ($probe === null) {
+            // PCRE refused the UTF-8 pass (invalid byte sequence); fall back to
+            // the ASCII-only strip so a malformed URL is still probed.
+            $probe = (string)preg_replace('/[\x00-\x20]+/', '', $url);
+        }
         if (preg_match('/^([a-zA-Z][a-zA-Z0-9+.\-]*):/', $probe, $m) === 1) {
             if (in_array(strtolower($m[1]), self::DANGEROUS_VALUE_SCHEMES, true)) {
                 return '';

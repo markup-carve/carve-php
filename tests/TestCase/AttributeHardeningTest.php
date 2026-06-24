@@ -107,6 +107,18 @@ class AttributeHardeningTest extends TestCase
         $this->assertStringContainsString('href="/p"', $this->render('[r](/p)'));
     }
 
+    public function testLeadingUnicodeWhitespaceCannotHideDangerousScheme(): void
+    {
+        // A leading NBSP (U+00A0) must not smuggle a javascript: scheme past the
+        // denylist: the probe strips Unicode whitespace before scheme matching.
+        $nbsp = "\u{00A0}";
+        $this->assertStringNotContainsString('javascript:', $this->render('[x](' . $nbsp . 'javascript:alert(1))'));
+        $this->assertStringNotContainsString(
+            'javascript:',
+            $this->render('![i](' . $nbsp . 'javascript:alert(1))'),
+        );
+    }
+
     public function testCssStyleHardeningBlanksFetchAndScriptConstructs(): void
     {
         $this->assertStringContainsString('style=""', $this->render('[x]{style="background:url(javascript:1)"}'));
