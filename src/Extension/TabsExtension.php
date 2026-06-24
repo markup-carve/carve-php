@@ -178,7 +178,7 @@ use Carve\Util\StringUtil;
  * });
  * ```
  */
-class TabsExtension implements ResettableExtensionInterface
+class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
     /**
      * Output mode: 'css' for CSS-only, 'aria' for ARIA with JS
@@ -258,6 +258,44 @@ class TabsExtension implements ResettableExtensionInterface
     {
         $this->tabSetCounter = 0;
         $this->labelCounter = 0;
+    }
+
+    /**
+     * Static render: flatten the tab set into a sequence of `<section>`s, each
+     * headed by its `[label]` (the tab header in interactive mode). No click,
+     * but every panel and its distinguishing label survives - the graceful
+     * degradation rule for tabs / code-group.
+     */
+    public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+    {
+        $node = $event->getNode();
+        if (!$node instanceof Div) {
+            return false;
+        }
+        if (!$node->hasClass('tabs')) {
+            return false;
+        }
+
+        $tabs = $this->collectTabs($node, $renderer);
+        if ($tabs === []) {
+            return false;
+        }
+
+        $attrs = $this->buildWrapperAttributes($node, $renderer);
+        $html = '<div' . $attrs . ">\n";
+        foreach ($tabs as $tab) {
+            $body = rtrim($tab['content'], "\n");
+            $html .= '<section class="' . StringUtil::escapeHtml($this->tabClass) . "\">\n"
+                . '<p class="' . StringUtil::escapeHtml($this->labelClass) . '">'
+                . StringUtil::escapeHtml($tab['label']) . "</p>\n"
+                . ($body !== '' ? $body . "\n" : '')
+                . "</section>\n";
+        }
+        $html .= "</div>\n";
+
+        $event->setHtml($html);
+
+        return true;
     }
 
     /**

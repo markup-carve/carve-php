@@ -479,12 +479,22 @@ class MarkdownRenderer implements RendererInterface
         // admonition's quoted title is stored as the `title` attribute (PART 9
         // §12) and would otherwise be lost — preserve it as a leading bold line.
         $body = $this->renderChildren($node);
+        $prefix = '';
         $title = $node->getAttribute('title');
         if (is_string($title) && $title !== '') {
-            return '**' . $this->escapeText($this->stripControls($title)) . "**\n\n" . $body;
+            $prefix .= '**' . $this->escapeText($this->stripControls($title)) . "**\n\n";
+        }
+        // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
+        // §12) is normally consumed by a group extension (e.g. tabs). When no
+        // extension replaced this div, surface the label as a leading bold line
+        // so it is not silently dropped. Title (if any) renders first, then the
+        // label. Diverges from the current spec corpus pending adoption.
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $prefix .= '**' . $this->escapeText($this->stripControls($label)) . "**\n\n";
         }
 
-        return $body;
+        return $prefix . $body;
     }
 
     protected function renderTable(Table $node): string

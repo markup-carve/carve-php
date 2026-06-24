@@ -100,12 +100,41 @@ class DetailsExtension implements ExtensionInterface
         $summary = $title !== null && trim($title) !== '' ? $title : self::DEFAULT_SUMMARY;
 
         $attrs = $this->renderTagAttributes($node, $renderer);
+
+        // Static mode targets a non-interactive consumer (print/PDF engine) that
+        // never fires a click to expand the widget, so the disclosure body would
+        // be lost. Force the `open` attribute so the body is visible. Author
+        // attributes still render before it, but we only append `open` if the
+        // node did not already carry one (avoids a duplicate attribute). HTML
+        // attribute names are case-insensitive, so a `{Open}` variant the parser
+        // preserves verbatim must also suppress the fallback.
+        if ($renderer->isStaticMode() && !$this->hasOpenAttribute($node)) {
+            $attrs .= ' open';
+        }
+
         $body = rtrim($this->indentBlock(rtrim($childrenHtml, "\n"), 2), "\n");
 
         return '<details' . $attrs . ">\n"
             . '  <summary>' . $this->escapeHtml($summary) . "</summary>\n"
             . ($body !== '' ? $body . "\n" : '')
             . "</details>\n";
+    }
+
+    /**
+     * Whether the node already carries an `open` attribute under any casing.
+     *
+     * HTML attribute names are case-insensitive and the parser preserves the
+     * author's casing verbatim, so `open`, `Open`, and `OPEN` all count.
+     */
+    protected function hasOpenAttribute(Div $node): bool
+    {
+        foreach (array_keys($node->getAttributes()) as $key) {
+            if (strcasecmp($key, 'open') === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

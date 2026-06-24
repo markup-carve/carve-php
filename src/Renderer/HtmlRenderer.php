@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Renderer;
 
 use Carve\Event\RenderEvent;
+use Carve\Extension\StaticRenderExtensionInterface;
 use Carve\Node\Block\BlockQuote;
 use Carve\Node\Block\Caption;
 use Carve\Node\Block\CodeBlock;
@@ -92,6 +93,31 @@ class HtmlRenderer implements RendererInterface
      * for perfect HTML→Djot conversion (e.g., list markers, thematic break characters)
      */
     protected bool $roundTripMode = false;
+
+    /**
+     * Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC.
+     */
+    protected string $renderMode = RenderMode::INTERACTIVE;
+
+    /**
+     * Build-time renderers for client-script extensions, keyed by extension
+     * name (e.g. `mermaid`, `chart`, `math`). Each maps a source string to a
+     * rendered string (SVG / PNG markup / MathML / HTML). Used only in
+     * `static` mode; when the needed renderer is absent the extension falls
+     * back to source, never blank.
+     *
+     * @var array<string, \Closure(string): string>
+     */
+    protected array $staticRenderers = [];
+
+    /**
+     * Extensions offering a static-HTML render path, consulted (in
+     * registration order) before the ordinary render-event listeners when
+     * the render mode is `static`.
+     *
+     * @var array<\Carve\Extension\StaticRenderExtensionInterface>
+     */
+    protected array $staticRenderExtensions = [];
 
     protected RenderContext $sharedRenderContext;
 
@@ -269,6 +295,71 @@ class HtmlRenderer implements RendererInterface
     public function isRoundTripMode(): bool
     {
         return $this->roundTripMode;
+    }
+
+    /**
+     * Set the render mode.
+     *
+     * @param string $mode RenderMode::INTERACTIVE or RenderMode::STATIC.
+     */
+    public function setRenderMode(string $mode): self
+    {
+        $this->renderMode = RenderMode::validate($mode);
+
+        return $this;
+    }
+
+    /**
+     * Get the current render mode.
+     */
+    public function getRenderMode(): string
+    {
+        return $this->renderMode;
+    }
+
+    /**
+     * Whether the renderer is in static mode.
+     */
+    public function isStaticMode(): bool
+    {
+        return $this->renderMode === RenderMode::STATIC;
+    }
+
+    /**
+     * Set the build-time renderers for client-script extensions.
+     *
+     * @param array<string, \Closure(string): string> $renderers Source-to-string callables keyed by extension name.
+     */
+    public function setStaticRenderers(array $renderers): self
+    {
+        $this->staticRenderers = $renderers;
+
+        return $this;
+    }
+
+    /**
+     * Get the build-time renderer for a client-script extension, if supplied.
+     *
+     * @param string $name Extension name (e.g. `mermaid`, `chart`, `graphviz`, `math`).
+     *
+     * @return \Closure(string): string|null
+     */
+    public function getStaticRenderer(string $name): ?Closure
+    {
+        return $this->staticRenderers[$name] ?? null;
+    }
+
+    /**
+     * Register an extension that offers a static-HTML render path.
+     *
+     * Consulted in registration order before the ordinary render-event
+     * listeners when the render mode is `static`.
+     */
+    public function addStaticRenderExtension(StaticRenderExtensionInterface $extension): self
+    {
+        $this->staticRenderExtensions[] = $extension;
+
+        return $this;
     }
 
     /**
@@ -567,6 +658,22 @@ class HtmlRenderer implements RendererInterface
 
         $this->renderDepth++;
         try {
+            // Static mode: offer each static-render extension the node first,
+            // before the ordinary interactive listeners. The first extension
+            // to claim it (setHtml) wins; otherwise we fall through to the
+            // normal listeners and the core renderer (which carries the
+            // caption floor for unconsumed labels). See RenderMode / §2.5.
+            if ($this->renderMode === RenderMode::STATIC && $this->staticRenderExtensions !== []) {
+                $event = new RenderEvent($node);
+                $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
+
+                foreach ($this->staticRenderExtensions as $extension) {
+                    if ($extension->renderStaticHtml($event, $this)) {
+                        return $event->getHtml() ?? '';
+                    }
+                }
+            }
+
             // Only dispatch events if listeners are registered (avoid object allocation)
             if ($this->hasAnyListeners()) {
                 $eventName = 'render.' . $node->getType();
@@ -964,6 +1071,18 @@ class HtmlRenderer implements RendererInterface
         $titleLine = '';
         if (is_string($titleAttr)) {
             $titleLine = '  <p class="admonition-title">' . $this->escape($titleAttr) . "</p>\n";
+        }
+
+        // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
+        // §12) is structured metadata normally consumed by a group extension
+        // (e.g. tabs). When no extension replaced this div, the label would be
+        // silently dropped in static output; surface it as a visible caption so
+        // stacked panels stay distinguishable. Title (if any) renders first,
+        // then the label. Diverges from the current spec corpus pending
+        // adoption (companion: carve-rs proto/div-label-fallback, spec PR #205).
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
         }
 
         // Tier 1: a canonical admonition type renders as a semantic

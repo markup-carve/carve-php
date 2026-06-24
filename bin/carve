@@ -14,6 +14,7 @@ declare(strict_types=1);
  *   -o, --output FILE Write output to FILE instead of stdout
  *   -x, --xhtml Use XHTML-compatible output
  *   -s, --safe Enable safe mode (sanitize HTML)
+ *   --static Render in static mode (flatten interactive constructs; HTML only)
  *   -w, --warnings Show parse warnings on stderr
  *   --strict Exit with error if warnings are generated
  *   -h, --help Show this help message
@@ -43,7 +44,14 @@ if (!$autoloaderFound) {
 }
 
 use Carve\CarveConverter;
+use Carve\Extension\CodeGroupExtension;
+use Carve\Extension\DetailsExtension;
+use Carve\Extension\FencedRenderExtension;
+use Carve\Extension\MathBlockExtension;
+use Carve\Extension\SpoilerExtension;
+use Carve\Extension\TabsExtension;
 use Carve\Parser\BlockParser;
+use Carve\Renderer\RenderMode;
 
 /**
  * Parse command line arguments
@@ -58,6 +66,7 @@ function parseArgs(array $argv): array
         'format' => 'html',
         'xhtml' => false,
         'safe' => false,
+        'static' => false,
         'warnings' => false,
         'strict' => false,
         'help' => false,
@@ -85,6 +94,8 @@ function parseArgs(array $argv): array
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
             $options['safe'] = true;
+        } elseif ($arg === '--static') {
+            $options['static'] = true;
         } elseif ($arg === '-w' || $arg === '--warnings') {
             $options['warnings'] = true;
         } elseif ($arg === '--strict') {
@@ -134,6 +145,11 @@ Options:
   -o, --output FILE   Write output to FILE instead of stdout
   -x, --xhtml         Use XHTML-compatible output (self-closing tags; HTML only)
   -s, --safe          Enable safe mode (sanitize dangerous HTML; HTML only)
+  --static            Render in static mode: flatten interactive constructs
+                      (tabs / code-group to labeled sections, mermaid / math to
+                      source) so the HTML needs no client scripts. HTML only;
+                      the bundled interactive extensions are auto-registered for
+                      the HTML format so the difference is visible.
   -w, --warnings      Show parse warnings on stderr
   --strict            Exit with error code 1 if warnings are generated
   -h, --help          Show this help message
@@ -141,6 +157,7 @@ Options:
 
 Examples:
   carve document.crv                    Render file to stdout (HTML)
+  carve --static document.crv           Render self-contained static HTML
   carve --ansi document.crv             Render colored terminal output
   carve --markdown document.crv         Render Markdown
   carve document.crv -o document.html   Render to an output file
@@ -222,8 +239,22 @@ $converter = match ($options['format']) {
         xhtml: $options['xhtml'],
         warnings: $wantWarnings,
         safeMode: $options['safe'] ? true : null,
+        mode: $options['static'] ? RenderMode::STATIC : RenderMode::INTERACTIVE,
     ),
 };
+
+// Register the bundled interactive extensions for the HTML format so a sample
+// that uses tabs / code-group / math / mermaid renders meaningfully in both
+// modes and the --static difference is observable. The non-HTML renderers
+// flatten these constructs natively, so they need no extension wiring here.
+if ($options['format'] === 'html') {
+    $converter->addExtension(new TabsExtension());
+    $converter->addExtension(new CodeGroupExtension());
+    $converter->addExtension(new MathBlockExtension());
+    $converter->addExtension(new DetailsExtension());
+    $converter->addExtension(new SpoilerExtension());
+    $converter->addExtension(FencedRenderExtension::mermaid());
+}
 
 // Convert
 $output = $converter->convert($input);

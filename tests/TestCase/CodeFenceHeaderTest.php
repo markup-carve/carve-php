@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase;
 
 use Carve\CarveConverter;
+use Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,8 +14,11 @@ use PHPUnit\Framework\TestCase;
  *
  * Code fences: ``` lang "Header" [Label]. The header rides as the `title`
  * attribute on the <pre> (rendering A); the [label] is inert in core.
- * Divs: ::: type "Header" [Label] and bare ::: [Label]; the [label] is inert
- * in core (a group extension such as tabs consumes it).
+ * Divs: ::: type "Header" [Label] and bare ::: [Label]. PROPOSAL (graceful
+ * degradation): when no group extension (e.g. tabs) consumes the div [label],
+ * it is surfaced as a visible caption (<p class="div-label"> in HTML, a bold
+ * line in Markdown/ANSI, a plain line in plain text) so the authored label is
+ * not silently dropped. Diverges from the current spec corpus pending adoption.
  */
 class CodeFenceHeaderTest extends TestCase
 {
@@ -126,8 +130,12 @@ class CodeFenceHeaderTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($carve));
     }
 
-    public function testDivHeaderAndLabelLabelInert(): void
+    public function testDivHeaderAndLabelRendersBothCaptions(): void
     {
+        // PROPOSAL (graceful degradation): when no extension consumes the
+        // grouping `[label]`, it is surfaced as a <p class="div-label"> caption
+        // after the quoted title's <p class="admonition-title">. Diverges from
+        // the current spec corpus (label was inert) pending adoption.
         $carve = <<<'CARVE'
         ::: tip "Pro Tip" [Build]
         Save early, save often.
@@ -135,21 +143,42 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<aside class=\"admonition tip\">\n"
             . "  <p class=\"admonition-title\">Pro Tip</p>\n"
+            . "  <p class=\"div-label\">Build</p>\n"
             . "  <p>Save early, save often.</p>\n"
             . "</aside>\n";
 
         $this->assertSame($expected, $this->converter->convert($carve));
     }
 
-    public function testBareDivWithLabelRendersPlainDiv(): void
+    public function testBareDivWithLabelRendersLabelCaption(): void
     {
+        // PROPOSAL (graceful degradation): an unconsumed `[label]` surfaces as
+        // a <p class="div-label"> caption rather than being dropped.
         $carve = <<<'CARVE'
         ::: [First]
         First panel.
         :::
         CARVE;
-        $expected = "<div>\n  <p>First panel.</p>\n</div>\n";
+        $expected = "<div>\n"
+            . "  <p class=\"div-label\">First</p>\n"
+            . "  <p>First panel.</p>\n"
+            . "</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($carve));
+    }
+
+    public function testLabelCaptionRendersInMarkdown(): void
+    {
+        // PROPOSAL: the unconsumed grouping label survives into Markdown as a
+        // leading bold line, mirroring the quoted-title fallback.
+        $carve = <<<'CARVE'
+        ::: tab [Installation]
+        Run the installer.
+        :::
+        CARVE;
+        $expected = "**Installation**\n\nRun the installer.";
+
+        $markdown = (new MarkdownRenderer())->render($this->converter->parse($carve));
+        $this->assertSame($expected, trim($markdown));
     }
 }
