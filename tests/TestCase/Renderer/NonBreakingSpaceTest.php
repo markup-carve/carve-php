@@ -93,6 +93,14 @@ class NonBreakingSpaceTest extends TestCase
         $this->assertStringContainsString('ice' . self::NBSP . 'cream', (new MarkdownRenderer())->render($document));
     }
 
+    public function testLiteralNonBreakingSpaceAfterHashIsPreservedInPlainTextAndAnsi(): void
+    {
+        $document = $this->converter->parse('#' . self::NBSP . 'h');
+
+        $this->assertSame('#' . self::NBSP . "h\n", (new PlainTextRenderer())->render($document));
+        $this->assertSame('#' . self::NBSP . "h\n", (new AnsiRenderer(useColors: false))->render($document));
+    }
+
     public function testLiteralNonBreakingSpaceIsEntityInHtml(): void
     {
         $html = $this->converter->convert('#' . self::NBSP . 'h');

@@ -79,6 +79,8 @@ class HtmlRenderer implements RendererInterface
      */
     protected ?SafeMode $safeMode = null;
 
+    protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
+
     /**
      * Tab width for code content (null = preserve tabs verbatim, the default and
      * djot/CommonMark-aligned behavior; integer = convert each tab to that many
@@ -230,6 +232,24 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
+     * Set how soft breaks are rendered.
+     */
+    public function setSoftBreakMode(SoftBreakMode $mode): self
+    {
+        $this->softBreakMode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * Get the current soft break mode.
+     */
+    public function getSoftBreakMode(): SoftBreakMode
+    {
+        return $this->softBreakMode;
+    }
+
+    /**
      * Set tab width for code blocks
      *
      * When set, tabs in code blocks and inline code are converted to spaces.
@@ -375,20 +395,37 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * Sentinel marking a soft break inside a list item's lead inline content.
-     * It keeps that break out of block indentation (indentBlock() never treats
-     * it as a line boundary), so a multi-line lead paragraph stays flush like
-     * carve-js/carve-rs/djot, instead of having its continuation re-indented.
-     * Restored to a newline at every public render exit. A NUL byte never
-     * appears in escaped HTML output, so the round-trip is safe.
+     * Sentinels marking inline line boundaries. The neutral guard keeps hard
+     * breaks and already-rendered inline newlines out of block indentation; the
+     * soft guard is replaced according to SoftBreakMode at public render exits.
+     * Control bytes never appear in escaped HTML output, so the round-trip is
+     * safe.
      *
      * @var string
      */
-    protected const SOFT_BREAK_GUARD = "\x00";
+    protected const INLINE_BREAK_GUARD = "\x00";
+
+    /**
+     * @var string
+     */
+    protected const SOFT_BREAK_GUARD = "\x01";
+
+    protected function softBreakReplacement(): string
+    {
+        return match ($this->softBreakMode) {
+            SoftBreakMode::Newline => "\n",
+            SoftBreakMode::Space => ' ',
+            SoftBreakMode::Break => ($this->xhtml ? '<br />' : '<br>') . "\n",
+        };
+    }
 
     protected function restoreSoftBreakGuards(string $html): string
     {
-        return str_replace(self::SOFT_BREAK_GUARD, "\n", $html);
+        return str_replace(
+            [self::INLINE_BREAK_GUARD, self::SOFT_BREAK_GUARD],
+            ["\n", $this->softBreakReplacement()],
+            $html,
+        );
     }
 
     /**
@@ -982,7 +1019,7 @@ class HtmlRenderer implements RendererInterface
         // carve-js/carve-rs/djot. Guard them so indentBlock() leaves them alone;
         // render() restores the newlines. Nested blocks ($rest) keep real
         // newlines and are indented normally.
-        $lead = str_replace("\n", self::SOFT_BREAK_GUARD, $lead);
+        $lead = str_replace("\n", self::INLINE_BREAK_GUARD, $lead);
 
         if ($node->isTask()) {
             $checked = $node->getChecked() ? ' checked' : '';
@@ -1341,22 +1378,12 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSoftBreak(): string
     {
-        // A soft break is a single source newline that stays inside the
-        // paragraph; it renders as a newline (collapsed by the browser). For a
-        // visible line break use a `::: |` line block (poetry/addresses) or a
-        // trailing backslash hard break.
-        //
-        // The newline is emitted as the soft-break guard so block indentation
-        // (indentBlock) never treats an inline soft/hard break as a line
-        // boundary - a hard-wrapped paragraph or heading keeps its continuation
-        // flush at column 0, matching carve-js/carve-rs/djot. The guard is
-        // restored to a real newline at every public render exit.
         return self::SOFT_BREAK_GUARD;
     }
 
     protected function renderHardBreak(): string
     {
-        return ($this->xhtml ? '<br />' : '<br>') . self::SOFT_BREAK_GUARD;
+        return ($this->xhtml ? '<br />' : '<br>') . self::INLINE_BREAK_GUARD;
     }
 
     protected function renderSpan(Span $node): string

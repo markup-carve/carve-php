@@ -23,6 +23,7 @@ use Carve\Renderer\MarkdownRenderer;
 use Carve\Renderer\PlainTextRenderer;
 use Carve\Renderer\RendererInterface;
 use Carve\Renderer\RenderMode;
+use Carve\Renderer\SoftBreakMode;
 use Carve\Transform\RenderAwareTransformerInterface;
 use Carve\Transform\TransformerInterface;
 use Closure;
@@ -126,16 +127,12 @@ class CarveConverter
      * @param bool $strict Whether to throw exceptions on parse errors
      * @param \Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
+     * @param \Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). For local visible line breaks, use `::: \` or a trailing backslash.
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
      * @param \Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
-     * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/roundTripMode if set)
-     *
-     * There is no soft-break mode: a soft break is a single source newline that
-     * stays inside the paragraph (collapsed by the browser in HTML). For a
-     * visible line break use a `::: |` line block (poetry/addresses) or a
-     * trailing backslash `\` (hard break, always renders as <br>).
+     * @param \Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
      */
     public function __construct(
         bool $xhtml = false,
@@ -143,6 +140,7 @@ class CarveConverter
         bool $strict = false,
         SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
+        ?SoftBreakMode $softBreakMode = null,
         bool $roundTripMode = false,
         string $mode = RenderMode::INTERACTIVE,
         array $renderers = [],
@@ -163,10 +161,15 @@ class CarveConverter
         if ($renderer !== null) {
             $this->renderer = $renderer;
         } else {
-            $this->renderer = new HtmlRenderer($xhtml);
+            $htmlRenderer = new HtmlRenderer($xhtml);
+            $this->renderer = $htmlRenderer;
 
             // Configure safe mode
             $this->setSafeMode($safeMode);
+
+            if ($softBreakMode !== null) {
+                $htmlRenderer->setSoftBreakMode($softBreakMode);
+            }
 
             // Configure round-trip mode
             if ($roundTripMode) {
