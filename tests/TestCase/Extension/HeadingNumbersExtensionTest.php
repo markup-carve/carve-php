@@ -153,4 +153,17 @@ HTML;
         $this->assertStringNotContainsString('section-number', $out);
         $this->assertStringContainsString('<a href="#Parsing">Parsing</a>', $out);
     }
+
+    public function testRoundTripModeDoesNotMarkAutoIdsExplicit(): void
+    {
+        // Numbering must not pin ids: in roundTripMode an auto-generated heading
+        // id must NOT gain data-djot-explicit-id, while a real {#id} keeps it.
+        $converter = new CarveConverter(roundTripMode: true);
+        $converter->addExtension(new HeadingNumbersExtension(minLevel: 2));
+        $out = $converter->convert("## Parsing\n\n{#custom}\n## Explicit");
+
+        $auto = substr($out, (int)strpos($out, 'id="Parsing"'), 40);
+        $this->assertStringNotContainsString('data-djot-explicit-id', $auto);
+        $this->assertStringContainsString('id="custom" data-djot-explicit-id="1"', $out);
+    }
 }

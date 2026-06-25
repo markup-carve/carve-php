@@ -142,10 +142,12 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
                 $byId[$id] = ['number' => $number, 'title' => $tracker->getTextForId($id) ?? ''];
             }
 
-            // Pin the clean id so the section wrapper is unaffected by the span.
-            if (!$heading->hasAttribute('id')) {
-                $heading->setAttribute('id', $id);
-            }
+            // Do NOT pin the id: setting it would make roundTripMode treat an
+            // auto-generated id as author-provided (`data-djot-explicit-id`).
+            // The renderer assigns the heading id itself, and its slug skips the
+            // section-number span (HeadingIdTracker::extractPlainText), so the
+            // injected span never pollutes the id - matching carve-js, which
+            // resolves ids before the span is added.
             $span = new Span();
             $span->addClass('section-number');
             $span->appendChild(new Text($number));

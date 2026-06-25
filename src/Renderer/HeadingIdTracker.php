@@ -12,6 +12,7 @@ use Carve\Node\Inline\HardBreak;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
 use Carve\Node\Inline\SoftBreak;
+use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
@@ -331,6 +332,13 @@ class HeadingIdTracker
     {
         $text = '';
         foreach ($node->getChildren() as $child) {
+            if ($child instanceof Span && $child->hasClass('section-number')) {
+                // The HeadingNumbers extension (Tier-3, #198) injects a
+                // `<span class="section-number">` into the heading. It is
+                // presentational only and must not feed the heading-id slug
+                // (otherwise the number would pollute the auto id).
+                continue;
+            }
             if ($child instanceof Text) {
                 $text .= $child->getContent();
             } elseif ($child instanceof EscapedText) {
