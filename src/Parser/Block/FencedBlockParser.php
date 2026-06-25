@@ -48,9 +48,8 @@ class FencedBlockParser
 
         // Info string (NORMATIVE, grammar PART 9 §2): an optional language
         // token, then an optional quoted "header", then an optional bracketed
-        // [label], in that fixed order. The language is any run of non-space,
-        // non-quote, non-bracket characters (carve-php is permissive here:
-        // ```=html djot-raw, ```text/html MIME tags). The "header" is a visible
+        // [label], in that fixed order. The language token follows the grammar:
+        // letters, digits, and - _ + # . / only. The "header" is a visible
         // title carried as the `title` attribute on the <pre> (rendering A);
         // the [label] is structured metadata a group extension (code-group)
         // uses as the tab name. Anything else -- a bare second word, a key=val
@@ -66,7 +65,7 @@ class FencedBlockParser
             $rest = $info;
             // optional language token (skipped when a "header" or [label] leads)
             if ($rest[0] !== '"' && $rest[0] !== '[') {
-                if (!preg_match('/^([^\s"\[]+)/', $rest, $im)) {
+                if (!preg_match('/^([A-Za-z0-9_\-+#.\/]+)/', $rest, $im)) {
                     return null;
                 }
                 $language = $im[1];
