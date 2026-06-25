@@ -84,6 +84,10 @@ class ColorSwatchExtension implements ExtensionInterface
      * @param string $shape Chip shape: one of self::SHAPES.
      * @param bool $tint When true, a faint tint of the color is painted behind the
      *   whole swatch (via CSS color-mix; decorative, degrades where unsupported).
+     * @param bool $reveal When true, the value text is collapsed and revealed on
+     *   hover / keyboard focus (pure-CSS; the `swatch-reveal` class drives it). The
+     *   value stays in the DOM for assistive tech. Ignored when position is `none`
+     *   (which already hides the value, surfacing it via the element title).
      *
      * @throws \InvalidArgumentException
      */
@@ -91,6 +95,7 @@ class ColorSwatchExtension implements ExtensionInterface
         protected string $position = 'before',
         protected string $shape = 'square',
         protected bool $tint = false,
+        protected bool $reveal = false,
     ) {
         if (!in_array($this->position, self::POSITIONS, true)) {
             throw new InvalidArgumentException(sprintf(
@@ -165,13 +170,21 @@ class ColorSwatchExtension implements ExtensionInterface
         if ($this->position === 'none') {
             // Chip only: the value is not shown inline, so surface it as the
             // element title so it stays available on hover and to assistive tech.
+            // `reveal` is meaningless here (there is no inline value) and ignored.
             $extraClasses[] = 'swatch-chip-only';
             $extraAttrs['title'] = $color;
             $inner = $chip;
-        } elseif ($this->position === 'after') {
-            $inner = $label . ' ' . $chip;
         } else {
-            $inner = $chip . ' ' . $label;
+            // When revealing, wrap the value so CSS can collapse / expand it, make
+            // the swatch keyboard-focusable, and keep the value in the DOM for AT.
+            if ($this->reveal) {
+                $extraClasses[] = 'swatch-reveal';
+                $extraAttrs['tabindex'] = '0';
+                $label = '<span class="swatch-val">' . $label . '</span>';
+            }
+            $inner = $this->position === 'after'
+                ? $label . ' ' . $chip
+                : $chip . ' ' . $label;
         }
 
         return '<span' . $this->openAttributes($node, $renderer, $extraClasses, $extraStyle, $extraAttrs) . '>'
