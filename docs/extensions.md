@@ -1134,6 +1134,24 @@ inert, and with no markers `::: index` stays a plain `<div class="index">`.
 $converter->addExtension(new IndexExtension());
 ~~~
 
+## Headings
+
+### HeadingNumbersExtension
+
+Auto-numbers sections and rewrites auto-filled `</#id>` cross-references
+(issue #198). Each numbered heading gains a `<span class="section-number">1.2</span>`
+inside its `<h*>` (gap-free dotted counter; the id stays on the `<section>`), and a
+`</#id>` cross-reference to a numbered heading renders `Section 1.2 - Title`.
+Skips blockquote-quoted and `{.unnumbered}` headings; ordinary `[text](#id)`
+links and implicit `[label][]` references keep their text. Options: `minLevel`
+(default 1; set 2 when `#` is the doc title), `label` (default `Section`),
+`crossref` (`number` | `number-title` | `title`). Opt-in, Tier-3, not
+corpus-pinned.
+
+~~~ php
+$converter->addExtension(new HeadingNumbersExtension(minLevel: 2));
+~~~
+
 ## Output post-processing
 
 ### DefaultAttributesExtension
