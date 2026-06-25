@@ -8,6 +8,7 @@ use Carve\CarveConverter;
 use Carve\Extension\CitationsExtension;
 use Carve\Node\Block\Paragraph;
 use Carve\Node\Inline\CitationGroup;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class CitationsExtensionTest extends TestCase
@@ -171,12 +172,152 @@ class CitationsExtensionTest extends TestCase
         $this->assertLessThan(1.0, microtime(true) - $start);
     }
 
+    // ----- Tier-3 Bibliography (#199) ---------------------------------------
+
+    public function testBibliographyResolvesPoolEntry(): void
+    {
+        $html = $this->bibHtml('See [@smith2020].', [$this->smith()]);
+
+        $this->assertStringContainsString('<a id="cite-smith2020-1" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString(
+            '<li id="ref-smith2020">Smith, John (2020). A Study. '
+                . '<a href="#cite-smith2020-1" class="ref-backref">↩</a></li>',
+            $html,
+        );
+    }
+
+    public function testInDocumentDefinitionOverridesPool(): void
+    {
+        $html = $this->bibHtml("See [@smith2020].\n\n[@smith2020]: In-doc entry.", [$this->smith()]);
+
+        $this->assertStringContainsString('<li id="ref-smith2020">In-doc entry.', $html);
+        $this->assertStringNotContainsString('A Study', $html);
+    }
+
+    public function testBibliographyEmitsOneBackLinkPerUseSite(): void
+    {
+        $html = $this->bibHtml('[@smith2020] then [@smith2020] again.', [$this->smith()]);
+
+        $this->assertStringContainsString('<a id="cite-smith2020-1" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-smith2020-2" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString('<a href="#cite-smith2020-1" class="ref-backref">↩</a>', $html);
+        $this->assertStringContainsString('<a href="#cite-smith2020-2" class="ref-backref">↩</a>', $html);
+    }
+
+    public function testMultiKeyGroupAnchorsEachKey(): void
+    {
+        $html = $this->bibHtml('[@a; @b]', [
+            ['id' => 'a', 'title' => 'Alpha'],
+            ['id' => 'b', 'title' => 'Beta'],
+        ]);
+
+        $this->assertStringContainsString('<a id="cite-a-1" href="#ref-a">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-b-1" href="#ref-b">2</a>', $html);
+    }
+
+    public function testUnresolvedKeyRendersVerbatim(): void
+    {
+        $html = $this->bibHtml('[@nope]', [$this->smith()]);
+
+        $this->assertStringContainsString('[@nope]', $html);
+        $this->assertStringNotContainsString('cite-nope', $html);
+        $this->assertStringNotContainsString('class="references"', $html);
+    }
+
+    public function testPartiallyResolvedGroupIsFullyVerbatim(): void
+    {
+        // [@a; @missing] renders verbatim because @missing is unresolved; @a
+        // must NOT leak into the references list or produce an orphan back-ref.
+        $html = $this->bibHtml('[@a; @missing]', [['id' => 'a', 'title' => 'Alpha']]);
+
+        $this->assertStringContainsString('[@a; @missing]', $html);
+        $this->assertStringNotContainsString('class="references"', $html);
+        $this->assertStringNotContainsString('ref-backref', $html);
+        $this->assertStringNotContainsString('id="cite-a-1"', $html);
+    }
+
+    public function testCslEntryTextIsEscapedAsPlainData(): void
+    {
+        $html = $this->bibHtml('[@x]', [['id' => 'x', 'title' => '<b>raw</b> & co']]);
+
+        $this->assertStringContainsString('&lt;b&gt;raw&lt;/b&gt; &amp; co.', $html);
+    }
+
+    /**
+     * @param array<string, mixed> $csl
+     * @param string $expected
+     */
+    #[DataProvider('cslFormatterProvider')]
+    public function testCslFormatter(array $csl, string $expected): void
+    {
+        $html = $this->bibHtml('[@x]', [['id' => 'x'] + $csl]);
+
+        $this->assertStringContainsString('<li id="ref-x">' . $expected . ' <a href="#cite-x-1"', $html);
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function cslFormatterProvider(): array
+    {
+        return [
+            'author + year + title' => [
+                ['author' => [['family' => 'Smith', 'given' => 'John']], 'issued' => ['date-parts' => [[2020]]], 'title' => 'T'],
+                'Smith, John (2020). T.',
+            ],
+            'author only' => [['author' => [['family' => 'Doe']]], 'Doe.'],
+            'year + title, no author' => [['issued' => ['date-parts' => [[1999]]], 'title' => 'T'], '(1999). T.'],
+            'multiple authors' => [
+                ['author' => [['family' => 'A', 'given' => 'X'], ['family' => 'B', 'given' => 'Y']], 'title' => 'T'],
+                'A, X; B, Y. T.',
+            ],
+            'literal name and year' => [
+                ['author' => [['literal' => 'WHO']], 'issued' => ['literal' => 'n.d.'], 'title' => 'T'],
+                'WHO (n.d.). T.',
+            ],
+        ];
+    }
+
+    public function testNoPoolKeepsTier2Behavior(): void
+    {
+        $html = $this->html("[@a].\n\n[@a]: A.");
+
+        $this->assertStringContainsString('<li id="ref-a">A.</li>', $html);
+        $this->assertStringNotContainsString('ref-backref', $html);
+        $this->assertStringNotContainsString('id="cite-a-1"', $html);
+    }
+
     private function converter(string $mode = 'numbered'): CarveConverter
     {
         $converter = new CarveConverter();
         $converter->addExtension(new CitationsExtension($mode));
 
         return $converter;
+    }
+
+    /**
+     * @param string $source
+     * @param array<int, array<string, mixed>> $bibliography
+     */
+    private function bibHtml(string $source, array $bibliography): string
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new CitationsExtension('numbered', $bibliography));
+
+        return trim($converter->convert($source));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function smith(): array
+    {
+        return [
+            'id' => 'smith2020',
+            'author' => [['family' => 'Smith', 'given' => 'John']],
+            'issued' => ['date-parts' => [[2020]]],
+            'title' => 'A Study',
+        ];
     }
 
     private function html(string $source): string
