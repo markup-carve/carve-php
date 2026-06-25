@@ -130,4 +130,27 @@ class Sev1RobustnessTest extends TestCase
         );
     }
 
+    /**
+     * Deeply nested balanced links `[[[…x]()…]()` used to cost O(n^2) in the
+     * inline parser (the matching-bracket scan re-ran the whole tail per `[`).
+     * An 8 KB input timed out (>15s). A bracket-nesting cap bounds each scan, so
+     * the run is linear in input size; this asserts a large input completes well
+     * under a wall-clock bound.
+     */
+    public function testDeeplyNestedBalancedLinksAreNearLinear(): void
+    {
+        $n = 8000;
+        $input = str_repeat('[', $n) . 'x' . str_repeat(']()', $n);
+
+        $converter = new CarveConverter();
+        $start = microtime(true);
+        $out = $converter->convert($input);
+        $elapsed = microtime(true) - $start;
+
+        $this->assertIsString($out);
+        // Pre-fix this took >15s; near-linear it is well under a second. A 5s
+        // ceiling leaves ample headroom for slow CI without re-admitting the
+        // quadratic blowup (which would be far over 5s at n=8000).
+        $this->assertLessThan(5.0, $elapsed, "nested-link parse took {$elapsed}s");
+    }
 }

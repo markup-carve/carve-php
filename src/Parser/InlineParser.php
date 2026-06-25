@@ -386,6 +386,18 @@ class InlineParser
     protected const MAX_INLINE_DEPTH = 100;
 
     /**
+     * Maximum `[`-nesting depth findBalancedBracketEnd will scan before bailing
+     * with null. Caps the per-scan cost so a long run of openers cannot drive
+     * the bracket scan to O(n^2) (see findBalancedBracketEnd). Generously deeper
+     * than any real document and well above MAX_INLINE_DEPTH, so a balanced
+     * bracket that the parser could actually act on is always within range and
+     * output stays byte-identical.
+     *
+     * @var int
+     */
+    protected const MAX_BRACKET_NESTING = 1000;
+
+    /**
      * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
      */
     protected int $inlineDepth = 0;
@@ -1856,6 +1868,18 @@ class InlineParser
 
             if ($text[$pos] === '[') {
                 $bracketDepth++;
+
+                // DoS guard: a run of openers like `[[[…[x]()]()…]()` makes the
+                // main loop call this scan at every `[`, and each scan walked
+                // the whole tail -> O(n^2) (an ~8 KB input timed out). Beyond a
+                // bracket nesting far deeper than any real document we bail with
+                // null (the run renders literally), bounding each scan to
+                // O(MAX_BRACKET_NESTING) and the loop to O(n). Mirrors the inline
+                // recursion cap (MAX_INLINE_DEPTH); the corpus has nothing near
+                // this depth, so output is byte-identical.
+                if ($bracketDepth > self::MAX_BRACKET_NESTING) {
+                    return null;
+                }
             } elseif ($text[$pos] === ']') {
                 $bracketDepth--;
             } elseif ($text[$pos] === '\\' && $pos + 1 < $length) {
