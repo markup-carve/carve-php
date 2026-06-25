@@ -30,6 +30,32 @@ class ColorSwatchExtension implements ExtensionInterface
     public const INLINE_TYPE = 'color';
 
     /**
+     * The CSS named colors (plus `transparent` / `currentcolor`) accepted as a
+     * bareword color, space-separated and lowercase. Anything else alphabetic
+     * (e.g. `banana`) is not a color and defers to the generic fallback.
+     *
+     * @var string
+     */
+    protected const NAMED_COLORS = ' transparent currentcolor aliceblue antiquewhite aqua aquamarine'
+        . ' azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue'
+        . ' chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan'
+        . ' darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange'
+        . ' darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey'
+        . ' darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick'
+        . ' floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow'
+        . ' grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen'
+        . ' lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen'
+        . ' lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey'
+        . ' lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue'
+        . ' mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise'
+        . ' mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive'
+        . ' olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred'
+        . ' papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue'
+        . ' saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray'
+        . ' slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white'
+        . ' whitesmoke yellow yellowgreen ';
+
+    /**
      * Base class for rendered color swatches.
      *
      * @var string
@@ -85,7 +111,12 @@ class ColorSwatchExtension implements ExtensionInterface
             return $value;
         }
 
-        if (preg_match('/^[a-zA-Z]+$/', $value) === 1) {
+        // A bareword is only a color if it is an actual CSS named color (or
+        // `transparent` / `currentcolor`); arbitrary words like `banana` are not.
+        if (
+            preg_match('/^[a-zA-Z]+$/', $value) === 1
+            && str_contains(self::NAMED_COLORS, ' ' . strtolower($value) . ' ')
+        ) {
             return $value;
         }
 
