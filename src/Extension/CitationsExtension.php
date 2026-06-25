@@ -35,7 +35,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     private const KEY_PATTERN = '[A-Za-z0-9_][A-Za-z0-9_:.#$%&+?<>~\/-]*';
 
     /**
-     * @var array<string, array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string}>
+     * @var array<string, array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText?: string}>
      */
     protected array $definitions = [];
 
@@ -50,6 +50,28 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     protected array $order = [];
 
     /**
+     * Per-key, document-wide use-site count, populated when a bibliography pool
+     * is active; drives the references-list back-links (#199).
+     *
+     * @var array<string, int>
+     */
+    protected array $uses = [];
+
+    /**
+     * Whether a CSL-JSON bibliography pool was supplied (Tier-3, #199). When
+     * true, in-text citations and the references list gain back-links.
+     */
+    protected bool $hasBibliography = false;
+
+    /**
+     * External CSL-JSON entries (each normally an associative array with a
+     * string `id`; non-array members are tolerated and skipped).
+     *
+     * @var array<int, mixed>
+     */
+    protected array $pool = [];
+
+    /**
      * Per-text cache of balanced `[`->`]` bracket pairs (open offset => close
      * offset), precomputed in one pass so each matchCitation() call is O(1)
      * instead of re-scanning to EOF (which is O(n^2) on inputs like `[[[[`).
@@ -58,8 +80,17 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      */
     protected array $bracketPairs = [];
 
-    public function __construct(protected string $mode = 'numbered')
+    /**
+     * @param string $mode `numbered` (default) or `author-date`.
+     * @param array<int, mixed>|null $bibliography Tier-3 CSL-JSON pool (#199);
+     *   null disables external resolution and back-links. The host resolves the
+     *   front-matter `bibliography:` path and passes the parsed array here; the
+     *   extension itself performs no file I/O.
+     */
+    public function __construct(protected string $mode = 'numbered', ?array $bibliography = null)
     {
+        $this->hasBibliography = $bibliography !== null;
+        $this->pool = $bibliography ?? [];
     }
 
     public function register(CarveConverter $converter): void
@@ -99,9 +130,20 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $this->definitions = [];
         $this->numbers = [];
         $this->order = [];
+        $this->uses = [];
         $this->bracketPairs = [];
 
         $this->collectDefinitions($document);
+
+        // Seed the CSL-JSON pool: in-document defs win on collision (§6.2).
+        foreach ($this->pool as $entry) {
+            if (!is_array($entry) || !isset($entry['id']) || !is_string($entry['id'])) {
+                continue;
+            }
+            if (!isset($this->definitions[$entry['id']])) {
+                $this->definitions[$entry['id']] = $this->cslToDefinition($entry);
+            }
+        }
     }
 
     public function beforeRender(Document $document): Document
@@ -109,16 +151,32 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $renderDocument = clone $document;
         $this->numbers = [];
         $this->order = [];
+        $this->uses = [];
 
         $this->walkCitationGroups($renderDocument, function (CitationGroup $group): void {
-            foreach ($group->getItems() as $item) {
-                $key = $item['key'];
-                if (!isset($this->definitions[$key]) || isset($this->numbers[$key])) {
-                    continue;
+            $items = $group->getItems();
+            // A group with any unresolved key renders verbatim (§6.4): its keys
+            // are not "cited", so they enter neither the numbering/references
+            // list (§6.2) nor the back-link use sites. Skip the whole group.
+            foreach ($items as $item) {
+                if (!isset($this->definitions[$item['key']])) {
+                    return;
                 }
+            }
 
-                $this->numbers[$key] = count($this->numbers) + 1;
-                $this->order[] = $key;
+            foreach ($items as $index => $item) {
+                $key = $item['key'];
+                if (!isset($this->numbers[$key])) {
+                    $this->numbers[$key] = count($this->numbers) + 1;
+                    $this->order[] = $key;
+                }
+                if ($this->hasBibliography) {
+                    $useIndex = ($this->uses[$key] ?? 0) + 1;
+                    $this->uses[$key] = $useIndex;
+                    // Stash the per-item use index on the (cloned) group so the
+                    // renderer can emit `id="cite-{key}-{n}"`.
+                    $group->setAttribute('cite-use-' . $index, (string)$useIndex);
+                }
             }
         });
 
@@ -476,10 +534,16 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         }
 
         $parts = [];
-        foreach ($group->getItems() as $item) {
+        foreach ($group->getItems() as $index => $item) {
             $prefix = isset($item['prefix']) ? $this->renderInlines($item['prefix'], $renderer) . ' ' : '';
             $locator = isset($item['locator']) ? ', ' . $this->renderInlines($item['locator'], $renderer) : '';
             $key = $item['key'];
+
+            // Back-link anchor on the per-key item (only with a bibliography pool, §6.3).
+            $useIndex = $this->hasBibliography ? $group->getAttribute('cite-use-' . $index) : null;
+            $idAttr = ($useIndex !== null && $useIndex !== '')
+                ? 'id="cite-' . $renderer->escapeAttribute($key) . '-' . $useIndex . '" '
+                : '';
 
             if ($this->mode === 'author-date') {
                 $definition = $this->definitions[$key];
@@ -489,13 +553,13 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 if ($label === '') {
                     $label = (string)($this->numbers[$key] ?? '');
                 }
-                $parts[] = $prefix . '<a href="#ref-' . $renderer->escapeAttribute($key) . '">'
+                $parts[] = $prefix . '<a ' . $idAttr . 'href="#ref-' . $renderer->escapeAttribute($key) . '">'
                     . $this->escapeHtml($label) . '</a>' . $locator;
 
                 continue;
             }
 
-            $parts[] = $prefix . '<a href="#ref-' . $renderer->escapeAttribute($key) . '">'
+            $parts[] = $prefix . '<a ' . $idAttr . 'href="#ref-' . $renderer->escapeAttribute($key) . '">'
                 . ($this->numbers[$key] ?? '') . '</a>' . $locator;
         }
 
@@ -532,12 +596,125 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $tag = $this->mode === 'author-date' ? 'ul' : 'ol';
         $html = '<' . $tag . " class=\"references\">\n";
         foreach ($keys as $key) {
+            $definition = $this->definitions[$key];
+            // A CSL-sourced entry is plain text (escaped); an in-doc def is inline AST.
+            $body = isset($definition['cslText'])
+                ? $this->escapeHtml($definition['cslText'])
+                : $this->renderInlines($definition['entry'], $renderer);
+
+            $backlinks = '';
+            if ($this->hasBibliography) {
+                $count = $this->uses[$key] ?? 0;
+                $links = [];
+                for ($m = 1; $m <= $count; $m++) {
+                    $links[] = '<a href="#cite-' . $renderer->escapeAttribute($key) . '-' . $m
+                        . '" class="ref-backref">↩</a>';
+                }
+                if ($links !== []) {
+                    $backlinks = ($body !== '' ? ' ' : '') . implode(' ', $links);
+                }
+            }
+
             $html .= '  <li id="ref-' . $renderer->escapeAttribute($key) . '">'
-                . $this->renderInlines($this->definitions[$key]['entry'], $renderer) . "</li>\n";
+                . $body . $backlinks . "</li>\n";
         }
         $html .= '</' . $tag . ">\n";
 
         return $html;
+    }
+
+    /**
+     * Build a definition from a CSL-JSON entry using the minimal fixed template
+     * (§6.3): `Family, Given (Year). Title.`, missing fields + separators
+     * omitted, trailing period when non-empty. The text is plain (HTML-escaped
+     * at render); CSL-JSON is external data and is never re-parsed as Carve.
+     *
+     * @param array<array-key, mixed> $entry
+     *
+     * @return array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText: string}
+     */
+    protected function cslToDefinition(array $entry): array
+    {
+        $names = [];
+        $authors = is_array($entry['author'] ?? null) ? $entry['author'] : [];
+        foreach ($authors as $name) {
+            if (!is_array($name)) {
+                continue;
+            }
+            $formatted = $this->formatCslName($name);
+            if ($formatted !== '') {
+                $names[] = $formatted;
+            }
+        }
+        $authorsText = implode('; ', $names);
+        $year = $this->cslYear($entry['issued'] ?? null);
+
+        $head = $authorsText;
+        if ($year !== '') {
+            $head = $head !== '' ? $head . ' (' . $year . ')' : '(' . $year . ')';
+        }
+
+        $segments = [];
+        if ($head !== '') {
+            $segments[] = $head;
+        }
+        $title = $entry['title'] ?? null;
+        if (is_string($title) && $title !== '') {
+            $segments[] = $title;
+        }
+        $cslText = implode('. ', $segments);
+        if ($cslText !== '') {
+            $cslText .= '.';
+        }
+
+        $value = ['entry' => [], 'cslText' => $cslText];
+        // author/year also feed author-date mode; use the first author's family.
+        $first = $authors[0] ?? null;
+        if (is_array($first)) {
+            $author = $first['literal'] ?? ($first['family'] ?? null);
+            if (is_string($author)) {
+                $value['author'] = $author;
+            }
+        }
+        if ($year !== '') {
+            $value['year'] = $year;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<array-key, mixed> $name
+     */
+    protected function formatCslName(array $name): string
+    {
+        if (isset($name['literal']) && is_string($name['literal'])) {
+            return $name['literal'];
+        }
+        $family = is_string($name['family'] ?? null) ? $name['family'] : '';
+        $given = is_string($name['given'] ?? null) ? $name['given'] : '';
+        if ($family !== '' && $given !== '') {
+            return $family . ', ' . $given;
+        }
+
+        return $family;
+    }
+
+    protected function cslYear(mixed $issued): string
+    {
+        if (!is_array($issued)) {
+            return '';
+        }
+        $dateParts = $issued['date-parts'] ?? null;
+        $firstPart = is_array($dateParts) ? ($dateParts[0] ?? null) : null;
+        $year = is_array($firstPart) ? ($firstPart[0] ?? null) : null;
+        if (is_int($year)) {
+            return (string)$year;
+        }
+
+        $literal = $issued['literal'] ?? null;
+
+        return is_string($literal) ? $literal : '';
     }
 
     protected function escapeHtml(string $text): string
