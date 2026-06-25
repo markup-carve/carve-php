@@ -549,15 +549,14 @@ DJOT;
         $this->assertInstanceOf(BlockQuote::class, $children[1]);
     }
 
-    public function testCodeBlockTrimsLeadingAndTrailingBlankLines(): void
+    public function testCodeBlockPreservesLeadingAndTrailingBlankLines(): void
     {
-        // Leading and trailing blank lines inside code block should be trimmed
         $doc = $this->parser->parse("```\n\nbin/cake linter\n\n```");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
         $this->assertInstanceOf(CodeBlock::class, $children[0]);
-        $this->assertSame('bin/cake linter', $children[0]->getContent());
+        $this->assertSame("\nbin/cake linter\n", $children[0]->getContent());
     }
 
     public function testCodeBlockPreservesInternalBlankLines(): void

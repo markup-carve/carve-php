@@ -1402,7 +1402,13 @@ class BlockParser
 
         $language = $info !== '' ? $info : null;
 
-        $codeBlock = new CodeBlock(trim($content, "\n"), $language, $label);
+        // Drop only the line separator before the closing fence. Code content
+        // itself, including blank lines, is preserved verbatim.
+        if (str_ends_with($content, "\n")) {
+            $content = substr($content, 0, -1);
+        }
+
+        $codeBlock = new CodeBlock($content, $language, $label);
         $this->applyPendingAttributes($codeBlock);
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one
