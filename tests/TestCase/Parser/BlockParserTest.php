@@ -11,6 +11,7 @@ use Carve\Node\Block\Div;
 use Carve\Node\Block\Heading;
 use Carve\Node\Block\ListBlock;
 use Carve\Node\Block\Paragraph;
+use Carve\Node\Block\RawBlock;
 use Carve\Node\Block\Table;
 use Carve\Node\Block\ThematicBreak;
 use Carve\Node\Document;
@@ -275,6 +276,85 @@ class BlockParserTest extends TestCase
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Div::class, $doc->getChildren()[0]);
+    }
+
+    public function testRawFormatBlockBeforeDivStillParsesTheDiv(): void
+    {
+        // A raw ``` =format passthrough block before a colon-fence div must not
+        // break the div: the raw block's bare ``` closer was being mistaken for
+        // a code-fence OPENER by the closer-suffix scan, swallowing every
+        // following ::: closer so the div leaked as a literal paragraph.
+        $doc = $this->parser->parse("```=html\n<b>x</b>\n```\n\n::: note\nhi\n:::");
+
+        $children = $doc->getChildren();
+        $this->assertInstanceOf(RawBlock::class, $children[0]);
+        $this->assertInstanceOf(Div::class, $children[1]);
+    }
+
+    public function testRawFormatBlockBeforeNestedDivsStillParsesThem(): void
+    {
+        $doc = $this->parser->parse(
+            "```=html\n<b>x</b>\n```\n\n:::: outer\n\n::: inner\nContent\n:::\n\n::::",
+        );
+
+        $children = $doc->getChildren();
+        $this->assertInstanceOf(RawBlock::class, $children[0]);
+        $outer = $children[1];
+        $this->assertInstanceOf(Div::class, $outer);
+        $hasInnerDiv = false;
+        foreach ($outer->getChildren() as $child) {
+            if ($child instanceof Div) {
+                $hasInnerDiv = true;
+
+                break;
+            }
+        }
+        $this->assertTrue($hasInnerDiv, 'Inner div should be parsed, not leaked as a paragraph');
+    }
+
+    public function testRawFormatBlockWithColonsInsideDivIsKept(): void
+    {
+        // A bare ::: inside a raw block nested in a div must not be taken as the
+        // div's closing fence (the div inner scan tracks raw blocks too).
+        $doc = $this->parser->parse("::: note\n\n```=html\n:::\n```\n\nafter\n:::");
+
+        $div = $doc->getChildren()[0];
+        $this->assertInstanceOf(Div::class, $div);
+        $hasRawBlock = false;
+        foreach ($div->getChildren() as $child) {
+            if ($child instanceof RawBlock) {
+                $hasRawBlock = true;
+
+                break;
+            }
+        }
+        $this->assertTrue($hasRawBlock, 'Raw block (with literal :::) should stay inside the div');
+    }
+
+    public function testColonsInsideRawBlockDoNotSplitOpenParagraph(): void
+    {
+        // The paragraph-interruption lookahead must skip raw ``` =format (and
+        // code) blocks: a ::: line inside one is not a div closer, so an open
+        // paragraph must NOT be split as if a div opener with a closer ahead
+        // appeared. Without this, the lookahead and tryParseDiv disagree and the
+        // text is split while no div is ever produced.
+        $doc = $this->parser->parse("para\n::: note\n```=html\n:::\n```");
+
+        $children = $doc->getChildren();
+        $this->assertInstanceOf(Paragraph::class, $children[0]);
+        $this->assertInstanceOf(RawBlock::class, $children[1]);
+    }
+
+    public function testUnclosedRawFenceInsideDivDoesNotHideTheDivCloser(): void
+    {
+        // An UNCLOSED ``` =format is paragraph text (an inline code run), not a
+        // verbatim block, so it must not swallow the trailing ::: as if it were
+        // inside a raw block -- the div still opens (matches the reference
+        // parser). Regression for over-eager raw-fence tracking.
+        $doc = $this->parser->parse("::: note\ntext\n```=html\n:::");
+
+        $div = $doc->getChildren()[0];
+        $this->assertInstanceOf(Div::class, $div);
     }
 
     public function testParseFencedDivWithClass(): void
