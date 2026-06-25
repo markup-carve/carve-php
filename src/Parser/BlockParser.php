@@ -1709,8 +1709,25 @@ class BlockParser
         while ($i < $count) {
             $currentLine = $lines[$i];
 
-            // Track code blocks so we don't mistake ::: inside code blocks as closing fences
+            // Track code blocks so we don't mistake ::: inside code blocks as
+            // closing fences. A raw ``` =format block is tracked the same way,
+            // but only when it really closes ahead: an unclosed ``` =format is
+            // inline code in a paragraph, not a verbatim region, so it must not
+            // swallow a later ::: as the div's closing fence.
             if (!$inCodeBlock) {
+                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
+                if (
+                    $rawFenceInfo !== null
+                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
+                ) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $rawFenceInfo['fence'][0];
+                    $codeBlockFenceLength = $rawFenceInfo['length'];
+                    $innerLines[] = $currentLine;
+                    $i++;
+
+                    continue;
+                }
                 $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
                 if ($codeFenceInfo !== null) {
                     $inCodeBlock = true;
@@ -1812,7 +1829,23 @@ class BlockParser
         while ($i < $count) {
             $currentLine = $lines[$i];
 
+            // See tryParseDiv: track raw ``` =format blocks too (only when
+            // closed ahead), so a bare ::: inside one is not taken as the
+            // closing div fence.
             if (!$inCodeBlock) {
+                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
+                if (
+                    $rawFenceInfo !== null
+                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
+                ) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $rawFenceInfo['fence'][0];
+                    $codeBlockFenceLength = $rawFenceInfo['length'];
+                    $innerLines[] = $currentLine;
+                    $i++;
+
+                    continue;
+                }
                 $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
                 if ($codeFenceInfo !== null) {
                     $inCodeBlock = true;
@@ -1897,6 +1930,26 @@ class BlockParser
         for ($i = 0; $i < $count; $i++) {
             $currentLine = $lines[$i];
             if (!$inCodeBlock) {
+                // A raw ``` =format block must be tracked too: its opener is not
+                // a code-fence opener (the `=` leading token is declined), but
+                // its bare ``` closer WOULD be mistaken for a code-fence opener,
+                // flipping $inCodeBlock and swallowing every following ::: closer
+                // -- which makes later divs after a raw block parse as literal
+                // paragraphs. Track it only when it really CLOSES ahead: an
+                // unclosed ``` =format is just paragraph text (an inline code
+                // run), so it must NOT hide a later ::: div closer (matches the
+                // reference parser, which opens the div in that case).
+                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
+                if (
+                    $rawFenceInfo !== null
+                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
+                ) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $rawFenceInfo['fence'][0];
+                    $codeBlockFenceLength = $rawFenceInfo['length'];
+
+                    continue;
+                }
                 $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
                 if ($codeFenceInfo !== null) {
                     $inCodeBlock = true;
@@ -1927,6 +1980,30 @@ class BlockParser
         }
 
         return $suffix;
+    }
+
+    /**
+     * Whether a code fence opened at `$openIndex` (with the given fence char and
+     * length) has a matching closer on a later line. Used to decide whether a
+     * raw ``` =format opener really forms a closed verbatim region -- an
+     * UNCLOSED raw fence is paragraph text (inline code), not a block that
+     * should hide following ::: div closers from the closer-lookahead scans.
+     *
+     * @param array<string> $lines
+     * @param int $openIndex
+     * @param string $fenceChar
+     * @param int $fenceLength
+     */
+    protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
+    {
+        $count = count($lines);
+        for ($j = $openIndex + 1; $j < $count; $j++) {
+            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fenceChar, $fenceLength)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -4347,9 +4424,44 @@ class BlockParser
         // Reuse the collector's closer matcher (isDivFenceCloser allows no leading
         // whitespace), so an indented `  :::` is not mistaken for a closer here
         // when tryParseDiv would not accept it -- which would split the paragraph
-        // and swallow the document into an unterminated div.
+        // and swallow the document into an unterminated div. Skip fenced code and
+        // raw ``` =format blocks too: a ::: line inside one is NOT a div closer,
+        // and tryParseDiv's suffix scan ignores it -- so this lookahead must
+        // agree, or the paragraph is split while no div is ever produced.
+        $inCodeBlock = false;
+        $codeBlockFence = '';
+        $codeBlockFenceLength = 0;
         for ($i = $index + 1; $i < $count; $i++) {
-            if ($this->fencedBlockParser->isDivFenceCloser($lines[$i], $length)) {
+            $currentLine = $lines[$i];
+            if (!$inCodeBlock) {
+                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
+                if (
+                    $rawFenceInfo !== null
+                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
+                ) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $rawFenceInfo['fence'][0];
+                    $codeBlockFenceLength = $rawFenceInfo['length'];
+
+                    continue;
+                }
+                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
+                if ($codeFenceInfo !== null) {
+                    $inCodeBlock = true;
+                    $codeBlockFence = $codeFenceInfo['char'];
+                    $codeBlockFenceLength = $codeFenceInfo['length'];
+
+                    continue;
+                }
+            }
+            if ($inCodeBlock) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
+                    $inCodeBlock = false;
+                }
+
+                continue;
+            }
+            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $length)) {
                 return true;
             }
         }
