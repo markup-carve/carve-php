@@ -1099,6 +1099,41 @@ $converter->convert("+ [ ] todo\n");         // task list item
 $converter->convert("+\n");                  // <p>+</p> - still the continuation marker
 ~~~
 
+## Glossary and index
+
+Two Tier-3 extensions (off by default, never corpus-pinned) for long-form and
+book-style documents. Both reuse existing syntax - the definition list and the
+`:name[…]` inline form - and find their containers nested anywhere
+(blockquote, list, div). See the cross-impl contract in the spec's
+`docs/extensions.md` §7-§8.
+
+### GlossaryExtension
+
+A `::: glossary` definition list declares terms; `:term[word]` links a use to
+its `<dt id="gloss-{slug}">`. The slug is the lowercased heading-id slug of the
+term text, so `:term[HTTP]` and a `:: HTTP` entry meet at `gloss-http` with no
+explicit key. The block renders `<dl class="glossary">` (each list in source
+order, any intro/interstitial prose preserved in place); an undefined term
+degrades to `<span class="term">word</span>`, and with the extension off
+`:term[word]` is the generic `<span class="ext-term">word</span>`.
+
+~~~ php
+$converter->addExtension(new GlossaryExtension());
+~~~
+
+### IndexExtension
+
+`:index[term]` is an invisible marker - it emits an empty
+`<span id="idx-{slug}-{n}" class="index-term"></span>` anchor target (a span, so
+it never nests inside a link). A `::: index` block collects every body marker
+into a `<ul class="index">` sorted by Unicode codepoint, each entry back-linking
+to all its occurrences. Markers in deferred content (footnote definitions) render
+inert, and with no markers `::: index` stays a plain `<div class="index">`.
+
+~~~ php
+$converter->addExtension(new IndexExtension());
+~~~
+
 ## Output post-processing
 
 ### DefaultAttributesExtension
