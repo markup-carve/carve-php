@@ -604,67 +604,17 @@ class BlockParser
                 continue;
             }
 
-            // Match reference definition: [label]: url (url can be empty, on next line)
-            if (preg_match('/^\[(?!@)([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
+            // Match reference definition: [label]: url. A definition is
+            // single-line and its destination must be present on this line
+            // (grammar reference_definition / canonical carve-js RE_LINK_DEF):
+            // an empty destination (`[r]:` or `[r]:   `) is NOT a definition --
+            // the line stays literal. No continuation gathering: a destination
+            // or title on a following line is plain prose, never absorbed
+            // (matches carve-js / carve-rs).
+            if (preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+(\S.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
-                $url = trim($matches[2] ?? '');
-
-                $j = $i + 1;
-                // A list-item definition (carve-js parity) must be complete on
-                // its own line: no continuation gathering, and an empty url is
-                // NOT a definition -- the list item renders it as content.
-                if ($inList && $url === '') {
-                    $i++;
-
-                    continue;
-                }
-
-                // Collect continuation lines (URL can start on continuation
-                // line). Only for top-level / blockquote defs; a list-item def
-                // is single-line (above).
-                while (!$inList && $j < $count) {
-                    $nextLineRaw = $lines[$j];
-                    // A blockquoted def's continuation must itself stay
-                    // inside the blockquote. Strip `>` from the next
-                    // line; if the strip removed no marker, the
-                    // blockquote has ended -- do not absorb top-level
-                    // text into the quoted URL.
-                    $nextLine = $nextLineRaw;
-                    if ($inQuote) {
-                        // Strip `>` + optional LITERAL space per marker, exactly
-                        // as blockQuoteLineContent does (a tab is left as inner
-                        // content), so the prepass and the real parse agree.
-                        $stripped = preg_replace('/^(?:> ?)+/', '', $nextLineRaw) ?? $nextLineRaw;
-                        if ($stripped === $nextLineRaw) {
-                            break;
-                        }
-                        $nextLine = $stripped;
-                    }
-                    if (IndentationHelper::isBlankLine($nextLine)) {
-                        break;
-                    }
-                    // Check if next line starts a new reference definition
-                    if (preg_match('/^\[(?!@)([^\]]+)\]: /', $nextLine)) {
-                        break;
-                    }
-                    if ($this->startsNewBlock($nextLine)) {
-                        break;
-                    }
-                    // A list marker (bullet or ordered, at any indent) starts a
-                    // list, not a definition continuation. startsNewBlock() no
-                    // longer reports list markers (symmetric interruption), so
-                    // check explicitly to avoid swallowing the list.
-                    if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
-                        break;
-                    }
-                    if (preg_match('/^\s+(\S.*)$/', $nextLine, $contMatch)) {
-                        $url .= $contMatch[1];
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
+                $url = trim($matches[2]);
 
                 // Attach pendingAttrs only when the attributes line and the
                 // definition share the same context (both quoted or both
@@ -678,30 +628,38 @@ class BlockParser
                 // the first non-whitespace run. A following quoted run is the
                 // title; anything else after the destination is ignored (the
                 // definition still registers with the bare token). Mirrors the
-                // canonical oracle carve-js (RE_LINK_DEF). The ref-def title
-                // slot does NOT honor the inline-link `\"` escape (grammar
-                // known divergence) -- a raw quote ends the title.
+                // canonical oracle carve-js (RE_LINK_DEF). The title run allows
+                // a backslash-escaped quote inside (`"a\"b"`) so it does not
+                // truncate; the captured value is then unescaped the same way
+                // inline link titles are (any `\` + ASCII-punctuation).
                 $title = null;
                 // PREG_UNMATCHED_AS_NULL: the title-quote groups are null when
                 // their branch did not match (vs `''` for an explicitly empty
                 // `""` / `''` title), so a single-quoted title is not masked by
                 // the earlier (empty) double-quote group.
-                if (preg_match('/^(\S+)(?:\s+(?:"([^"]*)"|\'([^\']*)\'))?/', $url, $tm, PREG_UNMATCHED_AS_NULL)) {
+                if (
+                    preg_match(
+                        '/^(\S+)(?:\s+(?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\'))?/',
+                        $url,
+                        $tm,
+                        PREG_UNMATCHED_AS_NULL,
+                    )
+                ) {
                     $url = $tm[1];
                     // A double- or single-quoted run after the destination is
                     // the title (an explicitly empty `""` still counts). When
                     // no quoted run follows, both groups are null: no title.
                     if (($tm[2] ?? null) !== null) {
-                        $title = $tm[2];
+                        $title = AttributeParser::processEscapes($tm[2]);
                     } elseif (($tm[3] ?? null) !== null) {
-                        $title = $tm[3];
+                        $title = AttributeParser::processEscapes($tm[3]);
                     }
                 }
                 $this->references[$label] = new ReferenceDefinition(trim($url), $attrsToUse, $i, $title);
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $pendingAttrsInList = false;
-                $i = $j;
+                $i++;
 
                 continue;
             }
@@ -1265,8 +1223,10 @@ class BlockParser
             while ($nextIdx < $count && IndentationHelper::isBlankLine($lines[$nextIdx])) {
                 $nextIdx++;
             }
-            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]: /', $lines[$nextIdx])) {
-                // Attributes precede a reference definition, don't store them as block attrs
+            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]:[ \t]+\S/', $lines[$nextIdx])) {
+                // Attributes precede a reference definition (non-empty
+                // destination required, matching the ref-def parser), don't
+                // store them as block attrs.
                 return 1;
             }
 
@@ -2083,7 +2043,7 @@ class BlockParser
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
             } elseif (
-                preg_match('/^\[[^\]]+\]: /', $nextLine)
+                preg_match('/^\[[^\]]+\]:[ \t]+\S/', $nextLine)
                 || $this->isAbbreviationDefinitionLine($nextLine)
                 || preg_match('/^%%/', $nextLine)
                 || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
@@ -3782,40 +3742,15 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Match reference definition: [label]: url (url can be empty, on next line)
-        if (!preg_match('/^\[(?!@)([^\]]+)\]:(?: +(.*)|\s*)$/', $line, $matches)) {
+        // Match reference definition: [label]: url. The definition is
+        // single-line and the destination must be present (an empty `[r]:` is
+        // literal, not a definition), matching the first-pass collector and
+        // the canonical carve-js / carve-rs. No continuation gathering.
+        if (!preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+\S.*$/', $line)) {
             return null;
         }
 
-        // Collect continuation lines
-        $i = $start + 1;
-        $count = count($lines);
-
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                break;
-            }
-            // Check if next line starts a new reference definition
-            if (preg_match('/^\[(?!@)([^\]]+)\]: /', $nextLine)) {
-                break;
-            }
-            if ($this->startsNewBlock($nextLine)) {
-                break;
-            }
-            // A list marker (bullet or ordered, at any indent) starts a list,
-            // not a definition continuation; stop the skip so it is parsed.
-            if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
-                break;
-            }
-            if (preg_match('/^\s+(\S.*)$/', $nextLine, $contMatch)) {
-                $i++;
-            } else {
-                break;
-            }
-        }
-
-        return $i - $start;
+        return 1;
     }
 
     /**
@@ -3949,8 +3884,11 @@ class BlockParser
         }
 
         // Invisible constructs produce no rendered block of their own, so they
-        // are recognised next to prose rather than left as literal text.
-        return preg_match('/^\[[^\]]+\]: /', $line) === 1
+        // are recognised next to prose rather than left as literal text. The
+        // ref-def pattern requires a non-empty destination (the same rule the
+        // ref-def parser uses): an empty `[r]:` / `[r]:   ` is literal text and
+        // must NOT interrupt the paragraph (matches carve-js / carve-rs).
+        return preg_match('/^\[[^\]]+\]:[ \t]+\S/', $line) === 1
             || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^%%/', $line) === 1;
     }

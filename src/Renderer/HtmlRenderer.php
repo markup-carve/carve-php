@@ -1501,7 +1501,15 @@ class HtmlRenderer implements RendererInterface
             return '<kbd' . $attrs . '>' . $inner . '</kbd>';
         }
 
-        $attrs = $this->mergeAttribute($this->getRenderableAttributes($node), 'class', 'ext-' . $type);
+        // The structural `ext-<type>` class comes FIRST, before any authored
+        // classes: `:foo[a]{.cls}` -> class="ext-foo cls" (matches the
+        // canonical carve-js / carve-rs). Prepend rather than append so the
+        // structural class always leads.
+        $attrs = $this->getRenderableAttributes($node);
+        $authoredClass = $attrs['class'] ?? '';
+        $attrs['class'] = $authoredClass === ''
+            ? 'ext-' . $type
+            : 'ext-' . $type . ' ' . $authoredClass;
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $inner . '</span>';
     }
