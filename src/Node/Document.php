@@ -16,9 +16,35 @@ class Document extends Node
      */
     protected array $abbreviations = [];
 
+    /**
+     * Byte length of the original source the document was parsed from.
+     *
+     * Used by renderers to size the abbreviation-expansion budget (a DoS
+     * guard against output amplification when an abbreviation with a huge
+     * definition occurs many times). 0 means "unknown" (document built
+     * programmatically rather than parsed).
+     */
+    protected int $sourceLength = 0;
+
     public function getType(): string
     {
         return 'document';
+    }
+
+    /**
+     * Get the byte length of the original source.
+     */
+    public function getSourceLength(): int
+    {
+        return $this->sourceLength;
+    }
+
+    /**
+     * Set the byte length of the original source.
+     */
+    public function setSourceLength(int $sourceLength): void
+    {
+        $this->sourceLength = $sourceLength;
     }
 
     /**

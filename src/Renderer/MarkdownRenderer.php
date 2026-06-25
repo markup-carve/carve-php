@@ -52,6 +52,7 @@ use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
+use Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use Carve\Renderer\Utility\EventDispatcherTrait;
 use Carve\Util\StringUtil;
 
@@ -71,6 +72,7 @@ use Carve\Util\StringUtil;
  */
 class MarkdownRenderer implements RendererInterface
 {
+    use AbbreviationBudgetTrait;
     use EventDispatcherTrait;
 
     /**
@@ -131,6 +133,7 @@ class MarkdownRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
+        $this->resetAbbreviationBudget($document->getSourceLength());
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
@@ -759,8 +762,15 @@ class MarkdownRenderer implements RendererInterface
         // and the text (element content) need HTML escaping, NOT Markdown text
         // escaping: a `"` in the title or a `<` in the text would otherwise
         // break the tag / be misparsed as markup downstream.
-        $title = htmlspecialchars($this->stripControls($node->getTitle()), ENT_QUOTES, 'UTF-8');
         $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
+
+        // DoS guard: once the cumulative expansion bytes would exceed the
+        // budget, degrade to plain key text (no <abbr> wrapper, no title).
+        if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
+            return $text;
+        }
+
+        $title = htmlspecialchars($this->stripControls($node->getTitle()), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $text . '</abbr>';
     }

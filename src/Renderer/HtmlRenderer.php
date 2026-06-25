@@ -55,6 +55,7 @@ use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
+use Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use Carve\Renderer\Utility\EventDispatcherTrait;
 use Carve\SafeMode;
 use Carve\Util\StringUtil;
@@ -65,6 +66,7 @@ use Closure;
  */
 class HtmlRenderer implements RendererInterface
 {
+    use AbbreviationBudgetTrait;
     use EventDispatcherTrait;
 
     /**
@@ -447,6 +449,7 @@ class HtmlRenderer implements RendererInterface
             $this->sharedRenderContext,
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
+                $this->resetAbbreviationBudget($document->getSourceLength());
 
                 $html = $this->renderDocumentWithSections($document);
 
@@ -1511,8 +1514,15 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderAbbreviation(Abbreviation $node): string
     {
-        $attrs = $this->renderAttributes($node);
         $title = $node->getTitle();
+
+        // DoS guard: once the cumulative expansion bytes would exceed the
+        // budget, degrade to plain key text (no <abbr> wrapper, no title).
+        if (!$this->chargeAbbreviationExpansion($title)) {
+            return $this->renderChildren($node);
+        }
+
+        $attrs = $this->renderAttributes($node);
 
         return '<abbr title="' . $this->escapeAttribute($title) . '"' . $attrs . '>'
             . $this->renderChildren($node) . '</abbr>';
@@ -2080,6 +2090,14 @@ class HtmlRenderer implements RendererInterface
      */
     protected function withFragmentContext(Closure $callback): string
     {
+        // A top-level fragment render (no render in progress) is an independent
+        // render: start its abbreviation budget fresh so it never inherits an
+        // exhausted counter from a prior render() on this instance. A nested
+        // fragment (participating in an active render) keeps the running budget.
+        if ($this->activeRenderContext === null) {
+            $this->resetAbbreviationBudget(0);
+        }
+
         $context = $this->activeRenderContext ?? new RenderContext();
 
         return $this->withRenderContext($context, $callback);
