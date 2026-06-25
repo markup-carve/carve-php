@@ -857,17 +857,15 @@ class InlineParser
                 // character (mirrors carve-js, which inspects the output
                 // buffer): a `'`/`"` right after a converted `“`/`‘` opens. So
                 // pass the last char already emitted into $textBuffer. When the
-                // buffer was flushed by a prior inline node, key off that node:
-                // a soft OR hard line break is whitespace -> open context; any
-                // other node (code, emphasis, ...) is word-adjacent -> a
-                // closing context. A truly empty run is start-of-content.
+                // buffer was flushed by a prior inline node (code, emphasis,
+                // link, or a soft/hard line break), the quote is word-adjacent
+                // -> CLOSING context. carve-js treats any flushed-buffer state
+                // with prior output as `'x'` (closing), so a quote after a
+                // wrapped line stays closing (`a"b\n""` -> `a”b\n””`). A truly
+                // empty run with no prior children is start-of-content.
                 $prevConverted = $this->lastCharOf($textBuffer);
                 if ($prevConverted === '' && $parent->hasChildren()) {
-                    $children = $parent->getChildren();
-                    $lastChild = $children[count($children) - 1];
-                    $prevConverted = ($lastChild instanceof SoftBreak || $lastChild instanceof HardBreak)
-                        ? ' '
-                        : 'x';
+                    $prevConverted = 'x';
                 }
                 $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
                 $textBuffer .= $smartQuote;
@@ -1712,9 +1710,11 @@ class InlineParser
                     || preg_match('/^([\s\S]*?)\s+\(([^()]*)\)$/', $raw, $tm)
                 ) {
                     $raw = $tm[1];
-                    // Unescape a backslash-escaped delimiter inside the title
-                    // (`\"` -> `"`, `\'` -> `'`); other backslashes are kept.
-                    $title = preg_replace('/\\\\(["\'])/', '$1', $tm[2]) ?? $tm[2];
+                    // Unescape any backslash + ASCII-punctuation inside the
+                    // title (`\"` -> `"`, `\.` -> `.`); a backslash before a
+                    // non-punctuation char is kept. Matches the canonical
+                    // carve-js unescapeAttrValue / carve-rs unescape_title.
+                    $title = AttributeParser::processEscapes($tm[2]);
                 }
 
                 // The destination (what remains after splitting off any
@@ -1992,8 +1992,11 @@ class InlineParser
 
         $content = substr($text, $pos + 1, $end - $pos - 1);
 
-        // URL autolink
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]*$/', $content)) {
+        // URL autolink (grammar.ebnf url_autolink). The url_char body excludes
+        // whitespace and `<`/`>` plus `"` `\` `` ` `` `{` `}` `|` `^`; any of
+        // those inside the body invalidates the construct (whole-literal), so
+        // `<http://a.com/"q">` is NOT an autolink. Matches carve-js/carve-rs.
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content)) {
             $link = new Link($content);
             $link->setAutolink(true);
             $link->appendChild(new Text($content));
@@ -2011,8 +2014,11 @@ class InlineParser
             ];
         }
 
-        // Email autolink
-        if (filter_var($content, FILTER_VALIDATE_EMAIL)) {
+        // Email autolink (grammar.ebnf email_autolink). email_char is
+        // `[A-Za-z0-9._+-]`, with a MANDATORY `.TLD`; `[`/`]`/`:` are not email
+        // chars, so `<a@[127.0.0.1]>` is literal, while a leading `.` is valid
+        // so `<.a@b.com>` is a mailto link. Matches carve-js/carve-rs.
+        if (preg_match('/^[A-Za-z0-9._+-]+@[A-Za-z0-9._+-]+\.[A-Za-z]+$/', $content)) {
             $link = new Link('mailto:' . $content);
             $link->setAutolink(true);
             $link->appendChild(new Text($content));
@@ -2504,7 +2510,16 @@ class InlineParser
 
         // $prevConverted is one character; a multibyte char (e.g. a dash or
         // curly quote not matched above) is not in the single-byte opener set.
-        if (strlen($prevConverted) === 1 && ctype_space($prevConverted)) {
+        // A newline / carriage return (a soft line break) is NOT an opening
+        // context: a straight quote right after a wrapped line is word-adjacent
+        // and stays CLOSING (`a"b\n""` -> `a”b\n””`), matching carve-js (which
+        // treats a flushed buffer at a soft break as word context, not start).
+        if (
+            strlen($prevConverted) === 1
+            && ctype_space($prevConverted)
+            && $prevConverted !== "\n"
+            && $prevConverted !== "\r"
+        ) {
             return true;
         }
 
@@ -2943,13 +2958,13 @@ class InlineParser
 
         $content = substr($text, $pos + 1, $end - $pos - 1);
 
-        // Check if it's a valid URL autolink
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]*$/', $content)) {
+        // Check if it's a valid URL autolink (same url_char body as parseAutolink).
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content)) {
             return $end + 1;
         }
 
-        // Check if it's a valid email autolink
-        if (filter_var($content, FILTER_VALIDATE_EMAIL)) {
+        // Check if it's a valid email autolink (same email_char body as parseAutolink).
+        if (preg_match('/^[A-Za-z0-9._+-]+@[A-Za-z0-9._+-]+\.[A-Za-z]+$/', $content)) {
             return $end + 1;
         }
 

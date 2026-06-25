@@ -81,13 +81,16 @@ class BlockquoteRefDefTest extends TestCase
         $this->assertStringNotContainsString('href="/u"', $html);
     }
 
-    public function testMultiLineBlockquoteDefResolves(): void
+    public function testMultiLineBlockquoteDefDoesNotResolve(): void
     {
-        // The URL on a continuation line, also inside the blockquote.
+        // Reference definitions are single-line: a destination on a
+        // CONTINUATION line is never gathered into the def. `> [r]:` with the
+        // URL on the next line is therefore NOT a definition; both lines are
+        // literal prose inside the blockquote (matches carve-js / carve-rs).
         $html = $this->converter->convert(
             "[x][r]\n\n> [r]:\n>   /u",
         );
-        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+        $this->assertStringNotContainsString('href="/u"', $html);
     }
 
     public function testTwoDefsInSameBlockquoteResolve(): void

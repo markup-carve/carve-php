@@ -2486,14 +2486,17 @@ DJOT;
      * Regression test: "'Shelob'" at line start should produce "'Shelob'"
      * not "'Shelob'" (where the single quote after double is a closer)
      */
-    public function testSmartQuotesConsecutiveOpenersAtLineStart(): void
+    public function testSmartQuotesConsecutiveQuotesAfterSoftLineStart(): void
     {
         $djot = "\"Hello,\" said the spider.\n\"'Shelob' is my name.\"";
         $result = $this->converter->convert($djot);
 
-        // Both " and ' at start of second line should be opening quotes
-        // Expected: "'Shelob' (open double, open single, close single, close double)
-        $this->assertStringContainsString("\u{201C}\u{2018}Shelob\u{2019}", $result);
+        // A straight quote right after a soft line break is word-adjacent, so
+        // the leading `"` of line 2 stays CLOSING (corpus / carve-js oracle).
+        // The following `'` is then in a closing context too, so it renders as
+        // an apostrophe `’`: `”’Shelob’` (close double, apostrophe, apostrophe).
+        // carve-rs opens these instead; the corpus follows carve-js here.
+        $this->assertStringContainsString("\u{201D}\u{2019}Shelob\u{2019}", $result);
     }
 
     public function testMultipleDashes(): void
