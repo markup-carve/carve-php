@@ -158,6 +158,32 @@ class ColorSwatchExtensionTest extends TestCase
         );
     }
 
+    public function testRevealWrapsValueAndMakesSwatchFocusable(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch swatch-reveal" tabindex="0"><span class="swatch-chip" style="background-color:#3b82f6"></span> <span class="swatch-val">#3b82f6</span></span></p>',
+            $this->convertWith(new ColorSwatchExtension(reveal: true), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testRevealWithPositionAfterWrapsValueBeforeChip(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch swatch-reveal" tabindex="0"><span class="swatch-val">#3b82f6</span> <span class="swatch-chip" style="background-color:#3b82f6"></span></span></p>',
+            $this->convertWith(new ColorSwatchExtension(position: 'after', reveal: true), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testRevealIsIgnoredWhenPositionIsNone(): void
+    {
+        // `none` already hides the value (surfaced via title); reveal is a no-op
+        // and must not add the swatch-reveal class, a wrapper, or tabindex.
+        $this->assertSame(
+            '<p><span class="swatch swatch-chip-only" title="#3b82f6"><span class="swatch-chip" style="background-color:#3b82f6"></span></span></p>',
+            $this->convertWith(new ColorSwatchExtension(position: 'none', reveal: true), ':color[#3b82f6]'),
+        );
+    }
+
     public function testDefaultOutputIsUnchanged(): void
     {
         $this->assertSame(
