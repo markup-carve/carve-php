@@ -67,6 +67,25 @@ class ColorSwatchExtensionTest extends TestCase
         $this->assertStringNotContainsString('background-color:', $html);
     }
 
+    public function testInlineDefersBarewordThatIsNotANamedColor(): void
+    {
+        // A pure-alphabetic value is only a color if it is an actual CSS named
+        // color; arbitrary words must defer to the generic fallback.
+        $html = $this->convert(':color[banana]');
+
+        $this->assertStringContainsString('<span class="ext-color">banana</span>', $html);
+        $this->assertStringNotContainsString('swatch-chip', $html);
+        $this->assertStringNotContainsString('background-color:', $html);
+    }
+
+    public function testInlineRendersNamedColorCaseInsensitively(): void
+    {
+        $html = $this->convert(':color[DarkSlateGray]');
+
+        $this->assertStringContainsString('background-color:DarkSlateGray', $html);
+        $this->assertStringContainsString('swatch-chip', $html);
+    }
+
     public function testInlineDefersInjectionAttemptToGenericFallback(): void
     {
         $html = $this->convert(':color[red;}x{}]');
