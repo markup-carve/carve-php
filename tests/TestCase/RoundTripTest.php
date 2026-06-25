@@ -31,7 +31,10 @@ class RoundTripTest extends TestCase
         $this->converter->addExtension(new TabsExtension());
         $this->converter->addExtension(FencedRenderExtension::mermaid());
         $this->converter->addExtension(new AdmonitionExtension());
-        $this->htmlToDjot = new HtmlToCarve();
+        // Round-trip tests feed carve's OWN (trusted) HTML back through the
+        // converter, so they must honor the `data-djot-src` round-trip attribute.
+        // The default converter ignores it (untrusted-input safe default).
+        $this->htmlToDjot = new HtmlToCarve(trustedRoundTrip: true);
     }
 
     /**

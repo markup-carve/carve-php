@@ -27,6 +27,12 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        // Strip NUL bytes: the inline pass uses a NUL-delimited placeholder
+        // sentinel (\x00P<n>\x00) for protected spans, so an input NUL could
+        // collide with it and crash the restore loop (TypeError). NUL is not
+        // meaningful Markdown content.
+        $markdown = str_replace("\x00", '', $markdown);
+
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         $result = [];
         $inCodeBlock = false;

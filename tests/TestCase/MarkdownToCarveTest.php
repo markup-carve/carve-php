@@ -386,4 +386,17 @@ class MarkdownToCarveTest extends TestCase
         $c = new CarveConverter();
         $this->assertSame(trim($c->convert($md)), trim($c->convert($carve)));
     }
+
+    /**
+     * DoS/crash guard: the inline pass uses a NUL-delimited placeholder sentinel
+     * (`\x00P<n>\x00`); a NUL byte in the input previously collided with it and
+     * crashed the restore loop. NUL is stripped, so conversion must not throw.
+     */
+    public function testNulByteInputDoesNotCrash(): void
+    {
+        $result = $this->converter->convert("\x00P0\x00 **bold**");
+
+        $this->assertStringNotContainsString("\x00", $result);
+        $this->assertStringContainsString('*bold*', $result);
+    }
 }

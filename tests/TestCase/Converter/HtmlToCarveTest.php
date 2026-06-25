@@ -19,9 +19,17 @@ class HtmlToCarveTest extends TestCase
 {
     protected HtmlToCarve $converter;
 
+    /**
+     * A converter that trusts `data-djot-src` round-trip attributes. Used only by
+     * the round-trip tests, which feed it HTML that carve itself produced. The
+     * default $converter ignores `data-djot-src` (untrusted-input safe default).
+     */
+    protected HtmlToCarve $roundTripConverter;
+
     protected function setUp(): void
     {
         $this->converter = new HtmlToCarve();
+        $this->roundTripConverter = new HtmlToCarve(true);
     }
 
     // ==================== Basic Formatting ====================
@@ -1103,14 +1111,14 @@ HTML;
         // Test dash (default)
         $djot = '---';
         $html = $djotConverter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
         $this->assertSame('---', $back, 'Dash thematic break should round-trip');
 
         // Test asterisk (preserved via data-char)
         $djot = '***';
         $html = $djotConverter->convert($djot);
         $this->assertStringContainsString('data-char="*"', $html);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
         $this->assertSame('***', $back, 'Asterisk thematic break should round-trip');
     }
 
@@ -1124,7 +1132,7 @@ HTML;
         $html = $djotConverter->convert('# Title');
 
         $this->assertStringContainsString('data-djot-source-level="1"', $html);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame('# Title', $back);
     }
@@ -1141,7 +1149,7 @@ HTML;
 
         $this->assertStringContainsString('data-djot-heading-ref="Getting Started"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
     }
@@ -1155,7 +1163,7 @@ HTML;
         $html = $djotConverter->convert($djot);
 
         $this->assertStringContainsString('data-djot-inline-footnote-html=', $html);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
     }
@@ -1169,7 +1177,7 @@ HTML;
         $html = $djotConverter->convert($djot);
 
         $this->assertStringContainsString('data-djot-inline-footnote-class="footnote"', $html);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
     }
@@ -1181,7 +1189,7 @@ HTML;
 
         $djot = 'Text[  Footnote  ]{.fn} after.';
         $html = $djotConverter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
     }
@@ -1193,7 +1201,7 @@ HTML;
 
         $djot = 'Text[  Foo   Bar  ]{.fn} after.';
         $html = $djotConverter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
     }
@@ -1353,7 +1361,7 @@ DJOT;
         $this->assertStringContainsString('data-djot-col-widths="11,9,19"', $html);
 
         // Convert back to Djot
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         // Separator widths should be preserved (compact format without spaces around dashes)
         $this->assertStringContainsString('|-----------|---------|-------------------|', $back);
@@ -1379,7 +1387,7 @@ DJOT;
         $djot = "{#snippet .demo selected}\n``` php [Example]\necho 123;\n```\n";
 
         $html = (new CarveConverter(roundTripMode: true))->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1392,7 +1400,7 @@ DJOT;
         $djot = "{#flow data-theme=dark}\n``` mermaid\ngraph TD;\n    A-->B;\n```\n";
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1418,7 +1426,7 @@ echo 2;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1447,7 +1455,7 @@ Text with *bold*, _em_, `code`, ![alt](img.png), and [link](https://example.com)
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1477,7 +1485,7 @@ echo 2;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1500,7 +1508,7 @@ DJOT;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1524,7 +1532,7 @@ $x = 1;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1585,7 +1593,7 @@ DJOT;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1607,7 +1615,7 @@ DJOT;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1630,7 +1638,7 @@ DJOT;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1652,7 +1660,7 @@ DJOT;
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $expected = <<<'DJOT'
 :::: tabs
@@ -1687,7 +1695,7 @@ Nested content
 DJOT;
 
         $html = $converter->convert($djot);
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame(trim($djot), $back);
     }
@@ -1695,7 +1703,7 @@ DJOT;
     public function testGenericDivRoundTripUsesDjotSrc(): void
     {
         $html = '<div class="box note" id="callout" data-x="1"><p>Inside</p></div>';
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $expected = <<<'DJOT'
 {#callout .note data-x=1}
@@ -1710,7 +1718,7 @@ DJOT;
     public function testTableAlignmentRoundTripWithoutDjotSrcUsesCellAlignment(): void
     {
         $html = '<table data-djot-col-widths="5,6"><tr><th style="text-align: left;">Left</th><th style="text-align: right;">Right</th></tr><tr><td style="text-align: left;">a</td><td style="text-align: right;">b</td></tr></table>';
-        $back = trim($this->converter->convert($html));
+        $back = trim($this->roundTripConverter->convert($html));
 
         $expected = <<<'DJOT'
 | Left | Right |
@@ -2027,5 +2035,41 @@ DJOT;
 
         $this->assertStringContainsString('[y]{var', $result);
         $this->assertStringContainsString('.math', $result);
+    }
+
+    // ==================== Security: untrusted data-djot-src ====================
+
+    /**
+     * P0 XSS guard: a crafted `data-djot-src` smuggling a raw-HTML block must NOT
+     * be re-emitted as live Carve by the DEFAULT converter. The attribute is
+     * emitted verbatim when honored, so an attacker-supplied value containing a
+     * `=html` raw block would otherwise round-trip into a live `<script>`.
+     */
+    public function testMaliciousDataDjotSrcIsIgnoredByDefault(): void
+    {
+        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+
+        $result = $this->converter->convert($html);
+
+        // Default converter ignores data-djot-src: no raw-HTML block, no script.
+        $this->assertStringNotContainsString('=html', $result);
+        $this->assertStringNotContainsString('<script>', $result);
+        // It falls back to the actual element content instead.
+        $this->assertStringContainsString('safe', $result);
+    }
+
+    /**
+     * The opt-in trusted converter DOES honor `data-djot-src` (round-trip use
+     * with carve-produced HTML). This is the trade-off the default protects
+     * against: only enable it for trusted input.
+     */
+    public function testTrustedConverterHonorsDataDjotSrc(): void
+    {
+        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+
+        $result = $this->roundTripConverter->convert($html);
+
+        $this->assertStringContainsString('=html', $result);
+        $this->assertStringContainsString('<script>alert(1)</script>', $result);
     }
 }

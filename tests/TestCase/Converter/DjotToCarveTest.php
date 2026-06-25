@@ -112,4 +112,24 @@ class DjotToCarveTest extends TestCase
         $input = "```\n+ literal\n```";
         $this->assertSame($input, $this->converter->convert($input));
     }
+
+    /**
+     * Performance guard: the same-family overlap check is O(n log n), not the
+     * old O(n^2) linear scan over every prior match. A large emphasis-heavy
+     * input must complete quickly and produce the correct output. The bound is
+     * generous (the quadratic version took ~14s for this input); it only fails
+     * on a regression back to super-linear behavior.
+     */
+    public function testLargeInputCompletesQuicklyWithCorrectOutput(): void
+    {
+        $input = str_repeat("_text_\n", 10000);
+
+        $start = microtime(true);
+        $result = $this->converter->convert($input);
+        $elapsed = microtime(true) - $start;
+
+        $this->assertLessThan(5.0, $elapsed, 'DjotToCarve large input should stay sub-quadratic');
+        $this->assertSame(10000, substr_count($result, '/text/'));
+        $this->assertStringStartsWith('/text/', $result);
+    }
 }
