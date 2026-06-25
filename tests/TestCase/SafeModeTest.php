@@ -425,7 +425,13 @@ class SafeModeTest extends TestCase
         $djot = "[click](java\rscript:alert(1))";
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('href=""', $result);
+        // A carriage return is whitespace, so it ENDS the link destination
+        // (grammar.ebnf link_destination, decision B): the `(` run reaches the
+        // line end without a closing `)`, so this is NOT a link and stays
+        // literal -- no anchor is emitted at all, which is at least as safe as
+        // a blanked href.
+        $this->assertStringNotContainsString('<a ', $result);
+        $this->assertStringNotContainsString('javascript:', $result);
     }
 
     public function testDataUrlWithWhitespaceIsBlocked(): void

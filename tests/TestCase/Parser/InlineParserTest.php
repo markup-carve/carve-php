@@ -972,11 +972,16 @@ class InlineParserTest extends TestCase
         $this->assertSame(')', $children[1]->getContent());
     }
 
-    public function testInlineLinkTitlesDoNotUseBackslashEscapes(): void
+    public function testInlineLinkTitleAllowsBackslashEscapedQuote(): void
     {
-        $para = $this->parseInline('[x](url "a \" b")');
-        $text = $this->getFirstChild($para);
+        // An INLINE-link title may contain a backslash-escaped delimiter,
+        // kept as a literal quote (CommonMark-style; grammar.ebnf link_title,
+        // decision D). The ref-def title slot deliberately does NOT honor it.
+        $para = $this->parseInline('[t](/url "ti\\"tle")');
+        $link = $this->getFirstChild($para);
 
-        $this->assertInstanceOf(Text::class, $text);
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertSame('/url', $link->getDestination());
+        $this->assertSame('ti"tle', $link->getTitle());
     }
 }

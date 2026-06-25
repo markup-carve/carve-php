@@ -673,14 +673,29 @@ class BlockParser
                 $attrsToUse = ($pendingAttrsInQuote === $inQuote && $pendingAttrsInList === $inList)
                     ? $pendingAttrs
                     : [];
-                // Split a trailing quoted title: `url "title"` / `url 'title'`.
+                // The destination ends at the first whitespace (grammar.ebnf
+                // link_destination / reference_definition, decision A): it is
+                // the first non-whitespace run. A following quoted run is the
+                // title; anything else after the destination is ignored (the
+                // definition still registers with the bare token). Mirrors the
+                // canonical oracle carve-js (RE_LINK_DEF). The ref-def title
+                // slot does NOT honor the inline-link `\"` escape (grammar
+                // known divergence) -- a raw quote ends the title.
                 $title = null;
-                if (preg_match('/^(.*?)\s+"([^"]*)"$/', $url, $tm)) {
+                // PREG_UNMATCHED_AS_NULL: the title-quote groups are null when
+                // their branch did not match (vs `''` for an explicitly empty
+                // `""` / `''` title), so a single-quoted title is not masked by
+                // the earlier (empty) double-quote group.
+                if (preg_match('/^(\S+)(?:\s+(?:"([^"]*)"|\'([^\']*)\'))?/', $url, $tm, PREG_UNMATCHED_AS_NULL)) {
                     $url = $tm[1];
-                    $title = $tm[2];
-                } elseif (preg_match("/^(.*?)\\s+'([^']*)'$/", $url, $tm)) {
-                    $url = $tm[1];
-                    $title = $tm[2];
+                    // A double- or single-quoted run after the destination is
+                    // the title (an explicitly empty `""` still counts). When
+                    // no quoted run follows, both groups are null: no title.
+                    if (($tm[2] ?? null) !== null) {
+                        $title = $tm[2];
+                    } elseif (($tm[3] ?? null) !== null) {
+                        $title = $tm[3];
+                    }
                 }
                 $this->references[$label] = new ReferenceDefinition(trim($url), $attrsToUse, $i, $title);
                 $pendingAttrs = [];
