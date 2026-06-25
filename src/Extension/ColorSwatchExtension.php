@@ -12,6 +12,7 @@ use Carve\Node\Inline\InlineExtension;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Node;
 use Carve\Renderer\HtmlRenderer;
+use InvalidArgumentException;
 
 /**
  * Inline color swatch extension (Tier-3).
@@ -62,6 +63,51 @@ class ColorSwatchExtension implements ExtensionInterface
      */
     public const KIND = 'swatch';
 
+    /**
+     * Where the chip sits relative to the value: `before` the value (default),
+     * `after` it, or `none` (chip only; the value becomes the element `title`).
+     *
+     * @var array<string>
+     */
+    public const POSITIONS = ['before', 'after', 'none'];
+
+    /**
+     * Chip shape: a filled `square` (default), a filled `round` dot, or a hollow
+     * `ring` (the color is the border, not the fill).
+     *
+     * @var array<string>
+     */
+    public const SHAPES = ['square', 'round', 'ring'];
+
+    /**
+     * @param string $position Chip position: one of self::POSITIONS.
+     * @param string $shape Chip shape: one of self::SHAPES.
+     * @param bool $tint When true, a faint tint of the color is painted behind the
+     *   whole swatch (via CSS color-mix; decorative, degrades where unsupported).
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function __construct(
+        protected string $position = 'before',
+        protected string $shape = 'square',
+        protected bool $tint = false,
+    ) {
+        if (!in_array($this->position, self::POSITIONS, true)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid ColorSwatch position "%s"; expected one of: %s.',
+                $this->position,
+                implode(', ', self::POSITIONS),
+            ));
+        }
+        if (!in_array($this->shape, self::SHAPES, true)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid ColorSwatch shape "%s"; expected one of: %s.',
+                $this->shape,
+                implode(', ', self::SHAPES),
+            ));
+        }
+    }
+
     public function register(CarveConverter $converter): void
     {
         $renderer = $converter->getRenderer();
@@ -83,13 +129,53 @@ class ColorSwatchExtension implements ExtensionInterface
                 return;
             }
 
-            $label = $this->escapeHtml($color);
-            $style = $renderer->escapeAttribute('background-color:' . $color);
-
-            $event->setHtml('<span' . $this->openAttributes($node, $renderer) . '>'
-                . '<span class="swatch-chip" style="' . $style . '"></span> '
-                . $label . '</span>');
+            $event->setHtml($this->renderSwatch($node, $renderer, $color));
         });
+    }
+
+    /**
+     * Build the swatch HTML for a validated color according to the configured
+     * position, shape and tint. The default (before / square / no tint) emits
+     * the canonical `<span class="swatch"><span class="swatch-chip" ...></span>
+     * value</span>` form.
+     */
+    protected function renderSwatch(Node $node, HtmlRenderer $renderer, string $color): string
+    {
+        $label = $this->escapeHtml($color);
+
+        // A ring shows the color as the border; filled shapes as the background.
+        $chipClass = 'swatch-chip';
+        if ($this->shape !== 'square') {
+            $chipClass .= ' swatch-chip-' . $this->shape;
+        }
+        $chipStyle = $this->shape === 'ring'
+            ? 'border-color:' . $color
+            : 'background-color:' . $color;
+        $chip = '<span class="' . $chipClass . '" style="'
+            . $renderer->escapeAttribute($chipStyle) . '"></span>';
+
+        $extraClasses = [];
+        $extraStyle = null;
+        $extraAttrs = [];
+        if ($this->tint) {
+            $extraClasses[] = 'swatch-tint';
+            $extraStyle = 'background-color:color-mix(in srgb, ' . $color . ' 12%, transparent)';
+        }
+
+        if ($this->position === 'none') {
+            // Chip only: the value is not shown inline, so surface it as the
+            // element title so it stays available on hover and to assistive tech.
+            $extraClasses[] = 'swatch-chip-only';
+            $extraAttrs['title'] = $color;
+            $inner = $chip;
+        } elseif ($this->position === 'after') {
+            $inner = $label . ' ' . $chip;
+        } else {
+            $inner = $chip . ' ' . $label;
+        }
+
+        return '<span' . $this->openAttributes($node, $renderer, $extraClasses, $extraStyle, $extraAttrs) . '>'
+            . $inner . '</span>';
     }
 
     /**
@@ -125,12 +211,25 @@ class ColorSwatchExtension implements ExtensionInterface
 
     /**
      * Build the output element's attribute string with the `swatch` base class
-     * ahead of any author classes, then id / key-values in source order.
+     * (then any extension-added classes, then author classes), an optional
+     * extension style, and id / key-values in source order. Author-supplied
+     * attributes win over the extension defaults on a key conflict.
+     *
+     * @param \Carve\Node\Node $node
+     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param array<string> $extraClasses
+     * @param string|null $extraStyle
+     * @param array<string, string> $extraAttrs
      */
-    protected function openAttributes(Node $node, HtmlRenderer $renderer): string
-    {
+    protected function openAttributes(
+        Node $node,
+        HtmlRenderer $renderer,
+        array $extraClasses = [],
+        ?string $extraStyle = null,
+        array $extraAttrs = [],
+    ): string {
         $classes = [self::KIND];
-        foreach ($node->getClassList() as $class) {
+        foreach ([...$extraClasses, ...$node->getClassList()] as $class) {
             if (!in_array($class, $classes, true)) {
                 $classes[] = $class;
             }
@@ -138,6 +237,9 @@ class ColorSwatchExtension implements ExtensionInterface
 
         $attrs = $node->getAttributes();
         unset($attrs['class']);
+        // Author attributes (e.g. an explicit title) take precedence over the
+        // extension defaults; array union keeps the left (author) keys.
+        $attrs += $extraAttrs;
 
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();
@@ -146,6 +248,10 @@ class ColorSwatchExtension implements ExtensionInterface
         }
 
         $out = ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
+        // Only add the extension style when the author did not set their own.
+        if ($extraStyle !== null && !isset($attrs['style'])) {
+            $out .= ' style="' . $renderer->escapeAttribute($extraStyle) . '"';
+        }
 
         return $out . $renderer->renderAttributeArray($attrs);
     }
