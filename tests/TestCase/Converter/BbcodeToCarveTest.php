@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Test\TestCase\Converter;
 
 use Carve\Converter\BbcodeToCarve;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class BbcodeToCarveTest extends TestCase
@@ -391,5 +392,29 @@ BBCODE;
     {
         $result = $this->converter->convert('Some text[table][tr][td]Cell[/td][/tr][/table]More text');
         $this->assertStringContainsString("Some text\n\n| Cell |", $result);
+    }
+
+    // ==================== DoS guard: max input length ====================
+
+    public function testInputOverMaxLengthThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->converter->convert(str_repeat('a', BbcodeToCarve::MAX_INPUT_LENGTH + 1));
+    }
+
+    public function testInputAtMaxLengthConverts(): void
+    {
+        // At the limit (not over it) the converter must still run, not throw.
+        $result = $this->converter->convert('[b]' . str_repeat('a', BbcodeToCarve::MAX_INPUT_LENGTH - 7) . '[/b]');
+
+        $this->assertStringStartsWith('*', $result);
+    }
+
+    public function testNormalInputStillConverts(): void
+    {
+        $result = $this->converter->convert('[b]bold[/b]');
+
+        $this->assertSame('*bold*', trim($result));
     }
 }

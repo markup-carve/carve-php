@@ -91,8 +91,11 @@ class DjotToCarve
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
         $masked = $this->maskCode($source);
 
-        /** @var array<array{0: int, 1: int, 2: string}> $taken */
-        $taken = [];
+        // Accepted [start, end] delimiter ranges per family, kept sorted by start
+        // and disjoint, so the overlap check is a binary search instead of a
+        // linear scan of every prior match (which was O(n^2) in match count).
+        /** @var array<string, array<array{0: int, 1: int}>> $takenByFamily */
+        $takenByFamily = [];
         /** @var array<array{0: int, 1: int, 2: string}> $edits */
         $edits = [];
 
@@ -113,18 +116,29 @@ class DjotToCarve
                     continue;
                 }
 
-                if ($this->sameFamilyOverlap($taken, $start, $end, $rule['family'])) {
+                if (!isset($takenByFamily[$rule['family']])) {
+                    $takenByFamily[$rule['family']] = [];
+                }
+                // Bind the per-family bucket by reference so the overlap check
+                // and the in-place insert mutate the stored array directly. A
+                // by-value copy here would trigger copy-on-write duplication of
+                // the growing bucket on every match, reintroducing O(n^2) cost.
+                $familyTaken = &$takenByFamily[$rule['family']];
+                if ($this->familyOverlaps($familyTaken, $start, $end)) {
                     continue;
                 }
 
                 $contentStart = $match[1][1];
                 $contentEnd = $contentStart + strlen($match[1][0]);
 
-                $taken[] = [$start, $end, $rule['family']];
+                $this->insertInterval($familyTaken, $start, $end);
                 // Replace only the delimiters; leave inner bytes untouched.
                 $edits[] = [$start, $contentStart, $rule['open']];
                 $edits[] = [$contentEnd, $end, $rule['close']];
             }
+            // Break the reference into the bucket so a later iteration cannot
+            // accidentally clobber it via the still-bound $familyTaken alias.
+            unset($familyTaken);
         }
 
         usort($edits, fn (array $a, array $b): int => $b[0] <=> $a[0]);
@@ -166,20 +180,76 @@ class DjotToCarve
     }
 
     /**
-     * @param array<array{0: int, 1: int, 2: string}> $taken
-     * @param string $family
+     * Does [start, end) overlap any interval in a sorted, disjoint list?
+     *
+     * Binary-searches for the last interval starting at or before `start` and
+     * checks it plus its successor (the only two that can overlap a disjoint
+     * sorted set), so the check is O(log n) rather than O(n).
+     *
+     * @param array<array{0: int, 1: int}> $sorted intervals sorted by start, disjoint
      * @param int $end
      * @param int $start
      */
-    protected function sameFamilyOverlap(array $taken, int $start, int $end, string $family): bool
+    protected function familyOverlaps(array $sorted, int $start, int $end): bool
     {
-        foreach ($taken as [$takenStart, $takenEnd, $takenFamily]) {
-            if ($takenFamily === $family && $start < $takenEnd && $takenStart < $end) {
-                return true;
+        $count = count($sorted);
+        if ($count === 0) {
+            return false;
+        }
+
+        // Largest index whose interval start <= $start.
+        $lo = 0;
+        $hi = $count - 1;
+        $idx = -1;
+        while ($lo <= $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if ($sorted[$mid][0] <= $start) {
+                $idx = $mid;
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid - 1;
             }
         }
 
-        return false;
+        // Predecessor (starts at/before $start): overlaps iff it ends after $start.
+        if ($idx >= 0 && $sorted[$idx][1] > $start) {
+            return true;
+        }
+
+        // Successor (starts after $start): overlaps iff it starts before $end.
+        $next = $idx + 1;
+
+        return $next < $count && $sorted[$next][0] < $end;
+    }
+
+    /**
+     * Insert [start, end) into a sorted-by-start interval list, preserving order.
+     *
+     * @param array<array{0: int, 1: int}> $sorted
+     * @param int $end
+     * @param int $start
+     */
+    protected function insertInterval(array &$sorted, int $start, int $end): void
+    {
+        $count = count($sorted);
+        // Fast path: appending in source order (the common case) is O(1).
+        if ($count === 0 || $sorted[$count - 1][0] <= $start) {
+            $sorted[] = [$start, $end];
+
+            return;
+        }
+
+        $lo = 0;
+        $hi = $count;
+        while ($lo < $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if ($sorted[$mid][0] < $start) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+        array_splice($sorted, $lo, 0, [[$start, $end]]);
     }
 
     /**

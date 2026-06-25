@@ -22,9 +22,29 @@ use RuntimeException;
  * Key Djot requirements handled:
  * - Blank lines required around block elements (headings, code blocks, lists)
  * - Nested lists require blank line before the nested portion
+ *
+ * SECURITY: this converter is NOT a sanitizer. Its output is Djot/Carve markup
+ * that may still contain content derived from the input; render untrusted input
+ * with safe mode enabled on the downstream renderer. By default the converter
+ * IGNORES any `data-djot-src` round-trip attribute on the input (it would
+ * otherwise be emitted verbatim as raw Carve, allowing a crafted attribute to
+ * inject a raw-HTML block). Only enable round-trip extraction via the
+ * constructor flag when the HTML is TRUSTED (e.g. produced by carve itself).
  */
 class HtmlToCarve
 {
+    /**
+     * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
+     * input. Default false: untrusted HTML must not be able to smuggle raw Carve
+     * (incl. a raw-HTML block) through that attribute.
+     */
+    protected bool $trustedRoundTrip = false;
+
+    public function __construct(bool $trustedRoundTrip = false)
+    {
+        $this->trustedRoundTrip = $trustedRoundTrip;
+    }
+
     protected int $listDepth = 0;
 
     protected bool $inPre = false;
@@ -894,6 +914,14 @@ class HtmlToCarve
 
     protected function extractRoundTripSource(DOMElement $node, string $tagName): ?string
     {
+        // Untrusted HTML must not be able to smuggle raw Carve through a
+        // `data-djot-src` attribute (it is emitted verbatim, so a crafted value
+        // could inject a raw-HTML block -> live <script>). Only honor it when the
+        // caller explicitly trusts the source.
+        if (!$this->trustedRoundTrip) {
+            return null;
+        }
+
         if (!$node->hasAttribute('data-djot-src')) {
             return null;
         }
@@ -2200,7 +2228,10 @@ class HtmlToCarve
 
     protected function convertInlineFragmentToDjot(string $html): string
     {
-        $converter = new self();
+        // Propagate the trust setting so a trusted round-trip parent keeps
+        // honoring inner round-trip attributes in the recursive sub-conversion
+        // (and an untrusted parent keeps ignoring them).
+        $converter = new self($this->trustedRoundTrip);
         $converter->preserveTextWhitespace = true;
 
         $doc = new DOMDocument();

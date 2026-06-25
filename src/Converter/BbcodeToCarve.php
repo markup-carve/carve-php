@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Carve\Converter;
 
+use InvalidArgumentException;
+
 /**
  * Converts BBCode markup to Djot
  *
@@ -12,10 +14,27 @@ namespace Carve\Converter;
 class BbcodeToCarve
 {
     /**
+     * Maximum input length. The converter runs many full-string regex passes,
+     * so cost is super-linear on a single huge input; BBCode is bounded forum
+     * content, so reject anything implausibly large to keep conversion bounded.
+     *
+     * @var int
+     */
+    public const MAX_INPUT_LENGTH = 262144;
+
+    /**
      * Convert BBCode to Djot markup
+     *
+     * @throws \InvalidArgumentException when the input exceeds MAX_INPUT_LENGTH bytes
      */
     public function convert(string $bbcode): string
     {
+        if (strlen($bbcode) > self::MAX_INPUT_LENGTH) {
+            throw new InvalidArgumentException(
+                'BBCode input exceeds maximum length of ' . self::MAX_INPUT_LENGTH . ' bytes',
+            );
+        }
+
         $djot = $bbcode;
 
         // Normalize line endings
