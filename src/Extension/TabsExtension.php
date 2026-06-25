@@ -661,13 +661,28 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         return false;
     }
 
+    /**
+     * Build an HtmlToCarve converter for reconstructing round-trip source.
+     *
+     * The HTML reconstructed here is carve's OWN rendered output (from
+     * `HtmlRenderer::renderNodeFragment`), so it is trusted and may carry
+     * faithful `data-djot-src` round-trip attributes (e.g. a code fence's
+     * `` ``` php `` info string). Pass `trustedRoundTrip: true` so those inner
+     * sources are honored; the default converter ignores `data-djot-src` to stay
+     * safe against untrusted external HTML.
+     */
+    protected function trustedHtmlToCarve(): HtmlToCarve
+    {
+        return new HtmlToCarve(trustedRoundTrip: true);
+    }
+
     protected function reconstructChildToDjot(Node $child, HtmlRenderer $renderer): string
     {
         return match (true) {
             $child instanceof DefinitionList => $this->renderDefinitionListToDjot($child, $renderer),
             $child instanceof Div => $this->renderDivToDjot($child, $renderer),
             $child instanceof Table => $this->renderTableToDjot($child, $renderer),
-            default => rtrim((new HtmlToCarve())->convert($renderer->renderNodeFragment($child)), "\n"),
+            default => rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n"),
         };
     }
 
@@ -677,9 +692,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
 
         foreach ($list->getChildren() as $child) {
             if ($child instanceof DefinitionTerm) {
-                $lines[] = rtrim((new HtmlToCarve())->convert($renderer->renderNodeFragment($child)), "\n");
+                $lines[] = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n");
             } elseif ($child instanceof DefinitionDescription) {
-                $content = rtrim((new HtmlToCarve())->convert($renderer->renderNodeFragment($child)), "\n");
+                $content = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n");
                 $lines[] = ': ' . $content;
             }
         }
@@ -740,7 +755,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                     continue;
                 }
 
-                $cells[] = rtrim((new HtmlToCarve())->convert($renderer->renderNodeFragment($cell)), "\n");
+                $cells[] = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($cell)), "\n");
                 if ($row->isHeader() || !isset($alignments[$cellIndex])) {
                     $alignments[$cellIndex] = $cell->getAlignment();
                 }
