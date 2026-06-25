@@ -451,6 +451,9 @@ class BlockParser
 
     public function parse(string $input): Document
     {
+        // Capture the original source byte length before any normalization so
+        // renderers can size the abbreviation-expansion budget (DoS guard).
+        $sourceLength = strlen($input);
         $this->references = [];
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
@@ -501,6 +504,10 @@ class BlockParser
         if ($this->abbreviations !== []) {
             $document->setAbbreviations($this->abbreviations);
         }
+
+        // Record the source byte length so renderers can size the
+        // abbreviation-expansion budget (output-amplification DoS guard).
+        $document->setSourceLength($sourceLength);
 
         return $document;
     }
