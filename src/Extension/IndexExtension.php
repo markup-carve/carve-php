@@ -51,6 +51,21 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
     private const OCC_ATTR = 'data-index-occ';
 
     /**
+     * Base (floor) budget in bytes for `::: index` re-emission, applied even for
+     * tiny sources. Mirrors AbbreviationBudgetTrait's policy.
+     *
+     * @var int
+     */
+    private const BUDGET_BASE = 1000000;
+
+    /**
+     * Multiplier applied to the source byte length when computing the budget.
+     *
+     * @var int
+     */
+    private const BUDGET_FACTOR = 8;
+
+    /**
      * Total occurrences per slug (document body order).
      *
      * @var array<string, int>
@@ -63,6 +78,21 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
      * @var array<string, string>
      */
     protected array $display = [];
+
+    /**
+     * Cumulative bytes already emitted by `::: index` block rendering in the
+     * current render. Reset per beforeRender() (re-entrancy safe).
+     */
+    protected int $emittedBytes = 0;
+
+    /**
+     * Computed re-emission budget for the current render (max of base and
+     * factor*source). A single document may hold K index blocks each re-emitting
+     * the full N-marker backlink list, so output is bounded to avoid a memory
+     * DoS. The budget sits far above any real document, so normal output is
+     * byte-identical.
+     */
+    protected int $budget = self::BUDGET_BASE;
 
     protected HeadingIdTracker $slugger;
 
@@ -103,6 +133,8 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         $renderDocument = clone $document;
         $this->counts = [];
         $this->display = [];
+        $this->emittedBytes = 0;
+        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getSourceLength());
 
         // Only the body is indexed: skip Footnote subtrees (deferred content the
         // renderer may drop or reorder). A marker inside one stays uncounted and
@@ -143,13 +175,34 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         usort($slugs, 'strcmp');
 
         $items = [];
+        // Bound cumulative re-emission across all `::: index` blocks in this
+        // render: K blocks * N markers * ~52 bytes is attacker-controlled for
+        // untrusted input (output-amplification memory DoS). We build and charge
+        // each entry incrementally and stop as soon as the budget is exhausted -
+        // both across slugs and within a single slug's backlinks - so neither
+        // the output nor the transient string-building work exceeds the budget.
+        // The budget is far above any real document, so output is byte-identical.
         foreach ($slugs as $slug) {
-            $links = [];
-            for ($m = 1; $m <= $this->counts[$slug]; $m++) {
-                $links[] = '<a href="#idx-' . $renderer->escapeAttribute($slug) . '-' . $m
-                    . '" class="index-backref">↩</a>';
+            $prefix = '  <li>' . $this->escapeHtml($this->display[$slug]);
+            if (!$this->charge($prefix)) {
+                break;
             }
-            $items[] = '  <li>' . $this->escapeHtml($this->display[$slug]) . ' ' . implode(' ', $links) . '</li>';
+            $item = $prefix;
+            $stopped = false;
+            for ($m = 1; $m <= $this->counts[$slug]; $m++) {
+                $link = ' <a href="#idx-' . $renderer->escapeAttribute($slug) . '-' . $m
+                    . '" class="index-backref">↩</a>';
+                if (!$this->charge($link)) {
+                    $stopped = true;
+
+                    break;
+                }
+                $item .= $link;
+            }
+            $items[] = $item . '</li>';
+            if ($stopped) {
+                break;
+            }
         }
 
         $ul = '<ul' . $this->openAttributes($div, $renderer) . ">\n" . implode("\n", $items) . "\n</ul>\n";
@@ -189,6 +242,26 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         $out .= ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
 
         return $out . $renderer->renderAttributeArray($attrs);
+    }
+
+    /**
+     * Charge a rendered index entry against the per-render re-emission budget.
+     *
+     * @param string $chunk The HTML whose bytes are about to be emitted.
+     *
+     * @return bool True if the chunk fits within budget (its bytes are charged);
+     *   false if it would exceed the budget and emission must stop.
+     */
+    protected function charge(string $chunk): bool
+    {
+        $cost = strlen($chunk);
+        if ($this->emittedBytes + $cost > $this->budget) {
+            return false;
+        }
+
+        $this->emittedBytes += $cost;
+
+        return true;
     }
 
     protected function escapeHtml(string $text): string
