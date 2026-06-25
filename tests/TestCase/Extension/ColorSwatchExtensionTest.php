@@ -6,6 +6,7 @@ namespace Carve\Test\TestCase\Extension;
 
 use Carve\CarveConverter;
 use Carve\Extension\ColorSwatchExtension;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class ColorSwatchExtensionTest extends TestCase
@@ -167,13 +168,13 @@ class ColorSwatchExtensionTest extends TestCase
 
     public function testInvalidPositionThrows(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new ColorSwatchExtension(position: 'sideways');
     }
 
     public function testInvalidShapeThrows(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new ColorSwatchExtension(shape: 'triangle');
     }
 }

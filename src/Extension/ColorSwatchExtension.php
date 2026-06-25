@@ -84,6 +84,8 @@ class ColorSwatchExtension implements ExtensionInterface
      * @param string $shape Chip shape: one of self::SHAPES.
      * @param bool $tint When true, a faint tint of the color is painted behind the
      *   whole swatch (via CSS color-mix; decorative, degrades where unsupported).
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         protected string $position = 'before',
@@ -213,7 +215,10 @@ class ColorSwatchExtension implements ExtensionInterface
      * extension style, and id / key-values in source order. Author-supplied
      * attributes win over the extension defaults on a key conflict.
      *
+     * @param \Carve\Node\Node $node
+     * @param \Carve\Renderer\HtmlRenderer $renderer
      * @param array<string> $extraClasses
+     * @param string|null $extraStyle
      * @param array<string, string> $extraAttrs
      */
     protected function openAttributes(
