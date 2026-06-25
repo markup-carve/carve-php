@@ -96,4 +96,43 @@ class IndexExtensionTest extends TestCase
         $this->assertStringContainsString('<ul class="index">', $out);
         $this->assertStringContainsString('<li>parser <a href="#idx-parser-1" class="index-backref">↩</a></li>', $out);
     }
+
+    public function testReEmissionIsBoundedAcrossManyBlocks(): void
+    {
+        // Many markers re-emitted by many `::: index` blocks would be
+        // K * N * ~52 bytes without a budget (an output-amplification memory
+        // DoS). The per-render budget caps cumulative index bytes, so output
+        // stays bounded and the convert call must not fatal.
+        $markers = 1000;
+        $blocks = 1000;
+        $source = str_repeat(':index[term] ', $markers) . "\n\n"
+            . str_repeat("::: index\n:::\n\n", $blocks);
+
+        $out = $this->html($source);
+
+        // Budget is max(1000000, 8 * strlen(source)); the empty `<ul>` wrappers
+        // are proportional to input, not multiplicative. The naive output would
+        // be > 50 MB; assert we stay far below that.
+        $this->assertLessThan(5_000_000, strlen($out));
+        $this->assertStringContainsString('<ul class="index">', $out);
+    }
+
+    public function testNormalSmallIndexStillRendersFully(): void
+    {
+        // A realistic small index must be byte-identical to the unbudgeted path:
+        // every marker keeps its backlink, nothing is dropped.
+        $out = $this->html(
+            "A :index[parser] and :index[lexer], then :index[parser] again.\n\n::: index\n:::",
+        );
+
+        $this->assertStringContainsString(
+            '<li>parser <a href="#idx-parser-1" class="index-backref">↩</a> '
+            . '<a href="#idx-parser-2" class="index-backref">↩</a></li>',
+            $out,
+        );
+        $this->assertStringContainsString(
+            '<li>lexer <a href="#idx-lexer-1" class="index-backref">↩</a></li>',
+            $out,
+        );
+    }
 }
