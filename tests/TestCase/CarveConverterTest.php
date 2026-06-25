@@ -1002,23 +1002,26 @@ DJOT;
 
         $this->assertStringContainsString('<strong>', $result);
         $this->assertStringContainsString('</strong>', $result);
-        $this->assertStringContainsString('id="id"', $result);
-        $this->assertStringContainsString('key="*"', $result);
+        $this->assertStringContainsString('b{<span class="tag"><strong>#id</strong></span> key=“*”}', $result);
+        $this->assertStringNotContainsString('id="id"', $result);
+        $this->assertStringNotContainsString('key="*"', $result);
     }
 
     /**
-     * Test that unclosed emphasis with attributes creates span instead
+     * Test that unclosed emphasis with an attribute-shaped literal stays literal
      *
      * When emphasis cannot close because the only potential closer is inside
-     * an attribute, the attribute attaches to the preceding word.
+     * attribute-shaped literal text, the block is not consumed as attributes.
      */
     public function testAttributesWithDelimiterInValueNoClose(): void
     {
         $djot = 'a *b{#id key="*"}o';
         $result = $this->converter->convert($djot);
 
-        // No closing * so *b stays literal, attribute attaches to *b
-        $this->assertStringContainsString('<span id="id" key="*">*b</span>', $result);
+        // No closing * so *b and the brace block stay literal.
+        $this->assertStringContainsString('*b{<span class="tag"><strong>#id</strong></span> key=“*”}o', $result);
+        $this->assertStringNotContainsString('id="id"', $result);
+        $this->assertStringNotContainsString('key="*"', $result);
     }
 
     public function testEscapedUnderscore(): void
@@ -2890,7 +2893,7 @@ DJOT;
     public function testAttributeOrderIdFirst(): void
     {
         // Attributes should be ordered: id first, then others in source order
-        $djot = 'hi{#myid .myclass key="value"}';
+        $djot = '[hi]{#myid .myclass key="value"}';
         $result = $this->converter->convert($djot);
 
         // Check that id comes first, class and key follow in source order

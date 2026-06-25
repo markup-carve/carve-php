@@ -261,14 +261,18 @@ class InlineParserTest extends TestCase
         $this->assertTrue(str_contains($class, 'highlight'));
     }
 
-    public function testParseWordAttribute(): void
+    public function testBareWordAttributeBlockIsLiteral(): void
     {
         $para = $this->parseInline('word{.class}');
 
-        $span = $this->getFirstChild($para);
-        $this->assertInstanceOf(Span::class, $span);
-        $class = $span->getAttribute('class') ?? '';
-        $this->assertTrue(str_contains($class, 'class'));
+        $content = '';
+        foreach ($para->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $content .= $child->getContent();
+            }
+        }
+
+        $this->assertSame('word{.class}', $content);
     }
 
     public function testParseLinkWithAttributes(): void
@@ -377,16 +381,14 @@ class InlineParserTest extends TestCase
         $strong = $this->getFirstChild($para);
         $this->assertInstanceOf(Strong::class, $strong);
 
-        // Should contain span with attribute
-        $hasSpan = false;
+        $content = '';
         foreach ($strong->getChildren() as $child) {
-            if ($child instanceof Span) {
-                $hasSpan = true;
-                $this->assertSame('id', $child->getAttribute('id'));
-                $this->assertSame('*', $child->getAttribute('key'));
+            $this->assertNotInstanceOf(Span::class, $child);
+            if ($child instanceof Text) {
+                $content .= $child->getContent();
             }
         }
-        $this->assertTrue($hasSpan, 'Strong should contain span with attributes');
+        $this->assertSame('b{#id key=“*”}', $content);
     }
 
     public function testNestedEmphasis(): void

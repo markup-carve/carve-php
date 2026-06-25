@@ -8,12 +8,11 @@ use Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A `{...}` attribute block only attaches when it directly abuts an inline
- * element (a bracketed span, a preceding word, code span, link, ...). When no
- * such host precedes it - the block sits at the start of the content or after
- * whitespace - it is NOT an attribute block: the braces are ordinary literal
- * text and their content is parsed inline (grammar PART 9 §14, inline_span
- * requires `[...]`). Canonical verified against carve-js.
+ * A `{...}` attribute block only attaches when it directly abuts an explicit
+ * inline element host (a bracketed span, code span, link, ...). A bare word is
+ * not an inline span host: the braces are ordinary literal text and their
+ * content is parsed inline (grammar PART 9 §14, inline_span requires `[...]`).
+ * Canonical verified against carve-js.
  *
  * Before this fix carve-php silently dropped a host-less block (consuming the
  * braces and leaving a stray space), diverging from the reference and losing
@@ -58,16 +57,20 @@ class InlineAttributeNoHostTest extends TestCase
         $this->assertSame("<ul>\n  <li>a {.c} text</li>\n</ul>\n", $result);
     }
 
-    // ---- preserved behavior: a block abutting a host still attaches ----
+    // ---- reference behavior: bare words stay literal; explicit hosts attach ----
 
-    public function testAbuttingWordStillBecomesSpan(): void
+    public function testAbuttingWordAttributeBlockStaysLiteral(): void
     {
-        // carve-php intentionally attaches an abutting block to the preceding
-        // word (documented divergence from carve-js); the no-host fix must not
-        // disturb it.
         $result = $this->converter->convert("word{.c} x\n");
 
-        $this->assertSame("<p><span class=\"c\">word</span> x</p>\n", $result);
+        $this->assertSame("<p>word{.c} x</p>\n", $result);
+    }
+
+    public function testBareWordAttributeValueStaysLiteralWithSmartQuotes(): void
+    {
+        $result = $this->converter->convert("p{data-x=\"y z\"}\n");
+
+        $this->assertSame("<p>p{data-x=“y z”}</p>\n", $result);
     }
 
     public function testAbuttingBracketSpanStillAttaches(): void
