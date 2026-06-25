@@ -595,7 +595,7 @@ class HtmlRenderer implements RendererInterface
                 $explicitIdAttr = ' data-djot-explicit-id="1"';
             }
             $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
-            $html .= '<section id="' . $this->escape($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
+            $html .= '<section id="' . $this->escapeHeadingId($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
                 . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</section>\n";
             $i = $j;
         }
@@ -752,16 +752,18 @@ class HtmlRenderer implements RendererInterface
 
         // Carve headings are flat: no <section> wrapper, the id sits on
         // the heading. Attribute order is the node's own attributes
-        // (e.g. class) followed by id — matching the corpus.
+        // (e.g. class) followed by id — matching the corpus. The id is
+        // rendered via escapeHeadingId so a literal NBSP stays a raw byte
+        // (decision F-id), unlike the generic escapeAttribute path.
         $attrs = $this->getRenderableAttributes($node, ['id']);
-        $attrs['id'] = $this->getSectionId($node);
+        $idAttr = ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
 
         $explicitIdAttr = '';
         if ($this->roundTripMode && $node->hasAttribute('id')) {
             $explicitIdAttr = ' data-djot-explicit-id="1"';
         }
 
-        return '<h' . $level . $this->renderAttributeArray($attrs) . $explicitIdAttr . '>'
+        return '<h' . $level . $this->renderAttributeArray($attrs) . $idAttr . $explicitIdAttr . '>'
             . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
 
@@ -1775,6 +1777,20 @@ class HtmlRenderer implements RendererInterface
 
         // Convert escaped space placeholder (U+E000) and literal NBSP to &nbsp;.
         return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+    }
+
+    /**
+     * Escape a heading / section id for an HTML attribute value. Unlike
+     * escapeAttribute(), a literal non-breaking space (U+00A0) is kept as the
+     * raw byte rather than serialized to the `&nbsp;` entity, matching the
+     * reference impls carve-js / carve-rs (decision F-id). The escaped-space
+     * placeholder (U+E000) still normalizes to a raw NBSP byte.
+     */
+    public function escapeHeadingId(string $text): string
+    {
+        $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return str_replace("\u{E000}", "\u{00A0}", $escaped);
     }
 
     protected function renderRawBlock(RawBlock $node): string

@@ -2379,15 +2379,17 @@ DJOT;
     }
 
     /**
-     * Test that inline link URLs have newlines stripped
-     *
-     * Regression test: [link](url\nandurl) should produce urlandurl as the href
+     * A newline ends the link destination (it counts as whitespace), so a
+     * `(` run that reaches end-of-line without a closing `)` is NOT a link
+     * and stays literal (grammar.ebnf link_destination, decision B).
      */
-    public function testInlineLinkUrlNewlineStripping(): void
+    public function testInlineLinkUrlNewlineIsLiteral(): void
     {
         $result = $this->converter->convert("[link](url\nandurl)");
 
-        $this->assertStringContainsString('href="urlandurl"', $result);
+        $this->assertStringNotContainsString('<a ', $result);
+        $this->assertStringContainsString('[link](url', $result);
+        $this->assertStringContainsString('andurl)', $result);
     }
 
     // Edge cases: Escaping

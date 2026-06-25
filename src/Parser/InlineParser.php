@@ -853,7 +853,23 @@ class InlineParser
 
             // Smart quotes
             if ($char === '"' || $char === "'") {
-                $smartQuote = $this->parseSmartQuote($text, $pos, $char);
+                // The opening/closing decision keys off the PREVIOUS rendered
+                // character (mirrors carve-js, which inspects the output
+                // buffer): a `'`/`"` right after a converted `“`/`‘` opens. So
+                // pass the last char already emitted into $textBuffer. When the
+                // buffer was flushed by a prior inline node, key off that node:
+                // a soft OR hard line break is whitespace -> open context; any
+                // other node (code, emphasis, ...) is word-adjacent -> a
+                // closing context. A truly empty run is start-of-content.
+                $prevConverted = $this->lastCharOf($textBuffer);
+                if ($prevConverted === '' && $parent->hasChildren()) {
+                    $children = $parent->getChildren();
+                    $lastChild = $children[count($children) - 1];
+                    $prevConverted = ($lastChild instanceof SoftBreak || $lastChild instanceof HardBreak)
+                        ? ' '
+                        : 'x';
+                }
+                $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
                 $textBuffer .= $smartQuote;
                 $pos++;
 
@@ -1683,20 +1699,29 @@ class InlineParser
 
                 // Optional title after the destination, separated by
                 // whitespace (a soft line break counts): "title",
-                // 'title', or (title). Delimiters are not escaped inside
-                // inline titles.
+                // 'title', or (title). A double/single quote delimiter may
+                // be backslash-escaped INSIDE the title and is kept as a
+                // literal quote (CommonMark-style; grammar.ebnf link_title,
+                // decision D). This escape applies to inline-link titles
+                // only -- reference-definition titles deliberately do not
+                // honor it (see ref-def parsing / grammar known divergence).
                 $title = null;
                 if (
-                    preg_match('/^([\s\S]*?)\s+"([^"]*)"$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?)\s+\'([^\']*)\'$/', $raw, $tm)
+                    preg_match('/^([\s\S]*?)\s+"((?:\\\\"|[^"])*)"$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?)\s+\'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
                     || preg_match('/^([\s\S]*?)\s+\(([^()]*)\)$/', $raw, $tm)
                 ) {
                     $raw = $tm[1];
-                    $title = $tm[2];
+                    // Unescape a backslash-escaped delimiter inside the title
+                    // (`\"` -> `"`, `\'` -> `'`); other backslashes are kept.
+                    $title = preg_replace('/\\\\(["\'])/', '$1', $tm[2]) ?? $tm[2];
                 }
 
-                // Soft breaks are ignored in the destination itself.
-                $url = str_replace(["\r\n", "\r", "\n"], '', $raw);
+                // The destination (what remains after splitting off any
+                // title) ends at the first whitespace; a newline counts as
+                // whitespace too, so `[t](url` / `more)` is NOT a link and
+                // stays literal (grammar.ebnf link_destination, decision B).
+                $url = $raw;
                 if ($url === '' || preg_match('/\s/', $url) || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
                     return null;
                 }
@@ -2389,75 +2414,106 @@ class InlineParser
         return null;
     }
 
-    protected function parseSmartQuote(string $text, int $pos, string $quote): string
+    /**
+     * Return the last (possibly multibyte UTF-8) character of $buffer, or an
+     * empty string when the buffer is empty. Used to determine the rendered
+     * character preceding a smart quote.
+     */
+    protected function lastCharOf(string $buffer): string
     {
-        $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
+        if ($buffer === '') {
+            return '';
+        }
+
+        // Walk back over any UTF-8 continuation bytes (0b10xxxxxx) to the
+        // start of the final character.
+        $i = strlen($buffer) - 1;
+        while ($i > 0 && (ord($buffer[$i]) & 0xC0) === 0x80) {
+            $i--;
+        }
+
+        return substr($buffer, $i);
+    }
+
+    protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
+    {
         $nextChar = $text[$pos + 1] ?? ' ';
 
-        // Quote immediately after = is always an opener (attribute value start)
-        if ($prevChar === '=') {
-            return $quote === '"' ? $this->openDoubleQuote : $this->openSingleQuote;
+        // A straight quote curls OPENING when the preceding (already-rendered)
+        // character is start-of-content, whitespace (incl. NBSP), an opening
+        // curly quote (nested-quote context), or one of the operator /
+        // opening-punctuation characters `( [ { = : - /` (plus the en/em
+        // dashes). Sentence punctuation (`. , ; ! ?`), letters, digits and
+        // closing brackets (`] )`) stay CLOSING. Mirrors the canonical oracle
+        // carve-js `isQuoteOpenContext` (decision SQ). See carve/MAINTAINING.md.
+        $openContext = $this->isQuoteOpenContext($prevConverted);
+
+        if ($quote === '"') {
+            return $openContext ? $this->openDoubleQuote : $this->closeDoubleQuote;
         }
 
-        // = acts as word boundary for quotes (e.g., key="value" in attributes)
-        $prevIsSpace = ctype_space($prevChar) || $pos === 0;
-
-        // A non-breaking space (U+00A0, bytes C2 A0) is whitespace for quote
-        // flanking, so a quote after it opens (matches carve-js / carve-rs).
-        // $prevChar is a single byte, so test the two preceding bytes.
-        if (!$prevIsSpace && $pos >= 2 && substr($text, $pos - 2, 2) === "\xC2\xA0") {
-            $prevIsSpace = true;
-        }
-        $nextIsSpace = ctype_space($nextChar);
-
-        // A quote following another quote should also be considered as having "space" before
-        // For example, "'Hello" at line start should produce "'Hello
-        $prevIsQuoteOpener = ($prevChar === '"' || $prevChar === "'") && $prevIsSpace === false;
-        if ($prevIsQuoteOpener) {
-            if ($pos === 1) {
-                // Previous quote was at position 0 (start of string)
-                $prevIsSpace = true;
-            } elseif ($pos >= 2) {
-                // Check if the preceding quote was in an opener position
-                $prevPrevChar = $text[$pos - 2];
-                if (ctype_space($prevPrevChar)) {
-                    $prevIsSpace = true;
-                }
-            }
-        }
-
-        // Single quote before digit is always apostrophe (e.g., '70s)
-        if ($quote === "'" && ctype_digit($nextChar)) {
+        // A single quote directly before a digit is always a literal
+        // apostrophe (always U+2019, locale-independent): decade elision
+        // `'70s` -> `’70s`, even in an opening context.
+        if (ctype_digit($nextChar)) {
             return $this->apostrophe;
         }
 
-        // A quote after ] or ) cannot be an opener
-        if ($prevChar === ']' || $prevChar === ')') {
-            return $quote === '"' ? $this->closeDoubleQuote : $this->closeSingleQuote;
-        }
-
-        if ($quote === '"') {
-            // Opening if preceded by space or start, closing otherwise
-            return $prevIsSpace && !$nextIsSpace ? $this->openDoubleQuote : $this->closeDoubleQuote;
-        }
-
-        // A single quote in opener position (preceded by whitespace / start,
-        // followed by a non-space) is an OPENING quote, per the §8 flanking
-        // rule -- regardless of whether a matching closer exists later
-        // (`'twas`, `say 'hi` -> `‘`). This matches carve-js / carve-rs; the
-        // earlier rules already peel off the apostrophe cases (`'70s` before a
-        // digit, mid-word `it's`).
-        if ($prevIsSpace && !$nextIsSpace) {
+        // Single quote in an opening context is an OPENING quote
+        // (`'word'`, `rock 'n' roll` -> the first `'`).
+        if ($openContext) {
             return $this->openSingleQuote;
         }
 
-        // Check if this is mid-word (next char is a word character) — apostrophe
+        // Outside an opening context: a literal apostrophe (always U+2019,
+        // locale-independent) mid-word (`don't`, `it's`); otherwise a
+        // locale-dependent CLOSING single quote (`'Hello'` -> the second `'`).
         if (preg_match('/\w/u', $nextChar)) {
             return $this->apostrophe;
         }
 
-        // Closing single quote
         return $this->closeSingleQuote;
+    }
+
+    /**
+     * Whether a straight quote sits in an opening context, given the
+     * previously rendered character $prevConverted (empty string =
+     * start-of-content): start, whitespace (incl. NBSP), an opening curly
+     * quote, or one of `( [ { = : - /` (or an en/em dash). Mirrors the
+     * canonical oracle carve-js `isQuoteOpenContext`.
+     */
+    protected function isQuoteOpenContext(string $prevConverted): bool
+    {
+        if ($prevConverted === '') {
+            return true;
+        }
+
+        // A non-breaking space is whitespace, so a quote after it opens --
+        // both a literal U+00A0 and Carve's explicit `\ ` form, which is
+        // carried as the U+E000 private-use placeholder until rendering. The
+        // opening curly quotes (U+201C `“` / U+2018 `‘`) before a quote are a
+        // nested-quote open context.
+        if (
+            $prevConverted === "\xC2\xA0"
+            || $prevConverted === "\u{E000}"
+            || $prevConverted === "\u{201C}"
+            || $prevConverted === "\u{2018}"
+        ) {
+            return true;
+        }
+
+        // $prevConverted is one character; a multibyte char (e.g. a dash or
+        // curly quote not matched above) is not in the single-byte opener set.
+        if (strlen($prevConverted) === 1 && ctype_space($prevConverted)) {
+            return true;
+        }
+
+        // En/em dashes (U+2013 / U+2014) also open a following quote.
+        if ($prevConverted === "\u{2013}" || $prevConverted === "\u{2014}") {
+            return true;
+        }
+
+        return strlen($prevConverted) === 1 && strpos('([{=:-/', $prevConverted) !== false;
     }
 
     /**
@@ -3110,7 +3166,11 @@ class InlineParser
      */
     protected function parseInlineExtension(string $text, int $pos): ?array
     {
-        if (!preg_match('/\G:([a-zA-Z][a-zA-Z0-9_-]*)\[([^\]]*)\]/', $text, $matches, 0, $pos)) {
+        // extension_name = identifier (grammar.ebnf §988-989, 1147):
+        // identifier = (letter | '_'), {letter | digit | '_' | '-'}. A
+        // leading underscore is a valid extension name, so `:_[x]` -> a
+        // `ext-_` span (decision I).
+        if (!preg_match('/\G:([a-zA-Z_][a-zA-Z0-9_-]*)\[([^\]]*)\]/', $text, $matches, 0, $pos)) {
             return null;
         }
 
