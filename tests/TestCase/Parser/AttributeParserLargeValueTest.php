@@ -92,18 +92,18 @@ class AttributeParserLargeValueTest extends TestCase
     }
 
     /**
-     * End to end: a large attribute glued to a word does NOT leak `{...}`; the
-     * span carries the class, id, and full title instead.
+     * End to end: a large attribute-shaped block glued to a bare word stays
+     * literal and does not become a span.
      */
     public function testLargeAttributeDoesNotLeakBraces(): void
     {
         $value = str_repeat('z', 15000);
         $html = $this->converter->convert('word{.realclass #realid title="' . $value . '"}');
 
-        $this->assertStringNotContainsString('{.realclass', $html);
-        $this->assertStringContainsString('class="realclass"', $html);
-        $this->assertStringContainsString('id="realid"', $html);
-        $this->assertStringContainsString('title="' . $value . '"', $html);
+        $this->assertStringContainsString('{.realclass', $html);
+        $this->assertStringNotContainsString('class="realclass"', $html);
+        $this->assertStringNotContainsString('id="realid"', $html);
+        $this->assertStringContainsString('title=“' . $value . '”', $html);
     }
 
     /**

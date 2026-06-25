@@ -792,7 +792,10 @@ class InlineParser
                 }
             }
 
-            // Special braced syntax: {+insert+}, {-delete-}, or inline attributes {.class}
+            // Special braced syntax: {+insert+} or {-delete-}. Attribute blocks
+            // only attach through explicit inline hosts such as [text]{.class},
+            // `code`{.class}, or links; a bare word followed by `{...}` is
+            // literal text per the inline_span grammar.
             if ($char === '{') {
                 // Editorial comment {# ... #} -> styled span. Must precede the
                 // attribute check, which would otherwise consume `{# … #}`.
@@ -806,18 +809,19 @@ class InlineParser
                     continue;
                 }
 
-                // First check for inline attributes that apply to preceding word
-                if ($this->wordAttributesEnabled) {
-                    $attrResult = $this->parseInlineAttributes($text, $pos, $textBuffer, $parent);
-                    if ($attrResult !== null) {
-                        $textBuffer = $attrResult['textBuffer'];
-                        $pos = $attrResult['pos'];
+                $attrEnd = $this->findAttributeEnd($text, $pos);
+                if ($attrEnd !== null) {
+                    $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
+                    if (trim($attrStr) !== '' && trim($this->removeAttributeComments($attrStr)) === '') {
+                        $this->flushText($parent, $textBuffer);
+                        $textBuffer = '';
+                        $pos = $attrEnd + 1;
 
                         continue;
                     }
                 }
 
-                // Then try special braced syntax
+                // Then try special braced syntax.
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $result = $this->parseBracedInline($text, $pos);

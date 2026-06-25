@@ -42,6 +42,23 @@ class CompactListBlocksTest extends TestCase
         $this->assertStringContainsString('<li><p>a</p></li>', $this->converter->convert("- a\n\n- b"));
     }
 
+    public function testBlankBetweenItemsLoosensEvenAfterNestedSubList(): void
+    {
+        $expected = implode("\n", [
+            '<ul>',
+            '  <li><p>a</p>',
+            '    <ul>',
+            '      <li>b</li>',
+            '    </ul>',
+            '  </li>',
+            '  <li><p>c</p></li>',
+            '</ul>',
+            '',
+        ]);
+
+        $this->assertSame($expected, $this->converter->convert("- a\n\n  - b\n\n- c"));
+    }
+
     public function testContinuationMarkerAttachesCodeFlushLeftTight(): void
     {
         $html = $this->converter->convert("- Build\n+\n```sh\nmake\n```\n- Push");
