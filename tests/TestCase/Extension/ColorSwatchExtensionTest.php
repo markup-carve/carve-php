@@ -104,4 +104,76 @@ class ColorSwatchExtensionTest extends TestCase
             $converter->convert(':color[red]'),
         );
     }
+
+    protected function convertWith(ColorSwatchExtension $ext, string $djot): string
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension($ext);
+
+        return trim($converter->convert($djot));
+    }
+
+    public function testPositionAfterPutsChipAfterTheValue(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch">#3b82f6 <span class="swatch-chip" style="background-color:#3b82f6"></span></span></p>',
+            $this->convertWith(new ColorSwatchExtension(position: 'after'), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testPositionNoneRendersChipOnlyWithValueAsTitle(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch swatch-chip-only" title="#3b82f6"><span class="swatch-chip" style="background-color:#3b82f6"></span></span></p>',
+            $this->convertWith(new ColorSwatchExtension(position: 'none'), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testRoundShapeAddsModifierClass(): void
+    {
+        $this->assertStringContainsString(
+            '<span class="swatch-chip swatch-chip-round" style="background-color:#3b82f6">',
+            $this->convertWith(new ColorSwatchExtension(shape: 'round'), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testRingShapeUsesBorderColorInsteadOfBackground(): void
+    {
+        $html = $this->convertWith(new ColorSwatchExtension(shape: 'ring'), ':color[#3b82f6]');
+
+        $this->assertStringContainsString('swatch-chip-ring', $html);
+        $this->assertStringContainsString('style="border-color:#3b82f6"', $html);
+        $this->assertStringNotContainsString('background-color:#3b82f6', $html);
+    }
+
+    public function testTintPaintsAColorMixBehindTheSwatch(): void
+    {
+        $html = $this->convertWith(new ColorSwatchExtension(tint: true), ':color[#3b82f6]');
+
+        $this->assertStringContainsString('class="swatch swatch-tint"', $html);
+        $this->assertStringContainsString(
+            'style="background-color:color-mix(in srgb, #3b82f6 12%, transparent)"',
+            $html,
+        );
+    }
+
+    public function testDefaultOutputIsUnchanged(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch"><span class="swatch-chip" style="background-color:#3b82f6"></span> #3b82f6</span></p>',
+            $this->convertWith(new ColorSwatchExtension(), ':color[#3b82f6]'),
+        );
+    }
+
+    public function testInvalidPositionThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new ColorSwatchExtension(position: 'sideways');
+    }
+
+    public function testInvalidShapeThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new ColorSwatchExtension(shape: 'triangle');
+    }
 }
