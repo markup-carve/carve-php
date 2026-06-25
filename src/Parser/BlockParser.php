@@ -2491,6 +2491,11 @@ class BlockParser
                             $itemInfo = $this->listParser->parseListItemMarker($trimmedLine);
                             $sameStyle = !isset($listInfo['style']) || !isset($itemInfo['style']) || $itemInfo['style'] === $listInfo['style'];
                             if ($itemInfo !== null && $itemInfo['type'] === $listInfo['type'] && $itemInfo['marker'] === $listInfo['marker'] && $sameStyle) {
+                                if ($sawBlankLine) {
+                                    $lastItemHadBlankAfter = true;
+                                    $brokeForParentContent = true;
+                                }
+
                                 break;
                             }
                             // After a blank line, content dropping back to base indent
