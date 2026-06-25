@@ -130,6 +130,22 @@ class CodeFenceHeaderTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($carve));
     }
 
+    public function testLanguageInfoContainingFenceCharacterFallsBack(): void
+    {
+        $this->assertSame(
+            "<p>~~~~x~~~~</p>\n",
+            $this->converter->convert('~~~~x~~~~'),
+        );
+    }
+
+    public function testBlankLinesInsideCodeFenceArePreserved(): void
+    {
+        $this->assertSame(
+            "<pre><code>\n\n</code></pre>\n",
+            $this->converter->convert("```\n\n\n```"),
+        );
+    }
+
     public function testDivHeaderAndLabelRendersBothCaptions(): void
     {
         // PROPOSAL (graceful degradation): when no extension consumes the
