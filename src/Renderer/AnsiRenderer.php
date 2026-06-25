@@ -52,6 +52,7 @@ use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Inline\Underline;
 use Carve\Node\Node;
+use Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use Carve\Util\StringUtil;
 
 /**
@@ -62,6 +63,8 @@ use Carve\Util\StringUtil;
  */
 class AnsiRenderer implements RendererInterface
 {
+    use AbbreviationBudgetTrait;
+
     /**
      * @var int
      */
@@ -382,6 +385,7 @@ class AnsiRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
+        $this->resetAbbreviationBudget($document->getSourceLength());
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $output = $this->renderChildren($document);
@@ -996,6 +1000,13 @@ class AnsiRenderer implements RendererInterface
     protected function renderAbbreviation(Abbreviation $node): string
     {
         $text = $this->renderChildren($node);
+
+        // DoS guard: once the cumulative expansion bytes would exceed the
+        // budget, degrade to plain key text (no parenthesized definition).
+        if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
+            return $text;
+        }
+
         $title = $this->stripControls($node->getTitle());
 
         // Show abbreviation with definition in parentheses
