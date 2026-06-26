@@ -73,6 +73,18 @@ class AnsiRendererTest extends TestCase
         $this->assertStringNotContainsString("\xC2\x9B", $output);
     }
 
+    public function testSubstitutionStripsControlCharacters(): void
+    {
+        // Substitution text must not let escape sequences through, even with
+        // colors disabled (terminal-injection guard).
+        $renderer = new AnsiRenderer(80, false);
+        $doc = $this->converter->parse("Text {~a\x1b[31m~>b\x1b]52~} here");
+        $output = $renderer->render($doc);
+
+        $this->assertStringNotContainsString("\x1b[31m", $output);
+        $this->assertStringNotContainsString("\x1b]52", $output);
+    }
+
     public function testRenderLink(): void
     {
         $doc = $this->converter->parse('Visit [Example](https://example.com).');

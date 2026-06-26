@@ -17,6 +17,7 @@ use Carve\Filter\ProfileFilter;
 use Carve\Node\Document;
 use Carve\Parser\BlockParser;
 use Carve\Renderer\AnsiRenderer;
+use Carve\Renderer\CarveRenderer;
 use Carve\Renderer\HeadingIdTracker;
 use Carve\Renderer\HtmlRenderer;
 use Carve\Renderer\MarkdownRenderer;
@@ -114,6 +115,24 @@ class CarveConverter
     public static function ansi(?BlockParser $parser = null): self
     {
         return self::create($parser, new AnsiRenderer());
+    }
+
+    /**
+     * Create a converter that outputs canonical Carve source.
+     */
+    public static function carve(?BlockParser $parser = null): self
+    {
+        return self::create($parser, new CarveRenderer());
+    }
+
+    /**
+     * Format Carve source via parse only, without render-time transforms.
+     */
+    public static function toCarve(string $source): string
+    {
+        $converter = self::carve();
+
+        return $converter->getRenderer()->render($converter->parse($source));
     }
 
     /**

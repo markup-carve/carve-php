@@ -355,6 +355,15 @@ class MarkdownRendererTest extends TestCase
         $this->assertSame("Text <del>a</del><ins>b</ins> here\n", $result);
     }
 
+    public function testSubstitutionStripsControlCharacters(): void
+    {
+        $djot = "Text {~a\x1bx~>b\x1by~} here";
+        $document = $this->converter->parse($djot);
+        $result = $this->renderer->render($document);
+
+        $this->assertSame("Text <del>ax</del><ins>by</ins> here\n", $result);
+    }
+
     public function testInsert(): void
     {
         $djot = 'Text {+inserted+} here';

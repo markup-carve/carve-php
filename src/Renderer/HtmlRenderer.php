@@ -45,11 +45,13 @@ use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
+use Carve\Node\Inline\Substitution;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
@@ -186,6 +188,7 @@ class HtmlRenderer implements RendererInterface
             Image::class => 'renderImage',
             Code::class => 'renderCode',
             RawInline::class => 'renderRawInline',
+            RawText::class => 'renderRawText',
             EscapedText::class => 'renderEscapedText',
             Math::class => 'renderMath',
             Mention::class => 'renderMention',
@@ -203,6 +206,7 @@ class HtmlRenderer implements RendererInterface
             InlineExtension::class => 'renderInlineExtension',
             Insert::class => 'renderInsert',
             Delete::class => 'renderDelete',
+            Substitution::class => 'renderSubstitution',
             Abbreviation::class => 'renderAbbreviation',
         ];
     }
@@ -1525,6 +1529,17 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+    }
+
+    protected function renderRawText(RawText $node): string
+    {
+        return $this->escape($node->getContent());
+    }
+
+    protected function renderSubstitution(Substitution $node): string
+    {
+        return '<del>' . $this->escape($node->getOldText()) . '</del>'
+            . '<ins>' . $this->escape($node->getNewText()) . '</ins>';
     }
 
     protected function renderAbbreviation(Abbreviation $node): string

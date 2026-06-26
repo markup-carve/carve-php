@@ -37,7 +37,9 @@ use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
 use Carve\Node\Inline\SoftBreak;
+use Carve\Node\Inline\Substitution;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
@@ -166,6 +168,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
+                $node instanceof Substitution => '~' . $this->stripControls($node->getOldText()) . '~' . $this->stripControls($node->getNewText()),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
                 $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
@@ -174,6 +177,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => '', // Skip raw inlines (format-specific)
+                $node instanceof RawText => $this->stripControls($node->getContent()),
                 default => $this->renderChildren($node),
             };
         } finally {

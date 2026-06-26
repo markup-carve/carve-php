@@ -117,12 +117,21 @@ class BlockParser
      */
     protected array $abbreviations = [];
 
+    protected bool $abbreviationsBeforeBody = false;
+
     /**
      * Pending block attributes to apply to next block
      *
      * @var array<string, string>
      */
     protected array $pendingAttributes = [];
+
+    /**
+     * Pending block attribute source slots.
+     *
+     * @var list<string>
+     */
+    protected array $pendingAttributeOrder = [];
 
     /**
      * Whether to collect warnings during parsing
@@ -458,7 +467,9 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->abbreviations = [];
+        $this->abbreviationsBeforeBody = false;
         $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
         $this->warnings = [];
         $this->usedReferences = [];
         $this->anchorLinks = [];
@@ -503,6 +514,7 @@ class BlockParser
         // Store abbreviations on document for round-trip support
         if ($this->abbreviations !== []) {
             $document->setAbbreviations($this->abbreviations);
+            $document->setAbbreviationsBeforeBody($this->abbreviationsBeforeBody);
         }
 
         // Record the source byte length so renderers can size the
@@ -891,12 +903,14 @@ class BlockParser
     {
         $i = 0;
         $count = count($lines);
+        $firstAbbreviationLine = null;
 
         while ($i < $count) {
             $line = $lines[$i];
 
             // Match abbreviation definition: *[abbr]: definition
             if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)) {
+                $firstAbbreviationLine ??= $i;
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
 
@@ -938,6 +952,19 @@ class BlockParser
             }
 
             $i++;
+        }
+
+        if ($firstAbbreviationLine !== null) {
+            $firstBodyLine = null;
+            foreach ($lines as $lineNumber => $line) {
+                if (IndentationHelper::isBlankLine($line) || $this->isAbbreviationDefinitionLine($line)) {
+                    continue;
+                }
+                $firstBodyLine = $lineNumber;
+
+                break;
+            }
+            $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
         }
     }
 
@@ -1417,7 +1444,12 @@ class BlockParser
      */
     protected function parseAttributeString(string $attrStr): void
     {
-        $this->pendingAttributes = AttributeParser::parseAndMerge($this->pendingAttributes, $attrStr);
+        $parsed = AttributeParser::parseOrderedWithSlots($attrStr);
+        if (isset($parsed['attributes']['class'], $this->pendingAttributes['class'])) {
+            $parsed['attributes']['class'] = trim($this->pendingAttributes['class'] . ' ' . $parsed['attributes']['class']);
+        }
+        $this->pendingAttributes = array_merge($this->pendingAttributes, $parsed['attributes']);
+        $this->pendingAttributeOrder = array_merge($this->pendingAttributeOrder, $parsed['order']);
     }
 
     /**
@@ -1426,8 +1458,9 @@ class BlockParser
     protected function applyPendingAttributes(Node $node): void
     {
         if ($this->pendingAttributes !== []) {
-            $node->setAttributes($this->pendingAttributes);
+            $node->setAttributesWithOrder($this->pendingAttributes, $this->pendingAttributeOrder);
             $this->pendingAttributes = [];
+            $this->pendingAttributeOrder = [];
         }
     }
 
@@ -1457,6 +1490,7 @@ class BlockParser
     {
         $attrs = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
 
         return $attrs;
     }
@@ -1524,7 +1558,7 @@ class BlockParser
             $content = substr($content, 0, -1);
         }
 
-        $codeBlock = new CodeBlock($content, $language, $label);
+        $codeBlock = new CodeBlock($content, $language, $label, $header);
         $this->applyPendingAttributes($codeBlock);
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one
@@ -1665,7 +1699,7 @@ class BlockParser
         $content = implode("\n", $contentLines);
 
         // Comments are stored but not rendered
-        $comment = new Comment(trim($content));
+        $comment = new Comment(trim($content), $fenceLength);
         $parent->appendChild($comment);
 
         return $i - $start;
@@ -1806,6 +1840,7 @@ class BlockParser
             }
         }
         $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
 
         $innerLines = [];
         $i = $start + 1;
@@ -2288,6 +2323,8 @@ class BlockParser
         // Save and clear pending attributes - they apply to the blockquote, not inner content
         $quoteAttributes = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $quoteAttributeOrder = $this->pendingAttributeOrder;
+        $this->pendingAttributeOrder = [];
 
         $innerLines = [];
         $lazyState = [
@@ -2385,7 +2422,7 @@ class BlockParser
 
         // Apply the saved attributes to the blockquote
         if ($quoteAttributes !== []) {
-            $blockQuote->setAttributes($quoteAttributes);
+            $blockQuote->setAttributesWithOrder($quoteAttributes, $quoteAttributeOrder);
         }
         $parent->appendChild($blockQuote);
 
@@ -2545,6 +2582,8 @@ class BlockParser
         // Save and clear pending attributes - they apply to the list, not inner content
         $listAttributes = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $listAttributeOrder = $this->pendingAttributeOrder;
+        $this->pendingAttributeOrder = [];
 
         $i = $start;
         $count = count($lines);
@@ -3049,7 +3088,7 @@ class BlockParser
 
         // Apply the saved attributes to the list
         if ($listAttributes !== []) {
-            $list->setAttributes($listAttributes);
+            $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
         }
         $parent->appendChild($list);
 
@@ -3566,6 +3605,7 @@ class BlockParser
                                     $alignment,
                                     $cell->getRowspan(),
                                     $colspan,
+                                    $cell->getSpanMarker(),
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributes());
@@ -3676,6 +3716,7 @@ class BlockParser
                         ?? $alignments[$col]
                         ?? TableCell::ALIGN_DEFAULT;
                     $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
+                    $cell->setSpanMarker($cellData['spanMarker']);
                     $row->appendChild($cell);
                     $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
 
@@ -3782,7 +3823,7 @@ class BlockParser
      * @param array<int, \Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
-     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool}>, consumedRowspanColumns: array<int>}
+     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null}>, consumedRowspanColumns: array<int>}
      */
     protected function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
     {
@@ -3796,6 +3837,8 @@ class BlockParser
         $empty = array_fill(0, $count, false);
         /** @var array<int, int> $colspan */
         $colspan = array_fill(0, $count, 1);
+        /** @var array<int, string|null> $spanMarkers */
+        $spanMarkers = array_fill(0, $count, null);
         $consumedRowspanColumns = [];
 
         foreach ($mergedCellsWithAttrs as $col => $cellData) {
@@ -3824,6 +3867,7 @@ class BlockParser
                 // Ran off the left edge: the `<` becomes an empty cell of its own
                 // (a later `<` can still grow it).
                 $empty[$col] = true;
+                $spanMarkers[$col] = '<';
 
                 continue;
             }
@@ -3842,6 +3886,7 @@ class BlockParser
                 // becomes an empty cell occupying its own grid position (never
                 // dropped -- spec "Table span marker in first column").
                 $empty[$col] = true;
+                $spanMarkers[$col] = $isColspanMarker ? '<' : '^';
             }
         }
 
@@ -3859,6 +3904,7 @@ class BlockParser
                 'colspan' => max(1, $width),
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,
+                'spanMarker' => $spanMarkers[$col],
             ];
         }
 

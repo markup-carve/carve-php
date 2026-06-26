@@ -42,11 +42,13 @@ use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
+use Carve\Node\Inline\Substitution;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
@@ -225,6 +227,7 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Highlight => $this->renderHighlight($node),
                 $node instanceof Insert => $this->renderInsert($node),
                 $node instanceof Delete => $this->renderDelete($node),
+                $node instanceof Substitution => $this->renderSubstitution($node),
                 $node instanceof Span => $this->renderSpan($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
@@ -233,6 +236,7 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof RawInline => $this->renderRawInline($node),
+                $node instanceof RawText => $this->escapeText($this->stripControls($node->getContent())),
                 default => $this->renderChildren($node),
             };
         } finally {
@@ -676,6 +680,12 @@ class MarkdownRenderer implements RendererInterface
     {
         // Markdown has no native critic deletion distinct from strikethrough.
         return '<del>' . $this->renderChildren($node) . '</del>';
+    }
+
+    protected function renderSubstitution(Substitution $node): string
+    {
+        return '<del>' . $this->escapeHtml($this->stripControls($node->getOldText())) . '</del>'
+            . '<ins>' . $this->escapeHtml($this->stripControls($node->getNewText())) . '</ins>';
     }
 
     protected function renderUnderline(Underline $node): string
