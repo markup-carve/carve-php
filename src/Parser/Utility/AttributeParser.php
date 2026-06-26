@@ -43,7 +43,7 @@ class AttributeParser
         $strippedForShorthand = preg_replace("/'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
         // Strip unquoted key=value tokens entirely (up to whitespace) to prevent
         // invalid chars like slashes from being misinterpreted as shorthand
-        $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^\s}]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
+        $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^\s]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
 
         // Parse .class -- the class name is a grammar identifier and may not
         // start with a digit (a `class="123"` is also invalid CSS), so a
@@ -63,8 +63,8 @@ class AttributeParser
         // content with escaped characters in linear time (the naive
         // ([^"\\]|\\.)* shape is catastrophic and trips the PCRE JIT
         // stacklimit on long values, see the engine-error guards below).
-        // Per carve conformance, unquoted values may contain:
-        // alphanumerics, underscore, colon, hyphen, and dot.
+        // Per carve-js, unquoted values may contain any non-whitespace byte
+        // except quotes and braces.
         // Unquoted values must be followed by whitespace or } to be valid.
         // Keys can contain letters, digits, underscore, hyphen, colon (permissive like JS reference)
         // The key is a grammar identifier and may not start with a digit, so
@@ -73,7 +73,7 @@ class AttributeParser
         // string key being cast to int when used as an array key.
         $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
-            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)/';
+            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)/';
 
         $kvMatches = [];
         if (self::safeMatchAll($kvPattern, $attrStr, $kvMatches)) {
@@ -95,7 +95,7 @@ class AttributeParser
         // First, strip out quoted values and key=value pairs to avoid matching words inside them
         $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+="[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
         $strippedAttr = preg_replace("/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+='[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedAttr) ?? $strippedAttr;
-        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[a-zA-Z0-9_.:-]+/', '', $strippedAttr) ?? $strippedAttr;
+        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s"\'{}]+/', '', $strippedAttr) ?? $strippedAttr;
 
         // Now match bare words (must not start with . or #)
         if (preg_match_all('/(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|$)/', $strippedAttr, $boolMatches)) {
@@ -116,10 +116,21 @@ class AttributeParser
      */
     public static function parseOrdered(string $attrStr): array
     {
+        return self::parseOrderedWithSlots($attrStr)['attributes'];
+    }
+
+    /**
+     * Parse attribute string preserving source slot order.
+     *
+     * @return array{attributes: array<string, string>, order: list<string>}
+     */
+    public static function parseOrderedWithSlots(string $attrStr): array
+    {
         // Remove comments before parsing
         $attrStr = self::removeComments($attrStr);
 
         $attributes = [];
+        $order = [];
 
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
@@ -134,7 +145,7 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
@@ -152,26 +163,32 @@ class AttributeParser
             if (($match[1] ?? '') !== '') {
                 // key="double quoted value"
                 $attributes[$match[1]] = self::processEscapes($match[2] ?? '');
+                $order[] = $match[1];
             } elseif (($match[3] ?? '') !== '') {
                 // key='single quoted value'
                 $attributes[$match[3]] = self::processEscapes($match[4] ?? '');
+                $order[] = $match[3];
             } elseif (($match[5] ?? '') !== '') {
                 // key=unquoted
                 $attributes[$match[5]] = $match[6] ?? '';
+                $order[] = $match[5];
             } elseif (($match[7] ?? '') !== '') {
                 // .class shorthand - accumulate classes
                 $existing = $attributes['class'] ?? '';
                 $attributes['class'] = $existing !== '' ? $existing . ' ' . $match[7] : $match[7];
+                $order[] = '.class';
             } elseif (($match[8] ?? '') !== '') {
                 // #id shorthand
                 $attributes['id'] = $match[8];
+                $order[] = '#id';
             } elseif (($match[9] ?? '') !== '') {
                 // boolean attribute
                 $attributes[$match[9]] = '';
+                $order[] = $match[9];
             }
         }
 
-        return $attributes;
+        return ['attributes' => $attributes, 'order' => $order];
     }
 
     /**
@@ -211,8 +228,8 @@ class AttributeParser
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
-        // Unquoted values may contain alphanumerics, underscore, colon,
-        // hyphen, and dot.
+            // Unquoted values may contain any non-whitespace byte except
+            // quotes and braces.
         // An attribute name (key, class, id) is a grammar identifier and may
         // not start with a digit, so a digit-first name is not captured (a
         // digit-first key=value is consumed by the invalid-value skip). This
@@ -223,7 +240,7 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([a-zA-Z0-9_.:-]+)(?=\s|}|$)|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
@@ -284,7 +301,7 @@ class AttributeParser
             return true;
         }
         $patterns = [
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s"\'{}]+/',
             '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
             '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
             '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',

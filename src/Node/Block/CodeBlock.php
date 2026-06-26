@@ -20,6 +20,7 @@ class CodeBlock extends BlockNode implements ContentNodeInterface
          * renderer ignores it; an extension (e.g. CodeGroup) may use it.
          */
         protected ?string $label = null,
+        protected ?string $header = null,
     ) {
     }
 
@@ -56,6 +57,16 @@ class CodeBlock extends BlockNode implements ContentNodeInterface
     public function setLabel(?string $label): void
     {
         $this->label = $label;
+    }
+
+    public function getHeader(): ?string
+    {
+        return $this->header;
+    }
+
+    public function setHeader(?string $header): void
+    {
+        $this->header = $header;
     }
 
     public function getType(): string

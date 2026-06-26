@@ -34,6 +34,7 @@ class TableCell extends BlockNode
         protected string $alignment = self::ALIGN_DEFAULT,
         protected int $rowspan = 1,
         protected int $colspan = 1,
+        protected ?string $spanMarker = null,
     ) {
     }
 
@@ -65,6 +66,16 @@ class TableCell extends BlockNode
     public function setColspan(int $colspan): void
     {
         $this->colspan = $colspan;
+    }
+
+    public function getSpanMarker(): ?string
+    {
+        return $this->spanMarker;
+    }
+
+    public function setSpanMarker(?string $spanMarker): void
+    {
+        $this->spanMarker = $spanMarker;
     }
 
     public function getType(): string

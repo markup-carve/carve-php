@@ -16,6 +16,8 @@ class Document extends Node
      */
     protected array $abbreviations = [];
 
+    protected bool $abbreviationsBeforeBody = false;
+
     /**
      * Byte length of the original source the document was parsed from.
      *
@@ -65,5 +67,15 @@ class Document extends Node
     public function setAbbreviations(array $abbreviations): void
     {
         $this->abbreviations = $abbreviations;
+    }
+
+    public function hasAbbreviationsBeforeBody(): bool
+    {
+        return $this->abbreviationsBeforeBody;
+    }
+
+    public function setAbbreviationsBeforeBody(bool $beforeBody): void
+    {
+        $this->abbreviationsBeforeBody = $beforeBody;
     }
 }
