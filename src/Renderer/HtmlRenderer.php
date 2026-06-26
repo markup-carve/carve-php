@@ -811,7 +811,7 @@ class HtmlRenderer implements RendererInterface
     /**
      * Reconstruct the original Djot source for a code block
      */
-    protected function reconstructCodeBlockSource(CodeBlock $node): string
+    public function reconstructCodeBlockSource(CodeBlock $node): string
     {
         $language = $node->getLanguage();
         $content = $node->getContent();

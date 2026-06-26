@@ -156,14 +156,22 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
         $body .= "\n";
 
         $attrs = $renderer->renderAttributesExcluding($node, []);
+        // Preserve round-trip source exactly like core renderCodeBlock: the
+        // data-djot-src carries the ORIGINAL fence + literal `<n>` markers so a
+        // marked block round-trips identically to an unmarked one.
+        $djotSrcAttr = '';
+        if ($renderer->isRoundTripMode()) {
+            $djotSrc = $renderer->reconstructCodeBlockSource($node);
+            $djotSrcAttr = ' data-djot-src="' . $renderer->escapeAttribute($djotSrc) . '"';
+        }
         $language = $node->getLanguage();
         if ($language !== null) {
             $langClass = 'class="language-' . $renderer->escapeAttribute($language) . '"';
 
-            return '<pre' . $attrs . '><code ' . $langClass . '>' . $body . "</code></pre>\n";
+            return '<pre' . $attrs . $djotSrcAttr . '><code ' . $langClass . '>' . $body . "</code></pre>\n";
         }
 
-        return '<pre' . $attrs . '><code>' . $body . "</code></pre>\n";
+        return '<pre' . $attrs . $djotSrcAttr . '><code>' . $body . "</code></pre>\n";
     }
 
     private function renderCalloutList(Paragraph $p, HtmlRenderer $renderer): string
@@ -175,8 +183,12 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
                 continue; // unreachable: only bound (all-item) paragraphs arrive here
             }
             $n = $m[1];
-            // Strip the leading `<n> ` from the first text node; render the rest.
-            $html = $this->escapeHtml(preg_replace(self::ITEM_RE, '', $head->getContent()) ?? '');
+            // Strip the leading `<n> ` from the first text node and render it
+            // through the renderer's normal text path (same escaping + bidi-
+            // control stripping core applies to ordinary paragraph prose), then
+            // the remaining inline nodes.
+            $stripped = new Text(preg_replace(self::ITEM_RE, '', $head->getContent()) ?? '');
+            $html = $renderer->renderNodeFragment($stripped);
             $count = count($line);
             for ($k = 1; $k < $count; $k++) {
                 $html .= $renderer->renderNodeFragment($line[$k]);
@@ -221,13 +233,6 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
     private function escapeCode(string $text): string
     {
         $escaped = htmlspecialchars(StringUtil::stripBidiControls($text), ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
-
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
-    }
-
-    private function escapeHtml(string $text): string
-    {
-        $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
 
         return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
     }

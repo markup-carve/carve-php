@@ -103,4 +103,27 @@ class CodeCalloutsExtensionTest extends TestCase
             $out,
         );
     }
+
+    public function testRoundTripModeEmitsDataDjotSrcLikeAnUnmarkedBlock(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new CodeCalloutsExtension());
+        $converter->getRenderer()->setRoundTripMode(true);
+        $out = trim($converter->convert("```js\nfoo()  <1>\n```\n\n<1> note."));
+
+        // The marked block still carries round-trip source, encoding the
+        // ORIGINAL literal marker + fence (not the <b> bubble).
+        $this->assertStringContainsString('data-djot-src="', $out);
+        $this->assertStringContainsString('foo()  &lt;1&gt;', $out);
+        // Default mode (no round-trip) emits no data-djot-src.
+        $this->assertStringNotContainsString('data-djot-src', $this->html("```\nfoo()  <1>\n```\n\n<1> note."));
+    }
+
+    public function testStripsBidiControlsInCalloutText(): void
+    {
+        $bidi = "\u{202E}"; // RIGHT-TO-LEFT OVERRIDE (Trojan-Source)
+        $out = $this->html("```\nfoo()  <1>\n```\n\n<1> safe{$bidi}note.");
+        $this->assertStringNotContainsString($bidi, $out);
+        $this->assertStringContainsString('<li value="1">safenote.</li>', $out);
+    }
 }
