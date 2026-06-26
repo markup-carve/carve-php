@@ -1119,9 +1119,11 @@ DJOT;
         $this->assertStringContainsString('Content', $result);
     }
 
-    public function testEmptyDivWithTrailingWhitespaceOpenerHasNoExtraBlankLine(): void
+    public function testEmptyDivEmitsBlankBodyLine(): void
     {
-        $this->assertSame("<div>\n</div>\n", $this->converter->convert("::: \n:::"));
+        // An empty div renders a blank body line (`<div>\n\n</div>`), matching
+        // the empty-blockquote shape and carve-js / carve-rs (carve spec #114).
+        $this->assertSame("<div>\n\n</div>\n", $this->converter->convert("::: \n:::"));
     }
 
     public function testNestedDivs(): void
