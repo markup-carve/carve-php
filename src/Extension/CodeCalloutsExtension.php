@@ -242,28 +242,30 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
      */
     private function openAttributes(Paragraph $p, HtmlRenderer $renderer): string
     {
-        $classes = ['callouts'];
+        // Keep every authored attribute (id, title, key-values) in source order,
+        // merging `callouts` as the leading class - matching carve-js, which
+        // renders the paragraph's attrs with the class group prepended. Render
+        // through the renderer's normal attribute path so order/escaping match a
+        // normal block byte-for-byte.
+        $callouts = ['callouts'];
         foreach ($p->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
+            if (!in_array($class, $callouts, true)) {
+                $callouts[] = $class;
             }
         }
 
         $attrs = $p->getAttributes();
-        unset($attrs['class'], $attrs['title']);
+        // Replace/insert the merged class in place: when a `class` is present it
+        // keeps its source slot; when absent it lands after the other authored
+        // attrs (e.g. `title="x" class="callouts"`), exactly as carve-js emits.
+        $attrs['class'] = implode(' ', $callouts);
+
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $attrs = $safeMode->filterAttributes($attrs);
         }
 
-        $out = '';
-        if (isset($attrs['id'])) {
-            $out .= ' id="' . $renderer->escapeAttribute((string)$attrs['id']) . '"';
-            unset($attrs['id']);
-        }
-        $out .= ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-
-        return $out . $renderer->renderAttributeArray($attrs);
+        return $renderer->renderAttributeArray($attrs);
     }
 }

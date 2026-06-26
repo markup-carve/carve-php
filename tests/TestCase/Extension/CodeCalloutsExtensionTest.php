@@ -80,6 +80,12 @@ class CodeCalloutsExtensionTest extends TestCase
         $this->assertStringContainsString('<ol id="notes" class="callouts wide">', $out);
     }
 
+    public function testAuthoredTitleSurvivesOnList(): void
+    {
+        $out = $this->html("```\nfoo()  <1>\n```\n\n{title=\"Notes\"}\n<1> note.");
+        $this->assertStringContainsString('<ol title="Notes" class="callouts">', $out);
+    }
+
     public function testDoesNotCrashOnDefinitionList(): void
     {
         $out = $this->html(":: term\n:  a definition\n\n```\nx  <1>\n```\n\n<1> note.");
