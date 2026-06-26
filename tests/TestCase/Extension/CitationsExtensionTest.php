@@ -80,7 +80,7 @@ class CitationsExtensionTest extends TestCase
     {
         $html = $this->html("See [@smith2020].\n\n[@smith2020]: Smith, J. (2020). Title.");
 
-        $this->assertStringContainsString('[<a href="#ref-smith2020">1</a>]', $html);
+        $this->assertStringContainsString('data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
         $this->assertStringNotContainsString('<p>Smith, J. (2020). Title.</p>', $html);
     }
 
@@ -104,7 +104,7 @@ class CitationsExtensionTest extends TestCase
     {
         $html = $this->html("[see @a, p. 3].\n\n[@a]: A.");
 
-        $this->assertStringContainsString('[see <a href="#ref-a">1</a>, p. 3]', $html);
+        $this->assertStringContainsString('data-cite-key="a" data-cite-prefix="see" data-locator-label="page" data-locator="3" href="#ref-a">1</a>', $html);
     }
 
     public function testRendersUndefinedKeyVerbatim(): void
@@ -131,7 +131,7 @@ class CitationsExtensionTest extends TestCase
     {
         $html = $this->authorDateHtml('See [@s].' . "\n\n" . '[@s]: {author="Smith" year="2020"} Smith, J.');
 
-        $this->assertStringContainsString('(<a href="#ref-s">Smith 2020</a>)', $html);
+        $this->assertStringContainsString('data-cite-key="s" href="#ref-s">Smith 2020</a>', $html);
     }
 
     public function testAuthorDateSuppressesAuthor(): void
@@ -178,7 +178,7 @@ class CitationsExtensionTest extends TestCase
     {
         $html = $this->bibHtml('See [@smith2020].', [$this->smith()]);
 
-        $this->assertStringContainsString('<a id="cite-smith2020-1" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-smith2020-1" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
         $this->assertStringContainsString(
             '<li id="ref-smith2020">Smith, John (2020). A Study. '
                 . '<a href="#cite-smith2020-1" class="ref-backref">↩</a></li>',
@@ -198,8 +198,8 @@ class CitationsExtensionTest extends TestCase
     {
         $html = $this->bibHtml('[@smith2020] then [@smith2020] again.', [$this->smith()]);
 
-        $this->assertStringContainsString('<a id="cite-smith2020-1" href="#ref-smith2020">1</a>', $html);
-        $this->assertStringContainsString('<a id="cite-smith2020-2" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-smith2020-1" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-smith2020-2" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
         $this->assertStringContainsString('<a href="#cite-smith2020-1" class="ref-backref">↩</a>', $html);
         $this->assertStringContainsString('<a href="#cite-smith2020-2" class="ref-backref">↩</a>', $html);
     }
@@ -211,8 +211,8 @@ class CitationsExtensionTest extends TestCase
             ['id' => 'b', 'title' => 'Beta'],
         ]);
 
-        $this->assertStringContainsString('<a id="cite-a-1" href="#ref-a">1</a>', $html);
-        $this->assertStringContainsString('<a id="cite-b-1" href="#ref-b">2</a>', $html);
+        $this->assertStringContainsString('<a id="cite-a-1" data-cite-key="a" href="#ref-a">1</a>', $html);
+        $this->assertStringContainsString('<a id="cite-b-1" data-cite-key="b" href="#ref-b">2</a>', $html);
     }
 
     public function testUnresolvedKeyRendersVerbatim(): void
