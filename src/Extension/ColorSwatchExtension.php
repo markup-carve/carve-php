@@ -129,9 +129,25 @@ class ColorSwatchExtension implements ExtensionInterface
                 return;
             }
 
+            $contrast = array_key_exists('contrast', $node->getAttributes());
             $color = $this->safeColor($this->inlineText($node));
             if ($color === null) {
+                if ($contrast) {
+                    $node->removeAttribute('contrast');
+                }
+
                 return;
+            }
+
+            if ($contrast) {
+                $textColor = $this->autoContrastTextColor($color);
+                if ($textColor !== null) {
+                    $event->setHtml($this->renderContrastLabel($node, $renderer, $color, $textColor));
+
+                    return;
+                }
+
+                $node->removeAttribute('contrast');
             }
 
             $event->setHtml($this->renderSwatch($node, $renderer, $color));
@@ -192,6 +208,32 @@ class ColorSwatchExtension implements ExtensionInterface
     }
 
     /**
+     * Render the contrast label variant: color value inside the colored box.
+     */
+    protected function renderContrastLabel(
+        Node $node,
+        HtmlRenderer $renderer,
+        string $color,
+        string $textColor,
+    ): string {
+        // The computed colors go last so author attributes keep their source
+        // order; an explicit author `style` wins and suppresses ours (which also
+        // avoids emitting a duplicate `style` attribute).
+        $style = 'background:' . $color . ';color:' . $textColor;
+        $hasAuthorStyle = isset($node->getAttributes()['style']);
+        $styleAttr = $hasAuthorStyle
+            ? ''
+            : ' style="' . $renderer->escapeAttribute($style) . '"';
+
+        return '<span'
+            . $this->openAttributes($node, $renderer, [], null, [], 'swatch-label', ['contrast'])
+            . $styleAttr
+            . '>'
+            . $this->escapeHtml($color)
+            . '</span>';
+    }
+
+    /**
      * Return a trimmed color value that cannot break out of a CSS declaration.
      */
     protected function safeColor(string $value): ?string
@@ -223,6 +265,64 @@ class ColorSwatchExtension implements ExtensionInterface
     }
 
     /**
+     * Compute black or white label text for integer RGB-compatible colors.
+     */
+    protected function autoContrastTextColor(string $color): ?string
+    {
+        $rgb = $this->parseIntegerRgb($color);
+        if ($rgb === null) {
+            return null;
+        }
+
+        [$red, $green, $blue] = $rgb;
+        $brightness = intdiv(($red * 299) + ($green * 587) + ($blue * 114), 1000);
+
+        return $brightness >= 128 ? '#000' : '#fff';
+    }
+
+    /**
+     * @return array{int, int, int}|null
+     */
+    protected function parseIntegerRgb(string $color): ?array
+    {
+        if (preg_match('/^#([0-9a-fA-F]{3,4})$/', $color, $match) === 1) {
+            return [
+                (int)hexdec($match[1][0] . $match[1][0]),
+                (int)hexdec($match[1][1] . $match[1][1]),
+                (int)hexdec($match[1][2] . $match[1][2]),
+            ];
+        }
+
+        if (preg_match('/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $color, $match) === 1) {
+            return [
+                (int)hexdec(substr($match[1], 0, 2)),
+                (int)hexdec(substr($match[1], 2, 2)),
+                (int)hexdec(substr($match[1], 4, 2)),
+            ];
+        }
+
+        if (preg_match('/^rgba?\((.*)\)$/', $color, $match) !== 1) {
+            return null;
+        }
+
+        $tokens = preg_split('/[\s,\/]+/', trim($match[1]), -1, PREG_SPLIT_NO_EMPTY);
+        if ($tokens === false || count($tokens) < 3) {
+            return null;
+        }
+
+        $rgb = [];
+        for ($i = 0; $i < 3; $i++) {
+            if (preg_match('/^[+-]?\d+$/', $tokens[$i]) !== 1) {
+                return null;
+            }
+
+            $rgb[] = max(0, min(255, (int)$tokens[$i]));
+        }
+
+        return [$rgb[0], $rgb[1], $rgb[2]];
+    }
+
+    /**
      * Build the output element's attribute string with the `swatch` base class
      * (then any extension-added classes, then author classes), an optional
      * extension style, and id / key-values in source order. Author-supplied
@@ -233,6 +333,8 @@ class ColorSwatchExtension implements ExtensionInterface
      * @param array<string> $extraClasses
      * @param string|null $extraStyle
      * @param array<string, string> $extraAttrs
+     * @param string $baseClass
+     * @param array<string> $omitAttrs
      */
     protected function openAttributes(
         Node $node,
@@ -240,8 +342,10 @@ class ColorSwatchExtension implements ExtensionInterface
         array $extraClasses = [],
         ?string $extraStyle = null,
         array $extraAttrs = [],
+        string $baseClass = self::KIND,
+        array $omitAttrs = [],
     ): string {
-        $classes = [self::KIND];
+        $classes = [$baseClass];
         foreach ([...$extraClasses, ...$node->getClassList()] as $class) {
             if (!in_array($class, $classes, true)) {
                 $classes[] = $class;
@@ -250,6 +354,9 @@ class ColorSwatchExtension implements ExtensionInterface
 
         $attrs = $node->getAttributes();
         unset($attrs['class']);
+        foreach ($omitAttrs as $key) {
+            unset($attrs[$key]);
+        }
         // Author attributes (e.g. an explicit title) take precedence over the
         // extension defaults; array union keeps the left (author) keys.
         $attrs += $extraAttrs;

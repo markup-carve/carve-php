@@ -59,6 +59,62 @@ class ColorSwatchExtensionTest extends TestCase
         );
     }
 
+    public function testContrastLabelUsesWhiteTextForDarkHex(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label" style="background:#0d1117;color:#fff">#0d1117</span></p>',
+            trim($this->convert(':color[#0d1117]{contrast}')),
+        );
+    }
+
+    public function testContrastLabelUsesBlackTextForMidHex(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label" style="background:#58a6ff;color:#000">#58a6ff</span></p>',
+            trim($this->convert(':color[#58a6ff]{contrast}')),
+        );
+    }
+
+    public function testContrastLabelUsesBlackTextForLightHex(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label" style="background:#f0f6fc;color:#000">#f0f6fc</span></p>',
+            trim($this->convert(':color[#f0f6fc]{contrast}')),
+        );
+    }
+
+    public function testContrastLabelComputesRgbFunction(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label" style="background:rgb(240,246,252);color:#000">rgb(240,246,252)</span></p>',
+            trim($this->convert(':color[rgb(240,246,252)]{contrast}')),
+        );
+    }
+
+    public function testContrastLabelMergesClassesAndAttributesAndConsumesContrast(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label x" id="y" style="background:#fff;color:#000">#fff</span></p>',
+            trim($this->convert(':color[#fff]{contrast .x #y}')),
+        );
+    }
+
+    public function testContrastLetsAuthorStyleWinWithoutDuplicateStyle(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch-label" style="opacity:0.5">#fff</span></p>',
+            trim($this->convert(':color[#fff]{contrast style="opacity:0.5"}')),
+        );
+    }
+
+    public function testContrastFallsBackToNormalSwatchForNamedColorAndConsumesContrast(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch"><span class="swatch-chip" style="background-color:rebeccapurple"></span> rebeccapurple</span></p>',
+            trim($this->convert(':color[rebeccapurple]{contrast}')),
+        );
+    }
+
     public function testInlineDefersInvalidColorToGenericFallback(): void
     {
         $html = $this->convert(':color[nope!]');
