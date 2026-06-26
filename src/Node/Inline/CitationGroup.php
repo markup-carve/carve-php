@@ -6,21 +6,36 @@ namespace Carve\Node\Inline;
 
 /**
  * A bracketed citation group, e.g. [@key] or [see @key, p. 3].
+ *
+ * Each item in `$items` is a map with:
+ *   - key: string
+ *   - suppressAuthor: bool
+ *   - prefix?: list<InlineNode>
+ *   - locator?: list<InlineNode> (the full raw locator inlines, for rendering)
+ *   - locatorLabel?: string (citeproc label, e.g. "page", "chapter")
+ *   - locatorValue?: string (the numeric/roman portion, e.g. "33-35, 38")
+ *   - suffix?: list<InlineNode> (trailing inline content after the locator value)
+ *
+ * The group-level `$integral` flag is set when the source opens with `[+@...`
+ * (the `+` immediately follows the opening `[`). Integral groups are wrapped
+ * in `<span class="citation" data-cite-mode="integral">` when rendered.
  */
 class CitationGroup extends InlineNode
 {
     /**
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}> $items
      * @param string $raw
+     * @param bool $integral Whether this group carries the integral (`+`) group marker.
      */
     public function __construct(
         protected array $items,
         protected string $raw,
+        protected bool $integral = false,
     ) {
     }
 
     /**
-     * @return list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>}>
+     * @return list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}>
      */
     public function getItems(): array
     {
@@ -30,6 +45,11 @@ class CitationGroup extends InlineNode
     public function getRaw(): string
     {
         return $this->raw;
+    }
+
+    public function isIntegral(): bool
+    {
+        return $this->integral;
     }
 
     public function getType(): string

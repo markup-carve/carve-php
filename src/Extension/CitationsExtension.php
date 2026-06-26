@@ -35,6 +35,39 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     private const KEY_PATTERN = '[A-Za-z0-9_][A-Za-z0-9_:.#$%&+?<>~\/-]*';
 
     /**
+     * Citeproc locator vocabulary: label => list of matchers (longest first within each label).
+     * The full sorted list (by matcher character length DESC) is built lazily in locatorMatchers().
+     *
+     * @var array<string, list<string>>
+     */
+    private const LOCATOR_VOCAB = [
+        'book' => ['book', 'bk.'],
+        'chapter' => ['chapter', 'chaps.', 'chap.'],
+        'column' => ['column', 'cols.', 'col.'],
+        'figure' => ['figure', 'figs.', 'fig.'],
+        'folio' => ['folio', 'fols.', 'fol.'],
+        'issue' => ['issue', 'no.'],
+        'line' => ['line', 'll.', 'l.'],
+        'note' => ['note', 'nn.', 'n.'],
+        'opus' => ['opus', 'opp.', 'op.'],
+        'page' => ['pages', 'page', 'pp.', 'p.'],
+        'paragraph' => ['paragraph', 'paras.', 'para.', "\xC2\xB6\xC2\xB6", "\xC2\xB6"],
+        'part' => ['part', 'pts.', 'pt.'],
+        'section' => ['section', 'secs.', 'sec.', "\xC2\xA7\xC2\xA7", "\xC2\xA7"],
+        'sub verbo' => ['sub verbo', 's.vv.', 's.v.'],
+        'verse' => ['verse', 'vv.', 'v.'],
+        'volume' => ['volume', 'vols.', 'vol.'],
+    ];
+
+    /**
+     * Flattened list of [term, label] pairs, sorted by character-length DESC
+     * (longest match wins). Built once and cached.
+     *
+     * @var list<array{0: string, 1: string}>|null
+     */
+    private ?array $locatorMatchersSorted = null;
+
+    /**
      * @var array<string, array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText?: string}>
      */
     protected array $definitions = [];
@@ -220,8 +253,20 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             return null;
         }
 
+        // Group-level integral marker: `+` immediately after the opening `[`.
+        $integral = false;
+        $parseInner = $inner;
+        if (($inner[0] ?? '') === '+') {
+            $integral = true;
+            $parseInner = substr($inner, 1);
+            // After stripping `+`, there must still be an `@` for valid items.
+            if (!str_contains($parseInner, '@')) {
+                return null;
+            }
+        }
+
         $items = [];
-        foreach (explode(';', $inner) as $part) {
+        foreach (explode(';', $parseInner) as $part) {
             $item = $this->parseItem($part, $ctx);
             if ($item === null) {
                 return null;
@@ -229,7 +274,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             $items[] = $item;
         }
 
-        $node = new CitationGroup($items, substr($text, $pos, $close - $pos + 1));
+        $node = new CitationGroup($items, substr($text, $pos, $close - $pos + 1), $integral);
         $end = $close + 1;
         if ($after === ':' && $this->isLineStart($text, $pos) && $this->isSimpleDefinitionItems($items)) {
             $node->setAttribute(self::REFS_MARK . '-def', '');
@@ -261,7 +306,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}> $items
      */
     protected function isSimpleDefinitionItems(array $items): bool
     {
@@ -354,7 +399,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @return array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>}|null
+     * @return array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}|null
      */
     protected function parseItem(string $raw, MatcherContext $ctx): ?array
     {
@@ -372,12 +417,149 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             $item['prefix'] = $this->onlyInlineNodes($ctx->parseInlines($prefix));
         }
 
-        $locator = trim($matches[4] ?? '');
-        if ($locator !== '') {
-            $item['locator'] = $this->onlyInlineNodes($ctx->parseInlines($locator));
+        $locRaw = trim($matches[4] ?? '');
+        if ($locRaw !== '') {
+            // Store the full locator as rendered inlines (for display).
+            $item['locator'] = $this->onlyInlineNodes($ctx->parseInlines($locRaw));
+
+            // Parse the locator into structured label/value/suffix fields.
+            $parsed = $this->parseLocator($locRaw);
+            if (isset($parsed['label'])) {
+                $item['locatorLabel'] = $parsed['label'];
+            }
+            if (isset($parsed['value']) && $parsed['value'] !== '') {
+                $item['locatorValue'] = $parsed['value'];
+            }
+            if (isset($parsed['suffixText']) && $parsed['suffixText'] !== '') {
+                $item['suffix'] = $this->onlyInlineNodes($ctx->parseInlines($parsed['suffixText']));
+            }
         }
 
         return $item;
+    }
+
+    /**
+     * Parse a raw locator string into label, value, and optional suffix.
+     *
+     * Returns a map with zero or more of:
+     *   - `label` (string): citeproc label, e.g. "page", "chapter", "section"
+     *   - `value` (string): numeric/roman portion after the label term
+     *   - `suffixText` (string): any trailing text that could not be parsed as value
+     *
+     * Implements the same longest-match vocabulary as carve-js (§22).
+     *
+     * @return array{label?: string, value?: string, suffixText?: string}
+     */
+    protected function parseLocator(string $loc): array
+    {
+        $lower = strtolower($loc);
+
+        foreach ($this->locatorMatchers() as [$term, $label]) {
+            $termLower = strtolower($term);
+            if (!str_starts_with($lower, $termLower)) {
+                continue;
+            }
+            // Boundary check: character immediately after the matched term.
+            $afterStr = substr($loc, strlen($term));
+            $ch = mb_substr($afterStr, 0, 1, 'UTF-8');
+            if (!$this->isLabelBoundary($ch)) {
+                continue;
+            }
+            // Strip term and leading ASCII whitespace.
+            $rest = ltrim($afterStr, " \t");
+
+            return $this->buildLocatorResult($label, $rest, $loc);
+        }
+
+        // No vocab match: bare digit at the start defaults to "page".
+        if ($loc !== '' && $loc[0] >= '0' && $loc[0] <= '9') {
+            return $this->buildLocatorResult('page', $loc, $loc);
+        }
+
+        // No match at all: everything is suffix (or empty).
+        if ($loc === '') {
+            return [];
+        }
+
+        return ['suffixText' => $loc];
+    }
+
+    /**
+     * Build the structured result once a label has been matched and the
+     * remaining string (after term + leading whitespace) is known.
+     *
+     * @return array{label?: string, value?: string, suffixText?: string}
+     */
+    private function buildLocatorResult(string $label, string $rest, string $originalLoc): array
+    {
+        // Scan value characters: ASCII digits, Roman-numeral letters, and punctuation.
+        $valueChars = '0123456789IVXLCDMivxlcdm.,&- ';
+        $i = 0;
+        $len = strlen($rest);
+        while ($i < $len && str_contains($valueChars, $rest[$i])) {
+            $i++;
+        }
+        $value = rtrim(substr($rest, 0, $i), ' ,&-.');
+        $suffix = ltrim(substr($rest, $i), " \t");
+
+        $result = ['label' => $label];
+        if ($value !== '') {
+            $result['value'] = $value;
+        }
+        if ($suffix !== '') {
+            $result['suffixText'] = $suffix;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Whether the character that follows a matched locator term is a valid
+     * boundary (end-of-string, ASCII whitespace, ASCII digit, or §/¶).
+     */
+    private function isLabelBoundary(string $ch): bool
+    {
+        if ($ch === '') {
+            return true;
+        }
+        if ($ch === ' ' || $ch === "\t") {
+            return true;
+        }
+        if ($ch >= '0' && $ch <= '9') {
+            return true;
+        }
+        // UTF-8 multibyte: § = U+00A7 (0xC2 0xA7), ¶ = U+00B6 (0xC2 0xB6).
+        if ($ch === "\xC2\xA7" || $ch === "\xC2\xB6") {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Return the flattened, sorted list of [term, label] pairs for locator matching.
+     * Sorted by character length of the term DESC (longest match wins).
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    private function locatorMatchers(): array
+    {
+        if ($this->locatorMatchersSorted !== null) {
+            return $this->locatorMatchersSorted;
+        }
+
+        $pairs = [];
+        foreach (self::LOCATOR_VOCAB as $label => $terms) {
+            foreach ($terms as $term) {
+                $pairs[] = [$term, $label];
+            }
+        }
+
+        usort($pairs, static function (array $a, array $b): int {
+            return mb_strlen($b[0], 'UTF-8') <=> mb_strlen($a[0], 'UTF-8');
+        });
+
+        return $this->locatorMatchersSorted = $pairs;
     }
 
     /**
@@ -535,15 +717,44 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
         $parts = [];
         foreach ($group->getItems() as $index => $item) {
-            $prefix = isset($item['prefix']) ? $this->renderInlines($item['prefix'], $renderer) . ' ' : '';
-            $locator = isset($item['locator']) ? ', ' . $this->renderInlines($item['locator'], $renderer) : '';
             $key = $item['key'];
+
+            // Build prefix fragment (rendered inlines + trailing space).
+            $prefixHtml = isset($item['prefix']) ? $this->renderInlines($item['prefix'], $renderer) . ' ' : '';
+
+            // Build locator display fragment: ", " + full locator inlines.
+            $locatorHtml = isset($item['locator']) ? ', ' . $this->renderInlines($item['locator'], $renderer) : '';
 
             // Back-link anchor on the per-key item (only with a bibliography pool, §6.3).
             $useIndex = $this->hasBibliography ? $group->getAttribute('cite-use-' . $index) : null;
             $idAttr = ($useIndex !== null && $useIndex !== '')
                 ? 'id="cite-' . $renderer->escapeAttribute($key) . '-' . $useIndex . '" '
                 : '';
+
+            // Build data-* attributes in canonical order.
+            $dataAttrs = 'data-cite-key="' . $renderer->escapeAttribute($key) . '"';
+
+            if ($item['suppressAuthor']) {
+                $dataAttrs .= ' data-suppress-author="true"';
+            }
+
+            if (isset($item['prefix'])) {
+                $prefixText = $this->flattenText($item['prefix']);
+                $dataAttrs .= ' data-cite-prefix="' . $renderer->escapeAttribute($prefixText) . '"';
+            }
+
+            if (isset($item['locatorLabel'])) {
+                $dataAttrs .= ' data-locator-label="' . $renderer->escapeAttribute($item['locatorLabel']) . '"';
+            }
+
+            if (isset($item['locatorValue'])) {
+                $dataAttrs .= ' data-locator="' . $renderer->escapeAttribute($item['locatorValue']) . '"';
+            }
+
+            if (isset($item['suffix'])) {
+                $suffixText = $this->flattenText($item['suffix']);
+                $dataAttrs .= ' data-suffix="' . $renderer->escapeAttribute($suffixText) . '"';
+            }
 
             if ($this->mode === 'author-date') {
                 $definition = $this->definitions[$key];
@@ -553,21 +764,59 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 if ($label === '') {
                     $label = (string)($this->numbers[$key] ?? '');
                 }
-                $parts[] = $prefix . '<a ' . $idAttr . 'href="#ref-' . $renderer->escapeAttribute($key) . '">'
-                    . $this->escapeHtml($label) . '</a>' . $locator;
+                $parts[] = $prefixHtml
+                    . '<a ' . $idAttr . $dataAttrs . ' href="#ref-' . $renderer->escapeAttribute($key) . '">'
+                    . $this->escapeHtml($label) . '</a>'
+                    . $locatorHtml;
 
                 continue;
             }
 
-            $parts[] = $prefix . '<a ' . $idAttr . 'href="#ref-' . $renderer->escapeAttribute($key) . '">'
-                . ($this->numbers[$key] ?? '') . '</a>' . $locator;
+            $parts[] = $prefixHtml
+                . '<a ' . $idAttr . $dataAttrs . ' href="#ref-' . $renderer->escapeAttribute($key) . '">'
+                . ($this->numbers[$key] ?? '') . '</a>'
+                . $locatorHtml;
         }
+
+        $separator = $this->mode === 'author-date' ? '; ' : ', ';
+        $inner = implode($separator, $parts);
 
         if ($this->mode === 'author-date') {
-            return '(' . implode('; ', $parts) . ')';
+            $rendered = '(' . $inner . ')';
+        } else {
+            $rendered = '[' . $inner . ']';
         }
 
-        return '[' . implode(', ', $parts) . ']';
+        if ($group->isIntegral()) {
+            return '<span class="citation" data-cite-mode="integral">' . $rendered . '</span>';
+        }
+
+        return $rendered;
+    }
+
+    /**
+     * Recursively flatten inline nodes to plain text by concatenating Text
+     * node values and recursing into children.
+     *
+     * @param list<\Carve\Node\Inline\InlineNode> $nodes
+     */
+    protected function flattenText(array $nodes): string
+    {
+        $text = '';
+        foreach ($nodes as $node) {
+            if ($node instanceof Text) {
+                $text .= $node->getContent();
+            } else {
+                /** @var list<\Carve\Node\Inline\InlineNode> $children */
+                $children = array_values(array_filter(
+                    $node->getChildren(),
+                    static fn (Node $n): bool => $n instanceof InlineNode,
+                ));
+                $text .= $this->flattenText($children);
+            }
+        }
+
+        return $text;
     }
 
     /**
@@ -608,7 +857,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 $links = [];
                 for ($m = 1; $m <= $count; $m++) {
                     $links[] = '<a href="#cite-' . $renderer->escapeAttribute($key) . '-' . $m
-                        . '" class="ref-backref">↩</a>';
+                        . '" class="ref-backref">&#8617;</a>';
                 }
                 if ($links !== []) {
                     $backlinks = ($body !== '' ? ' ' : '') . implode(' ', $links);
