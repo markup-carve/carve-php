@@ -37,3 +37,14 @@ composer require markup-carve/carve-php
 ``` mermaid
 graph TD; A[Start] --> B[Finish]
 ```
+
+## Color swatches
+
+Inline color chips render for any safe CSS color:
+hex :color[#ff8800], short hex :color[#fff], rgb :color[rgb(248,81,73)],
+and named :color[rebeccapurple] / :color[DarkSlateGray].
+
+Author attributes pass through: :color[#36c]{#brand .accent}.
+
+Non-colors defer to the generic span fallback - a bareword like
+:color[banana] or an invalid token like :color[nope!] renders no chip.

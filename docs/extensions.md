@@ -1029,6 +1029,82 @@ $converter->convert('[CSS]{dfn abbr="Cascading Style Sheets"}');
 For automatic abbreviation expansion (define once, apply everywhere) use the
 built-in `*[HTML]: HyperText Markup Language` definition syntax instead.
 
+### ColorSwatchExtension
+
+Renders an inline color chip next to a color value. Claims the reserved inline
+`color` role from the spec's Extension Registry - no new syntax. The value is
+validated as a safe CSS color before any chip is emitted; anything that is not a
+recognized color defers to the generic `<span class="ext-color">value</span>`
+fallback, so a bareword like `:color[banana]` or an invalid token like
+`:color[nope!]` produces no chip.
+
+Accepted values:
+
+- **Hex** - `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa` (e.g. `#36c`, `#ff8800`).
+- **Functional** - `rgb()` / `rgba()` / `hsl()` / `hsla()` (must contain a digit;
+  `rgb()` with no numbers is rejected).
+- **Named** - any CSS named color plus `transparent` / `currentcolor`,
+  case-insensitive (e.g. `rebeccapurple`, `DarkSlateGray`).
+
+~~~ php
+$converter->addExtension(new ColorSwatchExtension());
+
+$converter->convert(':color[#ff8800]');
+// <p><span class="swatch"><span class="swatch-chip" style="background-color:#ff8800"></span> #ff8800</span></p>
+
+$converter->convert(':color[rebeccapurple]');
+// <p><span class="swatch"><span class="swatch-chip" style="background-color:rebeccapurple"></span> rebeccapurple</span></p>
+
+// Not a color: defers to the generic fallback (no chip).
+$converter->convert(':color[banana]');
+// <p><span class="ext-color">banana</span></p>
+~~~
+
+Constructor options:
+
+- `position` (`string`, default `'before'`) - chip placement: `before` the value,
+  `after` it, or `none` (chip only; the value becomes the element `title`).
+- `shape` (`string`, default `'square'`) - `square` / `round` (filled dot) /
+  `ring` (the color is the border, not the fill).
+- `tint` (`bool`, default `false`) - paint a faint tint of the color behind the
+  whole swatch (via CSS `color-mix`; decorative, degrades where unsupported).
+- `reveal` (`bool`, default `false`) - collapse the value text and reveal it on
+  hover / keyboard focus (pure-CSS via the `swatch-reveal` class; the value stays
+  in the DOM for assistive tech). Ignored when `position` is `none`.
+
+~~~ php
+// chip after the value, hollow ring, faint tint behind:
+new ColorSwatchExtension(position: 'after', shape: 'ring', tint: true);
+~~~
+
+Author attributes merge onto the output element - the `swatch` base class ahead
+of author classes, then id / key-values - with the always-on hardening
+(`HtmlRenderer::sanitizeAttributes()`) plus safe-mode name filtering and value
+escaping, so a `{onclick="…"}` can never reach the output. An author-supplied
+`style` or `title` wins over the extension's own.
+
+~~~ php
+$converter->convert(':color[#fff]{#brand .accent}');
+// <p><span class="swatch accent" id="brand"><span class="swatch-chip" style="background-color:#fff"></span> #fff</span></p>
+~~~
+
+Carve emits only the markup; sizing the chip is the host's CSS (an empty
+`<span>` has no dimensions, so without this the chip is invisible):
+
+~~~ css
+.swatch { white-space: nowrap; }
+.swatch-chip { display: inline-block; width: .85em; height: .85em; margin-right: .15em;
+  border-radius: 3px; vertical-align: -.08em; border: 1px solid rgba(0, 0, 0, .25);
+  box-sizing: border-box; }
+.swatch-chip-round { border-radius: 50%; }
+.swatch-chip-ring { background: transparent !important; border-width: 2px; }
+/* position: 'after' puts the chip last; tweak the margin side if you prefer. */
+.swatch-tint { padding: 0 .25em; border-radius: 4px; }
+/* reveal: true - value hidden until hover / focus, kept in the DOM for AT. */
+.swatch-reveal .swatch-val { visibility: hidden; }
+.swatch-reveal:hover .swatch-val, .swatch-reveal:focus .swatch-val { visibility: visible; }
+~~~
+
 ### InlineFootnotesExtension
 
 Converts a span with the `.fn` class into an inline footnote, so footnote

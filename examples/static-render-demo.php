@@ -29,6 +29,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use Carve\CarveConverter;
 use Carve\Extension\CodeGroupExtension;
+use Carve\Extension\ColorSwatchExtension;
 use Carve\Extension\FencedRenderExtension;
 use Carve\Extension\MathBlockExtension;
 use Carve\Extension\TabsExtension;
@@ -49,6 +50,7 @@ function buildConverter(string $mode, array $renderers = []): CarveConverter
     $converter->addExtension(new TabsExtension());
     $converter->addExtension(new CodeGroupExtension());
     $converter->addExtension(new MathBlockExtension());
+    $converter->addExtension(new ColorSwatchExtension());
     $converter->addExtension(FencedRenderExtension::mermaid());
 
     return $converter;
