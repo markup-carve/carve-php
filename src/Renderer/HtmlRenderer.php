@@ -1586,9 +1586,41 @@ class HtmlRenderer implements RendererInterface
     /**
      * URL schemes that must never appear in an attribute value.
      *
+     * Covers the classic script-bearing schemes (`javascript`, `vbscript`,
+     * `data`, `file`) plus OS protocol-handler / command-execution schemes
+     * (the CVE-2026-20841 class) such as `ms-msdt`, `ms-office`, `search-ms`,
+     * `shell`, `vscode`, and `jar`. These hand a crafted payload to a native
+     * application and so must be blanked in `href` / `src` / autolinks and in
+     * attribute overrides, case-insensitively. Ordinary web schemes
+     * (`http`, `https`, `mailto`, `tel`, `ftp`, `sms`) are intentionally absent.
+     *
      * @var array<string>
      */
-    private const DANGEROUS_VALUE_SCHEMES = ['javascript', 'vbscript', 'data', 'file'];
+    private const DANGEROUS_VALUE_SCHEMES = [
+        'javascript',
+        'vbscript',
+        'data',
+        'file',
+        'ms-msdt',
+        'ms-office',
+        'ms-word',
+        'ms-excel',
+        'ms-powerpoint',
+        'ms-access',
+        'ms-visio',
+        'ms-project',
+        'ms-publisher',
+        'ms-infopath',
+        'ms-spd',
+        'ms-search',
+        'search-ms',
+        'ms-cxh',
+        'ms-cxh-full',
+        'shell',
+        'vscode',
+        'vscode-insiders',
+        'jar',
+    ];
 
     /**
      * Always-on attribute hardening, applied regardless of safe mode.

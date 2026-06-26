@@ -10,6 +10,7 @@ use Carve\Node\Document;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Text;
 use Carve\Renderer\HtmlRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -151,5 +152,91 @@ class AttributeHardeningTest extends TestCase
             '<p><span style="">x</span></p>',
             $this->render('[x]{style="background:u\72l(http://e/p)"}'),
         );
+    }
+
+    /**
+     * OS protocol-handler / command-execution schemes (the CVE-2026-20841
+     * class) are blanked on href, image src, and autolinks, always on.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function osHandlerSchemeProvider(): array
+    {
+        return [
+            'ms-msdt' => ['ms-msdt:/id'],
+            'ms-office payload' => ['ms-office:ofe|u|http://evil/x.docm'],
+            'ms-word' => ['ms-word:ofe|u|http://evil/x.docx'],
+            'ms-excel' => ['ms-excel:ofe|u|http://evil/x.xlsx'],
+            'ms-powerpoint' => ['ms-powerpoint:ofe|u|http://evil/x.pptx'],
+            'ms-access' => ['ms-access:x'],
+            'ms-visio' => ['ms-visio:x'],
+            'ms-project' => ['ms-project:x'],
+            'ms-publisher' => ['ms-publisher:x'],
+            'ms-infopath' => ['ms-infopath:x'],
+            'ms-spd' => ['ms-spd:x'],
+            'ms-search' => ['ms-search:x'],
+            'search-ms' => ['search-ms:query=x'],
+            'ms-cxh' => ['ms-cxh:x'],
+            'ms-cxh-full' => ['ms-cxh-full:x'],
+            'shell' => ['shell:Startup'],
+            'vscode' => ['vscode:extension/x'],
+            'vscode-insiders' => ['vscode-insiders:extension/x'],
+            'jar' => ['jar:http://evil/x.jar!/'],
+        ];
+    }
+
+    #[DataProvider('osHandlerSchemeProvider')]
+    public function testOsHandlerSchemesBlankedOnLinkAndImage(string $url): void
+    {
+        $this->assertSame(
+            '<p><a href="">a</a></p>',
+            $this->render('[a](' . $url . ')'),
+        );
+        $this->assertSame(
+            '<img src="" alt="i">',
+            $this->render('![i](' . $url . ')'),
+        );
+    }
+
+    public function testOsHandlerSchemeBlankedOnAutolink(): void
+    {
+        $this->assertSame(
+            '<p><a href="">ms-msdt:/id</a></p>',
+            $this->render('<ms-msdt:/id>'),
+        );
+    }
+
+    public function testOsHandlerSchemeMatchingIsCaseInsensitive(): void
+    {
+        $this->assertSame(
+            '<p><a href="">a</a></p>',
+            $this->render('[a](MS-OFFICE:ofe|u|http://evil/x.docm)'),
+        );
+        $this->assertSame(
+            '<p><a href="">b</a></p>',
+            $this->render('[b](Shell:Startup)'),
+        );
+    }
+
+    public function testOsHandlerSchemeBlankedOnAttributeOverride(): void
+    {
+        $this->assertSame(
+            '<p><a href="">safe</a></p>',
+            $this->render('[safe](ms-msdt:/id){href="ms-office:ofe|u|payload"}'),
+        );
+        $this->assertSame(
+            '<p><span background="">x</span></p>',
+            $this->render('[x]{background="search-ms:query=x"}'),
+        );
+    }
+
+    public function testOrdinarySchemesStayAllowedAlongsideOsHandlerDenylist(): void
+    {
+        $this->assertStringContainsString('href="https://ok.com"', $this->render('[d](https://ok.com)'));
+        $this->assertStringContainsString('href="http://ok.com"', $this->render('[d](http://ok.com)'));
+        $this->assertStringContainsString('href="tel:+15551234"', $this->render('[e](tel:+15551234)'));
+        $this->assertStringContainsString('href="mailto:a@b.c"', $this->render('[m](mailto:a@b.c)'));
+        $this->assertStringContainsString('href="ftp://h/f"', $this->render('[f](ftp://h/f)'));
+        $this->assertStringContainsString('href="sms:+1"', $this->render('[s](sms:+1)'));
     }
 }
