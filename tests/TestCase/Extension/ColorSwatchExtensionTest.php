@@ -99,6 +99,14 @@ class ColorSwatchExtensionTest extends TestCase
         );
     }
 
+    public function testContrastDeclinesFullyTransparentColor(): void
+    {
+        $this->assertSame(
+            '<p><span class="swatch"><span class="swatch-chip" style="background-color:#00000000"></span> #00000000</span></p>',
+            trim($this->convert(':color[#00000000]{contrast}')),
+        );
+    }
+
     public function testContrastLetsAuthorStyleWinWithoutDuplicateStyle(): void
     {
         $this->assertSame(

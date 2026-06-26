@@ -269,6 +269,13 @@ class ColorSwatchExtension implements ExtensionInterface
      */
     protected function autoContrastTextColor(string $color): ?string
     {
+        // A fully transparent color paints no background, so a computed text
+        // color would sit on the page itself and could be unreadable. Decline
+        // the contrast label (fall back to the normal swatch) instead of guessing.
+        if ($this->isFullyTransparentHex($color)) {
+            return null;
+        }
+
         $rgb = $this->parseIntegerRgb($color);
         if ($rgb === null) {
             return null;
@@ -278,6 +285,21 @@ class ColorSwatchExtension implements ExtensionInterface
         $brightness = intdiv(($red * 299) + ($green * 587) + ($blue * 114), 1000);
 
         return $brightness >= 128 ? '#000' : '#fff';
+    }
+
+    /**
+     * True for hex colors whose alpha channel is fully zero (e.g. `#0000`,
+     * `#00000000`).
+     */
+    protected function isFullyTransparentHex(string $color): bool
+    {
+        if (preg_match('/^#([0-9a-fA-F]{4}|[0-9a-fA-F]{8})$/', $color, $match) !== 1) {
+            return false;
+        }
+
+        $alpha = strlen($match[1]) === 4 ? $match[1][3] : substr($match[1], 6, 2);
+
+        return preg_match('/^0+$/', $alpha) === 1;
     }
 
     /**
