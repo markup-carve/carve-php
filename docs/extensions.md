@@ -660,6 +660,35 @@ When deciding between this and `TabsExtension`: use `CodeGroupExtension` for
 multiple code blocks with labels from language hints; use `TabsExtension` for
 arbitrary content with labels from headings/attributes and optional ARIA mode.
 
+### CodeCalloutsExtension
+
+Tier-2 (off by default). AsciiDoc-style code annotations: a `<n>` (ASCII digits)
+at the end of a fenced-code line renders as a styleable
+`<b class="callout" data-callout="n">n</b>` bubble (only the trailing `<n>` on a
+line counts; the rest of the code is escaped as usual). A paragraph of
+`<n> text` lines immediately following a marked code block binds as
+`<ol class="callouts">` with explicit `<li value="n">`, so the ordinal matches
+the bubble even for non-sequential numbers. The list binds only when the code
+has a marker and every following line is a `<n> text` item; otherwise the `<n>`
+stay literal. Authored block attributes ride onto the `<ol>` (`callouts` leading
+class). HTML output only; non-HTML keeps the `<n>` literal. See spec §10.
+
+~~~ php
+$converter->addExtension(new CodeCalloutsExtension());
+~~~
+
+Input:
+
+~~~
+``` js
+const x = compute();   <1>
+return x * 2;          <2>
+```
+
+<1> Runs the expensive step once.
+<2> Doubles the result.
+~~~
+
 ### FencedRenderExtension
 
 Generic client-rendered fenced-block factory. Claims fenced code blocks by
