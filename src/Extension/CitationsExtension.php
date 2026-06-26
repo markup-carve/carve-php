@@ -857,7 +857,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 $links = [];
                 for ($m = 1; $m <= $count; $m++) {
                     $links[] = '<a href="#cite-' . $renderer->escapeAttribute($key) . '-' . $m
-                        . '" class="ref-backref">&#8617;</a>';
+                        . '" class="ref-backref">↩</a>';
                 }
                 if ($links !== []) {
                     $backlinks = ($body !== '' ? ' ' : '') . implode(' ', $links);

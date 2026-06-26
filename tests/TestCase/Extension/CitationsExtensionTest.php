@@ -181,7 +181,7 @@ class CitationsExtensionTest extends TestCase
         $this->assertStringContainsString('<a id="cite-smith2020-1" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
         $this->assertStringContainsString(
             '<li id="ref-smith2020">Smith, John (2020). A Study. '
-                . '<a href="#cite-smith2020-1" class="ref-backref">&#8617;</a></li>',
+                . '<a href="#cite-smith2020-1" class="ref-backref">↩</a></li>',
             $html,
         );
     }
@@ -200,8 +200,8 @@ class CitationsExtensionTest extends TestCase
 
         $this->assertStringContainsString('<a id="cite-smith2020-1" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
         $this->assertStringContainsString('<a id="cite-smith2020-2" data-cite-key="smith2020" href="#ref-smith2020">1</a>', $html);
-        $this->assertStringContainsString('<a href="#cite-smith2020-1" class="ref-backref">&#8617;</a>', $html);
-        $this->assertStringContainsString('<a href="#cite-smith2020-2" class="ref-backref">&#8617;</a>', $html);
+        $this->assertStringContainsString('<a href="#cite-smith2020-1" class="ref-backref">↩</a>', $html);
+        $this->assertStringContainsString('<a href="#cite-smith2020-2" class="ref-backref">↩</a>', $html);
     }
 
     public function testMultiKeyGroupAnchorsEachKey(): void
