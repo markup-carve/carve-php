@@ -150,18 +150,18 @@ class AttributeParserTest extends TestCase
         $this->assertArrayNotHasKey('class', $result);
     }
 
-    public function testInvalidUnquotedValueWithSlashIsNotParsed(): void
+    public function testValidUnquotedValueWithSlash(): void
     {
         $result = AttributeParser::parse('key=foo/bar');
 
-        $this->assertArrayNotHasKey('key', $result);
+        $this->assertSame('foo/bar', $result['key']);
     }
 
-    public function testInvalidUnquotedValueWithAtSignIsNotParsed(): void
+    public function testValidUnquotedValueWithAtSign(): void
     {
         $result = AttributeParser::parse('key=foo@bar');
 
-        $this->assertArrayNotHasKey('key', $result);
+        $this->assertSame('foo@bar', $result['key']);
     }
 
     public function testDottedValueWorksWhenQuoted(): void

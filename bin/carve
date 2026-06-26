@@ -7,6 +7,7 @@ declare(strict_types=1);
  * Carve CLI - Convert carve files to HTML
  *
  * Usage:
+ *   carve fmt [--write|--check] [files...]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -75,6 +76,9 @@ function parseArgs(array $argv): array
     $input = null;
 
     $argc = count($argv);
+    if (($argv[1] ?? null) === 'fmt') {
+        return parseFmtArgs($argv);
+    }
     for ($i = 1; $i < $argc; $i++) {
         $arg = $argv[$i];
 
@@ -90,6 +94,8 @@ function parseArgs(array $argv): array
             $options['format'] = 'plain';
         } elseif ($arg === '--ansi') {
             $options['format'] = 'ansi';
+        } elseif ($arg === '--carve') {
+            $options['format'] = 'carve';
         } elseif ($arg === '-x' || $arg === '--xhtml') {
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
@@ -123,12 +129,52 @@ function parseArgs(array $argv): array
     return ['options' => $options, 'input' => $input];
 }
 
+/**
+ * @param array<int, string> $argv
+ * @return array{options: array<string, bool|string|null|array<int, string>>, input: ?string}
+ */
+function parseFmtArgs(array $argv): array
+{
+    $files = [];
+    $options = [
+        'command' => 'fmt',
+        'write' => false,
+        'check' => false,
+        'help' => false,
+        'files' => [],
+    ];
+    $argc = count($argv);
+    for ($i = 2; $i < $argc; $i++) {
+        $arg = $argv[$i];
+        if ($arg === '-h' || $arg === '--help') {
+            $options['help'] = true;
+        } elseif ($arg === '-w' || $arg === '--write') {
+            $options['write'] = true;
+        } elseif ($arg === '--check') {
+            $options['check'] = true;
+        } elseif (str_starts_with($arg, '-')) {
+            fwrite(STDERR, "Error: Unknown fmt option: $arg\n");
+            exit(1);
+        } else {
+            $files[] = $arg;
+        }
+    }
+    if ($options['write'] && $options['check']) {
+        fwrite(STDERR, "Error: fmt --write and --check are mutually exclusive\n");
+        exit(1);
+    }
+    $options['files'] = $files;
+
+    return ['options' => $options, 'input' => null];
+}
+
 function showHelp(): void
 {
     echo <<<'HELP'
 Carve - Render Carve markup
 
 Usage:
+  carve fmt [options] [files...]
   carve [options] [input-file]
   cat file.crv | carve [options]
 
@@ -140,6 +186,12 @@ Output format (default --html; last one wins):
   --markdown, --md    Markdown
   --plain, --plain-text  plain text
   --ansi              ANSI-colored terminal text
+  --carve             canonical Carve source
+
+Formatter:
+  fmt                 Format Carve source to stdout
+  fmt -w, --write     Format files in place
+  fmt --check         Exit non-zero if any file is not formatted
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
@@ -160,6 +212,8 @@ Examples:
   carve --static document.crv           Render self-contained static HTML
   carve --ansi document.crv             Render colored terminal output
   carve --markdown document.crv         Render Markdown
+  carve --carve document.crv            Render canonical Carve source
+  carve fmt -w document.crv             Format file in place
   carve document.crv -o document.html   Render to an output file
   echo '*hello*' | carve                Render from stdin
 
@@ -183,6 +237,54 @@ function showVersion(): void
 $parsed = parseArgs($argv);
 $options = $parsed['options'];
 $inputFile = $parsed['input'];
+
+if (($options['command'] ?? null) === 'fmt') {
+    if ($options['help']) {
+        showHelp();
+        exit(0);
+    }
+    $files = $options['files'];
+    $exitCode = 0;
+    if ($files === []) {
+        $input = stream_get_contents(STDIN);
+        if ($input === false) {
+            fwrite(STDERR, "Error: Failed to read from stdin\n");
+            exit(1);
+        }
+        echo CarveConverter::toCarve($input);
+        exit(0);
+    }
+    foreach ($files as $file) {
+        if (!is_string($file) || !is_file($file) || !is_readable($file)) {
+            fwrite(STDERR, "Error: Cannot read file: $file\n");
+            $exitCode = 1;
+            continue;
+        }
+        $input = file_get_contents($file);
+        if ($input === false) {
+            fwrite(STDERR, "Error: Failed to read file: $file\n");
+            $exitCode = 1;
+            continue;
+        }
+        $formatted = CarveConverter::toCarve($input);
+        if ($options['check']) {
+            if ($formatted !== $input) {
+                fwrite(STDERR, "$file is not formatted\n");
+                $exitCode = 1;
+            }
+            continue;
+        }
+        if ($options['write']) {
+            if (file_put_contents($file, $formatted) === false) {
+                fwrite(STDERR, "Error: Failed to write file: $file\n");
+                $exitCode = 1;
+            }
+            continue;
+        }
+        echo $formatted;
+    }
+    exit($exitCode);
+}
 
 if ($options['help']) {
     showHelp();
@@ -235,6 +337,7 @@ $converter = match ($options['format']) {
     'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
     'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
     'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
+    'carve' => CarveConverter::carve(new BlockParser($wantWarnings)),
     default => new CarveConverter(
         xhtml: $options['xhtml'],
         warnings: $wantWarnings,
@@ -257,7 +360,9 @@ if ($options['format'] === 'html') {
 }
 
 // Convert
-$output = $converter->convert($input);
+$output = $options['format'] === 'carve'
+    ? $converter->getRenderer()->render($converter->parse($input))
+    : $converter->convert($input);
 
 // Handle warnings
 $exitCode = 0;

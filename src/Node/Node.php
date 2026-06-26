@@ -21,6 +21,13 @@ abstract class Node
      */
     protected array $attributes = [];
 
+    /**
+     * Attribute source slots in author order: "#id", ".class", or a key name.
+     *
+     * @var list<string>
+     */
+    protected array $attributeOrder = [];
+
     public function appendChild(Node $child): void
     {
         $child->parent = $this;
@@ -132,6 +139,7 @@ abstract class Node
     public function setAttribute(string $key, string $value): void
     {
         $this->attributes[$key] = $value;
+        $this->recordAttributeSlot($key === 'id' ? '#id' : ($key === 'class' ? '.class' : $key));
     }
 
     public function getAttribute(string $key): ?string
@@ -153,6 +161,30 @@ abstract class Node
     public function setAttributes(array $attributes): void
     {
         $this->attributes = array_merge($this->attributes, $attributes);
+        foreach ($attributes as $key => $_value) {
+            $name = (string)$key;
+            $this->recordAttributeSlot($name === 'id' ? '#id' : ($name === 'class' ? '.class' : $name));
+        }
+    }
+
+    /**
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     */
+    public function setAttributesWithOrder(array $attributes, array $order): void
+    {
+        $this->attributes = array_merge($this->attributes, $attributes);
+        foreach ($order as $slot) {
+            $this->recordAttributeSlot($slot);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getAttributeOrder(): array
+    {
+        return $this->attributeOrder;
     }
 
     public function hasAttribute(string $key): bool
@@ -202,6 +234,17 @@ abstract class Node
         }
         $classes = (string)($this->getAttribute('class') ?? '');
         $this->setAttribute('class', $classes === '' ? $class : $classes . ' ' . $class);
+    }
+
+    protected function recordAttributeSlot(string $slot): void
+    {
+        if ($slot === 'class') {
+            $slot = '.class';
+        }
+        if (($slot === '.class' || $slot === '#id') && in_array($slot, $this->attributeOrder, true)) {
+            return;
+        }
+        $this->attributeOrder[] = $slot;
     }
 
     /**

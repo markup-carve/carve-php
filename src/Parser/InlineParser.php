@@ -22,11 +22,13 @@ use Carve\Node\Inline\Insert;
 use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
+use Carve\Node\Inline\Substitution;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
@@ -1635,7 +1637,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span|\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span|\Carve\Node\Inline\Text|\Carve\Node\Inline\RawText, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -1821,7 +1823,7 @@ class InlineParser
                 $endPos = $refEnd + 1;
 
                 return [
-                    'node' => new Text(substr($text, $pos, $endPos - $pos)),
+                    'node' => new RawText(substr($text, $pos, $endPos - $pos)),
                     'pos' => $endPos,
                 ];
             }
@@ -2357,12 +2359,8 @@ class InlineParser
                     $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                     if (str_contains($content, '~>')) {
                         [$old, $new] = explode('~>', $content, 2);
-                        $del = new Delete();
-                        $this->parseInlines($del, $old);
-                        $ins = new Insert();
-                        $this->parseInlines($ins, $new);
 
-                        return ['nodes' => [$del, $ins], 'pos' => $searchPos + 2];
+                        return ['node' => new Substitution($old, $new), 'pos' => $searchPos + 2];
                     }
 
                     break;

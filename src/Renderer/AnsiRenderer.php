@@ -42,11 +42,13 @@ use Carve\Node\Inline\Link;
 use Carve\Node\Inline\Math;
 use Carve\Node\Inline\Mention;
 use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
 use Carve\Node\Inline\SoftBreak;
 use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Strike;
 use Carve\Node\Inline\Strong;
 use Carve\Node\Inline\Subscript;
+use Carve\Node\Inline\Substitution;
 use Carve\Node\Inline\Superscript;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
@@ -448,6 +450,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Highlight => $this->renderHighlight($node),
                 $node instanceof Insert => $this->renderInsert($node),
                 $node instanceof Delete => $this->renderDelete($node),
+                $node instanceof Substitution => $this->renderSubstitution($node),
                 $node instanceof Span => $this->renderChildren($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => $this->renderSymbol($node),
@@ -456,6 +459,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof RawInline => '', // Skip raw inline
+                $node instanceof RawText => $this->stripControls($node->getContent()),
                 default => $this->renderChildren($node),
             };
         } finally {
@@ -917,6 +921,12 @@ class AnsiRenderer implements RendererInterface
     protected function renderDelete(Delete $node): string
     {
         return $this->style($this->renderChildren($node), self::STRIKETHROUGH . self::FG_RED);
+    }
+
+    protected function renderSubstitution(Substitution $node): string
+    {
+        return $this->style($this->stripControls($node->getOldText()), self::STRIKETHROUGH . self::FG_RED)
+            . $this->style($this->stripControls($node->getNewText()), self::FG_GREEN . self::UNDERLINE);
     }
 
     protected function renderUnderline(Underline $node): string

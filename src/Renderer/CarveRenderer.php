@@ -1,0 +1,929 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Carve\Renderer;
+
+use Carve\Extension\Frontmatter;
+use Carve\Node\Block\BlockQuote;
+use Carve\Node\Block\Caption;
+use Carve\Node\Block\CodeBlock;
+use Carve\Node\Block\Comment;
+use Carve\Node\Block\DefinitionDescription;
+use Carve\Node\Block\DefinitionList;
+use Carve\Node\Block\DefinitionTerm;
+use Carve\Node\Block\Div;
+use Carve\Node\Block\Figure;
+use Carve\Node\Block\Footnote;
+use Carve\Node\Block\Heading;
+use Carve\Node\Block\LineBlock;
+use Carve\Node\Block\ListBlock;
+use Carve\Node\Block\ListItem;
+use Carve\Node\Block\Paragraph;
+use Carve\Node\Block\RawBlock;
+use Carve\Node\Block\Table;
+use Carve\Node\Block\TableCell;
+use Carve\Node\Block\TableRow;
+use Carve\Node\Block\ThematicBreak;
+use Carve\Node\Document;
+use Carve\Node\Inline\Abbreviation;
+use Carve\Node\Inline\CaptionNumber;
+use Carve\Node\Inline\CitationGroup;
+use Carve\Node\Inline\Code;
+use Carve\Node\Inline\Delete;
+use Carve\Node\Inline\Emphasis;
+use Carve\Node\Inline\EscapedText;
+use Carve\Node\Inline\FootnoteRef;
+use Carve\Node\Inline\HardBreak;
+use Carve\Node\Inline\HeadingRef;
+use Carve\Node\Inline\Highlight;
+use Carve\Node\Inline\Image;
+use Carve\Node\Inline\InlineExtension;
+use Carve\Node\Inline\InlineFootnote;
+use Carve\Node\Inline\InlineNode;
+use Carve\Node\Inline\Insert;
+use Carve\Node\Inline\Link;
+use Carve\Node\Inline\Math;
+use Carve\Node\Inline\Mention;
+use Carve\Node\Inline\RawInline;
+use Carve\Node\Inline\RawText;
+use Carve\Node\Inline\SoftBreak;
+use Carve\Node\Inline\Span;
+use Carve\Node\Inline\Strike;
+use Carve\Node\Inline\Strong;
+use Carve\Node\Inline\Subscript;
+use Carve\Node\Inline\Substitution;
+use Carve\Node\Inline\Superscript;
+use Carve\Node\Inline\Symbol;
+use Carve\Node\Inline\Text;
+use Carve\Node\Inline\Underline;
+use Carve\Node\Node;
+
+/**
+ * Renders AST back to canonical Carve source.
+ */
+class CarveRenderer implements RendererInterface
+{
+    /**
+     * @var int
+     */
+    private const MAX_RENDER_DEPTH = 200;
+
+    /**
+     * @var list<string>
+     */
+    private const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
+
+    protected int $blockDepth = 0;
+
+    protected int $inlineDepth = 0;
+
+    protected int $listDepth = 0;
+
+    public function render(Document $document): string
+    {
+        $parts = [];
+        $abbrs = [];
+        foreach ($document->getAbbreviations() as $abbr => $expansion) {
+            $abbrs[] = '*[' . $this->escapeBracketText((string)$abbr) . ']: ' . str_replace("\n", ' ', (string)$expansion);
+        }
+        if ($abbrs !== [] && $document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n", $abbrs);
+        }
+        $body = $this->renderBlocks($document->getChildren());
+        if ($body !== '') {
+            $parts[] = $body;
+        }
+        if ($abbrs !== [] && !$document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n", $abbrs);
+        }
+
+        return $this->normalize(implode("\n\n", $parts));
+    }
+
+    /**
+     * @param array<\Carve\Node\Node> $blocks
+     */
+    protected function renderBlocks(array $blocks): string
+    {
+        if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
+        }
+
+        $this->blockDepth++;
+        try {
+            $parts = [];
+            foreach ($blocks as $block) {
+                $rendered = $this->renderBlock($block);
+                if ($rendered !== '') {
+                    $parts[] = $rendered;
+                }
+            }
+
+            return implode("\n\n", $parts);
+        } finally {
+            $this->blockDepth--;
+        }
+    }
+
+    protected function renderBlock(Node $node): string
+    {
+        if ($node instanceof LineBlock && !$node->hasClass('line-block')) {
+            $node->addClass('line-block');
+        }
+        $attrs = $this->renderAttrs($node);
+        $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
+
+        return match (true) {
+            $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
+            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimNonNbsp($this->renderInlines($node->getChildren()))),
+            $node instanceof Paragraph => $withAttrs($this->renderInlines($node->getChildren())),
+            $node instanceof CodeBlock => $withAttrs($this->renderCodeBlock($node)),
+            $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
+            $node instanceof ListBlock => $withAttrs($this->renderList($node)),
+            $node instanceof ListItem => $this->renderListItem($node),
+            $node instanceof ThematicBreak => $withAttrs('---'),
+            $node instanceof Table => $withAttrs($this->renderTable($node)),
+            $node instanceof Div && $this->canRenderTypedDiv($node) => $this->renderTypedDiv($node),
+            $node instanceof Div && $this->admonitionKind($node) !== null => $this->renderAdmonition($node),
+            $node instanceof Div => $withAttrs($this->renderDiv($node)),
+            $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
+            $node instanceof DefinitionList => $withAttrs($this->renderDefinitionList($node)),
+            $node instanceof Figure => $withAttrs($this->renderFigure($node)),
+            $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
+            $node instanceof Comment => $this->renderComment($node),
+            $node instanceof Footnote => $this->renderFootnote($node),
+            $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
+            default => $this->renderBlocks($node->getChildren()),
+        };
+    }
+
+    protected function renderCodeBlock(CodeBlock $node): string
+    {
+        $content = $node->getContent();
+        $fence = $this->safeFence($content, 3);
+        $info = $this->codeFenceInfo($node);
+
+        return $fence . $info . "\n" . $content . "\n" . $fence;
+    }
+
+    protected function codeFenceInfo(CodeBlock $node): string
+    {
+        $parts = [];
+        $language = $node->getLanguage();
+        if ($language !== null && $language !== '') {
+            $parts[] = $this->escapeFenceToken($language);
+        }
+        $header = $node->getHeader() ?? $node->getAttribute('title');
+        if (is_string($header)) {
+            $parts[] = '"' . $this->escapeQuoted($header) . '"';
+        }
+        $label = $node->getLabel();
+        if ($label !== null) {
+            $parts[] = '[' . $this->escapeBracketText($label) . ']';
+        }
+
+        return $parts === [] ? '' : ' ' . implode(' ', $parts);
+    }
+
+    protected function renderBlockQuote(BlockQuote $node): string
+    {
+        $inner = $this->renderBlocks($node->getChildren());
+        $lines = explode("\n", $inner);
+
+        return implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
+    }
+
+    protected function renderList(ListBlock $node): string
+    {
+        $this->listDepth++;
+        try {
+            $out = '';
+            $counter = $node->getStart();
+            $children = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof ListItem));
+            foreach ($children as $index => $item) {
+                $indent = str_repeat('  ', $this->listDepth - 1);
+                if ($node->getListType() === ListBlock::TYPE_ORDERED) {
+                    $prefix = $this->orderedMarker($counter, $node->getStyle()) . '. ';
+                    $counter++;
+                } elseif ($item->isTask()) {
+                    $prefix = '- [' . ($item->isCompleted() ? 'x' : ' ') . '] ';
+                } else {
+                    $prefix = '- ';
+                }
+
+                $itemAttrs = $this->renderAttrs($item);
+                if ($itemAttrs !== '') {
+                    $prefix = $node->getListType() === ListBlock::TYPE_ORDERED
+                        ? rtrim($prefix) . $itemAttrs . ' '
+                        : '-' . $itemAttrs . ($item->isTask() ? ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ' : ' ');
+                }
+
+                $content = $this->trimNonNbsp($this->renderListItem($item));
+                $itemChildren = $item->getChildren();
+                if (count($itemChildren) === 1 && $itemChildren[0] instanceof ListBlock) {
+                    $content = (string)preg_replace('/^  /m', '', $content);
+                }
+                $lines = $content === '' ? [''] : explode("\n", $content);
+                $first = array_shift($lines);
+                $out .= $indent . $prefix . ($first === '' ? '+' : $first) . "\n";
+                $continuation = str_repeat(' ', strlen($prefix));
+                foreach ($lines as $line) {
+                    $out .= $indent . $continuation . $line . "\n";
+                }
+                if (!$node->isTight() && $index < count($children) - 1) {
+                    $out .= "\n";
+                }
+            }
+
+            return $this->trimEndNonNbsp($out);
+        } finally {
+            $this->listDepth--;
+        }
+    }
+
+    protected function renderListItem(ListItem $node): string
+    {
+        return $this->renderBlocks($node->getChildren());
+    }
+
+    protected function orderedMarker(int $n, ?string $type): string
+    {
+        return match ($type) {
+            'a' => chr((($n - 1) % 26) + 97),
+            'A' => chr((($n - 1) % 26) + 65),
+            'i' => strtolower($this->romanMarker($n)),
+            'I' => $this->romanMarker($n),
+            default => (string)$n,
+        };
+    }
+
+    protected function romanMarker(int $n): string
+    {
+        $values = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+        $out = '';
+        foreach ($values as [$value, $token]) {
+            while ($n >= $value) {
+                $out .= $token;
+                $n -= $value;
+            }
+        }
+
+        return $out === '' ? 'I' : $out;
+    }
+
+    protected function renderDiv(Div $node): string
+    {
+        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $body = $this->renderBlocks($node->getChildren());
+        $fence = $this->colonFenceFor($node->getChildren());
+
+        return $fence . $label . "\n" . $body . "\n" . $fence;
+    }
+
+    protected function canRenderTypedDiv(Div $node): bool
+    {
+        $classes = $node->getClassList();
+        $attrs = $node->getAttributes();
+
+        return count($classes) === 1
+            && !in_array($classes[0], ['hardbreaks', 'line-block'], true)
+            && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1
+            && count(array_diff(array_keys($attrs), ['class', 'title'])) === 0;
+    }
+
+    protected function renderTypedDiv(Div $node): string
+    {
+        $classes = $node->getClassList();
+        $kind = $classes[0] ?? '';
+        $title = $node->getAttribute('title');
+        $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $body = $this->renderBlocks($node->getChildren());
+        $fence = $this->colonFenceFor($node->getChildren());
+
+        return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
+    }
+
+    protected function renderAdmonition(Div $node): string
+    {
+        $kind = $this->admonitionKind($node) ?? 'note';
+        $title = $node->getAttribute('title');
+        $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $body = $this->renderBlocks($node->getChildren());
+        $fence = $this->colonFenceFor($node->getChildren());
+
+        return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
+    }
+
+    protected function admonitionKind(Div $node): ?string
+    {
+        foreach ($node->getClassList() as $class) {
+            if (in_array($class, self::ADMONITION_TYPES, true)) {
+                return $class;
+            }
+        }
+
+        return null;
+    }
+
+    protected function renderLineBlock(LineBlock $node): string
+    {
+        $body = $this->renderBlocks($node->getChildren());
+
+        return ":::\n" . $body . "\n:::";
+    }
+
+    /**
+     * @param array<\Carve\Node\Node> $children
+     */
+    protected function colonFenceFor(array $children): string
+    {
+        foreach ($children as $child) {
+            if ($child instanceof Div || $child instanceof LineBlock) {
+                return '::::';
+            }
+        }
+
+        return ':::';
+    }
+
+    protected function renderDefinitionList(DefinitionList $node): string
+    {
+        $out = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof DefinitionTerm) {
+                $out[] = ':: ' . $this->renderInlines($child->getChildren());
+            } elseif ($child instanceof DefinitionDescription) {
+                $lines = explode("\n", $this->trimNonNbsp($this->renderBlocks($child->getChildren())));
+                $out[] = ':  ' . array_shift($lines);
+                foreach ($lines as $line) {
+                    $out[] = '   ' . $line;
+                }
+            }
+        }
+
+        return implode("\n", $out);
+    }
+
+    protected function renderTable(Table $node): string
+    {
+        $rows = [];
+        $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
+        $columns = 0;
+        foreach ($tableRows as $row) {
+            $width = 0;
+            foreach ($row->getChildren() as $cell) {
+                $width += $cell instanceof TableCell ? max(1, $cell->getColspan()) : 1;
+            }
+            $columns = max($columns, $width);
+        }
+        $gfmHeader = isset($tableRows[0]) && $tableRows[0]->isHeader();
+        $headerAligns = [];
+        if ($gfmHeader) {
+            foreach ($tableRows[0]->getChildren() as $cell) {
+                if ($cell instanceof TableCell) {
+                    $headerAligns[] = $cell->getAlignment();
+                }
+            }
+        }
+        $rowspans = array_fill(0, $columns, 0);
+        foreach ($tableRows as $rowIndex => $row) {
+            $cells = [];
+            $rowCells = $row->getChildren();
+            $sourceIndex = 0;
+            for ($column = 0; $column < $columns; $column++) {
+                if (($rowspans[$column] ?? 0) > 0) {
+                    $cells[] = ['text' => '^', 'tight' => true];
+                    $rowspans[$column]--;
+
+                    continue;
+                }
+                $cell = $rowCells[$sourceIndex] ?? null;
+                $sourceIndex++;
+                if (!$cell instanceof TableCell) {
+                    $cells[] = ['text' => '', 'tight' => false];
+
+                    continue;
+                }
+                $suppressHeader = $gfmHeader && $rowIndex === 0;
+                $suppressAlign = $gfmHeader && $rowIndex > 0 && ($headerAligns[$column] ?? null) === $cell->getAlignment();
+                $cells[] = $this->renderTableCell($cell, $suppressHeader, $suppressAlign);
+                if ($cell->getRowspan() > 1) {
+                    $rowspans[$column] = $cell->getRowspan() - 1;
+                }
+                for ($span = 1; $span < $cell->getColspan() && $column + 1 < $columns; $span++) {
+                    $column++;
+                    if (($rowspans[$column] ?? 0) > 0) {
+                        $cells[] = ['text' => '^', 'tight' => true];
+                        $rowspans[$column]--;
+                        $span--;
+
+                        continue;
+                    }
+                    $cells[] = ['text' => '<', 'tight' => true];
+                }
+            }
+            $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
+        }
+        if ($gfmHeader) {
+            $seps = [];
+            foreach ($tableRows[0]->getChildren() as $cell) {
+                $seps[] = $cell instanceof TableCell ? $this->tableSeparator($cell) : '---';
+            }
+            $separatorCount = count($seps);
+            while ($separatorCount < $columns) {
+                $seps[] = '---';
+                $separatorCount++;
+            }
+            array_splice($rows, 1, 0, '|' . implode('|', $seps) . '|');
+        }
+        if ($node->hasCaption()) {
+            $caption = $node->getCaption();
+            if ($caption !== null) {
+                $rows[] = '^ ' . $this->renderInlines($caption->getChildren());
+            }
+        }
+
+        return implode("\n", $rows);
+    }
+
+    /**
+     * @param list<array{text: string, tight: bool}> $cells Rendered cells.
+     * @param string $attrs Row attributes.
+     */
+    protected function renderTableRow(array $cells, string $attrs): string
+    {
+        return '|' . implode('|', array_map(static fn (array $cell): string => $cell['tight'] ? $cell['text'] : ' ' . $cell['text'] . ' ', $cells)) . '|' . $attrs;
+    }
+
+    /**
+     * @return array{text: string, tight: bool}
+     */
+    protected function renderTableCell(TableCell $cell, bool $suppressHeader, bool $suppressAlign): array
+    {
+        $attrs = $this->renderAttrs($cell);
+        if ($cell->getSpanMarker() !== null) {
+            return ['text' => $attrs . $cell->getSpanMarker(), 'tight' => true];
+        }
+        $prefix = $attrs . ($cell->isHeader() && !$suppressHeader ? '=' : '') . ($suppressAlign ? '' : $this->alignMarker($cell->getAlignment()));
+
+        return ['text' => $prefix . $this->renderInlines($cell->getChildren()), 'tight' => $prefix !== ''];
+    }
+
+    protected function tableSeparator(TableCell $cell): string
+    {
+        return match ($cell->getAlignment()) {
+            TableCell::ALIGN_LEFT => ':---',
+            TableCell::ALIGN_RIGHT => '---:',
+            TableCell::ALIGN_CENTER => ':---:',
+            default => '---',
+        };
+    }
+
+    protected function renderFigure(Figure $node): string
+    {
+        $target = '';
+        $caption = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                $caption = '^ ' . $this->renderInlines($child->getChildren());
+            } elseif ($child instanceof Image) {
+                $target .= ($target === '' ? '' : "\n") . $this->renderImage($child);
+            } else {
+                $target .= ($target === '' ? '' : "\n") . $this->renderBlock($child);
+            }
+        }
+
+        return $caption === '' ? $target : $target . "\n" . $caption;
+    }
+
+    protected function renderRawBlock(RawBlock $node): string
+    {
+        $content = $node->getContent();
+        $fence = $this->safeFence($content, 3);
+
+        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n" . $content . "\n" . $fence;
+    }
+
+    protected function renderComment(Comment $node): string
+    {
+        $content = $node->getContent();
+        if ($node->getFenceLength() !== null) {
+            $fence = str_repeat('%', max(3, $node->getFenceLength()));
+
+            return $fence . "\n" . $content . "\n" . $fence;
+        }
+        if (!str_contains($content, "\n")) {
+            return '%% ' . $content;
+        }
+        preg_match_all('/%+/', $content, $matches);
+        $longest = 0;
+        foreach ($matches[0] as $match) {
+            $longest = max($longest, strlen($match));
+        }
+        $fence = str_repeat('%', max(3, $longest + 1));
+
+        return $fence . "\n" . $content . "\n" . $fence;
+    }
+
+    protected function renderFootnote(Footnote $node): string
+    {
+        $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
+        $lines = explode("\n", $body);
+        $out = '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: ' . array_shift($lines);
+        foreach ($lines as $line) {
+            $out .= "\n   " . $line;
+        }
+
+        return $out;
+    }
+
+    protected function renderFrontmatter(Frontmatter $node): string
+    {
+        $open = $node->getFormat() === 'yaml' ? '---' : '---' . $this->escapeFormat($node->getFormat());
+
+        return $open . "\n" . $node->getContent() . "\n---";
+    }
+
+    /**
+     * @param array<\Carve\Node\Node> $nodes
+     */
+    protected function renderInlines(array $nodes): string
+    {
+        if ($this->inlineDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
+        }
+        $this->inlineDepth++;
+        try {
+            $out = '';
+            $count = count($nodes);
+            for ($i = 0; $i < $count; $i++) {
+                $node = $nodes[$i];
+                if ($node instanceof InlineNode) {
+                    $out .= $this->renderInline($node, $this->lastBoundary($nodes[$i - 1] ?? null), $this->firstBoundary($nodes[$i + 1] ?? null));
+                } elseif ($node instanceof Comment) {
+                    $out .= ' %% ' . $node->getContent();
+                }
+            }
+
+            return $out;
+        } finally {
+            $this->inlineDepth--;
+        }
+    }
+
+    protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string
+    {
+        $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
+
+        return match (true) {
+            $node instanceof Text => $this->escapeText($node->getContent()),
+            $node instanceof EscapedText => $this->escapeText($node->getContent()),
+            $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),
+            $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Strike => $withAttrs($this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Superscript => $withAttrs($this->renderEmphasis('^', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Subscript => $withAttrs($this->renderEmphasis(',', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
+            $node instanceof Mention => $this->renderMention($node),
+            $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref(str_starts_with((string)$node->getDestination(), 'mailto:') ? substr((string)$node->getDestination(), 7) : (string)$node->getDestination()) . '>'),
+            $node instanceof Link => $this->renderLink($node),
+            $node instanceof Image => $this->renderImage($node),
+            $node instanceof Span && $node->hasClass('critic-comment') => '{#' . $this->escapeCriticText($this->plainInlineText($node)) . '#}',
+            $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
+            $node instanceof Math => $withAttrs($this->renderMath($node)),
+            $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof RawText => $node->getContent(),
+            $node instanceof Symbol => ':' . $this->escapeIdentifier($node->getName()) . ':',
+            $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
+            $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
+            $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
+            $node instanceof FootnoteRef => $withAttrs('[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']'),
+            $node instanceof SoftBreak => "\n",
+            $node instanceof HardBreak => "\\\n",
+            $node instanceof Insert => '{+' . $this->renderInlines($node->getChildren()) . '+}',
+            $node instanceof Delete => '{-' . $this->renderInlines($node->getChildren()) . '-}',
+            $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
+            $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
+            $node instanceof CaptionNumber => '#',
+            $node instanceof CitationGroup => $node->getRaw(),
+            default => $this->renderInlines($node->getChildren()),
+        };
+    }
+
+    protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
+    {
+        $children = $node->getChildren();
+        if (count($children) === 1 && $children[0] instanceof Emphasis) {
+            return '/*' . $this->renderInlines($children[0]->getChildren()) . '*/';
+        }
+
+        return $this->renderEmphasis('*', $this->renderInlines($children), $prevChar, $nextChar);
+    }
+
+    protected function renderLink(Link $node): string
+    {
+        $text = $this->renderInlines($node->getChildren());
+        $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+
+        return '[' . $text . '](' . $this->escapeDestination((string)$node->getDestination()) . $title . ')' . $this->renderAttrs($node);
+    }
+
+    protected function renderImage(Image $node): string
+    {
+        $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+
+        return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
+    }
+
+    protected function renderMention(Mention $node): string
+    {
+        $label = $this->renderInlines($node->getChildren());
+        if (($node->getDestination() ?? '') === '') {
+            return $this->plainInlineText($node);
+        }
+        if (str_starts_with($label, '#')) {
+            return '#' . $this->escapeName(substr($label, 1));
+        }
+
+        return '@' . $this->escapeName(ltrim($label, '@'));
+    }
+
+    protected function renderMath(Math $node): string
+    {
+        return ($node->isDisplay() ? '$$' : '$') . $this->renderCode($node->getContent());
+    }
+
+    protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
+    {
+        $needsForced = preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
+            || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
+            || str_starts_with($content, $delimiter)
+            || str_ends_with($content, $delimiter)
+            || str_starts_with($content, ' ')
+            || str_ends_with($content, ' ')
+            || $content === '';
+
+        return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
+    }
+
+    protected function renderCode(string $content): string
+    {
+        $fence = $this->safeFence($content, 1);
+
+        return str_starts_with($content, '`') || str_ends_with($content, '`')
+            ? $fence . ' ' . $content . ' ' . $fence
+            : $fence . $content . $fence;
+    }
+
+    protected function renderAttrs(?Node $node): string
+    {
+        if ($node === null || $node->getAttributes() === []) {
+            return '';
+        }
+        $attrs = $node->getAttributes();
+        $parts = [];
+        $seen = [];
+        $emit = function (string $slot) use (&$parts, &$seen, $attrs): void {
+            if ($slot === '#id') {
+                if (!array_key_exists('id', $attrs)) {
+                    return;
+                }
+                $id = $attrs['id'];
+                $parts[] = $this->isAttrIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
+
+                return;
+            }
+            if ($slot === '.class') {
+                foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
+                    if ($class !== '') {
+                        $parts[] = '.' . $this->escapeAttrNameValue($class);
+                    }
+                }
+
+                return;
+            }
+            if (isset($seen[$slot]) || !array_key_exists($slot, $attrs) || $slot === 'id' || $slot === 'class') {
+                return;
+            }
+            $seen[$slot] = true;
+            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+        };
+
+        $order = $node->getAttributeOrder();
+        if ($order !== []) {
+            foreach ($order as $slot) {
+                $emit($slot);
+            }
+            foreach ($attrs as $key => $_value) {
+                $emit((string)$key);
+            }
+        } else {
+            $emit('#id');
+            $emit('.class');
+            foreach ($attrs as $key => $_value) {
+                $emit((string)$key);
+            }
+        }
+
+        return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
+    }
+
+    protected function normalize(string $text): string
+    {
+        $text = str_replace("\u{E000}", "\u{00A0}", $text);
+        $lines = explode("\n", $this->trimNonNbsp($text));
+        foreach ($lines as $i => $line) {
+            $lines[$i] = (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $line);
+        }
+        $text = implode("\n", $lines);
+        $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
+
+        return $this->trimNonNbsp($text) . "\n";
+    }
+
+    protected function trimNonNbsp(string $text): string
+    {
+        return (string)preg_replace('/^[^\S' . "\u{00A0}" . ']+|[^\S' . "\u{00A0}" . ']+$/u', '', $text);
+    }
+
+    protected function trimEndNonNbsp(string $text): string
+    {
+        return (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $text);
+    }
+
+    protected function safeFence(string $content, int $min): string
+    {
+        preg_match_all('/`+/', $content, $matches);
+        $longest = 0;
+        foreach ($matches[0] as $match) {
+            $longest = max($longest, strlen($match));
+        }
+
+        return str_repeat('`', max($min, $longest + 1));
+    }
+
+    protected function lastBoundary(?Node $node): string
+    {
+        $text = $this->inlineBoundaryText($node);
+
+        return $text === '' ? '' : substr($text, -1);
+    }
+
+    protected function firstBoundary(?Node $node): string
+    {
+        $text = $this->inlineBoundaryText($node);
+
+        return $text === '' ? '' : $text[0];
+    }
+
+    protected function inlineBoundaryText(?Node $node): string
+    {
+        if ($node instanceof Text) {
+            return $node->getContent();
+        }
+        if ($node instanceof EscapedText) {
+            return $node->getContent();
+        }
+        if ($node instanceof Code) {
+            return $node->getContent();
+        }
+
+        return '';
+    }
+
+    protected function plainInlineText(Node $node): string
+    {
+        $out = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $out .= $child->getContent();
+            } elseif ($child instanceof EscapedText) {
+                $out .= $child->getContent();
+            } else {
+                $out .= $this->plainInlineText($child);
+            }
+        }
+
+        return $out;
+    }
+
+    protected function alignMarker(string $align): string
+    {
+        return match ($align) {
+            TableCell::ALIGN_LEFT => '<',
+            TableCell::ALIGN_RIGHT => '>',
+            TableCell::ALIGN_CENTER => '~',
+            default => '',
+        };
+    }
+
+    protected function escapeText(string $text): string
+    {
+        $text = (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F-\x9F]/u', '', $text);
+
+        return (string)preg_replace('/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=,:;"\'])/', '\\\\$1', $text);
+    }
+
+    protected function escapeImageAlt(string $text): string
+    {
+        return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $text);
+    }
+
+    protected function escapeDestination(string $text): string
+    {
+        $text = (string)preg_replace('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]+/u', '', $text);
+        $scheme = null;
+        if (preg_match('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]*([a-zA-Z][a-zA-Z0-9+.-]*):/u', $text, $m) === 1) {
+            $scheme = strtolower($m[1]);
+        }
+        $sanitizeBlank = $scheme !== null && in_array($scheme, ['javascript', 'vbscript', 'data', 'file'], true);
+        $text = (string)preg_replace_callback('/[\\\\\s]/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : '\\' . $m[0], $text);
+
+        return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
+    }
+
+    protected function escapeQuoted(string $text): string
+    {
+        return str_replace(['\\', '"'], ['\\\\', '\\"'], $text);
+    }
+
+    protected function escapeBracketText(string $text): string
+    {
+        return str_replace(['\\', ']'], ['\\\\', '\\]'], $text);
+    }
+
+    protected function escapeFootnoteLabel(string $text): string
+    {
+        return $this->escapeBracketText($text);
+    }
+
+    protected function escapeIdentifier(string $text): string
+    {
+        return (string)preg_replace('/[^\w-]/u', '', $text);
+    }
+
+    protected function escapeName(string $text): string
+    {
+        return trim((string)preg_replace('/[^\w.-]/u', '', $text), '.');
+    }
+
+    protected function escapeFormat(string $text): string
+    {
+        $safe = (string)preg_replace('/[^\w-]/u', '', $text);
+
+        return $safe === '' ? 'text' : $safe;
+    }
+
+    protected function escapeFenceToken(string $text): string
+    {
+        $token = preg_split('/\s/u', $text, 2)[0] ?? '';
+
+        return str_replace('`', '', $token);
+    }
+
+    protected function escapeAttrKey(string $text): string
+    {
+        $safe = (string)preg_replace('/^[^a-zA-Z_]+|[^\w-]/u', '', $text);
+
+        return $safe === '' ? 'x' : $safe;
+    }
+
+    protected function escapeAttrNameValue(string $text): string
+    {
+        return (string)preg_replace('/[^\w-]/u', '-', $text);
+    }
+
+    protected function isAttrIdentifier(string $text): bool
+    {
+        return preg_match('/^[A-Za-z_][\w-]*$/', $text) === 1;
+    }
+
+    protected function quoteAttrValue(string $value): string
+    {
+        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
+            return $value;
+        }
+
+        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+    }
+
+    protected function escapeCriticText(string $text): string
+    {
+        return str_replace(['\\', '{', '}'], ['\\\\', '\\{', '\\}'], $text);
+    }
+
+    protected function escapeAutolinkHref(string $text): string
+    {
+        return str_replace(['\\', '<', '>'], ['\\\\', '\\<', '\\>'], $text);
+    }
+
+    protected function escapeCrossrefTarget(string $text): string
+    {
+        return str_replace(['\\', '>'], ['\\\\', '\\>'], $text);
+    }
+}
