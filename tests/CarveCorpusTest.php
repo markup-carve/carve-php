@@ -149,6 +149,12 @@ class CarveCorpusTest extends TestCase
         '111-a-pipe-pair-with-no-cell-is-not-a-table',
         '112-adjacent-attribute-blocks-on-one-line-merge',
         '113-a-continuation-row-needs-a-body-row',
+        '114-fence-opener-with-a-nested-list-body-inside-a-list-item',
+        '115-footnote-definition-inside-a-container-is-collected',
+        '116-cyclic-cross-reference-resolves-to-one-level',
+        '117-trojan-source-heading-ids-are-nfc-normalized-and-strip-invisible-controls',
+        '118-trojan-source-rendered-text-and-code-strip-bidi-override-controls',
+        '119-scheme-probe-strips-unicode-whitespace',
     ];
 
     /**

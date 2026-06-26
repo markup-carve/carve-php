@@ -16,6 +16,7 @@ use Carve\Node\Inline\Span;
 use Carve\Node\Inline\Symbol;
 use Carve\Node\Inline\Text;
 use Carve\Node\Node;
+use Carve\Util\StringUtil;
 use Closure;
 
 /**
@@ -187,10 +188,12 @@ class HeadingIdTracker
      * Normalize text to a Carve heading identifier (the normative
      * "Automatic Identifiers" algorithm, carve spec #73):
      *
-     * 1. Replace each maximal run of non-alphanumeric ASCII with a
+     * 1. NFC-normalize the text and strip bidi override/isolate +
+     *    zero-width controls (Trojan-Source hardening, carve spec #117),
+     *    then replace each maximal run of non-alphanumeric ASCII with a
      *    single '-' and trim; non-ASCII code points (>= U+0080) are kept
-     *    verbatim and letter case is preserved. There is NO Unicode
-     *    (NFC) normalization step -- the default is case-preserving.
+     *    verbatim and letter case is preserved (the default is
+     *    case-preserving).
      * 2. If an id transformer is set (AsciiHeadingIdsExtension), apply
      *    it to the slug and re-run step 1 (opt-in ASCII transliteration).
      * 3. If lowercasing is enabled (opt-in), lowercase the slug PER CODE
@@ -209,7 +212,11 @@ class HeadingIdTracker
      */
     public function normalizeId(string $text): string
     {
-        $id = $this->slugRun($this->deTypography($text));
+        // Trojan-Source hardening (carve spec #117): NFC-normalize and strip
+        // bidi/zero-width controls so an id can never depend on invisible or
+        // reordering code points, and so precomposed/decomposed spellings of
+        // the same grapheme produce the same id.
+        $id = $this->slugRun($this->deTypography(StringUtil::normalizeIdSource($text)));
         if ($this->idTransformer !== null) {
             $id = $this->slugRun(($this->idTransformer)($id));
         }
