@@ -287,6 +287,17 @@ class CitationsExtensionTest extends TestCase
         $this->assertStringNotContainsString('id="cite-a-1"', $html);
     }
 
+    public function testTrailingCommaEmptyLocatorIsCitation(): void
+    {
+        // `[@key,]` - trailing comma, no locator - is a normal citation, not
+        // verbatim text (carve#227; matches the carve-js oracle).
+        $html = $this->html("See [@smith2020,].\n\n[@smith2020]: Smith, J. (2020).");
+
+        $this->assertStringContainsString('href="#ref-smith2020">1</a>', $html);
+        $this->assertStringNotContainsString('[@smith2020,]', $html);
+        $this->assertStringNotContainsString('data-locator', $html);
+    }
+
     private function converter(string $mode = 'numbered'): CarveConverter
     {
         $converter = new CarveConverter();
