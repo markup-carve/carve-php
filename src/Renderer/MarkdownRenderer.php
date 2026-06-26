@@ -684,8 +684,8 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return '<del>' . $this->escapeHtml($node->getOldText()) . '</del>'
-            . '<ins>' . $this->escapeHtml($node->getNewText()) . '</ins>';
+        return '<del>' . $this->escapeHtml($this->stripControls($node->getOldText())) . '</del>'
+            . '<ins>' . $this->escapeHtml($this->stripControls($node->getNewText())) . '</ins>';
     }
 
     protected function renderUnderline(Underline $node): string
