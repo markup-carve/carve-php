@@ -8,12 +8,9 @@ use Carve\CarveConverter;
 use Carve\Event\RenderEvent;
 use Carve\Node\Block\CodeBlock;
 use Carve\Node\Block\Paragraph;
-use Carve\Node\Document;
 use Carve\Node\Inline\Text;
-use Carve\Node\Node;
 use Carve\Renderer\HtmlRenderer;
 use Carve\Util\StringUtil;
-use SplObjectStorage;
 
 /**
  * CodeCallouts (#88, Tier-2). `<n>` markers at the end of fenced-code lines
@@ -21,7 +18,7 @@ use SplObjectStorage;
  * paragraph of `<n> text` lines binds as `<ol class="callouts">`. Off by
  * default; optional-corpus pinned when enabled. See docs/extensions.md §10.
  */
-class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtensionInterface, ResettableExtensionInterface
+class CodeCalloutsExtension implements ExtensionInterface
 {
     /**
      * A `<n>` that is the last non-whitespace content on its line.
@@ -36,19 +33,6 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
      * @var string
      */
     private const ITEM_RE = '/^<(\d+)> /';
-
-    /**
-     * Identity set of bound callout-list paragraphs - keeps the marker out of
-     * the AST so it never leaks into HTML or non-HTML output.
-     *
-     * @var \SplObjectStorage<\Carve\Node\Node, null>
-     */
-    private SplObjectStorage $calloutLists;
-
-    public function __construct()
-    {
-        $this->calloutLists = new SplObjectStorage();
-    }
 
     public function register(CarveConverter $converter): void
     {
@@ -66,44 +50,36 @@ class CodeCalloutsExtension implements ExtensionInterface, BeforeRenderExtension
 
         $converter->on('render.paragraph', function (RenderEvent $event) use ($renderer): void {
             $node = $event->getNode();
-            if ($node instanceof Paragraph && $this->calloutLists->contains($node)) {
+            if ($node instanceof Paragraph && $this->isBoundCalloutList($node)) {
                 $event->setHtml($this->renderCalloutList($node, $renderer));
             }
         });
     }
 
-    public function clear(): void
-    {
-        $this->calloutLists = new SplObjectStorage();
-    }
-
-    public function beforeRender(Document $document): Document
-    {
-        // Bind on the document that is actually rendered, tagging its paragraph
-        // nodes by identity so the render listeners match them.
-        $this->calloutLists = new SplObjectStorage();
-        $this->bind($document);
-
-        return $document;
-    }
-
     /**
-     * Tag callout-list paragraphs: a `<n> text` paragraph immediately following
-     * a code block that contains at least one marker. Recurse into containers.
+     * A paragraph is a bound callout list when every line is a `<n> text` item
+     * and its immediately-preceding sibling is a code block with a marker.
+     * Detected statelessly from the live tree at render time, so it survives a
+     * later before-render extension that returns a cloned/transformed document
+     * (no cross-extension node identity assumed) and leaks no AST marker.
      */
-    private function bind(Node $node): void
+    private function isBoundCalloutList(Paragraph $p): bool
     {
-        $children = $node->getChildren();
-        foreach ($children as $i => $child) {
-            $this->bind($child);
-            if (!$child instanceof CodeBlock || !$this->hasMarkers($child->getContent())) {
-                continue;
-            }
-            $next = $children[$i + 1] ?? null;
-            if ($next instanceof Paragraph && $this->isCalloutCandidate($next)) {
-                $this->calloutLists->attach($next);
-            }
+        if (!$this->isCalloutCandidate($p)) {
+            return false;
         }
+        $parent = $p->getParent();
+        if ($parent === null) {
+            return false;
+        }
+        $siblings = array_values($parent->getChildren());
+        $idx = array_search($p, $siblings, true);
+        if ($idx === false || $idx === 0) {
+            return false;
+        }
+        $prev = $siblings[$idx - 1];
+
+        return $prev instanceof CodeBlock && $this->hasMarkers($prev->getContent());
     }
 
     private function hasMarkers(string $content): bool

@@ -6,6 +6,7 @@ namespace Carve\Test\TestCase\Extension;
 
 use Carve\CarveConverter;
 use Carve\Extension\CodeCalloutsExtension;
+use Carve\Extension\HeadingNumbersExtension;
 use PHPUnit\Framework\TestCase;
 
 class CodeCalloutsExtensionTest extends TestCase
@@ -131,5 +132,19 @@ class CodeCalloutsExtensionTest extends TestCase
         $out = $this->html("```\nfoo()  <1>\n```\n\n<1> safe{$bidi}note.");
         $this->assertStringNotContainsString($bidi, $out);
         $this->assertStringContainsString('<li value="1">safenote.</li>', $out);
+    }
+
+    public function testBindsAfterACloningBeforeRenderExtension(): void
+    {
+        // HeadingNumbers is a before-render extension that deep-clones the
+        // document; with CodeCallouts registered first, the list must still bind
+        // (stateless render-time detection, not node identity).
+        $converter = new CarveConverter();
+        $converter->addExtension(new CodeCalloutsExtension());
+        $converter->addExtension(new HeadingNumbersExtension(2));
+        $out = trim($converter->convert("## Title\n\n" . self::SRC));
+        $this->assertStringContainsString('<ol class="callouts">', $out);
+        $this->assertStringContainsString('<li value="1">Runs the expensive step once.</li>', $out);
+        $this->assertStringContainsString('data-callout="1">1</b>', $out);
     }
 }
