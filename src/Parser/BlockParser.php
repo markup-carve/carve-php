@@ -684,14 +684,91 @@ class BlockParser
     {
         $i = 0;
         $count = count($lines);
+        // Track an open fenced code block so a `[^a]: ...` (or `> [^a]: ...`)
+        // shown inside a ``` / ~~~ sample is treated as literal code, never
+        // registered -- mirroring the fence-opacity guard in extractReferences.
+        // A single leading blockquote marker is stripped first so a code fence
+        // INSIDE a blockquote (`> ``` ` / `> [^a]: note` / `> ``` `) is tracked
+        // too: without this the container stripping below would wrongly read the
+        // quoted code content as a real definition.
+        $fenceChar = null;
+        $fenceLen = 0;
 
         while ($i < $count) {
             $line = $lines[$i];
+            // Strip any leading blockquote markers before the fence test so a
+            // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
+            // is tracked and its quoted footnote-looking lines stay literal.
+            $fenceLine = preg_replace('/^(?:> ?)+/', '', $line) ?? $line;
+
+            if ($fenceChar !== null) {
+                if (
+                    preg_match('/^[ ]{0,3}([`~]{3,})\s*$/', $fenceLine, $fm)
+                    && $fm[1][0] === $fenceChar
+                    && strlen($fm[1]) >= $fenceLen
+                ) {
+                    $fenceChar = null;
+                    $fenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^[ ]{0,3}([`~]{3,})/', $fenceLine, $fm)) {
+                $fenceChar = $fm[1][0];
+                $fenceLen = strlen($fm[1]);
+                $i++;
+
+                continue;
+            }
+
+            // A footnote definition may sit at column 0 or directly inside a
+            // single container (blockquote / list item): the container consumes
+            // the def line without rendering it, but the definition must still
+            // populate the global footnote map so a `[^a]` reference resolves
+            // (carve spec #115). Mirrors how extractReferences handles
+            // container-nested reference definitions.
+            //
+            // Container-nested defs are collected ONLY from a single def line
+            // with a non-empty inline body (`> [^a]: body` / `- [^a]: body`):
+            // the oracle (carve-js) treats a following indented line inside a
+            // container as ordinary container content, not note body, and never
+            // collects an empty-bodied container def. Only a TOP-LEVEL def
+            // gathers indented continuation lines (the original behavior).
+            $container = $this->footnoteContainerPrefix($line);
+            $prefix = $container['prefix'];
+            $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
             // Match footnote definition: [^label]: content
-            if (preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $line, $matches)) {
+            if (preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
                 $label = $matches[1];
                 $content = $matches[2] ?? '';
+
+                if ($container['kind'] !== 'none') {
+                    // Container-nested: single-line, non-empty body only. The
+                    // FIRST definition of a label wins, so a container def never
+                    // overwrites an earlier (top-level or container) def.
+                    //
+                    // The def must OPEN a block: collect only when the previous
+                    // line is blank, the document start, or itself a container
+                    // line (so a structurally-nested `> ...` / `- ...` chain is
+                    // still seen). An indented `- [^a]:` that merely lazily
+                    // continues a preceding paragraph is NOT a definition -- the
+                    // real parser leaves it in that paragraph (matches carve-js).
+                    $opensBlock = $i === 0
+                        || IndentationHelper::isBlankLine($lines[$i - 1])
+                        || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
+                        || preg_match('/^[ \t]*>/', $lines[$i - 1]) === 1;
+                    if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
+                        $footnote = new Footnote($label);
+                        $this->parseBlocks($footnote, [$content], 0);
+                        $this->footnotes[$label] = $footnote;
+                    }
+
+                    $i++;
+
+                    continue;
+                }
 
                 // Determine base indentation (2 spaces for footnotes)
                 $baseIndent = 2;
@@ -702,7 +779,6 @@ class BlockParser
                     $contentLines[] = $content;
                 }
                 $j = $i + 1;
-                $hasContent = false;
                 while ($j < $count) {
                     $nextLine = $lines[$j];
                     if (IndentationHelper::isBlankLine($nextLine)) {
@@ -719,7 +795,6 @@ class BlockParser
                     // carve-js / carve-rs.
                     if (preg_match('/^(?:[ ]{' . $baseIndent . '}|\t)(.*)$/', $nextLine, $contMatch)) {
                         $contentLines[] = $contMatch[1];
-                        $hasContent = true;
                         $j++;
                     } else {
                         break;
@@ -733,15 +808,74 @@ class BlockParser
                     $lineCount--;
                 }
 
-                $footnote = new Footnote($label);
-                if ($contentLines) {
-                    $this->parseBlocks($footnote, $contentLines, 0);
+                // The first definition of a label wins (grammar / carve-js): a
+                // later top-level def never overwrites an earlier one, whether
+                // that earlier one was top-level or container-nested.
+                if (!isset($this->footnotes[$label])) {
+                    $footnote = new Footnote($label);
+                    if ($contentLines) {
+                        $this->parseBlocks($footnote, $contentLines, 0);
+                    }
+                    $this->footnotes[$label] = $footnote;
                 }
-                $this->footnotes[$label] = $footnote;
             }
 
             $i++;
         }
+    }
+
+    /**
+     * Classify the leading container context of a footnote definition line, so
+     * the pre-pass collects a footnote defined inside one or more nested
+     * containers (carve spec #115). Strips every leading container marker --
+     * blockquote `>` and any ordered/bullet (non-task) list marker, repeatedly
+     * and at any depth -- mirroring the reference-definition pre-pass loop, so
+     * `> [^a]:`, `- [^a]:`, `> > [^a]:` and `> - [^a]:` are all recognized.
+     *
+     * Returns:
+     *  - kind 'none' : the line is a top-level `[^label]:` (or no def);
+     *  - kind 'container' : at least one container marker precedes the def;
+     *    `prefix` is the stripped marker run.
+     *
+     * A TASK item (`- [ ] …`) terminates stripping: there the `[^a]:` is
+     * ordinary checked-item content, not a footnote definition (matches the
+     * oracle carve-js, which leaves it literal).
+     *
+     * @return array{kind: string, prefix: string}
+     */
+    protected function footnoteContainerPrefix(string $line): array
+    {
+        $rest = $line;
+        $stripped = false;
+        do {
+            $previous = $rest;
+
+            // Blockquote marker `>` then an optional literal space.
+            if (preg_match('/^> ?/', $rest, $bm)) {
+                $rest = substr($rest, strlen($bm[0]));
+                $stripped = true;
+
+                continue;
+            }
+
+            // Ordered/bullet list marker (non-task). Use the canonical list
+            // parser so every accepted marker (bullet `-`/`*`/`+`, decimal /
+            // alpha / roman ordered) is recognized identically to the real
+            // parser; a task marker stops the loop (its content is not a def).
+            $trimmed = ltrim($rest);
+            $info = $this->listParser->parseListItemMarker($trimmed);
+            if ($info !== null && $info['type'] !== 'task') {
+                $markerWidth = strlen($rest) - strlen((string)$info['content']);
+                $rest = substr($rest, $markerWidth);
+                $stripped = true;
+            }
+        } while ($rest !== $previous);
+
+        if ($stripped && preg_match('/^\[\^[^\]]+\]:/', $rest)) {
+            return ['kind' => 'container', 'prefix' => substr($line, 0, strlen($line) - strlen($rest))];
+        }
+
+        return ['kind' => 'none', 'prefix' => ''];
     }
 
     /**
@@ -2781,6 +2915,38 @@ class BlockParser
                 continue;
             }
 
+            // When the item's lead content is a colon-fence opener (`::: note`
+            // admonition or a bare `:::` div) whose matching closer line sits
+            // among the item-content-column lines that follow, the body in
+            // between -- including a NESTED LIST -- belongs to the container.
+            // The normal item collector would split the nested sub-list into
+            // its own block stream (so an ordered sub-list nests instead of
+            // folding), which severs the opener from its body: the opener stays
+            // literal and the closer becomes trailing text. Keep the whole item
+            // stream together so tryParseDiv captures its nested-list body and
+            // finds its closer (grammar §12 `admonition = open, {block}, close`;
+            // matches carve-js / carve-rs). A closer at column 0 dedents out of
+            // the item and is NOT among the collected lines, so this guard does
+            // not fire and the opener correctly stays literal there (spec #114).
+            if ($this->leadColonFenceHasBodyCloser($itemContent, $lines, $i, $count, $contentIndent)) {
+                $i = $this->collectMarkerLeadItem(
+                    $lines,
+                    $i,
+                    $count,
+                    $baseIndent,
+                    $contentIndent,
+                    $itemLines,
+                );
+                $this->parseBlocks($listItem, $itemLines, 0);
+                $list->appendChild($listItem);
+
+                if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
+                    $lastItemHadBlankAfter = true;
+                }
+
+                continue;
+            }
+
             while ($i < $count) {
                 $nextLine = $lines[$i];
 
@@ -2961,6 +3127,58 @@ class BlockParser
         }
 
         return $i;
+    }
+
+    /**
+     * Decide whether a list item's lead content is a colon-fence opener
+     * (`::: word` admonition or bare `:::` div) whose matching closer sits
+     * among the item-content-column lines that follow.
+     *
+     * Used to keep a colon-fence opener and its body (including a nested list)
+     * in one block stream so the admonition/div opener captures its body and
+     * finds its closer, instead of being severed from it (carve spec #114).
+     * The closer must be one of the item-owned lines (>= content column,
+     * before any dedent out of the item): a `:::` at column 0 dedents out of
+     * the item and is NOT a body closer, so the opener stays literal.
+     *
+     * @param string $itemContent The lead content on the marker line.
+     * @param array<string> $lines All lines being parsed.
+     * @param int $i Index of the first line AFTER the marker line.
+     * @param int $count Total line count.
+     * @param int $contentIndent The item's content column.
+     */
+    protected function leadColonFenceHasBodyCloser(
+        string $itemContent,
+        array $lines,
+        int $i,
+        int $count,
+        int $contentIndent,
+    ): bool {
+        $opener = $this->fencedBlockParser->parseDivFenceOpener($itemContent);
+        if ($opener === null) {
+            return false;
+        }
+        $fenceLength = $opener['length'];
+
+        for ($j = $i; $j < $count; $j++) {
+            $line = $lines[$j];
+            if (IndentationHelper::isBlankLine($line)) {
+                continue;
+            }
+            // A line dedented below the content column leaves the item; the
+            // closer must appear before that (a col-0 `:::` is not a body
+            // closer -- it stays a top-level paragraph and the opener is
+            // literal).
+            if (IndentationHelper::getLeadingColumns($line) < $contentIndent) {
+                return false;
+            }
+            $dedented = IndentationHelper::stripLeadingColumns($line, $contentIndent);
+            if ($this->fencedBlockParser->isDivFenceCloser($dedented, $fenceLength)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

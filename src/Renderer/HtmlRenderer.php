@@ -1104,7 +1104,10 @@ class HtmlRenderer implements RendererInterface
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
             if ($body === '') {
-                return '<aside' . $this->renderAttributeArray($attrs) . ">\n</aside>\n";
+                // An empty admonition emits a blank body line
+                // (`<aside>\n\n</aside>`), matching the empty-blockquote shape
+                // and carve-js / carve-rs (carve spec #114).
+                return '<aside' . $this->renderAttributeArray($attrs) . ">\n\n</aside>\n";
             }
 
             return '<aside' . $this->renderAttributeArray($attrs) . ">\n"
@@ -1117,7 +1120,10 @@ class HtmlRenderer implements RendererInterface
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         if ($body === '') {
-            return '<div' . $attrs . ">\n</div>\n";
+            // An empty generic div emits a blank body line
+            // (`<div>\n\n</div>`), matching carve-js / carve-rs (carve spec
+            // #114).
+            return '<div' . $attrs . ">\n\n</div>\n";
         }
 
         return '<div' . $attrs . ">\n" . $body . "\n</div>\n";
@@ -1764,6 +1770,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function escape(string $text): string
     {
+        // Strip Trojan-Source bidi override/isolate controls so rendered text
+        // and code can never visually reorder. Removal (not entity-escaping)
+        // is required: an entity decodes back to the raw control in the DOM.
+        $text = StringUtil::stripBidiControls($text);
+
         // ENT_NOQUOTES: Don't convert quotes - official djot keeps them literal
         // Only escape <, >, and & for HTML safety
         $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
