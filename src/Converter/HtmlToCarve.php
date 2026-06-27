@@ -1558,33 +1558,83 @@ class HtmlToCarve
         // Find all rows
         $trElements = $this->getDirectTableRows($node);
 
+        // $rowspanMap[colIndex] = number of remaining rows that col is spanned
+        // Used to inject `^` continuation markers at the right positions.
+        /** @var array<int, int> $rowspanMap */
+        $rowspanMap = [];
+
         foreach ($trElements as $tr) {
             $cells = [];
             $isHeader = false;
 
-            $columnIndex = 0;
+            // Logical column index, accounting for positions already occupied
+            // by ongoing rowspans from previous rows.
+            $logicalCol = 0;
+
             foreach ($tr->childNodes as $cell) {
-                if ($cell instanceof DOMElement) {
-                    $tag = strtolower($cell->tagName);
-                    if ($tag === 'th' || $tag === 'td') {
-                        // Get cell content with cell attributes
-                        $cellContent = $this->serializeTableCellContent($cell);
-                        $cellAttrs = $this->getElementAttributes($cell);
-                        if ($cellAttrs !== '') {
-                            // Cell attributes go after opening pipe: |{.class} content |
-                            $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
-                        } else {
-                            $cells[] = $cellContent;
-                        }
-                        if ($tag === 'th') {
-                            $isHeader = true;
-                        }
-                        if (!isset($alignments[$columnIndex])) {
-                            $alignments[$columnIndex] = $this->extractTableCellAlignment($cell);
-                        }
-                        $columnIndex++;
-                    }
+                if (!$cell instanceof DOMElement) {
+                    continue;
                 }
+                $tag = strtolower($cell->tagName);
+                if ($tag !== 'th' && $tag !== 'td') {
+                    continue;
+                }
+
+                // Advance past columns that are still occupied by a rowspan
+                // from a previous row, injecting `^` markers for each.
+                while (isset($rowspanMap[$logicalCol]) && $rowspanMap[$logicalCol] > 0) {
+                    $cells[] = '^';
+                    $rowspanMap[$logicalCol]--;
+                    if ($rowspanMap[$logicalCol] === 0) {
+                        unset($rowspanMap[$logicalCol]);
+                    }
+                    $logicalCol++;
+                }
+
+                $colspan = max(1, (int)$cell->getAttribute('colspan'));
+                $rowspan = max(1, (int)$cell->getAttribute('rowspan'));
+
+                // Serialize content, excluding colspan/rowspan from cell attributes.
+                $cellContent = $this->serializeTableCellContent($cell);
+                $cellAttrs = $this->getElementAttributes($cell, ['colspan', 'rowspan']);
+                if ($cellAttrs !== '') {
+                    $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
+                } else {
+                    $cells[] = $cellContent;
+                }
+
+                if ($tag === 'th') {
+                    $isHeader = true;
+                }
+                if (!isset($alignments[$logicalCol])) {
+                    $alignments[$logicalCol] = $this->extractTableCellAlignment($cell);
+                }
+
+                // Register rowspan: only the origin column gets `^` in subsequent rows.
+                // The colspan continuation columns (`<`) are not extended by the rowspan;
+                // those positions in later rows are filled by real cells.
+                if ($rowspan > 1) {
+                    $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
+                }
+
+                $logicalCol++;
+
+                // Emit `<` continuation markers for each extra colspan column.
+                for ($cs = 1; $cs < $colspan; $cs++) {
+                    $cells[] = '<';
+                    $logicalCol++;
+                }
+            }
+
+            // Flush any trailing rowspan `^` markers for columns after the last
+            // real cell in this row (e.g. a row where ALL cells are rowspan continuations).
+            while (isset($rowspanMap[$logicalCol]) && $rowspanMap[$logicalCol] > 0) {
+                $cells[] = '^';
+                $rowspanMap[$logicalCol]--;
+                if ($rowspanMap[$logicalCol] === 0) {
+                    unset($rowspanMap[$logicalCol]);
+                }
+                $logicalCol++;
             }
 
             if ($cells) {
@@ -1624,7 +1674,18 @@ class HtmlToCarve
                 }
             }
 
-            if ($colWidthsAttr === '' && !$headerHasCellAttrs) {
+            // Also fall back to separator form when header has span markers (`<`/`^`),
+            // because `|= < |` is not valid Carve syntax for a colspan continuation.
+            $headerHasSpanMarkers = false;
+            foreach ($headerCells as $hc) {
+                if ($hc === '<' || $hc === '^') {
+                    $headerHasSpanMarkers = true;
+
+                    break;
+                }
+            }
+
+            if ($colWidthsAttr === '' && !$headerHasCellAttrs && !$headerHasSpanMarkers) {
                 // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
                 // markers on the header cell), no separator row. Used unless the
                 // source was a GFM table (recorded via data-djot-col-widths).
