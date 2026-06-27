@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Carve\Parser;
 
 use Carve\Node\Block\Comment;
+use Carve\Node\Document;
 use Carve\Node\Inline\Abbreviation;
 use Carve\Node\Inline\CaptionNumber;
 use Carve\Node\Inline\Code;
@@ -142,6 +143,22 @@ class InlineParser
     protected bool $captionNumberEmitted = false;
 
     protected bool $wordAttributesEnabled = true;
+
+    /**
+     * Document-wide feature accumulators.
+     *
+     * Set true the first time the corresponding node is created anywhere during
+     * a single document parse, and never reset until the next document parse
+     * begins (see resetDocumentFeatures()). The block parser reads them after
+     * parsing to flag the Document so the cross-reference resolver can skip
+     * passes whose feature is absent. They are NOT reset per block (unlike
+     * captionNumberEmitted, which is a per-caption signal).
+     */
+    protected bool $documentHasLink = false;
+
+    protected bool $documentHasHeadingRef = false;
+
+    protected bool $documentHasCaptionNumber = false;
 
     /**
      * Smart quote characters (configurable via SmartQuotesExtension for locale support)
@@ -345,6 +362,56 @@ class InlineParser
      * @param int $sourceLine Source line number (0-indexed) for error reporting
      * @param bool $captionContext
      */
+
+    /**
+     * Reset the document-wide feature accumulators at the start of a new
+     * document parse. The InlineParser instance is reused across parses, so the
+     * flags must be cleared before each top-level document.
+     */
+    public function resetDocumentFeatures(): void
+    {
+        $this->documentHasLink = false;
+        $this->documentHasHeadingRef = false;
+        $this->documentHasCaptionNumber = false;
+    }
+
+    /**
+     * Copy the accumulated feature flags onto the document so the renderer's
+     * cross-reference resolver can skip passes whose feature is absent.
+     */
+    public function exportDocumentFeatures(Document $document): void
+    {
+        $document->setHasLinks($this->documentHasLink);
+        $document->setHasHeadingRefs($this->documentHasHeadingRef);
+        $document->setHasNumberedCaptions($this->documentHasCaptionNumber);
+    }
+
+    /**
+     * Whether a node produced by an external inline matcher contains a link
+     * (the matcher may return the link as the top node or wrapped in a
+     * container). Used to keep documentHasLink complete for extension-produced
+     * links; only called while no link has been seen yet, so it short-circuits
+     * to a no-op once the flag is set.
+     */
+    protected function subtreeContainsLink(Node $node, int $depth = 0): bool
+    {
+        if ($node instanceof Link) {
+            return true;
+        }
+
+        if ($depth >= self::MAX_INLINE_DEPTH) {
+            return false;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($this->subtreeContainsLink($child, $depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function parse(Node $parent, string $text, int $sourceLine = 0, bool $captionContext = false): void
     {
         $this->delimiterStack = [];
@@ -525,6 +592,7 @@ class InlineParser
                 $textBuffer = '';
                 $parent->appendChild(new CaptionNumber());
                 $this->captionNumberEmitted = true;
+                $this->documentHasCaptionNumber = true;
                 $pos++;
 
                 continue;
@@ -670,6 +738,7 @@ class InlineParser
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
                     $parent->appendChild(new HeadingRef($hm[1]));
+                    $this->documentHasHeadingRef = true;
                     $pos += strlen($hm[0]);
 
                     continue;
@@ -909,6 +978,12 @@ class InlineParser
             if ($matchResult !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
+                // An inline matcher (e.g. autolink, wikilink, heading-reference
+                // extensions) can produce a link node; keep documentHasLink
+                // complete for these externally built subtrees.
+                if (!$this->documentHasLink && $this->subtreeContainsLink($matchResult['node'])) {
+                    $this->documentHasLink = true;
+                }
                 $parent->appendChild($matchResult['node']);
                 $pos = $matchResult['end'];
 
@@ -1731,6 +1806,7 @@ class InlineParser
                 // Process escape sequences in URL (e.g., \* -> *)
                 $url = preg_replace('/\\\\(.)/', '$1', $url) ?? $url;
                 $link = new Link($url, $title);
+                $this->documentHasLink = true;
                 $this->parseInlines($link, $linkText);
 
                 // Track anchor links for validation
@@ -1787,6 +1863,7 @@ class InlineParser
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
                     $link = new Link($refDef->url, $refDef->title);
+                    $this->documentHasLink = true;
                     // Store reference info for round-trip support
                     $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
                     $this->parseInlines($link, $linkText);
@@ -2002,6 +2079,7 @@ class InlineParser
             $link = new Link($content);
             $link->setAutolink(true);
             $link->appendChild(new Text($content));
+            $this->documentHasLink = true;
 
             $endPos = $end + 1;
 
@@ -2024,6 +2102,7 @@ class InlineParser
             $link = new Link('mailto:' . $content);
             $link->setAutolink(true);
             $link->appendChild(new Text($content));
+            $this->documentHasLink = true;
 
             $endPos = $end + 1;
 

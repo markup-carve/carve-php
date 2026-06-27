@@ -28,9 +28,73 @@ class Document extends Node
      */
     protected int $sourceLength = 0;
 
+    /**
+     * True when the parsed document contains at least one link node.
+     *
+     * Lets the cross-reference resolver skip the link-nesting enforcement pass
+     * for documents with no links: a nested anchor can only exist inside a
+     * link, so without one the pass is a no-op.
+     */
+    protected bool $hasLinks = false;
+
+    /**
+     * True when the parsed document contains at least one `</#id>`
+     * cross-reference (HeadingRef) node.
+     */
+    protected bool $hasHeadingRefs = false;
+
+    /**
+     * True when the parsed document contains at least one numbered-caption
+     * placeholder (CaptionNumber) node.
+     *
+     * Lets the cross-reference resolver skip the numbered-caption pass for
+     * documents with no caption numbers: that pass only mutates a caption when
+     * a CaptionNumber node is present, so without one it is a no-op.
+     */
+    protected bool $hasNumberedCaptions = false;
+
     public function getType(): string
     {
         return 'document';
+    }
+
+    /**
+     * Whether the document contains at least one link node.
+     */
+    public function hasLinks(): bool
+    {
+        return $this->hasLinks;
+    }
+
+    public function setHasLinks(bool $hasLinks): void
+    {
+        $this->hasLinks = $hasLinks;
+    }
+
+    /**
+     * Whether the document contains at least one `</#id>` cross-reference node.
+     */
+    public function hasHeadingRefs(): bool
+    {
+        return $this->hasHeadingRefs;
+    }
+
+    public function setHasHeadingRefs(bool $hasHeadingRefs): void
+    {
+        $this->hasHeadingRefs = $hasHeadingRefs;
+    }
+
+    /**
+     * Whether the document contains at least one numbered-caption placeholder.
+     */
+    public function hasNumberedCaptions(): bool
+    {
+        return $this->hasNumberedCaptions;
+    }
+
+    public function setHasNumberedCaptions(bool $hasNumberedCaptions): void
+    {
+        $this->hasNumberedCaptions = $hasNumberedCaptions;
     }
 
     /**

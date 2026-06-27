@@ -34,8 +34,23 @@ class CrossReferenceResolver
     {
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
-        $this->resolveNumberedCaptions($document, $tracker);
-        $this->enforceLinksNeverNest($document, $tracker);
+
+        // The numbered-caption pass only ever mutates a caption that contains a
+        // CaptionNumber node; with none present it is a full-tree no-op walk, so
+        // skip it. The parser sets this flag at the sole CaptionNumber creation
+        // site and no extension creates CaptionNumber nodes, so the flag is a
+        // complete signal for the document the resolver sees.
+        if ($document->hasNumberedCaptions()) {
+            $this->resolveNumberedCaptions($document, $tracker);
+        }
+
+        // Link-nesting enforcement only mutates nodes inside a link (a nested
+        // link is unwrapped and a cross-reference inside a link is flattened),
+        // so with neither a link nor a cross-reference present it is a no-op
+        // walk and can be skipped.
+        if ($document->hasLinks() || $document->hasHeadingRefs()) {
+            $this->enforceLinksNeverNest($document, $tracker);
+        }
     }
 
     /**

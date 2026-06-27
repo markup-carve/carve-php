@@ -475,6 +475,10 @@ class BlockParser
         $this->anchorLinks = [];
         $this->headingIds = [];
         $this->lineOffset = 0;
+        // Reset the inline parser's document-wide feature accumulators before
+        // any inline parsing (footnote bodies are parsed eagerly during the
+        // extract passes below, so this must happen first).
+        $this->getInlineParser()->resetDocumentFeatures();
         $document = new Document();
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
         // `﻿# T` is a heading, not literal text. Root only: this is the
@@ -520,6 +524,11 @@ class BlockParser
         // Record the source byte length so renderers can size the
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
+
+        // Flag which optional features the document uses so the cross-reference
+        // resolver can skip passes whose feature is absent. All inline content
+        // (including footnote bodies) has been parsed by this point.
+        $this->getInlineParser()->exportDocumentFeatures($document);
 
         return $document;
     }
