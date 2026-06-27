@@ -2072,4 +2072,140 @@ DJOT;
         $this->assertStringContainsString('=html', $result);
         $this->assertStringContainsString('<script>alert(1)</script>', $result);
     }
+
+    // ==================== Table colspan/rowspan ====================
+
+    public function testTableColspan(): void
+    {
+        $html = <<<'HTML'
+<table>
+<thead><tr><th colspan="2">Header</th><th>Other</th></tr></thead>
+<tbody><tr><td>A</td><td>B</td><td>C</td></tr></tbody>
+</table>
+HTML;
+
+        $result = $this->converter->convert($html);
+
+        // colspan=2 produces the cell followed by a `<` continuation marker
+        $this->assertStringContainsString('| Header | < | Other |', $result);
+        $this->assertStringNotContainsString('colspan', $result);
+        $this->assertStringContainsString('| A | B | C |', $result);
+    }
+
+    public function testTableColspanRoundtrip(): void
+    {
+        $html = <<<'HTML'
+<table>
+<thead><tr><th colspan="2">Header</th><th>Other</th></tr></thead>
+<tbody><tr><td>A</td><td>B</td><td>C</td></tr></tbody>
+</table>
+HTML;
+
+        $carve = $this->converter->convert($html);
+        $converter = new CarveConverter();
+        $roundTripped = $converter->convert($carve);
+
+        $this->assertStringContainsString('colspan="2"', $roundTripped);
+        $this->assertStringContainsString('Header', $roundTripped);
+    }
+
+    public function testTableRowspan(): void
+    {
+        $html = <<<'HTML'
+<table>
+<thead><tr><th>A</th><th>B</th></tr></thead>
+<tbody>
+<tr><td rowspan="2">X</td><td>1</td></tr>
+<tr><td>2</td></tr>
+</tbody>
+</table>
+HTML;
+
+        $result = $this->converter->convert($html);
+
+        // rowspan=2 produces the cell in row 1 and a `^` continuation in row 2
+        $this->assertStringContainsString('| X | 1 |', $result);
+        $this->assertStringContainsString('| ^ | 2 |', $result);
+        $this->assertStringNotContainsString('rowspan', $result);
+    }
+
+    public function testTableRowspanRoundtrip(): void
+    {
+        $html = <<<'HTML'
+<table>
+<thead><tr><th>A</th><th>B</th></tr></thead>
+<tbody>
+<tr><td rowspan="2">X</td><td>1</td></tr>
+<tr><td>2</td></tr>
+</tbody>
+</table>
+HTML;
+
+        $carve = $this->converter->convert($html);
+        $converter = new CarveConverter();
+        $roundTripped = $converter->convert($carve);
+
+        $this->assertStringContainsString('rowspan="2"', $roundTripped);
+        $this->assertStringContainsString('>X<', $roundTripped);
+    }
+
+    public function testTableCombinedColspanRowspan(): void
+    {
+        $html = <<<'HTML'
+<table>
+<thead><tr><th>H1</th><th>H2</th><th>H3</th></tr></thead>
+<tbody>
+<tr><td rowspan="2" colspan="2">A</td><td>B</td></tr>
+<tr><td>C</td></tr>
+</tbody>
+</table>
+HTML;
+
+        $carve = $this->converter->convert($html);
+
+        // A has colspan=2 so `<` follows it; A has rowspan=2 so `^` appears in next row
+        $this->assertStringContainsString('| A | < | B |', $carve);
+        $this->assertStringContainsString('| ^ | C |', $carve);
+        $this->assertStringNotContainsString('colspan', $carve);
+        $this->assertStringNotContainsString('rowspan', $carve);
+
+        // Verify roundtrip
+        $converter = new CarveConverter();
+        $roundTripped = $converter->convert($carve);
+        $this->assertStringContainsString('rowspan="2"', $roundTripped);
+        $this->assertStringContainsString('colspan="2"', $roundTripped);
+    }
+
+    public function testTableColspanDoesNotLeakIntoAttributes(): void
+    {
+        // Ensure colspan and rowspan are NOT emitted as generic cell attributes
+        $html = '<table><tr><td colspan="3" class="wide">Content</td></tr></table>';
+
+        $result = $this->converter->convert($html);
+
+        $this->assertStringNotContainsString('colspan', $result);
+        // class attribute should still be preserved
+        $this->assertStringContainsString('{.wide}', $result);
+        // Three cells: the real one and two `<` markers
+        $this->assertStringContainsString('| {.wide} Content | < | < |', $result);
+    }
+
+    public function testTableRowspanThreeRows(): void
+    {
+        $html = <<<'HTML'
+<table>
+<tbody>
+<tr><td rowspan="3">Cat</td><td>Apple</td></tr>
+<tr><td>Banana</td></tr>
+<tr><td>Cherry</td></tr>
+</tbody>
+</table>
+HTML;
+
+        $result = $this->converter->convert($html);
+
+        $this->assertStringContainsString('| Cat | Apple |', $result);
+        $this->assertStringContainsString('| ^ | Banana |', $result);
+        $this->assertStringContainsString('| ^ | Cherry |', $result);
+    }
 }
