@@ -2214,7 +2214,7 @@ class BlockParser
             } elseif (
                 preg_match('/^\[[^\]]+\]:[ \t]+\S/', $nextLine)
                 || $this->isAbbreviationDefinitionLine($nextLine)
-                || preg_match('/^%%/', $nextLine)
+                || preg_match('/^[ \t]*%%/', $nextLine)
                 || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
                     && $this->inlineParser->isValidAttrPayload($invisibleAttr[1]))
             ) {
@@ -4152,9 +4152,13 @@ class BlockParser
         // ref-def pattern requires a non-empty destination (the same rule the
         // ref-def parser uses): an empty `[r]:` / `[r]:   ` is literal text and
         // must NOT interrupt the paragraph (matches carve-js / carve-rs).
+        // A `%%` line comment may be indented: leading whitespace before `%%`
+        // does not matter, so an indented comment line interrupts the paragraph
+        // exactly like a column-0 one (matches carve-js / carve-rs and the
+        // grammar `comment_line = [whitespace], "%%", …`).
         return preg_match('/^\[[^\]]+\]:[ \t]+\S/', $line) === 1
             || $this->isAbbreviationDefinitionLine($line)
-            || preg_match('/^%%/', $line) === 1;
+            || preg_match('/^[ \t]*%%/', $line) === 1;
     }
 
     protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool

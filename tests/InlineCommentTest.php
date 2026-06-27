@@ -61,4 +61,19 @@ class InlineCommentTest extends TestCase
     {
         $this->assertSame("<p>foo\nbar</p>", $this->html("foo %% note\nbar"));
     }
+
+    public function testIndentedCommentOnlyLineRendersNothing(): void
+    {
+        // Leading whitespace before %% does not matter; matches carve-js / carve-rs.
+        $this->assertSame('', $this->html('  %% indented comment'));
+        $this->assertSame(
+            "<p>before</p>\n<p>after</p>",
+            $this->html("before\n\n  %% c\n\nafter"),
+        );
+    }
+
+    public function testIndentedCommentLineInterruptsParagraph(): void
+    {
+        $this->assertSame("<p>x</p>\n<p>y</p>", $this->html("x\n  %% c\ny"));
+    }
 }
