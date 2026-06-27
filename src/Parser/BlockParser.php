@@ -559,7 +559,14 @@ class BlockParser
 
                 continue;
             }
-            if (preg_match('/^[ ]{0,3}([`~]{3,})/', $line, $fm)) {
+            // Fast guard: a fence opener begins with up to 3 spaces then a
+            // backtick or tilde, so its first byte is one of those three. Skip
+            // the regex on any other line (a necessary condition of the match).
+            $c0 = $line[0] ?? '';
+            if (
+                ($c0 === ' ' || $c0 === '`' || $c0 === '~')
+                && preg_match('/^[ ]{0,3}([`~]{3,})/', $line, $fm)
+            ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
                 $i++;
@@ -585,18 +592,25 @@ class BlockParser
             $inList = false;
             do {
                 $previousBare = $bare;
-                if (preg_match('/^> ?/', $bare)) {
+                // `^> ?` can only match a line whose first byte is `>`.
+                if (($bare[0] ?? '') === '>' && preg_match('/^> ?/', $bare)) {
                     $inQuote = true;
                     $bare = preg_replace('/^> ?/', '', $bare) ?? $bare;
                 }
                 // Bullet or DECIMAL-ordered marker, plus an optional task
                 // checkbox, then the content (matches carve-js / carve-rs;
                 // alpha/roman ordered markers are intentionally NOT stripped).
-                $afterMarker = preg_replace(
-                    '/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
-                    '',
-                    $bare,
-                ) ?? $bare;
+                // Fast guard: the marker regex starts with `[ \t]*` then a
+                // bullet (`-`/`*`) or a digit, so its first byte is necessarily
+                // a space, tab, `-`, `*` or `0-9`; skip it otherwise.
+                $m0 = $bare[0] ?? '';
+                $afterMarker = ($m0 === ' ' || $m0 === "\t" || $m0 === '-' || $m0 === '*' || ($m0 >= '0' && $m0 <= '9'))
+                    ? (preg_replace(
+                        '/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+                        '',
+                        $bare,
+                    ) ?? $bare)
+                    : $bare;
                 if ($afterMarker !== $bare) {
                     $inList = true;
                     $bare = $afterMarker;
@@ -623,7 +637,7 @@ class BlockParser
             // the line stays literal. No continuation gathering: a destination
             // or title on a following line is plain prose, never absorbed
             // (matches carve-js / carve-rs).
-            if (preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+(\S.*)$/', $bare, $matches)) {
+            if (($bare[0] ?? '') === '[' && preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+(\S.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2]);
@@ -711,7 +725,10 @@ class BlockParser
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
-            $fenceLine = preg_replace('/^(?:> ?)+/', '', $line) ?? $line;
+            // `^(?:> ?)+` only changes a line that begins with `>`.
+            $fenceLine = (($line[0] ?? '') === '>')
+                ? (preg_replace('/^(?:> ?)+/', '', $line) ?? $line)
+                : $line;
 
             if ($fenceChar !== null) {
                 if (
@@ -726,7 +743,11 @@ class BlockParser
 
                 continue;
             }
-            if (preg_match('/^[ ]{0,3}([`~]{3,})/', $fenceLine, $fm)) {
+            $fc0 = $fenceLine[0] ?? '';
+            if (
+                ($fc0 === ' ' || $fc0 === '`' || $fc0 === '~')
+                && preg_match('/^[ ]{0,3}([`~]{3,})/', $fenceLine, $fm)
+            ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
                 $i++;
@@ -747,12 +768,23 @@ class BlockParser
             // container as ordinary container content, not note body, and never
             // collects an empty-bodied container def. Only a TOP-LEVEL def
             // gathers indented continuation lines (the original behavior).
+            // A footnote definition (top-level or container-nested) always
+            // contains the literal `[^` token: the top-level form starts with
+            // it, and the container form has it after the stripped markers (a
+            // suffix of this line). When the line has no `[^` at all, neither
+            // path can fire, so skip the marker-stripping prefix scan entirely.
+            if (!str_contains($line, '[^')) {
+                $i++;
+
+                continue;
+            }
+
             $container = $this->footnoteContainerPrefix($line);
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
             // Match footnote definition: [^label]: content
-            if (preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
+            if (($bare[0] ?? '') === '[' && preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
                 $label = $matches[1];
                 $content = $matches[2] ?? '';
 
@@ -782,10 +814,9 @@ class BlockParser
                     continue;
                 }
 
-                // Determine base indentation (2 spaces for footnotes)
-                $baseIndent = 2;
-
-                // Collect continuation lines (indented or blank)
+                // Collect continuation lines (indented or blank). A footnote
+                // body extends only to lines indented by the base indentation
+                // (2 spaces or a tab); see the continuation regex below.
                 $contentLines = [];
                 if (trim($content) !== '') {
                     $contentLines[] = $content;
@@ -805,7 +836,7 @@ class BlockParser
                     // §16. A line with less indentation (e.g. a single space) is
                     // a top-level block, not part of the footnote -- matches
                     // carve-js / carve-rs.
-                    if (preg_match('/^(?:[ ]{' . $baseIndent . '}|\t)(.*)$/', $nextLine, $contMatch)) {
+                    if (preg_match('/^(?:[ ]{2}|\t)(.*)$/', $nextLine, $contMatch)) {
                         $contentLines[] = $contMatch[1];
                         $j++;
                     } else {
@@ -863,7 +894,7 @@ class BlockParser
             $previous = $rest;
 
             // Blockquote marker `>` then an optional literal space.
-            if (preg_match('/^> ?/', $rest, $bm)) {
+            if (($rest[0] ?? '') === '>' && preg_match('/^> ?/', $rest, $bm)) {
                 $rest = substr($rest, strlen($bm[0]));
                 $stripped = true;
 
@@ -908,8 +939,9 @@ class BlockParser
         while ($i < $count) {
             $line = $lines[$i];
 
-            // Match abbreviation definition: *[abbr]: definition
-            if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)) {
+            // Match abbreviation definition: *[abbr]: definition. The pattern
+            // is anchored to a leading `*`, so skip it on any other line.
+            if (($line[0] ?? '') === '*' && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)) {
                 $firstAbbreviationLine ??= $i;
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
@@ -1011,7 +1043,7 @@ class BlockParser
             // The marker MUST start at column 0 (no leading indent): an indented `#`-line is a
             // paragraph, matching carve-js / carve-rs and the spec grammar (heading_first_line =
             // heading_marker, space, ...).
-            if (preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+            if (($line[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
