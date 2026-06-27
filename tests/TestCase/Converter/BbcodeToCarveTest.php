@@ -284,9 +284,33 @@ BBCODE;
 
         $result = $this->converter->convert($bbcode);
 
-        $this->assertStringContainsString('| Name | Age |', $result);
-        $this->assertStringContainsString('| --- | --- |', $result);
+        // Header cells must use Carve native |= markers (not GFM | --- | separators).
+        $this->assertStringContainsString('|= Name |= Age |', $result);
+        $this->assertStringNotContainsString('| --- |', $result);
         $this->assertStringContainsString('| Alice | 30 |', $result);
+    }
+
+    public function testTableHeadersUseCarveMarkers(): void
+    {
+        // A [th] row must produce |= Cell markers with no separator row.
+        $bbcode = '[table][tr][th]Col A[/th][th]Col B[/th][th]Col C[/th][/tr][tr][td]1[/td][td]2[/td][td]3[/td][/tr][/table]';
+        $result = $this->converter->convert($bbcode);
+
+        $this->assertStringContainsString('|= Col A |= Col B |= Col C |', $result);
+        $this->assertStringNotContainsString('---', $result);
+        $this->assertStringContainsString('| 1 | 2 | 3 |', $result);
+    }
+
+    public function testTableBodyOnly(): void
+    {
+        // A table with no [th] rows should still produce valid body rows.
+        $bbcode = '[table][tr][td]X[/td][td]Y[/td][/tr][tr][td]A[/td][td]B[/td][/tr][/table]';
+        $result = $this->converter->convert($bbcode);
+
+        $this->assertStringContainsString('| X | Y |', $result);
+        $this->assertStringContainsString('| A | B |', $result);
+        $this->assertStringNotContainsString('|=', $result);
+        $this->assertStringNotContainsString('---', $result);
     }
 
     // ==================== Other Elements ====================
