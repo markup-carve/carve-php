@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Carve CLI - Convert carve files to HTML
  *
  * Usage:
- *   carve fmt [--write|--check] [files...]
+ *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -140,6 +140,8 @@ function parseFmtArgs(array $argv): array
         'command' => 'fmt',
         'write' => false,
         'check' => false,
+        'stamp' => false,
+        'stampForm' => 'line',
         'help' => false,
         'files' => [],
     ];
@@ -152,6 +154,12 @@ function parseFmtArgs(array $argv): array
             $options['write'] = true;
         } elseif ($arg === '--check') {
             $options['check'] = true;
+        } elseif ($arg === '--stamp') {
+            $options['stamp'] = true;
+            $options['stampForm'] = 'line';
+        } elseif ($arg === '--stamp-block') {
+            $options['stamp'] = true;
+            $options['stampForm'] = 'block';
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "Error: Unknown fmt option: $arg\n");
             exit(1);
@@ -192,6 +200,8 @@ Formatter:
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
+  fmt --stamp         Append/replace a one-line provenance marker
+  fmt --stamp-block   Append/replace a block provenance marker
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
@@ -245,13 +255,18 @@ if (($options['command'] ?? null) === 'fmt') {
     }
     $files = $options['files'];
     $exitCode = 0;
+    $generatedBy = 'carve-php ' . CarveConverter::LIB_VERSION;
     if ($files === []) {
         $input = stream_get_contents(STDIN);
         if ($input === false) {
             fwrite(STDERR, "Error: Failed to read from stdin\n");
             exit(1);
         }
-        echo CarveConverter::toCarve($input);
+        $formatted = CarveConverter::toCarve($input);
+        if ($options['stamp']) {
+            $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
+        }
+        echo $formatted;
         exit(0);
     }
     foreach ($files as $file) {
@@ -267,6 +282,9 @@ if (($options['command'] ?? null) === 'fmt') {
             continue;
         }
         $formatted = CarveConverter::toCarve($input);
+        if ($options['stamp']) {
+            $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
+        }
         if ($options['check']) {
             if ($formatted !== $input) {
                 fwrite(STDERR, "$file is not formatted\n");
