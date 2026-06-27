@@ -37,6 +37,20 @@ use RuntimeException;
  */
 class CarveConverter
 {
+    /**
+     * Carve specification version implemented by this library.
+     *
+     * @var string
+     */
+    public const SPEC_VERSION = '0.1';
+
+    /**
+     * Library version. Keep in sync with releases.
+     *
+     * @var string
+     */
+    public const LIB_VERSION = '0.1.0';
+
     protected BlockParser $parser;
 
     protected RendererInterface $renderer;
@@ -133,6 +147,14 @@ class CarveConverter
         $converter = self::carve();
 
         return $converter->getRenderer()->render($converter->parse($source));
+    }
+
+    /**
+     * Append or replace the deterministic provenance marker on formatted Carve.
+     */
+    public static function stampCarve(string $formatted, string $generatedBy, string $form = 'line'): string
+    {
+        return Stamp::stampCarve($formatted, $generatedBy, $form);
     }
 
     /**
