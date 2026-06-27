@@ -427,34 +427,41 @@ class BbcodeToCarve
             function ($m) {
                 $content = $m[1];
                 $rows = [];
-                $isFirst = true;
 
                 // Extract rows
                 preg_match_all('/\[tr\](.*?)\[\/tr\]/is', $content, $rowMatches);
 
                 foreach ($rowMatches[1] as $row) {
-                    $cells = [];
+                    // Check whether the row contains header cells ([th]) or body cells ([td]).
+                    // A row is treated as a header row when it has at least one [th] cell.
+                    $hasHeader = (bool)preg_match('/\[th\]/i', $row);
 
-                    // Extract cells (th or td)
-                    preg_match_all('/\[t[hd]\](.*?)\[\/t[hd]\]/is', $row, $cellMatches);
+                    if ($hasHeader) {
+                        // Extract [th] cells and emit Carve native |= header markers.
+                        $cells = [];
+                        preg_match_all('/\[th\](.*?)\[\/th\]/is', $row, $cellMatches);
+                        foreach ($cellMatches[1] as $cell) {
+                            $cells[] = '|= ' . trim($cell);
+                        }
 
-                    foreach ($cellMatches[1] as $cell) {
-                        $cells[] = trim($cell);
-                    }
+                        if ($cells) {
+                            $rows[] = implode(' ', $cells) . ' |';
+                        }
+                    } else {
+                        // Extract [td] cells and emit normal body rows.
+                        $cells = [];
+                        preg_match_all('/\[td\](.*?)\[\/td\]/is', $row, $cellMatches);
+                        foreach ($cellMatches[1] as $cell) {
+                            $cells[] = trim($cell);
+                        }
 
-                    if ($cells) {
-                        $rows[] = '| ' . implode(' | ', $cells) . ' |';
-
-                        // Add separator after first row (header)
-                        if ($isFirst) {
-                            $separator = array_fill(0, count($cells), '---');
-                            $rows[] = '| ' . implode(' | ', $separator) . ' |';
-                            $isFirst = false;
+                        if ($cells) {
+                            $rows[] = '| ' . implode(' | ', $cells) . ' |';
                         }
                     }
                 }
 
-                // Ensure blank line before table for proper Djot block separation
+                // Ensure blank line before table for proper Carve block separation.
                 return "\n\n" . implode("\n", $rows) . "\n\n";
             },
             $text,
