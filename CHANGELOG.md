@@ -10,10 +10,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.1.0] - YYYY-MM-DD
 
 Initial release of **carve-php**, a PHP parser and renderer for the
-[Carve](https://github.com/markup-carve/carve) markup language. Hard-forked
-from [djot-php](https://github.com/php-collective/djot-php) by the PHP
-Collective; the architecture, AST, renderer pipeline, and extension API are
-preserved while the syntax rules are replaced with Carve's. Install via
+[Carve](https://github.com/markup-carve/carve) markup language. Install via
 Composer: `composer require markup-carve/carve-php`.
 
 ### Core parsing and rendering
@@ -34,12 +31,12 @@ Composer: `composer require markup-carve/carve-php`.
   `{~ old~>new ~}` substitute, `{= =}` highlight, `{# #}` comment)
 - Smart typography: curly quotes, em/en dashes, ellipsis
 - Reference definitions collected inside list items and containers
-- HTML renderer via `CarveConverter::toHtml()` (or `new CarveConverter()`)
+- HTML renderer via `(new CarveConverter())->convert()`
 - Markdown renderer (`CarveConverter::markdown()->convert()`), plain-text
   renderer (`CarveConverter::plainText()->convert()`), ANSI-colored renderer
   (`CarveConverter::ansi()->convert()`)
-- Static render mode (`CarveConverter::static()`) for self-contained HTML;
-  interactive constructs degrade gracefully
+- Static render mode (`setRenderMode(RenderMode::STATIC)`) for self-contained
+  HTML; interactive constructs degrade gracefully
 - Profiles API for named capability sets
 
 ### Extension API
@@ -52,20 +49,19 @@ Composer: `composer require markup-carve/carve-php`.
 - `PlusBulletExtension` and other bundled extensions documented in
   `docs/extensions.md`
 
-### Tier-2 extensions (always-on)
-
-- `mathBlock` - fenced ` ```math ` block rendered as `<div class="math display">`
-  with author-attribute passthrough
-
 ### Tier-2 opt-in extensions
 
+- `mathBlock` - fenced ` ```math ` block rendered as `<div class="math display">`
+  with author-attribute passthrough (core `$$` display math is always-on Tier-1)
 - `citations` - `[@key]` reference citations with typed locators, explicit
   suffixes, and integral/group-level markers (§22)
 - `codeCallouts` - annotated callout markers inside fenced code blocks
 
 ### Tier-3 opt-in extensions
 
-- `bibliography` - CSL-JSON pool with cite-ordered `<ol>` rendering and back-links
+- citations `bibliography` option - supplying a CSL-JSON pool renders a
+  cite-ordered `<ol>` with back-links (a citations capability, not a standalone
+  extension)
 - `glossary` - `::: glossary` blocks with `:term[word]` inline markers linking to
   `gloss-{slug}` anchors
 - `index` - `:index[term]` invisible span markers with a sorted `::: index` block
@@ -117,5 +113,5 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/markup-carve/carve-php/releases/tag/v0.1.0
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/markup-carve/carve-php/releases/tag/0.1.0

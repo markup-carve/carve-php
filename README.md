@@ -22,7 +22,7 @@ composer require markup-carve/carve-php
 use Carve\CarveConverter;
 
 $converter = new CarveConverter();
-$html = $converter->toHtml('# Hello /Carve/');
+$html = $converter->convert('# Hello /Carve/');
 ~~~
 
 Besides HTML, the same AST renders to Markdown, plain text, and ANSI via the
