@@ -35,7 +35,7 @@ use Carve\Extension\ExternalLinksExtension;
 $converter = new CarveConverter();
 $converter->addExtension(new ExternalLinksExtension());
 
-$html = $converter->convert($djot);
+$html = $converter->convert($source);
 ~~~
 
 For each opt-in extension below, the registration call is simply
@@ -325,7 +325,7 @@ Constructor options:
 $toc = new TableOfContentsExtension(minLevel: 2, maxLevel: 3, position: 'top');
 $converter->addExtension($toc);
 
-$html = $converter->convert($djot);
+$html = $converter->convert($source);
 
 // Or place it yourself:
 $tocHtml = $toc->getTocHtml();        // nested list HTML
@@ -1008,7 +1008,7 @@ Constructor options:
 $fm = new FrontmatterExtension();
 $converter->addExtension($fm);
 
-$converter->convert($djot);
+$converter->convert($source);
 
 $frontmatter = $fm->getFrontmatter();
 if ($frontmatter !== null) {

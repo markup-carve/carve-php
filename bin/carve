@@ -232,15 +232,7 @@ HELP;
 
 function showVersion(): void
 {
-    $composerJson = __DIR__ . '/../composer.json';
-    $version = 'unknown';
-
-    if (file_exists($composerJson)) {
-        $data = json_decode(file_get_contents($composerJson), true);
-        $version = $data['version'] ?? 'dev';
-    }
-
-    echo "carve-php version $version\n";
+    echo 'carve-php version ' . \Carve\CarveConverter::LIB_VERSION . "\n";
 }
 
 // Main

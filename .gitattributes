@@ -13,3 +13,10 @@ phpunit.xml.dist export-ignore
 .editorconfig export-ignore
 tests/ export-ignore
 examples/ export-ignore
+fuzz/ export-ignore
+docs/ export-ignore
+.gitmodules export-ignore
+phpcs.xml export-ignore
+phpstan.neon export-ignore
+renovate.json export-ignore
+bin/gen-translit-map.php export-ignore
