@@ -19,7 +19,7 @@ Composer: `composer require markup-carve/carve-php`.
 ### Core parsing and rendering
 
 - Block and inline parser producing a typed AST via `CarveConverter`
-- Full Tier-1 feature set: headings (H1-H4), paragraphs, emphasis (`/italic/`,
+- Full Tier-1 feature set: headings (H1-H6), paragraphs, emphasis (`/italic/`,
   `*bold*`, `_underline_`, `~strikethrough~`, `^super^`, `,sub,`, `=highlight=`,
   `/*bold-italic*/`), blockquotes with attribution captions, unordered and ordered
   lists, task lists, tables (with colspan/rowspan), inline code and fenced code
@@ -30,7 +30,8 @@ Composer: `composer require markup-carve/carve-php`.
   key=val}`), raw HTML passthrough (`=html`), comment lines (`%%`), and reference
   links/images
 - Inline footnotes (`^[...]`) and block footnote definitions
-- CriticMarkup (`{++add++}`, `{--del--}`, `{~~sub~~}`, `{==hl==}`, `{>>comment<<}`)
+- Editorial / critic markup (`{+ +}` insert, `{- -}` delete,
+  `{~ old~>new ~}` substitute, `{= =}` highlight, `{# #}` comment)
 - Smart typography: curly quotes, em/en dashes, ellipsis
 - Reference definitions collected inside list items and containers
 - HTML renderer via `CarveConverter::toHtml()` (or `new CarveConverter()`)
