@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve;
+namespace MarkupCarve\Carve;
 
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Profile-based feature restriction for different rendering contexts

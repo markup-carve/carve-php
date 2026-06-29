@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Node\Block\Caption;
-use Carve\Node\Block\Figure;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\Table;
-use Carve\Node\Document;
-use Carve\Node\Inline\CaptionNumber;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\HeadingRef;
-use Carve\Node\Inline\InlineFootnote;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\RawInline;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
 
 class CrossReferenceResolver
 {
@@ -182,8 +182,8 @@ class CrossReferenceResolver
     }
 
     /**
-     * @param \Carve\Node\Node $node
-     * @param \Carve\Renderer\HeadingIdTracker $tracker
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
      * @param array<string, int> $counters
      * @param int $depth
      */
@@ -225,9 +225,9 @@ class CrossReferenceResolver
     }
 
     /**
-     * @param \Carve\Node\Node $target
-     * @param \Carve\Node\Block\Caption $caption
-     * @param \Carve\Renderer\HeadingIdTracker $tracker
+     * @param \MarkupCarve\Carve\Node\Node $target
+     * @param \MarkupCarve\Carve\Node\Block\Caption $caption
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
      * @param array<string, int> $counters
      */
     protected function resolveNumberedCaption(
@@ -254,7 +254,7 @@ class CrossReferenceResolver
     }
 
     /**
-     * @return array{text: string, node: \Carve\Node\Inline\CaptionNumber|null}
+     * @return array{text: string, node: \MarkupCarve\Carve\Node\Inline\CaptionNumber|null}
      */
     protected function captionTextBeforeNumber(Node $node, int $depth = 0): array
     {

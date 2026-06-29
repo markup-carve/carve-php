@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Inline;
+namespace MarkupCarve\Carve\Node\Inline;
 
 /**
  * A bracketed citation group, e.g. [@key] or [see @key, p. 3].
@@ -23,7 +23,7 @@ namespace Carve\Node\Inline;
 class CitationGroup extends InlineNode
 {
     /**
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}> $items
      * @param string $raw
      * @param bool $integral Whether this group carries the integral (`+`) group marker.
      */
@@ -35,7 +35,7 @@ class CitationGroup extends InlineNode
     }
 
     /**
-     * @return list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}>
+     * @return list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}>
      */
     public function getItems(): array
     {

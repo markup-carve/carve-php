@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Text;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Renders `::: list-table` blocks as real HTML `<table>` markup, with the
@@ -85,7 +85,7 @@ use Carve\Renderer\HtmlRenderer;
  * $converter->addExtension(new ListTableExtension());
  * ```
  *
- * @phpstan-type GridEntry array{cell: \Carve\Node\Block\ListItem, marker: string|null, rowspan: int, colspan: int, skip: bool}
+ * @phpstan-type GridEntry array{cell: \MarkupCarve\Carve\Node\Block\ListItem, marker: string|null, rowspan: int, colspan: int, skip: bool}
  */
 class ListTableExtension implements ExtensionInterface
 {
@@ -315,11 +315,11 @@ class ListTableExtension implements ExtensionInterface
      * rather than appended onto the cell node, so the source tree stays pristine
      * for the defer decision (see renderListTable). renderCell() reads them back.
      *
-     * @param \Carve\Node\Block\ListItem $rowItem
-     * @param array<int, array<\Carve\Node\Node>> $extras Receives, per cell
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $rowItem
+     * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Receives, per cell
      *   object id, the trailing blocks that belong to that cell.
      *
-     * @return array<\Carve\Node\Block\ListItem>
+     * @return array<\MarkupCarve\Carve\Node\Block\ListItem>
      */
     protected function extractCells(ListItem $rowItem, array &$extras): array
     {
@@ -374,9 +374,9 @@ class ListTableExtension implements ExtensionInterface
      * Every grid entry is `{cell, marker, rowspan, colspan, skip}`; output columns
      * are assigned separately by placeColumns().
      *
-     * @param array<array<\Carve\Node\Block\ListItem>> $rows
+     * @param array<array<\MarkupCarve\Carve\Node\Block\ListItem>> $rows
      * @param int $headerRows Number of leading rows that form the `<thead>`.
-     * @param array<int, array<\Carve\Node\Node>> $extras Per-cell trailing blocks
+     * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Per-cell trailing blocks
      *   (keyed by cell object id). A cell that owns trailing blocks is multi-block
      *   and is therefore never a bare span marker, even if its first paragraph is
      *   a lone `^`/`<` - the extra block keeps it a real content cell.
@@ -537,8 +537,8 @@ class ListTableExtension implements ExtensionInterface
      * $extras) is multi-block content, so it is never a bare marker either - the
      * extra block keeps it a real cell whose `^`/`<` first line stays literal.
      *
-     * @param \Carve\Node\Block\ListItem $cell
-     * @param array<int, array<\Carve\Node\Node>> $extras Per-cell trailing blocks.
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
+     * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Per-cell trailing blocks.
      */
     protected function markerOf(ListItem $cell, array $extras = []): ?string
     {
@@ -592,9 +592,9 @@ class ListTableExtension implements ExtensionInterface
      * the parser left outside the inner list is preserved without ever having
      * mutated the source tree.
      *
-     * @param \Carve\Node\Block\ListItem $cell
-     * @param \Carve\Renderer\HtmlRenderer $renderer
-     * @param array<\Carve\Node\Node> $extras Trailing blocks belonging to this cell.
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     * @param array<\MarkupCarve\Carve\Node\Node> $extras Trailing blocks belonging to this cell.
      */
     protected function renderCell(ListItem $cell, HtmlRenderer $renderer, array $extras = []): string
     {

@@ -27,13 +27,13 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Carve\CarveConverter;
-use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\ColorSwatchExtension;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\MathBlockExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CodeGroupExtension;
+use MarkupCarve\Carve\Extension\ColorSwatchExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\MathBlockExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Renderer\RenderMode;
 
 $source = (string)file_get_contents(__DIR__ . '/static-render-demo.crv');
 

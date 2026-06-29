@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\Delete;
-use Carve\Node\Inline\Emphasis;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\Highlight;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\Insert;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Subscript;
-use Carve\Node\Inline\Superscript;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Parser\BlockParser;
-use Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Delete;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Highlight;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\Insert;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Subscript;
+use MarkupCarve\Carve\Node\Inline\Superscript;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use PHPUnit\Framework\TestCase;
 use function str_contains;
 

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\CodeBlock;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Generic client-rendered fenced-block factory (Tier-3).
@@ -429,7 +429,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     }
 
     /**
-     * @param \Carve\Node\Block\CodeBlock $node
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $node
      * @param array<string> $skipAttrs
      * @param array<string> $skipClasses
      */

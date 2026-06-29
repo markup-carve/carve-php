@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\TestCase;
 
 /**

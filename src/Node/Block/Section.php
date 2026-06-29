@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
 /**
  * Section block - wraps headings and their content

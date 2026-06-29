@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\Div;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Node;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Hidden / blurred "spoiler" content, revealed on interaction (Tier-3).
@@ -118,8 +118,8 @@ class SpoilerExtension implements ExtensionInterface
      * the always-on attribute hardening plus safe-mode name filtering and
      * value escaping applied.
      *
-     * @param \Carve\Node\Node $node
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param array<string> $exclude Extra attribute names to drop (e.g. `title`).
      */
     protected function openAttributes(Node $node, HtmlRenderer $renderer, array $exclude = []): string

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\CodeCalloutsExtension;
-use Carve\Extension\HeadingNumbersExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CodeCalloutsExtension;
+use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
 use PHPUnit\Framework\TestCase;
 
 class CodeCalloutsExtensionTest extends TestCase

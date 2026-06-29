@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\TableOfContentsExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Renderer\HtmlRenderer;
-use Carve\SafeMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\TableOfContentsExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 class TabsExtensionTest extends TestCase

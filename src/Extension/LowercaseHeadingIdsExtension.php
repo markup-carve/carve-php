@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Lowercase auto-generated heading ids (opt-in)

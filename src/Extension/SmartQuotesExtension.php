@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 
 /**
  * Configures locale-specific smart quote characters

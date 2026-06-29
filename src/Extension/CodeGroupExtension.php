@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Div;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Transforms code-group divs into tabbed code block interfaces
@@ -172,7 +172,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     /**
      * Extract code blocks from the div
      *
-     * @return array<array{block: \Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}>
+     * @return array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}>
      */
     protected function extractCodeBlocks(Div $node): array
     {
@@ -233,9 +233,9 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     /**
      * Render the code group as tabbed interface
      *
-     * @param \Carve\Node\Block\Div $wrapper
-     * @param array<array{block: \Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function renderCodeGroup(Div $wrapper, array $codeBlocks, HtmlRenderer $renderer): string
     {
@@ -309,8 +309,8 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     /**
      * Reconstruct the original Djot source for round-trip support
      *
-     * @param \Carve\Node\Block\Div $wrapper
-     * @param array<array{block: \Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
      */
     protected function reconstructDjotSource(Div $wrapper, array $codeBlocks): string
     {
@@ -318,7 +318,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         $djot .= "::: code-group\n";
 
         foreach ($codeBlocks as $item) {
-            /** @var \Carve\Node\Block\CodeBlock $block */
+            /** @var \MarkupCarve\Carve\Node\Block\CodeBlock $block */
             $block = $item['block'];
             $langHint = $block->getLanguage() ?? '';
             $label = $block->getLabel();
@@ -353,7 +353,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     }
 
     /**
-     * @param \Carve\Node\Block\Div|\Carve\Node\Block\CodeBlock $node
+     * @param \MarkupCarve\Carve\Node\Block\Div|\MarkupCarve\Carve\Node\Block\CodeBlock $node
      * @param array<string> $skipAttrs
      * @param array<string> $skipClasses
      */

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Inline;
+namespace MarkupCarve\Carve\Node\Inline;
 
-use Carve\Node\ContentNodeInterface;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
 
 /**
  * Raw inline content (pass-through to specific format)

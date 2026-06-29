@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use function str_replace;
 
 /**

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Node\Block\Heading;
-use Carve\Node\Inline\CaptionNumber;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\RawInline;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Util\StringUtil;
 use Closure;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Shared service for generating and deduplicating heading IDs

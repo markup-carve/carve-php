@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Div;
-use Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use PHPUnit\Framework\TestCase;
 
 /**

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Inline\Span;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Converts spans with `.fn` class to inline footnotes

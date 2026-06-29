@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter;
+namespace MarkupCarve\Carve\Converter;
 
-use Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 
 /**
  * Converts Djot markup to Carve markup.

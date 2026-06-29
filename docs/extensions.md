@@ -29,8 +29,8 @@ Every other extension below is **opt-in** and must be registered manually.
 All extensions are registered through `addExtension()`:
 
 ~~~ php
-use Carve\CarveConverter;
-use Carve\Extension\ExternalLinksExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\ExternalLinksExtension;
 
 $converter = new CarveConverter();
 $converter->addExtension(new ExternalLinksExtension());
@@ -61,8 +61,8 @@ unknown mode value is **rejected** (`InvalidArgumentException`); `print`,
 `email` and similar are reserved for future named presets.
 
 ~~~ php
-use Carve\CarveConverter;
-use Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\RenderMode;
 
 $converter = new CarveConverter(mode: RenderMode::STATIC);
 // or: $converter->setRenderMode(RenderMode::STATIC);
@@ -95,8 +95,8 @@ inside the engine. A static render therefore accepts a **renderers** map of
 is absent, the static path falls back to source, never blank.
 
 ~~~ php
-use Carve\CarveConverter;
-use Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\RenderMode;
 
 $converter = new CarveConverter(mode: RenderMode::STATIC, renderers: [
     'math' => fn (string $tex): string => $katex->renderToString($tex),
@@ -756,7 +756,7 @@ Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
 (claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
 
 ~~~ php
-use Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
 
 $converter->addExtension(FencedRenderExtension::mermaid());
 $converter->addExtension(FencedRenderExtension::d2());
@@ -1193,8 +1193,8 @@ same first-block-item syntax as `- +` / `* +` (the trailing `+` is the
 first-block sentinel), not a literal `+` item.
 
 ~~~ php
-use Carve\CarveConverter;
-use Carve\Extension\PlusBulletExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\PlusBulletExtension;
 
 $converter = new CarveConverter();
 $converter->addExtension(new PlusBulletExtension());

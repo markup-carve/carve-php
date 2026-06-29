@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter\HeadingId;
+namespace MarkupCarve\Carve\Converter\HeadingId;
 
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use RuntimeException;
 use function array_splice;
 use function array_values;

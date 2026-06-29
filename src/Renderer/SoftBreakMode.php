@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
 /**
  * Controls how soft line breaks render.

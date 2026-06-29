@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\CarveConverter;
-use Carve\Converter\MarkdownToCarve;
-use Carve\Event\RenderEvent;
-use Carve\Node\Inline\Symbol;
-use Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

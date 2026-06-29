@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Text;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * CodeCallouts (#88, Tier-2). `<n>` markers at the end of fenced-code lines
@@ -180,7 +180,7 @@ class CodeCalloutsExtension implements ExtensionInterface
      * Split the paragraph's inline children into per-line segments at each
      * soft-break (empty segments dropped).
      *
-     * @return list<list<\Carve\Node\Node>>
+     * @return list<list<\MarkupCarve\Carve\Node\Node>>
      */
     private function splitLines(Paragraph $p): array
     {
@@ -197,7 +197,7 @@ class CodeCalloutsExtension implements ExtensionInterface
     }
 
     /**
-     * @param list<\Carve\Node\Node> $line
+     * @param list<\MarkupCarve\Carve\Node\Node> $line
      */
     private function firstText(array $line): ?string
     {

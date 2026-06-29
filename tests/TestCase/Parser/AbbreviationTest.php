@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Node\Inline\Abbreviation;
-use Carve\Parser\BlockParser;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 class AbbreviationTest extends TestCase

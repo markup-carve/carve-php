@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\ColorSwatchExtension;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\ColorSwatchExtension;
 use PHPUnit\Framework\TestCase;
 
 class ColorSwatchExtensionTest extends TestCase

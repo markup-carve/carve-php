@@ -23,7 +23,6 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     exit(1);
 }
 
-use Carve\CarveConverter;
 use Composer\InstalledVersions;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Environment\Environment;
@@ -33,6 +32,7 @@ use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
 use League\CommonMark\Extension\SmartPunct\SmartPunctExtension;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
 use League\CommonMark\MarkdownConverter;
+use MarkupCarve\Carve\CarveConverter;
 use Michelf\Markdown;
 use Michelf\MarkdownExtra;
 

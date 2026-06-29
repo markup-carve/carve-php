@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Heading;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Table of Contents generator

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Event;
+namespace MarkupCarve\Carve\Event;
 
-use Carve\Node\Node;
 use Closure;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Event dispatched during node rendering

@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use Carve\CarveConverter;
-use Carve\Profile;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Profile;
 
 // Parse CLI arguments
 $options = getopt('', ['detailed', 'json', 'help']);

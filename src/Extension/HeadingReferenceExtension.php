@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\Heading;
-use Carve\Node\Document;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use Random\RandomException;
 
 /**

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -126,7 +126,7 @@ DJOT);
         };
 
         if ($format === 'ansi') {
-            /** @var \Carve\Renderer\AnsiRenderer $renderer */
+            /** @var \MarkupCarve\Carve\Renderer\AnsiRenderer $renderer */
             $renderer = $converter->getRenderer();
             $renderer->setUseColors(false);
         }

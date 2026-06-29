@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter;
+namespace MarkupCarve\Carve\Converter;
 
 use InvalidArgumentException;
 

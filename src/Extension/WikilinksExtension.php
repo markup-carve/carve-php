@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Text;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Text;
 
 /**
  * Parses [[wikilinks]] into navigational links

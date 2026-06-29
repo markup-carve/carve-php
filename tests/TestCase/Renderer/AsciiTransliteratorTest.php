@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\Renderer\AsciiTransliterator;
+use MarkupCarve\Carve\Renderer\AsciiTransliterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Transliterator;

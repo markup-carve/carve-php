@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Inline;
+namespace MarkupCarve\Carve\Node\Inline;
 
 /**
  * Footnote reference [^label]

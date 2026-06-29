@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\LinkPolicy;
+use MarkupCarve\Carve\LinkPolicy;
 use PHPUnit\Framework\TestCase;
 
 /**

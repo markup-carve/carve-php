@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Exception\ProfileViolationException;
-use Carve\Extension\InlineFootnotesExtension;
-use Carve\LinkPolicy;
-use Carve\NodeType;
-use Carve\Profile;
-use Carve\ProfileViolation;
 use LengthException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\ProfileViolationException;
+use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
+use MarkupCarve\Carve\LinkPolicy;
+use MarkupCarve\Carve\NodeType;
+use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\ProfileViolation;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 

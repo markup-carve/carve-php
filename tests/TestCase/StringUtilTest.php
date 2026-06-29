@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\Util\StringUtil;
 use PHPUnit\Framework\TestCase;
 
 class StringUtilTest extends TestCase

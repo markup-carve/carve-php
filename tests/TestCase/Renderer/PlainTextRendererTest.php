@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Inline\Symbol;
-use Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 class PlainTextRendererTest extends TestCase

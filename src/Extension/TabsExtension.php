@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Converter\HtmlToCarve;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\DefinitionDescription;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Transforms nested divs into tabbed content interfaces
@@ -301,7 +301,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     /**
      * Collect tab data from child divs
      *
-     * @return array<array{label: string, content: string, selected: bool, id: string|null, node: \Carve\Node\Block\Div}>
+     * @return array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}>
      */
     protected function collectTabs(Div $wrapper, HtmlRenderer $renderer): array
     {
@@ -416,9 +416,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     /**
      * Render tabs using CSS-only approach with radio inputs
      *
-     * @param \Carve\Node\Block\Div $wrapper
-     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \Carve\Node\Block\Div}> $tabs
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}> $tabs
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function renderCssTabs(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
@@ -467,9 +467,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     /**
      * Render tabs using ARIA roles (requires JavaScript)
      *
-     * @param \Carve\Node\Block\Div $wrapper
-     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \Carve\Node\Block\Div}> $tabs
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}> $tabs
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function renderAriaTabs(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
@@ -562,9 +562,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     /**
      * Reconstruct the original Djot source for round-trip support
      *
-     * @param \Carve\Node\Block\Div $wrapper
-     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \Carve\Node\Block\Div}> $tabs
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}> $tabs
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function reconstructDjotSource(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
@@ -801,7 +801,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     }
 
     /**
-     * @param \Carve\Node\Block\Div $node
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
      * @param array<string> $skipAttrs
      * @param array<string> $skipClasses
      */

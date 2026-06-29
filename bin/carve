@@ -44,15 +44,15 @@ if (!$autoloaderFound) {
     exit(1);
 }
 
-use Carve\CarveConverter;
-use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\DetailsExtension;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\MathBlockExtension;
-use Carve\Extension\SpoilerExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Parser\BlockParser;
-use Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CodeGroupExtension;
+use MarkupCarve\Carve\Extension\DetailsExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\MathBlockExtension;
+use MarkupCarve\Carve\Extension\SpoilerExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\RenderMode;
 
 /**
  * Parse command line arguments
@@ -232,7 +232,7 @@ HELP;
 
 function showVersion(): void
 {
-    echo 'carve-php version ' . \Carve\CarveConverter::LIB_VERSION . "\n";
+    echo 'carve-php version ' . \MarkupCarve\Carve\CarveConverter::LIB_VERSION . "\n";
 }
 
 // Main

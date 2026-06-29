@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Extension\AutolinkExtension;
-use Carve\Extension\CitationsExtension;
-use Carve\Extension\WikilinksExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AutolinkExtension;
+use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\WikilinksExtension;
 use PHPUnit\Framework\TestCase;
 
 /**

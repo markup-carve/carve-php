@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter\HeadingId;
+namespace MarkupCarve\Carve\Converter\HeadingId;
 
 /**
  * Heading ids scraped from the already-published HTML of the Djot document.

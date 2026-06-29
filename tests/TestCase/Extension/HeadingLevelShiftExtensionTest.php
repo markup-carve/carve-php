@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\HeadingLevelShiftExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\HeadingLevelShiftExtension;
 use PHPUnit\Framework\TestCase;
 
 class HeadingLevelShiftExtensionTest extends TestCase

@@ -19,7 +19,7 @@ composer require markup-carve/carve-php
 ## Usage
 
 ~~~ php
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 
 $converter = new CarveConverter();
 $html = $converter->convert('# Hello /Carve/');
@@ -67,9 +67,9 @@ document transforms. Matchers are tried only where core syntax declines, so
 core parsing always wins first.
 
 ~~~ php
-use Carve\CarveConverter;
-use Carve\Node\Inline\Text;
-use Carve\Parser\MatcherContext;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Parser\MatcherContext;
 
 $converter = new CarveConverter();
 

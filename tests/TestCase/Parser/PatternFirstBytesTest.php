@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\Parser\BlockParser;
-use Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;

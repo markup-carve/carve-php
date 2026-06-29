@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\ListTableExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\ListTableExtension;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 

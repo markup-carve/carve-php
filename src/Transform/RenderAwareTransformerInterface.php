@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Transform;
+namespace MarkupCarve\Carve\Transform;
 
-use Carve\Node\Document;
-use Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Renderer\RendererInterface;
 
 /**
  * Optional transformer hook for render-specific derived trees.

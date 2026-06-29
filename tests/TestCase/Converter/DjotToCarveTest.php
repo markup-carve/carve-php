@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Converter;
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\TestCase;
 
 class DjotToCarveTest extends TestCase

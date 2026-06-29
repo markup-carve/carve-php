@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Util;
+namespace MarkupCarve\Carve\Util;
 
 use Normalizer;
 

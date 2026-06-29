@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Exception;
+namespace MarkupCarve\Carve\Exception;
 
 /**
  * Represents a non-fatal parsing warning

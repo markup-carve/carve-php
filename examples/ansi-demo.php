@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Carve\CarveConverter;
-use Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
 
 $djot = <<<'DJOT'
 # Welcome to Djot

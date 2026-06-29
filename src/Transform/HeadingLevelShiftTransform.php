@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Transform;
+namespace MarkupCarve\Carve\Transform;
 
-use Carve\Node\Block\Heading;
-use Carve\Node\Document;
-use Carve\Node\Node;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\RendererInterface;
 
 /**
  * Returns a transformed copy of a document with shifted heading levels.

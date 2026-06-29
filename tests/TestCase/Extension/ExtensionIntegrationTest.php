@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\AutolinkExtension;
-use Carve\Extension\ExternalLinksExtension;
-use Carve\Extension\HeadingPermalinksExtension;
-use Carve\Extension\HeadingReferenceExtension;
-use Carve\Extension\MentionsExtension;
-use Carve\Extension\TableOfContentsExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AutolinkExtension;
+use MarkupCarve\Carve\Extension\ExternalLinksExtension;
+use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
+use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
+use MarkupCarve\Carve\Extension\MentionsExtension;
+use MarkupCarve\Carve\Extension\TableOfContentsExtension;
 use PHPUnit\Framework\TestCase;
 
 /**

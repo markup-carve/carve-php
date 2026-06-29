@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Document;
-use Carve\Node\Inline\HeadingRef;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Renderer\AsciiTransliterator;
-use Carve\Renderer\HeadingIdTracker;
-use Carve\Renderer\HtmlRenderer;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\AsciiTransliterator;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * HeadingNumbers (#198, Tier-3). Auto-number sections and rewrite auto-filled
@@ -180,8 +180,8 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
     }
 
     /**
-     * @param \Carve\Node\Node $node
-     * @param \Carve\Renderer\HeadingIdTracker $tracker
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
      * @param array<string, array{number: string, title: string}> $byId
      */
     protected function rewriteCrossrefs(Node $node, HeadingIdTracker $tracker, array $byId): void
@@ -217,9 +217,9 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
      * the resolver), flagging blockquote descent so quoted headings are skipped
      * for numbering but still record their id.
      *
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param bool $inBlockquote
-     * @param \Closure(\Carve\Node\Block\Heading, bool): void $fn
+     * @param \Closure(\MarkupCarve\Carve\Node\Block\Heading, bool): void $fn
      */
     protected function walkHeadings(Node $node, bool $inBlockquote, Closure $fn): void
     {

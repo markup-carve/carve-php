@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Document;
-use Carve\Node\Inline\CitationGroup;
-use Carve\Node\Inline\InlineNode;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Parser\MatcherContext;
-use Carve\Parser\Utility\AttributeParser;
-use Carve\Renderer\HtmlRenderer;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\MatcherContext;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Bracketed citations with in-document bibliography definitions.
@@ -68,7 +68,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     private ?array $locatorMatchersSorted = null;
 
     /**
-     * @var array<string, array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText?: string}>
+     * @var array<string, array{entry: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText?: string}>
      */
     protected array $definitions = [];
 
@@ -231,7 +231,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @return array{node: \Carve\Node\Node, end: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, end: int}|null
      */
     protected function matchCitation(string $text, int $pos, MatcherContext $ctx): ?array
     {
@@ -306,7 +306,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}> $items
      */
     protected function isSimpleDefinitionItems(array $items): bool
     {
@@ -399,7 +399,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @return array{key: string, suppressAuthor: bool, prefix?: list<\Carve\Node\Inline\InlineNode>, locator?: list<\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\Carve\Node\Inline\InlineNode>}|null
+     * @return array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}|null
      */
     protected function parseItem(string $raw, MatcherContext $ctx): ?array
     {
@@ -563,9 +563,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param array<\Carve\Node\Node> $nodes
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
-     * @return list<\Carve\Node\Inline\InlineNode>
+     * @return list<\MarkupCarve\Carve\Node\Inline\InlineNode>
      */
     protected function onlyInlineNodes(array $nodes): array
     {
@@ -609,9 +609,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param array<\Carve\Node\Node> $nodes
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
-     * @return list<list<\Carve\Node\Inline\InlineNode>>
+     * @return list<list<\MarkupCarve\Carve\Node\Inline\InlineNode>>
      */
     protected function splitOnSoftBreaks(array $nodes): array
     {
@@ -628,9 +628,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param list<list<\Carve\Node\Inline\InlineNode>> $lines
+     * @param list<list<\MarkupCarve\Carve\Node\Inline\InlineNode>> $lines
      *
-     * @return list<\Carve\Node\Inline\InlineNode>
+     * @return list<\MarkupCarve\Carve\Node\Inline\InlineNode>
      */
     protected function joinWithSoftBreaks(array $lines): array
     {
@@ -648,9 +648,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param list<\Carve\Node\Inline\InlineNode> $nodes
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $nodes
      *
-     * @return array{key: string, value: array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string}}|null
+     * @return array{key: string, value: array{entry: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, author?: string, year?: string}}|null
      */
     protected function asDefinition(array $nodes): ?array
     {
@@ -798,7 +798,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      * Recursively flatten inline nodes to plain text by concatenating Text
      * node values and recursing into children.
      *
-     * @param list<\Carve\Node\Inline\InlineNode> $nodes
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $nodes
      */
     protected function flattenText(array $nodes): string
     {
@@ -807,7 +807,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             if ($node instanceof Text) {
                 $text .= $node->getContent();
             } else {
-                /** @var list<\Carve\Node\Inline\InlineNode> $children */
+                /** @var list<\MarkupCarve\Carve\Node\Inline\InlineNode> $children */
                 $children = array_values(array_filter(
                     $node->getChildren(),
                     static fn (Node $n): bool => $n instanceof InlineNode,
@@ -820,8 +820,8 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param list<\Carve\Node\Inline\InlineNode> $nodes
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $nodes
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function renderInlines(array $nodes, HtmlRenderer $renderer): string
     {
@@ -880,7 +880,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      *
      * @param array<array-key, mixed> $entry
      *
-     * @return array{entry: list<\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText: string}
+     * @return array{entry: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, author?: string, year?: string, cslText: string}
      */
     protected function cslToDefinition(array $entry): array
     {
@@ -983,8 +983,8 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     }
 
     /**
-     * @param \Carve\Node\Node $node
-     * @param \Closure(\Carve\Node\Inline\CitationGroup): void $callback
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \Closure(\MarkupCarve\Carve\Node\Inline\CitationGroup): void $callback
      */
     protected function walkCitationGroups(Node $node, Closure $callback): void
     {

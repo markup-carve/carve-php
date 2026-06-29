@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
 /**
  * Figure block that wraps content with an optional caption.

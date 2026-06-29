@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test;
+namespace MarkupCarve\Carve\Test;
 
-use Carve\CarveConverter;
-use Carve\Extension\AutolinkExtension;
-use Carve\Extension\CitationsExtension;
-use Carve\Extension\MentionsExtension;
-use Carve\Extension\SmartQuotesExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AutolinkExtension;
+use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\MentionsExtension;
+use MarkupCarve\Carve\Extension\SmartQuotesExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;

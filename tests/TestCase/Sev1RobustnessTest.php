@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Document;
-use Carve\Renderer\AnsiRenderer;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\Node\Document;
+use MarkupCarve\Carve\Node\Document;
 
 /**
  * Optional extension lifecycle hook for deriving a document before render().

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Text;
-use Carve\Parser\MatcherContext;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Parser\MatcherContext;
 use PHPUnit\Framework\TestCase;
 
 class BlockMatcherTest extends TestCase

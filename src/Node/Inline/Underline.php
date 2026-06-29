@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Inline;
+namespace MarkupCarve\Carve\Node\Inline;
 
 /**
  * Underlined text (Carve: _text_)

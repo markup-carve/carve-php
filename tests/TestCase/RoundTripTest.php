@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Converter\HtmlToCarve;
-use Carve\Extension\AdmonitionExtension;
-use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Extension\AdmonitionExtension;
+use MarkupCarve\Carve\Extension\CodeGroupExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
 use PHPUnit\Framework\TestCase;
 
 /**

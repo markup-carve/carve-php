@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser\Block;
+namespace MarkupCarve\Carve\Parser\Block;
 
-use Carve\Node\Block\TableCell;
-use Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 
 /**
  * Parser for table blocks.

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Parser\BlockParser;
-use Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use PHPUnit\Framework\TestCase;
 
 class CrossImplementationDivergenceTest extends TestCase

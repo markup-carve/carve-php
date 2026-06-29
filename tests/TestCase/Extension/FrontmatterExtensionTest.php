@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\Frontmatter;
-use Carve\Extension\FrontmatterExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Extension\FrontmatterExtension;
 use PHPUnit\Framework\TestCase;
 
 class FrontmatterExtensionTest extends TestCase

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Inline;
+namespace MarkupCarve\Carve\Node\Inline;
 
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Base class for inline-level nodes

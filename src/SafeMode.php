@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve;
+namespace MarkupCarve\Carve;
 
 /**
  * Configuration for safe mode rendering

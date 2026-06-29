@@ -2,66 +2,66 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Event\RenderEvent;
-use Carve\Extension\StaticRenderExtensionInterface;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\Caption;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Comment;
-use Carve\Node\Block\DefinitionDescription;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Figure;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\LineBlock;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\RawBlock;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
-use Carve\Node\Block\ThematicBreak;
-use Carve\Node\Document;
-use Carve\Node\Inline\Abbreviation;
-use Carve\Node\Inline\CaptionNumber;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\Delete;
-use Carve\Node\Inline\Emphasis;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\FootnoteRef;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\HeadingRef;
-use Carve\Node\Inline\Highlight;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Inline\InlineFootnote;
-use Carve\Node\Inline\Insert;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\Mention;
-use Carve\Node\Inline\RawInline;
-use Carve\Node\Inline\RawText;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Strike;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Subscript;
-use Carve\Node\Inline\Substitution;
-use Carve\Node\Inline\Superscript;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Inline\Underline;
-use Carve\Node\Node;
-use Carve\Renderer\Utility\AbbreviationBudgetTrait;
-use Carve\Renderer\Utility\EventDispatcherTrait;
-use Carve\SafeMode;
-use Carve\Util\StringUtil;
 use Closure;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Delete;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Highlight;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\Insert;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Strike;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Subscript;
+use MarkupCarve\Carve\Node\Inline\Substitution;
+use MarkupCarve\Carve\Node\Inline\Superscript;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\SafeMode;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Renders AST to HTML
@@ -119,7 +119,7 @@ class HtmlRenderer implements RendererInterface
      * registration order) before the ordinary render-event listeners when
      * the render mode is `static`.
      *
-     * @var array<\Carve\Extension\StaticRenderExtensionInterface>
+     * @var array<\MarkupCarve\Carve\Extension\StaticRenderExtensionInterface>
      */
     protected array $staticRenderExtensions = [];
 
@@ -132,7 +132,7 @@ class HtmlRenderer implements RendererInterface
     /**
      * Dispatch table mapping node class names to render method names
      *
-     * @var array<class-string<\Carve\Node\Node>, string>
+     * @var array<class-string<\MarkupCarve\Carve\Node\Node>, string>
      */
     protected array $nodeRenderers = [];
 
@@ -536,7 +536,7 @@ class HtmlRenderer implements RendererInterface
      * in a `<section id="…">`. Recurses for nested sections. Matches the
      * carve-js renderer and djot's structural model.
      *
-     * @param array<\Carve\Node\Node> $nodes
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      * @param int $depth
      */
     protected function renderSectionRange(array $nodes, int $depth = 0): string
@@ -649,7 +649,7 @@ class HtmlRenderer implements RendererInterface
      *
      * Respects safe mode filtering when enabled.
      *
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude Attribute names to exclude
      */
     public function renderAttributesExcluding(Node $node, array $exclude): string
@@ -846,7 +846,7 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $skipAttrs
      * @param array<string> $skipClasses
      */
@@ -1193,7 +1193,7 @@ class HtmlRenderer implements RendererInterface
         $lines = [];
 
         if ($node->hasCaption()) {
-            /** @var \Carve\Node\Block\Caption $caption */
+            /** @var \MarkupCarve\Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
             $lines[] = '  <caption>' . rtrim($this->renderChildren($caption)) . '</caption>';
         }
@@ -1564,7 +1564,7 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude
      *
      * @return array<string, string>
@@ -2185,7 +2185,7 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * @param \Carve\Renderer\RenderContext $context
+     * @param \MarkupCarve\Carve\Renderer\RenderContext $context
      * @param \Closure(): string $callback
      */
     protected function withRenderContext(RenderContext $context, Closure $callback): string
