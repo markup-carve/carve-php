@@ -2,61 +2,61 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\Caption;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Comment;
-use Carve\Node\Block\DefinitionDescription;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Figure;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\LineBlock;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\RawBlock;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\ThematicBreak;
-use Carve\Node\Document;
-use Carve\Node\Inline\Abbreviation;
-use Carve\Node\Inline\CaptionNumber;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\Delete;
-use Carve\Node\Inline\Emphasis;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\FootnoteRef;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\HeadingRef;
-use Carve\Node\Inline\Highlight;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\InlineFootnote;
-use Carve\Node\Inline\Insert;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\Mention;
-use Carve\Node\Inline\RawInline;
-use Carve\Node\Inline\RawText;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Strike;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Subscript;
-use Carve\Node\Inline\Substitution;
-use Carve\Node\Inline\Superscript;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Inline\Underline;
-use Carve\Node\Node;
-use Carve\Renderer\Utility\AbbreviationBudgetTrait;
-use Carve\Renderer\Utility\EventDispatcherTrait;
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Delete;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Highlight;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\Insert;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Strike;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Subscript;
+use MarkupCarve\Carve\Node\Inline\Substitution;
+use MarkupCarve\Carve\Node\Inline\Superscript;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
@@ -304,7 +304,7 @@ class MarkdownRenderer implements RendererInterface
      * Walk the tree once, recording each heading's resolved id (into
      * $this->headingIds) and every `</#id>` target id (into $referencedIds).
      *
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, true> $referencedIds
      * @param int $depth
      */

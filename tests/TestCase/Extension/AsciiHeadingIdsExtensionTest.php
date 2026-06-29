@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\AsciiHeadingIdsExtension;
-use Carve\Extension\HeadingReferenceExtension;
-use Carve\Renderer\AsciiTransliterator;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
+use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
+use MarkupCarve\Carve\Renderer\AsciiTransliterator;
 use PHPUnit\Framework\TestCase;
 use Transliterator;
 use function class_exists;

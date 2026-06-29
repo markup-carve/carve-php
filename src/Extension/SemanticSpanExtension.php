@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Inline\Span;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Util\StringUtil;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Converts spans with semantic attributes to proper HTML elements
@@ -141,7 +141,7 @@ class SemanticSpanExtension implements ExtensionInterface
      * Render attributes as HTML attribute string
      *
      * @param array<string, string> $attrs
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      */
     protected function renderAttributes(array $attrs, HtmlRenderer $renderer): string
     {

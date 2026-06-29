@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Transform;
+namespace MarkupCarve\Carve\Transform;
 
-use Carve\Node\Document;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Rewrites inline footnote spans into explicit parenthetical inline content.

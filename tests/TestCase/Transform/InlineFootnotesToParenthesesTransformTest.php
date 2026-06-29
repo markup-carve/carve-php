@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Transform;
+namespace MarkupCarve\Carve\Test\TestCase\Transform;
 
-use Carve\CarveConverter;
-use Carve\Extension\InlineFootnotesExtension;
-use Carve\Transform\InlineFootnotesToParenthesesTransform;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
+use MarkupCarve\Carve\Transform\InlineFootnotesToParenthesesTransform;
 use PHPUnit\Framework\TestCase;
 
 class InlineFootnotesToParenthesesTransformTest extends TestCase

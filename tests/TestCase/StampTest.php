@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Stamp;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Stamp;
 use PHPUnit\Framework\TestCase;
 
 class StampTest extends TestCase

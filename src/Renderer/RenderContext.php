@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
 /**
  * Per-render mutable state for HtmlRenderer.
@@ -33,7 +33,7 @@ class RenderContext
     /**
      * Collected footnote nodes for rendering at end.
      *
-     * @var array<string, \Carve\Node\Block\Footnote>
+     * @var array<string, \MarkupCarve\Carve\Node\Block\Footnote>
      */
     public array $collectedFootnotes = [];
 

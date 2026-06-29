@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer\Utility;
+namespace MarkupCarve\Carve\Renderer\Utility;
 
 /**
  * Bounds the cumulative bytes contributed by abbreviation expansion across a

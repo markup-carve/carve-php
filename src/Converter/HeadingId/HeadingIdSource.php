@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter\HeadingId;
+namespace MarkupCarve\Carve\Converter\HeadingId;
 
 /**
  * Supplies the authoritative heading ids of a published Djot document so the

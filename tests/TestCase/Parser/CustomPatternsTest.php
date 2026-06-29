@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Parser\BlockParser;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 class CustomPatternsTest extends TestCase

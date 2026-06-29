@@ -2,37 +2,37 @@
 
 declare(strict_types=1);
 
-namespace Carve\Filter;
+namespace MarkupCarve\Carve\Filter;
 
-use Carve\Exception\ProfileViolationException;
-use Carve\LinkPolicy;
-use Carve\Node\Block\BlockNode;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Comment;
-use Carve\Node\Block\DefinitionDescription;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
-use Carve\Node\Block\ThematicBreak;
-use Carve\Node\ContentNodeInterface;
-use Carve\Node\Document;
-use Carve\Node\Inline\FootnoteRef;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Profile;
-use Carve\ProfileViolation;
+use MarkupCarve\Carve\Exception\ProfileViolationException;
+use MarkupCarve\Carve\LinkPolicy;
+use MarkupCarve\Carve\Node\Block\BlockNode;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\ProfileViolation;
 
 /**
  * Filters a document AST according to a Profile
@@ -48,7 +48,7 @@ class ProfileFilter
     private const MAX_FILTER_DEPTH = 512;
 
     /**
-     * @var list<\Carve\ProfileViolation>
+     * @var list<\MarkupCarve\Carve\ProfileViolation>
      */
     protected array $violations = [];
 
@@ -75,7 +75,7 @@ class ProfileFilter
     }
 
     /**
-     * @return list<\Carve\ProfileViolation>
+     * @return list<\MarkupCarve\Carve\ProfileViolation>
      */
     public function getViolations(): array
     {

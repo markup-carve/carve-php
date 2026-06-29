@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\CarveConverter;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Text;
-use Carve\Parser\MatcherContext;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Parser\MatcherContext;
 use PHPUnit\Framework\TestCase;
 
 class InlineMatcherTest extends TestCase

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser;
+namespace MarkupCarve\Carve\Parser;
 
 /**
  * Holds a reference definition's URL and attributes

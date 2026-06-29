@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Converter;
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use Carve\Converter\BbcodeToCarve;
 use InvalidArgumentException;
+use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use PHPUnit\Framework\TestCase;
 
 class BbcodeToCarveTest extends TestCase

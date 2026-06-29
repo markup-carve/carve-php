@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Transform;
+namespace MarkupCarve\Carve\Test\TestCase\Transform;
 
-use Carve\CarveConverter;
-use Carve\Converter\HtmlToCarve;
-use Carve\Transform\HeadingLevelShiftTransform;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Transform\HeadingLevelShiftTransform;
 use PHPUnit\Framework\TestCase;
 
 class HeadingLevelShiftTransformTest extends TestCase

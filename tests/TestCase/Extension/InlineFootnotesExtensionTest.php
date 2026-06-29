@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\InlineFootnotesExtension;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \Carve\Extension\InlineFootnotesExtension
+ * @covers \MarkupCarve\Carve\Extension\InlineFootnotesExtension
  */
 class InlineFootnotesExtensionTest extends TestCase
 {

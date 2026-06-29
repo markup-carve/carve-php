@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\ContentNodeInterface;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Node;
-use Carve\Renderer\HtmlRenderer;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Inline color swatch extension (Tier-3).
@@ -350,8 +350,8 @@ class ColorSwatchExtension implements ExtensionInterface
      * extension style, and id / key-values in source order. Author-supplied
      * attributes win over the extension defaults on a key conflict.
      *
-     * @param \Carve\Node\Node $node
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param array<string> $extraClasses
      * @param string|null $extraStyle
      * @param array<string, string> $extraAttrs

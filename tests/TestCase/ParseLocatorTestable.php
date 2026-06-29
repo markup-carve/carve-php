@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\CitationsExtension;
 
 /**
  * Test subclass that exposes the protected parseLocator() method for unit testing.

@@ -2,40 +2,40 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser;
+namespace MarkupCarve\Carve\Parser;
 
-use Carve\Node\Block\Comment;
-use Carve\Node\Inline\Abbreviation;
-use Carve\Node\Inline\CaptionNumber;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\Delete;
-use Carve\Node\Inline\Emphasis;
-use Carve\Node\Inline\EscapedText;
-use Carve\Node\Inline\FootnoteRef;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\HeadingRef;
-use Carve\Node\Inline\Highlight;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Inline\InlineFootnote;
-use Carve\Node\Inline\Insert;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\RawInline;
-use Carve\Node\Inline\RawText;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Strike;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Subscript;
-use Carve\Node\Inline\Substitution;
-use Carve\Node\Inline\Superscript;
-use Carve\Node\Inline\Symbol;
-use Carve\Node\Inline\Text;
-use Carve\Node\Inline\Underline;
-use Carve\Node\Node;
-use Carve\Parser\Utility\AttributeParser;
 use Closure;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Delete;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Highlight;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\Insert;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Strike;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Subscript;
+use MarkupCarve\Carve\Node\Inline\Substitution;
+use MarkupCarve\Carve\Node\Inline\Superscript;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 
 /**
  * Inline parser for Djot
@@ -45,7 +45,7 @@ use Closure;
 class InlineParser
 {
     /**
-     * @var array<array{type: string, char: string, pos: int, node: \Carve\Node\Node}>
+     * @var array<array{type: string, char: string, pos: int, node: \MarkupCarve\Carve\Node\Node}>
      */
     protected array $delimiterStack = [];
 
@@ -59,7 +59,7 @@ class InlineParser
      * Callback receives (string $match, array $groups, InlineParser $parser)
      * and should return a Node or null
      *
-     * @var array<string, callable(string, array<string>, self): ?\Carve\Node\Node>
+     * @var array<string, callable(string, array<string>, self): ?\MarkupCarve\Carve\Node\Node>
      */
     protected array $customPatterns = [];
 
@@ -190,7 +190,7 @@ class InlineParser
      * ```
      *
      * @param string $pattern Regex pattern (without anchors)
-     * @param callable(string, array<string>, self): ?\Carve\Node\Node $callback
+     * @param callable(string, array<string>, self): ?\MarkupCarve\Carve\Node\Node $callback
      */
     public function addInlinePattern(string $pattern, callable $callback): void
     {
@@ -251,7 +251,7 @@ class InlineParser
      * citation `[@key]`) -- to gate it to those positions. Each byte of the
      * string is treated as an independent trigger.
      *
-     * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
+     * @param \Closure(string, int, \MarkupCarve\Carve\Parser\MatcherContext): (array{node: \MarkupCarve\Carve\Node\Node, end: int}|null) $matcher
      * @param int $priority
      * @param string|null $triggerChars Literal first bytes this matcher fires on; null = runs everywhere
      */
@@ -261,7 +261,7 @@ class InlineParser
     }
 
     /**
-     * @param \Closure(string, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, end: int}|null) $matcher
+     * @param \Closure(string, int, \MarkupCarve\Carve\Parser\MatcherContext): (array{node: \MarkupCarve\Carve\Node\Node, end: int}|null) $matcher
      * @param int $priority
      * @param string|null $pattern
      * @param string|null $triggerChars
@@ -340,7 +340,7 @@ class InlineParser
     /**
      * Parse inline content
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param string $text
      * @param int $sourceLine Source line number (0-indexed) for error reporting
      * @param bool $captionContext
@@ -961,7 +961,7 @@ class InlineParser
     /**
      * Flush text while replacing abbreviations with Abbreviation nodes
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param string $text
      * @param array<string, string> $abbreviations
      */
@@ -1007,7 +1007,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Node, end: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, end: int}|null
      */
     protected function tryInlineMatchers(string $text, int $pos): ?array
     {
@@ -1529,7 +1529,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Code|\Carve\Node\Inline\RawInline, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline, pos: int}|null
      */
     protected function parseCodeSpan(string $text, int $pos): ?array
     {
@@ -1637,7 +1637,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Link|\Carve\Node\Inline\Span|\Carve\Node\Inline\Text|\Carve\Node\Inline\RawText, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text|\MarkupCarve\Carve\Node\Inline\RawText, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -1926,7 +1926,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Image, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Image, pos: int}|null
      */
     protected function parseImage(string $text, int $pos): ?array
     {
@@ -1982,7 +1982,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \Carve\Node\Inline\Link, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link, pos: int}|null
      */
     protected function parseAutolink(string $text, int $pos): ?array
     {
@@ -2047,9 +2047,9 @@ class InlineParser
      * @param string $delimiter
      * @param int $pos
      * @param string $text
-     * @param class-string<\Carve\Node\Node> $nodeClass
+     * @param class-string<\MarkupCarve\Carve\Node\Node> $nodeClass
      *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
     protected function parseDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
     {
@@ -2219,7 +2219,7 @@ class InlineParser
      * @param string $text
      * @param int $pos Position of the opening '/'
      *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
     protected function parseBoldItalic(string $text, int $pos): ?array
     {
@@ -2279,7 +2279,7 @@ class InlineParser
      * Editorial comment {# ... #} -> <span class="critic-comment">…</span>.
      * Content is literal (spaces preserved), matching carve-js.
      *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
     protected function parseEditorialComment(string $text, int $pos): ?array
     {
@@ -2301,7 +2301,7 @@ class InlineParser
      * Parse braced inline syntax: {+insert+}, {-delete-},
      * forced delimiter spans, {~old~>new~} substitution, {'} and {"}.
      *
-     * @return array{node: \Carve\Node\Node, pos: int}|array{nodes: list<\Carve\Node\Node>, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|array{nodes: list<\MarkupCarve\Carve\Node\Node>, pos: int}|null
      */
     protected function parseBracedInline(string $text, int $pos): ?array
     {
@@ -3036,7 +3036,7 @@ class InlineParser
     /**
      * Parse inline footnote ^[content].
      *
-     * @return array{node: \Carve\Node\Inline\InlineFootnote, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\InlineFootnote, pos: int}|null
      */
     protected function parseInlineFootnote(string $text, int $pos): ?array
     {
@@ -3076,7 +3076,7 @@ class InlineParser
     /**
      * Parse footnote reference [^label]
      *
-     * @return array{node: \Carve\Node\Inline\FootnoteRef, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\FootnoteRef, pos: int}|null
      */
     protected function parseFootnoteRef(string $text, int $pos): ?array
     {
@@ -3113,7 +3113,7 @@ class InlineParser
     /**
      * Parse math: $`...` for inline, $$`...` for display
      *
-     * @return array{node: \Carve\Node\Inline\Math, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Math, pos: int}|null
      */
     protected function parseMath(string $text, int $pos): ?array
     {
@@ -3175,7 +3175,7 @@ class InlineParser
     /**
      * Parse an inline extension :type[content].
      *
-     * @return array{node: \Carve\Node\Node, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
     protected function parseInlineExtension(string $text, int $pos): ?array
     {
@@ -3205,7 +3205,7 @@ class InlineParser
     /**
      * Parse symbol :name:
      *
-     * @return array{node: \Carve\Node\Inline\Symbol, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Symbol, pos: int}|null
      */
     protected function parseSymbol(string $text, int $pos): ?array
     {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Node\Document;
+use MarkupCarve\Carve\Node\Document;
 
 /**
  * Interface for renderers that convert a Document AST to string output

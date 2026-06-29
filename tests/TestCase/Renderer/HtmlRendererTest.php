@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\LineBlock;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
-use Carve\Node\Document;
-use Carve\Node\Inline\Code;
-use Carve\Node\Inline\Emphasis;
-use Carve\Node\Inline\FootnoteRef;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\Link;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Text;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Renderer\SoftBreakMode;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\TestCase;
 
 class HtmlRendererTest extends TestCase

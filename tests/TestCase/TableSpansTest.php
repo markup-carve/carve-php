@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -37,7 +37,7 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $this->assertInstanceOf(Table::class, $table);
 
@@ -45,12 +45,12 @@ DJOT;
         $this->assertCount(2, $rows);
 
         // Header row should have one cell with colspan=2
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
         $this->assertCount(1, $headerCells);
 
-        /** @var \Carve\Node\Block\TableCell $headerCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
         $this->assertSame(2, $headerCell->getColspan());
         $this->assertSame(1, $headerCell->getRowspan());
@@ -66,16 +66,16 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
         $this->assertCount(1, $headerCells);
 
-        /** @var \Carve\Node\Block\TableCell $headerCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
         $this->assertSame(3, $headerCell->getColspan());
     }
@@ -90,24 +90,24 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
         $this->assertCount(3, $headerCells);
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $headerCells[0];
         $this->assertSame(1, $cell1->getColspan());
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $headerCells[1];
         $this->assertSame(2, $cell2->getColspan());
 
-        /** @var \Carve\Node\Block\TableCell $cell3 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell3 */
         $cell3 = $headerCells[2];
         $this->assertSame(1, $cell3->getColspan());
     }
@@ -123,23 +123,23 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
         $this->assertCount(3, $rows);
 
         // First data row should have cell with rowspan=2
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $cells1 = $dataRow1->getChildren();
         $this->assertCount(2, $cells1);
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells1[0];
         $this->assertSame(2, $cell1->getRowspan());
 
         // Second data row should have only one cell (the ^ is not rendered)
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $cells2 = $dataRow2->getChildren();
         $this->assertCount(1, $cells2);
@@ -157,17 +157,17 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
         $this->assertCount(4, $rows);
 
         // First data row should have cell with rowspan=3
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $cells1 = $dataRow1->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells1[0];
         $this->assertSame(3, $cell1->getRowspan());
     }
@@ -183,26 +183,26 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
         // Header row: "A" with colspan=2, "B" with colspan=1
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
         $this->assertCount(2, $headerCells);
 
-        /** @var \Carve\Node\Block\TableCell $headerCell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell1 */
         $headerCell1 = $headerCells[0];
         $this->assertSame(2, $headerCell1->getColspan());
 
         // First data row: "1" with rowspan=2
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $cells1 = $dataRow1->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $dataCell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $dataCell1 */
         $dataCell1 = $cells1[0];
         $this->assertSame(2, $dataCell1->getRowspan());
     }
@@ -247,15 +247,15 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $headerCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
         $this->assertSame(2, $headerCell->getColspan());
         $this->assertSame(TableCell::ALIGN_LEFT, $headerCell->getAlignment());
@@ -271,15 +271,15 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $headerCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
         $this->assertSame(2, $headerCell->getColspan());
         $this->assertSame('highlight', $headerCell->getAttribute('class'));
@@ -296,15 +296,15 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $this->assertSame('first', $dataRow1->getAttribute('class'));
 
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $this->assertSame('second', $dataRow2->getAttribute('class'));
     }
@@ -321,16 +321,16 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
         // All rows should have 2 cells
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $this->assertCount(2, $dataRow1->getChildren());
 
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $this->assertCount(2, $dataRow2->getChildren());
     }
@@ -349,31 +349,31 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
         $this->assertCount(5, $rows);
 
         // First data row: "Fruits" should have rowspan=3
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $cells1 = $dataRow1->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $categoryCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $categoryCell */
         $categoryCell = $cells1[0];
         $this->assertSame(3, $categoryCell->getRowspan());
 
         // Rows 2 and 3 should have only 2 cells (^ marker not rendered)
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $this->assertCount(2, $dataRow2->getChildren());
 
-        /** @var \Carve\Node\Block\TableRow $dataRow3 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow3 */
         $dataRow3 = $rows[3];
         $this->assertCount(2, $dataRow3->getChildren());
 
         // Row 4 should have all 3 cells
-        /** @var \Carve\Node\Block\TableRow $dataRow4 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow4 */
         $dataRow4 = $rows[4];
         $this->assertCount(3, $dataRow4->getChildren());
     }
@@ -388,16 +388,16 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
         $this->assertCount(2, $cells);
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame(2, $cell2->getColspan());
     }
@@ -413,17 +413,17 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
         $this->assertCount(2, $cells);
 
         // Both cells should have rowspan=1, colspan=1
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame(1, $cell1->getRowspan());
         $this->assertSame(1, $cell1->getColspan());
@@ -652,25 +652,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
         // Header: "A" has colspan=2
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $headerA */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerA */
         $headerA = $headerCells[0];
         $this->assertSame(2, $headerA->getColspan());
 
         // Data row 1: "1" has rowspan=2
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $dataCells1 = $dataRow1->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $dataCells1[0];
         $this->assertSame(2, $cell1->getRowspan());
         $this->assertSame(1, $cell1->getColspan());
@@ -687,20 +687,20 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
         $this->assertCount(2, $headerCells);
 
-        /** @var \Carve\Node\Block\TableCell $cellA */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cellA */
         $cellA = $headerCells[0];
         $this->assertSame(2, $cellA->getColspan());
 
-        /** @var \Carve\Node\Block\TableCell $cellB */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cellB */
         $cellB = $headerCells[1];
         $this->assertSame(2, $cellB->getColspan());
     }
@@ -717,25 +717,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
         // First data row: both cells should have rowspan=2
-        /** @var \Carve\Node\Block\TableRow $dataRow1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow1 */
         $dataRow1 = $rows[1];
         $cells = $dataRow1->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame(2, $cell1->getRowspan());
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame(2, $cell2->getRowspan());
 
         // Second data row should be empty (both cells are rowspan markers)
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $this->assertCount(0, $dataRow2->getChildren());
     }
@@ -751,17 +751,17 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
         $this->assertCount(2, $cells);
 
         // First cell should contain "a < b"
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame(1, $cell1->getColspan());
     }
@@ -871,11 +871,11 @@ DJOT;
         $this->assertStringContainsString('colspan="2"', $html);
 
         // Row L2 should only have L2 label, no other cells
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        /** @var \Carve\Node\Block\TableRow $dataRow2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $cells = $dataRow2->getChildren();
         $this->assertCount(1, $cells); // Only "L2" cell
@@ -895,7 +895,7 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $this->assertInstanceOf(Table::class, $table);
 
@@ -903,9 +903,9 @@ DJOT;
         $this->assertCount($rows + 2, $table->getChildren());
 
         // The single "Gold" origin cell spans itself plus all `^` rows.
-        /** @var \Carve\Node\Block\TableRow $originRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $originRow */
         $originRow = $table->getChildren()[1];
-        /** @var \Carve\Node\Block\TableCell $originCell */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $originCell */
         $originCell = $originRow->getChildren()[0];
         $this->assertSame($rows + 1, $originCell->getRowspan());
     }

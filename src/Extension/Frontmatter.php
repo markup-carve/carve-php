@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\Node\Block\BlockNode;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 
 /**
  * Frontmatter block node

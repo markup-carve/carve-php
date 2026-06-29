@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Document;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Document;
 
 /**
  * Parses frontmatter blocks at the start of documents
@@ -86,14 +86,14 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
 
     /**
      * @var \Closure|null
-     * @phpstan-var (\Closure(\Carve\Extension\Frontmatter): string)|null
+     * @phpstan-var (\Closure(\MarkupCarve\Carve\Extension\Frontmatter): string)|null
      */
     protected ?Closure $renderCallback = null;
 
     /**
      * @param string $defaultFormat Format to use when the opening delimiter has no format identifier (e.g. bare ---)
      * @param bool $renderAsComment If true, render frontmatter as HTML comment
-     * @param (\Closure(\Carve\Extension\Frontmatter): string)|null $renderCallback Custom render callback
+     * @param (\Closure(\MarkupCarve\Carve\Extension\Frontmatter): string)|null $renderCallback Custom render callback
      */
     public function __construct(
         protected string $defaultFormat = 'yaml',

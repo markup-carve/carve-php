@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve;
+namespace MarkupCarve\Carve;
 
 /**
  * Represents a profile violation during filtering

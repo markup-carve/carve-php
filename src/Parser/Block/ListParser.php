@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser\Block;
+namespace MarkupCarve\Carve\Parser\Block;
 
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 
 /**
  * Parser for list blocks (bullet, ordered, task lists).
@@ -362,9 +362,9 @@ class ListParser
     /**
      * Get the last list item from a list block.
      *
-     * @param \Carve\Node\Block\ListBlock $list The list block
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list The list block
      *
-     * @return \Carve\Node\Block\ListItem|null The last item, or null if empty
+     * @return \MarkupCarve\Carve\Node\Block\ListItem|null The last item, or null if empty
      */
     public function getLastListItem(ListBlock $list): ?ListItem
     {

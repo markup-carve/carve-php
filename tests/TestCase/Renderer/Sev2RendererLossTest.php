@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**

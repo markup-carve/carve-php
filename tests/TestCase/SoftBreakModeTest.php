@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Renderer\MarkdownRenderer;
-use Carve\Renderer\PlainTextRenderer;
-use Carve\Renderer\SoftBreakMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\TestCase;
 
 class SoftBreakModeTest extends TestCase

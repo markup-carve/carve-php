@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\DetailsExtension;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\MathBlockExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Renderer\RenderMode;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CodeGroupExtension;
+use MarkupCarve\Carve\Extension\DetailsExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\MathBlockExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Renderer\RenderMode;
 use PHPUnit\Framework\TestCase;
 
 /**

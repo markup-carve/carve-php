@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node;
+namespace MarkupCarve\Carve\Node;
 
 /**
  * Base class for all AST nodes
@@ -12,7 +12,7 @@ abstract class Node
     protected ?Node $parent = null;
 
     /**
-     * @var array<\Carve\Node\Node>
+     * @var array<\MarkupCarve\Carve\Node\Node>
      */
     protected array $children = [];
 
@@ -41,7 +41,7 @@ abstract class Node
     }
 
     /**
-     * @return array<\Carve\Node\Node>
+     * @return array<\MarkupCarve\Carve\Node\Node>
      */
     public function getChildren(): array
     {
@@ -84,8 +84,8 @@ abstract class Node
     /**
      * Replace a child node with multiple nodes
      *
-     * @param \Carve\Node\Node $oldChild
-     * @param list<\Carve\Node\Node> $newChildren
+     * @param \MarkupCarve\Carve\Node\Node $oldChild
+     * @param list<\MarkupCarve\Carve\Node\Node> $newChildren
      */
     public function replaceChildWithMany(Node $oldChild, array $newChildren): bool
     {

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\Event\RenderEvent;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Opt-in static-HTML rendering for an interactive extension.
@@ -40,8 +40,8 @@ interface StaticRenderExtensionInterface extends ExtensionInterface
      * extension claims the node; return false to defer to the next resolution
      * step (the ordinary renderer or the core caption floor).
      *
-     * @param \Carve\Event\RenderEvent $event The render event for the current node.
-     * @param \Carve\Renderer\HtmlRenderer $renderer The active HTML renderer.
+     * @param \MarkupCarve\Carve\Event\RenderEvent $event The render event for the current node.
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer The active HTML renderer.
      *
      * @return bool Whether this extension consumed the node.
      */

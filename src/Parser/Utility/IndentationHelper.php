@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser\Utility;
+namespace MarkupCarve\Carve\Parser\Utility;
 
 /**
  * Helper class for handling indentation in djot documents.

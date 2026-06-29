@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Div;
-use Carve\Node\Document;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Node;
-use Carve\Renderer\HeadingIdTracker;
-use Carve\Renderer\HtmlRenderer;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Glossary (#91, Tier-3). A `::: glossary` definition list declares terms;
@@ -184,8 +184,8 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
      * of any author classes, then id / key-values, with the always-on
      * hardening plus safe-mode filtering and value escaping applied.
      *
-     * @param \Carve\Node\Node $node
-     * @param \Carve\Renderer\HtmlRenderer $renderer
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param array<string> $exclude Attribute names to drop (e.g. `href`).
      */
     protected function openAttributes(Node $node, HtmlRenderer $renderer, array $exclude = []): string
@@ -222,8 +222,8 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
     }
 
     /**
-     * @param \Carve\Node\Node $node
-     * @param \Closure(\Carve\Node\Node): void $callback
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \Closure(\MarkupCarve\Carve\Node\Node): void $callback
      */
     protected function walk(Node $node, Closure $callback): void
     {

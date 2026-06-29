@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\Node\Block\Heading;
-use Carve\Node\Inline\Strong;
-use Carve\Parser\BlockParser;
-use Carve\Parser\MatcherContext;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\MatcherContext;
 use PHPUnit\Framework\TestCase;
 
 class MatcherContextTest extends TestCase

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Carve\Converter;
+namespace MarkupCarve\Carve\Converter;
 
-use Carve\Node\Block\TableCell;
-use Carve\Util\StringUtil;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
 use DOMXPath;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 
 /**

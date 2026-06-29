@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer\Utility;
+namespace MarkupCarve\Carve\Renderer\Utility;
 
-use Carve\Event\RenderEvent;
 use Closure;
+use MarkupCarve\Carve\Event\RenderEvent;
 
 /**
  * Trait for event dispatching in renderers.
@@ -18,7 +18,7 @@ trait EventDispatcherTrait
     /**
      * Event listeners
      *
-     * @var array<string, array<\Closure(\Carve\Event\RenderEvent): void>>
+     * @var array<string, array<\Closure(\MarkupCarve\Carve\Event\RenderEvent): void>>
      */
     protected array $listeners = [];
 
@@ -30,7 +30,7 @@ trait EventDispatcherTrait
      * - render.* for all nodes
      *
      * @param string $event Event name (e.g., 'render.paragraph', 'render.*')
-     * @param \Closure(\Carve\Event\RenderEvent): void $listener
+     * @param \Closure(\MarkupCarve\Carve\Event\RenderEvent): void $listener
      */
     public function on(string $event, Closure $listener): void
     {
@@ -85,7 +85,7 @@ trait EventDispatcherTrait
      * the wildcard event (render.*).
      *
      * @param string $nodeType The node type for the specific event
-     * @param \Carve\Event\RenderEvent $event The render event
+     * @param \MarkupCarve\Carve\Event\RenderEvent $event The render event
      */
     protected function dispatchRenderEvents(string $nodeType, RenderEvent $event): void
     {

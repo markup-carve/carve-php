@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Converter;
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use Carve\CarveConverter;
-use Carve\Converter\HeadingId\HtmlHeadingIds;
-use Carve\Converter\HeadingId\MapIds;
-use Carve\Converter\HeadingId\RenderedHtmlIds;
-use Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HeadingId\HtmlHeadingIds;
+use MarkupCarve\Carve\Converter\HeadingId\MapIds;
+use MarkupCarve\Carve\Converter\HeadingId\RenderedHtmlIds;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

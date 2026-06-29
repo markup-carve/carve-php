@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\Node\Block\Heading;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Strong;
-use Carve\Node\Inline\Text;
-use Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use PHPUnit\Framework\TestCase;
 
 class HeadingIdTrackerTest extends TestCase

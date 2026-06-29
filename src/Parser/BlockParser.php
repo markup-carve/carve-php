@@ -2,44 +2,44 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser;
+namespace MarkupCarve\Carve\Parser;
 
-use Carve\Exception\ParseException;
-use Carve\Exception\ParseWarning;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\Caption;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Comment;
-use Carve\Node\Block\DefinitionDescription;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\DefinitionTerm;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Figure;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\LineBlock;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\ListItem;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\RawBlock;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
-use Carve\Node\Block\ThematicBreak;
-use Carve\Node\Document;
-use Carve\Node\Inline\HardBreak;
-use Carve\Node\Inline\Image;
-use Carve\Node\Inline\Math;
-use Carve\Node\Inline\SoftBreak;
-use Carve\Node\Inline\Text;
-use Carve\Node\Node;
-use Carve\Parser\Block\FencedBlockParser;
-use Carve\Parser\Block\ListParser;
-use Carve\Parser\Block\TableParser;
-use Carve\Parser\Utility\AttributeParser;
-use Carve\Parser\Utility\IndentationHelper;
-use Carve\Renderer\HeadingIdTracker;
 use Closure;
+use MarkupCarve\Carve\Exception\ParseException;
+use MarkupCarve\Carve\Exception\ParseWarning;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
+use MarkupCarve\Carve\Parser\Block\ListParser;
+use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 
 /**
  * Block-level parser for Djot
@@ -93,7 +93,7 @@ class BlockParser
     protected FencedBlockParser $fencedBlockParser;
 
     /**
-     * @var array<string, \Carve\Parser\ReferenceDefinition>
+     * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
     protected array $references = [];
 
@@ -101,12 +101,12 @@ class BlockParser
      * Heading-derived references keyed by folded heading text. Used only for
      * unresolved collapsed references (`[text][]`), after exact definitions lose.
      *
-     * @var array<string, \Carve\Parser\ReferenceDefinition>
+     * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
     protected array $headingReferencesByFoldedLabel = [];
 
     /**
-     * @var array<string, \Carve\Node\Block\Footnote>
+     * @var array<string, \MarkupCarve\Carve\Node\Block\Footnote>
      */
     protected array $footnotes = [];
 
@@ -146,7 +146,7 @@ class BlockParser
     /**
      * Collected warnings during parsing
      *
-     * @var array<\Carve\Exception\ParseWarning>
+     * @var array<\MarkupCarve\Carve\Exception\ParseWarning>
      */
     protected array $warnings = [];
 
@@ -184,7 +184,7 @@ class BlockParser
      * Callback receives (array $lines, int $startIndex, Node $parent, BlockParser $parser)
      * and should return number of lines consumed, or null if not matched
      *
-     * @var array<string, callable(array<string>, int, \Carve\Node\Node, self): ?int>
+     * @var array<string, callable(array<string>, int, \MarkupCarve\Carve\Node\Node, self): ?int>
      */
     protected array $customBlockPatterns = [];
 
@@ -282,7 +282,7 @@ class BlockParser
      * ```
      *
      * @param string $pattern Regex pattern to match the first line
-     * @param callable(array<string>, int, \Carve\Node\Node, self): ?int $callback
+     * @param callable(array<string>, int, \MarkupCarve\Carve\Node\Node, self): ?int $callback
      */
     public function addBlockPattern(string $pattern, callable $callback): void
     {
@@ -338,7 +338,7 @@ class BlockParser
     }
 
     /**
-     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
+     * @param \Closure(array<string>, int, \MarkupCarve\Carve\Parser\MatcherContext): (array{node: \MarkupCarve\Carve\Node\Node, linesConsumed: int}|null) $matcher
      * @param int $priority
      */
     public function addBlockMatcher(Closure $matcher, int $priority = 0): void
@@ -347,7 +347,7 @@ class BlockParser
     }
 
     /**
-     * @param \Closure(array<string>, int, \Carve\Parser\MatcherContext): (int|array{node: \Carve\Node\Node, linesConsumed: int}|null) $matcher
+     * @param \Closure(array<string>, int, \MarkupCarve\Carve\Parser\MatcherContext): (int|array{node: \MarkupCarve\Carve\Node\Node, linesConsumed: int}|null) $matcher
      * @param int $priority
      * @param string|null $pattern
      */
@@ -385,7 +385,7 @@ class BlockParser
     /**
      * Parse block content (for use in custom block callbacks)
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      */
     public function parseBlockContent(Node $parent, array $lines): void
@@ -416,7 +416,7 @@ class BlockParser
     /**
      * Get collected warnings
      *
-     * @return array<\Carve\Exception\ParseWarning>
+     * @return array<\MarkupCarve\Carve\Exception\ParseWarning>
      */
     public function getWarnings(): array
     {
@@ -436,7 +436,7 @@ class BlockParser
     /**
      * Add a warning or throw exception in strict mode
      *
-     * @throws \Carve\Exception\ParseException In strict mode for errors
+     * @throws \MarkupCarve\Carve\Exception\ParseException In strict mode for errors
      */
     protected function addWarning(
         string $message,
@@ -1194,7 +1194,7 @@ class BlockParser
      * nested input degrades to literal text instead of overflowing the stack
      * (or exhausting memory). See MAX_NESTING_DEPTH.
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
      * @param bool $topLevel
@@ -1221,7 +1221,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
      * @param bool $topLevel
@@ -1333,7 +1333,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -1528,7 +1528,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -1606,7 +1606,7 @@ class BlockParser
     /**
      * Try to parse a comment block {% ... %}
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -1686,7 +1686,7 @@ class BlockParser
      * This is an extension that allows multi-line comments with blank lines,
      * which the standard {% %} syntax cannot handle.
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -1740,7 +1740,7 @@ class BlockParser
     /**
      * Try to parse a raw block ``` =format
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -1792,13 +1792,13 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      * @param array<int, int> $divCloserSuffix Longest colon-fence closer at or
@@ -1962,7 +1962,7 @@ class BlockParser
      * upgrades soft breaks in direct paragraph children. Nested blocks keep their
      * normal soft-break behavior.
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      * @param array<int, int> $divCloserSuffix
@@ -2183,7 +2183,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -2334,7 +2334,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -2568,7 +2568,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -3258,7 +3258,7 @@ class BlockParser
      * Deeper-indented lines continue a definition; a single blank line may
      * separate entries. Renders to <dl> of <dt> then <dd>.
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -3362,7 +3362,7 @@ class BlockParser
     /**
      * Try to parse a line block (preserves author line layout).
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -3438,7 +3438,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Block\LineBlock $lineBlock
+     * @param \MarkupCarve\Carve\Node\Block\LineBlock $lineBlock
      * @param list<array{0: string, 1: int}> $lines
      */
     protected function appendLineBlockStanza(LineBlock $lineBlock, array $lines): void
@@ -3553,7 +3553,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -3731,7 +3731,7 @@ class BlockParser
             // Build the row's cells. Spans are already resolved in the grid above,
             // so every entry in $processedCells emits exactly one cell; its
             // gridColumn keys per-column alignment, matching the carve-js renderer.
-            /** @var array<array{cell: \Carve\Node\Block\TableCell, colPosition: int}> $rowCellData */
+            /** @var array<array{cell: \MarkupCarve\Carve\Node\Block\TableCell, colPosition: int}> $rowCellData */
             $rowCellData = [];
             foreach ($processedCells as $cellData) {
                 $colspan = $cellData['colspan'];
@@ -3852,7 +3852,7 @@ class BlockParser
      * jumps a consumed `^`.
      *
      * @param array<int, array{content: string, attributes: string}> $mergedCellsWithAttrs
-     * @param array<int, \Carve\Node\Block\TableCell> $columnOrigin Per-column open
+     * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
      * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null}>, consumedRowspanColumns: array<int>}
@@ -4101,7 +4101,7 @@ class BlockParser
     }
 
     /**
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -4296,7 +4296,7 @@ class BlockParser
      * - Paragraph with single Image → wraps in <figure> with <figcaption>
      * - BlockQuote → wraps in <figure> with <figcaption>
      *
-     * @param \Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
@@ -5159,7 +5159,7 @@ class BlockParser
     /**
      * Recursively collect explicit {#id} attributes from the AST
      *
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, bool> $ids
      */
     protected function collectExplicitIds(Node $node, array &$ids): void

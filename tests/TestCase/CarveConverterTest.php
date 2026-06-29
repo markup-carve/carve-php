@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Exception\ParseException;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\HeadingLevelShiftExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Node\Block\Heading;
-use Carve\Node\Inline\Symbol;
-use Carve\Profile;
-use Carve\Renderer\MarkdownRenderer;
 use LengthException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Exception\ParseException;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\HeadingLevelShiftExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

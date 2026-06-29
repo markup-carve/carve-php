@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Node;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Adds default attributes to elements by type
@@ -63,7 +63,7 @@ class DefaultAttributesExtension implements ExtensionInterface
     /**
      * Apply default attributes to a node
      *
-     * @param \Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, string> $defaults
      */
     protected function applyDefaults(Node $node, array $defaults): void

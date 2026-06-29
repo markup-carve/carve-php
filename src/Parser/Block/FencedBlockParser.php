@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser\Block;
+namespace MarkupCarve\Carve\Parser\Block;
 
 /**
  * Parser utilities for fenced blocks (code blocks, divs, raw blocks).

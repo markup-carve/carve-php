@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Node\Document;
-use Carve\Renderer\RendererInterface;
-use Carve\Transform\HeadingLevelShiftTransform;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Transform\HeadingLevelShiftTransform;
 
 /**
  * Shifts heading levels down (h1 → h2, h2 → h3, etc.)

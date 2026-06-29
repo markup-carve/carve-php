@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\HeadingPermalinksExtension;
-use Carve\Extension\HeadingReferenceExtension;
-use Carve\Extension\WikilinksExtension;
 use LogicException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
+use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
+use MarkupCarve\Carve\Extension\WikilinksExtension;
 use PHPUnit\Framework\TestCase;
 
 class HeadingReferenceExtensionTest extends TestCase

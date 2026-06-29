@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node;
+namespace MarkupCarve\Carve\Node;
 
 /**
  * Root document node

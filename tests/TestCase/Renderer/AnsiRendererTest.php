@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Renderer;
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use Carve\CarveConverter;
-use Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use PHPUnit\Framework\TestCase;
 
 class AnsiRendererTest extends TestCase

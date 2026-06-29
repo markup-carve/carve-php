@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\SafeMode;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 /**

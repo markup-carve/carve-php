@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Renderer;
+namespace MarkupCarve\Carve\Renderer;
 
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 
 /**
  * Expands table rows into logical columns for renderers that cannot express
@@ -15,7 +15,7 @@ use Carve\Node\Block\TableRow;
 final class TableLayout
 {
     /**
-     * @param \Carve\Node\Block\Table $table
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
      * @param callable $renderCell
      *
      * @return array{rows: array<int, array{isHeader: bool, cells: array<int, mixed|null>}>, columnCount: int}

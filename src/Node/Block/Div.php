@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
 /**
  * Generic div container (fenced with :::)
@@ -12,7 +12,7 @@ class Div extends BlockNode
     /**
      * Grouping label from the opener `[label]` (grammar PART 9 §12). Structured
      * metadata: NOT rendered by core, consumed by a group extension (e.g. tabs)
-     * as the tab name. Mirrors {@see \Carve\Node\Block\CodeBlock::getLabel()}.
+     * as the tab name. Mirrors {@see \MarkupCarve\Carve\Node\Block\CodeBlock::getLabel()}.
      */
     protected ?string $label = null;
 

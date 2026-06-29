@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Exception;
+namespace MarkupCarve\Carve\Exception;
 
-use Carve\ProfileViolation;
+use MarkupCarve\Carve\ProfileViolation;
 use RuntimeException;
 
 /**
@@ -13,7 +13,7 @@ use RuntimeException;
 class ProfileViolationException extends RuntimeException
 {
     /**
-     * @param list<\Carve\ProfileViolation> $violations
+     * @param list<\MarkupCarve\Carve\ProfileViolation> $violations
      */
     public function __construct(public readonly array $violations)
     {

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Event\RenderEvent;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Footnote;
-use Carve\Node\Document;
-use Carve\Node\Inline\InlineExtension;
-use Carve\Node\Node;
-use Carve\Renderer\HeadingIdTracker;
-use Carve\Renderer\HtmlRenderer;
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Index terms (#91, Tier-3). Invisible `:index[term]` markers are collected
@@ -280,8 +280,8 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
      * Visit every `:index[…]` InlineExtension in document order, skipping
      * Footnote subtrees (deferred content).
      *
-     * @param \Carve\Node\Node $node
-     * @param \Closure(\Carve\Node\Inline\InlineExtension): void $callback
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \Closure(\MarkupCarve\Carve\Node\Inline\InlineExtension): void $callback
      */
     protected function walkMarkers(Node $node, Closure $callback): void
     {

@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Parser;
+namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\DefinitionList;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Block\RawBlock;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\ThematicBreak;
-use Carve\Node\Document;
-use Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 use function str_contains;
 

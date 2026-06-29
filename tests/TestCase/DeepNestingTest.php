@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Filter\ProfileFilter;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Document;
-use Carve\Node\Inline\Span;
-use Carve\Node\Inline\Text;
-use Carve\Profile;
-use Carve\Renderer\AnsiRenderer;
-use Carve\Renderer\HtmlRenderer;
-use Carve\Renderer\MarkdownRenderer;
-use Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Filter\ProfileFilter;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**

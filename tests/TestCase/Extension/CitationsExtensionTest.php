@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Extension;
+namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
-use Carve\CarveConverter;
-use Carve\Extension\CitationsExtension;
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Inline\CitationGroup;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

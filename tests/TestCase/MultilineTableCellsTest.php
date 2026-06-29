@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\Table;
-use Carve\Node\Block\TableCell;
-use Carve\Node\Inline\Text;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -42,7 +42,7 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $this->assertInstanceOf(Table::class, $table);
 
@@ -50,7 +50,7 @@ DJOT;
         $this->assertCount(2, $rows);
 
         // Data row should have merged content
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $this->assertFalse($dataRow->isHeader());
 
@@ -58,7 +58,7 @@ DJOT;
         $this->assertCount(2, $cells);
 
         // Second cell should contain merged content
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text = $this->getCellTextContent($cell2);
         $this->assertSame('First part second part', $text);
@@ -76,15 +76,15 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text = $this->getCellTextContent($cell2);
         $this->assertSame('Line one line two line three', $text);
@@ -101,20 +101,20 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $text1 = $this->getCellTextContent($cell1);
         $this->assertSame('A more', $text1);
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text2 = $this->getCellTextContent($cell2);
         $this->assertSame('B more B', $text2);
@@ -131,20 +131,20 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $text1 = $this->getCellTextContent($cell1);
         $this->assertSame('Test', $text1);
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text2 = $this->getCellTextContent($cell2);
         $this->assertSame('First part', $text2);
@@ -161,25 +161,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
         $this->assertCount(2, $rows);
 
         // Header row should have merged content
-        /** @var \Carve\Node\Block\TableRow $headerRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $this->assertTrue($headerRow->isHeader());
 
         $cells = $headerRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $text1 = $this->getCellTextContent($cell1);
         $this->assertSame('Name Long', $text1);
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text2 = $this->getCellTextContent($cell2);
         $this->assertSame('Description Extended', $text2);
@@ -198,25 +198,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
         $this->assertCount(3, $rows);
 
         // First data row
-        /** @var \Carve\Node\Block\TableRow $row1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $row1 */
         $row1 = $rows[1];
         $cells1 = $row1->getChildren();
-        /** @var \Carve\Node\Block\TableCell $cell1_2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1_2 */
         $cell1_2 = $cells1[1];
         $this->assertSame('Desc A continued A', $this->getCellTextContent($cell1_2));
 
         // Second data row
-        /** @var \Carve\Node\Block\TableRow $row2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $row2 */
         $row2 = $rows[2];
         $cells2 = $row2->getChildren();
-        /** @var \Carve\Node\Block\TableCell $cell2_2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2_2 */
         $cell2_2 = $cells2[1];
         $this->assertSame('Desc B continued B', $this->getCellTextContent($cell2_2));
     }
@@ -232,18 +232,18 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
 
         // Row attributes should be preserved from first line
         $this->assertSame('highlight', $dataRow->getAttribute('class'));
 
         $cells = $dataRow->getChildren();
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame('First part second part', $this->getCellTextContent($cell2));
     }
@@ -259,20 +259,20 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
         // Cell attributes should be preserved from first line
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame('name', $cell1->getAttribute('class'));
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame('desc', $cell2->getAttribute('class'));
         $this->assertSame('First part second part', $this->getCellTextContent($cell2));
@@ -289,25 +289,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame(TableCell::ALIGN_LEFT, $cell1->getAlignment());
         $this->assertSame('A more', $this->getCellTextContent($cell1));
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame(TableCell::ALIGN_CENTER, $cell2->getAlignment());
         $this->assertSame('B more B', $this->getCellTextContent($cell2));
 
-        /** @var \Carve\Node\Block\TableCell $cell3 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell3 */
         $cell3 = $cells[2];
         $this->assertSame(TableCell::ALIGN_RIGHT, $cell3->getAlignment());
         $this->assertSame('C more C', $this->getCellTextContent($cell3));
@@ -356,15 +356,15 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $text = $this->getCellTextContent($cell2);
         $this->assertSame('A | B continued', $text);
@@ -424,25 +424,25 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
         $this->assertCount(3, $cells);
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame('1 x', $this->getCellTextContent($cell1));
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame('2 y', $this->getCellTextContent($cell2));
 
-        /** @var \Carve\Node\Block\TableCell $cell3 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell3 */
         $cell3 = $cells[2];
         $this->assertSame('3', $this->getCellTextContent($cell3));
     }
@@ -459,19 +459,19 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
 
         $rows = $table->getChildren();
-        /** @var \Carve\Node\Block\TableRow $dataRow */
+        /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
 
-        /** @var \Carve\Node\Block\TableCell $cell1 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $cells[0];
         $this->assertSame('Y', $this->getCellTextContent($cell1));
 
-        /** @var \Carve\Node\Block\TableCell $cell2 */
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame('X', $this->getCellTextContent($cell2));
     }
@@ -528,7 +528,7 @@ DJOT;
 
         $doc = $this->converter->parse($djot);
 
-        /** @var \Carve\Node\Block\Table $table */
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $this->assertInstanceOf(Table::class, $table);
         $this->assertTrue($table->hasCaption());

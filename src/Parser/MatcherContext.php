@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser;
+namespace MarkupCarve\Carve\Parser;
 
-use Carve\Node\Block\Paragraph;
-use Carve\Node\Document;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
 
 final class MatcherContext
 {
     /**
-     * @param \Carve\Parser\BlockParser $blockParser
-     * @param \Carve\Parser\InlineParser $inlineParser
+     * @param \MarkupCarve\Carve\Parser\BlockParser $blockParser
+     * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
      * @param array<string, mixed> $config
      */
     public function __construct(
@@ -37,7 +37,7 @@ final class MatcherContext
     }
 
     /**
-     * @return array<\Carve\Node\Node>
+     * @return array<\MarkupCarve\Carve\Node\Node>
      */
     public function parseInlines(string $text): array
     {
@@ -50,7 +50,7 @@ final class MatcherContext
     /**
      * @param array<string> $lines
      *
-     * @return array<\Carve\Node\Node>
+     * @return array<\MarkupCarve\Carve\Node\Node>
      */
     public function parseBlocks(array $lines): array
     {

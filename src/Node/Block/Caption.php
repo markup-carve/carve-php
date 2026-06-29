@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
 /**
  * Caption block for images, tables, and blockquotes.

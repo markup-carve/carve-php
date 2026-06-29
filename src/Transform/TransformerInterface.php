@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Transform;
+namespace MarkupCarve\Carve\Transform;
 
-use Carve\Node\Document;
+use MarkupCarve\Carve\Node\Document;
 
 interface TransformerInterface
 {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Base class for block-level nodes

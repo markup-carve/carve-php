@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
 /**
  * Optional extension lifecycle hook for clearing per-render state.

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Node\Block;
+namespace MarkupCarve\Carve\Node\Block;
 
-use Carve\Node\ContentNodeInterface;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
 
 /**
  * Comment block - stripped from output

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Carve\Extension;
+namespace MarkupCarve\Carve\Extension;
 
-use Carve\CarveConverter;
-use Carve\Renderer\AsciiTransliterator;
-use Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\AsciiTransliterator;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Fold auto-generated heading ids to ASCII (opt-in)

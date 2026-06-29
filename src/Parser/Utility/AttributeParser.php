@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Carve\Parser\Utility;
+namespace MarkupCarve\Carve\Parser\Utility;
 
-use Carve\Node\Node;
+use MarkupCarve\Carve\Node\Node;
 
 /**
  * Shared utility for parsing djot attribute strings.
@@ -217,7 +217,7 @@ class AttributeParser
      * Parses all attribute tokens in source order to preserve attribute ordering
      * in the rendered output (matching the reference JS implementation behavior).
      *
-     * @param \Carve\Node\Node $node The node to apply attributes to
+     * @param \MarkupCarve\Carve\Node\Node $node The node to apply attributes to
      * @param string $attrStr The attribute string to parse
      */
     public static function applyToNode(Node $node, string $attrStr): void

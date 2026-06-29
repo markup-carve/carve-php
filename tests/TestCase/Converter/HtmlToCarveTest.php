@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase\Converter;
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use Carve\CarveConverter;
-use Carve\Converter\HtmlToCarve;
-use Carve\Extension\CodeGroupExtension;
-use Carve\Extension\FencedRenderExtension;
-use Carve\Extension\HeadingLevelShiftExtension;
-use Carve\Extension\HeadingReferenceExtension;
-use Carve\Extension\InlineFootnotesExtension;
-use Carve\Extension\TabsExtension;
-use Carve\Profile;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Extension\CodeGroupExtension;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
+use MarkupCarve\Carve\Extension\HeadingLevelShiftExtension;
+use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
+use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
 
 class HtmlToCarveTest extends TestCase

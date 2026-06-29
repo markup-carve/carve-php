@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Carve\Test\TestCase;
+namespace MarkupCarve\Carve\Test\TestCase;
 
-use Carve\CarveConverter;
-use Carve\Node\Block\BlockQuote;
-use Carve\Node\Block\CodeBlock;
-use Carve\Node\Block\Div;
-use Carve\Node\Block\Heading;
-use Carve\Node\Block\ListBlock;
-use Carve\Node\Block\Paragraph;
-use Carve\Parser\BlockParser;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
