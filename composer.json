@@ -1,6 +1,6 @@
 {
     "name": "markup-carve/carve-php",
-    "description": "PHP parser for Carve, a human-centered lightweight markup language derived from djot-php.",
+    "description": "PHP parser for Carve, a human-centered lightweight markup language derived from Markdown and Djot.",
     "type": "library",
     "license": "MIT",
     "keywords": [
