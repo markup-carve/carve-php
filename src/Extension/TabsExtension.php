@@ -423,7 +423,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     protected function renderCssTabs(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
         $this->tabSetCounter++;
-        $setId = $this->idPrefix . '-' . $this->tabSetCounter;
+        $tracker = $renderer->getHeadingIdTracker();
+        $setId = $tracker->uniqueId($this->idPrefix . '-' . $this->tabSetCounter);
 
         // Build wrapper attributes
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
@@ -439,7 +440,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Render all radio inputs and labels first
         foreach ($tabs as $index => $tab) {
             $tabNum = $index + 1;
-            $inputId = $tab['id'] ?? ($setId . '-tab-' . $tabNum);
+            $inputId = $tab['id'] ?? $tracker->uniqueId($setId . '-tab-' . $tabNum);
             $checked = $tab['selected'] ? ' checked' : '';
 
             $html .= '<input type="radio" name="' . StringUtil::escapeHtml($setId) . '" ';
@@ -474,7 +475,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     protected function renderAriaTabs(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
     {
         $this->tabSetCounter++;
-        $setId = $this->idPrefix . '-' . $this->tabSetCounter;
+        $tracker = $renderer->getHeadingIdTracker();
+        $setId = $tracker->uniqueId($this->idPrefix . '-' . $this->tabSetCounter);
 
         // Build wrapper attributes with tablist role
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
@@ -487,11 +489,19 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
 
         $html = '<div' . $attrs . ">\n";
 
-        // Render all tab buttons first
+        $tabIds = [];
         foreach ($tabs as $index => $tab) {
             $tabNum = $index + 1;
-            $tabId = $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-tab' : $setId . '-tab-' . $tabNum;
-            $panelId = $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-panel' : $setId . '-panel-' . $tabNum;
+            $tabIds[$index] = [
+                'tab' => $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-tab' : $tracker->uniqueId($setId . '-tab-' . $tabNum),
+                'panel' => $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-panel' : $tracker->uniqueId($setId . '-panel-' . $tabNum),
+            ];
+        }
+
+        // Render all tab buttons first
+        foreach ($tabs as $index => $tab) {
+            $tabId = $tabIds[$index]['tab'];
+            $panelId = $tabIds[$index]['panel'];
             $selected = $tab['selected'] ? 'true' : 'false';
             $tabindex = $tab['selected'] ? '' : ' tabindex="-1"';
 
@@ -505,9 +515,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
 
         // Render all tab panels
         foreach ($tabs as $index => $tab) {
-            $tabNum = $index + 1;
-            $tabId = $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-tab' : $setId . '-tab-' . $tabNum;
-            $panelId = $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-panel' : $setId . '-panel-' . $tabNum;
+            $tabId = $tabIds[$index]['tab'];
+            $panelId = $tabIds[$index]['panel'];
             $hidden = $tab['selected'] ? '' : ' hidden';
 
             $html .= '<div role="tabpanel" id="' . $panelId . '" ';

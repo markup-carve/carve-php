@@ -92,6 +92,37 @@ class CitationsExtensionTest extends TestCase
         $this->assertStringContainsString('<li id="ref-a">Entry A.</li>', $html);
     }
 
+    public function testNoCollisionIdsRemainStable(): void
+    {
+        $html = $this->bibHtml('See [@foo].', [
+            ['id' => 'foo', 'title' => 'Foo'],
+        ]);
+
+        $this->assertStringContainsString('<a id="cite-foo-1" data-cite-key="foo" href="#ref-foo">1</a>', $html);
+        $this->assertStringContainsString('<li id="ref-foo">Foo. <a href="#cite-foo-1"', $html);
+    }
+
+    public function testCitationAnchorIdsAvoidHeadingIdsAndBackrefsFollow(): void
+    {
+        $html = $this->bibHtml("# cite foo 1\n\nSee [@foo].", [
+            ['id' => 'foo', 'title' => 'Foo'],
+        ]);
+
+        $this->assertStringContainsString('<section id="cite-foo-1">', $html);
+        $this->assertStringContainsString('<a id="cite-foo-1-2" data-cite-key="foo" href="#ref-foo">1</a>', $html);
+        $this->assertStringContainsString('<a href="#cite-foo-1-2" class="ref-backref">', $html);
+    }
+
+    public function testReferenceIdsAvoidExplicitIdsAndCitationsFollow(): void
+    {
+        $html = $this->bibHtml("{#ref-foo}\nReserved.\n\nSee [@foo].", [
+            ['id' => 'foo', 'title' => 'Foo'],
+        ]);
+
+        $this->assertStringContainsString('<a id="cite-foo-1" data-cite-key="foo" href="#ref-foo-2">1</a>', $html);
+        $this->assertStringContainsString('<li id="ref-foo-2">Foo.', $html);
+    }
+
     public function testNumbersByFirstCitationOrder(): void
     {
         $html = $this->html("[@b] then [@a].\n\n[@a]: A.\n\n[@b]: B.");
