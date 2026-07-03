@@ -134,15 +134,7 @@ class HeadingIdTracker
      */
     public function getIdForText(string $plainText): string
     {
-        $baseId = $this->normalizeId($plainText);
-
-        if (!isset($this->usedIds[$baseId])) {
-            $this->usedIds[$baseId] = 1;
-            $id = $baseId;
-        } else {
-            $this->usedIds[$baseId]++;
-            $id = $baseId . '-' . $this->usedIds[$baseId];
-        }
+        $id = $this->dedupe($this->normalizeId($plainText));
 
         if (!isset($this->textById[$id])) {
             $this->textById[$id] = $plainText;
@@ -150,6 +142,30 @@ class HeadingIdTracker
         }
 
         return $id;
+    }
+
+    /**
+     * Track $baseId and return it, or on collision the next free 1-based
+     * suffix (second use -> -2, -> -3). Skips suffix candidates that are
+     * already reserved - an explicit `{#Foo-2}` must not be silently
+     * duplicated by an auto-id collision on `# Foo`.
+     */
+    protected function dedupe(string $baseId): string
+    {
+        if (!isset($this->usedIds[$baseId])) {
+            $this->usedIds[$baseId] = 1;
+
+            return $baseId;
+        }
+
+        do {
+            $this->usedIds[$baseId]++;
+            $candidate = $baseId . '-' . $this->usedIds[$baseId];
+        } while (isset($this->usedIds[$candidate]));
+
+        $this->usedIds[$candidate] = 1;
+
+        return $candidate;
     }
 
     /**
@@ -405,16 +421,6 @@ class HeadingIdTracker
 
         $baseId = $this->normalizeId($headingText);
 
-        // Track and deduplicate. First use is bare; later collisions
-        // take the next 1-based numeric suffix (second -> -2, -> -3).
-        if (!isset($this->usedIds[$baseId])) {
-            $this->usedIds[$baseId] = 1;
-
-            return $baseId;
-        }
-
-        $this->usedIds[$baseId]++;
-
-        return $baseId . '-' . $this->usedIds[$baseId];
+        return $this->dedupe($baseId);
     }
 }
