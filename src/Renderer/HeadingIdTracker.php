@@ -169,6 +169,18 @@ class HeadingIdTracker
     }
 
     /**
+     * Reserve a unique id in the document id namespace.
+     *
+     * Returns $baseId when free, otherwise the next free 1-based suffix
+     * ($baseId-2, -3, ...), skipping candidates already reserved by explicit
+     * attributes or previously generated ids.
+     */
+    public function uniqueId(string $baseId): string
+    {
+        return $this->dedupe($baseId);
+    }
+
+    /**
      * Plain text of the heading owning $id, for </#id> cross-references.
      */
     public function getTextForId(string $id): ?string

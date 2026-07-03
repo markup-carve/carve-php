@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\MatcherContext;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
@@ -89,6 +90,18 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      * @var array<string, int>
      */
     protected array $uses = [];
+
+    /**
+     * @var array<string, string>
+     */
+    protected array $citeIds = [];
+
+    /**
+     * @var array<string, string>
+     */
+    protected array $refIds = [];
+
+    protected bool $idsReserved = false;
 
     /**
      * Whether a CSL-JSON bibliography pool was supplied (Tier-3, #199). When
@@ -164,6 +177,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $this->numbers = [];
         $this->order = [];
         $this->uses = [];
+        $this->citeIds = [];
+        $this->refIds = [];
+        $this->idsReserved = false;
         $this->bracketPairs = [];
 
         $this->collectDefinitions($document);
@@ -185,6 +201,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $this->numbers = [];
         $this->order = [];
         $this->uses = [];
+        $this->citeIds = [];
+        $this->refIds = [];
+        $this->idsReserved = false;
 
         $this->walkCitationGroups($renderDocument, function (CitationGroup $group): void {
             $items = $group->getItems();
@@ -709,6 +728,8 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
     protected function renderCitationGroup(CitationGroup $group, HtmlRenderer $renderer): string
     {
+        $this->reserveIds($renderer->getHeadingIdTracker());
+
         foreach ($group->getItems() as $item) {
             if (!isset($this->definitions[$item['key']])) {
                 return $this->escapeHtml($group->getRaw());
@@ -728,8 +749,9 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             // Back-link anchor on the per-key item (only with a bibliography pool, §6.3).
             $useIndex = $this->hasBibliography ? $group->getAttribute('cite-use-' . $index) : null;
             $idAttr = ($useIndex !== null && $useIndex !== '')
-                ? 'id="cite-' . $renderer->escapeAttribute($key) . '-' . $useIndex . '" '
+                ? 'id="' . $renderer->escapeAttribute($this->citeIds[$key . '-' . $useIndex] ?? ('cite-' . $key . '-' . $useIndex)) . '" '
                 : '';
+            $refId = $this->refIds[$key] ?? 'ref-' . $key;
 
             // Build data-* attributes in canonical order.
             $dataAttrs = 'data-cite-key="' . $renderer->escapeAttribute($key) . '"';
@@ -765,7 +787,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                     $label = (string)($this->numbers[$key] ?? '');
                 }
                 $parts[] = $prefixHtml
-                    . '<a ' . $idAttr . $dataAttrs . ' href="#ref-' . $renderer->escapeAttribute($key) . '">'
+                    . '<a ' . $idAttr . $dataAttrs . ' href="#' . $renderer->escapeAttribute($refId) . '">'
                     . $this->escapeHtml($label) . '</a>'
                     . $locatorHtml;
 
@@ -773,7 +795,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             }
 
             $parts[] = $prefixHtml
-                . '<a ' . $idAttr . $dataAttrs . ' href="#ref-' . $renderer->escapeAttribute($key) . '">'
+                . '<a ' . $idAttr . $dataAttrs . ' href="#' . $renderer->escapeAttribute($refId) . '">'
                 . ($this->numbers[$key] ?? '') . '</a>'
                 . $locatorHtml;
         }
@@ -835,6 +857,8 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
     protected function renderReferencesList(HtmlRenderer $renderer): string
     {
+        $this->reserveIds($renderer->getHeadingIdTracker());
+
         $keys = $this->order;
         if ($this->mode === 'author-date') {
             usort($keys, function (string $a, string $b): int {
@@ -856,7 +880,8 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 $count = $this->uses[$key] ?? 0;
                 $links = [];
                 for ($m = 1; $m <= $count; $m++) {
-                    $links[] = '<a href="#cite-' . $renderer->escapeAttribute($key) . '-' . $m
+                    $citeId = $this->citeIds[$key . '-' . $m] ?? ('cite-' . $key . '-' . $m);
+                    $links[] = '<a href="#' . $renderer->escapeAttribute($citeId)
                         . '" class="ref-backref">↩</a>';
                 }
                 if ($links !== []) {
@@ -864,12 +889,32 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 }
             }
 
-            $html .= '  <li id="ref-' . $renderer->escapeAttribute($key) . '">'
+            $refId = $this->refIds[$key] ?? 'ref-' . $key;
+            $html .= '  <li id="' . $renderer->escapeAttribute($refId) . '">'
                 . $body . $backlinks . "</li>\n";
         }
         $html .= '</' . $tag . ">\n";
 
         return $html;
+    }
+
+    protected function reserveIds(HeadingIdTracker $tracker): void
+    {
+        if ($this->idsReserved) {
+            return;
+        }
+
+        foreach ($this->uses as $key => $count) {
+            for ($n = 1; $n <= $count; $n++) {
+                $this->citeIds[$key . '-' . $n] = $tracker->uniqueId('cite-' . $key . '-' . $n);
+            }
+        }
+
+        foreach ($this->order as $key) {
+            $this->refIds[$key] = $tracker->uniqueId('ref-' . $key);
+        }
+
+        $this->idsReserved = true;
     }
 
     /**

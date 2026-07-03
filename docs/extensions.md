@@ -596,6 +596,13 @@ Constructor options:
 - `radioClass` (`string`, default `'tabs-radio'`).
 - `idPrefix` (`string`, default `'tabset'`).
 
+Generated ids (`tabset-1`, `tabset-1-tab-1`, ...) are deduplicated against the
+document id namespace: when an explicit `{#id}` attribute or a generated
+heading id already uses a name, the tab set takes the next free suffix
+(`tabset-1-2`) instead of emitting a duplicate DOM id. The same applies to
+`CodeGroupExtension` group ids and the citation anchor/reference ids
+(`cite-{key}-{n}`, `ref-{key}`).
+
 ~~~ php
 $converter->addExtension(new TabsExtension()); // CSS-only
 $converter->addExtension(new TabsExtension(mode: 'aria'));
