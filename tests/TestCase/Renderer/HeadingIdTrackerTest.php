@@ -137,6 +137,52 @@ class HeadingIdTrackerTest extends TestCase
         $this->assertSame('My-Heading', $id);
     }
 
+    public function testDeduplicationSkipsReservedSuffixCandidate(): void
+    {
+        // Explicit `{#Final-Thoughts-2}` elsewhere in the document
+        $this->tracker->trackId('Final-Thoughts-2');
+
+        $heading1 = new Heading(2);
+        $heading1->appendChild(new Text('Final Thoughts'));
+
+        $heading2 = new Heading(2);
+        $heading2->appendChild(new Text('Final Thoughts'));
+
+        $id1 = $this->tracker->getIdForHeading($heading1);
+        $id2 = $this->tracker->getIdForHeading($heading2);
+
+        $this->assertSame('Final-Thoughts', $id1);
+        $this->assertSame('Final-Thoughts-3', $id2);
+    }
+
+    public function testGetIdForTextSkipsReservedSuffixCandidate(): void
+    {
+        // Explicit `{#Final-Thoughts-2}` elsewhere in the document; the
+        // parser's plain-heading fast path must agree with getIdForHeading()
+        $this->tracker->trackId('Final-Thoughts-2');
+
+        $id1 = $this->tracker->getIdForText('Final Thoughts');
+        $id2 = $this->tracker->getIdForText('Final Thoughts');
+
+        $this->assertSame('Final-Thoughts', $id1);
+        $this->assertSame('Final-Thoughts-3', $id2);
+    }
+
+    public function testFallbackDeduplicationSkipsReservedSuffixCandidate(): void
+    {
+        // Explicit `{#s-2}` elsewhere in the document; empty headings slug to `s`
+        $this->tracker->trackId('s-2');
+
+        $heading1 = new Heading(2);
+        $heading2 = new Heading(2);
+
+        $id1 = $this->tracker->getIdForHeading($heading1);
+        $id2 = $this->tracker->getIdForHeading($heading2);
+
+        $this->assertSame('s', $id1);
+        $this->assertSame('s-3', $id2);
+    }
+
     public function testTrackIdEmptyStringIgnored(): void
     {
         $this->tracker->trackId('');
