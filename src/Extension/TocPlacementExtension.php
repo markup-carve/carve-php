@@ -7,8 +7,10 @@ namespace MarkupCarve\Carve\Extension;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -161,23 +163,40 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
     }
 
     /**
-     * Collect the document's top-level headings in document order.
+     * Collect every heading in document order, recursing into container blocks
+     * so headings nested in `::: note`, blockquotes, lists, etc. are included
+     * (they render with id anchors). Footnote definitions are skipped: their
+     * headings get no id, so they must never appear in the TOC.
      *
      * @return list<\MarkupCarve\Carve\Node\Block\Heading>
      */
     protected function collectHeadings(): array
     {
         $headings = [];
-        if ($this->document === null) {
-            return $headings;
-        }
-        foreach ($this->document->getChildren() as $child) {
-            if ($child instanceof Heading) {
-                $headings[] = $child;
-            }
+        if ($this->document !== null) {
+            $this->walkHeadings($this->document, $headings);
         }
 
         return $headings;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param list<\MarkupCarve\Carve\Node\Block\Heading> $headings
+     */
+    protected function walkHeadings(Node $node, array &$headings): void
+    {
+        if ($node instanceof Footnote) {
+            return;
+        }
+        if ($node instanceof Heading) {
+            $headings[] = $node;
+
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->walkHeadings($child, $headings);
+        }
     }
 
     /**
