@@ -181,6 +181,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param list<\MarkupCarve\Carve\Node\Block\Heading> $headings
      */
     protected function walkHeadings(Node $node, array &$headings): void
