@@ -88,4 +88,13 @@ class TocPlacementExtensionTest extends TestCase
         $this->assertStringContainsString('class="toc"', $out);
         $this->assertStringNotContainsString('<nav', $out);
     }
+
+    public function testIncludesNestedContainerHeadings(): void
+    {
+        // Headings inside ::: note and blockquotes render with id anchors, so
+        // the placed TOC includes them.
+        $out = $this->html("::: toc\n:::\n\n# Top\n\n::: note\n## InNote\n:::\n\n> ## InQuote\n");
+        $this->assertStringContainsString('<a href="#InNote">InNote</a>', $out);
+        $this->assertStringContainsString('<a href="#InQuote">InQuote</a>', $out);
+    }
 }
