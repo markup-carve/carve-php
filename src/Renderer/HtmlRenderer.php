@@ -462,7 +462,28 @@ class HtmlRenderer implements RendererInterface
                 // referenced produces no section (matching carve-js); an empty
                 // <ol> would otherwise leak.
                 if ($this->sharedRenderContext->footnoteNumbers !== []) {
-                    $html .= $this->renderFootnotesSection();
+                    // By now every footnote is numbered. If the document has a
+                    // `::: footnotes` placement block, flush the section at its
+                    // sentinel instead of appending at the end; otherwise append.
+                    if (str_contains($html, self::FOOTNOTES_PLACEMENT_SENTINEL)) {
+                        $html = $this->placeFootnotesSection($html);
+                    } else {
+                        $html .= $this->renderFootnotesSection();
+                    }
+                }
+
+                // Sweep any sentinel that still remains and degrade it to an
+                // empty placeholder: a `::: footnotes` nested INSIDE a footnote
+                // definition emits a sentinel while the endnotes section renders
+                // (after the body check above), and a marker in a document with
+                // no footnotes never hit the branch above. Never leak the raw
+                // sentinel into output.
+                if (str_contains($html, self::FOOTNOTES_PLACEMENT_SENTINEL)) {
+                    $html = str_replace(
+                        self::FOOTNOTES_PLACEMENT_SENTINEL,
+                        '<div class="footnotes"></div>',
+                        $html,
+                    );
                 }
 
                 return $html;
@@ -1064,12 +1085,38 @@ class HtmlRenderer implements RendererInterface
      */
     protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
+    /**
+     * Private sentinel emitted for a `::: footnotes` placement block; render()
+     * swaps it for the endnotes section (relocated from the document end) or, in
+     * a document with no footnotes, for a graceful empty placeholder. Uses a
+     * control character that cannot appear in rendered HTML output.
+     *
+     * @var string
+     */
+    protected const FOOTNOTES_PLACEMENT_SENTINEL = "\x00carve:footnotes-placement\x00";
+
+    /**
+     * True while rendering the endnotes section's footnote bodies. A
+     * `::: footnotes` block nested inside a footnote definition must NOT emit a
+     * placement sentinel (it renders as an ordinary div, matching carve-js);
+     * otherwise the sentinel would leak into the endnotes output.
+     */
+    protected bool $renderingFootnoteSection = false;
+
     protected function renderDiv(Div $node): string
     {
         $class = $node->getAttribute('class');
         $classes = is_string($class) && $class !== ''
             ? preg_split('/\s+/', trim($class)) ?: []
             : [];
+        // `::: footnotes` placement directive: emit a sentinel that render()
+        // replaces with the endnotes section, relocating it from the document
+        // end. A document without this block is byte-identical to before. Not
+        // emitted while rendering footnote bodies (a nested `::: footnotes`
+        // there renders as an ordinary div).
+        if (in_array('footnotes', $classes, true) && !$this->renderingFootnoteSection) {
+            return self::FOOTNOTES_PLACEMENT_SENTINEL;
+        }
         $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
 
         // A quoted title (PART 9 §12) is stored as the `title` attribute;
@@ -1984,6 +2031,11 @@ class HtmlRenderer implements RendererInterface
         $renderedContents = [];
         $processedNumbers = [];
 
+        // Suppress `::: footnotes` placement while rendering footnote bodies, so
+        // a nested marker never emits a sentinel into the endnotes section.
+        $wasRenderingFootnoteSection = $this->renderingFootnoteSection;
+        $this->renderingFootnoteSection = true;
+
         do {
             $newFootnotes = false;
             foreach ($context->footnoteNumbers as $label => $number) {
@@ -2008,6 +2060,8 @@ class HtmlRenderer implements RendererInterface
                 }
             }
         } while ($newFootnotes);
+
+        $this->renderingFootnoteSection = $wasRenderingFootnoteSection;
 
         // Sort footnotes by their reference number order
         ksort($renderedContents);
@@ -2084,6 +2138,23 @@ class HtmlRenderer implements RendererInterface
         }
 
         return implode(' ', $links);
+    }
+
+    /**
+     * Relocate the endnotes section to the first `::: footnotes` placement
+     * sentinel. Any additional sentinels degrade to an empty placeholder, so a
+     * second `::: footnotes` block never duplicates the section.
+     */
+    protected function placeFootnotesSection(string $html): string
+    {
+        $section = $this->renderFootnotesSection();
+        $sentinel = self::FOOTNOTES_PLACEMENT_SENTINEL;
+        $pos = strpos($html, $sentinel);
+        if ($pos !== false) {
+            $html = substr($html, 0, $pos) . $section . substr($html, $pos + strlen($sentinel));
+        }
+
+        return str_replace($sentinel, '<div class="footnotes"></div>', $html);
     }
 
     protected function renderFootnoteRef(FootnoteRef $node): string
