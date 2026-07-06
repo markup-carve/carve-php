@@ -97,4 +97,30 @@ class TocPlacementExtensionTest extends TestCase
         $this->assertStringContainsString('<a href="#InNote">InNote</a>', $out);
         $this->assertStringContainsString('<a href="#InQuote">InQuote</a>', $out);
     }
+
+    public function testNestsDeeperHeadingUnderShallowerPredecessor(): void
+    {
+        // # A / ### B / ## C / ### D: D must nest under C, not flatten under it.
+        $out = $this->html("::: toc\n:::\n\n# A\n\n### B\n\n## C\n\n### D\n");
+        $this->assertStringContainsString("C</a>\n<ul>\n<li><a href=\"#D\">D</a></li>", $out);
+    }
+
+    public function testStripsBidiControlsFromTocText(): void
+    {
+        $out = $this->html("::: toc\n:::\n\n# A\u{202E}evil\n");
+        $nav = substr($out, 0, (int)strpos($out, '</nav>'));
+        $this->assertStringNotContainsString("\u{202E}", $nav);
+    }
+
+    public function testBoundsAmplificationFromManyTocBlocks(): void
+    {
+        $doc = '';
+        for ($i = 0; $i < 50; $i++) {
+            $doc .= "# Heading number $i with length\n\n";
+        }
+        $blocks = str_repeat("::: toc\n:::\n\n", 5000);
+        $src = $blocks . $doc;
+        $out = $this->html($src);
+        $this->assertLessThan((int)(max(1000000, 8 * strlen($src)) * 1.3), strlen($out));
+    }
 }
