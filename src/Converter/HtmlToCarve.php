@@ -1911,8 +1911,10 @@ class HtmlToCarve
             return '\\' . $node->textContent;
         }
 
-        // Check for raw inline content (round-trip support)
-        if ($node->hasAttribute('data-djot-raw')) {
+        // Check for raw inline content (round-trip support). Only honor it for
+        // trusted input: `data-djot-raw="html"` emits a `{=html}` raw-inline
+        // verbatim, so untrusted HTML could smuggle live <script> through it.
+        if ($node->hasAttribute('data-djot-raw') && $this->trustedRoundTrip) {
             return $this->processRawInline($node);
         }
 
@@ -2444,6 +2446,14 @@ class HtmlToCarve
 
     protected function requiresRawImageFallback(string $alt): bool
     {
+        // The raw-HTML fallback re-emits the original element verbatim (a
+        // `{=html}` block), so untrusted HTML could smuggle live script /
+        // event handlers (`<img onerror=...>`) through it. Only trusted input
+        // may use it; otherwise fall through to safe `![alt](src)` processing.
+        if (!$this->trustedRoundTrip) {
+            return false;
+        }
+
         return strpbrk($alt, '[]\\') !== false;
     }
 
