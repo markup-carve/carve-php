@@ -210,6 +210,9 @@ class TableOfContentsExtension implements ResettableExtensionInterface
                     }
 
                     $html .= '</li>' . "\n";
+                    // Record this entry's (shallower) level so a later deeper
+                    // heading nests under IT, not the stale reused-list level.
+                    $levelStack[$depth - 1] = $level;
                 }
             }
 
