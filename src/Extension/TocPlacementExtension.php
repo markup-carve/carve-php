@@ -60,18 +60,68 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
     private const RESERVED_ATTRS = ['depth', 'from', 'to'];
 
     /**
+     * Base (floor) byte budget for cumulative `<nav>` output, applied even for
+     * tiny sources. Mirrors IndexExtension's re-emission budget.
+     *
+     * @var int
+     */
+    private const BUDGET_BASE = 1000000;
+
+    /**
+     * Budget multiplier applied to the source byte length.
+     *
+     * @var int
+     */
+    private const BUDGET_FACTOR = 8;
+
+    /**
      * The document captured in beforeRender(), walked at render time to collect
      * headings (their ids are resolved by then via the renderer's pre-resolve).
      */
     protected ?Document $document = null;
+
+    /**
+     * Cumulative `<nav>` bytes emitted by `::: toc` blocks in the current render.
+     */
+    protected int $emittedBytes = 0;
+
+    /**
+     * Per-render output budget; bounds K blocks x N headings amplification.
+     */
+    protected int $budget = self::BUDGET_BASE;
 
     public function beforeRender(Document $document): Document
     {
         // Keep the same instance the renderer pre-resolves, so getIdForHeading()
         // (keyed by spl_object_id) returns the cached, dedup-aware ids.
         $this->document = $document;
+        $this->emittedBytes = 0;
+        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getSourceLength());
 
         return $document;
+    }
+
+    /**
+     * Charge emitted `<nav>` bytes against the per-render budget; false once
+     * exhausted (the caller then degrades to an empty nav).
+     */
+    protected function charge(int $bytes): bool
+    {
+        if ($this->emittedBytes + $bytes > $this->budget) {
+            return false;
+        }
+        $this->emittedBytes += $bytes;
+
+        return true;
+    }
+
+    /**
+     * Strip Trojan-Source bidi-override / isolate controls (§26) so a TOC link
+     * cannot visually spoof its target, matching the core heading-text policy.
+     */
+    protected function stripBidi(string $text): string
+    {
+        return preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text) ?? $text;
     }
 
     public function register(CarveConverter $converter): void
@@ -108,15 +158,24 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             }
             $entries[] = [
                 'level' => $level,
-                'text' => $tracker->getPlainText($heading),
+                'text' => $this->stripBidi($tracker->getPlainText($heading)),
                 'id' => $tracker->getIdForHeading($heading),
             ];
         }
 
         $attrs = $this->openAttributes($div, $renderer);
-        $nav = $entries === []
-            ? '<nav' . $attrs . '></nav>'
-            : '<nav' . $attrs . ">\n" . $this->renderTocList($entries) . '</nav>';
+        $emptyNav = '<nav' . $attrs . '></nav>';
+        if ($entries === []) {
+            $nav = $emptyNav;
+        } else {
+            $nav = '<nav' . $attrs . ">\n" . $this->renderTocList($entries) . '</nav>';
+            // Bound cumulative nav bytes across all `::: toc` blocks in one
+            // render: K blocks x N headings would otherwise amplify output
+            // ~K*N. Once the budget is exhausted, degrade to an empty nav.
+            if (!$this->charge(strlen($nav))) {
+                $nav = $emptyNav;
+            }
+        }
 
         // Preserve any authored content inside the placeholder before the nav.
         $body = rtrim($childrenHtml, "\n");
@@ -270,6 +329,10 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
                     }
 
                     $html .= "</li>\n";
+                    // Record this entry's (shallower) level so a later deeper
+                    // heading nests under IT, not the stale level of the reused
+                    // list (else `# A/### B/## C/### D` flattens D under C).
+                    $levelStack[$depth - 1] = $level;
                 }
             }
 

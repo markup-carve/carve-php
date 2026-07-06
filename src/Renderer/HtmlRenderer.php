@@ -1115,7 +1115,11 @@ class HtmlRenderer implements RendererInterface
         // emitted while rendering footnote bodies (a nested `::: footnotes`
         // there renders as an ordinary div).
         if (in_array('footnotes', $classes, true) && !$this->renderingFootnoteSection) {
-            return self::FOOTNOTES_PLACEMENT_SENTINEL;
+            // Preserve any blocks authored inside the placeholder before the
+            // relocated endnotes (matching carve-js), then the sentinel.
+            $body = rtrim($this->renderChildren($node), "\n");
+
+            return ($body !== '' ? $body . "\n" : '') . self::FOOTNOTES_PLACEMENT_SENTINEL;
         }
         $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
 
@@ -2032,36 +2036,41 @@ class HtmlRenderer implements RendererInterface
         $processedNumbers = [];
 
         // Suppress `::: footnotes` placement while rendering footnote bodies, so
-        // a nested marker never emits a sentinel into the endnotes section.
+        // a nested marker never emits a sentinel into the endnotes section. Use
+        // try/finally so a throw during body render cannot leave the flag stuck
+        // true on the reused renderer (which would break placement on every
+        // later convert() call).
         $wasRenderingFootnoteSection = $this->renderingFootnoteSection;
         $this->renderingFootnoteSection = true;
 
-        do {
-            $newFootnotes = false;
-            foreach ($context->footnoteNumbers as $label => $number) {
-                if (isset($processedNumbers[$number])) {
-                    continue;
-                }
-                $processedNumbers[$number] = true;
+        try {
+            do {
+                $newFootnotes = false;
+                foreach ($context->footnoteNumbers as $label => $number) {
+                    if (isset($processedNumbers[$number])) {
+                        continue;
+                    }
+                    $processedNumbers[$number] = true;
 
-                if (isset($context->inlineFootnoteRenderers[$number])) {
-                    // Inline footnote - invoke deferred renderer
-                    $renderedContents[$number] = trim(($context->inlineFootnoteRenderers[$number])());
-                } elseif (isset($context->collectedFootnotes[$label])) {
-                    // Regular footnote - rendering may discover new footnote references
-                    $renderedContents[$number] = trim($this->renderChildren($context->collectedFootnotes[$label]));
-                } else {
-                    $renderedContents[$number] = '';
-                }
+                    if (isset($context->inlineFootnoteRenderers[$number])) {
+                        // Inline footnote - invoke deferred renderer
+                        $renderedContents[$number] = trim(($context->inlineFootnoteRenderers[$number])());
+                    } elseif (isset($context->collectedFootnotes[$label])) {
+                        // Regular footnote - rendering may discover new footnote references
+                        $renderedContents[$number] = trim($this->renderChildren($context->collectedFootnotes[$label]));
+                    } else {
+                        $renderedContents[$number] = '';
+                    }
 
-                // Check if new footnotes were discovered during rendering
-                if (count($context->footnoteNumbers) > count($processedNumbers)) {
-                    $newFootnotes = true;
+                    // Check if new footnotes were discovered during rendering
+                    if (count($context->footnoteNumbers) > count($processedNumbers)) {
+                        $newFootnotes = true;
+                    }
                 }
-            }
-        } while ($newFootnotes);
-
-        $this->renderingFootnoteSection = $wasRenderingFootnoteSection;
+            } while ($newFootnotes);
+        } finally {
+            $this->renderingFootnoteSection = $wasRenderingFootnoteSection;
+        }
 
         // Sort footnotes by their reference number order
         ksort($renderedContents);

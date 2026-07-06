@@ -235,7 +235,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testImageWithBracketInAltFallsBackToRawHtml(): void
     {
-        $result = $this->converter->convert('<img src="img.png" alt="a [ b">');
+        $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a [ b\">`{=html}\n", $result);
         $htmlBack = (new CarveConverter())->convert($result);
@@ -244,7 +244,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testImageWithBackslashInAltFallsBackToRawHtml(): void
     {
-        $result = $this->converter->convert('<img src="img.png" alt="a \\ b">');
+        $result = $this->roundTripConverter->convert('<img src="img.png" alt="a \\ b">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a \ b\">`{=html}\n", $result);
         $htmlBack = (new CarveConverter())->convert($result);
@@ -253,7 +253,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testLinkWrappingProblematicImageFallsBackToRawHtml(): void
     {
-        $result = $this->converter->convert('<a href="https://example.com"><img src="img.png" alt="a [ b"></a>');
+        $result = $this->roundTripConverter->convert('<a href="https://example.com"><img src="img.png" alt="a [ b"></a>');
 
         $this->assertSame("`<a href=\"https://example.com\"><img src=\"img.png\" alt=\"a [ b\"></a>`{=html}\n", $result);
         $htmlBack = (new CarveConverter())->convert($result);
@@ -262,10 +262,31 @@ class HtmlToCarveTest extends TestCase
 
     public function testRawImageFallbackStripsDjotMetadata(): void
     {
-        $result = $this->converter->convert('<img src="img.png" alt="a [ b" data-djot-ref="">');
+        $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b" data-djot-ref="">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a [ b\">`{=html}\n", $result);
         $this->assertStringNotContainsString('data-djot-ref', $result);
+    }
+
+    public function testUntrustedRawImageFallbackIsSafe(): void
+    {
+        // The raw-HTML fallback (brackets/backslash in alt) must NOT emit raw
+        // HTML in the default untrusted converter; a hostile onerror must not
+        // survive round-trip to live HTML.
+        $result = $this->converter->convert('<img src=x onerror=alert(1) alt="[evil]">');
+        $this->assertStringNotContainsString('{=html}', $result);
+        $this->assertStringNotContainsString('onerror', $result);
+        $htmlBack = (new CarveConverter())->convert($result);
+        $this->assertStringNotContainsString('onerror', $htmlBack);
+    }
+
+    public function testUntrustedDataDjotRawSpanIsSafe(): void
+    {
+        // `data-djot-raw` raw-inline must be ignored for untrusted input.
+        $result = $this->converter->convert('<span data-djot-raw="html"><script>alert(1)</script></span>');
+        $this->assertStringNotContainsString('{=html}', $result);
+        $htmlBack = (new CarveConverter())->convert($result);
+        $this->assertStringNotContainsString('<script>', $htmlBack);
     }
 
     // ==================== Code ====================

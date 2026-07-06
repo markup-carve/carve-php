@@ -64,4 +64,14 @@ class FootnotesPlacementTest extends TestCase
         $this->assertStringNotContainsString("\x00", $out);
         $this->assertStringContainsString('<div class="footnotes">', $out);
     }
+
+    public function testPreservesAuthoredContentInsidePlacementBlock(): void
+    {
+        $out = $this->html("X[^a].\n\n::: footnotes\nNotes below:\n:::\n\n[^a]: note\n");
+        $this->assertStringContainsString('Notes below:', $out);
+        $this->assertLessThan(
+            (int)strpos($out, 'role="doc-endnotes"'),
+            (int)strpos($out, 'Notes below:'),
+        );
+    }
 }
