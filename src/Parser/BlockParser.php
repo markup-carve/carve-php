@@ -1141,13 +1141,11 @@ class BlockParser
             return null;
         }
 
-        // Empty attribute block {} - consumed, contributes nothing
-        // (mirrors tryParseBlockAttributes).
-        if (preg_match('/^\{\}\s*$/', $line)) {
-            $consumed = 1;
-
-            return '';
-        }
+        // A bare `{}` line is NOT a block-attribute block: block_attributes
+        // requires at least one attribute (grammar §15), and there is no
+        // block-level blessed-empty exception (only the inline `[text]{}` form
+        // is blessed). So it stays a literal paragraph, matching carve-js /
+        // carve-rs.
 
         // Single-line block: {.class #id key=value}, including adjacent
         // blocks that merge in order: {.class}{#id}.
@@ -1384,10 +1382,9 @@ class BlockParser
             return null;
         }
 
-        // Check for empty attribute block {} - just skip it
-        if (preg_match('/^\{\}\s*$/', $line)) {
-            return 1;
-        }
+        // A bare `{}` line is NOT a block-attribute block (block_attributes
+        // needs >= 1 attribute, no block-level blessed-empty); it stays a
+        // literal paragraph, matching carve-js / carve-rs.
 
         // Check for single-line attribute: {.class}, {#id}, {key=value}, or
         // adjacent blocks like {.class}{#id}.

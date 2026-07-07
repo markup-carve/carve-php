@@ -1646,6 +1646,13 @@ class HtmlRenderer implements RendererInterface
             $attrs = $this->safeMode->filterAttributes($attrs);
         }
 
+        // Dedup repeated class values keeping first-occurrence order
+        // (`{.a .a}` -> `class="a"`, §15), matching carve-js / carve-rs.
+        if (isset($attrs['class']) && $attrs['class'] !== '') {
+            $classes = preg_split('/\s+/', trim((string)$attrs['class'])) ?: [];
+            $attrs['class'] = implode(' ', array_values(array_unique($classes)));
+        }
+
         return $attrs;
     }
 

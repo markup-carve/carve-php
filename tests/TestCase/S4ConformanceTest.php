@@ -29,10 +29,12 @@ class S4ConformanceTest extends TestCase
         );
     }
 
-    public function testClassesAreNotDeduplicated(): void
+    public function testClassesAreDeduplicated(): void
     {
-        // grammar §15: classes accumulate in source order, no de-dup
-        $this->assertSame('<p><span class="a a">x</span></p>' . "\n", $this->c->convert('[x]{.a .a}'));
+        // grammar §15: classes accumulate in source order, deduping repeats
+        // (matches carve-js / carve-rs).
+        $this->assertSame('<p><span class="a">x</span></p>' . "\n", $this->c->convert('[x]{.a .a}'));
+        $this->assertSame('<p><span class="a b">x</span></p>' . "\n", $this->c->convert('[x]{.a .b .a}'));
     }
 
     public function testBareHashIsNotAHeading(): void
