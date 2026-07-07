@@ -156,6 +156,11 @@ class CarveCorpusTest extends TestCase
         '118-trojan-source-rendered-text-and-code-strip-bidi-override-controls',
         '119-scheme-probe-strips-unicode-whitespace',
         '120-footnotes-placement',
+        '121-classes-are-deduplicated',
+        '122-code-span-and-image-trailing-attributes-are-strict',
+        '123-a-bare-attribute-block-on-its-own-line-is-literal',
+        '124-a-backslash-in-a-link-destination-is-a-literal-character',
+        '125-autolink-display-keeps-the-raw-content',
     ];
 
     /**

@@ -590,7 +590,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
             $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
-            $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref(str_starts_with((string)$node->getDestination(), 'mailto:') ? substr((string)$node->getDestination(), 7) : (string)$node->getDestination()) . '>'),
+            $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof Span && $node->hasClass('critic-comment') => '{#' . $this->escapeCriticText($this->plainInlineText($node)) . '#}',
@@ -842,7 +842,10 @@ class CarveRenderer implements RendererInterface
             $scheme = strtolower($m[1]);
         }
         $sanitizeBlank = $scheme !== null && in_array($scheme, ['javascript', 'vbscript', 'data', 'file'], true);
-        $text = (string)preg_replace_callback('/[\\\\\s]/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : '\\' . $m[0], $text);
+        // A backslash is a literal destination character (no destination
+        // escapes), emitted verbatim -- escaping it would double on re-parse.
+        // Whitespace is percent-encoded (it would otherwise end the destination).
+        $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : sprintf('%%%02X', ord($m[0])), $text);
 
         return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
     }
