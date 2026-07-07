@@ -1728,8 +1728,9 @@ class InlineParser
                     return null;
                 }
 
-                // Process escape sequences in URL (e.g., \* -> *)
-                $url = preg_replace('/\\\\(.)/', '$1', $url) ?? $url;
+                // A link destination has NO backslash escapes: a backslash is
+                // an ordinary URL character (grammar url_char), kept verbatim,
+                // matching carve-js / carve-rs. `[t](a\b)` -> href="a\b".
                 $link = new Link($url, $title);
                 $this->parseInlines($link, $linkText);
 

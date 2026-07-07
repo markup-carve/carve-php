@@ -517,9 +517,9 @@ class InlineParserTest extends TestCase
     }
 
     /**
-     * Test: Escaped underscore in URL
+     * Test: Backslash in URL is a literal character (no destination escapes)
      */
-    public function testEmphasisWithEscapedUnderscoreInDestination(): void
+    public function testBackslashInDestinationIsLiteral(): void
     {
         $para = $this->parseInline('/[link](path/to\_file)/');
 
@@ -529,8 +529,9 @@ class InlineParserTest extends TestCase
 
         $emChildren = $children[0]->getChildren();
         $this->assertInstanceOf(Link::class, $emChildren[0]);
-        // Escape is processed, so _ becomes literal
-        $this->assertSame('path/to_file', $emChildren[0]->getDestination());
+        // A link destination has no backslash escapes; the backslash is kept
+        // verbatim (grammar url_char), matching carve-js / carve-rs.
+        $this->assertSame('path/to\_file', $emChildren[0]->getDestination());
     }
 
     /**
