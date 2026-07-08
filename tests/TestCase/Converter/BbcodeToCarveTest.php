@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -440,5 +441,16 @@ BBCODE;
         $result = $this->converter->convert('[b]bold[/b]');
 
         $this->assertSame('*bold*', trim($result));
+    }
+
+    public function testCodeLangCannotMintRawHtmlBlock(): void
+    {
+        // An untrusted [code=..] language of `=html` must NOT become a
+        // raw-HTML block; it stays an inert, escaped code block.
+        foreach (['[code= =html]<script>alert(1)</script>[/code]', '[code==html]<script>x</script>[/code]'] as $bb) {
+            $out = $this->converter->convert($bb);
+            $html = (new CarveConverter())->convert($out);
+            $this->assertStringNotContainsString('<script>', $html);
+        }
     }
 }

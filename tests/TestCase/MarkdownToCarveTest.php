@@ -399,4 +399,15 @@ class MarkdownToCarveTest extends TestCase
         $this->assertStringNotContainsString("\x00", $result);
         $this->assertStringContainsString('*bold*', $result);
     }
+
+    public function testForeignCodeFenceCannotMintRawHtmlBlock(): void
+    {
+        // An untrusted code fence whose info string is `=html` must NOT
+        // become a raw-HTML block; it stays an inert, escaped code block.
+        foreach (["```=html\n<script>alert(1)</script>\n```\n", "``` =html\n<script>x</script>\n```\n"] as $md) {
+            $out = $this->converter->convert($md);
+            $html = (new CarveConverter())->convert($out);
+            $this->assertStringNotContainsString('<script>', $html);
+        }
+    }
 }
