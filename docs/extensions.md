@@ -320,6 +320,22 @@ Constructor options:
   placement.
 - `separator` (`string`, default `''`) - HTML inserted between TOC and content
   when `position` is set.
+- `collapsible` (`bool`, default `false`) - wrap the TOC in a
+  `<details>`/`<summary>` disclosure so it can be collapsed. When off (the
+  default) the output is the unchanged `<nav class="toc">`.
+- `summary` (`string`, default `'Table of Contents'`) - disclosure label, used
+  only when `collapsible` is true.
+- `open` (`bool`, default `false`) - render the disclosure expanded by default,
+  used only when `collapsible` is true.
+
+When `collapsible` is on, the heading list sits directly inside the disclosure:
+
+~~~ html
+<details class="toc">
+<summary>Table of Contents</summary>
+<ul> ... </ul>
+</details>
+~~~
 
 ~~~ php
 $toc = new TableOfContentsExtension(minLevel: 2, maxLevel: 3, position: 'top');
