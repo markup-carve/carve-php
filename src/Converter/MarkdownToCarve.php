@@ -67,7 +67,16 @@ class MarkdownToCarve
                 // input; Markdown/Djot may write the space), but emits the
                 // no-space form. The rest of the info is preserved (c++, js
                 // title="x").
-                $result[] = $matches[1] . $matches[2] . ltrim($matches[3]);
+                // A foreign code-fence info string is a LANGUAGE, never a raw
+                // block directive. Neutralize a leading `=` so untrusted
+                // Markdown cannot mint a Carve `=html` raw-HTML block (which the
+                // default renderer would emit as live HTML). `=html` -> `html`
+                // stays an inert, escaped code block.
+                $info = ltrim($matches[3]);
+                if (str_starts_with($info, '=')) {
+                    $info = ltrim(ltrim($info, '='));
+                }
+                $result[] = $matches[1] . $matches[2] . $info;
                 $prevLineType = 'code_fence';
                 $bulletRunBroken = true;
 
