@@ -3708,4 +3708,15 @@ DJOT;
             $this->converter->convert('![*e* `c`](/p)'),
         );
     }
+
+    public function testForwardFootnoteReferenceInsideFootnoteBodyResolves(): void
+    {
+        // A footnote referenced only inside another footnote's body, and
+        // defined LATER, must still resolve (its definition is not dropped),
+        // matching js/rs. Regression: the body was parsed before the later
+        // label was registered, leaving the reference literal.
+        $out = $this->converter->convert("T[^1]\n\n[^1]: a[^2]\n\n[^2]: b\n");
+        $this->assertStringContainsString('id="fn2"', $out);
+        $this->assertStringContainsString('>b<', $out);
+    }
 }
