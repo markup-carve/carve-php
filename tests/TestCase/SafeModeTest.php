@@ -173,7 +173,9 @@ class SafeModeTest extends TestCase
         $djot = '![alt "quoted"](image.png){title="title\" onerror=\"alert(1)"}';
         $result = $converter->convert($djot);
 
-        $this->assertStringContainsString('alt="alt “quoted”"', $result);
+        // Alt text is raw (grammar §864), so quotes are NOT smart-typographied;
+        // the straight quotes are HTML-escaped in the attribute (matches js/rs).
+        $this->assertStringContainsString('alt="alt &quot;quoted&quot;"', $result);
         $this->assertStringContainsString('title="title&quot; onerror=&quot;alert(1)"', $result);
         $this->assertStringNotContainsString('" onerror="alert(1)"', $result);
     }

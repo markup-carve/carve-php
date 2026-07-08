@@ -1633,7 +1633,17 @@ class InlineParser
             ];
         }
 
-        return null;
+        // The loop exhausted every candidate closer as part of a LONGER
+        // backtick run, so there is no equal-length closer: an unclosed run
+        // extends to the end of the block (grammar §712), matching carve-js /
+        // carve-rs. Previously this returned null, making the opener literal and
+        // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
+        $remaining = substr($text, $contentStart);
+
+        return [
+            'node' => new Code($remaining),
+            'pos' => $length,
+        ];
     }
 
     /**
@@ -1947,8 +1957,35 @@ class InlineParser
             return null;
         }
 
-        // Extract alt text from link children
-        $alt = $this->extractText($link);
+        // Alt text is RAW (grammar §864: alt_text = {character - ']'}), NOT
+        // parsed inline: emphasis, code spans, and backslashes are kept
+        // verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``), matching carve-js /
+        // carve-rs. Scan the balanced label directly from the source; a `\`
+        // escapes the next char for close-detection but is kept in the text.
+        // (Previously the alt was derived from the parsed link children, which
+        // stripped markup and dropped code-span content.)
+        $labelStart = $pos + 2;
+        $textLength = strlen($text);
+        $depth = 1;
+        $j = $labelStart;
+        while ($j < $textLength) {
+            $ch = $text[$j];
+            if ($ch === '\\') {
+                $j += 2;
+
+                continue;
+            }
+            if ($ch === '[') {
+                $depth++;
+            } elseif ($ch === ']') {
+                $depth--;
+                if ($depth === 0) {
+                    break;
+                }
+            }
+            $j++;
+        }
+        $alt = substr($text, $labelStart, $j - $labelStart);
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 
