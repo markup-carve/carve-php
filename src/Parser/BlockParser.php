@@ -719,6 +719,10 @@ class BlockParser
         // quoted code content as a real definition.
         $fenceChar = null;
         $fenceLen = 0;
+        // Footnote bodies are parsed AFTER the scan registers every label, so a
+        // forward reference inside a body resolves (`[^1]: a[^2]` before
+        // `[^2]: b`). label -> raw content lines.
+        $deferredBodies = [];
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -804,9 +808,8 @@ class BlockParser
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || preg_match('/^[ \t]*>/', $lines[$i - 1]) === 1;
                     if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
-                        $footnote = new Footnote($label);
-                        $this->parseBlocks($footnote, [$content], 0);
-                        $this->footnotes[$label] = $footnote;
+                        $this->footnotes[$label] = new Footnote($label);
+                        $deferredBodies[$label] = [$content];
                     }
 
                     $i++;
@@ -855,15 +858,20 @@ class BlockParser
                 // later top-level def never overwrites an earlier one, whether
                 // that earlier one was top-level or container-nested.
                 if (!isset($this->footnotes[$label])) {
-                    $footnote = new Footnote($label);
+                    $this->footnotes[$label] = new Footnote($label);
                     if ($contentLines) {
-                        $this->parseBlocks($footnote, $contentLines, 0);
+                        $deferredBodies[$label] = $contentLines;
                     }
-                    $this->footnotes[$label] = $footnote;
                 }
             }
 
             $i++;
+        }
+
+        // Every footnote label is now registered; parse the bodies so a forward
+        // reference to a later-defined footnote inside a body resolves.
+        foreach ($deferredBodies as $label => $bodyLines) {
+            $this->parseBlocks($this->footnotes[$label], $bodyLines, 0);
         }
     }
 
