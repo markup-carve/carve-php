@@ -161,6 +161,7 @@ class CarveCorpusTest extends TestCase
         '123-a-bare-attribute-block-on-its-own-line-is-literal',
         '124-a-backslash-in-a-link-destination-is-a-literal-character',
         '125-autolink-display-keeps-the-raw-content',
+        '126-editorial-markup-takes-a-trailing-attribute',
     ];
 
     /**
