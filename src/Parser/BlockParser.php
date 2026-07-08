@@ -3539,8 +3539,13 @@ class BlockParser
     {
         $header = false;
         $rest = $raw;
-        // `==x==` is a highlight cell, so `=` must not be followed by `=`.
-        if (isset($rest[0]) && $rest[0] === '=' && ($rest[1] ?? '') !== '=') {
+        // A leading `=` glued to the pipe marks a header cell and is stripped;
+        // the remaining content is parsed inline. This holds even when the next
+        // char is also `=` (`|==|` -> <th>=</th>, `|==x==|` -> header cell whose
+        // content `=x==` renders <mark>x</mark>=), matching carve-js / carve-rs.
+        // A SPACED `| ==x== |` is not a header cell: the leading space means
+        // index 0 is not `=`, so it is left untouched here.
+        if (isset($rest[0]) && $rest[0] === '=') {
             $header = true;
             $rest = substr($rest, 1);
         }
@@ -4225,7 +4230,13 @@ class BlockParser
             return false;
         }
 
-        return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1 && !str_starts_with($attrStr, '%');
+        // The payload must be a FULLY valid attribute block (§14), not just
+        // start with an attribute char: an invalid one like `{# id}` (a
+        // space-broken id) is NOT a block-attribute line, so it continues the
+        // paragraph as text rather than splitting it. Matches carve-js / carve-rs.
+        return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1
+            && !str_starts_with($attrStr, '%')
+            && $this->inlineParser->isValidAttrPayload($attrStr);
     }
 
     /**
