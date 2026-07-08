@@ -3719,4 +3719,30 @@ DJOT;
         $this->assertStringContainsString('id="fn2"', $out);
         $this->assertStringContainsString('>b<', $out);
     }
+
+    public function testMathVerbatimUsesMaximalBacktickRun(): void
+    {
+        // Math reuses a code span (maximal run), so `$`a``b`` -> \(a``b\).
+        $this->assertStringContainsString('\\(a``b\\)', $this->converter->convert('$`a``b`'));
+        $this->assertStringContainsString('\\(a\\)', $this->converter->convert('$``a``'));
+    }
+
+    public function testTableHeaderMarkerStrippedEvenWhenContentStartsWithEquals(): void
+    {
+        $out = $this->converter->convert("|==|\n|--|");
+        $this->assertStringContainsString('<th>=</th>', $out);
+    }
+
+    public function testInvalidBlockAttributeLineContinuesParagraph(): void
+    {
+        // `{# id}` is not a valid block-attribute line, so it does not split
+        // the paragraph.
+        $this->assertSame("<p>para\n{# id}</p>\n", $this->converter->convert("para\n{# id}"));
+    }
+
+    public function testEditorialMarkupAttributeSurvivesFormat(): void
+    {
+        // fmt must keep an attribute attached to {++...++} / {--...--}.
+        $this->assertStringContainsString('{.a}', $this->converter->toCarve('{++a++}{.a}'));
+    }
 }

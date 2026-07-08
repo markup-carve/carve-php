@@ -3184,9 +3184,33 @@ class InlineParser
 
         $contentStart = $startPos + $backtickCount;
 
-        // Find closing backticks
+        // Find a closing run of EXACTLY $backtickCount backticks, not one that is
+        // part of a LONGER run -- math reuses a code span (grammar
+        // `math_inline = '$', code_span`), so `$`a``b`` closes at the final
+        // single backtick (content `a``b`), not the doubled run in the middle.
         $closingBackticks = str_repeat('`', $backtickCount);
-        $closePos = strpos($text, $closingBackticks, $contentStart);
+        $searchPos = $contentStart;
+        $closePos = false;
+        while ($searchPos < $length) {
+            $cand = strpos($text, $closingBackticks, $searchPos);
+            if ($cand === false) {
+                break;
+            }
+            $before = $cand > 0 ? $text[$cand - 1] : '';
+            $after = $cand + $backtickCount < $length ? $text[$cand + $backtickCount] : '';
+            if ($before === '`' || $after === '`') {
+                // Part of a longer backtick run: skip the whole run and continue.
+                $searchPos = $cand;
+                while ($searchPos < $length && $text[$searchPos] === '`') {
+                    $searchPos++;
+                }
+
+                continue;
+            }
+            $closePos = $cand;
+
+            break;
+        }
 
         if ($closePos === false) {
             return null;
