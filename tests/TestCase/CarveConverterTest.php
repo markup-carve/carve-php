@@ -3690,4 +3690,22 @@ DJOT;
         $this->assertStringContainsString('<pre class="d2">', $converter->convert("``` d2\na -> b\n```"));
         $this->assertStringContainsString('<div class="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
     }
+
+    public function testUnclosedCodeSpanExtendsToEndOfBlock(): void
+    {
+        // An opener with no equal-length closer (only a longer run) is unclosed
+        // and runs to the end of the block (grammar §712), matching js/rs -- it
+        // must NOT emit the opener literally plus a spurious empty <code>.
+        $this->assertSame("<p><code>a``</code></p>\n", $this->converter->convert('`a``'));
+    }
+
+    public function testImageAltIsRawText(): void
+    {
+        // Alt text is raw (grammar §864): inline markup and code spans are kept
+        // verbatim, not parsed/stripped, matching js/rs.
+        $this->assertSame(
+            '<img src="/p" alt="*e* `c`">' . "\n",
+            $this->converter->convert('![*e* `c`](/p)'),
+        );
+    }
 }
