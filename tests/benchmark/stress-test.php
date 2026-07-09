@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Djot-PHP Stress Test Suite
+ * carve-php Stress Test Suite
  *
  * Pushes the parser to its limits with extreme cases.
  *
@@ -20,7 +20,7 @@ $options = getopt('', ['scenario:', 'json', 'help']);
 
 if (isset($options['help'])) {
     echo <<<HELP
-Djot-PHP Stress Test Suite
+carve-php Stress Test Suite
 
 Usage: php stress-test.php [options]
 
@@ -196,7 +196,7 @@ $scenarios = [
 
                         break;
                     case 1:
-                        $content .= "Paragraph {$i} with *bold* and _italic_ text.\n\n";
+                        $content .= "Paragraph {$i} with *bold* and /italic/ text.\n\n";
 
                         break;
                     case 2:
@@ -250,7 +250,7 @@ $scenarios = [
             for ($p = 0; $p < 500; $p++) {
                 $para = "P{$p}: ";
                 for ($i = 0; $i < 20; $i++) {
-                    $para .= "*b{$i}* _i{$i}_ `c{$i}` [l{$i}](u{$i}) ";
+                    $para .= "*b{$i}* /i{$i}/ `c{$i}` [l{$i}](u{$i}) ";
                     $para .= "{+a{$i}+} {-d{$i}-} {=m{$i}=} ";
                 }
                 $content .= $para . "\n\n";
@@ -382,7 +382,7 @@ $scenarios = [
                 switch ($section) {
                     case 0:
                         $content .= '## Section ' . strlen($content) . "\n\n";
-                        $content .= "A paragraph with *bold* _italic_ `code` and [link](url).\n\n";
+                        $content .= "A paragraph with *bold* /italic/ `code` and [link](url).\n\n";
 
                         break;
                     case 1:
@@ -417,7 +417,7 @@ $scenarios = [
 $results = [];
 
 if (!$jsonOutput) {
-    echo "Djot-PHP Stress Test Suite\n";
+    echo "carve-php Stress Test Suite\n";
     echo "==========================\n";
     echo 'PHP Version: ' . PHP_VERSION . "\n";
     echo 'Memory Limit: ' . ini_get('memory_limit') . "\n";

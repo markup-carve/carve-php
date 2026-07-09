@@ -4,10 +4,10 @@ This document contains a wide variety of djot features to stress-test the parser
 
 ## Typography and Inline Elements
 
-This paragraph has *strong emphasis* and _regular emphasis_ mixed together.
+This paragraph has *strong emphasis* and /regular emphasis/ mixed together.
 Here's some `inline code` and a [link with title](https://example.com "Example Title").
 We also have {+inserted text+} and {-deleted text-} for editing marks.
-The {=highlighted text=} stands out, and we have H{~2~}O for subscript.
+The {=highlighted text=} stands out, and we have H{,2,}O for subscript.
 Math formula: $E = mc^2$ is famous. And x{^2^} for superscript.
 
 ## Smart Typography

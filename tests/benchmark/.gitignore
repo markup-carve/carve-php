@@ -1,20 +1,3 @@
-# Dependencies
-node_modules/
-
 # Results (generated)
 results/
-
-# Lock files
-package-lock.json
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Rust build artifacts
-rust-benchmark/target/
-rust-benchmark/Cargo.lock
-
-# Go build artifacts
-benchmark-go-bin
-go.sum
+benchmark-report.html

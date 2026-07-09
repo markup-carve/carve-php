@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Djot-PHP Benchmark Report Generator
+ * carve-php Benchmark Report Generator
  *
  * Generates beautiful HTML reports from benchmark results.
  *
@@ -15,7 +15,7 @@ $options = getopt('', ['output:', 'help']);
 
 if (isset($options['help'])) {
     echo <<<HELP
-Djot-PHP Benchmark Report Generator
+carve-php Benchmark Report Generator
 
 Usage: php generate-report.php [results.json] [--output=report.html]
 
@@ -36,7 +36,7 @@ $inputFile = $argv[1] ?? null;
 if (!$inputFile) {
     $resultsDir = __DIR__ . '/results';
     if (is_dir($resultsDir)) {
-        $files = glob($resultsDir . '/benchmark-*.json');
+        $files = glob($resultsDir . '/php-benchmark-*.json');
         if ($files) {
             usort($files, fn ($a, $b) => filemtime($b) - filemtime($a));
             $inputFile = $files[0];
@@ -79,22 +79,14 @@ function formatSize(int $bytes): string
     return sprintf('%.1f MB', $bytes / (1024 * 1024));
 }
 
-// Generate comparison data for chart
+// Generate chart data: mean conversion time per fixture
 $chartData = [];
-$baselineFixture = 'generated_medium';
+$baselineFixture = 'medium';
 
-if (isset($results['php']['conversion'][$baselineFixture])) {
-    $chartData['PHP djot-php'] = $results['php']['conversion'][$baselineFixture]['stats']['mean'];
-}
-
-if (isset($results['javascript']['conversion'][$baselineFixture])) {
-    $chartData['JS @djot/djot'] = $results['javascript']['conversion'][$baselineFixture]['stats']['mean'];
-}
-
-if (isset($results['python']['libraries'])) {
-    foreach ($results['python']['libraries'] as $lib) {
-        if (isset($lib['conversion'][$baselineFixture]['stats']['mean'])) {
-            $chartData['Py ' . $lib['name']] = $lib['conversion'][$baselineFixture]['stats']['mean'];
+if (isset($results['conversion'])) {
+    foreach ($results['conversion'] as $name => $data) {
+        if (isset($data['stats']['mean'])) {
+            $chartData[$name] = $data['stats']['mean'];
         }
     }
 }
@@ -106,7 +98,7 @@ $html = <<<HTML
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Djot-PHP Benchmark Report</title>
+    <title>carve-php Benchmark Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -285,16 +277,15 @@ $html = <<<HTML
 <body>
     <div class="container">
         <header>
-            <h1>Djot-PHP Benchmark Report</h1>
-            <p class="subtitle">Performance comparison across implementations</p>
+            <h1>carve-php Benchmark Report</h1>
+            <p class="subtitle">PHP performance results</p>
         </header>
 
 HTML;
 
 // Summary cards
-$phpMean = $results['php']['conversion'][$baselineFixture]['stats']['mean'] ?? null;
-$jsMean = $results['javascript']['conversion'][$baselineFixture]['stats']['mean'] ?? null;
-$phpThroughput = $results['php']['conversion'][$baselineFixture]['throughput_bps'] ?? null;
+$phpMean = $results['conversion'][$baselineFixture]['stats']['mean'] ?? null;
+$phpThroughput = $results['conversion'][$baselineFixture]['throughput_bps'] ?? null;
 
 $html .= '<div class="grid">';
 
@@ -302,7 +293,7 @@ if ($phpMean) {
     $html .= sprintf('
         <div class="card stat-card">
             <div class="stat-value">%s</div>
-            <div class="stat-label">PHP Mean Time (medium doc)</div>
+            <div class="stat-label">Mean Time (medium doc)</div>
         </div>
     ', formatMs($phpMean));
 }
@@ -311,20 +302,9 @@ if ($phpThroughput) {
     $html .= sprintf('
         <div class="card stat-card">
             <div class="stat-value">%s/s</div>
-            <div class="stat-label">PHP Throughput</div>
+            <div class="stat-label">Throughput</div>
         </div>
     ', formatSize((int)$phpThroughput));
-}
-
-if ($phpMean && $jsMean) {
-    $ratio = $jsMean / $phpMean;
-    $comparison = $ratio > 1 ? 'faster' : 'slower';
-    $html .= sprintf('
-        <div class="card stat-card">
-            <div class="stat-value">%.2fx</div>
-            <div class="stat-label">PHP vs JS (%s)</div>
-        </div>
-    ', $ratio > 1 ? $ratio : 1 / $ratio, $comparison);
 }
 
 $html .= '</div>';
@@ -336,7 +316,7 @@ if ($chartData) {
 
     $html .= <<<HTML
         <div class="card">
-            <h2>Performance Comparison (Mean Time)</h2>
+            <h2>Conversion Time by Fixture (Mean)</h2>
             <div class="chart-container">
                 <canvas id="performanceChart"></canvas>
             </div>
@@ -344,12 +324,12 @@ if ($chartData) {
 HTML;
 }
 
-// PHP Results Table
-if (isset($results['php']['conversion'])) {
-    $html .= '<div class="card"><h2>PHP djot-php Results</h2><table>';
+// Conversion Results Table
+if (isset($results['conversion'])) {
+    $html .= '<div class="card"><h2>Conversion Results</h2><table>';
     $html .= '<tr><th>Fixture</th><th>Size</th><th>Mean</th><th>Median</th><th>P95</th><th>Throughput</th></tr>';
 
-    foreach ($results['php']['conversion'] as $name => $data) {
+    foreach ($results['conversion'] as $name => $data) {
         $stats = $data['stats'];
         $html .= sprintf(
             '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s/s</td></tr>',
@@ -365,69 +345,30 @@ if (isset($results['php']['conversion'])) {
     $html .= '</table></div>';
 }
 
-// JavaScript Results Table
-if (isset($results['javascript']['conversion'])) {
-    $html .= '<div class="card"><h2>JavaScript @djot/djot Results</h2><table>';
-    $html .= '<tr><th>Fixture</th><th>Size</th><th>Mean</th><th>Median</th><th>P95</th><th>Throughput</th></tr>';
+// Profile Results Table
+if (isset($results['profiles'])) {
+    $html .= '<div class="card"><h2>Profile Results (medium fixture)</h2><table>';
+    $html .= '<tr><th>Profile</th><th>Mean</th><th>Median</th><th>P95</th></tr>';
 
-    foreach ($results['javascript']['conversion'] as $name => $data) {
-        $stats = $data['stats'];
+    foreach ($results['profiles'] as $name => $stats) {
         $html .= sprintf(
-            '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s/s</td></tr>',
+            '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
             htmlspecialchars($name),
-            formatSize($data['size_bytes']),
             formatMs($stats['mean']),
             formatMs($stats['median']),
             formatMs($stats['p95']),
-            formatSize((int)$data['throughput_bps']),
         );
     }
 
     $html .= '</table></div>';
-}
-
-// Python Results Table
-if (isset($results['python']['libraries'])) {
-    foreach ($results['python']['libraries'] as $libKey => $lib) {
-        if (!isset($lib['conversion'])) {
-            continue;
-        }
-
-        $html .= sprintf('<div class="card"><h2>Python %s Results</h2><table>', htmlspecialchars($lib['name']));
-        $html .= '<tr><th>Fixture</th><th>Size</th><th>Mean</th><th>Median</th><th>P95</th><th>Throughput</th></tr>';
-
-        foreach ($lib['conversion'] as $name => $data) {
-            if (!isset($data['stats'])) {
-                continue;
-            }
-            $stats = $data['stats'];
-            $html .= sprintf(
-                '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s/s</td></tr>',
-                htmlspecialchars($name),
-                formatSize($data['size_bytes']),
-                formatMs($stats['mean']),
-                formatMs($stats['median']),
-                formatMs($stats['p95']),
-                formatSize((int)$data['throughput_bps']),
-            );
-        }
-
-        $html .= '</table></div>';
-    }
 }
 
 // Metadata
 $html .= '<div class="card"><h2>Environment</h2><table>';
 $html .= '<tr><th>Runtime</th><th>Version</th></tr>';
 
-if (isset($results['php']['meta'])) {
-    $html .= sprintf('<tr><td>PHP</td><td>%s</td></tr>', htmlspecialchars($results['php']['meta']['php_version']));
-}
-if (isset($results['javascript']['meta'])) {
-    $html .= sprintf('<tr><td>Node.js</td><td>%s</td></tr>', htmlspecialchars($results['javascript']['meta']['version']));
-}
-if (isset($results['python']['meta'])) {
-    $html .= sprintf('<tr><td>Python</td><td>%s</td></tr>', htmlspecialchars($results['python']['meta']['version']));
+if (isset($results['meta'])) {
+    $html .= sprintf('<tr><td>PHP</td><td>%s</td></tr>', htmlspecialchars($results['meta']['php_version']));
 }
 
 $html .= '</table></div>';
@@ -494,9 +435,11 @@ if ($chartData) {
 HTML;
 }
 
+$generatedAt = $results['meta']['timestamp'] ?? date('c');
+
 $html .= <<<HTML
         <footer>
-            <p>Generated on {$results['php']['meta']['timestamp'] ?? date('c')} by Djot-PHP Benchmark Suite</p>
+            <p>Generated on {$generatedAt} by the carve-php Benchmark Suite</p>
         </footer>
     </div>
 </body>

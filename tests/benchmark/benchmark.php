@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Djot-PHP Performance Benchmark
+ * carve-php Performance Benchmark
  *
  * Measures parsing and rendering performance across different document sizes
  * and complexity levels.
@@ -22,7 +22,7 @@ $options = getopt('', ['iterations:', 'warmup:', 'json', 'help']);
 
 if (isset($options['help'])) {
     echo <<<HELP
-Djot-PHP Performance Benchmark
+carve-php Performance Benchmark
 
 Usage: php benchmark.php [options]
 
@@ -58,7 +58,7 @@ function generateFixture(string $name, int $paragraphs): string
 {
     $content = "# Document: {$name}\n\n";
     for ($i = 0; $i < $paragraphs; $i++) {
-        $content .= "This is paragraph {$i} with some *bold* and _italic_ text. ";
+        $content .= "This is paragraph {$i} with some *bold* and /italic/ text. ";
         $content .= "Here's a [link](https://example.com) and `inline code`.\n\n";
     }
 
@@ -67,14 +67,14 @@ function generateFixture(string $name, int $paragraphs): string
 
 function generateComplexFixture(): string
 {
-    $content = <<<'DJOT'
+    $content = <<<'CARVE'
 # Complex Document Test
 
-This document tests various djot features for performance benchmarking.
+This document tests various Carve features for performance benchmarking.
 
 ## Headings and Paragraphs
 
-Regular paragraph with *strong emphasis* and _regular emphasis_.
+Regular paragraph with *strong emphasis* and /regular emphasis/.
 Another line with `inline code` and a [link](https://example.com "Title").
 
 ### Nested Content
@@ -172,7 +172,7 @@ This paragraph has attributes.
 "Quoted text" with 'single quotes' and... ellipsis.
 Em-dash---and en-dash--here.
 
-DJOT;
+CARVE;
 
     // Repeat content to make it larger
     return str_repeat($content, 5);
@@ -219,7 +219,7 @@ function generateInlineHeavyFixture(): string
     $content = "# Inline-Heavy Document\n\n";
     for ($p = 0; $p < 100; $p++) {
         $content .= "Paragraph {$p}: ";
-        $content .= '*bold* _italic_ `code` ';
+        $content .= '*bold* /italic/ `code` ';
         $content .= '[link](url) ![img](img.jpg) ';
         $content .= '{+ins+} {-del-} {=mark=} ';
         $content .= 'H{~2~}O x{^2^} ';
@@ -330,7 +330,7 @@ $results = [];
 $converter = new CarveConverter();
 
 if (!$jsonOutput) {
-    echo "Djot-PHP Performance Benchmark\n";
+    echo "carve-php Performance Benchmark\n";
     echo "==============================\n";
     echo 'PHP Version: ' . PHP_VERSION . "\n";
     echo "Iterations: {$iterations}, Warmup: {$warmup}\n";

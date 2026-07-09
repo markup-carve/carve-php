@@ -24,7 +24,7 @@ composer require php-collective/djot
 ```php
 <?php
 
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 
 $converter = new CarveConverter();
 $html = $converter->convert('# Hello World
@@ -39,7 +39,7 @@ echo $html;
 ### Converting Djot to HTML
 
 ```php
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 
 $converter = new CarveConverter();
 
@@ -58,8 +58,8 @@ $html = $converter->render($document);
 Profiles allow you to restrict which Djot features are allowed:
 
 ```php
-use Carve\CarveConverter;
-use Carve\Profile;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Profile;
 
 // Comment profile - safe for user comments
 $converter = new CarveConverter(profile: Profile::comment());
@@ -76,7 +76,7 @@ $converter = new CarveConverter(profile: Profile::minimal());
 Enable safe mode to sanitize potentially dangerous content:
 
 ```php
-use Carve\CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 
 $converter = new CarveConverter(safeMode: true);
 $html = $converter->convert($untrustedInput);

@@ -1,9 +1,9 @@
 #!/usr/bin/env php
 <?php
 /**
- * Djot-PHP Memory Profiler
+ * carve-php Memory Profiler
  *
- * Detailed memory analysis for the djot parser and renderer.
+ * Detailed memory analysis for the Carve parser and renderer.
  *
  * Usage:
  *   php tests/benchmark/memory-profile.php [--detailed] [--json]
@@ -21,7 +21,7 @@ $options = getopt('', ['detailed', 'json', 'help']);
 
 if (isset($options['help'])) {
     echo <<<HELP
-Djot-PHP Memory Profiler
+carve-php Memory Profiler
 
 Usage: php memory-profile.php [options]
 
@@ -79,7 +79,7 @@ function generateDocument(int $size): string
     $content = "# Performance Test Document\n\n";
     for ($i = 0; $i < $size; $i++) {
         $content .= "## Section {$i}\n\n";
-        $content .= "Paragraph with *bold* and _italic_ and `code` and [link](url).\n\n";
+        $content .= "Paragraph with *bold* and /italic/ and `code` and [link](url).\n\n";
         $content .= "- List item 1\n- List item 2\n- List item 3\n\n";
         $content .= "> A block quote here\n\n";
         $content .= "```php\necho 'code block';\n```\n\n";
@@ -95,8 +95,8 @@ function loadFixtures(): array
     $fixturesDir = __DIR__ . '/fixtures';
 
     if (is_dir($fixturesDir)) {
-        foreach (glob($fixturesDir . '/*.djot') as $file) {
-            $name = basename($file, '.djot');
+        foreach (glob($fixturesDir . '/*.crv') as $file) {
+            $name = basename($file, '.crv');
             $fixtures[$name] = file_get_contents($file);
         }
     }
@@ -115,7 +115,7 @@ $converter = new CarveConverter();
 $results = [];
 
 if (!$jsonOutput) {
-    echo "Djot-PHP Memory Profiler\n";
+    echo "carve-php Memory Profiler\n";
     echo "========================\n";
     echo 'PHP Version: ' . PHP_VERSION . "\n";
     echo 'Memory Limit: ' . ini_get('memory_limit') . "\n";

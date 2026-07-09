@@ -27,7 +27,7 @@ This document is designed to stress test the parser with extreme cases.
 
 ## Many Inline Elements in One Paragraph
 
-*bold1* _italic1_ `code1` [link1](url1) *bold2* _italic2_ `code2` [link2](url2) *bold3* _italic3_ `code3` [link3](url3) *bold4* _italic4_ `code4` [link4](url4) *bold5* _italic5_ `code5` [link5](url5) *bold6* _italic6_ `code6` [link6](url6) *bold7* _italic7_ `code7` [link7](url7) *bold8* _italic8_ `code8` [link8](url8) *bold9* _italic9_ `code9` [link9](url9) *bold10* _italic10_ `code10` [link10](url10) {+ins1+} {-del1-} {=mark1=} H{~2~}O x{^2^} {+ins2+} {-del2-} {=mark2=} {+ins3+} {-del3-} {=mark3=} {+ins4+} {-del4-} {=mark4=} {+ins5+} {-del5-} {=mark5=}
+*bold1* /italic1/ `code1` [link1](url1) *bold2* /italic2/ `code2` [link2](url2) *bold3* /italic3/ `code3` [link3](url3) *bold4* /italic4/ `code4` [link4](url4) *bold5* /italic5/ `code5` [link5](url5) *bold6* /italic6/ `code6` [link6](url6) *bold7* /italic7/ `code7` [link7](url7) *bold8* /italic8/ `code8` [link8](url8) *bold9* /italic9/ `code9` [link9](url9) *bold10* /italic10/ `code10` [link10](url10) {+ins1+} {-del1-} {=mark1=} H{,2,}O x{^2^} {+ins2+} {-del2-} {=mark2=} {+ins3+} {-del3-} {=mark3=} {+ins4+} {-del4-} {=mark4=} {+ins5+} {-del5-} {=mark5=}
 
 ## Large Table
 
@@ -144,7 +144,7 @@ fun test10() = 10
 
 ### Section 1
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -161,7 +161,7 @@ code block
 
 ### Section 2
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -178,7 +178,7 @@ code block
 
 ### Section 3
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -195,7 +195,7 @@ code block
 
 ### Section 4
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -212,7 +212,7 @@ code block
 
 ### Section 5
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -229,7 +229,7 @@ code block
 
 ### Section 6
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -246,7 +246,7 @@ code block
 
 ### Section 7
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -263,7 +263,7 @@ code block
 
 ### Section 8
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -280,7 +280,7 @@ code block
 
 ### Section 9
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
@@ -297,7 +297,7 @@ code block
 
 ### Section 10
 
-Para with *bold* and _italic_ and `code` and [link](url).
+Para with *bold* and /italic/ and `code` and [link](url).
 
 - List item 1
 - List item 2
