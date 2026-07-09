@@ -106,14 +106,14 @@ class InlineMatcherTriggerGatingTest extends TestCase
 
         $html = $converter->convert(
             'See [[Wiki Page]], visit https://example.com, cite [@smith2020], '
-            . "and a plain [label](https://carve.dev) link with the letter h in words.\n\n"
+            . "and a plain [label](https://example.org) link with the letter h in words.\n\n"
             . '[@smith2020]: A cited work.',
         );
 
         $this->assertStringContainsString('Wiki Page', $html);
         $this->assertStringContainsString('<a href="https://example.com">', $html);
         $this->assertStringContainsString('href="#ref-smith2020"', $html);
-        $this->assertStringContainsString('href="https://carve.dev"', $html);
+        $this->assertStringContainsString('href="https://example.org"', $html);
     }
 
     /**
