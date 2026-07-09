@@ -26,6 +26,62 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('H{,2,}O', $this->converter->convert('H~2~O'));
     }
 
+    public function testMathSpanWithCaretIsUntouched(): void
+    {
+        $input = 'inline $`x^2 + y^3` math';
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testMathSpanWithTildeIsUntouched(): void
+    {
+        $input = 'display $$`a~b + c~d` math';
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testBareDollarTextStillConverts(): void
+    {
+        // Bare $...$ is NOT math in Djot or Carve; delimiters inside it are
+        // real superscript/subscript markup and must still be migrated.
+        $this->assertSame(
+            'Costs $2{^x^}$ now',
+            $this->converter->convert('Costs $2^x^$ now'),
+        );
+    }
+
+    public function testFootnoteReferenceIsUntouched(): void
+    {
+        $input = 'See this[^f1].';
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testTwoFootnoteReferencesAreUntouched(): void
+    {
+        $input = 'See this[^a] and that[^b].';
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testFootnoteDefinitionLineIsUntouched(): void
+    {
+        $input = "[^a]: first\n[^b]: second";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testPreBracedForcedSuperscriptIsUntouched(): void
+    {
+        $this->assertSame('{^x^}', $this->converter->convert('{^x^}'));
+    }
+
+    public function testPreBracedForcedSubscriptIsUntouched(): void
+    {
+        $this->assertSame('{,x,}', $this->converter->convert('{,x,}'));
+    }
+
+    public function testMixedProtectedConstructsAndRealSuperscript(): void
+    {
+        $input = 'Math $`x^2 + y^3`, note[^a], real ^x^.';
+        $this->assertSame('Math $`x^2 + y^3`, note[^a], real {^x^}.', $this->converter->convert($input));
+    }
+
     public function testHighlightBracesBecomesEquals(): void
     {
         $this->assertSame('{=important=}', $this->converter->convert('{=important=}'));

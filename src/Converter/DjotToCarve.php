@@ -325,7 +325,32 @@ class DjotToCarve
             $masked,
         );
 
-        return $masked ?? $source;
+        $masked ??= $source;
+
+        // Stage 4: constructs whose inner delimiters already mean something
+        // else in Carve/Djot and must not be migrated again. Math spans need
+        // no handling here: both languages write math as `$` plus a code
+        // span, which stage 1 code masking already protects.
+        return $this->maskProtectedInlineForms($masked);
+    }
+
+    protected function maskProtectedInlineForms(string $masked): string
+    {
+        $patterns = [
+            '/\[\^[^\]\n]+\]:?/',
+            '/\{\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^\}/',
+            '/\{,(?!\s)((?:(?!\n[ \t]*\n)[^,])+?)(?<!\s),\}/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $masked = preg_replace_callback(
+                $pattern,
+                fn (array $group): string => $this->blanks($group[0]),
+                $masked,
+            ) ?? $masked;
+        }
+
+        return $masked;
     }
 
     protected function backtickRun(string $text, int $offset): int
