@@ -398,4 +398,20 @@ DJOT;
         $this->assertStringContainsString('CUSTOM HEADING', $result);
         $this->assertStringNotContainsString('Original Title', $result);
     }
+
+    public function testGenuineTrailingEmptyCellIsKept(): void
+    {
+        // `| x || ` is a two-cell row whose second cell is genuinely empty; it
+        // must be kept (not dropped), so the column is preserved.
+        $document = $this->converter->parse("| x || \n|---|---|");
+        $this->assertSame("x |\n", $this->renderer->render($document));
+    }
+
+    public function testRowspanShortRowStaysRagged(): void
+    {
+        // A short/rowspan row has SYNTHETIC padding, which is dropped (ragged).
+        $document = $this->converter->parse("| a | b |\n|---|---|\n| ^ | y |\n| z |");
+        $this->assertStringContainsString("z\n", $this->renderer->render($document));
+        $this->assertStringNotContainsString('z |', $this->renderer->render($document));
+    }
 }

@@ -314,12 +314,17 @@ class PlainTextRenderer implements RendererInterface
 
         foreach ($layout['rows'] as $row) {
             $cells = [];
-            foreach ($row['cells'] as $cell) {
+            $lastGenuine = -1;
+            foreach ($row['cells'] as $i => $cell) {
                 $cells[] = is_string($cell) ? $cell : '';
+                if (is_string($cell)) {
+                    $lastGenuine = $i;
+                }
             }
-            while ($cells !== [] && end($cells) === '') {
-                array_pop($cells);
-            }
+            // Drop only SYNTHETIC trailing padding (non-string fillers a short/
+            // rowspan row lacks), but KEEP a genuine trailing empty cell the row
+            // authored (`| x || ` -> `x |`). Matches carve-rs.
+            $cells = array_slice($cells, 0, $lastGenuine + 1);
             $text .= implode($this->tableCellSeparator, $cells) . "\n";
         }
 
