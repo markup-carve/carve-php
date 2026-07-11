@@ -106,9 +106,12 @@ class SpoilerExtension implements ExtensionInterface
         $attrs = $this->openAttributes($node, $renderer, ['title']);
         $body = rtrim($this->indentBlock(rtrim($childrenHtml, "\n"), 2), "\n");
 
+        // An empty body renders as a single blank line, matching a core empty
+        // container ("<aside ...>\n\n</aside>") and carve-js / carve-rs, which
+        // both emit "</summary>\n\n</details>". Collapsing it here diverged.
         return '<details' . $attrs . ">\n"
             . '  <summary>' . $this->escapeHtml($summary) . "</summary>\n"
-            . ($body !== '' ? $body . "\n" : '')
+            . ($body !== '' ? $body . "\n" : "\n")
             . "</details>\n";
     }
 
