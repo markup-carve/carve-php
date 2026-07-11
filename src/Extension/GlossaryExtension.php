@@ -131,6 +131,29 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
     protected function renderGlossary(Div $div, HtmlRenderer $renderer): string
     {
+        $hasDefinitionList = false;
+        foreach ($div->getChildren() as $child) {
+            if ($child instanceof DefinitionList) {
+                $hasDefinitionList = true;
+
+                break;
+            }
+        }
+
+        // Degraded form (spec §7.4): a `::: glossary` whose body is NOT a
+        // definition list keeps a plain `<div class="glossary">` wrapper holding
+        // the literal content, rather than dropping the wrapper. Matches
+        // carve-js / carve-rs.
+        if (!$hasDefinitionList) {
+            $parts = [];
+            foreach ($div->getChildren() as $child) {
+                $rendered = rtrim($renderer->renderNodeFragment($child), "\n");
+                $parts[] = (string)preg_replace('/^/m', '  ', $rendered);
+            }
+
+            return '<div class="' . self::KIND . '">' . "\n" . implode("\n", $parts) . "\n</div>\n";
+        }
+
         $parts = [];
         $firstDl = true;
         foreach ($div->getChildren() as $child) {
