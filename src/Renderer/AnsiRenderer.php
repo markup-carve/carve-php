@@ -702,20 +702,24 @@ class AnsiRenderer implements RendererInterface
 
         foreach ($layout['rows'] as $row) {
             $cells = [];
+            $lastGenuine = -1;
             foreach ($row['cells'] as $colIndex => $cell) {
-                $content = is_array($cell) && isset($cell['content']) && is_string($cell['content'])
-                    ? $cell['content']
-                    : '';
+                $isGenuine = is_array($cell) && isset($cell['content']) && is_string($cell['content']);
+                $content = $isGenuine ? $cell['content'] : '';
                 $width = StringUtil::visibleWidth($content);
                 $colWidths[$colIndex] = max($colWidths[$colIndex] ?? 0, $width);
                 $cells[] = [
                     'content' => $content,
                     'isHeader' => $row['isHeader'],
                 ];
+                if ($isGenuine) {
+                    $lastGenuine = $colIndex;
+                }
             }
-            while ($cells !== [] && end($cells)['content'] === '') {
-                array_pop($cells);
-            }
+            // Drop only SYNTHETIC trailing padding (columns a short/rowspan row
+            // lacks), but KEEP a genuine trailing empty cell so the box stays
+            // well-formed (`| x || ` -> `│ x │   │`). Matches carve-rs.
+            $cells = array_slice($cells, 0, $lastGenuine + 1);
             $rows[] = $cells;
         }
 
