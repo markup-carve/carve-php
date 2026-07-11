@@ -101,7 +101,10 @@ class TableOfContentsExtension implements ResettableExtensionInterface
                 return;
             }
 
-            $text = $tracker->getPlainText($node);
+            // getPlainText excludes the presentational section-number span but
+            // leaves the space that preceded the title, so a numbered heading
+            // yields " Alpha"; trim it to the bare title (matches carve-js/rs).
+            $text = trim($tracker->getPlainText($node));
             $id = $tracker->getIdForHeading($node);
 
             $this->toc[] = [
