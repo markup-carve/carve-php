@@ -344,4 +344,13 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('☑', $output);
         $this->assertStringContainsString('☐', $output);
     }
+
+    public function testGenuineTrailingEmptyCellKeepsBoxWellFormed(): void
+    {
+        // A genuine trailing empty cell keeps the ANSI box well-formed: a
+        // 2-column border over a 2-cell row.
+        $document = $this->converter->parse("| x || \n|---|---|");
+        $out = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($document));
+        $this->assertStringContainsString("\u{2502} x \u{2502}  \u{2502}", $out);
+    }
 }
