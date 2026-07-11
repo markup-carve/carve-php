@@ -54,6 +54,16 @@ class SpoilerExtensionTest extends TestCase
         );
     }
 
+    public function testBlockEmptyBodyKeepsBlankLine(): void
+    {
+        // An empty body renders as a single blank line, matching a core empty
+        // container and carve-js / carve-rs. Regression for the collapsed line.
+        $this->assertSame(
+            "<details class=\"spoiler\">\n  <summary>Spoiler</summary>\n\n</details>",
+            trim($this->convert("::: spoiler\n:::")),
+        );
+    }
+
     public function testBlockDefaultsSummaryToSpoiler(): void
     {
         $this->assertStringContainsString(

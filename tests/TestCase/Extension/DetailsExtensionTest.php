@@ -47,6 +47,21 @@ class DetailsExtensionTest extends TestCase
         $this->assertSame($expected, $html);
     }
 
+    public function testEmptyBodyKeepsBlankLine(): void
+    {
+        // An empty body renders as a single blank line, matching a core empty
+        // container and carve-js / carve-rs. Regression for the collapsed line.
+        $html = $this->render("::: details\n:::");
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>Details</summary>',
+            '',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
     public function testEscapesHtmlSpecialCharactersInSummary(): void
     {
         $html = $this->render("::: details \"Tom & Jerry\"\nx\n:::");
