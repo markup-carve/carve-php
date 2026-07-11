@@ -22,6 +22,21 @@ class WikilinksExtensionTest extends TestCase
         $this->assertStringContainsString('class="wikilink"', $html);
     }
 
+    public function testAttributeOrderClassBeforeDataWikilink(): void
+    {
+        // The emitted attribute order is `class` before `data-wikilink`, matching
+        // carve-js / carve-rs. Regression for the reversed order.
+        $converter = new CarveConverter();
+        $converter->addExtension(new WikilinksExtension());
+
+        $html = $converter->convert('[[Target Page]]');
+
+        $this->assertStringContainsString(
+            '<a href="target-page" class="wikilink" data-wikilink="Target Page">Target Page</a>',
+            $html,
+        );
+    }
+
     public function testWikilinkWithSpaces(): void
     {
         $converter = new CarveConverter();

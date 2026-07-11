@@ -98,15 +98,18 @@ class WikilinksExtension implements ExtensionInterface
                 }
 
                 $link = new Link($url);
-                $link->setAttribute('data-wikilink', $page);
                 $link->appendChild(new Text($displayText));
 
-                // Apply CSS classes
+                // Apply CSS classes first, then data-wikilink, so the emitted
+                // attribute order is `class` before `data-wikilink`, matching
+                // carve-js / carve-rs.
                 foreach (explode(' ', $this->cssClass) as $class) {
                     if ($class !== '') {
                         $link->addClass($class);
                     }
                 }
+
+                $link->setAttribute('data-wikilink', $page);
 
                 // New window handling
                 if ($this->newWindow) {
