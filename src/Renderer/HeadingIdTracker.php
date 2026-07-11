@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -367,6 +368,12 @@ class HeadingIdTracker
     {
         $text = '';
         foreach ($node->getChildren() as $child) {
+            if ($child instanceof InlineExtension && $child->getExtensionType() === 'index') {
+                // An `:index[term]` marker is invisible (§8.1): it emits no
+                // visible text, so its term must not feed the heading-id slug.
+                // Matches carve-js / carve-rs.
+                continue;
+            }
             if ($child instanceof Span && $child->hasClass('section-number')) {
                 // The HeadingNumbers extension (Tier-3, #198) injects a
                 // `<span class="section-number">` into the heading. It is
