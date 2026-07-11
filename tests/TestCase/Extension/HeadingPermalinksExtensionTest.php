@@ -22,6 +22,23 @@ class HeadingPermalinksExtensionTest extends TestCase
         $this->assertStringContainsString('aria-label="Permalink"', $html);
     }
 
+    public function testDefaultOmitsWrapperSpan(): void
+    {
+        // Without showOnHover the bare anchor sits directly in the heading, with
+        // no permalink-wrapper span, matching carve-js / carve-rs (and the
+        // extension's own docblock). Regression for the always-wrapped output.
+        $converter = new CarveConverter();
+        $converter->addExtension(new HeadingPermalinksExtension());
+
+        $html = $converter->convert('# Title');
+
+        $this->assertStringContainsString(
+            '<h1>Title <a href="#Title" class="permalink" aria-label="Permalink">¶</a></h1>',
+            $html,
+        );
+        $this->assertStringNotContainsString('permalink-wrapper', $html);
+    }
+
     public function testCustomSymbol(): void
     {
         $converter = new CarveConverter();

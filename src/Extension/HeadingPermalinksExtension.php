@@ -133,22 +133,28 @@ class HeadingPermalinksExtension implements ExtensionInterface
                 $link->setAttribute('data-permalink-copy', '');
             }
 
-            // Wrap in span for styling flexibility
-            $span = new Span();
-            $span->addClass('permalink-wrapper');
+            // By default the bare anchor is appended directly to the heading,
+            // matching carve-js / carve-rs (and this extension's own docblock).
+            // The wrapper span exists only for showOnHover, whose CSS targets
+            // `h*:hover > .permalink-hover` - a child combinator that needs the
+            // wrapper. Without hover, wrapping diverged from the other impls.
+            $content = $link;
             if ($this->showOnHover) {
+                $span = new Span();
+                $span->addClass('permalink-wrapper');
                 $span->addClass('permalink-hover');
+                $span->appendChild($link);
+                $content = $span;
             }
-            $span->appendChild($link);
 
             // Add to heading
             if ($this->position === 'before') {
                 $space = new Text(' ');
                 $node->prependChild($space);
-                $node->prependChild($span);
+                $node->prependChild($content);
             } else {
                 $node->appendChild(new Text(' '));
-                $node->appendChild($span);
+                $node->appendChild($content);
             }
         });
     }
@@ -156,11 +162,13 @@ class HeadingPermalinksExtension implements ExtensionInterface
     protected function hasPermalink(Heading $node, string $id): bool
     {
         foreach ($node->getChildren() as $child) {
-            if (!$child instanceof Span) {
-                continue;
+            // Default: the bare anchor sits directly in the heading.
+            if ($child instanceof Link && $child->getDestination() === '#' . $id) {
+                return true;
             }
 
-            if (!$child->hasClass('permalink-wrapper')) {
+            // showOnHover: the anchor is wrapped in a permalink-wrapper span.
+            if (!$child instanceof Span || !$child->hasClass('permalink-wrapper')) {
                 continue;
             }
 
