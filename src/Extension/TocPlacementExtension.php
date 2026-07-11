@@ -183,7 +183,11 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
         // Preserve any authored content inside the placeholder before the nav.
         $body = rtrim($childrenHtml, "\n");
 
-        return ($body !== '' ? $body . "\n" : '') . $nav;
+        // Trailing newline after </nav> so the injected block carries its own
+        // separator like every native block (a plain div ends "</aside>\n").
+        // Without it a following block abuts as "</nav><section>", diverging
+        // from carve-js / carve-rs which emit "</nav>\n<section>".
+        return ($body !== '' ? $body . "\n" : '') . $nav . "\n";
     }
 
     /**

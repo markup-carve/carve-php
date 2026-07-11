@@ -33,6 +33,16 @@ class TocPlacementExtensionTest extends TestCase
         $this->assertLessThan(strpos($out, '<h1'), strpos($out, '<nav class="toc"'));
     }
 
+    public function testNavCarriesTrailingSeparatorBeforeFollowingBlock(): void
+    {
+        // The injected nav ends with a newline so a following block abuts as
+        // "</nav>\n<section>", matching a native block ("</aside>\n") and
+        // carve-js / carve-rs. Regression for the missing-separator divergence.
+        $out = $this->html("::: toc\n:::\n\n# Alpha\n");
+        $this->assertStringContainsString("</nav>\n<section", $out);
+        $this->assertStringNotContainsString('</nav><section', $out);
+    }
+
     public function testLinksToResolvedDedupAwareIds(): void
     {
         $out = $this->html("# Intro\n\n## Intro\n\n::: toc\n:::\n");
