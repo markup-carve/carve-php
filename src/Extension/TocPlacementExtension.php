@@ -158,7 +158,10 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             }
             $entries[] = [
                 'level' => $level,
-                'text' => $this->stripBidi($tracker->getPlainText($heading)),
+                // getPlainText excludes the presentational section-number span
+                // but keeps the space before the title; trim to the bare title
+                // (matches carve-js / carve-rs).
+                'text' => trim($this->stripBidi($tracker->getPlainText($heading))),
                 'id' => $tracker->getIdForHeading($heading),
             ];
         }
