@@ -823,18 +823,6 @@ class InlineParser
                     continue;
                 }
 
-                $attrEnd = $this->findAttributeEnd($text, $pos);
-                if ($attrEnd !== null) {
-                    $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
-                    if (trim($attrStr) !== '' && trim($this->removeAttributeComments($attrStr)) === '') {
-                        $this->flushText($parent, $textBuffer);
-                        $textBuffer = '';
-                        $pos = $attrEnd + 1;
-
-                        continue;
-                    }
-                }
-
                 // Then try special braced syntax.
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
@@ -2685,29 +2673,15 @@ class InlineParser
         // `hi{}`, `*x*{}` -> `<strong>x</strong>{}`, `[x]{}{}` keeps the second
         // block), matching carve-js / carve-rs. The one place an empty block is
         // meaningful, the `[text]{}` span form, is handled by the bracket path
-        // before this standalone-attribute handler runs. (A block that becomes
-        // empty only AFTER comment removal, e.g. `{% note %}`, is still a
-        // consumed comment -- handled below.)
+        // before this standalone-attribute handler runs.
         if (trim($attrStr) === '') {
             return null;
         }
 
-        // Check if this looks like valid attributes (starts with ., #, % comment, or key=)
+        // Check if this looks like valid attributes (starts with ., #, or key=)
         // Exclude _ * = + - ~ ^ which are braced inline markers
-        if (!preg_match('/^[.#a-zA-Z%]/', $attrStr)) {
+        if (!preg_match('/^[.#a-zA-Z]/', $attrStr)) {
             return null;
-        }
-
-        // Remove comments from attributes: % ... % or % to end
-        $attrStr = $this->removeAttributeComments($attrStr);
-
-        // A comment-only block (`{% note %}`) reduces to empty here: consume it
-        // (the comment vanishes) rather than leaving it literal.
-        if (trim($attrStr) === '') {
-            return [
-                'textBuffer' => $textBuffer,
-                'pos' => $attrEnd + 1,
-            ];
         }
 
         // The block must yield a valid attribute, else it is not an attribute
@@ -2813,13 +2787,12 @@ class InlineParser
         // is tolerated and skipped) all stay accepted.
         $rest = $attrStr;
         // Quoted key=values first, so `%`, dots and braces inside quotes are
-        // protected from the comment stripper and the shorthand patterns.
+        // protected from the shorthand patterns.
         $rest = preg_replace(
             '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $rest,
         ) ?? $rest;
-        $rest = $this->removeAttributeComments($rest);
         if (trim($rest) === '') {
             return true;
         }
@@ -3008,26 +2981,6 @@ class InlineParser
     }
 
     /**
-     * Remove comments from attribute string: % ... % or % to end
-     */
-    protected function removeAttributeComments(string $attrStr): string
-    {
-        // Remove % ... % comments
-        $result = preg_replace('/%[^%]*%/', '', $attrStr);
-        if ($result === null) {
-            return $attrStr;
-        }
-
-        // Remove % to end of string comments
-        $percentPos = strpos($result, '%');
-        if ($percentPos !== false) {
-            $result = substr($result, 0, $percentPos);
-        }
-
-        return $result;
-    }
-
-    /**
      * Apply attributes from a string to a node
      */
     protected function applyAttributesToNode(Node $node, string $attrStr): void
@@ -3055,13 +3008,16 @@ class InlineParser
             }
 
             $attrStr = substr($text, $pos + 1, $attrEnd - $pos - 1);
-            // A `{...}` that yields no real attribute is literal text (PART 9
-            // §15), not an empty attribute block to consume. Stop here and
-            // leave it in the stream (so e.g. `{=hl=}`, `{ }`, `{???}` after a
-            // node render literally instead of being silently dropped). The
-            // inline-span branch in parseLink() handles the leading
-            // empty/whitespace block explicitly before delegating here.
-            if (AttributeParser::parse($attrStr) === []) {
+            // A `{...}` that is not a valid attribute block is literal text (PART
+            // 9 §15), not an empty block to consume. Stop here and leave it in
+            // the stream (so e.g. `{=hl=}`, `{ }`, `{???}`, and a `%`-bearing
+            // block like `{.c % n %}` render literally after a node instead of
+            // being applied or silently dropped). Uses the SAME validity oracle
+            // as the standalone attribute path, so `*x*{.c % n %}` matches
+            // `word{.c % n %}` (and carve-js / carve-rs). The inline-span branch
+            // in parseLink() handles a leading empty/whitespace block explicitly
+            // before delegating here.
+            if (AttributeParser::parse($attrStr) === [] || !$this->isValidAttrPayload($attrStr)) {
                 break;
             }
             $this->applyAttributesToNode($node, $attrStr);

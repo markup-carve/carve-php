@@ -335,13 +335,14 @@ class AttributeParserTest extends TestCase
         $this->assertArrayNotHasKey('comment', $result);
     }
 
-    public function testCommentInConvertedOutput(): void
+    public function testPercentInAttributeBlockIsNotAComment(): void
     {
+        // `%` is not an attribute-comment marker (Carve comments are `%%`/`%%%`),
+        // so a `%`-bearing brace is an invalid attribute block and stays literal,
+        // matching carve-js / carve-rs. The `[text]` span is not applied either.
         $result = $this->converter->convert('[text]{.class % this is a comment %}');
 
-        $this->assertStringContainsString('class="class"', $result);
-        $this->assertStringNotContainsString('this', $result);
-        $this->assertStringNotContainsString('comment', $result);
+        $this->assertSame("<p>[text]{.class % this is a comment %}</p>\n", $result);
     }
 
     /**

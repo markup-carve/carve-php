@@ -836,26 +836,29 @@ DJOT;
         $this->assertStringContainsString('<dt>Term</dt>', $result);
     }
 
-    public function testComment(): void
+    public function testBracePercentBlockIsLiteralNotComment(): void
     {
+        // `{% … %}` is NOT a Carve comment (only `%%` / `%%%` are), so it renders
+        // literally, matching carve-js / carve-rs.
         $djot = "Before\n\n{% This is a comment %}\n\nAfter";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Before</p>', $result);
+        $this->assertStringContainsString('<p>{% This is a comment %}</p>', $result);
         $this->assertStringContainsString('<p>After</p>', $result);
-        $this->assertStringNotContainsString('comment', $result);
     }
 
-    public function testMultilineComment(): void
+    public function testBracePercentMultilineIsLiteral(): void
     {
+        // Multi-line `{% … %}` is likewise literal, not a comment.
         $djot = "Before\n\n{% This is a\nmultiline\ncomment %}\n\nAfter";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Before</p>', $result);
+        $this->assertStringContainsString('multiline', $result);
         $this->assertStringContainsString('<p>After</p>', $result);
-        $this->assertStringNotContainsString('multiline', $result);
     }
 
     public function testFencedComment(): void
@@ -1857,16 +1860,6 @@ DJOT;
         $this->assertStringContainsString('Some content without closing', $result);
     }
 
-    public function testStrictModeThrowsOnUnclosedComment(): void
-    {
-        $converter = new CarveConverter(strict: true);
-
-        $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('Unclosed comment');
-
-        $converter->convert('{% This comment never closes');
-    }
-
     public function testStrictModeThrowsOnUnclosedRawBlock(): void
     {
         $converter = new CarveConverter(strict: true);
@@ -2577,61 +2570,57 @@ DJOT;
 
     // Edge cases: Comments
 
-    public function testCommentWithSpecialCharacters(): void
+    public function testBracePercentWithSpecialCharactersIsLiteral(): void
     {
+        // Content is escaped as ordinary text, not stripped as a comment.
         $djot = '{% Comment with <html> and & special chars %}';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringNotContainsString('Comment', $result);
-        $this->assertStringNotContainsString('<html>', $result);
+        $this->assertStringContainsString('Comment', $result);
+        $this->assertStringContainsString('&lt;html&gt;', $result);
     }
 
-    public function testCommentBetweenParagraphs(): void
+    public function testBracePercentBetweenParagraphsIsLiteral(): void
     {
         $djot = "Para 1\n\n{% hidden %}\n\nPara 2";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Para 1</p>', $result);
+        $this->assertStringContainsString('<p>{% hidden %}</p>', $result);
         $this->assertStringContainsString('<p>Para 2</p>', $result);
-        $this->assertStringNotContainsString('hidden', $result);
     }
 
     /**
-     * Inline comment at start of line should preserve text after it
+     * `{% … %}` at the start of a line stays literal; text after is untouched.
      */
-    public function testInlineCommentAtStartPreservesTextAfter(): void
+    public function testBracePercentAtStartKeepsTextAfter(): void
     {
         $djot = '{% comment %} text after';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('text after', $result);
-        $this->assertStringNotContainsString('comment', $result);
+        $this->assertStringContainsString('{% comment %} text after', $result);
     }
 
     /**
-     * Multiple inline comments on same line
+     * Multiple `{% … %}` runs on a line all stay literal.
      */
-    public function testMultipleInlineComments(): void
+    public function testMultipleBracePercentRunsAreLiteral(): void
     {
         $djot = '{% one %} text {% two %}';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('text', $result);
-        $this->assertStringNotContainsString('one', $result);
-        $this->assertStringNotContainsString('two', $result);
+        $this->assertStringContainsString('{% one %} text {% two %}', $result);
     }
 
     /**
-     * Inline comment in middle of text
+     * `{% … %}` in the middle of text stays literal on both sides.
      */
-    public function testInlineCommentInMiddle(): void
+    public function testBracePercentInMiddleIsLiteral(): void
     {
         $djot = 'before {% comment %} after';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('before', $result);
-        $this->assertStringContainsString('after', $result);
-        $this->assertStringNotContainsString('comment', $result);
+        $this->assertStringContainsString('before {% comment %} after', $result);
     }
 
     /**
@@ -3631,7 +3620,7 @@ DJOT;
             'empty block' => ['[x]{}', "<p><span>x</span></p>\n"],
             'single space block' => ['[x]{ }', "<p><span>x</span></p>\n"],
             'multi space block' => ['[x]{  }', "<p><span>x</span></p>\n"],
-            'comment-only block' => ['[x]{% c %}', "<p><span>x</span></p>\n"],
+            'brace-percent stays literal' => ['[x]{% c %}', "<p>[x]{% c %}</p>\n"],
             // Invalid block: whole [text]{block} stays literal.
             'invalid junk block' => ['[x]{???}', "<p>[x]{???}</p>\n"],
             'invalid equals block' => ['[x]{?y?}', "<p>[x]{?y?}</p>\n"],

@@ -248,15 +248,17 @@ class PlainTextRendererTest extends TestCase
         $this->assertStringContainsString('[1]: Footnote content', $result);
     }
 
-    public function testCommentsStripped(): void
+    public function testBracePercentIsLiteralInPlainText(): void
     {
+        // `{% … %}` is not a Carve comment; it renders literally in plain text
+        // too (only `%%` / `%%%` are stripped), matching carve-js / carve-rs.
         $djot = "Visible\n\n{% This is a comment %}\n\nMore visible";
         $document = $this->converter->parse($djot);
 
         $result = $this->renderer->render($document);
         $this->assertStringContainsString('Visible', $result);
+        $this->assertStringContainsString('{% This is a comment %}', $result);
         $this->assertStringContainsString('More visible', $result);
-        $this->assertStringNotContainsString('comment', $result);
     }
 
     public function testRawHtmlStripped(): void

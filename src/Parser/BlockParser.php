@@ -1133,7 +1133,7 @@ class BlockParser
      * when the line is not a block-attribute line. Mirrors the recognition
      * rules of tryParseBlockAttributes() exactly: `{...}` with the first
      * content character in [.#a-zA-Z] (excludes braced inline markers like
-     * `{=x=}` and `{%...%}` comments); a multi-line block needs indented
+     * `{=x=}`); a multi-line block needs indented
      * continuation lines and a closing `}`.
      *
      * @param array<string> $lines
@@ -1400,7 +1400,6 @@ class BlockParser
         if ($singleLineAttrStr !== null) {
             $attrStr = $singleLineAttrStr;
             // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-            // Exclude % which starts comments (handled by tryParseComment)
             if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
@@ -1448,7 +1447,6 @@ class BlockParser
                 $attrStr = trim($attrContent);
 
                 // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-                // Exclude % which starts comments (handled by tryParseComment)
                 if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
@@ -1609,7 +1607,7 @@ class BlockParser
     }
 
     /**
-     * Try to parse a comment block {% ... %}
+     * Try to parse a `%%` line comment.
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
@@ -1627,69 +1625,13 @@ class BlockParser
             return 1;
         }
 
-        // Use FencedBlockParser to check for comment opener
-        if (!$this->fencedBlockParser->isCommentOpener($line)) {
-            return null;
-        }
-
-        $content = '';
-        $i = $start;
-        $count = count($lines);
-        $inComment = false;
-        $closed = false;
-
-        while ($i < $count) {
-            $currentLine = $lines[$i];
-
-            if (!$inComment) {
-                // Look for opening {%
-                $openPos = strpos($currentLine, '{%');
-                if ($openPos !== false) {
-                    $inComment = true;
-                    $afterOpen = substr($currentLine, $openPos + 2);
-                    // Check if closing is on same line
-                    $closePos = strpos($afterOpen, '%}');
-                    if ($closePos !== false) {
-                        $content .= substr($afterOpen, 0, $closePos);
-                        $i++;
-                        $closed = true;
-
-                        break;
-                    }
-                    $content .= $afterOpen . "\n";
-                }
-            } else {
-                // Look for closing %}
-                $closePos = strpos($currentLine, '%}');
-                if ($closePos !== false) {
-                    $content .= substr($currentLine, 0, $closePos);
-                    $i++;
-                    $closed = true;
-
-                    break;
-                }
-                $content .= $currentLine . "\n";
-            }
-
-            $i++;
-        }
-
-        if (!$closed) {
-            $this->addWarning('Unclosed comment', $start, 1, true);
-        }
-
-        // Comments are stored but not rendered
-        $comment = new Comment(trim($content));
-        $parent->appendChild($comment);
-
-        return $i - $start;
+        return null;
     }
 
     /**
      * Try to parse a fenced comment block %%% ... %%%
      *
-     * This is an extension that allows multi-line comments with blank lines,
-     * which the standard {% %} syntax cannot handle.
+     * This allows multi-line comments with blank lines.
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
