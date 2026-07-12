@@ -53,6 +53,13 @@ class PlainTextRendererTest extends TestCase
         $this->assertSame("opener title\n\nBody.\n", $this->renderer->render($document));
     }
 
+    public function testDivHeaderRendersInlineContent(): void
+    {
+        $document = $this->converter->parse("::: note \"a *b* `c`\"\nx\n:::");
+
+        $this->assertSame("a b c\n\nx\n", $this->renderer->render($document));
+    }
+
     public function testCollapsedReferenceLinkToHeadingRendersText(): void
     {
         $document = $this->converter->parse("See [name][]\n\n# Name");

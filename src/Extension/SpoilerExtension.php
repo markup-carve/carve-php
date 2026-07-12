@@ -100,8 +100,11 @@ class SpoilerExtension implements ExtensionInterface
      */
     protected function renderBlock(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
     {
-        $title = $node->getHeader();
-        $summary = $title !== null && trim($title) !== '' ? $title : self::DEFAULT_SUMMARY;
+        // <summary> is phrasing content: the title renders through the inline
+        // pipeline (parity with carve-js / carve-rs). Emptiness is judged on
+        // the rendered inlines so an image-only title still shows.
+        $rendered = trim($renderer->renderInlineNodesFragment($node->getHeaderNodes()));
+        $summary = $rendered !== '' ? $rendered : $this->escapeHtml(self::DEFAULT_SUMMARY);
 
         $attrs = $this->openAttributes($node, $renderer);
         $body = rtrim($this->indentBlock(rtrim($childrenHtml, "\n"), 2), "\n");
@@ -110,7 +113,7 @@ class SpoilerExtension implements ExtensionInterface
         // container ("<aside ...>\n\n</aside>") and carve-js / carve-rs, which
         // both emit "</summary>\n\n</details>". Collapsing it here diverged.
         return '<details' . $attrs . ">\n"
-            . '  <summary>' . $this->escapeHtml($summary) . "</summary>\n"
+            . '  <summary>' . $summary . "</summary>\n"
             . ($body !== '' ? $body . "\n" : "\n")
             . "</details>\n";
     }

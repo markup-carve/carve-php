@@ -56,6 +56,26 @@ class HtmlToCarveTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($html));
     }
 
+    public function testAdmonitionTitleParagraphPreservesInlineMarkup(): void
+    {
+        $html = '<aside class="admonition note">'
+            . '<p class="admonition-title">a <strong>b</strong></p>'
+            . '<p>Body.</p>'
+            . '</aside>';
+
+        $this->assertSame("::: note \"a *b*\"\nBody.\n:::\n", $this->converter->convert($html));
+    }
+
+    public function testAdmonitionTitleParagraphWithDoubleQuoteFallsBackToValidOpener(): void
+    {
+        $html = '<aside class="admonition note">'
+            . '<p class="admonition-title">a &quot;b&quot;</p>'
+            . '<p>Body.</p>'
+            . '</aside>';
+
+        $this->assertSame("::: note \"a b\"\nBody.\n:::\n", $this->converter->convert($html));
+    }
+
     public function testAdmonitionAsideWithIdExtraClassAndTitleAttribute(): void
     {
         $html = '<aside class="admonition note extra" id="x" title="tip text">'

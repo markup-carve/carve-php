@@ -83,19 +83,84 @@ class StaticRenderModeTest extends TestCase
 
         $expected = implode("\n", [
             '<div class="tabs">',
-            '<section class="tabs-panel">',
-            '<p class="tabs-label">Installation</p>',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">Installation</h3>',
             '<p><code>composer require</code></p>',
-            '</section>',
-            '<section class="tabs-panel">',
-            '<p class="tabs-label">Usage</p>',
+            '  </section>',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">Usage</h3>',
             '<p><code>convert()</code></p>',
-            '</section>',
+            '  </section>',
             '</div>',
         ]);
         $this->assertSame($expected, $html);
         // No interaction in static mode: no radio inputs.
         $this->assertStringNotContainsString('<input', $html);
+    }
+
+    public function testTabsStaticShapeMatchesCarveJsOracleWithPanelTitle(): void
+    {
+        $source = implode("\n", [
+            ':::: tabs',
+            '::: tab "T" [Name]',
+            'Body.',
+            ':::',
+            '::: tab [Two]',
+            'B2.',
+            ':::',
+            '::::',
+        ]) . "\n";
+
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new TabsExtension());
+
+        $expected = implode("\n", [
+            '<div class="tabs">',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">Name</h3>',
+            '<p class="admonition-title">T</p>',
+            '<p>Body.</p>',
+            '  </section>',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">Two</h3>',
+            '<p>B2.</p>',
+            '  </section>',
+            '</div>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert($source)));
+    }
+
+    public function testTabsStaticShapeMatchesCarveJsOracleWithWrapperId(): void
+    {
+        $source = implode("\n", [
+            '{#install}',
+            ':::: tabs',
+            '::: tab [One]',
+            'A.',
+            ':::',
+            '{selected}',
+            '::: tab [Two]',
+            'B.',
+            ':::',
+            '::::',
+        ]) . "\n";
+
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new TabsExtension());
+
+        $expected = implode("\n", [
+            '<div class="tabs" id="install">',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">One</h3>',
+            '<p>A.</p>',
+            '  </section>',
+            '  <section class="tabs-panel">',
+            '  <h3 class="tabs-label">Two</h3>',
+            '<p>B.</p>',
+            '  </section>',
+            '</div>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert($source)));
     }
 
     public function testCodeGroupFlattensToLabeledSectionsInStaticMode(): void

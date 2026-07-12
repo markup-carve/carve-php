@@ -1807,6 +1807,9 @@ class BlockParser
         }
         if ($title !== null) {
             $div->setHeader($title);
+            $headerContainer = new Paragraph();
+            $this->inlineParser->parse($headerContainer, $title, $this->lineOffset + $start);
+            $div->setHeaderNodes($headerContainer->getChildren());
         }
         foreach ($this->pendingAttributes as $name => $value) {
             if ($name === 'class') {

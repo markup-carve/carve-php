@@ -46,6 +46,39 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($expected, $this->render($djot));
     }
 
+    public function testCaptionRendersInlineContent(): void
+    {
+        $djot = implode("\n", [
+            '::: list-table "Q *totals* `2026`"',
+            '- - x',
+            ':::',
+        ]);
+
+        $this->assertStringContainsString('<caption>Q <strong>totals</strong> <code>2026</code></caption>', $this->render($djot));
+    }
+
+    public function testImageOnlyTitleRendersCaptionInsteadOfBeingEmpty(): void
+    {
+        $djot = implode("\n", [
+            '::: list-table "![alt](/x.png)"',
+            '- - x',
+            ':::',
+        ]);
+
+        $this->assertStringContainsString('<caption><img src="/x.png" alt="alt"></caption>', $this->render($djot));
+    }
+
+    public function testExplicitEmptyTitleOmitsCaption(): void
+    {
+        $djot = implode("\n", [
+            '::: list-table ""',
+            '- - x',
+            ':::',
+        ]);
+
+        $this->assertStringNotContainsString('<caption>', $this->render($djot));
+    }
+
     public function testMultiBlockCellStaysWrappedWhileSingleParagraphCollapses(): void
     {
         $djot = implode("\n", [

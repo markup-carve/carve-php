@@ -96,7 +96,13 @@ class DetailsExtension implements ExtensionInterface
     protected function renderDetails(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
     {
         $title = $node->getHeader();
-        $summary = $title !== null && trim($title) !== '' ? $title : self::DEFAULT_SUMMARY;
+        $summary = self::DEFAULT_SUMMARY;
+        if ($title !== null && trim($title) !== '') {
+            $summaryHtml = $renderer->renderInlineNodesFragment($node->getHeaderNodes());
+            if (trim($summaryHtml) !== '') {
+                $summary = $summaryHtml;
+            }
+        }
 
         $attrs = $this->renderTagAttributes($node, $renderer);
 
@@ -117,7 +123,7 @@ class DetailsExtension implements ExtensionInterface
         // container ("<aside ...>\n\n</aside>") and carve-js / carve-rs, which
         // both emit "</summary>\n\n</details>". Collapsing it here diverged.
         return '<details' . $attrs . ">\n"
-            . '  <summary>' . $this->escapeHtml($summary) . "</summary>\n"
+            . '  <summary>' . $summary . "</summary>\n"
             . ($body !== '' ? $body . "\n" : "\n")
             . "</details>\n";
     }

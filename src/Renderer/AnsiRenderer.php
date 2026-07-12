@@ -676,7 +676,7 @@ class AnsiRenderer implements RendererInterface
         // Preserve an admonition's quoted opener header as a leading bold line.
         $title = $node->getHeader();
         if (is_string($title)) {
-            $prefix .= $this->style($this->stripControls($title), self::BOLD) . "\n\n";
+            $prefix .= $this->style($this->renderTitleInlineNodes($node->getHeaderNodes()), self::BOLD) . "\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
         // §12) is normally consumed by a group extension (e.g. tabs). When no
@@ -688,6 +688,28 @@ class AnsiRenderer implements RendererInterface
         }
 
         return $prefix . $body;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function renderTitleInlineNodes(array $nodes): string
+    {
+        $output = '';
+        foreach ($nodes as $node) {
+            $output .= $this->renderTitleInlineNode($node);
+        }
+
+        return $output;
+    }
+
+    protected function renderTitleInlineNode(Node $node): string
+    {
+        if ($node instanceof Strong) {
+            return $this->renderTitleInlineNodes($node->getChildren());
+        }
+
+        return $this->renderNode($node);
     }
 
     protected function renderTable(Table $node): string

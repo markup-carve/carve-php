@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote;
@@ -118,6 +119,16 @@ class HtmlRendererTest extends TestCase
         $this->assertSame(
             "<p><a href=\"https://example.com&quot; onclick=&quot;alert(1)\" title=\"Title &quot;quoted&quot;\">Example</a></p>\n",
             $result,
+        );
+    }
+
+    public function testDivHeaderRendersInlineContent(): void
+    {
+        $html = (new CarveConverter())->convert("::: note \"link [x](/y) and _u_\"\nx\n:::");
+
+        $this->assertSame(
+            "<aside class=\"admonition note\">\n  <p class=\"admonition-title\">link <a href=\"/y\">x</a> and <u>u</u></p>\n  <p>x</p>\n</aside>\n",
+            $html,
         );
     }
 

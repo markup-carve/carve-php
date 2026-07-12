@@ -509,7 +509,7 @@ class HtmlToCarve
         }
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
-        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
@@ -564,7 +564,7 @@ class HtmlToCarve
         $content = $this->processAdmonitionContent($node);
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
-        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
@@ -614,7 +614,7 @@ class HtmlToCarve
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
-        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
@@ -627,7 +627,7 @@ class HtmlToCarve
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'p' && $this->hasClass($child, 'admonition-title')) {
-                return trim($child->textContent);
+                return trim($this->processChildren($child));
             }
         }
 
@@ -846,6 +846,14 @@ class HtmlToCarve
     protected function quoteLinkTitle(string $title): string
     {
         return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $title) . '"';
+    }
+
+    protected function quoteOpenerHeader(string $title): string
+    {
+        // Div/code opener headers cannot contain a double quote. When converting
+        // arbitrary HTML, keep the source valid and preserve the remaining
+        // inline markup rather than emitting an opener the parser cannot read.
+        return '"' . str_replace('"', '', $title) . '"';
     }
 
     protected function processParagraph(DOMElement $node): string

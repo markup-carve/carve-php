@@ -60,6 +60,23 @@ class AnsiRendererTest extends TestCase
         $this->assertSame("opener title\n\nBody.\n", (string)$output);
     }
 
+    public function testDivHeaderRendersInlineContent(): void
+    {
+        $doc = $this->converter->parse("::: note \"a *b* `c`\"\nx\n:::");
+
+        $this->assertSame(
+            "\033[1ma b \033[93mc\033[0m\033[0m\n\nx\n",
+            $this->renderer->render($doc),
+        );
+    }
+
+    public function testDivHeaderUnwrapsStrongInsideBoldTitle(): void
+    {
+        $doc = $this->converter->parse("::: note \"a *b*\"\nx\n:::");
+
+        $this->assertSame("\033[1ma b\033[0m\n\nx\n", $this->renderer->render($doc));
+    }
+
     public function testRenderEmphasisAndStrong(): void
     {
         $doc = $this->converter->parse('This is /emphasized/ and *strong* text.');

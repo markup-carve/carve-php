@@ -18,6 +18,16 @@ class SpoilerExtensionTest extends TestCase
         return $converter->convert($djot);
     }
 
+    public function testSummaryRendersInlineMarkup(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = $converter->convert("::: spoiler \"a *b*\"\nHidden.\n:::");
+
+        $this->assertStringContainsString('<summary>a <strong>b</strong></summary>', $html);
+    }
+
     public function testInlineRendersSpoilerSpan(): void
     {
         $this->assertStringContainsString(
@@ -53,6 +63,7 @@ class SpoilerExtensionTest extends TestCase
             trim($this->convert("::: spoiler \"Ending\"\nEveryone lives.\n:::")),
         );
     }
+
 
     public function testBlockEmptyBodyKeepsBlankLine(): void
     {

@@ -85,7 +85,7 @@ DJOT;
         // carve-js), not vanish from the output.
         $djot = <<<'DJOT'
 :::: tabs
-::: tab "Inner Title" [First]
+::: tab "a *b*" [First]
 Content one.
 :::
 ::::
@@ -94,7 +94,7 @@ DJOT;
         $html = $converter->convert($djot);
 
         $this->assertStringContainsString('>First</label>', $html);
-        $this->assertStringContainsString('<p class="admonition-title">Inner Title</p>', $html);
+        $this->assertStringContainsString('<p class="admonition-title">a <strong>b</strong></p>', $html);
     }
 
     public function testTitleOnlyTabKeepsTitleAndFallsBackForName(): void

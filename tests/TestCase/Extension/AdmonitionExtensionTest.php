@@ -68,6 +68,18 @@ class AdmonitionExtensionTest extends TestCase
         $this->assertStringNotContainsString('>Warning<', $html);
     }
 
+    public function testCustomTitleRendersInlineHtmlAndKeepsRawRoundTripAttribute(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AdmonitionExtension());
+        $converter->getRenderer()->setRoundTripMode(true);
+
+        $html = $converter->convert("::: note \"a *b*\"\nContent.\n:::");
+
+        $this->assertStringContainsString('<p class="admonition-title">a <strong>b</strong></p>', $html);
+        $this->assertStringContainsString('data-djot-admonition-title="a *b*"', $html);
+    }
+
     public function testCollapsibleIsPassThroughAttribute(): void
     {
         // Disclosure widgets are provided by DetailsExtension, not here. A
