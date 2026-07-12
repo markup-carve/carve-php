@@ -83,6 +83,17 @@ class CarveFormatterTest extends TestCase
             "!important\n" => "\\!important\n",
             "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n" =>
                 "{title=\"attr title\"}\n::: note \"opener title\"\nBody\\.\n:::\n",
+            // Extra attributes on a typed opener survive as a preceding
+            // attribute line (byte-identical to carve-js).
+            "{#x data-k=\"v\"}\n::: tip\nBody.\n:::\n" =>
+                "{#x data-k=v}\n::: tip\nBody\\.\n:::\n",
+            // A non-identifier id falls back to the quoted key=value form.
+            "{id=\"a b\"}\n::: tip\nBody.\n:::\n" =>
+                "{id=\"a b\"}\n::: tip\nBody\\.\n:::\n",
+            // Multi-class admonitions leave the typed-div fast path but keep
+            // header, label, and the sibling class on the attribute line.
+            "{.callout}\n::: note \"T\" [L]\nBody.\n:::\n" =>
+                "{.callout}\n::: note \"T\" [L]\nBody\\.\n:::\n",
         ];
 
         foreach ($cases as $input => $expected) {
