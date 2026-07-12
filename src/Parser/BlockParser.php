@@ -3535,6 +3535,11 @@ class BlockParser
         // keyed by column position; propagates to the column's body cells.
         $columnAligns = [];
         $headerFound = false;
+        // Whether the most recently added data row's own line was shaped like
+        // a separator ( |:-:| ): such a row must not be promoted to a header
+        // by a following separator - carve-js / carve-rs treat both lines as
+        // ordinary data rows.
+        $lastRowSeparatorShaped = false;
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
@@ -3560,6 +3565,7 @@ class BlockParser
                 $this->tableParser->isSeparatorRow($lineWithoutRowAttrs)
                 && count($table->getChildren()) === 1
                 && !$headerFound
+                && !$lastRowSeparatorShaped
             ) {
                 $alignments = $this->tableParser->parseTableAlignments($lineWithoutRowAttrs);
                 $headerFound = true;
@@ -3620,6 +3626,7 @@ class BlockParser
             }
 
             // Extract row attributes (|...|{.class})
+            $lastRowSeparatorShaped = $this->tableParser->isSeparatorRow($lineWithoutRowAttrs);
             $rowAttributes = $this->tableParser->extractRowAttributes($currentLine);
 
             // Parse cells with their attributes
