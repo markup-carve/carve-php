@@ -7,7 +7,55 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] - YYYY-MM-DD
+## [0.1.2] - 2026-07-12
+
+### Security
+
+- Gate two ungated raw-HTML paths in the `HtmlToCarve` reverse converter that
+  let untrusted HTML emit live `{=html}` passthrough (XSS); honored only with
+  `trustedRoundTrip` (#293)
+- Neutralize raw-HTML blocks minted from foreign code fences (XSS) (#298)
+- Harden `::: toc` / `::: footnotes` placement: per-render output budget
+  (amplification bound), Trojan-Source bidi controls stripped from TOC link
+  text, renderer state protected against exceptions (#292)
+- Linear nested `[quote]` parsing in `BbcodeToCarve` (was O(n^2) DoS) (#302)
+
+### Added
+
+- Opt-in `collapsible` option on `TableOfContentsExtension` (#297)
+
+### Fixed
+
+- Cross-implementation parity with carve-js / carve-rs (byte-verified):
+  bare `{}` stays literal, class dedup, literal backslash in URLs (#294);
+  math/table/block-attr/fmt divergences (#301); unclosed code span and raw
+  image alt data loss (#299); separator-shaped rows never promoted to table
+  headers (#317); dropped raw-format span keeps its leading space (#316);
+  block images in blockquotes/lists (#319, #320); unresolved reference image
+  formats verbatim (#321); permalink wrapper + wikilink attribute order (#312);
+  empty details/spoiler body keeps a blank line (#311); `{% %}` is literal
+  text (#313)
+- Forward footnote reference inside a footnote body resolves (#300)
+- TOC entry text trims the space left by an excluded section number (#305);
+  trailing newline after injected `::: toc` nav (#310); genuine trailing empty
+  cells in non-HTML tables (#308)
+- `:index[term]` marker no longer feeds the heading slug (#306); glossary div
+  wrapper kept on non-definition-list bodies (#307)
+- `DjotToCarve` no longer corrupts footnote labels and pre-braced forms
+
+## [0.1.1] - 2026-07-04
+
+### Added
+
+- `::: toc` and `::: footnotes` placement directives, including
+  container-nested headings in `::: toc` placement (#288, #289)
+
+### Fixed
+
+- Extension-generated ids deduplicate against the document id namespace (#287)
+- Heading auto-id deduplication skips reserved suffix candidates (#286)
+
+## [0.1.0] - 2026-07-02
 
 Initial release of **carve-php**, a PHP parser and renderer for the
 [Carve](https://github.com/markup-carve/carve) markup language. Install via
