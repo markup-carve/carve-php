@@ -750,6 +750,24 @@ class HtmlRenderer implements RendererInterface
         return $html;
     }
 
+    /**
+     * A paragraph that renders as a bare block image (no attributes, a single
+     * Image child). Such a paragraph emits a block-level <img> with no <p>
+     * wrapper, so a container holding only it uses the expanded (indented)
+     * layout rather than the single-paragraph compact form.
+     */
+    protected function isBlockImageParagraph(Node $node): bool
+    {
+        if (!$node instanceof Paragraph) {
+            return false;
+        }
+        $children = $node->getChildren();
+
+        return $this->renderAttributes($node) === ''
+            && count($children) === 1
+            && $children[0] instanceof Image;
+    }
+
     protected function renderParagraph(Paragraph $node): string
     {
         $attrs = $this->renderAttributes($node);
@@ -757,7 +775,7 @@ class HtmlRenderer implements RendererInterface
         // A paragraph whose only content is a single image renders the
         // image as a bare block element (no <p> wrapper), per Carve.
         $children = $node->getChildren();
-        if ($attrs === '' && count($children) === 1 && $children[0] instanceof Image) {
+        if ($attrs === '' && $this->isBlockImageParagraph($node)) {
             // Route through renderNode so render-time extensions
             // (e.g. DefaultAttributesExtension) still fire on the image.
             return rtrim($this->renderNode($children[0]), "\n") . "\n";
@@ -932,7 +950,14 @@ class HtmlRenderer implements RendererInterface
         // A blockquote of a single paragraph is compact (one line);
         // anything else (lists, headings, multiple blocks) is expanded
         // with two-space indentation. Matches the carve-js reference.
-        if (count($children) === 1 && $children[0] instanceof Paragraph) {
+        // A single-image paragraph renders as a bare block <img>, a
+        // block-level element, so it takes the expanded form too (matching
+        // carve-js / carve-rs and this renderer's own div/heading handling).
+        if (
+            count($children) === 1
+            && $children[0] instanceof Paragraph
+            && !$this->isBlockImageParagraph($children[0])
+        ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
 
@@ -1042,7 +1067,7 @@ class HtmlRenderer implements RendererInterface
         if (preg_match('/^<p>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
             $lead = $tight ? $m[1] : '<p>' . $m[1] . '</p>';
             $rest = isset($m[2]) ? trim($m[2], "\n") : '';
-        } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|details|figure|hr|dl|h[1-6])\b/', $content)) {
+        } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|details|figure|hr|dl|img|h[1-6])\b/', $content)) {
             // A block-only item (no inline lead, e.g. the `- +` first-block
             // form) puts the block on its own indented line, matching the
             // lead+block layout and carve-js, instead of inlining it on the
