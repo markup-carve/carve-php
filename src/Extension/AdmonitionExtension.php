@@ -197,6 +197,9 @@ class AdmonitionExtension implements ExtensionInterface
     {
         $customTitle = $node->getHeader();
         $title = $customTitle !== null ? (string)$customTitle : ($this->defaultTitle ? ucfirst($type) : null);
+        $titleHtml = $customTitle !== null
+            ? $renderer->renderInlineNodesFragment($node->getHeaderNodes())
+            : ($title !== null ? StringUtil::escapeHtml($title) : null);
 
         // Build class list
         $classes = [$this->containerClass, $type];
@@ -221,15 +224,15 @@ class AdmonitionExtension implements ExtensionInterface
 
         $icon = $this->getIcon($type);
 
-        return $this->renderStatic($type, $classAttr, $extraAttrs, $title, $childrenHtml, $icon);
+        return $this->renderStatic($type, $classAttr, $extraAttrs, $titleHtml, $childrenHtml, $icon);
     }
 
     /**
      * Render the title content with optional icon
      */
-    protected function renderTitleContent(?string $title, ?string $icon): string
+    protected function renderTitleContent(?string $titleHtml, ?string $icon): string
     {
-        if ($title === null) {
+        if ($titleHtml === null) {
             return '';
         }
 
@@ -238,7 +241,7 @@ class AdmonitionExtension implements ExtensionInterface
             $content .= '<span class="' . StringUtil::escapeHtml($this->iconClass) . '">'
                 . StringUtil::escapeHtml($icon) . '</span> ';
         }
-        $content .= StringUtil::escapeHtml($title);
+        $content .= $titleHtml;
 
         return $content;
     }
@@ -246,14 +249,14 @@ class AdmonitionExtension implements ExtensionInterface
     /**
      * Render a static (non-collapsible) admonition
      */
-    protected function renderStatic(string $type, string $classAttr, string $extraAttrs, ?string $title, string $childrenHtml, ?string $icon): string
+    protected function renderStatic(string $type, string $classAttr, string $extraAttrs, ?string $titleHtml, string $childrenHtml, ?string $icon): string
     {
         $role = in_array($type, self::ALERT_TYPES, true) ? 'alert' : 'note';
         $html = '<div class="' . StringUtil::escapeHtml($classAttr) . '" role="' . $role . '"' . $extraAttrs . ">\n";
 
-        if ($title !== null) {
+        if ($titleHtml !== null) {
             $html .= '<' . $this->titleTag . ' class="' . StringUtil::escapeHtml($this->titleClass) . '">';
-            $html .= $this->renderTitleContent($title, $icon);
+            $html .= $this->renderTitleContent($titleHtml, $icon);
             $html .= '</' . $this->titleTag . ">\n";
         }
 

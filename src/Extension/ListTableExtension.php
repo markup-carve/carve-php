@@ -227,7 +227,10 @@ class ListTableExtension implements ExtensionInterface
 
         $title = $node->getHeader();
         if ($title !== null && trim($title) !== '') {
-            $lines[] = '  <caption>' . $this->escapeHtml($title) . '</caption>';
+            $caption = $renderer->renderInlineNodesFragment($node->getHeaderNodes());
+            if (trim($caption) !== '') {
+                $lines[] = '  <caption>' . $caption . '</caption>';
+            }
         }
 
         $renderRow = function (array $gridRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras, $placement): string {

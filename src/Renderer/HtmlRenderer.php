@@ -505,6 +505,25 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
+     * Render inline nodes with the current renderer configuration.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    public function renderInlineNodesFragment(array $nodes): string
+    {
+        return $this->restoreSoftBreakGuardsIfTopLevel(
+            $this->withFragmentContext(function () use ($nodes): string {
+                $html = '';
+                foreach ($nodes as $node) {
+                    $html .= $this->renderNode($node);
+                }
+
+                return $html;
+            }),
+        );
+    }
+
+    /**
      * Render a document fragment without resetting active render state.
      *
      * This is intended for extensions that need block-level rendering for a
@@ -1163,7 +1182,7 @@ class HtmlRenderer implements RendererInterface
         $titleAttr = $node->getHeader();
         $titleLine = '';
         if (is_string($titleAttr)) {
-            $titleLine = '  <p class="admonition-title">' . $this->escape($titleAttr) . "</p>\n";
+            $titleLine = '  <p class="admonition-title">' . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
         }
 
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9

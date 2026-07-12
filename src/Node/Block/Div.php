@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Block;
 
+use MarkupCarve\Carve\Node\Inline\Text;
+
 /**
  * Generic div container (fenced with :::)
  */
@@ -22,6 +24,14 @@ class Div extends BlockNode
      * which is a plain HTML attribute.
      */
     protected ?string $header = null;
+
+    /**
+     * Parsed inline form of {@see $header}. The raw header remains the source
+     * for formatters and round trips; renderers consume these nodes.
+     *
+     * @var list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected array $headerNodes = [];
 
     /**
      * True when the div was opened with a type word (`::: sidebar`), false for
@@ -54,6 +64,31 @@ class Div extends BlockNode
     public function setHeader(?string $header): void
     {
         $this->header = $header;
+    }
+
+    /**
+     * The parsed header inlines. When only `setHeader()` was called (a
+     * programmatically built Div, outside the parser), the raw string is
+     * surfaced as a single Text node so consumers never silently drop a
+     * title that was set through the public API.
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    public function getHeaderNodes(): array
+    {
+        if ($this->headerNodes === [] && $this->header !== null && $this->header !== '') {
+            return [new Text($this->header)];
+        }
+
+        return $this->headerNodes;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $headerNodes
+     */
+    public function setHeaderNodes(array $headerNodes): void
+    {
+        $this->headerNodes = array_values($headerNodes);
     }
 
     public function isTyped(): bool

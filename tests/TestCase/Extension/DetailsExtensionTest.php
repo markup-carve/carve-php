@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\DetailsExtension;
+use MarkupCarve\Carve\Renderer\RenderMode;
 use PHPUnit\Framework\TestCase;
 
 class DetailsExtensionTest extends TestCase
@@ -75,17 +76,56 @@ class DetailsExtensionTest extends TestCase
         $this->assertSame($expected, $html);
     }
 
-    public function testTitleIsPlainText(): void
+    public function testTitleRendersInlineContent(): void
     {
-        // carve-php stores the quoted title as a flat (plain-text) attribute, so
-        // the summary is the literal title - matching the default
-        // `<p class="admonition-title">` rendering of the same block.
-        $html = $this->render("::: details \"see here\"\nx\n:::");
+        $html = $this->render("::: details \"a *b* `c`\"\nHidden.\n:::");
 
         $expected = implode("\n", [
             '<details>',
-            '  <summary>see here</summary>',
-            '  <p>x</p>',
+            '  <summary>a <strong>b</strong> <code>c</code></summary>',
+            '  <p>Hidden.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testImageOnlyTitleRendersSummaryInsteadOfFallback(): void
+    {
+        $html = $this->render("::: details \"![alt](/x.png)\"\nHidden.\n:::");
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary><img src="/x.png" alt="alt"></summary>',
+            '  <p>Hidden.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testExplicitEmptyTitleUsesDefaultSummary(): void
+    {
+        $html = $this->render("::: details \"\"\nHidden.\n:::");
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>Details</summary>',
+            '  <p>Hidden.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testStaticModeTitleRendersInlineContent(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new DetailsExtension());
+
+        $html = trim($converter->convert("::: details \"a *b* `c`\"\nHidden.\n:::"));
+
+        $expected = implode("\n", [
+            '<details open>',
+            '  <summary>a <strong>b</strong> <code>c</code></summary>',
+            '  <p>Hidden.</p>',
             '</details>',
         ]);
         $this->assertSame($expected, $html);

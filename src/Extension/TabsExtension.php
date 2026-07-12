@@ -285,11 +285,11 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $html = '<div' . $attrs . ">\n";
         foreach ($tabs as $tab) {
             $body = rtrim($tab['content'], "\n");
-            $html .= '<section class="' . StringUtil::escapeHtml($this->tabClass) . "\">\n"
-                . '<p class="' . StringUtil::escapeHtml($this->labelClass) . '">'
-                . StringUtil::escapeHtml($tab['label']) . "</p>\n"
+            $html .= '  <section class="' . StringUtil::escapeHtml($this->tabClass) . "\">\n"
+                . '  <h3 class="' . StringUtil::escapeHtml($this->labelClass) . '">'
+                . StringUtil::escapeHtml($tab['label']) . "</h3>\n"
                 . ($body !== '' ? $body . "\n" : '')
-                . "</section>\n";
+                . "  </section>\n";
         }
         $html .= "</div>\n";
 
@@ -387,7 +387,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // vanished from the output.
         $header = $tab->getHeader();
         if ($header !== null) {
-            $html .= '<p class="admonition-title">' . StringUtil::escapeHtml($header) . "</p>\n";
+            $html .= '<p class="admonition-title">' . $renderer->renderInlineNodesFragment($tab->getHeaderNodes()) . "</p>\n";
         }
 
         foreach ($tab->getChildren() as $child) {

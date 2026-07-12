@@ -489,7 +489,7 @@ class MarkdownRenderer implements RendererInterface
         $prefix = '';
         $title = $node->getHeader();
         if (is_string($title)) {
-            $prefix .= '**' . $this->escapeText($this->stripControls($title)) . "**\n\n";
+            $prefix .= '**' . $this->renderTitleInlineNodes($node->getHeaderNodes()) . "**\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
         // §12) is normally consumed by a group extension (e.g. tabs). When no
@@ -502,6 +502,28 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return $prefix . $body;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function renderTitleInlineNodes(array $nodes): string
+    {
+        $output = '';
+        foreach ($nodes as $node) {
+            $output .= $this->renderTitleInlineNode($node);
+        }
+
+        return $output;
+    }
+
+    protected function renderTitleInlineNode(Node $node): string
+    {
+        if ($node instanceof Strong) {
+            return $this->renderTitleInlineNodes($node->getChildren());
+        }
+
+        return $this->renderNode($node);
     }
 
     protected function renderTable(Table $node): string

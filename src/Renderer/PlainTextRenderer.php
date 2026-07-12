@@ -208,6 +208,21 @@ class PlainTextRenderer implements RendererInterface
         return $text;
     }
 
+    /**
+     * Render inline nodes as plain text without resetting document-level state.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    public function renderInlineNodesFragment(array $nodes): string
+    {
+        $text = '';
+        foreach ($nodes as $node) {
+            $text .= $this->renderNode($node);
+        }
+
+        return str_replace("\u{E000}", ' ', $text);
+    }
+
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";
@@ -220,7 +235,7 @@ class PlainTextRenderer implements RendererInterface
         // Preserve an admonition's quoted opener header as a leading line.
         $title = $node->getHeader();
         if (is_string($title)) {
-            $prefix .= $this->stripControls($title) . "\n\n";
+            $prefix .= $this->renderInlineNodesFragment($node->getHeaderNodes()) . "\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
         // §12) is normally consumed by a group extension (e.g. tabs). When no
