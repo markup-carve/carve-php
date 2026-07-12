@@ -64,7 +64,6 @@ class SpoilerExtensionTest extends TestCase
         );
     }
 
-
     public function testBlockEmptyBodyKeepsBlankLine(): void
     {
         // An empty body renders as a single blank line, matching a core empty

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Block;
 
+use MarkupCarve\Carve\Node\Inline\Text;
+
 /**
  * Generic div container (fenced with :::)
  */
@@ -75,7 +77,7 @@ class Div extends BlockNode
     public function getHeaderNodes(): array
     {
         if ($this->headerNodes === [] && $this->header !== null && $this->header !== '') {
-            return [new \MarkupCarve\Carve\Node\Inline\Text($this->header)];
+            return [new Text($this->header)];
         }
 
         return $this->headerNodes;
