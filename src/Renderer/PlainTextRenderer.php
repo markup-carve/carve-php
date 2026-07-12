@@ -6,12 +6,14 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -146,6 +148,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof Paragraph => $this->renderParagraph($node),
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
+                $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Comment => '', // Skip comments
                 $node instanceof RawBlock => '', // Skip raw blocks (format-specific)
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
@@ -240,6 +243,31 @@ class PlainTextRenderer implements RendererInterface
     protected function renderCodeBlock(CodeBlock $node): string
     {
         return $this->stripControls($node->getContent()) . "\n\n";
+    }
+
+    protected function renderFigure(Figure $node): string
+    {
+        $target = null;
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Caption) {
+                $target = $child;
+            }
+        }
+        // The caption sits on its own line directly under the figure (`\n`),
+        // matching carve-js / carve-rs; a blockquote target keeps the
+        // blank-line separation.
+        $sep = $target instanceof BlockQuote ? "\n\n" : "\n";
+
+        $output = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                $output = rtrim($output, "\n") . $sep . trim($this->renderChildren($child)) . "\n\n";
+            } else {
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        return $output;
     }
 
     /**
