@@ -31,6 +31,27 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('Heading 2', $output);
     }
 
+    public function testBlockquoteBlockImageHasNoQuoteBar(): void
+    {
+        // A bare block image is a block-level element (like a heading), so it
+        // does NOT take the blockquote `│` prefix - matching carve-js/carve-rs
+        // and the heading/code precedent.
+        $doc = $this->converter->parse('> ![a](/u)');
+        $output = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($doc));
+
+        $this->assertSame('[img: a]', trim((string)$output));
+        $this->assertStringNotContainsString('│', (string)$output);
+    }
+
+    public function testBlockquoteTextKeepsQuoteBar(): void
+    {
+        // A real (non-image) paragraph still gets the `│` prefix.
+        $doc = $this->converter->parse('> hello');
+        $output = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($doc));
+
+        $this->assertStringContainsString('│ hello', (string)$output);
+    }
+
     public function testRenderEmphasisAndStrong(): void
     {
         $doc = $this->converter->parse('This is /emphasized/ and *strong* text.');

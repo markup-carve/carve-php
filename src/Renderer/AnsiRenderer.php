@@ -493,7 +493,12 @@ class AnsiRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         $content = $this->renderChildren($node);
-        $prefix = $this->getBlockQuotePrefix();
+        // A paragraph whose only content is a single image renders as a bare
+        // block-level image, so - like a heading or code block - it does NOT
+        // take the blockquote `│` prefix (matching carve-js / carve-rs).
+        $children = $node->getChildren();
+        $isBlockImage = count($children) === 1 && $children[0] instanceof Image;
+        $prefix = $isBlockImage ? '' : $this->getBlockQuotePrefix();
 
         if ($prefix !== '') {
             $content = $this->prefixLines($content, $prefix);
