@@ -763,7 +763,16 @@ class HtmlRenderer implements RendererInterface
             return rtrim($this->renderNode($children[0]), "\n") . "\n";
         }
 
-        $content = rtrim($this->renderChildren($node), " \t");
+        $content = $this->renderChildren($node);
+
+        // Trailing line-end whitespace is trimmed (corpus 102) - but not when
+        // the paragraph ends in a raw-format span that dropped from this
+        // output format: the space before it is interior in the source, and
+        // carve-js / carve-rs keep it (a17).
+        $last = $children === [] ? null : $children[count($children) - 1];
+        if (!($last instanceof RawInline && strtolower($last->getFormat()) !== 'html')) {
+            $content = rtrim($content, " \t");
+        }
 
         return '<p' . $attrs . '>' . $content . "</p>\n";
     }
