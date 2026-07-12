@@ -745,10 +745,21 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function renderFigure(Figure $node): string
     {
+        $target = null;
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Caption) {
+                $target = $child;
+            }
+        }
+        // The caption sits on its own line directly under the figure (`\n`),
+        // matching carve-js / carve-rs; a blockquote target keeps the
+        // blank-line separation.
+        $sep = $target instanceof BlockQuote ? "\n\n" : "\n";
+
         $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                $output = rtrim($output) . "\n\n" . $this->renderCaption($child);
+                $output = rtrim($output) . $sep . $this->renderCaption($child);
             } else {
                 $output .= $this->renderNode($child);
             }

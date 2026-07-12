@@ -995,14 +995,24 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderFigure(Figure $node): string
     {
-        $output = '';
+        $target = null;
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Caption) {
+                $target = $child;
+            }
+        }
+        // The caption sits on its own line directly under the figure (`\n`),
+        // matching carve-js / carve-rs; a blockquote target keeps the
+        // blank-line separation.
+        $sep = $target instanceof BlockQuote ? "\n\n" : "\n";
 
+        $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                // Render caption after content, styled as italic
-                $output .= $this->renderCaption($child);
+                // Render caption after content, styled as italic.
+                $output = rtrim($output, "\n") . $sep . $this->renderCaption($child);
             } else {
-                $output .= $this->renderNode($child) . "\n";
+                $output .= $this->renderNode($child);
             }
         }
 
