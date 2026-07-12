@@ -11,6 +11,19 @@ use PHPUnit\Framework\TestCase;
 
 class CrossImplementationDivergenceTest extends TestCase
 {
+    public function testSpaceBeforeDroppedRawSpanIsKept(): void
+    {
+        $converter = new CarveConverter();
+
+        // a17: a raw-format span for another output format renders to nothing,
+        // but the space before it is interior in the source - carve-js and
+        // carve-rs keep it. Plain line-end whitespace stays trimmed (corpus
+        // case 102).
+        $this->assertSame("<p>foo </p>\n", $converter->convert('foo `x`{=latex}'));
+        $this->assertSame("<p> bar</p>\n", $converter->convert('`x`{=latex} bar'));
+        $this->assertSame("<p>abc</p>\n", $converter->convert("abc \n"));
+    }
+
     public function testSeparatorShapedRowIsNeverPromotedToHeader(): void
     {
         $converter = new CarveConverter();
