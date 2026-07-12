@@ -37,6 +37,31 @@ class CrossImplementationDivergenceTest extends TestCase
         );
     }
 
+    public function testSeparatorShapedRowIsNeverPromotedToHeader(): void
+    {
+        $converter = new CarveConverter();
+
+        // A first row that itself matches the separator shape (|:-:|) must
+        // not be promoted to a header by a following separator line - both
+        // stay ordinary data rows (carve-js / carve-rs behavior).
+        $this->assertSame(
+            "<table>\n"
+            . "  <tbody>\n"
+            . "    <tr><td>:-:</td></tr>\n"
+            . "    <tr><td>:-:</td></tr>\n"
+            . "    <tr><td>x</td></tr>\n"
+            . "  </tbody>\n"
+            . "</table>\n",
+            $converter->convert("|:-:|\n|:-:|\n|x|"),
+        );
+
+        // Normal header promotion is unaffected.
+        $this->assertStringContainsString(
+            '<thead><tr><th style="text-align: center;">h</th></tr></thead>',
+            $converter->convert("| h |\n|:-:|\n| b |"),
+        );
+    }
+
     public function testCollapsedReferenceFallsBackToHeadingCaseInsensitively(): void
     {
         $this->assertSame(
