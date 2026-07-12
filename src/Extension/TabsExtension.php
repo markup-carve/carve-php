@@ -381,6 +381,15 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $skippedHeading = false;
         $html = '';
 
+        // The quoted opener title is CONTENT, not the tab name (that is the
+        // [label]'s job): it stays inside the panel as the same
+        // admonition-title line core would emit. Without this the title
+        // vanished from the output.
+        $header = $tab->getHeader();
+        if ($header !== null) {
+            $html .= '<p class="admonition-title">' . StringUtil::escapeHtml($header) . "</p>\n";
+        }
+
         foreach ($tab->getChildren() as $child) {
             // Skip the first heading if we're using it as the label
             if ($skipFirstHeading && !$skippedHeading && $child instanceof Heading) {
@@ -597,9 +606,18 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 $inner .= $content . "\n";
             }
 
+            // The opener metadata must survive the round-trip: the quoted
+            // title (content, cannot contain a `"` per the grammar) and the
+            // canonical opener `[label]`. A `{label="..."}` attribute is
+            // re-emitted by the attribute block instead.
+            $header = $node->getHeader();
+            $titlePart = $header === null ? '' : ' "' . $header . '"';
+            $openerLabel = $node->getLabel() ?? '';
+            $labelPart = $openerLabel === '' ? '' : ' [' . $openerLabel . ']';
+
             $tabFence = $this->colonFenceFor($inner);
             $tabBlocks .= $this->renderDjotAttributeBlock($node, skipAttrs: $skipAttrs, skipClasses: ['tab']);
-            $tabBlocks .= $tabFence . " tab\n" . $inner . $tabFence . "\n";
+            $tabBlocks .= $tabFence . ' tab' . $titlePart . $labelPart . "\n" . $inner . $tabFence . "\n";
         }
 
         $tabsFence = $this->colonFenceFor($tabBlocks);

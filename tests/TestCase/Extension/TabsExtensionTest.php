@@ -75,6 +75,50 @@ DJOT;
         $this->assertStringNotContainsString('label="First"', $html);
     }
 
+    public function testQuotedOpenerTitleStaysInsidePanel(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        // The quoted title is CONTENT (the [label] is the tab name): it must
+        // survive inside the panel as the admonition-title line (parity with
+        // carve-js), not vanish from the output.
+        $djot = <<<'DJOT'
+:::: tabs
+::: tab "Inner Title" [First]
+Content one.
+:::
+::::
+DJOT;
+
+        $html = $converter->convert($djot);
+
+        $this->assertStringContainsString('>First</label>', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Inner Title</p>', $html);
+    }
+
+    public function testTitleOnlyTabKeepsTitleAndFallsBackForName(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+
+        $html = $converter->convert(":::: tabs\n::: tab \"Only Title\"\nBody.\n:::\n::::");
+
+        $this->assertStringContainsString('>Tab 1</label>', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Only Title</p>', $html);
+    }
+
+    public function testRoundTripSourceKeepsOpenerTitleAndLabel(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+        $converter->getRenderer()->setRoundTripMode(true);
+
+        $html = $converter->convert(":::: tabs\n::: tab \"Inner\" [First]\nBody.\n:::\n::::");
+
+        $this->assertMatchesRegularExpression('/data-djot-src="[^"]*tab &quot;Inner&quot; \[First\]/', $html);
+    }
+
     public function testOpenerLabelPreservesContentHeading(): void
     {
         $converter = new CarveConverter();
