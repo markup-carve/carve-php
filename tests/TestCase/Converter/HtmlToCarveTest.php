@@ -56,6 +56,37 @@ class HtmlToCarveTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($html));
     }
 
+    public function testAdmonitionAsideWithIdExtraClassAndTitleAttribute(): void
+    {
+        $html = '<aside class="admonition note extra" id="x" title="tip text">'
+            . '<p class="admonition-title">T</p>'
+            . '<p>B</p>'
+            . '</aside>';
+
+        $this->assertSame(
+            "{#x .extra title=\"tip text\"}\n::: note \"T\"\nB\n:::\n",
+            $this->converter->convert($html),
+        );
+    }
+
+    public function testAsideWithoutAdmonitionTypeFallsBackToGenericContainer(): void
+    {
+        $this->assertSame(
+            "{.admonition}\n::: aside\nB\n:::\n",
+            $this->converter->convert('<aside class="admonition"><p>B</p></aside>'),
+        );
+    }
+
+    public function testTypedDivWithTitleParagraphAndTitleAttribute(): void
+    {
+        $this->assertSame(
+            "{title=tt}\n::: custom \"H\"\nB\n:::\n",
+            $this->converter->convert(
+                '<div class="custom" title="tt"><p class="admonition-title">H</p><p>B</p></div>',
+            ),
+        );
+    }
+
     public function testEmphasis(): void
     {
         $this->assertSame("/italic/\n", $this->converter->convert('<em>italic</em>'));
