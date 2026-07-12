@@ -1945,6 +1945,16 @@ class InlineParser
             return null;
         }
 
+        // Grammar (section 974): image = '!', '[', alt, ']', '(', source, ')'.
+        // Only the DIRECT form is an image - reference and collapsed labels
+        // ([ref] / []) do not resolve as images. carve-js and carve-rs render
+        // `![alt][ref]` as a literal `!` followed by the reference link;
+        // returning null here lets the `!` fall through as text and the
+        // bracket parse as a plain link.
+        if ($link->getReferenceLabel() !== null) {
+            return null;
+        }
+
         // Alt text is RAW (grammar §864: alt_text = {character - ']'}), NOT
         // parsed inline: emphasis, code spans, and backslashes are kept
         // verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``), matching carve-js /

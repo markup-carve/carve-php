@@ -11,6 +11,32 @@ use PHPUnit\Framework\TestCase;
 
 class CrossImplementationDivergenceTest extends TestCase
 {
+    public function testImagesResolveOnlyInDirectForm(): void
+    {
+        $converter = new CarveConverter();
+
+        // Grammar (section 974): image = '!' '[' alt ']' '(' source ')' - the
+        // direct form only. Reference and collapsed labels are not images;
+        // carve-js and carve-rs render a literal '!' followed by the
+        // reference link. The shortcut form stays fully literal.
+        $this->assertSame(
+            "<img src=\"https://x.png\" alt=\"alt\">\n",
+            $converter->convert('![alt](https://x.png)'),
+        );
+        $this->assertSame(
+            "<p>!<a href=\"https://x.png\">alt</a></p>\n",
+            $converter->convert("![alt][ref]\n\n[ref]: https://x.png"),
+        );
+        $this->assertSame(
+            "<p>!<a href=\"https://x.png\">alt</a></p>\n",
+            $converter->convert("![alt][]\n\n[alt]: https://x.png"),
+        );
+        $this->assertSame(
+            "<p>![alt]</p>\n",
+            $converter->convert("![alt]\n\n[alt]: https://x.png"),
+        );
+    }
+
     public function testCollapsedReferenceFallsBackToHeadingCaseInsensitively(): void
     {
         $this->assertSame(
