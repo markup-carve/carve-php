@@ -144,8 +144,8 @@ class CarveRenderer implements RendererInterface
             $node instanceof ListItem => $this->renderListItem($node),
             $node instanceof ThematicBreak => $withAttrs('---'),
             $node instanceof Table => $withAttrs($this->renderTable($node)),
-            $node instanceof Div && $this->canRenderTypedDiv($node) => $this->renderTypedDiv($node),
-            $node instanceof Div && $this->admonitionKind($node) !== null => $this->renderAdmonition($node),
+            $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassList()[0] ?? ''], $this->renderTypedDiv($node)),
+            $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
             $node instanceof DefinitionList => $withAttrs($this->renderDefinitionList($node)),
@@ -284,19 +284,17 @@ class CarveRenderer implements RendererInterface
     protected function canRenderTypedDiv(Div $node): bool
     {
         $classes = $node->getClassList();
-        $attrs = $node->getAttributes();
 
         return count($classes) === 1
             && !in_array($classes[0], ['hardbreaks', 'line-block'], true)
-            && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1
-            && count(array_diff(array_keys($attrs), ['class', 'title'])) === 0;
+            && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1;
     }
 
     protected function renderTypedDiv(Div $node): string
     {
         $classes = $node->getClassList();
         $kind = $classes[0] ?? '';
-        $title = $node->getAttribute('title');
+        $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $body = $this->renderBlocks($node->getChildren());
@@ -308,7 +306,7 @@ class CarveRenderer implements RendererInterface
     protected function renderAdmonition(Div $node): string
     {
         $kind = $this->admonitionKind($node) ?? 'note';
-        $title = $node->getAttribute('title');
+        $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $body = $this->renderBlocks($node->getChildren());
@@ -326,6 +324,77 @@ class CarveRenderer implements RendererInterface
         }
 
         return null;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param array<string> $structuralClasses
+     * @param string $body
+     */
+    protected function withFencedDivAttrs(Div $node, array $structuralClasses, string $body): string
+    {
+        $attrs = $this->renderFencedDivAttrs($node, $structuralClasses);
+
+        return $attrs === '' ? $body : $attrs . "\n" . $body;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param array<string> $structuralClasses
+     */
+    protected function renderFencedDivAttrs(Div $node, array $structuralClasses): string
+    {
+        if ($node->getAttributes() === []) {
+            return '';
+        }
+
+        $attrs = $node->getAttributes();
+        $structural = array_flip($structuralClasses);
+        $parts = [];
+        $seen = [];
+        $emit = function (string $slot) use (&$parts, &$seen, $attrs, $structural): void {
+            if ($slot === '#id') {
+                if (!array_key_exists('id', $attrs)) {
+                    return;
+                }
+                $id = $attrs['id'];
+                $parts[] = $this->isAttrIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
+
+                return;
+            }
+            if ($slot === '.class') {
+                foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
+                    if ($class !== '' && !isset($structural[$class])) {
+                        $parts[] = '.' . $this->escapeAttrNameValue($class);
+                    }
+                }
+
+                return;
+            }
+            if (isset($seen[$slot]) || !array_key_exists($slot, $attrs) || $slot === 'id' || $slot === 'class') {
+                return;
+            }
+            $seen[$slot] = true;
+            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+        };
+
+        $order = $node->getAttributeOrder();
+        if ($order !== []) {
+            foreach ($order as $slot) {
+                $emit($slot);
+            }
+            foreach ($attrs as $key => $_value) {
+                $emit((string)$key);
+            }
+        } else {
+            $emit('#id');
+            $emit('.class');
+            foreach ($attrs as $key => $_value) {
+                $emit((string)$key);
+            }
+        }
+
+        return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
     protected function renderLineBlock(LineBlock $node): string

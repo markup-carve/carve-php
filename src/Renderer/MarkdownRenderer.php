@@ -483,12 +483,12 @@ class MarkdownRenderer implements RendererInterface
     protected function renderDiv(Div $node): string
     {
         // Divs/admonitions don't exist in Markdown; render the content. An
-        // admonition's quoted title is stored as the `title` attribute (PART 9
-        // §12) and would otherwise be lost — preserve it as a leading bold line.
+        // admonition's quoted opener header would otherwise be lost; preserve
+        // it as a leading bold line.
         $body = $this->renderChildren($node);
         $prefix = '';
-        $title = $node->getAttribute('title');
-        if (is_string($title) && $title !== '') {
+        $title = $node->getHeader();
+        if (is_string($title)) {
             $prefix .= '**' . $this->escapeText($this->stripControls($title)) . "**\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9

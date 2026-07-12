@@ -33,9 +33,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * </details>
  * ```
  *
- * A details block with no title gets a default `<summary>Details</summary>`
- * so the widget always has an accessible label. The quoted title is the
- * parser-flattened `title` attribute (inline markup already removed) and is
+ * A details block with no header gets a default `<summary>Details</summary>`
+ * so the widget always has an accessible label. The quoted opener header is
  * HTML-escaped for the summary. Block attributes on the opener (`{#faq open}`)
  * carry onto the `<details>` tag in source order, matching the default
  * `<div class="details">` behavior; only the auto `details` class is dropped
@@ -96,7 +95,7 @@ class DetailsExtension implements ExtensionInterface
      */
     protected function renderDetails(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
     {
-        $title = $node->getAttribute('title');
+        $title = $node->getHeader();
         $summary = $title !== null && trim($title) !== '' ? $title : self::DEFAULT_SUMMARY;
 
         $attrs = $this->renderTagAttributes($node, $renderer);
@@ -143,15 +142,14 @@ class DetailsExtension implements ExtensionInterface
     /**
      * Build the `<details>` tag attributes in source order.
      *
-     * Mirrors the default div behavior: `title` is excluded (it becomes the
-     * `<summary>`), and the auto `details` class is dropped because the
-     * `<details>` tag is itself the styling hook. A class attribute that holds
-     * only `details` is removed entirely; any sibling classes are preserved.
+     * Mirrors the default div behavior: the auto `details` class is dropped
+     * because the `<details>` tag is itself the styling hook. A class attribute
+     * that holds only `details` is removed entirely; any sibling classes are
+     * preserved.
      */
     protected function renderTagAttributes(Div $node, HtmlRenderer $renderer): string
     {
         $attrs = $node->getAttributes();
-        unset($attrs['title']);
 
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();

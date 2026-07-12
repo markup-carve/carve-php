@@ -45,6 +45,17 @@ class HtmlToCarveTest extends TestCase
         $this->assertSame("*bold*\n", $this->converter->convert('<b>bold</b>'));
     }
 
+    public function testAdmonitionTitleParagraphAndTitleAttributeRoundTripSeparately(): void
+    {
+        $html = '<aside class="admonition note" title="attr title">'
+            . '<p class="admonition-title">opener title</p>'
+            . '<p>Body.</p>'
+            . '</aside>';
+        $expected = "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n";
+
+        $this->assertSame($expected, $this->converter->convert($html));
+    }
+
     public function testEmphasis(): void
     {
         $this->assertSame("/italic/\n", $this->converter->convert('<em>italic</em>'));

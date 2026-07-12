@@ -81,6 +81,8 @@ class CarveFormatterTest extends TestCase
             // A bare `!` (no reference following) is still escaped.
             "![a]\n" => "\\!\\[a\\]\n",
             "!important\n" => "\\!important\n",
+            "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n" =>
+                "{title=\"attr title\"}\n::: note \"opener title\"\nBody\\.\n:::\n",
         ];
 
         foreach ($cases as $input => $expected) {

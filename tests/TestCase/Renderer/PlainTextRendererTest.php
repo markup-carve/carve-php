@@ -46,6 +46,13 @@ class PlainTextRendererTest extends TestCase
         $this->assertSame("Click here to visit.\n", $this->renderer->render($document));
     }
 
+    public function testDivRendersQuotedOpenerHeaderNotTitleAttribute(): void
+    {
+        $document = $this->converter->parse("{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::");
+
+        $this->assertSame("opener title\n\nBody.\n", $this->renderer->render($document));
+    }
+
     public function testCollapsedReferenceLinkToHeadingRendersText(): void
     {
         $document = $this->converter->parse("See [name][]\n\n# Name");

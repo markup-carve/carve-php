@@ -16,6 +16,21 @@ class Div extends BlockNode
      */
     protected ?string $label = null;
 
+    /**
+     * Quoted opener header (grammar PART 9 rule 12b). This is the ONLY source
+     * of `<p class="admonition-title">`; distinct from a `title` attribute,
+     * which is a plain HTML attribute.
+     */
+    protected ?string $header = null;
+
+    /**
+     * True when the div was opened with a type word (`::: sidebar`), false for
+     * a bare `:::` whose classes come from a preceding attribute line. The two
+     * forms render identically but must round-trip through the formatter in
+     * their original spelling.
+     */
+    protected bool $typed = false;
+
     public function getType(): string
     {
         return 'div';
@@ -29,5 +44,25 @@ class Div extends BlockNode
     public function setLabel(?string $label): void
     {
         $this->label = $label;
+    }
+
+    public function getHeader(): ?string
+    {
+        return $this->header;
+    }
+
+    public function setHeader(?string $header): void
+    {
+        $this->header = $header;
+    }
+
+    public function isTyped(): bool
+    {
+        return $this->typed;
+    }
+
+    public function setTyped(bool $typed): void
+    {
+        $this->typed = $typed;
     }
 }

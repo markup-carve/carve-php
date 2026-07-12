@@ -225,7 +225,7 @@ class ListTableExtension implements ExtensionInterface
 
         $lines = [];
 
-        $title = $node->getAttribute('title');
+        $title = $node->getHeader();
         if ($title !== null && trim($title) !== '') {
             $lines[] = '  <caption>' . $this->escapeHtml($title) . '</caption>';
         }
@@ -662,16 +662,17 @@ class ListTableExtension implements ExtensionInterface
     /**
      * Build the `<table>` tag attributes.
      *
-     * Drops the structural attributes consumed by this extension (`title`,
-     * `header-rows`, `header-cols`) and the auto `list-table` class (the
+     * Drops the structural attributes consumed by this extension
+     * (`header-rows`, `header-cols`) and the auto `list-table` class (the
      * `<table>` tag is itself the styling hook); preserves any sibling classes
-     * and other attributes in source order. Applies the same safe-mode
-     * filtering the core renderer does.
+     * and other attributes in source order - including `title`, which is a
+     * plain HTML attribute (the caption comes from the quoted opener header).
+     * Applies the same safe-mode filtering the core renderer does.
      */
     protected function renderTableAttributes(Div $node, HtmlRenderer $renderer): string
     {
         $attrs = $node->getAttributes();
-        unset($attrs['title'], $attrs['header-rows'], $attrs['header-cols']);
+        unset($attrs['header-rows'], $attrs['header-cols']);
 
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();

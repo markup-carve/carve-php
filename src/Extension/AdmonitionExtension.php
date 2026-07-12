@@ -195,7 +195,7 @@ class AdmonitionExtension implements ExtensionInterface
      */
     protected function renderAdmonition(Div $node, string $type, string $childrenHtml, HtmlRenderer $renderer): string
     {
-        $customTitle = $node->getAttribute('title');
+        $customTitle = $node->getHeader();
         $title = $customTitle !== null ? (string)$customTitle : ($this->defaultTitle ? ucfirst($type) : null);
 
         // Build class list
@@ -207,7 +207,7 @@ class AdmonitionExtension implements ExtensionInterface
         }
         $classAttr = implode(' ', $classes);
 
-        // Build additional attributes (excluding class and title)
+        // Build additional attributes (excluding class)
         $extraAttrs = $this->buildExtraAttributes($node, $renderer);
 
         // Add round-trip data attributes
@@ -268,7 +268,7 @@ class AdmonitionExtension implements ExtensionInterface
      */
     protected function buildExtraAttributes(Div $node, HtmlRenderer $renderer): string
     {
-        $excluded = ['class', 'title'];
+        $excluded = ['class'];
         $attrs = $node->getAttributes();
 
         foreach (array_keys($attrs) as $name) {

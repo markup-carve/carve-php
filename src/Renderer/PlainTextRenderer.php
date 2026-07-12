@@ -217,10 +217,9 @@ class PlainTextRenderer implements RendererInterface
     {
         $body = $this->renderChildren($node);
         $prefix = '';
-        // An admonition's quoted title is stored as the `title` attribute
-        // (PART 9 §12); preserve it as a leading line instead of dropping.
-        $title = $node->getAttribute('title');
-        if (is_string($title) && $title !== '') {
+        // Preserve an admonition's quoted opener header as a leading line.
+        $title = $node->getHeader();
+        if (is_string($title)) {
             $prefix .= $this->stripControls($title) . "\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
