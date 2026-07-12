@@ -72,6 +72,15 @@ class CarveFormatterTest extends TestCase
             "{.line-block}\n:::\na\nb\n:::\n" => "{.line-block}\n:::\na\nb\n:::\n",
             "a /em/ *strong* _u_ ~s~ ^sup^ ,sub, =mark= `code`\n" =>
                 "a /em/ *strong* _u_ ~s~ ^sup^ ,sub, =mark= `code`\n",
+            // An unresolved reference image round-trips VERBATIM (the leading
+            // `!` is not escaped), matching an unresolved reference link and
+            // carve-js / carve-rs - not the escaped `\![a][nope]` form.
+            "![a][nope]\n" => "![a][nope]\n",
+            "foo![a][nope]\n" => "foo![a][nope]\n",
+            "![a][nope] and [t][nope]\n" => "![a][nope] and [t][nope]\n",
+            // A bare `!` (no reference following) is still escaped.
+            "![a]\n" => "\\!\\[a\\]\n",
+            "!important\n" => "\\!important\n",
         ];
 
         foreach ($cases as $input => $expected) {
