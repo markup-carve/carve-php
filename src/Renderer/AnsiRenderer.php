@@ -673,10 +673,9 @@ class AnsiRenderer implements RendererInterface
     {
         $body = $this->renderChildren($node);
         $prefix = '';
-        // An admonition's quoted title is stored as the `title` attribute
-        // (PART 9 §12); preserve it as a leading bold line instead of dropping.
-        $title = $node->getAttribute('title');
-        if (is_string($title) && $title !== '') {
+        // Preserve an admonition's quoted opener header as a leading bold line.
+        $title = $node->getHeader();
+        if (is_string($title)) {
             $prefix .= $this->style($this->stripControls($title), self::BOLD) . "\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9

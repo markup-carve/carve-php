@@ -67,6 +67,13 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('[Example](https://example.com)', $this->renderer->render($document));
     }
 
+    public function testDivRendersQuotedOpenerHeaderNotTitleAttribute(): void
+    {
+        $document = $this->converter->parse("{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::");
+
+        $this->assertSame("**opener title**\n\nBody.\n", $this->renderer->render($document));
+    }
+
     public function testLinkDestinationsEncodeMarkdownBreakoutCharacters(): void
     {
         // A `)` reaching a destination via a reference definition (URL runs to

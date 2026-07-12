@@ -835,6 +835,33 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringNotContainsString('RowSpan', $html);
     }
 
+    public function testTitleAttributePreservedAlongsideCaptionHeader(): void
+    {
+        // The caption comes from the quoted opener header; a `title="…"` on the
+        // preceding attribute line is a plain HTML attribute and must survive
+        // onto the <table> tag (parity with carve-js).
+        $converter = new CarveConverter();
+        $converter->addExtension(new ListTableExtension());
+
+        $html = trim($converter->convert(implode("\n", [
+            '{title="attr"}',
+            '::: list-table "cap"',
+            '- - A',
+            '  - B',
+            ':::',
+        ])));
+
+        $expected = implode("\n", [
+            '<table title="attr">',
+            '  <caption>cap</caption>',
+            '  <tbody>',
+            '    <tr><td>A</td><td>B</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
     public function testTableAndCellAttributesAreHardened(): void
     {
         $converter = new CarveConverter();

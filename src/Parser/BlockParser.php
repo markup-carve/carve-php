@@ -1803,9 +1803,10 @@ class BlockParser
         // only attribute source; they apply to the div in source order.
         if ($className !== '') {
             $div->addClass($className);
+            $div->setTyped(true);
         }
         if ($title !== null) {
-            $div->setAttribute('title', $title);
+            $div->setHeader($title);
         }
         foreach ($this->pendingAttributes as $name => $value) {
             if ($name === 'class') {

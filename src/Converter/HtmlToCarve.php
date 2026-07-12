@@ -34,6 +34,11 @@ use RuntimeException;
 class HtmlToCarve
 {
     /**
+     * @var list<string>
+     */
+    protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
+
+    /**
      * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
@@ -245,7 +250,8 @@ class HtmlToCarve
         return match ($tagName) {
             'section' => $this->processSection($node),
             'html', 'body' => $this->processBlock($node),
-            'article', 'main', 'header', 'footer', 'nav', 'aside',
+            'aside' => $this->processAside($node),
+            'article', 'main', 'header', 'footer', 'nav',
             'address', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search' => $this->processGenericBlockContainer($node),
             'details' => $this->processDetails($node),
             'div' => $this->processDiv($node),
@@ -480,7 +486,10 @@ class HtmlToCarve
             }
         }
 
-        $content = trim($this->processChildren($node));
+        $header = $this->extractAdmonitionTitle($node);
+        $content = $header === null
+            ? trim($this->processChildren($node))
+            : $this->processAdmonitionContent($node);
         $parts = [];
         $id = $node->getAttribute('id');
         if ($id !== '') {
@@ -500,7 +509,63 @@ class HtmlToCarve
         }
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
-        $output = $attrs . $fence . ' ' . $fenceClass . "\n";
+        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . "\n";
+        if ($content !== '') {
+            $output .= $content . "\n";
+        }
+
+        return $output . $fence . "\n\n";
+    }
+
+    protected function processAside(DOMElement $node): string
+    {
+        $classes = $this->getElementClassList($node);
+        if (!in_array('admonition', $classes, true)) {
+            return $this->processGenericBlockContainer($node);
+        }
+
+        $type = null;
+        foreach ($classes as $class) {
+            if (in_array($class, self::ADMONITION_TYPES, true)) {
+                $type = $class;
+
+                break;
+            }
+        }
+        if ($type === null) {
+            return $this->processGenericBlockContainer($node);
+        }
+
+        $parts = [];
+        $id = $node->getAttribute('id');
+        if ($id !== '') {
+            $parts[] = '#' . $id;
+        }
+
+        foreach ($classes as $class) {
+            if ($class !== 'admonition' && $class !== $type) {
+                $parts[] = '.' . $class;
+            }
+        }
+
+        $skipAttrs = ['id', 'class', ...$this->skipAttributes];
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            $name = $attr->name;
+            if (in_array($name, $skipAttrs, true) || str_starts_with($name, 'data-djot-')) {
+                continue;
+            }
+            $value = $attr->value;
+            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
+        }
+
+        $header = $this->extractAdmonitionTitle($node);
+        $content = $this->processAdmonitionContent($node);
+        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
+        $fence = $this->colonFenceFor($content);
+        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
@@ -515,17 +580,13 @@ class HtmlToCarve
     {
         $type = $node->getAttribute('data-djot-admonition-type');
         $customTitle = $node->getAttribute('data-djot-admonition-title');
+        $header = $customTitle !== '' ? $customTitle : null;
 
         // Build attributes (excluding admonition-specific classes and data attributes)
         $parts = [];
         $id = $node->getAttribute('id');
         if ($id !== '') {
             $parts[] = '#' . $id;
-        }
-
-        // Add custom title if provided
-        if ($customTitle !== '') {
-            $parts[] = 'title=' . $this->quoteAttributeValue($customTitle);
         }
 
         // Get remaining classes (exclude 'admonition' and the type)
@@ -553,12 +614,24 @@ class HtmlToCarve
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
-        $output = $attrs . $fence . ' ' . $type . "\n";
+        $headerPart = $header === null ? '' : ' ' . $this->quoteLinkTitle($header);
+        $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
         return $output . $fence . "\n\n";
+    }
+
+    protected function extractAdmonitionTitle(DOMElement $node): ?string
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'p' && $this->hasClass($child, 'admonition-title')) {
+                return trim($child->textContent);
+            }
+        }
+
+        return null;
     }
 
     /**

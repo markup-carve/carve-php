@@ -52,6 +52,14 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('│ hello', (string)$output);
     }
 
+    public function testDivRendersQuotedOpenerHeaderNotTitleAttribute(): void
+    {
+        $doc = $this->converter->parse("{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::");
+        $output = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($doc));
+
+        $this->assertSame("opener title\n\nBody.\n", (string)$output);
+    }
+
     public function testRenderEmphasisAndStrong(): void
     {
         $doc = $this->converter->parse('This is /emphasized/ and *strong* text.');

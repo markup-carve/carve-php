@@ -1163,6 +1163,38 @@ DJOT;
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    public function testDivTitleAttributeAndQuotedOpenerHeaderStaySeparate(): void
+    {
+        $djot = "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::";
+        $expected = "<aside class=\"admonition note\" title=\"attr title\">\n"
+            . "  <p class=\"admonition-title\">opener title</p>\n"
+            . "  <p>Body.</p>\n"
+            . "</aside>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testDivTitleAttributeWithoutQuotedHeaderDoesNotCreateAdmonitionTitle(): void
+    {
+        $djot = "{title=\"Custom\"}\n::: note\nBody.\n:::";
+        $expected = "<aside class=\"admonition note\" title=\"Custom\">\n"
+            . "  <p>Body.</p>\n"
+            . "</aside>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testCustomDivTitleAttributeAndQuotedOpenerHeaderStaySeparate(): void
+    {
+        $djot = "{title=\"attr t\"}\n::: details \"Click me\"\nHidden.\n:::";
+        $expected = "<div class=\"details\" title=\"attr t\">\n"
+            . "  <p class=\"admonition-title\">Click me</p>\n"
+            . "  <p>Hidden.</p>\n"
+            . "</div>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
     public function testDivInlineAttributeOpenerIsParagraph(): void
     {
         // An inline `::: {…}` opener is not a fence (strict djot).

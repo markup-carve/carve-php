@@ -100,10 +100,10 @@ class SpoilerExtension implements ExtensionInterface
      */
     protected function renderBlock(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
     {
-        $title = $node->getAttribute('title');
+        $title = $node->getHeader();
         $summary = $title !== null && trim($title) !== '' ? $title : self::DEFAULT_SUMMARY;
 
-        $attrs = $this->openAttributes($node, $renderer, ['title']);
+        $attrs = $this->openAttributes($node, $renderer);
         $body = rtrim($this->indentBlock(rtrim($childrenHtml, "\n"), 2), "\n");
 
         // An empty body renders as a single blank line, matching a core empty

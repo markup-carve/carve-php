@@ -1157,10 +1157,10 @@ class HtmlRenderer implements RendererInterface
         }
         $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
 
-        // A quoted title (PART 9 §12) is stored as the `title` attribute;
-        // it renders as <p class="admonition-title"> and is excluded from
-        // the wrapper's HTML attributes. Applies to both tiers.
-        $titleAttr = $node->getAttribute('title');
+        // A quoted opener header (PART 9 §12) renders as
+        // <p class="admonition-title">. A `title` attribute remains a normal
+        // HTML attribute on the wrapper. Applies to both tiers.
+        $titleAttr = $node->getHeader();
         $titleLine = '';
         if (is_string($titleAttr)) {
             $titleLine = '  <p class="admonition-title">' . $this->escape($titleAttr) . "</p>\n";
@@ -1180,15 +1180,15 @@ class HtmlRenderer implements RendererInterface
 
         // Tier 1: a canonical admonition type renders as a semantic
         // <aside class="admonition …">. Any extra classes and all other
-        // node attributes (id, data-*, …) are preserved; `title` and
-        // `class` are rebuilt/excluded.
+        // node attributes (id, data-*, title, …) are preserved; `class` is
+        // rebuilt/excluded.
         if ($types !== []) {
             $others = array_values(array_filter(
                 $classes,
                 static fn (string $c): bool => $c !== 'admonition'
                     && !in_array($c, self::ADMONITION_TYPES, true),
             ));
-            $attrs = $this->getRenderableAttributes($node, ['title']);
+            $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
@@ -1205,7 +1205,7 @@ class HtmlRenderer implements RendererInterface
 
         // Tier 2: a custom type renders as a generic <div class="{type}">,
         // the fenced-div primitive the block-extension mechanism builds on.
-        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node, ['title']));
+        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node));
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         if ($body === '') {

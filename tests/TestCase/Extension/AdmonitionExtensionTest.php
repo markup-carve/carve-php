@@ -62,7 +62,7 @@ class AdmonitionExtensionTest extends TestCase
         $converter = new CarveConverter();
         $converter->addExtension(new AdmonitionExtension());
 
-        $html = $converter->convert("{title=\"Watch Out!\"}\n::: warning\nContent here.\n:::");
+        $html = $converter->convert("::: warning \"Watch Out!\"\nContent here.\n:::");
 
         $this->assertStringContainsString('<p class="admonition-title">Watch Out!</p>', $html);
         $this->assertStringNotContainsString('>Warning<', $html);
@@ -369,7 +369,7 @@ DJOT;
         $converter = new CarveConverter();
         $converter->addExtension(new AdmonitionExtension(icons: true));
 
-        $html = $converter->convert("{title=\"Custom Title\"}\n::: warning\nContent.\n:::");
+        $html = $converter->convert("::: warning \"Custom Title\"\nContent.\n:::");
 
         $this->assertStringContainsString('<span class="admonition-icon">⚠️</span> Custom Title', $html);
     }
