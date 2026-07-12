@@ -1987,11 +1987,6 @@ class InlineParser
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 
-        // Transfer reference label for round-trip support
-        if ($link->getReferenceLabel() !== null) {
-            $image->setReferenceLabel($link->getReferenceLabel());
-        }
-
         // Transfer attributes from link to image
         foreach ($link->getAttributes() as $key => $value) {
             $image->setAttribute($key, $value);
