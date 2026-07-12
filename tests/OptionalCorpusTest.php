@@ -7,8 +7,12 @@ namespace MarkupCarve\Carve\Test;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\AutolinkExtension;
 use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\DetailsExtension;
+use MarkupCarve\Carve\Extension\ListTableExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\SmartQuotesExtension;
+use MarkupCarve\Carve\Extension\SpoilerExtension;
+use MarkupCarve\Carve\Extension\TabsExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -89,6 +93,10 @@ class OptionalCorpusTest extends TestCase
             'bare-url-autolink' => $converter->addExtension(new AutolinkExtension()),
             'citations-numbered' => $converter->addExtension(new CitationsExtension()),
             'citations-author-date' => $converter->addExtension(new CitationsExtension('author-date')),
+            'details' => $converter->addExtension(new DetailsExtension()),
+            'list-table' => $converter->addExtension(new ListTableExtension()),
+            'spoiler' => $converter->addExtension(new SpoilerExtension()),
+            'tabs' => $converter->addExtension(new TabsExtension()),
             'emoji-map' => null,
             default => null,
         };
