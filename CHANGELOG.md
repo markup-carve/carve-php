@@ -43,7 +43,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrapper kept on non-definition-list bodies (#307)
 - `DjotToCarve` no longer corrupts footnote labels and pre-braced forms
 
-## [0.1.0] - YYYY-MM-DD
+## [0.1.1] - 2026-07-04
+
+### Added
+
+- `::: toc` and `::: footnotes` placement directives, including
+  container-nested headings in `::: toc` placement (#288, #289)
+
+### Fixed
+
+- Extension-generated ids deduplicate against the document id namespace (#287)
+- Heading auto-id deduplication skips reserved suffix candidates (#286)
+
+## [0.1.0] - 2026-07-02
 
 Initial release of **carve-php**, a PHP parser and renderer for the
 [Carve](https://github.com/markup-carve/carve) markup language. Install via
