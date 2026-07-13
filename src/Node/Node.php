@@ -187,6 +187,39 @@ abstract class Node
         return $this->attributeOrder;
     }
 
+    /**
+     * Merge a preceding block-attribute line's attributes as LEADING attributes
+     * (§15): the leading classes come first and its slots are ordered BEFORE the
+     * node's own, while the node's OWN attributes win on id/key conflict. Used
+     * when a `{#id}` line precedes a single-image paragraph, so the id lands on
+     * the promoted bare `<img>` (matching carve-js / carve-rs).
+     *
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     */
+    public function mergeLeadingAttributes(array $attributes, array $order): void
+    {
+        if ($attributes === []) {
+            return;
+        }
+        $own = $this->attributes;
+        $ownOrder = $this->attributeOrder;
+        // Classes accumulate leading-then-own.
+        if (isset($attributes['class'], $own['class'])) {
+            $own['class'] = trim($attributes['class'] . ' ' . $own['class']);
+        }
+        // Leading provides values the node lacks; the node's own win on conflict.
+        $this->attributes = array_merge($attributes, $own);
+        // Order: leading slots first, then the node's own not-yet-present slots.
+        $merged = $order;
+        foreach ($ownOrder as $slot) {
+            if (!in_array($slot, $merged, true)) {
+                $merged[] = $slot;
+            }
+        }
+        $this->attributeOrder = $merged;
+    }
+
     public function hasAttribute(string $key): bool
     {
         return isset($this->attributes[$key]);

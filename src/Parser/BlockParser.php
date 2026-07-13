@@ -505,6 +505,13 @@ class BlockParser
             $document->appendChild($footnote);
         }
 
+        // A sole-image paragraph carrying a leading block-attribute line's attrs
+        // renders as a bare block <img> with those attrs on the image (§15). Run
+        // this AFTER caption wrapping (so a captioned image is already a <figure>
+        // and keeps its id there) and BEFORE rendering (so render-time extension
+        // attributes are untouched -- they still land on the <p> wrapper).
+        $this->promoteBlockImageAttributes($document);
+
         // Validate references and anchor links if warnings are enabled
         if ($this->collectWarnings) {
             $this->validateReferences();
@@ -522,6 +529,28 @@ class BlockParser
         $document->setSourceLength($sourceLength);
 
         return $document;
+    }
+
+    /**
+     * Move a sole-image paragraph's SOURCE attributes (from a leading
+     * block-attribute line) onto the image, so it renders as a bare block
+     * `<img>` carrying those attrs (§15) rather than a `<p>` wrapper -- matching
+     * a direct block image and carve-js / carve-rs. Walks the whole block tree.
+     */
+    protected function promoteBlockImageAttributes(Node $node): void
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Paragraph) {
+                $kids = $child->getChildren();
+                if (count($kids) === 1 && $kids[0] instanceof Image && $child->getAttributes() !== []) {
+                    $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
+                    foreach (array_keys($child->getAttributes()) as $key) {
+                        $child->removeAttribute((string)$key);
+                    }
+                }
+            }
+            $this->promoteBlockImageAttributes($child);
+        }
     }
 
     /**
