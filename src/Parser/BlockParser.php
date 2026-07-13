@@ -2160,7 +2160,12 @@ class BlockParser
         }
 
         $level = strlen($matches[1]);
-        $content = trim($matches[2]);
+        // Keep the content verbatim here: the regex `#… +` already folded the
+        // leading spaces into the delimiter, and a leading TAB is content (kept,
+        // matching a caption and carve-js / carve-rs). First-line trailing
+        // whitespace is INTERIOR once continuation lines fold in, so it is not
+        // stripped now; only the final line's trailing run is stripped below.
+        $content = $matches[2];
 
         // Collect continuation lines
         $i = $start + 1;
@@ -2228,7 +2233,11 @@ class BlockParser
         // block is ordinary inline content, and the heading id derives from
         // the full literal text. Attributes attach via a PRECEDING
         // block-attribute line (applyPendingAttributes below, PART 9 §15).
-        $content = trim($content);
+        //
+        // §756 (NORMATIVE): strip the FINAL line's trailing whitespace only
+        // (rtrim, ASCII whitespace -- a trailing NBSP is content and survives).
+        // A leading tab is preserved (see the extraction note above).
+        $content = rtrim($content);
 
         $this->inlineParser->parseHeading($heading, $content, $start);
         $this->applyPendingAttributes($heading);
