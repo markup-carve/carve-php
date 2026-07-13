@@ -2191,7 +2191,7 @@ class BlockParser
                 // line then forms its own paragraph (it is not itself a
                 // heading).
                 break;
-            } elseif (preg_match('/^\^ /', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
+            } elseif (preg_match('/^\^ +.*\S/', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
             } elseif (
@@ -4127,7 +4127,7 @@ class BlockParser
     {
         $line = $lines[$i];
 
-        if (($line[0] ?? '') === '^' && ($line[1] ?? '') === ' ') {
+        if (preg_match('/^\^ +.*\S/', $line)) {
             return $this->isCaptionableParagraphContent($content, $sourceLine);
         }
 
@@ -4274,7 +4274,10 @@ class BlockParser
         $line = $lines[$start];
 
         // Caption syntax: `^ caption text` (caret followed by space)
-        if (!preg_match('/^\^ (.*)$/', $line, $matches)) {
+        // Mirror tryParseHeading: `^` + one-or-more spaces (a space, not a tab) +
+        // content with at least one non-space char. `^ ` alone (or `^\t…`) is
+        // not a caption, exactly as `# ` / `#\t…` is not a heading.
+        if (!preg_match('/^\^ +(.*\S.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -4513,7 +4516,7 @@ class BlockParser
 
         // Caption `^ text` can always interrupt paragraphs (special case for figure captions)
         // Quick first-char check before regex
-        if ($line[0] === '^' && isset($line[1]) && $line[1] === ' ') {
+        if (preg_match('/^\^ +.*\S/', $line)) {
             return true;
         }
 
