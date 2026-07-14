@@ -130,14 +130,24 @@ class HtmlRenderer implements RendererInterface
     protected int $renderDepth = 0;
 
     /**
+     * @var array<string, string>
+     */
+    protected array $symbols;
+
+    /**
      * Dispatch table mapping node class names to render method names
      *
      * @var array<class-string<\MarkupCarve\Carve\Node\Node>, string>
      */
     protected array $nodeRenderers = [];
 
-    public function __construct(protected bool $xhtml = false)
+    /**
+     * @param bool $xhtml
+     * @param array<string, string> $symbols Trusted symbol replacement HTML keyed by symbol name.
+     */
+    public function __construct(protected bool $xhtml = false, array $symbols = [])
     {
+        $this->symbols = $symbols;
         $this->sharedRenderContext = new RenderContext();
         $this->initNodeRenderers();
     }
@@ -2299,9 +2309,16 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSymbol(Symbol $node): string
     {
-        // By default, symbols are rendered as their name
-        // Could be extended to support emoji mappings
-        return ':' . $this->escape($node->getName()) . ':';
+        $name = $node->getName();
+        $body = array_key_exists($name, $this->symbols)
+            ? $this->symbols[$name]
+            : ':' . $this->escape($name) . ':';
+
+        if ($node->getAttributes() === []) {
+            return $body;
+        }
+
+        return '<span' . $this->renderAttributes($node) . '>' . $body . '</span>';
     }
 
     protected function getRenderContext(): RenderContext

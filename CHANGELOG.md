@@ -7,6 +7,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add an HTML `symbols` render map for trusted `:name:` replacements and wrap
+  attributed symbols in `<span>` while leaving unmapped symbols literal.
+
+### Fixed
+
+- Align symbol parsing with the pinned carve#261 spec: symbol names now start
+  with an alphanumeric character, allow `+` after the first character, and only
+  open at the start of text or after a non-word character. No AST rename was
+  needed because carve-php already used `Symbol`.
+
 ## [0.1.2] - 2026-07-12
 
 ### Security

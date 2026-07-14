@@ -33,6 +33,20 @@ $converter = new CarveConverter();
 $html = $converter->convert('# Hello /Carve/');
 ~~~
 
+HTML rendering can replace trusted `:name:` symbols with a configured map.
+Unmapped symbols render literally, and symbol attributes wrap the result in a
+`<span>`:
+
+~~~ php
+$converter = new CarveConverter(symbols: [
+    'rocket' => '🚀',
+    'tada' => '🎉',
+]);
+
+$html = $converter->convert(':rocket:{.big}');
+// <p><span class="big">🚀</span></p>
+~~~
+
 Besides HTML, the same AST renders to Markdown, plain text, and ANSI via the
 `CarveConverter::markdown()`, `::plainText()`, and `::ansi()` factories:
 

@@ -3201,8 +3201,18 @@ class InlineParser
      */
     protected function parseSymbol(string $text, int $pos): ?array
     {
-        // Match :word: - \G anchors at offset position, avoiding extra strpos check
-        if (!preg_match('/\G:([a-zA-Z_][a-zA-Z0-9_-]*):/', $text, $matches, 0, $pos)) {
+        $previous = $text[$pos - 1] ?? '';
+        if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
+            return null;
+        }
+
+        // Match :name: - \G anchors at offset position, avoiding extra strpos check.
+        // The first name char is a letter, digit, `+` or `-` (so the reaction
+        // shortcodes `:+1:` / `:-1:` parse), but never `_`: `:_x_:` would steal
+        // from underline. Matching the symbol at the opening `:` also gives it
+        // precedence over smart typography, so `:+-:` is the symbol `+-`, not a
+        // `±` between colons (grammar PART 9 §7).
+        if (!preg_match('/\G:([a-zA-Z0-9+-][\w+-]*):/', $text, $matches, 0, $pos)) {
             return null;
         }
 
