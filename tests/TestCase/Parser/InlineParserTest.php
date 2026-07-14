@@ -818,20 +818,36 @@ class InlineParserTest extends TestCase
 
     public function testSuperscriptWithTrailingAttributes(): void
     {
-        $para = $this->parseInline('^2^{.exponent}');
+        // Superscript is the braced form only; a bare `^2^` is literal text.
+        $para = $this->parseInline('{^2^}{.exponent}');
 
         $sup = $this->getFirstChild($para);
         $this->assertInstanceOf(Superscript::class, $sup);
         $this->assertSame('exponent', $sup->getAttribute('class'));
     }
 
+    public function testBareSuperscriptStaysLiteral(): void
+    {
+        $para = $this->parseInline('^2^ end');
+
+        $this->assertInstanceOf(Text::class, $this->getFirstChild($para));
+    }
+
     public function testSubscriptWithTrailingAttributes(): void
     {
-        $para = $this->parseInline(',2,{.chemical}');
+        // Subscript is the braced form only; a bare `,2,` is literal text.
+        $para = $this->parseInline('{,2,}{.chemical}');
 
         $sub = $this->getFirstChild($para);
         $this->assertInstanceOf(Subscript::class, $sub);
         $this->assertSame('chemical', $sub->getAttribute('class'));
+    }
+
+    public function testBareSubscriptStaysLiteral(): void
+    {
+        $para = $this->parseInline(',2, end');
+
+        $this->assertInstanceOf(Text::class, $this->getFirstChild($para));
     }
 
     public function testBracedSuperscriptWithTrailingAttributes(): void

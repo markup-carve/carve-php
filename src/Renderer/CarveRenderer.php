@@ -673,8 +673,8 @@ class CarveRenderer implements RendererInterface
             $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),
             $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
             $node instanceof Strike => $withAttrs($this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
-            $node instanceof Superscript => $withAttrs($this->renderEmphasis('^', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
-            $node instanceof Subscript => $withAttrs($this->renderEmphasis(',', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Superscript => $withAttrs($this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren()))),
+            $node instanceof Subscript => $withAttrs($this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren()))),
             $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
             $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
@@ -744,6 +744,15 @@ class CarveRenderer implements RendererInterface
     protected function renderMath(Math $node): string
     {
         return ($node->isDisplay() ? '$$' : '$') . $this->renderCode($node->getContent());
+    }
+
+    /**
+     * Superscript and subscript have no bare delimiter form - always emit the
+     * braced form.
+     */
+    protected function renderForcedEmphasis(string $delimiter, string $content): string
+    {
+        return '{' . $delimiter . $content . $delimiter . '}';
     }
 
     protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
@@ -914,7 +923,10 @@ class CarveRenderer implements RendererInterface
     {
         $text = (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F-\x9F]/u', '', $text);
 
-        return (string)preg_replace('/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=,:;"\'])/', '\\\\$1', $text);
+        // A comma needs no escape: there is no bare subscript delimiter, and
+        // the braced opener is neutralized by the brace escape. The caret
+        // stays escaped for the inline-footnote and caption channels.
+        return (string)preg_replace('/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/', '\\\\$1', $text);
     }
 
     protected function escapeImageAlt(string $text): string
