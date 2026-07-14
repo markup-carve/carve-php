@@ -741,7 +741,8 @@ class InlineParser
                 }
             }
 
-            // Inline footnote: ^[content]. Takes precedence over superscript.
+            // Inline footnote: ^[content]. A `^` anywhere else is literal text
+            // (there is no bare superscript), so `^^[x]` is a literal `^` + a note.
             if ($this->footnoteRecognitionEnabled && $char === '^' && $nextChar === '[') {
                 $result = $this->parseInlineFootnote($text, $pos);
                 if ($result !== null) {
@@ -754,37 +755,14 @@ class InlineParser
                 }
             }
 
-            // Superscript: ^text^
-            if ($char === '^') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '^', Superscript::class);
-                if ($result !== null) {
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
+            // NO bare superscript/subscript: `^` and `,` are literal outside the
+            // braced forms `{^x^}` / `{,x,}` (grammar PART 9 §9 rationale note).
 
             // Strikethrough: ~text~
             if ($char === '~') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '~', Strike::class);
-                if ($result !== null) {
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
-
-            // Subscript: ,text,
-            if ($char === ',') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, ',', Subscript::class);
                 if ($result !== null) {
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
@@ -3036,10 +3014,6 @@ class InlineParser
     {
         $length = strlen($text);
         if ($pos + 1 >= $length || $text[$pos] !== '^' || $text[$pos + 1] !== '[') {
-            return null;
-        }
-
-        if ($pos > 0 && $text[$pos - 1] === '^') {
             return null;
         }
 

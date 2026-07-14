@@ -19,7 +19,7 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *
- * Constructs that mean the same in both languages (^sup^, $math$, {+ins+},
+ * Constructs that mean the same in both languages ($math$, {+ins+},
  * {-del-}, reference links) are left untouched. Delimiters inside code (fenced
  * or inline) and link/image destinations are never rewritten. Only the
  * delimiters are replaced, never the inner text, so nested constructs of
@@ -59,8 +59,8 @@ class DjotToCarve
             'close' => ',}',
         ],
         [
-            // Carve superscript is word-boundary-sensitive, so a bare `^2^`
-            // after `c` (E=mc^2^) would be literal; emit the forced form.
+            // Carve has no bare superscript at all (a `^` outside the braced
+            // form is literal), so every Djot `^x^` needs the braced form.
             'id' => 'djot-superscript-caret',
             'family' => '^',
             'pattern' => '/\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^/',

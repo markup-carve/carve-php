@@ -2754,7 +2754,7 @@ DJOT;
 
     public function testParagraphWithAllInlineTypes(): void
     {
-        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), ^super^, ,sub,, =high=, {+ins+}, {-del-}.';
+        $djot = 'Text with /emphasis/, *strong*, `code`, [link](url), {^super^}, {,sub,}, =high=, {+ins+}, {-del-}.';
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<em>emphasis</em>', $result);

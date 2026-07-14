@@ -268,8 +268,8 @@ class HtmlToCarve
             // intraword (H<sub>2</sub>O, E=mc<sup>2</sup>) where a bare delimiter
             // would not open under the word-boundary rule.
             'mark' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '=')),
-            'sup' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '^')),
-            'sub' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, ',')),
+            'sup' => $this->processInlineFormatting($node, '{^', '^}'),
+            'sub' => $this->processInlineFormatting($node, '{,', ',}'),
             'kbd' => $this->processSemanticSpan($node, 'kbd'),
             'dfn' => $this->processSemanticSpan($node, 'dfn'),
             'abbr' => $this->processSemanticSpan($node, 'abbr'),
@@ -894,11 +894,12 @@ class HtmlToCarve
     }
 
     /**
-     * Choose bare vs forced-brace delimiters for a single-char inline mark
-     * (`=` mark, `^` sup, `,` sub). A bare delimiter parses only at a word
-     * boundary, so emit the bare form (`^x^`) when the element is whitespace-
-     * bounded on both sides (or at the start/end of its container) and the
-     * forced form (`{^x^}`) otherwise, so an intraword mark still round-trips.
+     * Choose bare vs forced-brace delimiters for the highlight mark (`=`).
+     * A bare delimiter parses only at a word boundary, so emit the bare form
+     * (`=x=`) when the element is whitespace-bounded on both sides (or at the
+     * start/end of its container) and the forced form (`{=x=}`) otherwise, so
+     * an intraword mark still round-trips. Superscript/subscript do not use
+     * this helper: they have no bare form and are always braced.
      *
      * @return array{0: string, 1: string}
      */

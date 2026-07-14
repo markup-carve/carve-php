@@ -65,12 +65,14 @@ HTML;
         $this->assertStringNotContainsString('doc-noteref', $html);
     }
 
-    public function testDoubleCaretSuppressesInlineFootnote(): void
+    public function testDoubleCaretIsLiteralCaretPlusNote(): void
     {
-        $html = $this->converter->convert('A ^^[x] stays literal.');
+        // There is no bare superscript, so a `^` is plain text and the second
+        // `^[` opens a note as anywhere else.
+        $html = $this->converter->convert('A ^^[x] note.');
 
-        $this->assertStringContainsString('<p>A ^^[x] stays literal.</p>', $html);
-        $this->assertStringNotContainsString('doc-noteref', $html);
+        $this->assertStringContainsString('doc-noteref', $html);
+        $this->assertStringContainsString('A ^<a', $html);
     }
 
     public function testEscapedCaretStaysLiteral(): void

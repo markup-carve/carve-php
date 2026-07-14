@@ -138,14 +138,16 @@ class HtmlToCarveTest extends TestCase
         $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup>2</sup>'));
     }
 
-    public function testSuperscriptWhitespaceBoundedIsBare(): void
+    public function testSuperscriptIsAlwaysBraced(): void
     {
-        $this->assertSame("x ^2^ y\n", $this->converter->convert('x <sup>2</sup> y'));
+        // Carve has no bare superscript, so even whitespace-bounded <sup>
+        // maps to the braced form.
+        $this->assertSame("x {^2^} y\n", $this->converter->convert('x <sup>2</sup> y'));
     }
 
-    public function testSubscriptWhitespaceBoundedIsBare(): void
+    public function testSubscriptIsAlwaysBraced(): void
     {
-        $this->assertSame("x ,2, y\n", $this->converter->convert('x <sub>2</sub> y'));
+        $this->assertSame("x {,2,} y\n", $this->converter->convert('x <sub>2</sub> y'));
     }
 
     public function testSubscript(): void
