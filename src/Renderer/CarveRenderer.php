@@ -686,7 +686,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Math => $withAttrs($this->renderMath($node)),
             $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
             $node instanceof RawText => $node->getContent(),
-            $node instanceof Symbol => ':' . $this->escapeIdentifier($node->getName()) . ':',
+            $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
@@ -968,6 +968,15 @@ class CarveRenderer implements RendererInterface
     protected function escapeIdentifier(string $text): string
     {
         return (string)preg_replace('/[^\w-]/u', '', $text);
+    }
+
+    /**
+     * A symbol name may contain `+` and `-` (so `:+1:` / `:-1:` round-trip),
+     * unlike an extension identifier.
+     */
+    protected function escapeSymbolName(string $text): string
+    {
+        return (string)preg_replace('/[^\w+-]/u', '', $text);
     }
 
     protected function escapeName(string $text): string

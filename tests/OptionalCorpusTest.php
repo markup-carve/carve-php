@@ -97,9 +97,11 @@ class OptionalCorpusTest extends TestCase
             'list-table' => $converter->addExtension(new ListTableExtension()),
             'spoiler' => $converter->addExtension(new SpoilerExtension()),
             'tabs' => $converter->addExtension(new TabsExtension()),
-            'emoji-map' => new CarveConverter(symbols: [
+            'symbol-map' => new CarveConverter(symbols: [
                 'rocket' => "\u{1F680}",
                 'tada' => "\u{1F389}",
+                '+1' => "\u{1F44D}",
+                'UPPER' => "\u{2B06}\u{FE0F}",
             ]),
             default => null,
         };
