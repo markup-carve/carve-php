@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -22,6 +23,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use PHPUnit\Framework\TestCase;
@@ -52,6 +54,25 @@ class InlineParserTest extends TestCase
         $children = $para->getChildren();
 
         return $children[0] ?? null;
+    }
+
+    protected function containsNodeOfType(mixed $node, string $className): bool
+    {
+        if ($node instanceof $className) {
+            return true;
+        }
+
+        if (!$node instanceof Node) {
+            return false;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($this->containsNodeOfType($child, $className)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function testParseText(): void
@@ -192,6 +213,54 @@ class InlineParserTest extends TestCase
         $symbol = $this->getFirstChild($para);
         $this->assertInstanceOf(Symbol::class, $symbol);
         $this->assertSame('smile', $symbol->getName());
+    }
+
+    public function testSymbolRequiresLeftBoundaryAndCanonicalNameShape(): void
+    {
+        foreach (['a:b:c', '10:30: x', 'word:rocket:', 'word:+-:', ':_x:'] as $source) {
+            $para = $this->parseInline($source);
+
+            $this->assertFalse($this->containsNodeOfType($para, Symbol::class), $source);
+        }
+
+        foreach (['(:tada:)' => 'tada', 'start :rocket:' => 'rocket', ':1up:' => '1up', ':+1:' => '+1', ':-1:' => '-1', ':+-:' => '+-'] as $source => $name) {
+            $para = $this->parseInline($source);
+
+            $this->assertTrue($this->containsNodeOfType($para, Symbol::class), $source);
+            $symbols = $this->collectSymbols($para);
+            $this->assertSame($name, $symbols[0]->getName());
+        }
+    }
+
+    public function testInlineExtensionsStayAheadOfSymbolBoundaryGuard(): void
+    {
+        $para = $this->parseInline(':kbd[Ctrl]');
+        $children = $para->getChildren();
+        $this->assertInstanceOf(InlineExtension::class, $children[0]);
+        $this->assertSame('kbd', $children[0]->getExtensionType());
+
+        $para = $this->parseInline('a:kbd[x]');
+        $children = $para->getChildren();
+        $this->assertInstanceOf(Text::class, $children[0]);
+        $this->assertInstanceOf(InlineExtension::class, $children[1]);
+        $this->assertSame('kbd', $children[1]->getExtensionType());
+    }
+
+    /**
+     * @return list<\MarkupCarve\Carve\Node\Inline\Symbol>
+     */
+    protected function collectSymbols(Node $node): array
+    {
+        $symbols = [];
+        if ($node instanceof Symbol) {
+            $symbols[] = $node;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            $symbols = [...$symbols, ...$this->collectSymbols($child)];
+        }
+
+        return $symbols;
     }
 
     public function testParseMath(): void

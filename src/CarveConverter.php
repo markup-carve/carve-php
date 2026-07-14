@@ -172,6 +172,7 @@ class CarveConverter
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
+     * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
      * @param \MarkupCarve\Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
      */
@@ -185,6 +186,7 @@ class CarveConverter
         bool $roundTripMode = false,
         string $mode = RenderMode::INTERACTIVE,
         array $renderers = [],
+        array $symbols = [],
         ?BlockParser $parser = null,
         ?RendererInterface $renderer = null,
     ) {
@@ -202,7 +204,7 @@ class CarveConverter
         if ($renderer !== null) {
             $this->renderer = $renderer;
         } else {
-            $htmlRenderer = new HtmlRenderer($xhtml);
+            $htmlRenderer = new HtmlRenderer($xhtml, $symbols);
             $this->renderer = $htmlRenderer;
 
             // Configure safe mode

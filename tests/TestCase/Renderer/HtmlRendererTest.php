@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
@@ -471,6 +472,45 @@ class HtmlRendererTest extends TestCase
         $result = $renderer->render($doc);
 
         $this->assertStringContainsString('<br />', $result);
+    }
+
+    public function testSymbolMapAndAttributeWrapper(): void
+    {
+        $this->assertSame(
+            "<p><span class=\"big\">X</span></p>\n",
+            (new CarveConverter(symbols: ['rocket' => 'X']))->convert(':rocket:{.big}'),
+        );
+        $this->assertSame(
+            "<p><span class=\"big\">:rocket:</span></p>\n",
+            (new CarveConverter())->convert(':rocket:{.big}'),
+        );
+        $this->assertSame(
+            "<p>X</p>\n",
+            (new CarveConverter(symbols: ['rocket' => 'X']))->convert(':rocket:'),
+        );
+        $this->assertSame(
+            "<p>:rocket:</p>\n",
+            (new CarveConverter())->convert(':rocket:'),
+        );
+    }
+
+    public function testSymbolMapUsesRawTrustedReplacementAndEscapesLiteralFallback(): void
+    {
+        $mapped = new HtmlRenderer(symbols: ['rocket' => '<b>go</b>']);
+        $doc = new Document();
+        $para = new Paragraph();
+        $para->appendChild(new Symbol('rocket'));
+        $doc->appendChild($para);
+
+        $this->assertSame("<p><b>go</b></p>\n", $mapped->render($doc));
+
+        $literal = new HtmlRenderer();
+        $doc = new Document();
+        $para = new Paragraph();
+        $para->appendChild(new Symbol('x<y'));
+        $doc->appendChild($para);
+
+        $this->assertSame("<p>:x&lt;y:</p>\n", $literal->render($doc));
     }
 
     public function testNestedInlineElements(): void
