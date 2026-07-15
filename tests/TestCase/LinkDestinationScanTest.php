@@ -62,12 +62,12 @@ class LinkDestinationScanTest extends TestCase
     /**
      * The scan short-circuit must make a `)`-less run scale linearly. The precise
      * quadratic detector is the doubling RATIO: linear work grows ~2x when the
-     * input doubles, a quadratic term ~4x, so we require well under 3x. The
-     * per-size wall is a generous catastrophic backstop -- the old O(n^2) scan
-     * would take MINUTES at n=50000 (extrapolating the reported 2.3s at ~4000),
-     * so any absolute ceiling of a few seconds catches a full regression while
-     * leaving headroom for slower CI. Sizes are large enough that a quadratic
-     * constant cannot hide.
+     * input doubles, a quadratic term ~4x, so we require well under 3x -- this is
+     * instrumentation-invariant (Xdebug/pcov coverage slows every run by the same
+     * constant factor). The per-size wall is only a generous catastrophic backstop:
+     * the old O(n^2) scan would take MINUTES at n=50000, so a ceiling of 20s
+     * catches a full regression while leaving ample headroom for slow CI running
+     * under coverage instrumentation.
      */
     #[DataProvider('unclosedDestinationProvider')]
     public function testUnclosedDestinationScalesLinearly(string $fragment): void
@@ -84,12 +84,12 @@ class LinkDestinationScanTest extends TestCase
         $elapsedLarge = (hrtime(true) - $startLarge) / 1e9;
 
         $this->assertLessThan(
-            2.0,
+            20.0,
             $elapsedSmall,
             "25000x '{$fragment}' took {$elapsedSmall}s (quadratic regression?)",
         );
         $this->assertLessThan(
-            2.0,
+            20.0,
             $elapsedLarge,
             "50000x '{$fragment}' took {$elapsedLarge}s (quadratic regression?)",
         );
