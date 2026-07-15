@@ -36,6 +36,23 @@ class Profile
      */
     public const ACTION_ERROR = 'error';
 
+    /**
+     * Default maximum input length (UTF-8 bytes) for the untrusted `comment`
+     * preset - a DoS backstop enforced pre-parse. Generous for a comment body;
+     * override with setMaxLength(0) to disable or another value to retune.
+     *
+     * @var int
+     */
+    public const COMMENT_MAX_LENGTH = 100000;
+
+    /**
+     * Default maximum input length (UTF-8 bytes) for the untrusted `minimal`
+     * preset (chat / micro-posts). Override with setMaxLength() as needed.
+     *
+     * @var int
+     */
+    public const MINIMAL_MAX_LENGTH = 10000;
+
     protected string $name = 'custom';
 
     protected string $description = '';
@@ -163,7 +180,8 @@ class Profile
                     ->addRelAttribute('nofollow')
                     ->addRelAttribute('ugc'),
             )
-            ->setMaxNesting(4);
+            ->setMaxNesting(4)
+            ->setMaxLength(self::COMMENT_MAX_LENGTH);
 
         $profile->featureReasons = [
             NodeType::HEADING => 'Headings are disabled in comments to prevent disrupting page structure.',
@@ -230,7 +248,8 @@ class Profile
                 NodeType::LIST_BLOCK,
                 NodeType::LIST_ITEM,
             ])
-            ->setMaxNesting(2);
+            ->setMaxNesting(2)
+            ->setMaxLength(self::MINIMAL_MAX_LENGTH);
 
         $profile->featureReasons = [
             NodeType::LINK => 'Links are disabled in this minimal context.',

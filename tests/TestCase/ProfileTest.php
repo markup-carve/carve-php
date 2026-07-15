@@ -431,6 +431,31 @@ DJOT;
         $this->assertStringContainsString('Short text', $html);
     }
 
+    public function testUntrustedPresetsCarryDefaultLengthCap(): void
+    {
+        $this->assertSame(Profile::COMMENT_MAX_LENGTH, Profile::comment()->getMaxLength());
+        $this->assertSame(Profile::MINIMAL_MAX_LENGTH, Profile::minimal()->getMaxLength());
+        // Trusted presets stay unlimited.
+        $this->assertSame(0, Profile::full()->getMaxLength());
+        $this->assertSame(0, Profile::article()->getMaxLength());
+    }
+
+    public function testCommentPresetRejectsOverCapBody(): void
+    {
+        $converter = new CarveConverter(profile: Profile::comment());
+        $this->expectException(LengthException::class);
+        $converter->convert(str_repeat('a', Profile::COMMENT_MAX_LENGTH + 1));
+    }
+
+    public function testPresetCapIsOverridable(): void
+    {
+        $profile = Profile::minimal()->setMaxLength(0);
+        $converter = new CarveConverter(profile: $profile);
+        $html = $converter->convert(str_repeat('word ', Profile::MINIMAL_MAX_LENGTH));
+
+        $this->assertStringContainsString('word', $html);
+    }
+
     // ==================== Error Action Tests ====================
 
     public function testActionErrorThrowsException(): void
