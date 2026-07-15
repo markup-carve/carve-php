@@ -225,12 +225,24 @@ class BlockParser
         $this->headingIdLowercase = $lowercase;
     }
 
+    /**
+     * When true, top-level block nodes are stamped with a `data-source-line`
+     * attribute holding the 0-indexed source line where the block started.
+     * Opt-in (default off): used by editor live-preview to sync scroll to the
+     * source textarea. Off by default so normal rendering output is unchanged.
+     *
+     * @var bool
+     */
+    protected bool $trackSourceLines = false;
+
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
+        bool $trackSourceLines = false,
     ) {
         $this->collectWarnings = $collectWarnings;
         $this->strictMode = $strictMode;
+        $this->trackSourceLines = $trackSourceLines;
         $this->inlineParser = new InlineParser($this);
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
@@ -1320,6 +1332,12 @@ class BlockParser
                 continue;
             }
 
+            // Source-line tracking (opt-in): remember where this block starts and
+            // how many children the parent had, so newly appended top-level blocks
+            // can be stamped with `data-source-line` after the dispatch below.
+            $blockStart = $i;
+            $childrenBefore = ($this->trackSourceLines && $topLevel) ? count($parent->getChildren()) : -1;
+
             // A bare `---` at the very start of the document is ambiguous between
             // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
             // Give registered block matchers first refusal at this one position so
@@ -1332,6 +1350,7 @@ class BlockParser
             if ($topLevel && !$parent->hasChildren() && preg_match('/^---\s*$/', $line) === 1) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
+                    $this->stampSourceLine($parent, $childrenBefore, $blockStart);
                     $i += $matchConsumed;
 
                     continue;
@@ -1354,6 +1373,7 @@ class BlockParser
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i);
+                $this->stampSourceLine($parent, $childrenBefore, $blockStart);
                 $i += $consumed;
 
                 continue;
@@ -1384,6 +1404,7 @@ class BlockParser
             if ($consumed === null) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
+                    $this->stampSourceLine($parent, $childrenBefore, $blockStart);
                     $i += $matchConsumed;
 
                     continue;
@@ -1392,7 +1413,34 @@ class BlockParser
 
             $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
+            $this->stampSourceLine($parent, $childrenBefore, $blockStart);
             $i += $consumed;
+        }
+    }
+
+    /**
+     * Stamp `data-source-line` on any children appended to $parent since
+     * $childrenBefore, using the 0-indexed source line the block started on.
+     * No-op unless source-line tracking is enabled (childrenBefore === -1).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
+     * @param int $start 0-indexed source line where the block starts.
+     *
+     * @return void
+     */
+    private function stampSourceLine(Node $parent, int $childrenBefore, int $start): void
+    {
+        if ($childrenBefore < 0) {
+            return;
+        }
+
+        $children = $parent->getChildren();
+        $total = count($children);
+        for ($k = $childrenBefore; $k < $total; $k++) {
+            if ($children[$k]->getAttribute('data-source-line') === null) {
+                $children[$k]->setAttribute('data-source-line', (string)$start);
+            }
         }
     }
 

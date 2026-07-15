@@ -175,6 +175,7 @@ class CarveConverter
      * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
      * @param \MarkupCarve\Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
+     * @param bool $sourceLines Stamp top-level block elements with a `data-source-line` attribute (0-indexed source line). Opt-in, for editor scroll-sync; ignored when a pre-configured $parser is supplied.
      */
     public function __construct(
         bool $xhtml = false,
@@ -189,6 +190,7 @@ class CarveConverter
         array $symbols = [],
         ?BlockParser $parser = null,
         ?RendererInterface $renderer = null,
+        bool $sourceLines = false,
     ) {
         $this->collectWarnings = $warnings;
         $this->strictMode = $strict;
@@ -197,7 +199,7 @@ class CarveConverter
         if ($parser !== null) {
             $this->parser = $parser;
         } else {
-            $this->parser = new BlockParser($warnings, $strict);
+            $this->parser = new BlockParser($warnings, $strict, $sourceLines);
         }
 
         // Use provided renderer or create one from parameters
