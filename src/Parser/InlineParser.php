@@ -124,6 +124,22 @@ class InlineParser
     protected bool $linkTriggerPresent = false;
 
     /**
+     * Memo for the closing-paren guard: the text last scanned and the position
+     * of its LAST `)` (strrpos, or false when none). The link-destination scans
+     * in parseLink() / findLinkDestinationEnd() run char-by-char to end-of-text
+     * looking for `)`. When a `[`/`(` run has no closing paren at all, each `[`
+     * would re-scan the whole tail -- O(n^2) for input like `[a](` repeated.
+     * strrpos is a C-level scan computed once per text (the same string instance
+     * is compared pointer-cheap), letting each scan bail in O(1) when no `)`
+     * lies at or after the destination start.
+     *
+     * @var int|false
+     */
+    protected int|false $lastCloseParenPos = false;
+
+    protected ?string $lastCloseParenText = null;
+
+    /**
      * Cached abbreviation regex pattern (built once per document)
      */
     protected ?string $abbreviationPattern = null;
@@ -1657,6 +1673,20 @@ class InlineParser
             $urlStart = $afterBracket + 1;
             $urlEnd = $urlStart;
 
+            // Short-circuit when no `)` lies at or after the destination start:
+            // the char scan below could only run to end-of-text and fall through
+            // to the unclosed-link result. Skipping it keeps a `)`-less run like
+            // `[a](` repeated at O(n) instead of O(n^2). The last-paren position
+            // is memoized per text (strrpos runs once), so this guard is O(1).
+            $lastCloseParen = $this->lastCloseParenPos($text);
+            if ($lastCloseParen === false || $urlStart > $lastCloseParen) {
+                return [
+                    'unclosed_link' => true,
+                    'link_text' => $linkText,
+                    'continue_pos' => $urlStart, // Position after (
+                ];
+            }
+
             while ($urlEnd < $length) {
                 if ($text[$urlEnd] === '\\' && $urlEnd + 1 < $length) {
                     $urlEnd++;
@@ -2908,6 +2938,15 @@ class InlineParser
             return null;
         }
 
+        // Short-circuit when no `)` lies at or after the destination start: the
+        // scan below could only run to end-of-text and return null. The last-paren
+        // position is memoized per text (strrpos runs once), so repeated calls over
+        // one text stay O(1) instead of re-scanning the tail (O(n^2)).
+        $lastCloseParen = $this->lastCloseParenPos($text);
+        if ($lastCloseParen === false || $lastCloseParen < $pos + 1) {
+            return null;
+        }
+
         $i = $pos + 1;
 
         while ($i < $length) {
@@ -2923,6 +2962,24 @@ class InlineParser
         }
 
         return null;
+    }
+
+    /**
+     * Position of the last `)` in $text (strrpos), or false when there is none.
+     *
+     * Memoized per text: the same string instance is compared pointer-cheap, so
+     * repeated link-destination scans over one text pay the C-level strrpos once.
+     *
+     * @return int|false
+     */
+    protected function lastCloseParenPos(string $text): int|false
+    {
+        if ($text !== $this->lastCloseParenText) {
+            $this->lastCloseParenText = $text;
+            $this->lastCloseParenPos = strrpos($text, ')');
+        }
+
+        return $this->lastCloseParenPos;
     }
 
     /**
