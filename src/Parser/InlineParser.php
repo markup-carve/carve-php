@@ -164,6 +164,49 @@ class InlineParser
     protected ?string $emphNoCloseText = null;
 
     /**
+     * Memo for the fixed-closer tail scanners (attribute `}`, critic `+}` /
+     * `-}` / `~}`, editorial `#}`, bold-italic star-slash). Each walks forward
+     * to a fixed closing delimiter char-by-char; when that delimiter is absent from
+     * the tail the walk runs to end-of-text and fails, so N openers each do
+     * O(n) work -> O(n^2) (e.g. `{+` or `[x]{` repeated). strrpos is a C-level
+     * scan run once per (text, needle); a later opener then bails in O(1) when
+     * the closer cannot lie at or after its content start. Byte-identical: only
+     * ever elides a scan that provably would have failed.
+     *
+     * @var array<string, int|false>
+     */
+    protected array $closerLastPos = [];
+
+    protected ?string $closerLastText = null;
+
+    /**
+     * Memo for findLinkDestinationEnd: for the current text, `next[$p]` is the
+     * index of the first UNESCAPED `)` at or after `$p` (or -1 when none). The
+     * emphasis-close scan skips a link destination `](...)` by jumping to its
+     * `)`; when many openers each reach a `](` whose only closer is one far `)`
+     * (input `_a](` repeated + a trailing `)`), a char-by-char walk re-scans the
+     * same tail per opener -> O(n^2). The table answers each jump in O(1). Null
+     * when the text holds no `)` at all.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $unescCloseParen = null;
+
+    protected ?string $unescCloseParenText = null;
+
+    /**
+     * Memo for findAttributeEnd's closer-supply check: for the current text,
+     * `suffix[$p]` is the number of `}` at index >= $p. Built lazily (only when
+     * a nested `{` inside an attribute scan forces the depth check), so a
+     * document of flat, valid attribute blocks never pays for it.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $braceCloseSuffix = null;
+
+    protected ?string $braceCloseSuffixText = null;
+
+    /**
      * Cached abbreviation regex pattern (built once per document)
      */
     protected ?string $abbreviationPattern = null;
@@ -2341,6 +2384,13 @@ class InlineParser
             return null;
         }
 
+        // A bold-italic span needs its `*/` closer. Without this guard every
+        // `/*` opener scans to end-of-text, so an unclosed run is O(n^2). The
+        // memoized strrpos bails in O(1) when no `*/` lies ahead.
+        if (!$this->closerExistsFrom($text, '*/', $start)) {
+            return null;
+        }
+
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
             if ($text[$searchPos] === '`') {
@@ -2395,6 +2445,12 @@ class InlineParser
     protected function parseEditorialComment(string $text, int $pos): ?array
     {
         if (substr($text, $pos, 2) !== '{#') {
+            return null;
+        }
+        // No `#}` ahead -> not an editorial comment; bail in O(1) so a run of
+        // `{#` openers without a closer stays linear (strpos would otherwise
+        // scan to end-of-text at every opener).
+        if (!$this->closerExistsFrom($text, '#}', $pos + 2)) {
             return null;
         }
         $close = strpos($text, '#}', $pos + 2);
@@ -2463,7 +2519,9 @@ class InlineParser
         }
 
         // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
-        if ($marker === '~') {
+        // Skip the forward scan when no `~}` closer lies ahead (a run of `{~`
+        // openers would otherwise each walk to end-of-text -> O(n^2)).
+        if ($marker === '~' && $this->closerExistsFrom($text, '~}', $pos + 2)) {
             $searchPos = $pos + 2;
             while ($searchPos < $length - 1) {
                 if ($text[$searchPos] === '~' && $text[$searchPos + 1] === '}') {
@@ -2494,6 +2552,14 @@ class InlineParser
         };
 
         if ($nodeClass === null) {
+            return null;
+        }
+
+        // A braced span needs its `marker}` closer. Without this guard every
+        // `{+` / `{-` / `{*` ... opener walks to end-of-text looking for the
+        // closer, so an unclosed run is O(n^2). strrpos (memoized) short-circuits
+        // in O(1) when no `marker}` lies at or after the content start.
+        if (!$this->closerExistsFrom($text, $marker . '}', $pos + 2)) {
             return null;
         }
 
@@ -2903,6 +2969,15 @@ class InlineParser
     protected function findAttributeEnd(string $text, int $pos): ?int
     {
         $length = strlen($text);
+
+        // A block needs a closing `}`. Without this guard, every `{` runs the
+        // char-by-char scan below to end-of-text, so an unclosed run like
+        // `[x]{` repeated is O(n^2). strrpos (memoized) short-circuits when no
+        // `}` lies at or after the block start.
+        if (!$this->closerExistsFrom($text, '}', $pos + 1)) {
+            return null;
+        }
+
         $i = $pos + 1;
         $inQuote = null;
         $depth = 1;
@@ -2943,6 +3018,18 @@ class InlineParser
 
             if ($char === '{') {
                 $depth++;
+                // Closing an unmatched-brace depth of `d` needs `d` more `}`. If
+                // the depth outruns the `}` still ahead, the block can NEVER
+                // balance, so the scan below would only run to end-of-text and
+                // return null -- bail now (byte-identical, same null). This turns
+                // the pathological `[x]{` repeated + one far `}` (nested `{` that
+                // never balances) from O(n^2) into O(1) per opener. Only reached
+                // on a nested `{` (never for a flat, valid attribute block), and
+                // the suffix count is a memoized per-text table, so a document of
+                // many valid `[x]{.a}` blocks pays nothing here.
+                if ($depth > $this->closeBraceSuffixCount($text, $i + 1)) {
+                    return null;
+                }
             } elseif ($char === '}') {
                 $depth--;
                 if ($depth === 0) {
@@ -3016,29 +3103,23 @@ class InlineParser
         }
 
         // Short-circuit when no `)` lies at or after the destination start: the
-        // scan below could only run to end-of-text and return null. The last-paren
-        // position is memoized per text (strrpos runs once), so repeated calls over
-        // one text stay O(1) instead of re-scanning the tail (O(n^2)).
+        // scan could only run to end-of-text and return null. The last-paren
+        // position is memoized per text (strrpos runs once), so this stays O(1)
+        // and avoids building the jump table when no `)` can follow.
         $lastCloseParen = $this->lastCloseParenPos($text);
         if ($lastCloseParen === false || $lastCloseParen < $pos + 1) {
             return null;
         }
 
-        $i = $pos + 1;
+        // A `)` lies ahead: resolve the first UNESCAPED one in O(1) via the
+        // per-text jump table. Without it, a run of openers each reaching a `](`
+        // whose only closer is one far `)` (input `_a](` repeated + `)`) would
+        // re-walk the same tail per opener -> O(n^2). Byte-identical to the old
+        // char-by-char walk (which likewise skipped an escaped `)` and returned
+        // the index after the first unescaped `)`).
+        $close = $this->nextUnescapedCloseParen($text, $pos + 1);
 
-        while ($i < $length) {
-            $char = $text[$i];
-            if ($char === '\\' && $i + 1 < $length) {
-                // Skip escaped character
-                $i++;
-            }
-            if ($char === ')') {
-                return $i + 1;
-            }
-            $i++;
-        }
-
-        return null;
+        return $close === false ? null : $close + 1;
     }
 
     /**
@@ -3057,6 +3138,111 @@ class InlineParser
         }
 
         return $this->lastCloseParenPos;
+    }
+
+    /**
+     * Whether $needle occurs at or after position $from in $text.
+     *
+     * strrpos (the last occurrence) is memoized per (text, needle): if the last
+     * occurrence is at or after $from, then some occurrence lies at or after
+     * $from. Lets a fixed-closer tail scanner bail in O(1) when its closing
+     * delimiter cannot appear ahead, instead of walking to end-of-text. See
+     * $closerLastPos.
+     */
+    protected function closerExistsFrom(string $text, string $needle, int $from): bool
+    {
+        if ($text !== $this->closerLastText) {
+            $this->closerLastText = $text;
+            $this->closerLastPos = [];
+        }
+        if (!array_key_exists($needle, $this->closerLastPos)) {
+            $this->closerLastPos[$needle] = strrpos($text, $needle);
+        }
+        $last = $this->closerLastPos[$needle];
+
+        return $last !== false && $last >= $from;
+    }
+
+    /**
+     * Number of `}` at index >= $from in $text. Backed by a per-text suffix
+     * table (see $braceCloseSuffix), built once and reused across every
+     * attribute scan over that text so the depth check stays O(1) per nested
+     * brace instead of re-counting the tail.
+     */
+    protected function closeBraceSuffixCount(string $text, int $from): int
+    {
+        if ($text !== $this->braceCloseSuffixText) {
+            $this->braceCloseSuffixText = $text;
+            $length = strlen($text);
+            $suffix = array_fill(0, $length + 1, 0);
+            for ($p = $length - 1; $p >= 0; $p--) {
+                $suffix[$p] = $suffix[$p + 1] + ($text[$p] === '}' ? 1 : 0);
+            }
+            $this->braceCloseSuffix = $suffix;
+        }
+
+        return $this->braceCloseSuffix[$from] ?? 0;
+    }
+
+    /**
+     * Index of the first UNESCAPED `)` at or after $from, or false when none.
+     *
+     * Backed by a per-text jump table (see $unescCloseParen) so repeated
+     * link-destination skips over one text never re-walk the same tail. A `)`
+     * is escaped when the char before it was consumed by a backslash under a
+     * left-to-right walk; findLinkDestinationEnd only starts scanning right
+     * after a `(` (a clean, non-backslash boundary), so the global escape parse
+     * matches what a fresh walk from that start would compute.
+     *
+     * @return int|false
+     */
+    protected function nextUnescapedCloseParen(string $text, int $from): int|false
+    {
+        if ($text !== $this->unescCloseParenText) {
+            $this->unescCloseParenText = $text;
+            $this->unescCloseParen = $this->buildUnescapedCloseParenTable($text);
+        }
+        if ($this->unescCloseParen === null) {
+            return false;
+        }
+        $pos = $this->unescCloseParen[$from] ?? -1;
+
+        return $pos < 0 ? false : $pos;
+    }
+
+    /**
+     * Build the next-unescaped-`)` table for $text: `next[$p]` is the smallest
+     * index >= $p holding an unescaped `)`, or -1 when none follows. Returns
+     * null when the text contains no `)` at all (nothing to look up).
+     *
+     * @return array<int, int>|null
+     */
+    protected function buildUnescapedCloseParenTable(string $text): ?array
+    {
+        if (strrpos($text, ')') === false) {
+            return null;
+        }
+
+        $length = strlen($text);
+        // Standard escape parse: a backslash consumes (escapes) the next char.
+        $escaped = array_fill(0, $length, false);
+        $i = 0;
+        while ($i < $length) {
+            if ($text[$i] === '\\' && $i + 1 < $length) {
+                $escaped[$i + 1] = true;
+                $i += 2;
+
+                continue;
+            }
+            $i++;
+        }
+
+        $next = array_fill(0, $length + 1, -1);
+        for ($p = $length - 1; $p >= 0; $p--) {
+            $next[$p] = ($text[$p] === ')' && !$escaped[$p]) ? $p : $next[$p + 1];
+        }
+
+        return $next;
     }
 
     /**
