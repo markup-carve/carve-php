@@ -140,6 +140,30 @@ class InlineParser
     protected ?string $lastCloseParenText = null;
 
     /**
+     * Memo for the emphasis-opener forward scan in parseDelimited(). Each `_`,
+     * `*`, `~`, `=`, `/` opener scans toward end-of-text for a matching closer.
+     * When the tail holds no valid closer for a delimiter (e.g. every candidate
+     * is alnum-blocked, as in `_a](` repeated), that scan runs to end-of-text and
+     * fails -- and every LATER opener of the same delimiter scans a strict suffix
+     * of the same text, so it fails too. Without a memo, N such openers each do
+     * O(n) work -> O(n^2). We record, per delimiter, the smallest start position
+     * from which no closer exists; any opener at or after it bails in O(1).
+     *
+     * The scan is monotonic: a later opener sees the same structural skips
+     * (code spans, attribute blocks, autolinks, link destinations, escapes) and
+     * the same position-only closer rejections (space-before, `}`-after,
+     * alnum-after). The only opener-dependent rejection is the empty-content
+     * check, which fires solely for a closer immediately after the opener -- a
+     * position no later opener's suffix range includes -- so the memo never turns
+     * a would-be match into a miss.
+     *
+     * @var array<string, int>
+     */
+    protected array $emphNoCloseFrom = [];
+
+    protected ?string $emphNoCloseText = null;
+
+    /**
      * Cached abbreviation regex pattern (built once per document)
      */
     protected ?string $abbreviationPattern = null;
@@ -2089,6 +2113,12 @@ class InlineParser
     {
         $length = strlen($text);
 
+        // Reset the per-text no-closer memo when the scanned string changes.
+        if ($text !== $this->emphNoCloseText) {
+            $this->emphNoCloseText = $text;
+            $this->emphNoCloseFrom = [];
+        }
+
         // Check if this can be an opener (not preceded by whitespace for closer detection)
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
         $nextChar = $text[$pos + 1] ?? ' ';
@@ -2128,7 +2158,26 @@ class InlineParser
         }
 
         // Look for the content and the closer right after the single opener.
-        $searchPos = $pos + 1;
+        $searchStart = $pos + 1;
+
+        // Bail in O(1) if an earlier same-delimiter opener already proved the
+        // tail from here on holds no valid closer (see $emphNoCloseFrom).
+        if (
+            isset($this->emphNoCloseFrom[$delimiter])
+            && $searchStart >= $this->emphNoCloseFrom[$delimiter]
+        ) {
+            return null;
+        }
+
+        // Whether this scan jumped over any region (attribute block, code span,
+        // autolink, link destination, escape). The no-closer memo below is only
+        // sound for a pure left-to-right walk: a skipped region may hold a `_x_`
+        // that the MAIN loop still parses as emphasis (e.g. bare `](...)`/`{...}`
+        // with no matching `[`/no attachable node), so a later opener inside that
+        // region must not be short-circuited. See $emphNoCloseFrom.
+        $scanSkipped = false;
+
+        $searchPos = $searchStart;
         while ($searchPos < $length) {
             $char = $text[$searchPos];
 
@@ -2137,6 +2186,7 @@ class InlineParser
                 $attrEnd = $this->findAttributeEnd($text, $searchPos);
                 if ($attrEnd !== null) {
                     $searchPos = $attrEnd + 1;
+                    $scanSkipped = true;
 
                     continue;
                 }
@@ -2147,12 +2197,24 @@ class InlineParser
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
                     $searchPos = $codeEnd;
+                    $scanSkipped = true;
 
                     continue;
                 }
 
                 // Unclosed backtick run: opaque to the end of the block, so no
                 // closer can follow it and this delimiter cannot form emphasis.
+                // The main loop consumes the unclosed run as a code span to
+                // end-of-text, so no later opener is examined past it -- caching
+                // this failure (when the walk so far was pure) stays
+                // output-preserving.
+                if (!$scanSkipped) {
+                    $this->emphNoCloseFrom[$delimiter] = min(
+                        $this->emphNoCloseFrom[$delimiter] ?? $searchStart,
+                        $searchStart,
+                    );
+                }
+
                 return null;
             }
 
@@ -2161,6 +2223,7 @@ class InlineParser
                 $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
                 if ($autolinkEnd !== null) {
                     $searchPos = $autolinkEnd;
+                    $scanSkipped = true;
 
                     continue;
                 }
@@ -2173,6 +2236,7 @@ class InlineParser
                 $destEnd = $this->findLinkDestinationEnd($text, $searchPos + 1);
                 if ($destEnd !== null) {
                     $searchPos = $destEnd;
+                    $scanSkipped = true;
 
                     continue;
                 }
@@ -2181,6 +2245,7 @@ class InlineParser
             // Skip escape sequences
             if ($char === '\\' && $searchPos + 1 < $length) {
                 $searchPos += 2;
+                $scanSkipped = true;
 
                 continue;
             }
@@ -2241,6 +2306,18 @@ class InlineParser
             }
 
             $searchPos++;
+        }
+
+        // Scanned to end-of-text with no valid closer. When the walk skipped no
+        // region, every position in [searchStart, end) was examined and rejected
+        // for a position-only reason, so every later same-delimiter opener (a
+        // strict suffix) fails too: remember the start so those openers bail in
+        // O(1). If the walk skipped a region, the memo is unsound (see above).
+        if (!$scanSkipped) {
+            $this->emphNoCloseFrom[$delimiter] = min(
+                $this->emphNoCloseFrom[$delimiter] ?? $searchStart,
+                $searchStart,
+            );
         }
 
         return null;
