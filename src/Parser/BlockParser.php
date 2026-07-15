@@ -863,6 +863,35 @@ class BlockParser
 
                         continue;
                     }
+                    // Form B: a lone `+` attaches the FOLLOWING flush-left block
+                    // to the note with no indentation (the same continuation
+                    // marker lists, block quotes and definition bodies use). The
+                    // attached block ends at a blank line, another `+`, or the
+                    // next footnote definition.
+                    if (preg_match('/^\+[ \t]*$/', $nextLine)) {
+                        $j++;
+                        $attached = [];
+                        while ($j < $count) {
+                            $a = $lines[$j];
+                            if (
+                                IndentationHelper::isBlankLine($a)
+                                || preg_match('/^\+[ \t]*$/', $a)
+                                || preg_match('/^\[\^[^\]]+\]:/', $a)
+                            ) {
+                                break;
+                            }
+                            $attached[] = $a;
+                            $j++;
+                        }
+                        if ($attached) {
+                            $contentLines[] = '';
+                            foreach ($attached as $a) {
+                                $contentLines[] = $a;
+                            }
+                        }
+
+                        continue;
+                    }
                     // A footnote body extends only to lines indented by at least
                     // base indentation (2 spaces or a tab), per grammar PART 9
                     // §16. A line with less indentation (e.g. a single space) is
@@ -3273,16 +3302,69 @@ class BlockParser
             while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
                 $body = [trim($m[1])];
                 $i++;
-                // Deeper-indented (>= 3 spaces) non-blank lines continue the def.
+                // A definition body continues exactly like a list item (SS17):
+                //  - form A: a deeper-indented (>= 3) line folds in, and a blank
+                //    line is tolerated when a later line still continues, so a
+                //    `<dd>` can hold multiple paragraphs;
+                //  - form B: a lone `+` attaches the FOLLOWING flush-left block
+                //    with no indentation (the same continuation marker lists and
+                //    block quotes use).
                 while ($i < $count) {
                     $contLine = $lines[$i];
-                    $contLen = strlen($contLine);
-                    $indent = $contLen - strlen(ltrim($contLine, ' '));
-                    if (trim($contLine) === '' || $indent < 3) {
-                        break;
+                    // Form B: `+` pull-left continuation.
+                    if (preg_match('/^\+[ \t]*$/', $contLine)) {
+                        $i++;
+                        $attached = [];
+                        while ($i < $count) {
+                            $a = $lines[$i];
+                            if (
+                                trim($a) === ''
+                                || preg_match('/^\+[ \t]*$/', $a)
+                                || preg_match('/^::(?!:)\s+/', $a)
+                                || preg_match('/^:\s\s+/', $a)
+                            ) {
+                                break;
+                            }
+                            $attached[] = $a;
+                            $i++;
+                        }
+                        if ($attached) {
+                            $body[] = '';
+                            foreach ($attached as $a) {
+                                $body[] = $a;
+                            }
+                        }
+
+                        continue;
                     }
-                    $body[] = ltrim($contLine);
-                    $i++;
+                    $indent = strlen($contLine) - strlen(ltrim($contLine, ' '));
+                    // Form A: an indented continuation line (no intervening blank).
+                    if (trim($contLine) !== '' && $indent >= 3) {
+                        $body[] = ltrim($contLine);
+                        $i++;
+
+                        continue;
+                    }
+                    // Blank line: absorb as a paragraph separator ONLY when a
+                    // later line still continues the definition; otherwise leave
+                    // it for the entry separator / outer block stream.
+                    if (trim($contLine) === '') {
+                        $look = $i;
+                        while ($look < $count && trim($lines[$look]) === '') {
+                            $look++;
+                        }
+                        $after = $lines[$look] ?? null;
+                        $afterIndent = $after === null ? 0 : strlen($after) - strlen(ltrim($after, ' '));
+                        if ($after !== null && trim($after) !== '' && $afterIndent >= 3) {
+                            for (; $i < $look; $i++) {
+                                $body[] = '';
+                            }
+
+                            continue;
+                        }
+                    }
+
+                    break;
                 }
                 $dd = new DefinitionDescription();
                 $this->parseBlocks($dd, $body, 0);
@@ -4008,16 +4090,39 @@ class BlockParser
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
                 // A blank line continues the footnote only if a >= 2-indented
-                // line follows; otherwise it ends the footnote. Must mirror the
-                // body-collection logic so a line is never skipped here without
-                // being collected there (grammar PART 9 §16).
-                if ($i + 1 < $count && preg_match('/^(?:[ ]{2}|\t)/', $lines[$i + 1])) {
+                // line (or a `+` continuation marker) follows; otherwise it ends
+                // the footnote. Must mirror the body-collection logic so a line
+                // is never skipped here without being collected there (grammar
+                // PART 9 §16, §17).
+                if (
+                    $i + 1 < $count
+                    && (preg_match('/^(?:[ ]{2}|\t)/', $lines[$i + 1]) || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
+                ) {
                     $i++;
 
                     continue;
                 }
 
                 break;
+            }
+            // Form B: a `+` continuation marker plus its attached flush-left
+            // block (ends at a blank line, another `+`, or the next footnote
+            // definition) - mirror extractFootnotes exactly.
+            if (preg_match('/^\+[ \t]*$/', $nextLine)) {
+                $i++;
+                while ($i < $count) {
+                    $a = $lines[$i];
+                    if (
+                        IndentationHelper::isBlankLine($a)
+                        || preg_match('/^\+[ \t]*$/', $a)
+                        || preg_match('/^\[\^[^\]]+\]:/', $a)
+                    ) {
+                        break;
+                    }
+                    $i++;
+                }
+
+                continue;
             }
             if (preg_match('/^(?:[ ]{2}|\t)/', $nextLine)) {
                 $i++;
