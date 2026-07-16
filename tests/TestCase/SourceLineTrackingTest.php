@@ -17,15 +17,15 @@ class SourceLineTrackingTest extends TestCase
         $this->assertStringNotContainsString('data-source-line', $html);
     }
 
-    public function testEnabledStampsTopLevelBlocksWithZeroIndexedSourceLine(): void
+    public function testEnabledStampsTopLevelBlocksWithOneBasedSourceLine(): void
     {
         $converter = new CarveConverter(sourceLines: true);
-        // Lines: 0 "# Heading", 1 blank, 2 "Paragraph one.", 3 blank, 4 "Paragraph two."
+        // 1-based lines: 1 "# Heading", 3 "Paragraph one.", 5 "Paragraph two."
         $html = $converter->convert("# Heading\n\nParagraph one.\n\nParagraph two.\n");
 
-        $this->assertStringContainsString('data-source-line="0"', $html);
-        $this->assertStringContainsString('data-source-line="2"', $html);
-        $this->assertStringContainsString('data-source-line="4"', $html);
+        $this->assertStringContainsString('data-source-line="1"', $html);
+        $this->assertStringContainsString('data-source-line="3"', $html);
+        $this->assertStringContainsString('data-source-line="5"', $html);
     }
 
     public function testEnabledStampsListAndBlockquote(): void
@@ -35,7 +35,7 @@ class SourceLineTrackingTest extends TestCase
         $html = $converter->convert("Intro\n\n- item a\n- item b\n\n> quote\n");
 
         // The list block and the blockquote each carry a source line.
-        $this->assertMatchesRegularExpression('/<ul[^>]*data-source-line="2"/', $html);
-        $this->assertMatchesRegularExpression('/<blockquote[^>]*data-source-line="5"/', $html);
+        $this->assertMatchesRegularExpression('/<ul[^>]*data-source-line="3"/', $html);
+        $this->assertMatchesRegularExpression('/<blockquote[^>]*data-source-line="6"/', $html);
     }
 }
