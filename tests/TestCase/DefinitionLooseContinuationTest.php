@@ -113,4 +113,19 @@ class DefinitionLooseContinuationTest extends TestCase
             $out,
         );
     }
+
+    public function testFirstBlockFormOpensBlockBodiedDefinition(): void
+    {
+        $out = rtrim($this->converter->convert(":: t\n:  +\n> a quote"), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <blockquote><p>a quote</p></blockquote>\n  </dd>\n</dl>",
+            $out,
+        );
+    }
+
+    public function testEscapedPlusKeepsLiteralContent(): void
+    {
+        $out = rtrim($this->converter->convert(":: t\n:  \\+"), "\n");
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>+</dd>\n</dl>", $out);
+    }
 }
