@@ -3348,8 +3348,28 @@ class BlockParser
                 $i++;
             }
             while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
-                $body = [trim($m[1])];
                 $i++;
+                // First-block form (`:  +`, mirroring the list `- +`): when the
+                // sole content is a lone `+`, the body is the FOLLOWING
+                // flush-left block, with no indentation. `:  \+` is a literal `+`.
+                if (preg_match('/^\+[ \t]*$/', trim($m[1]))) {
+                    $body = [];
+                    while ($i < $count) {
+                        $a = $lines[$i];
+                        if (
+                            trim($a) === ''
+                            || preg_match('/^\+[ \t]*$/', $a)
+                            || preg_match('/^::(?!:)\s+/', $a)
+                            || preg_match('/^:\s\s+/', $a)
+                        ) {
+                            break;
+                        }
+                        $body[] = $a;
+                        $i++;
+                    }
+                } else {
+                    $body = [trim($m[1])];
+                }
                 // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
                 //    line is tolerated when a later line still continues, so a
