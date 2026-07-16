@@ -227,7 +227,7 @@ class BlockParser
 
     /**
      * When true, top-level block nodes are stamped with a `data-source-line`
-     * attribute holding the 0-indexed source line where the block started.
+     * attribute holding the 1-based source line where the block started.
      * Opt-in (default off): used by editor live-preview to sync scroll to the
      * source textarea. Off by default so normal rendering output is unchanged.
      *
@@ -1420,12 +1420,12 @@ class BlockParser
 
     /**
      * Stamp `data-source-line` on any children appended to $parent since
-     * $childrenBefore, using the 0-indexed source line the block started on.
+     * $childrenBefore, using the 1-based source line the block started on.
      * No-op unless source-line tracking is enabled (childrenBefore === -1).
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
-     * @param int $start 0-indexed source line where the block starts.
+     * @param int $start 0-indexed source line index; emitted as 1-based (+1).
      *
      * @return void
      */
@@ -1439,7 +1439,7 @@ class BlockParser
         $total = count($children);
         for ($k = $childrenBefore; $k < $total; $k++) {
             if ($children[$k]->getAttribute('data-source-line') === null) {
-                $children[$k]->setAttribute('data-source-line', (string)$start);
+                $children[$k]->setAttribute('data-source-line', (string)($start + 1));
             }
         }
     }
