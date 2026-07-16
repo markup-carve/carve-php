@@ -146,4 +146,16 @@ class DefinitionLooseContinuationTest extends TestCase
             $out,
         );
     }
+
+    public function testBlankBetweenTermAndDefinitionKeepsDefinition(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n\n:  def"), "\n");
+        $this->assertSame("<dl>\n  <dt>term</dt>\n  <dd>def</dd>\n</dl>", $out);
+    }
+
+    public function testBlankThenNonDefinitionEndsList(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n\nplain para"), "\n");
+        $this->assertSame("<dl>\n  <dt>term</dt>\n</dl>\n<p>plain para</p>", $out);
+    }
 }

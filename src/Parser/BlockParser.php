@@ -3366,7 +3366,25 @@ class BlockParser
                 $this->inlineParser->parse($term, $termText, $termStart);
                 $dl->appendChild($term);
             }
-            while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
+            while ($i < $count) {
+                // A blank line before a `:  ` definition is a separator (djot
+                // parity): a definition may be separated from its term or a
+                // previous definition by a blank line. A blank not followed by a
+                // `:  ` definition ends the entry.
+                if (trim($lines[$i]) === '') {
+                    $look = $i;
+                    while ($look < $count && trim($lines[$look]) === '') {
+                        $look++;
+                    }
+                    if ($look < $count && preg_match('/^:\s\s+/', $lines[$look])) {
+                        $i = $look;
+                    } else {
+                        break;
+                    }
+                }
+                if (!preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
+                    break;
+                }
                 $i++;
                 // First-block form (`:  +`, mirroring the list `- +`): when the
                 // sole content is a lone `+`, the body is the FOLLOWING
