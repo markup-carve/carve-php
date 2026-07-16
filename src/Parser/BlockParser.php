@@ -3342,10 +3342,29 @@ class BlockParser
         while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
             while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
-                $term = new DefinitionTerm();
-                $this->inlineParser->parse($term, trim($m[1]), $i);
-                $dl->appendChild($term);
+                $termStart = $i;
+                $termText = trim($m[1]);
                 $i++;
+                // A term folds a following plain line like a heading (soft
+                // break), so a wrapped term line does not strand the definition.
+                // A blank line, a new marker (`::` / `:  `), or a block opener /
+                // list marker ends the term.
+                while ($i < $count) {
+                    $nextLine = $lines[$i];
+                    if (
+                        trim($nextLine) === ''
+                        || preg_match('/^::(?!:)\s+/', $nextLine)
+                        || preg_match('/^:\s\s+/', $nextLine)
+                        || $this->endsHeadingOrQuote($nextLine, $lines, $i)
+                    ) {
+                        break;
+                    }
+                    $termText .= "\n" . $nextLine;
+                    $i++;
+                }
+                $term = new DefinitionTerm();
+                $this->inlineParser->parse($term, $termText, $termStart);
+                $dl->appendChild($term);
             }
             while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
                 $i++;

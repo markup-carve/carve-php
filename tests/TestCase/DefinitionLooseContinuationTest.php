@@ -128,4 +128,21 @@ class DefinitionLooseContinuationTest extends TestCase
         $out = rtrim($this->converter->convert(":: t\n:  \\+"), "\n");
         $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>+</dd>\n</dl>", $out);
     }
+    public function testTermFoldsWrappedLineAndKeepsDefinition(): void
+    {
+        $out = rtrim($this->converter->convert(":: A term that\nwraps\n:  def"), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>A term that\nwraps</dt>\n  <dd>def</dd>\n</dl>",
+            $out,
+        );
+    }
+
+    public function testBlockOpenerAfterTermEndsList(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n> quote"), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>term</dt>\n</dl>\n<blockquote><p>quote</p></blockquote>",
+            $out,
+        );
+    }
 }
