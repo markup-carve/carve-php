@@ -86,4 +86,31 @@ class DefinitionLooseContinuationTest extends TestCase
             $out,
         );
     }
+
+    public function testLazyContinuationFoldsFlushLeftLine(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n:  A definition wrapped\nonto the next line."), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>term</dt>\n  <dd>A definition wrapped\nonto the next line.</dd>\n</dl>",
+            $out,
+        );
+    }
+
+    public function testBlockOpenerEndsDefinitionInsteadOfFolding(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n:  def\n# heading"), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>term</dt>\n  <dd>def</dd>\n</dl>\n<section id=\"heading\">\n  <h1>heading</h1>\n</section>",
+            $out,
+        );
+    }
+
+    public function testBlankLineClosesParagraphSoFlushLeftEndsDefinition(): void
+    {
+        $out = rtrim($this->converter->convert(":: term\n:  def\n\nafter blank"), "\n");
+        $this->assertSame(
+            "<dl>\n  <dt>term</dt>\n  <dd>def</dd>\n</dl>\n<p>after blank</p>",
+            $out,
+        );
+    }
 }

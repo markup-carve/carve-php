@@ -3350,13 +3350,16 @@ class BlockParser
             while ($i < $count && preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
                 $body = [trim($m[1])];
                 $i++;
-                // A definition body continues exactly like a list item (SS17):
+                // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
                 //    line is tolerated when a later line still continues, so a
                 //    `<dd>` can hold multiple paragraphs;
                 //  - form B: a lone `+` attaches the FOLLOWING flush-left block
                 //    with no indentation (the same continuation marker lists and
-                //    block quotes use).
+                //    block quotes use);
+                //  - lazy continuation: a flush-left line with no blank before
+                //    it that does not start an interrupting block folds into the
+                //    open paragraph (matching list items, block quotes and djot).
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -3410,6 +3413,22 @@ class BlockParser
 
                             continue;
                         }
+                    }
+
+                    // A new term/definition marker ends this definition (the
+                    // outer loop picks it up).
+                    if (preg_match('/^::(?!:)\s+/', $contLine) || preg_match('/^:\s\s+/', $contLine)) {
+                        break;
+                    }
+                    // Lazy continuation: a flush-left line with no blank before it
+                    // that does not start an interrupting block folds into the
+                    // open paragraph (the same rule list items and block quotes
+                    // use; djot-compatible). A block opener ends the definition.
+                    if (trim($contLine) !== '' && !$this->startsInterruptingBlock($contLine, $lines, $i)) {
+                        $body[] = $contLine;
+                        $i++;
+
+                        continue;
                     }
 
                     break;
