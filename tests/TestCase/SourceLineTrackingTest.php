@@ -100,15 +100,15 @@ class SourceLineTrackingTest extends TestCase
         $this->assertMatchesRegularExpression('/<li id="fn1" data-source-line="3">/', $html);
     }
 
-    public function testFootnoteEndnoteItemIsStampedOnDefinitionLineForContinuationBody(): void
+    public function testEmptyFootnoteMarkerLineStaysAStampedParagraph(): void
     {
         $converter = new CarveConverter(sourceLines: true);
         $html = $converter->convert("Use [^a].\n\n[^a]:\n  First\n");
 
-        // The endnote anchor points at the definition line, not the first
-        // content line of a continuation-only body.
-        $this->assertMatchesRegularExpression('/<li id="fn1" data-source-line="3">/', $html);
-        $this->assertMatchesRegularExpression('/<p[^>]*data-source-line="4"[^>]*>First<a /', $html);
+        // A bare `[^a]:` marker line is not a definition (PART 9 §16; corpus
+        // 132): it renders as an ordinary paragraph, stamped at its own line.
+        $this->assertMatchesRegularExpression('/<p[^>]*data-source-line="3"[^>]*>\[\^a\]:\nFirst<\/p>/', $html);
+        $this->assertStringNotContainsString('doc-endnotes', $html);
     }
 
     public function testDefinitionTermsAndDescriptionsAreStamped(): void

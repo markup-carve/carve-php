@@ -178,4 +178,49 @@ class SymmetricListInterruptionTest extends TestCase
             $this->converter->convert("*[HTML]: HyperText\n  1. item"),
         );
     }
+
+    /**
+     * A list marker reaching the item's content column starts a sublist even
+     * when an open continuation paragraph precedes it (PART 0 S3, PART 9 §24
+     * C3; corpus 131) - bullet and ordered alike. The no-interrupt rule covers
+     * below-content-column and top-level markers only.
+     */
+    public function testSublistMarkerInterruptsContinuationParagraph(): void
+    {
+        $expectedBullet = "<ul>\n"
+            . "  <li><p>first</p>\n"
+            . "    <p>second</p>\n"
+            . "    <ul>\n"
+            . "      <li>nested</li>\n"
+            . "    </ul>\n"
+            . "  </li>\n"
+            . "</ul>\n";
+        $this->assertSame($expectedBullet, $this->converter->convert("- first\n\n  second\n  - nested\n"));
+
+        $expectedOrdered = "<ul>\n"
+            . "  <li><p>first</p>\n"
+            . "    <p>second</p>\n"
+            . "    <ol>\n"
+            . "      <li>nested</li>\n"
+            . "    </ol>\n"
+            . "  </li>\n"
+            . "</ul>\n";
+        $this->assertSame($expectedOrdered, $this->converter->convert("- first\n\n  second\n  1. nested\n"));
+    }
+
+    /**
+     * Guards around the new nesting rule: plain prose still folds, and tight
+     * nested lists stay tight (no loosening blank injected between siblings).
+     */
+    public function testContinuationParagraphGuards(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>first</p>\n    <p>second\nmore prose</p>\n  </li>\n</ul>\n",
+            $this->converter->convert("- first\n\n  second\n  more prose\n"),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>fruit\n    <ul>\n      <li>apples</li>\n      <li>oranges</li>\n    </ul>\n  </li>\n</ul>\n",
+            $this->converter->convert("- fruit\n  - apples\n  - oranges\n"),
+        );
+    }
 }
