@@ -856,7 +856,11 @@ class BlockParser
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || preg_match('/^[ \t]*>/', $lines[$i - 1]) === 1;
                     if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
-                        $this->footnotes[$label] = new Footnote($label);
+                        $footnote = new Footnote($label);
+                        if ($this->trackSourceLines) {
+                            $footnote->setAttribute('data-source-line', (string)($i + 1));
+                        }
+                        $this->footnotes[$label] = $footnote;
                         $deferredBodies[$label] = [
                             'lines' => [$content],
                             'lineMap' => [$i],
@@ -947,7 +951,11 @@ class BlockParser
                 // later top-level def never overwrites an earlier one, whether
                 // that earlier one was top-level or container-nested.
                 if (!isset($this->footnotes[$label])) {
-                    $this->footnotes[$label] = new Footnote($label);
+                    $footnote = new Footnote($label);
+                    if ($this->trackSourceLines) {
+                        $footnote->setAttribute('data-source-line', (string)($i + 1));
+                    }
+                    $this->footnotes[$label] = $footnote;
                     if ($contentLines) {
                         $deferredBodies[$label] = [
                             'lines' => $contentLines,

@@ -92,6 +92,25 @@ class SourceLineTrackingTest extends TestCase
         $this->assertMatchesRegularExpression('/<p[^>]*data-source-line="5"[^>]*>Second<a /', $html);
     }
 
+    public function testFootnoteEndnoteItemIsStamped(): void
+    {
+        $converter = new CarveConverter(sourceLines: true);
+        $html = $converter->convert("Use [^a].\n\n[^a]: First\n\n  Second\n");
+
+        $this->assertMatchesRegularExpression('/<li id="fn1" data-source-line="3">/', $html);
+    }
+
+    public function testFootnoteEndnoteItemIsStampedOnDefinitionLineForContinuationBody(): void
+    {
+        $converter = new CarveConverter(sourceLines: true);
+        $html = $converter->convert("Use [^a].\n\n[^a]:\n  First\n");
+
+        // The endnote anchor points at the definition line, not the first
+        // content line of a continuation-only body.
+        $this->assertMatchesRegularExpression('/<li id="fn1" data-source-line="3">/', $html);
+        $this->assertMatchesRegularExpression('/<p[^>]*data-source-line="4"[^>]*>First<a /', $html);
+    }
+
     public function testDefinitionTermsAndDescriptionsAreStamped(): void
     {
         $converter = new CarveConverter(sourceLines: true);

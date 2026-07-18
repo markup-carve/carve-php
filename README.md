@@ -62,8 +62,9 @@ For editor previews and scroll sync, enable source-line tracking with
 `data-source-line` attribute for their start line in the original document.
 The attribute is applied to top-level and nested block elements, including
 blocks inside block quotes, divs, list items, footnotes, and definition lists,
-and to `<li>`, `<dt>`, and `<dd>` elements. Author-supplied
-`data-source-line` attributes are preserved.
+and to `<li>`, `<dt>`, and `<dd>` elements (endnote `<li>` entries included,
+anchored at their definition line). Author-supplied `data-source-line`
+attributes are preserved.
 
 ~~~ php
 $converter = new CarveConverter(sourceLines: true);
