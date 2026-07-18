@@ -835,10 +835,19 @@ class BlockParser
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
-            // Match footnote definition: [^label]: content
+            // Match footnote definition: [^label]: content. The marker line
+            // must carry inline content (grammar PART 9 §16 production:
+            // `"]:", space, inline_content`); a bare `[^label]:` is an
+            // ordinary paragraph line, and a following indented line folds
+            // into it as paragraph text.
             if (($bare[0] ?? '') === '[' && preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
                 $label = $matches[1];
                 $content = $matches[2] ?? '';
+                if (trim($content) === '') {
+                    $i++;
+
+                    continue;
+                }
 
                 if ($container['kind'] !== 'none') {
                     // Container-nested: single-line, non-empty body only. The
@@ -2878,6 +2887,10 @@ class BlockParser
                     // block (fenced code, table, div) the dedented line ends the
                     // item instead of being absorbed.
                     $subTrailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+                    // Whether the collected stream already holds list content;
+                    // sibling markers inside it are the nested list's own
+                    // business and must not get a loosening blank injected.
+                    $subSawListMarker = false;
                     while ($i < $count) {
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
@@ -2909,6 +2922,29 @@ class BlockParser
                             }
                             // Remove subIndent worth of indentation (handling tabs)
                             $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                            // A list marker reaching the content column starts a
+                            // sublist even when an open continuation paragraph
+                            // precedes it (PART 0 S3, PART 9 §24 C3; corpus 131).
+                            // Inject a blank separator so the nested parse opens
+                            // the sublist instead of lazily folding the marker
+                            // into the open PLAIN paragraph. Once the stream
+                            // holds list content, sibling markers belong to that
+                            // nested list and must not get a loosening blank.
+                            $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped)) !== null;
+                            if (
+                                $strippedIsMarker
+                                && !$subSawListMarker
+                                && $subTrailingState['openParagraph']
+                                && !$subTrailingState['inFence']
+                                && !$subTrailingState['inDiv']
+                            ) {
+                                $subLines[] = '';
+                                $subLineMap[] = -1;
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, '');
+                            }
+                            if ($strippedIsMarker) {
+                                $subSawListMarker = true;
+                            }
                             $subLines[] = $stripped;
                             $subLineMap[] = $this->sourceLineFor($i);
                             $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped);
@@ -4326,8 +4362,11 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Match footnote definition: [^label]: content
-        if (!preg_match('/^\[\^([^\]]+)\]:(?: |[ \t]*$)/', $line)) {
+        // Match footnote definition: [^label]: content. Must mirror the
+        // pre-pass collector exactly (literal space separator, PART 9 §16):
+        // a bare `[^label]:` - or a tab-separated body the collector does not
+        // accept - is never skipped here; it parses as a paragraph.
+        if (!preg_match('/^\[\^([^\]]+)\]: +\S/', $line)) {
             return null;
         }
 
