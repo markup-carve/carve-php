@@ -1166,6 +1166,13 @@ class BlockParser
 
                         continue;
                     }
+                    if (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
+                        // Bare same-level marker continues, contributes nothing
+                        // (mirrors tryParseHeading so the id agrees at render).
+                        $j++;
+
+                        continue;
+                    }
                     if (preg_match('/^#{1,6}/', $nextLine)) {
                         break;
                     }
@@ -2359,12 +2366,16 @@ class BlockParser
                 // newline always precedes a folded continuation.
                 $content .= "\n" . $contMatch[1];
                 $i++;
+            } elseif (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
+                // A bare SAME-level marker line (`#` / `# ` for a level-1
+                // heading) continues the heading but contributes no content, so
+                // surrounding marker lines join with a single newline (djot;
+                // "same number of `#` ... or none"). Matches carve-js / carve-rs.
+                $i++;
             } elseif (preg_match('/^#{1,6}(?: |$)/', $nextLine)) {
-                // A `#`-marker line (any level, including a bare `#` / `# `)
-                // ENDS the open heading -- matching carve-js, whose heading
-                // continuation breaks on `/^#{1,6}([ \t]|$)/`. The bare-`#`
-                // line then forms its own paragraph (it is not itself a
-                // heading).
+                // A `#`-marker line with a DIFFERENT count (more OR fewer) ends
+                // the open heading and starts a new one. The bare-`#` line then
+                // forms its own paragraph (it is not itself a heading).
                 break;
             } elseif (preg_match('/^\^ +.*\S/', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
