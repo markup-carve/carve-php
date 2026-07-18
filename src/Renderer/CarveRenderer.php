@@ -164,7 +164,7 @@ class CarveRenderer implements RendererInterface
         $fence = $this->safeFence($content, 3);
         $info = $this->codeFenceInfo($node);
 
-        return $fence . $info . "\n" . $content . "\n" . $fence;
+        return $fence . $info . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
 
     protected function codeFenceInfo(CodeBlock $node): string
@@ -573,7 +573,7 @@ class CarveRenderer implements RendererInterface
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
 
-        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n" . $content . "\n" . $fence;
+        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
 
     protected function renderComment(Comment $node): string
@@ -582,7 +582,7 @@ class CarveRenderer implements RendererInterface
         if ($node->getFenceLength() !== null) {
             $fence = str_repeat('%', max(3, $node->getFenceLength()));
 
-            return $fence . "\n" . $content . "\n" . $fence;
+            return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
         }
         if (!str_contains($content, "\n")) {
             return '%% ' . $content;
@@ -594,7 +594,7 @@ class CarveRenderer implements RendererInterface
         }
         $fence = str_repeat('%', max(3, $longest + 1));
 
-        return $fence . "\n" . $content . "\n" . $fence;
+        return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
 
     protected function renderFootnote(Footnote $node): string
@@ -613,7 +613,7 @@ class CarveRenderer implements RendererInterface
     {
         $open = $node->getFormat() === 'yaml' ? '---' : '---' . $this->escapeFormat($node->getFormat());
 
-        return $open . "\n" . $node->getContent() . "\n---";
+        return $open . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
     }
 
     /**
@@ -840,7 +840,38 @@ class CarveRenderer implements RendererInterface
         $text = implode("\n", $lines);
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
 
-        return $this->trimNonNbsp($text) . "\n";
+        return $this->restoreVerbatim($this->trimNonNbsp($text)) . "\n";
+    }
+
+    /**
+     * Whole-document normalization (trailing-whitespace strip, blank-line
+     * collapsing) must not reach inside verbatim content - code blocks, raw
+     * blocks, frontmatter, and block comments reproduce their content
+     * byte-exact (carve-js issue 340). Sentinel-encode the vulnerable bytes
+     * before the content joins the document string; normalize() restores
+     * them at the end. U+E000 is already the NBSP sentinel; U+E001..U+E003
+     * extend the scheme.
+     */
+    protected function protectVerbatim(string $content): string
+    {
+        $content = (string)preg_replace_callback(
+            '/[ \t]+(?=\n|$)/',
+            static fn (array $m): string => strtr($m[0], [' ' => "\u{E001}", "\t" => "\u{E002}"]),
+            $content,
+        );
+        $lines = explode("\n", $content);
+        foreach ($lines as $i => $line) {
+            if ($line === '') {
+                $lines[$i] = "\u{E003}";
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    protected function restoreVerbatim(string $text): string
+    {
+        return strtr($text, ["\u{E001}" => ' ', "\u{E002}" => "\t", "\u{E003}" => '']);
     }
 
     protected function trimNonNbsp(string $text): string

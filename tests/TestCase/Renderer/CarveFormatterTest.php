@@ -106,6 +106,52 @@ class CarveFormatterTest extends TestCase
         }
     }
 
+    /**
+     * Verbatim content survives document normalization (carve-js issue 340):
+     * trailing whitespace and blank-line runs inside code blocks, raw blocks,
+     * frontmatter, and block comments are byte-exact after fmt.
+     */
+    public function testVerbatimContentSurvivesNormalization(): void
+    {
+        $cases = [
+            "```\ntrailing   \nalso\t\t\n```\n",
+            "```\na\n\n\n\nb\n```\n",
+            "```=html\n<pre>x   \n\n\n\ny</pre>\n```\n",
+            "---\ntitle: X\n\n\n\nnote: kept\n---\n\n%%%\nc   \n\n\n\nd\n%%%\n\nbody\n",
+        ];
+        $converter = new CarveConverter();
+        foreach ($cases as $src) {
+            $formatted = CarveConverter::toCarve($src);
+            $this->assertSame($src, $formatted);
+            $this->assertSame(
+                $converter->convert($src),
+                $converter->convert($formatted),
+            );
+        }
+    }
+
+    /**
+     * Same content nested in a blockquote and a list item: fmt stays
+     * idempotent and semantics-preserving.
+     */
+    public function testVerbatimContentStableInsideContainers(): void
+    {
+        $cases = [
+            "> ```\n> a   \n>\n>\n>\n> b\n> ```\n",
+            "- item\n\n  ```\n  a   \n\n\n\n  b\n  ```\n",
+        ];
+        $converter = new CarveConverter();
+        foreach ($cases as $src) {
+            $f1 = CarveConverter::toCarve($src);
+            $f2 = CarveConverter::toCarve($f1);
+            $this->assertSame($f1, $f2);
+            $this->assertSame(
+                $converter->convert($src),
+                $converter->convert($f1),
+            );
+        }
+    }
+
     protected function normalizeHtml(string $html): string
     {
         $html = (string)preg_replace('/[ \t]+$/m', '', $html);
