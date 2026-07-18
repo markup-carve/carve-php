@@ -542,6 +542,18 @@ class InlineParser
 
             $nextChar = $text[$pos + 1] ?? '';
 
+            // A backslash at the very end of the content (no following character)
+            // is a hard break, mirroring the `\`-before-newline rule at end of
+            // input (`para\` at EOF -> `<br>`), matching djot and the cheatsheet.
+            if ($char === '\\' && $pos + 1 >= $length) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(new HardBreak());
+                $pos++;
+
+                continue;
+            }
+
             // Check for escape sequences
             if ($char === '\\' && $pos + 1 < $length) {
                 $escaped = $text[$pos + 1];
