@@ -107,6 +107,49 @@ class CarveFormatterTest extends TestCase
     }
 
     /**
+     * The list marker is semantic (section 11): a sibling with a different
+     * bullet char or ordered delimiter starts a NEW list, so fmt preserves
+     * the authored marker (carve issue 286) - normalizing would merge
+     * adjacent sibling lists on re-parse.
+     */
+    public function testPreservesAuthoredListMarkers(): void
+    {
+        $cases = [
+            "1) a\n2) b\n",
+            "1. a\n2. b\n",
+            "* a\n* b\n",
+            "- a\n- b\n",
+            "* [x] done\n* [ ] todo\n",
+        ];
+        foreach ($cases as $src) {
+            $this->assertSame($src, CarveConverter::toCarve($src));
+        }
+    }
+
+    /**
+     * The invariant cases: adjacent sibling lists separated only by their
+     * marker must stay separate through fmt (carve issue 286).
+     */
+    public function testAdjacentListsSeparatedByMarkerStaySeparate(): void
+    {
+        $converter = new CarveConverter();
+        $cases = [
+            "1. a\n1) b",
+            "1. a\n\n1) b",
+            "- a\n* b",
+            "- a\n\n* b",
+        ];
+        foreach ($cases as $src) {
+            $f1 = CarveConverter::toCarve($src);
+            $this->assertSame($f1, CarveConverter::toCarve($f1));
+            $this->assertSame(
+                $converter->convert($src),
+                $converter->convert($f1),
+            );
+        }
+    }
+
+    /**
      * Verbatim content survives document normalization (carve-js issue 340):
      * trailing whitespace and blank-line runs inside code blocks, raw blocks,
      * frontmatter, and block comments are byte-exact after fmt.

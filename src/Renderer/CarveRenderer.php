@@ -200,23 +200,30 @@ class CarveRenderer implements RendererInterface
         try {
             $out = '';
             $counter = $node->getStart();
+            // The marker is semantic (section 11: a different bullet char or
+            // ordered delimiter starts a new list), so emit it as authored -
+            // normalizing would merge adjacent sibling lists on re-parse
+            // (carve issue 286). Absent markers fall back to `-` / `.`.
+            $marker = $node->getMarker();
+            $delim = $marker === ')' ? ')' : '.';
+            $bullet = $marker === '*' ? '*' : '-';
             $children = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof ListItem));
             foreach ($children as $index => $item) {
                 $indent = str_repeat('  ', $this->listDepth - 1);
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-                    $prefix = $this->orderedMarker($counter, $node->getStyle()) . '. ';
+                    $prefix = $this->orderedMarker($counter, $node->getStyle()) . $delim . ' ';
                     $counter++;
                 } elseif ($item->isTask()) {
-                    $prefix = '- [' . ($item->isCompleted() ? 'x' : ' ') . '] ';
+                    $prefix = $bullet . ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ';
                 } else {
-                    $prefix = '- ';
+                    $prefix = $bullet . ' ';
                 }
 
                 $itemAttrs = $this->renderAttrs($item);
                 if ($itemAttrs !== '') {
                     $prefix = $node->getListType() === ListBlock::TYPE_ORDERED
                         ? rtrim($prefix) . $itemAttrs . ' '
-                        : '-' . $itemAttrs . ($item->isTask() ? ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ' : ' ');
+                        : $bullet . $itemAttrs . ($item->isTask() ? ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ' : ' ');
                 }
 
                 $content = $this->trimNonNbsp($this->renderListItem($item));
