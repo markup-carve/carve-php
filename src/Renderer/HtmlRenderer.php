@@ -1096,9 +1096,12 @@ class HtmlRenderer implements RendererInterface
         // without a <p> wrapper; loose items keep it.
         $lead = '';
         $rest = '';
-        if (preg_match('/^<p>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
-            $lead = $tight ? $m[1] : '<p>' . $m[1] . '</p>';
-            $rest = isset($m[2]) ? trim($m[2], "\n") : '';
+        if (preg_match('/^<p( data-source-line="\d+")?>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
+            // A data-source-line-only wrapper is stripped in tight items too
+            // (the source-line option must never change structure; the <li>
+            // keeps the anchor) but preserved on loose items.
+            $lead = $tight ? $m[2] : '<p' . $m[1] . '>' . $m[2] . '</p>';
+            $rest = isset($m[3]) ? trim($m[3], "\n") : '';
         } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|details|figure|hr|dl|img|h[1-6])\b/', $content)) {
             // A block-only item (no inline lead, e.g. the `- +` first-block
             // form) puts the block on its own indented line, matching the

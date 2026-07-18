@@ -67,8 +67,8 @@ class SourceLineTrackingTest extends TestCase
         $this->assertTagLine('ul', 1, $html);
         $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="1"[^>]*>/', $html);
         $this->assertMatchesRegularExpression('/<p[^>]*data-source-line="3"[^>]*>Alpha detail<\/p>/', $html);
-        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="5"[^>]*><p[^>]*data-source-line="5"[^>]*>Beta/', $html);
-        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="6"[^>]*><p[^>]*data-source-line="6"[^>]*>Gamma/', $html);
+        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="5"[^>]*>Beta/', $html);
+        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="6"[^>]*>Gamma/', $html);
         $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="7"[^>]*><p[^>]*data-source-line="7"[^>]*>Delta/', $html);
     }
 
@@ -79,8 +79,8 @@ class SourceLineTrackingTest extends TestCase
 
         $this->assertTagLine('blockquote', 1, $html);
         $this->assertTagLine('ul', 3, $html);
-        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="3"[^>]*><p[^>]*data-source-line="3"[^>]*>Quoted item/', $html);
-        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="4"[^>]*><p[^>]*data-source-line="4"[^>]*>Nested quoted item/', $html);
+        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="3"[^>]*>Quoted item/', $html);
+        $this->assertMatchesRegularExpression('/<li[^>]*data-source-line="4"[^>]*>Nested quoted item/', $html);
     }
 
     public function testFootnoteContentBlocksAreStamped(): void
@@ -158,5 +158,18 @@ class SourceLineTrackingTest extends TestCase
             '/<' . preg_quote($tag, '/') . '\b[^>]*data-source-line="' . $line . '"[^>]*>/',
             $html,
         );
+    }
+
+    public function testEnabledOutputIsStructureIdenticalToDisabled(): void
+    {
+        // The option is attribute-only: stripping the stamped attributes must
+        // reproduce the default output byte for byte. Regression: tight list
+        // items used to grow <p> wrappers because the stamped paragraph no
+        // longer matched the renderer's tight lead pattern.
+        $doc = "> - quoted item\n>   - nested item\n\n- a\n- b\n\n1. loose\n\n   para\n";
+        $off = (new CarveConverter())->convert($doc);
+        $on = (new CarveConverter(sourceLines: true))->convert($doc);
+
+        $this->assertSame($off, preg_replace('/ data-source-line="\d+"/', '', $on));
     }
 }
