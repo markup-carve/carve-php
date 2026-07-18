@@ -175,7 +175,7 @@ class CarveConverter
      * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
      * @param \MarkupCarve\Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
-     * @param bool $sourceLines Stamp top-level block elements with a `data-source-line` attribute (1-based source line). Opt-in, for editor scroll-sync; ignored when a pre-configured $parser is supplied.
+     * @param bool $sourceLines Stamp block elements, li, dt, and dd with a `data-source-line` attribute (1-based source line). Opt-in, for editor scroll-sync; ignored when a pre-configured $parser is supplied.
      */
     public function __construct(
         bool $xhtml = false,

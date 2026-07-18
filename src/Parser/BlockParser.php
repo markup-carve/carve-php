@@ -226,7 +226,7 @@ class BlockParser
     }
 
     /**
-     * When true, top-level block nodes are stamped with a `data-source-line`
+     * When true, block nodes are stamped with a `data-source-line`
      * attribute holding the 1-based source line where the block started.
      * Opt-in (default off): used by editor live-preview to sync scroll to the
      * source textarea. Off by default so normal rendering output is unchanged.
@@ -234,6 +234,13 @@ class BlockParser
      * @var bool
      */
     protected bool $trackSourceLines = false;
+
+    /**
+     * Per-line map for the line array currently being parsed.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $currentLineMap = null;
 
     public function __construct(
         bool $collectWarnings = false,
@@ -402,7 +409,7 @@ class BlockParser
      */
     public function parseBlockContent(Node $parent, array $lines): void
     {
-        $this->parseBlocks($parent, $lines, 0);
+        $this->parseBlocks($parent, $lines, 0, array_fill(0, count($lines), -1));
     }
 
     /**
@@ -850,7 +857,10 @@ class BlockParser
                         || preg_match('/^[ \t]*>/', $lines[$i - 1]) === 1;
                     if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
                         $this->footnotes[$label] = new Footnote($label);
-                        $deferredBodies[$label] = [$content];
+                        $deferredBodies[$label] = [
+                            'lines' => [$content],
+                            'lineMap' => [$i],
+                        ];
                     }
 
                     $i++;
@@ -862,8 +872,10 @@ class BlockParser
                 // body extends only to lines indented by the base indentation
                 // (2 spaces or a tab); see the continuation regex below.
                 $contentLines = [];
+                $contentLineMap = [];
                 if (trim($content) !== '') {
                     $contentLines[] = $content;
+                    $contentLineMap[] = $i;
                 }
                 $j = $i + 1;
                 while ($j < $count) {
@@ -871,6 +883,7 @@ class BlockParser
                     if (IndentationHelper::isBlankLine($nextLine)) {
                         // Add blank line to preserve structure
                         $contentLines[] = '';
+                        $contentLineMap[] = $j;
                         $j++;
 
                         continue;
@@ -883,6 +896,7 @@ class BlockParser
                     if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                         $j++;
                         $attached = [];
+                        $attachedLineMap = [];
                         while ($j < $count) {
                             $a = $lines[$j];
                             if (
@@ -893,12 +907,15 @@ class BlockParser
                                 break;
                             }
                             $attached[] = $a;
+                            $attachedLineMap[] = $j;
                             $j++;
                         }
                         if ($attached) {
                             $contentLines[] = '';
-                            foreach ($attached as $a) {
+                            $contentLineMap[] = -1;
+                            foreach ($attached as $attachedIndex => $a) {
                                 $contentLines[] = $a;
+                                $contentLineMap[] = $attachedLineMap[$attachedIndex];
                             }
                         }
 
@@ -911,6 +928,7 @@ class BlockParser
                     // carve-js / carve-rs.
                     if (preg_match('/^(?:[ ]{2}|\t)(.*)$/', $nextLine, $contMatch)) {
                         $contentLines[] = $contMatch[1];
+                        $contentLineMap[] = $j;
                         $j++;
                     } else {
                         break;
@@ -921,6 +939,7 @@ class BlockParser
                 $lineCount = count($contentLines);
                 while ($lineCount > 0 && $contentLines[$lineCount - 1] === '') {
                     array_pop($contentLines);
+                    array_pop($contentLineMap);
                     $lineCount--;
                 }
 
@@ -930,7 +949,10 @@ class BlockParser
                 if (!isset($this->footnotes[$label])) {
                     $this->footnotes[$label] = new Footnote($label);
                     if ($contentLines) {
-                        $deferredBodies[$label] = $contentLines;
+                        $deferredBodies[$label] = [
+                            'lines' => $contentLines,
+                            'lineMap' => $contentLineMap,
+                        ];
                     }
                 }
             }
@@ -940,8 +962,8 @@ class BlockParser
 
         // Every footnote label is now registered; parse the bodies so a forward
         // reference to a later-defined footnote inside a body resolves.
-        foreach ($deferredBodies as $label => $bodyLines) {
-            $this->parseBlocks($this->footnotes[$label], $bodyLines, 0);
+        foreach ($deferredBodies as $label => $body) {
+            $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
         }
     }
 
@@ -1273,9 +1295,10 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $indent
+     * @param array<int, int>|null $lineMap
      * @param bool $topLevel
      */
-    protected function parseBlocks(Node $parent, array $lines, int $indent, bool $topLevel = false): void
+    protected function parseBlocks(Node $parent, array $lines, int $indent, ?array $lineMap = null, bool $topLevel = false): void
     {
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
             $text = implode("\n", $lines);
@@ -1289,9 +1312,12 @@ class BlockParser
         }
 
         $this->nestingDepth++;
+        $previousLineMap = $this->currentLineMap;
+        $this->currentLineMap = $lineMap;
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
         } finally {
+            $this->currentLineMap = $previousLineMap;
             $this->nestingDepth--;
         }
     }
@@ -1333,10 +1359,10 @@ class BlockParser
             }
 
             // Source-line tracking (opt-in): remember where this block starts and
-            // how many children the parent had, so newly appended top-level blocks
-            // can be stamped with `data-source-line` after the dispatch below.
-            $blockStart = $i;
-            $childrenBefore = ($this->trackSourceLines && $topLevel) ? count($parent->getChildren()) : -1;
+            // how many children the parent had, so newly appended blocks can be
+            // stamped with `data-source-line` after the dispatch below.
+            $sourceLine = $this->sourceLineFor($i);
+            $childrenBefore = ($this->trackSourceLines && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
 
             // A bare `---` at the very start of the document is ambiguous between
             // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
@@ -1350,7 +1376,7 @@ class BlockParser
             if ($topLevel && !$parent->hasChildren() && preg_match('/^---\s*$/', $line) === 1) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
-                    $this->stampSourceLine($parent, $childrenBefore, $blockStart);
+                    $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                     $i += $matchConsumed;
 
                     continue;
@@ -1373,7 +1399,7 @@ class BlockParser
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i);
-                $this->stampSourceLine($parent, $childrenBefore, $blockStart);
+                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                 $i += $consumed;
 
                 continue;
@@ -1404,7 +1430,7 @@ class BlockParser
             if ($consumed === null) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
-                    $this->stampSourceLine($parent, $childrenBefore, $blockStart);
+                    $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                     $i += $matchConsumed;
 
                     continue;
@@ -1413,9 +1439,14 @@ class BlockParser
 
             $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
-            $this->stampSourceLine($parent, $childrenBefore, $blockStart);
+            $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
             $i += $consumed;
         }
+    }
+
+    private function sourceLineFor(int $index): int
+    {
+        return $this->currentLineMap[$index] ?? ($this->currentLineMap === null ? $index : -1);
     }
 
     /**
@@ -1425,23 +1456,46 @@ class BlockParser
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
-     * @param int $start 0-indexed source line index; emitted as 1-based (+1).
+     * @param int $sourceLine 0-indexed original source line; emitted as 1-based (+1).
      *
      * @return void
      */
-    private function stampSourceLine(Node $parent, int $childrenBefore, int $start): void
+    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine): void
     {
-        if ($childrenBefore < 0) {
+        if ($childrenBefore < 0 || $sourceLine < 0) {
             return;
         }
 
         $children = $parent->getChildren();
         $total = count($children);
         for ($k = $childrenBefore; $k < $total; $k++) {
+            if (!$this->canStampSourceLine($children[$k])) {
+                continue;
+            }
             if ($children[$k]->getAttribute('data-source-line') === null) {
-                $children[$k]->setAttribute('data-source-line', (string)($start + 1));
+                $children[$k]->setAttribute('data-source-line', (string)($sourceLine + 1));
             }
         }
+    }
+
+    private function stampNodeSourceLine(Node $node, int $sourceLine): void
+    {
+        if (!$this->trackSourceLines || $sourceLine < 0 || !$this->canStampSourceLine($node)) {
+            return;
+        }
+        if ($node->getAttribute('data-source-line') === null) {
+            $node->setAttribute('data-source-line', (string)($sourceLine + 1));
+        }
+    }
+
+    private function canStampSourceLine(Node $node): bool
+    {
+        return !(
+            $node instanceof RawBlock
+            || $node instanceof Comment
+            || $node instanceof TableRow
+            || $node instanceof TableCell
+        );
     }
 
     /**
@@ -1932,6 +1986,7 @@ class BlockParser
         $this->pendingAttributeOrder = [];
 
         $innerLines = [];
+        $innerLineMap = [];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
@@ -1957,6 +2012,7 @@ class BlockParser
                     $codeBlockFence = $rawFenceInfo['fence'][0];
                     $codeBlockFenceLength = $rawFenceInfo['length'];
                     $innerLines[] = $currentLine;
+                    $innerLineMap[] = $this->sourceLineFor($i);
                     $i++;
 
                     continue;
@@ -1967,6 +2023,7 @@ class BlockParser
                     $codeBlockFence = $codeFenceInfo['char'];
                     $codeBlockFenceLength = $codeFenceInfo['length'];
                     $innerLines[] = $currentLine;
+                    $innerLineMap[] = $this->sourceLineFor($i);
                     $i++;
 
                     continue;
@@ -1978,6 +2035,7 @@ class BlockParser
                     $inCodeBlock = false;
                 }
                 $innerLines[] = $currentLine;
+                $innerLineMap[] = $this->sourceLineFor($i);
                 $i++;
 
                 continue;
@@ -1992,6 +2050,7 @@ class BlockParser
             }
 
             $innerLines[] = $currentLine;
+            $innerLineMap[] = $this->sourceLineFor($i);
             $i++;
         }
 
@@ -2002,7 +2061,7 @@ class BlockParser
         // Parse inner content as blocks (track line offset for nested content)
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
-        $this->parseBlocks($div, $innerLines, 0);
+        $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
         $this->lineOffset = $previousOffset;
 
         // (Pending block attributes were already applied before the
@@ -2052,6 +2111,7 @@ class BlockParser
         $this->pendingAttributes = [];
 
         $innerLines = [];
+        $innerLineMap = [];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
@@ -2075,6 +2135,7 @@ class BlockParser
                     $codeBlockFence = $rawFenceInfo['fence'][0];
                     $codeBlockFenceLength = $rawFenceInfo['length'];
                     $innerLines[] = $currentLine;
+                    $innerLineMap[] = $this->sourceLineFor($i);
                     $i++;
 
                     continue;
@@ -2085,6 +2146,7 @@ class BlockParser
                     $codeBlockFence = $codeFenceInfo['char'];
                     $codeBlockFenceLength = $codeFenceInfo['length'];
                     $innerLines[] = $currentLine;
+                    $innerLineMap[] = $this->sourceLineFor($i);
                     $i++;
 
                     continue;
@@ -2095,6 +2157,7 @@ class BlockParser
                     $inCodeBlock = false;
                 }
                 $innerLines[] = $currentLine;
+                $innerLineMap[] = $this->sourceLineFor($i);
                 $i++;
 
                 continue;
@@ -2108,6 +2171,7 @@ class BlockParser
             }
 
             $innerLines[] = $currentLine;
+            $innerLineMap[] = $this->sourceLineFor($i);
             $i++;
         }
 
@@ -2117,7 +2181,7 @@ class BlockParser
 
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
-        $this->parseBlocks($div, $innerLines, 0);
+        $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
         $this->lineOffset = $previousOffset;
 
         $this->convertDirectParagraphSoftBreaksToHardBreaks($div);
@@ -2425,6 +2489,7 @@ class BlockParser
         $this->pendingAttributeOrder = [];
 
         $innerLines = [];
+        $innerLineMap = [];
         $lazyState = [
             'inFence' => false,
             'fenceChar' => '',
@@ -2436,6 +2501,7 @@ class BlockParser
         ];
 
         $innerLines[] = $content;
+        $innerLineMap[] = $this->sourceLineFor($start);
         $this->trackBlockQuoteLazyState($content, $lazyState);
 
         $i = $start + 1;
@@ -2460,6 +2526,7 @@ class BlockParser
                 $i++; // consume the `+` marker
                 /** @var array<string> $attached */
                 $attached = [];
+                $attachedLineMap = [];
                 while ($i < $count) {
                     $line = $lines[$i];
                     if (IndentationHelper::isBlankLine($line)) {
@@ -2472,16 +2539,20 @@ class BlockParser
                         break; // a further `+` starts the next attached block
                     }
                     $attached[] = $line;
+                    $attachedLineMap[] = $this->sourceLineFor($i);
                     $i++;
                 }
                 if ($attached !== []) {
                     // $innerLines always holds the quote's first content line, so
                     // a leading blank separates the attached block from it.
                     $innerLines[] = '';
-                    foreach ($attached as $attachedLine) {
+                    $innerLineMap[] = -1;
+                    foreach ($attached as $attachedIndex => $attachedLine) {
                         $innerLines[] = $attachedLine;
+                        $innerLineMap[] = $attachedLineMap[$attachedIndex];
                     }
                     $innerLines[] = '';
+                    $innerLineMap[] = -1;
                     // The attached block closed any open paragraph: a following
                     // unmarked line no longer lazily continues the quote.
                     $lazyState['paragraphOpen'] = false;
@@ -2494,6 +2565,7 @@ class BlockParser
             $content = $this->blockQuoteLineContent($currentLine);
             if ($content !== null) {
                 $innerLines[] = $content;
+                $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($content, $lazyState);
                 $i++;
             } elseif ($lazyState['paragraphOpen'] && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'])) {
@@ -2509,6 +2581,7 @@ class BlockParser
                 // into, so the list marker ENDS the quote and starts a sibling
                 // list (endsBlockQuote() handles this via paragraphTextOpen).
                 $innerLines[] = $currentLine;
+                $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState);
                 $i++;
             } else {
@@ -2516,7 +2589,7 @@ class BlockParser
             }
         }
 
-        $this->parseBlocks($blockQuote, $innerLines, 0);
+        $this->parseBlocks($blockQuote, $innerLines, 0, $innerLineMap);
 
         // Apply the saved attributes to the blockquote
         if ($quoteAttributes !== []) {
@@ -2719,6 +2792,7 @@ class BlockParser
                     $i++; // consume the `+` marker line
                     /** @var array<string> $attached */
                     $attached = [];
+                    $attachedLineMap = [];
                     while ($i < $count) {
                         $line = $lines[$i];
                         if (IndentationHelper::isBlankLine($line)) {
@@ -2736,10 +2810,11 @@ class BlockParser
                             break;
                         }
                         $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+                        $attachedLineMap[] = $this->sourceLineFor($i);
                         $i++;
                     }
                     if ($attached !== []) {
-                        $this->parseBlocks($lastItem, $attached, 0);
+                        $this->parseBlocks($lastItem, $attached, 0, $attachedLineMap);
                     }
                     // The continuation attaches content but does not loosen the list.
                     $lastItemHadBlankAfter = false;
@@ -2776,6 +2851,7 @@ class BlockParser
 
                     // Collect all indented content at this new level
                     $subLines = [];
+                    $subLineMap = [];
                     $subIndent = $currentIndent;
                     // Track the maximum content indent we've seen (for detecting drop-back to marker level)
                     $maxContentIndent = $currentIndent;
@@ -2791,6 +2867,7 @@ class BlockParser
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
                             $subLines[] = '';
+                            $subLineMap[] = $this->sourceLineFor($i);
                             $sawBlankLine = true;
                             $i++;
 
@@ -2818,6 +2895,7 @@ class BlockParser
                             // Remove subIndent worth of indentation (handling tabs)
                             $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
                             $subLines[] = $stripped;
+                            $subLineMap[] = $this->sourceLineFor($i);
                             $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped);
                             $sawBlankLine = false;
                             $i++;
@@ -2861,6 +2939,7 @@ class BlockParser
                                 break;
                             }
                             $subLines[] = $trimmedLine;
+                            $subLineMap[] = $this->sourceLineFor($i);
                             $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
                             $sawBlankLine = false;
                             $i++;
@@ -2877,6 +2956,7 @@ class BlockParser
                                 && !$this->startsNewBlock($trimmedLine)
                             ) {
                                 $subLines[] = $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
                                 $i++;
 
@@ -2893,11 +2973,12 @@ class BlockParser
                     $subLineCount = count($subLines);
                     while ($subLineCount > 0 && $subLines[$subLineCount - 1] === '') {
                         array_pop($subLines);
+                        array_pop($subLineMap);
                         $subLineCount--;
                     }
                     // Parse nested content
                     if ($subLines !== []) {
-                        $this->parseBlocks($lastItem, $subLines, 0);
+                        $this->parseBlocks($lastItem, $subLines, 0, $subLineMap);
                     }
                     // In djot, blank lines within nested content don't make the parent list loose
                     // The list is only loose if there's a blank line directly after item content
@@ -2938,6 +3019,7 @@ class BlockParser
             /** @var string|null $taskMarker */
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
+            $listItemSourceLine = $this->sourceLineFor($i);
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
                 /** @var array<string, string> $markerAttributes */
@@ -2946,12 +3028,16 @@ class BlockParser
                     $listItem->setAttribute($key, $value);
                 }
             }
+            if ($this->trackSourceLines && $listItemSourceLine >= 0 && $listItem->getAttribute('data-source-line') === null) {
+                $listItem->setAttribute('data-source-line', (string)($listItemSourceLine + 1));
+            }
             /** @var string $itemContent */
             $itemContent = $itemInfo['content'];
 
             // Collect item content lines (without blank line = tight continuation)
             /** @var array<string> $itemLines */
             $itemLines = [$itemContent];
+            $itemLineMap = [$listItemSourceLine];
             $i++;
             $lastItemHadBlankAfter = false;
 
@@ -2972,6 +3058,7 @@ class BlockParser
             if (trim($itemContent) === '+') {
                 /** @var array<string> $attached */
                 $attached = [];
+                $attachedLineMap = [];
                 while ($i < $count) {
                     $line = $lines[$i];
                     if (IndentationHelper::isBlankLine($line)) {
@@ -2989,10 +3076,11 @@ class BlockParser
                         break;
                     }
                     $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+                    $attachedLineMap[] = $this->sourceLineFor($i);
                     $i++;
                 }
                 if ($attached !== []) {
-                    $this->parseBlocks($listItem, $attached, 0);
+                    $this->parseBlocks($listItem, $attached, 0, $attachedLineMap);
                 }
                 $list->appendChild($listItem);
 
@@ -3038,8 +3126,9 @@ class BlockParser
                     $baseIndent,
                     $contentIndent,
                     $itemLines,
+                    $itemLineMap,
                 );
-                $this->parseBlocks($listItem, $itemLines, 0);
+                $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
                 $list->appendChild($listItem);
 
                 // A blank line directly before the next sibling marker still
@@ -3073,8 +3162,9 @@ class BlockParser
                     $baseIndent,
                     $contentIndent,
                     $itemLines,
+                    $itemLineMap,
                 );
-                $this->parseBlocks($listItem, $itemLines, 0);
+                $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
                 $list->appendChild($listItem);
 
                 if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
@@ -3146,6 +3236,7 @@ class BlockParser
                     // Properly indented continuation - include with original indentation relative to content
                     $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
                     $itemLines[] = $contentLine;
+                    $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
                 } else {
                     // Lazy continuation (not properly indented but not at base
@@ -3165,6 +3256,7 @@ class BlockParser
                         break;
                     }
                     $itemLines[] = $nextTrimmed;
+                    $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
                 }
                 $i++;
@@ -3179,7 +3271,7 @@ class BlockParser
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
-            $this->parseBlocks($listItem, $itemLines, 0);
+            $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
 
             $list->appendChild($listItem);
         }
@@ -3212,6 +3304,7 @@ class BlockParser
      * @param int $baseIndent The list's base column.
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected stream (lead marker line already present); appended in place.
+     * @param array<int, int> $itemLineMap Source-line map for $itemLines; appended in place.
      *
      * @return int The index of the first line NOT consumed.
      */
@@ -3222,6 +3315,7 @@ class BlockParser
         int $baseIndent,
         int $contentIndent,
         array &$itemLines,
+        array &$itemLineMap,
     ): int {
         while ($i < $count) {
             $nextLine = $lines[$i];
@@ -3238,6 +3332,7 @@ class BlockParser
                     break;
                 }
                 $itemLines[] = '';
+                $itemLineMap[] = $this->sourceLineFor($i);
                 $i++;
 
                 continue;
@@ -3253,6 +3348,7 @@ class BlockParser
             }
 
             $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $itemLineMap[] = $this->sourceLineFor($i);
             $i++;
         }
 
@@ -3260,6 +3356,7 @@ class BlockParser
         $lineCount = count($itemLines);
         while ($lineCount > 0 && $itemLines[$lineCount - 1] === '') {
             array_pop($itemLines);
+            array_pop($itemLineMap);
             $lineCount--;
         }
 
@@ -3364,6 +3461,7 @@ class BlockParser
                 }
                 $term = new DefinitionTerm();
                 $this->inlineParser->parse($term, $termText, $termStart);
+                $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
                 $dl->appendChild($term);
             }
             while ($i < $count) {
@@ -3385,10 +3483,12 @@ class BlockParser
                 if (!preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
                     break;
                 }
+                $definitionStart = $i;
                 $i++;
                 // First-block form (`:  +`, mirroring the list `- +`): when the
                 // sole content is a lone `+`, the body is the FOLLOWING
                 // flush-left block, with no indentation. `:  \+` is a literal `+`.
+                $bodyMap = [];
                 if (preg_match('/^\+[ \t]*$/', trim($m[1]))) {
                     $body = [];
                     while ($i < $count) {
@@ -3402,10 +3502,12 @@ class BlockParser
                             break;
                         }
                         $body[] = $a;
+                        $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
                     }
                 } else {
                     $body = [trim($m[1])];
+                    $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
                 // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
@@ -3423,6 +3525,7 @@ class BlockParser
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;
                         $attached = [];
+                        $attachedLineMap = [];
                         while ($i < $count) {
                             $a = $lines[$i];
                             if (
@@ -3434,12 +3537,15 @@ class BlockParser
                                 break;
                             }
                             $attached[] = $a;
+                            $attachedLineMap[] = $this->sourceLineFor($i);
                             $i++;
                         }
                         if ($attached) {
                             $body[] = '';
-                            foreach ($attached as $a) {
+                            $bodyMap[] = -1;
+                            foreach ($attached as $attachedIndex => $a) {
                                 $body[] = $a;
+                                $bodyMap[] = $attachedLineMap[$attachedIndex];
                             }
                         }
 
@@ -3449,6 +3555,7 @@ class BlockParser
                     // Form A: an indented continuation line (no intervening blank).
                     if (trim($contLine) !== '' && $indent >= 3) {
                         $body[] = ltrim($contLine);
+                        $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
                         continue;
@@ -3466,6 +3573,7 @@ class BlockParser
                         if ($after !== null && trim($after) !== '' && $afterIndent >= 3) {
                             for (; $i < $look; $i++) {
                                 $body[] = '';
+                                $bodyMap[] = $this->sourceLineFor($i);
                             }
 
                             continue;
@@ -3483,6 +3591,7 @@ class BlockParser
                     // use; djot-compatible). A block opener ends the definition.
                     if (trim($contLine) !== '' && !$this->startsInterruptingBlock($contLine, $lines, $i)) {
                         $body[] = $contLine;
+                        $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
                         continue;
@@ -3491,7 +3600,8 @@ class BlockParser
                     break;
                 }
                 $dd = new DefinitionDescription();
-                $this->parseBlocks($dd, $body, 0);
+                $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
+                $this->parseBlocks($dd, $body, 0, $bodyMap);
                 $dl->appendChild($dd);
             }
             // Allow a single blank line before the next entry's `:: term`.
