@@ -337,16 +337,17 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Thematic break can be indented (per spec).
+     * A thematic break is a column-0 contiguous run of >= 3 identical markers
+     * (grammar §262). A tab-indented, space-separated line like `\t* * *` is NOT
+     * a thematic break: the leading tab and the internal spaces both disqualify
+     * it, so it parses as a (nested) list -- matching the executable-spec oracle.
      */
-    public function testThematicBreakWithTabIndent(): void
+    public function testTabIndentedSpacedMarkersAreNotThematicBreak(): void
     {
         $input = "\t* * *";
         $result = $this->converter->convert($input);
 
-        // Thematic breaks "may be indented" per spec
-        // Current behavior check
-        $hasHr = str_contains($result, '<hr');
-        $this->assertTrue($hasHr || str_contains($result, '<p>'), 'Should be either hr or paragraph');
+        $this->assertStringNotContainsString('<hr', $result);
+        $this->assertStringContainsString('<ul>', $result);
     }
 }

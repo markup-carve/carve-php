@@ -2429,20 +2429,16 @@ class BlockParser
 
     protected function tryParseThematicBreak(Node $parent, string $line, int $start): ?int
     {
-        // Match thematic break: 3+ * or - characters (with optional spaces between)
-        // Examples: ***, ---, * * *, - - -, *-*-*-*, **   **
-        $stripped = preg_replace('/\s+/', '', $line);
-        if ($stripped === null || strlen($stripped) < 3) {
+        // Grammar §262 thematic_break: a column-0 run of at least three IDENTICAL
+        // `-`, `*`, or `_` characters, contiguous (no leading or internal
+        // whitespace), followed only by optional trailing whitespace. Markdown's
+        // loose spaced/indented forms (`* * *`, ` ***`, `-*-*-`) are NOT thematic
+        // breaks and fall through to list/paragraph parsing.
+        if (!preg_match('/^([-*_])\1{2,}[ \t]*$/', $line, $matches)) {
             return null;
         }
 
-        // Must contain only thematic-break markers: -, *, or _ (§ grammar
-        // thematic_break). strlen(>= 3) is already checked above.
-        if (!preg_match('/^[\*\-_]+$/', $stripped)) {
-            return null;
-        }
-
-        $char = $stripped[0];
+        $char = $matches[1];
         $thematicBreak = new ThematicBreak($char);
         $this->applyPendingAttributes($thematicBreak);
         $parent->appendChild($thematicBreak);
@@ -2712,7 +2708,7 @@ class BlockParser
         // `# h\n- item` is a heading plus a sibling list.
         $trimmed = ltrim($content);
         $isHeading = preg_match('/^#{1,6} .*\S/', $trimmed) === 1;
-        $isThematicBreak = preg_match('/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed) === 1;
+        $isThematicBreak = preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
         $isTableRow = $this->tableParser->isTableRow($trimmed);
         $state['paragraphTextOpen'] = !$isHeading && !$isThematicBreak && !$isTableRow;
     }
@@ -4946,9 +4942,10 @@ class BlockParser
             case '-':
             case '*':
                 // A bullet does NOT interrupt a paragraph (symmetric with ordered
-                // markers; needs a blank line). Only a thematic break -- a bare
-                // run of at least three matching markers -- interrupts here.
-                return preg_match('/^(' . preg_quote($first, '/') . '[ \t]*){3,}$/', $line) === 1;
+                // markers; needs a blank line). Only a thematic break -- a
+                // contiguous col-0 run of at least three IDENTICAL markers, with
+                // no internal whitespace (§262) -- interrupts here.
+                return preg_match('/^' . preg_quote($first, '/') . '{3,}[ \t]*$/', $line) === 1;
             case '+':
                 // `+` is the list-continuation marker, NOT a bullet (only the
                 // opt-in PlusBulletExtension re-enables it) and is not a
@@ -4957,8 +4954,9 @@ class BlockParser
                 // two stray paragraphs that are neither prose nor a list.
                 return false;
             case '_':
-                // Thematic break
-                return preg_match('/^(_[ \t]*){3,}$/', $line) === 1;
+                // Thematic break: contiguous col-0 run of >= 3 `_`, no internal
+                // whitespace (§262).
+                return preg_match('/^_{3,}[ \t]*$/', $line) === 1;
             case '|':
                 // Tables: a single "| a | b |" row is a valid table, but a pipe
                 // in prose ("a\n| b als Oder.") is not a row, so validate before
@@ -5218,8 +5216,10 @@ class BlockParser
             return true;
         }
 
-        // Thematic breaks (---, ***, ___)
-        if (preg_match('/^([-*_])[ \t]*\1[ \t]*\1/', $line)) {
+        // Thematic breaks (---, ***, ___): a contiguous col-0 run of >= 3
+        // IDENTICAL markers, no internal whitespace (§262). Spaced Markdown
+        // forms (`* * *`) are matched by the list arm below, not here.
+        if (preg_match('/^([-*_])\1{2,}[ \t]*$/', $line)) {
             return true;
         }
 

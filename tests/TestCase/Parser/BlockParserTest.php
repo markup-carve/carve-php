@@ -270,6 +270,43 @@ class BlockParserTest extends TestCase
         }
     }
 
+    public function testThematicBreakIsContiguousColumnZeroOnly(): void
+    {
+        // §262: a thematic break is a column-0 run of >= 3 IDENTICAL `-`/`*`/`_`,
+        // contiguous (no leading or internal whitespace). Trailing whitespace is
+        // allowed. Markdown's loose spaced/indented forms are NOT thematic breaks.
+
+        // Contiguous col-0 runs stay thematic breaks (trailing whitespace ok).
+        foreach (['***', '----', '___', '*****', '*** ', "***\t"] as $hr) {
+            $doc = $this->parser->parse($hr);
+            $this->assertInstanceOf(
+                ThematicBreak::class,
+                $doc->getChildren()[0],
+                'Expected thematic break for: ' . json_encode($hr),
+            );
+        }
+
+        // Internal spaces: `* * *` / `- - -` become lists, `_ _ _` a paragraph.
+        foreach (['* * *', '- - -', '_ _ _', '*** *', '-*-*-', '****-'] as $notHr) {
+            $doc = $this->parser->parse($notHr);
+            $this->assertNotInstanceOf(
+                ThematicBreak::class,
+                $doc->getChildren()[0],
+                'Did not expect thematic break for: ' . json_encode($notHr),
+            );
+        }
+
+        // Leading indentation disqualifies the run (it becomes a paragraph).
+        foreach ([' ***', '  ---', "\t***"] as $indented) {
+            $doc = $this->parser->parse($indented);
+            $this->assertInstanceOf(
+                Paragraph::class,
+                $doc->getChildren()[0],
+                'Expected paragraph for indented run: ' . json_encode($indented),
+            );
+        }
+    }
+
     public function testParseFencedDiv(): void
     {
         $doc = $this->parser->parse(":::\nContent\n:::");
