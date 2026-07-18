@@ -2169,6 +2169,24 @@ class HtmlRenderer implements RendererInterface
                 $liAttrs = ' data-djot-footnote-label="' . $this->escapeAttribute((string)$label) . '"';
             }
 
+            // Source-line anchor on the endnote item itself (carve-js parity):
+            // taken from the footnote definition, falling back to its first
+            // content block.
+            if ($label !== false && isset($context->collectedFootnotes[$label])) {
+                $footnoteNode = $context->collectedFootnotes[$label];
+                $sourceLine = $footnoteNode->getAttribute('data-source-line');
+                if ($sourceLine === null) {
+                    foreach ($footnoteNode->getChildren() as $footnoteChild) {
+                        $sourceLine = $footnoteChild->getAttribute('data-source-line');
+
+                        break;
+                    }
+                }
+                if ($sourceLine !== null) {
+                    $liAttrs .= ' data-source-line="' . $this->escapeAttribute($sourceLine) . '"';
+                }
+            }
+
             $html .= '    <li id="fn' . $number . '"' . $liAttrs . '>' . "\n";
 
             // Get ref count for this footnote
