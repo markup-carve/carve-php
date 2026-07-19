@@ -239,15 +239,88 @@ class ConformanceDivergenceTest extends TestCase
     }
 
     /**
-     * Item 3 (regression): the destination-required rule must still accept a
-     * tab in the separator run, so a `[r]: \t/u` definition resolves (only a
-     * truly empty destination is rejected).
+     * Item 3 (regression): the separator after `]:` must START with a literal
+     * space, but any further whitespace before the destination is trimmed, so a
+     * `[r]: \t/u` definition (space then tab) still resolves to `/u` -- matching
+     * carve-rs. Only a tab-FIRST separator is rejected (see below).
      */
-    public function testReferenceDefinitionAllowsTabSeparator(): void
+    public function testReferenceDefinitionAllowsTabAfterLeadingSpace(): void
     {
         $this->assertSame(
             '<p>see <a href="/u">x</a></p>',
             trim($this->converter->convert("see [x][r]\n\n[r]: \t/u\n")),
+        );
+    }
+
+    /**
+     * Issue 288: the separator after a definition marker must be a literal
+     * SPACE (U+0020), not a tab. A tab-FIRST separator does NOT form a
+     * definition -- the line is an ordinary paragraph, preserved verbatim (the
+     * tab is not escaped). Byte-for-byte matches the carve-rs binary.
+     *
+     * A footnote definition split by a tab was previously SWALLOWED entirely
+     * (the reference-definition collector accepted `[^a]:\t...` as a link ref,
+     * so the line neither registered as a note nor rendered) -- content
+     * vanished. It must fall through to a paragraph.
+     */
+    public function testFootnoteDefinitionTabSeparatorIsParagraph(): void
+    {
+        $this->assertSame(
+            "<p>Use [^a].</p>\n<p>[^a]:\tTabbed</p>",
+            trim($this->converter->convert("Use [^a].\n\n[^a]:\tTabbed\n")),
+        );
+    }
+
+    /**
+     * Issue 288: a link reference definition split by a tab does NOT form a
+     * definition; the line is an ordinary paragraph and the reference stays
+     * unresolved. carve-php previously accepted the tab.
+     */
+    public function testReferenceDefinitionTabSeparatorIsParagraph(): void
+    {
+        $this->assertSame(
+            "<p>[a]:\t/url</p>\n<p>[a][]</p>",
+            trim($this->converter->convert("[a]:\t/url\n\n[a][]\n")),
+        );
+    }
+
+    /**
+     * Issue 288 (lock): an abbreviation definition split by a tab is already
+     * treated as a paragraph (the pattern requires a literal space). Guard the
+     * behavior against regressions.
+     */
+    public function testAbbreviationDefinitionTabSeparatorIsParagraph(): void
+    {
+        $this->assertSame(
+            "<p>*[HTML]:\tHyper</p>\n<p>The HTML</p>",
+            trim($this->converter->convert("*[HTML]:\tHyper\n\nThe HTML\n")),
+        );
+    }
+
+    /**
+     * Issue 288: the space-separated forms still produce their definitions.
+     */
+    public function testSpaceSeparatedDefinitionsStillWork(): void
+    {
+        // Footnote resolves to an endnote reference.
+        $this->assertStringContainsString(
+            'doc-noteref',
+            $this->converter->convert("Use [^a].\n\n[^a]: Body\n"),
+        );
+        // Link reference resolves to an anchor.
+        $this->assertSame(
+            '<p><a href="/url">a</a></p>',
+            trim($this->converter->convert("[a]: /url\n\n[a][]\n")),
+        );
+        // A multi-space separator still forms a footnote definition.
+        $this->assertStringContainsString(
+            'doc-noteref',
+            $this->converter->convert("Use [^a].\n\n[^a]:  x\n"),
+        );
+        // Abbreviation resolves to an <abbr>.
+        $this->assertSame(
+            '<p>The <abbr title="Hyper">HTML</abbr></p>',
+            trim($this->converter->convert("*[HTML]: Hyper\n\nThe HTML\n")),
         );
     }
 
