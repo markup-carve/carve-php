@@ -168,6 +168,9 @@ class CarveCorpusTest extends TestCase
         '130-thematic-break-requires-contiguous-markers',
         '131-sublist-marker-interrupts-a-continuation-paragraph',
         '132-footnote-definition-requires-an-inline-body',
+        '133-footnote-definition-separator-must-be-a-space',
+        '134-link-reference-definition-separator-must-be-a-space',
+        '135-abbreviation-definition-separator-must-be-a-space',
     ];
 
     /**
