@@ -845,9 +845,9 @@ class BlockParser
             // `"]:", space, inline_content`); a bare `[^label]:` is an
             // ordinary paragraph line, and a following indented line folds
             // into it as paragraph text.
-            if (($bare[0] ?? '') === '[' && preg_match('/^\[\^([^\]]+)\]:(?: +(.*)|\s*)$/', $bare, $matches)) {
+            if (($bare[0] ?? '') === '[' && preg_match('/^\[\^([^\]]+)\]: +(.*)$/', $bare, $matches)) {
                 $label = $matches[1];
-                $content = $matches[2] ?? '';
+                $content = $matches[2];
                 if (trim($content) === '') {
                     $i++;
 

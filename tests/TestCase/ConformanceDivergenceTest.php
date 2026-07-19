@@ -269,6 +269,11 @@ class ConformanceDivergenceTest extends TestCase
             "<p>Use [^a].</p>\n<p>[^a]:\tTabbed</p>",
             trim($this->converter->convert("Use [^a].\n\n[^a]:\tTabbed\n")),
         );
+
+        $this->assertSame(
+            "<p>[^a]:\tnote</p>\n<p>[^a]</p>",
+            trim($this->converter->convert("[^a]:\tnote\n\n[^a]\n")),
+        );
     }
 
     /**
