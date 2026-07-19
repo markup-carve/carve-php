@@ -684,8 +684,13 @@ class BlockParser
             // an empty destination (`[r]:` or `[r]:   `) is NOT a definition --
             // the line stays literal. No continuation gathering: a destination
             // or title on a following line is plain prose, never absorbed
-            // (matches carve-js / carve-rs).
-            if (($bare[0] ?? '') === '[' && preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+(\S.*)$/', $bare, $matches)) {
+            // (matches carve-js / carve-rs). The separator after `]:` must
+            // START with a literal SPACE (U+0020): `[r]:\t/u` (tab first) is NOT
+            // a definition, it is an ordinary paragraph (grammar `space`,
+            // carve-rs / issue 288). Any further whitespace after that first
+            // space is leading destination whitespace and is trimmed, so
+            // `[r]: \t/u` still resolves (destination `/u`), matching carve-rs.
+            if (($bare[0] ?? '') === '[' && preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
                 $url = trim($matches[2]);
@@ -1604,7 +1609,7 @@ class BlockParser
             while ($nextIdx < $count && IndentationHelper::isBlankLine($lines[$nextIdx])) {
                 $nextIdx++;
             }
-            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]:[ \t]+\S/', $lines[$nextIdx])) {
+            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]: [ \t]*\S/', $lines[$nextIdx])) {
                 // Attributes precede a reference definition (non-empty
                 // destination required, matching the ref-def parser), don't
                 // store them as block attrs.
@@ -2398,7 +2403,7 @@ class BlockParser
                 // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
                 break;
             } elseif (
-                preg_match('/^\[[^\]]+\]:[ \t]+\S/', $nextLine)
+                preg_match('/^\[[^\]]+\]: [ \t]*\S/', $nextLine)
                 || $this->isAbbreviationDefinitionLine($nextLine)
                 || preg_match('/^[ \t]*%%/', $nextLine)
                 || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
@@ -4435,8 +4440,10 @@ class BlockParser
         // Match reference definition: [label]: url. The definition is
         // single-line and the destination must be present (an empty `[r]:` is
         // literal, not a definition), matching the first-pass collector and
-        // the canonical carve-js / carve-rs. No continuation gathering.
-        if (!preg_match('/^\[(?!@)([^\]]+)\]:[ \t]+\S.*$/', $line)) {
+        // the canonical carve-js / carve-rs. No continuation gathering. The
+        // separator after `]:` must START with a literal SPACE; a tab-first
+        // separator (`[r]:\t/u`) does not form a definition (issue 288).
+        if (!preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*\S.*$/', $line)) {
             return null;
         }
 
@@ -4582,7 +4589,7 @@ class BlockParser
         // does not matter, so an indented comment line interrupts the paragraph
         // exactly like a column-0 one (matches carve-js / carve-rs and the
         // grammar `comment_line = [whitespace], "%%", …`).
-        return preg_match('/^\[[^\]]+\]:[ \t]+\S/', $line) === 1
+        return preg_match('/^\[[^\]]+\]: [ \t]*\S/', $line) === 1
             || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^[ \t]*%%/', $line) === 1;
     }
