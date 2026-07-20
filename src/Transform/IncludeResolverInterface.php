@@ -9,8 +9,9 @@ interface IncludeResolverInterface
     /**
      * Resolve an include path to child source. Return a ResolvedInclude to
      * supply a canonical file id alongside the source (recommended, see
-     * ResolvedInclude), a plain string for source-only resolution, or throw
-     * for an unresolvable path.
+     * ResolvedInclude), or a plain string for source-only resolution. An
+     * unresolvable path may either return null or throw; both degrade to a
+     * warning plus a literal directive.
      */
-    public function resolve(string $path, IncludeContext $context): ResolvedInclude|string;
+    public function resolve(string $path, IncludeContext $context): ResolvedInclude|string|null;
 }

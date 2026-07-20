@@ -265,6 +265,135 @@ class IncludeExpanderTest extends TestCase
         $this->assertSame([], $expander->getWarnings());
     }
 
+    public function testNoResolverReturnsDocumentUnchanged(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ child.crv }}');
+        $expander = new IncludeExpander();
+
+        $this->assertSame($document, $expander->transform($document));
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testSourceWithoutDirectiveMarkerSkipsTheWalk(): void
+    {
+        $converter = new CarveConverter();
+        $source = "Plain paragraph.\n";
+        $document = $converter->parse($source);
+        $expander = new IncludeExpander($this->resolver([]), source: $source);
+
+        $this->assertSame($document, $expander->transform($document));
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testResolverReturningNullWarnsAndStaysLiteral(): void
+    {
+        $resolver = new class implements IncludeResolverInterface {
+            public function resolve(string $path, IncludeContext $context): ResolvedInclude|string|null
+            {
+                return null;
+            }
+        };
+
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ child.crv }}');
+        $expander = new IncludeExpander($resolver);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>{{ child.crv }}</p>\n", $html);
+        $this->assertStringContainsString('could not be resolved', $expander->getWarnings()[0]->getMessage());
+    }
+
+    public function testBinaryTargetWarnsAndStaysLiteral(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ blob.bin }}');
+        $expander = new IncludeExpander($this->resolver(['blob.bin' => "PNG\x00\x01binary"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>{{ blob.bin }}</p>\n", $html);
+        $this->assertStringContainsString('binary or non-text', $expander->getWarnings()[0]->getMessage());
+    }
+
+    public function testEmptyChildInInlinePositionExpandsToNothing(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('Before {{ empty.crv }} after.');
+        $expander = new IncludeExpander($this->resolver(['empty.crv' => '']));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>Before  after.</p>\n", $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testMentionInsideAnExpandedRunIsPreserved(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('Ping @someone about {{ child.crv }} today.');
+        $expander = new IncludeExpander($this->resolver(['child.crv' => 'the topic']));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('the topic', $html);
+        $this->assertStringContainsString('someone', $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testMalformedOptionsAndLineRangesStayLiteral(): void
+    {
+        $converter = new CarveConverter();
+        $expander = new IncludeExpander($this->resolver(['child.crv' => 'Body.']));
+        $document = $converter->parse('{{ child.crv @lines:notanumber }}');
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringNotContainsString('Body.', $html);
+    }
+
+    public function testFilesystemResolverRejectsMissingRootAbsolutePathsAndSchemes(): void
+    {
+        $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'carve-fs-' . uniqid();
+        mkdir($root, 0777, true);
+
+        try {
+            $this->expectNotToPerformAssertions();
+            $resolver = new FilesystemIncludeResolver($root);
+            $context = new IncludeContext(null, null, [], 0);
+
+            foreach (['/etc/passwd', 'https://example.com/x.crv', 'missing.crv'] as $path) {
+                try {
+                    $resolver->resolve($path, $context);
+                    $this->fail("Expected rejection for {$path}");
+                } catch (RuntimeException) {
+                    // Expected: each path is denied by policy or not found.
+                }
+            }
+        } finally {
+            @rmdir($root);
+        }
+    }
+
+    public function testFilesystemResolverRejectsAMissingRoot(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Include root does not exist');
+
+        new FilesystemIncludeResolver(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'carve-absent-' . uniqid());
+    }
+
+    public function testIncludeContextExposesItsFields(): void
+    {
+        $context = new IncludeContext('parent.crv', 'current.crv', ['a.crv'], 2);
+
+        $this->assertSame('parent.crv', $context->getIncludingPath());
+        $this->assertSame('current.crv', $context->getCurrentPath());
+        $this->assertSame(['a.crv'], $context->getStack());
+        $this->assertSame(2, $context->getDepth());
+    }
+
     public function testMissingSectionWarnsAndStaysLiteral(): void
     {
         $converter = new CarveConverter();
