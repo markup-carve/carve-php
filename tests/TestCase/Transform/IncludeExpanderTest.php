@@ -641,11 +641,266 @@ class IncludeExpanderTest extends TestCase
         }
     }
 
+    public function testRawBlockKeepsDirectiveLiteral(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("```=html\n{{ child.crv }}\n```\n");
+        $resolver = $this->countingResolver(['child.crv' => 'EXPANDED']);
+        $expander = new IncludeExpander($resolver);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('{{ child.crv }}', $html);
+        $this->assertStringNotContainsString('EXPANDED', $html);
+        // Verbatim protection is only real if the resolver is never consulted:
+        // a directive that resolves and is then discarded has already charged
+        // the budget and hit the filesystem.
+        $this->assertSame([], $resolver->calls);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testFenceWithInfoStringKeepsDirectiveLiteralAndNeverCallsTheResolver(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("```js\n{{ child.crv }}\n```\n");
+        $resolver = $this->countingResolver(['child.crv' => 'EXPANDED']);
+        $expander = new IncludeExpander($resolver);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('{{ child.crv }}', $html);
+        $this->assertSame([], $resolver->calls);
+    }
+
+    public function testNoResolverNeverConsultsTheResolverForACodeSpan(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("Literal `{{ child.crv }}` here.\n");
+        $resolver = $this->countingResolver(['child.crv' => 'EXPANDED']);
+        $expander = new IncludeExpander($resolver);
+
+        $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame([], $resolver->calls);
+    }
+
+    /**
+     * Spec I5: a reference-definition label is FILE-LOCAL. Each file's
+     * references resolve to its own definition, which is not a collision - it
+     * must neither warn nor rename.
+     */
+    public function testReferenceDefinitionLabelsAreScopedNotRenamed(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("Parent [a][].\n\n{{ child.crv }}\n\n[a]: /PARENT\n");
+        $expander = new IncludeExpander($this->resolver([
+            'child.crv' => "Child [a][].\n\n[a]: /CHILD\n",
+        ]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<a href="/PARENT">a</a>', $html);
+        $this->assertStringContainsString('<a href="/CHILD">a</a>', $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testShiftAutoWithNoPrecedingHeadingUsesContextLevelZero(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ child.crv @shift:auto }}\n");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => "# One\n\n## Two\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        // C = 0, T = 1, so N = 0: the child keeps its own levels.
+        $this->assertStringContainsString('<h1>One</h1>', $html);
+        $this->assertStringContainsString('<h2>Two</h2>', $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testShiftAutoIgnoresAHeadingInAClosedSiblingContainer(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("::: note\n## Inside\n:::\n\n{{ child.crv @shift:auto }}\n");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => "# Child\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        // The h2 sits in a container that has already closed, so it does not
+        // set the context: C = 0, T = 1, N = 0.
+        $this->assertStringContainsString('<h1>Child</h1>', $html);
+    }
+
+    public function testShiftAutoUsesAHeadingFromAnEnclosingContainer(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("## Outer\n\n::: note\n{{ child.crv @shift:auto }}\n:::\n");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => "# Child\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        // C = 2 from the enclosing context, T = 1, so N = 2.
+        $this->assertStringContainsString('<h3', $html);
+        $this->assertStringNotContainsString('<h1>Child</h1>', $html);
+    }
+
+    /**
+     * The auto shift is measured AFTER the child's own includes expand, so a
+     * child that only passes through to a grandchild is levelled by the
+     * headings that grandchild contributed rather than no-opping on an
+     * apparently heading-free child.
+     */
+    public function testShiftAutoMeasuresHeadingsContributedByANestedInclude(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("## Chapters\n\n{{ mid.crv @shift:auto }}\n");
+        $expander = new IncludeExpander($this->resolver([
+            'mid.crv' => "{{ leaf.crv }}\n",
+            'leaf.crv' => "# Leaf\n\n## Sub\n",
+        ]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        // C = 2, T = 1 (from the grandchild), so N = 2.
+        $this->assertStringContainsString('<h3>Leaf</h3>', $html);
+        $this->assertStringContainsString('<h4>Sub</h4>', $html);
+    }
+
+    /**
+     * A nested auto under an explicitly shifted parent must not be shifted
+     * twice: the parent's stated shift lands after the child is expanded, so
+     * the nested auto measures pre-shift coordinates and the two compose.
+     */
+    public function testNestedShiftAutoUnderAStatedShiftIsNotShiftedTwice(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("# Top\n\n{{ mid.crv @shift:2 }}\n");
+        $expander = new IncludeExpander($this->resolver([
+            'mid.crv' => "# Mid\n\n{{ leaf.crv @shift:auto }}\n",
+            'leaf.crv' => "# Leaf\n",
+        ]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<h3>Mid</h3>', $html);
+        $this->assertStringContainsString('<h4>Leaf</h4>', $html);
+    }
+
+    public function testWarningFromTheTopLevelDocumentNamesThatDocument(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ missing.crv }}\n");
+        $expander = new IncludeExpander($this->resolver([]), 'main.crv');
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('main.crv', $warnings[0]->getFile());
+    }
+
+    public function testWarningRaisedWhileExpandingAChildNamesThatChild(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ a.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['a.crv' => "{{ gone.crv }}\n"]), 'main.crv');
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('a.crv', $warnings[0]->getFile());
+    }
+
+    public function testWarningRaisedWhileExpandingAGrandchildNamesThatGrandchild(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ a.crv }}\n");
+        $expander = new IncludeExpander($this->resolver([
+            'a.crv' => "{{ b.crv }}\n",
+            'b.crv' => "{{ gone.crv }}\n",
+        ]), 'main.crv');
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('b.crv', $warnings[0]->getFile());
+    }
+
+    public function testHeadingClampWarningNamesTheIncludedFile(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ a.crv @shift:4 }}\n");
+        $expander = new IncludeExpander($this->resolver(['a.crv' => "### Deep\n"]), 'main.crv');
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('a.crv', $warnings[0]->getFile());
+    }
+
+    public function testRenameWarningNamesTheFileTheRenamedIdCameFrom(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{#dup}\n# Top\n\n{{ a.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['a.crv' => "{#dup}\n# Child\n"]), 'main.crv');
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('a.crv', $warnings[0]->getFile());
+    }
+
+    public function testWarningHasNoFileWhenTheTopLevelDocumentHasNoPath(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ missing.crv }}\n");
+        $expander = new IncludeExpander($this->resolver([]));
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        // No path context, so there is no identity to report and none is
+        // invented.
+        $this->assertNull($warnings[0]->getFile());
+    }
+
     /**
      * @param array<string, string> $files
      *
      * @throws \RuntimeException
      */
+    private function countingResolver(array $files): IncludeResolverInterface
+    {
+        return new class ($files) implements IncludeResolverInterface {
+            /**
+             * @var list<string>
+             */
+            public array $calls = [];
+
+            /**
+             * @param array<string, string> $files
+             */
+            public function __construct(private readonly array $files)
+            {
+            }
+
+            public function resolve(string $path, IncludeContext $context): string
+            {
+                $this->calls[] = $path;
+                if (!array_key_exists($path, $this->files)) {
+                    throw new RuntimeException("Missing include: {$path}");
+                }
+
+                return $this->files[$path];
+            }
+        };
+    }
+
     private function resolver(array $files): IncludeResolverInterface
     {
         return new class ($files) implements IncludeResolverInterface {
