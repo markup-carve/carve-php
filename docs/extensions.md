@@ -776,7 +776,8 @@ Content modes:
   > ~~~
 
 Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
-(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
+(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `plantuml()` (claims
+`plantuml` + `puml`), `vegaLite()`, `chart()`.
 
 ~~~ php
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -805,7 +806,8 @@ $converter->addExtensions([
 
 > [!NOTE]
 > `presets()` claims every preset fence word (`mermaid`, `d2`, `dot`,
-> `graphviz`, `wavedrom`, `abc`, `vega-lite`, `chart`), so a literal code sample
+> `graphviz`, `wavedrom`, `abc`, `plantuml`, `puml`, `vega-lite`, `chart`), so a
+> literal code sample
 > in one of those languages becomes a hydration element. Register only the
 > presets whose client library you actually load if that matters.
 
@@ -824,6 +826,7 @@ and hand it to the library. The library to load per built-in preset:
 | `graphviz()` | `dot`, `graphviz` | text | viz.js / d3-graphviz |
 | `wavedrom()` | `wavedrom` | text | wavedrom.js |
 | `abc()` | `abc` | text | abcjs |
+| `plantuml()` | `plantuml`, `puml` | text | `@plantuml/core` (TeaVM build, runs in the browser without Java) |
 | `vegaLite()` | `vega-lite` | json | vega-embed |
 | `chart()` | `chart` | json | Chart.js |
 

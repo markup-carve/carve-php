@@ -201,7 +201,7 @@ class FencedRenderExtensionTest extends TestCase
     {
         $presets = FencedRenderExtension::presets();
 
-        $this->assertCount(7, $presets);
+        $this->assertCount(8, $presets);
         foreach ($presets as $preset) {
             $this->assertInstanceOf(FencedRenderExtension::class, $preset);
         }
@@ -221,5 +221,39 @@ class FencedRenderExtensionTest extends TestCase
         $chart = trim($converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
         $this->assertStringContainsString('<div class="chart">', $chart);
         $this->assertStringContainsString('<script type="application/json">', $chart);
+
+        $puml = trim($converter->convert("``` puml\nA -> B\n```"));
+        $this->assertStringContainsString('<pre class="plantuml">', $puml);
+    }
+
+    public function testPlantumlPresetClaimsBothFenceWords(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(FencedRenderExtension::plantuml());
+
+        $this->assertSame(
+            '<pre class="plantuml">@startuml' . "\n" . 'A -> B' . "\n" . '@enduml</pre>',
+            trim($converter->convert("``` plantuml\n@startuml\nA -> B\n@enduml\n```")),
+        );
+        $this->assertSame(
+            '<pre class="plantuml">A -> B</pre>',
+            trim($converter->convert("``` puml\nA -> B\n```")),
+        );
+    }
+
+    /**
+     * PlantUML leans on `<` far harder than Mermaid (`<|--` inheritance,
+     * `<<stereotype>>`). Text mode escapes `&` and `<` but preserves `>`, so a
+     * hydration script reading textContent recovers the original source.
+     */
+    public function testPlantumlEscapesLessThanButKeepsGreaterThan(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(FencedRenderExtension::plantuml());
+
+        $this->assertSame(
+            '<pre class="plantuml">A &lt;|-- B' . "\n" . 'C &lt;&lt;actor>> D' . "\n" . 'E --> F</pre>',
+            trim($converter->convert("``` plantuml\nA <|-- B\nC <<actor>> D\nE --> F\n```")),
+        );
     }
 }
