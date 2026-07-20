@@ -58,6 +58,11 @@ class IncludeExpander implements TransformerInterface
      */
     protected array $scopeByObjectId = [];
 
+    /**
+     * @var array<string, \MarkupCarve\Carve\Transform\IncludeDependency>
+     */
+    protected array $dependencies = [];
+
     protected int $scopeSeq = 0;
 
     /**
@@ -83,6 +88,7 @@ class IncludeExpander implements TransformerInterface
         $this->warnings = [];
         $this->bytesUsed = 0;
         $this->scopeByObjectId = [];
+        $this->dependencies = [];
         $this->scopeSeq = 0;
 
         if ($this->resolver === null) {
@@ -113,6 +119,16 @@ class IncludeExpander implements TransformerInterface
     public function getWarnings(): array
     {
         return $this->warnings;
+    }
+
+    /**
+     * @return list<\MarkupCarve\Carve\Transform\IncludeDependency>
+     */
+    public function getDependencies(): array
+    {
+        ksort($this->dependencies);
+
+        return array_values($this->dependencies);
     }
 
     /**
@@ -156,7 +172,7 @@ class IncludeExpander implements TransformerInterface
             $content = $this->textLikeContent($children);
             $directive = $this->parseDirective($content);
             if ($directive !== null) {
-                $replacement = $this->resolveDirective($directive, true, $currentPath, $stack, $depth, $budget);
+                $replacement = $this->resolveDirective($directive, true, $currentPath, $stack, $depth, $budget, $parent, $paragraph);
                 if ($replacement !== null) {
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
@@ -326,12 +342,14 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int} $directive
+     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto'} $directive
      * @param string|null $currentPath
      * @param bool $block
      * @param list<string> $stack
      * @param int $budget
      * @param int $depth
+     * @param \MarkupCarve\Carve\Node\Node|null $contextParent
+     * @param \MarkupCarve\Carve\Node\Node|null $contextNode
      *
      * @return list<\MarkupCarve\Carve\Node\Node>|null
      */
@@ -342,6 +360,8 @@ class IncludeExpander implements TransformerInterface
         array $stack,
         int $depth,
         int $budget,
+        ?Node $contextParent = null,
+        ?Node $contextNode = null,
     ): ?array {
         if ($directive['section'] !== null && $directive['lines'] !== null) {
             $this->warn('Include directive cannot combine #section and @lines');
@@ -350,6 +370,7 @@ class IncludeExpander implements TransformerInterface
         }
 
         if ($depth >= $this->depthLimit) {
+            $this->recordDependency($directive['path'], false);
             $this->warn("Include depth limit exceeded for '{$directive['path']}'");
 
             return null;
@@ -361,12 +382,14 @@ class IncludeExpander implements TransformerInterface
                 new IncludeContext($currentPath, $currentPath, $stack, $depth),
             );
         } catch (Throwable $exception) {
+            $this->recordDependency($directive['path'], false);
             $this->warn($exception->getMessage());
 
             return null;
         }
 
         if ($resolved === null) {
+            $this->recordDependency($directive['path'], false);
             $this->warn("Include could not be resolved: {$directive['path']}");
 
             return null;
@@ -374,15 +397,18 @@ class IncludeExpander implements TransformerInterface
 
         $source = $resolved instanceof ResolvedInclude ? $resolved->getSource() : $resolved;
         $id = $resolved instanceof ResolvedInclude ? ($resolved->getId() ?? $directive['path']) : $directive['path'];
+        $this->recordDependency($id, true);
         // The cycle guard compares canonical ids after resolution, so a resolver
         // that supplies ids catches 'b.crv' vs './b.crv' spellings of one file.
         if (in_array($id, $stack, true)) {
+            $this->recordDependency($id, false);
             $this->warn("Include cycle detected for '{$directive['path']}'");
 
             return null;
         }
 
         if (str_contains($source, "\0") || preg_match('//u', $source) !== 1) {
+            $this->recordDependency($id, false);
             $this->warn("Include target is binary or non-text: {$directive['path']}");
 
             return null;
@@ -390,6 +416,7 @@ class IncludeExpander implements TransformerInterface
 
         $bytes = strlen($source);
         if ($this->bytesUsed + $bytes > $budget) {
+            $this->recordDependency($id, false);
             $this->warn("Include size budget exceeded for '{$directive['path']}'");
 
             return null;
@@ -404,6 +431,11 @@ class IncludeExpander implements TransformerInterface
         if ($directive['section'] !== null) {
             $document = $this->selectSection($document, $directive['section']);
             if ($document === null) {
+                // The file was read, but the include did not expand, so the
+                // dependency is attempted-but-unresolved: a host must still
+                // watch the target and must not treat the include as having
+                // succeeded.
+                $this->recordDependency($id, false);
                 $this->warn("Include has no section '#{$directive['section']}': {$directive['path']}");
 
                 return null;
@@ -413,7 +445,10 @@ class IncludeExpander implements TransformerInterface
         $scope = $directive['path'] . '#' . (++$this->scopeSeq);
         $this->markScope($document, $scope);
         $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
-        $this->shiftHeadings($document, $directive['shift']);
+        $shift = $directive['shift'] === 'auto'
+            ? $this->autoShift($document, $block, $contextParent, $contextNode)
+            : $directive['shift'];
+        $this->shiftHeadings($document, $shift);
 
         $nodes = array_values($document->getChildren());
         if ($block) {
@@ -438,7 +473,7 @@ class IncludeExpander implements TransformerInterface
      * inline markers is split by core parsing and remains literal by design
      * (corpus pin: bare-path directive with no active inline markers).
      *
-     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int}|null
+     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto'}|null
      */
     protected function parseDirective(string $text): ?array
     {
@@ -485,6 +520,12 @@ class IncludeExpander implements TransformerInterface
 
                 if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
                     $shift = (int)$shiftMatch[1];
+
+                    continue;
+                }
+
+                if ($part === '@shift:auto') {
+                    $shift = 'auto';
 
                     continue;
                 }
@@ -618,6 +659,69 @@ class IncludeExpander implements TransformerInterface
 
             $this->shiftHeadings($child, $shift);
         }
+    }
+
+    protected function autoShift(Document $document, bool $block, ?Node $contextParent, ?Node $contextNode): int
+    {
+        if (!$block || $contextParent === null || $contextNode === null) {
+            return 0;
+        }
+
+        $minimumLevel = $this->minimumHeadingLevel($document);
+        if ($minimumLevel === null) {
+            return 0;
+        }
+
+        return ($this->contextHeadingLevel($contextParent, $contextNode) + 1) - $minimumLevel;
+    }
+
+    protected function minimumHeadingLevel(Node $node): ?int
+    {
+        $minimum = null;
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Heading) {
+                $level = $child->getLevel();
+                $minimum = $minimum === null ? $level : min($minimum, $level);
+            }
+
+            $childMinimum = $this->minimumHeadingLevel($child);
+            if ($childMinimum !== null) {
+                $minimum = $minimum === null ? $childMinimum : min($minimum, $childMinimum);
+            }
+        }
+
+        return $minimum;
+    }
+
+    protected function contextHeadingLevel(Node $parent, Node $node): int
+    {
+        $level = $this->nearestDirectPrecedingHeadingLevel($parent, $node);
+        if ($level !== null) {
+            return $level;
+        }
+
+        $ancestor = $parent->getParent();
+        if ($ancestor === null) {
+            return 0;
+        }
+
+        return $this->contextHeadingLevel($ancestor, $parent);
+    }
+
+    protected function nearestDirectPrecedingHeadingLevel(Node $parent, Node $node): ?int
+    {
+        $level = null;
+        foreach ($parent->getChildren() as $child) {
+            if ($child === $node) {
+                return $level;
+            }
+
+            if ($child instanceof Heading) {
+                $level = $child->getLevel();
+            }
+        }
+
+        return $level;
     }
 
     protected function resolveCollisions(Document $document): void
@@ -761,5 +865,14 @@ class IncludeExpander implements TransformerInterface
     protected function warn(string $message): void
     {
         $this->warnings[] = new ParseWarning($message, 1, 1, 'include');
+    }
+
+    protected function recordDependency(string $target, bool $resolved): void
+    {
+        if ($resolved && array_key_exists($target, $this->dependencies) && !$this->dependencies[$target]->isResolved()) {
+            return;
+        }
+
+        $this->dependencies[$target] = new IncludeDependency($target, $resolved);
     }
 }

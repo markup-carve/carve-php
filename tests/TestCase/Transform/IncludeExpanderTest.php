@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Transform;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeContext;
+use MarkupCarve\Carve\Transform\IncludeDependency;
 use MarkupCarve\Carve\Transform\IncludeExpander;
 use MarkupCarve\Carve\Transform\IncludeResolverInterface;
 use MarkupCarve\Carve\Transform\ResolvedInclude;
@@ -106,6 +107,18 @@ class IncludeExpanderTest extends TestCase
             ['child.crv' => "# One\n\n## Two\n"],
             "### One\n\n#### Two\n",
         ];
+
+        yield 'shift auto' => [
+            "## Parent\n\n{{ child.crv @shift:auto }}",
+            ['child.crv' => "# One\n\n## Two\n"],
+            "## Parent\n\n### One\n\n#### Two\n",
+        ];
+
+        yield 'shift auto with section' => [
+            "### Parent\n\n{{ child.crv #pick @shift:auto }}",
+            ['child.crv' => "# Intro\n\nSkip.\n\n{#pick}\n## Pick\n\n### Detail\n\n## Next\n"],
+            "### Parent\n\n{#pick}\n#### Pick\n\n##### Detail\n",
+        ];
     }
 
     /**
@@ -190,6 +203,57 @@ class IncludeExpanderTest extends TestCase
 
         $this->assertSame("###### Title\n", $carve);
         $this->assertStringContainsString('clamped', $expander->getWarnings()[0]->getMessage());
+    }
+
+    public function testShiftAutoWithoutHeadingsIsNoOpAndDoesNotWarn(): void
+    {
+        $converter = CarveConverter::carve();
+        $document = $converter->parse("## Parent\n\n{{ child.crv @shift:auto }}");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => 'Body.']));
+
+        $carve = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("## Parent\n\nBody\\.\n", $carve);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testShiftAutoClampWarnsAndKeepsHeading(): void
+    {
+        $converter = CarveConverter::carve();
+        $document = $converter->parse("###### Deep\n\n{{ child.crv @shift:auto }}");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => '# Title']));
+
+        $carve = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("###### Deep\n\n###### Title\n", $carve);
+        $this->assertStringContainsString('clamped', $expander->getWarnings()[0]->getMessage());
+    }
+
+    public function testShiftAutoOnInlineIncludeIsNoOp(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('Before {{ child.crv @shift:auto }} after.');
+        $expander = new IncludeExpander($this->resolver(['child.crv' => 'inline text']));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>Before inline text after.</p>\n", $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testNestedShiftAutoUsesAssembledContext(): void
+    {
+        $converter = CarveConverter::carve();
+        $document = $converter->parse("## Parent\n\n{{ outer.crv @shift:auto }}");
+        $expander = new IncludeExpander($this->resolver([
+            'outer.crv' => "# Outer\n\n{{ inner.crv @shift:auto }}\n",
+            'inner.crv' => "# Inner\n",
+        ]));
+
+        $carve = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("## Parent\n\n### Outer\n\n#### Inner\n", $carve);
+        $this->assertSame([], $expander->getWarnings());
     }
 
     public function testFootnoteCollisionRenamesSecondChildAndItsReference(): void
@@ -394,6 +458,35 @@ class IncludeExpanderTest extends TestCase
         $this->assertSame(2, $context->getDepth());
     }
 
+    public function testMissingSectionMarksTheDependencyAttemptedNotResolved(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ child.crv #nope }}');
+        $expander = new IncludeExpander($this->resolver(['child.crv' => "# Real\n"]));
+
+        $converter->transform($document, $expander);
+
+        $dependencies = $expander->getDependencies();
+        $this->assertCount(1, $dependencies);
+        $this->assertSame('child.crv', $dependencies[0]->getTarget());
+        $this->assertFalse($dependencies[0]->isResolved());
+    }
+
+    public function testLiteralShiftAlsoCoversHeadingsFromNestedIncludes(): void
+    {
+        $converter = CarveConverter::carve();
+        $document = $converter->parse('{{ outer.crv @shift:1 }}');
+        $expander = new IncludeExpander($this->resolver([
+            'outer.crv' => "# Outer\n\n{{ inner.crv }}\n",
+            'inner.crv' => "## Inner\n",
+        ]));
+
+        $carve = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('## Outer', $carve);
+        $this->assertStringContainsString('### Inner', $carve);
+    }
+
     public function testMissingSectionWarnsAndStaysLiteral(): void
     {
         $converter = new CarveConverter();
@@ -469,6 +562,46 @@ class IncludeExpanderTest extends TestCase
         $this->assertNotEmpty(array_filter($messages, static fn (string $m) => str_contains($m, 'cycle')));
     }
 
+    public function testReportsDependenciesForResolvedMissingAndCycleTargets(): void
+    {
+        $files = [
+            'a.crv' => "{{ b.crv }}\n\n{{ missing.crv }}\n\n{{ ./a.crv }}",
+            'b.crv' => 'Done.',
+        ];
+        $resolver = new class ($files) implements IncludeResolverInterface {
+            /**
+             * @param array<string, string> $files
+             */
+            public function __construct(private readonly array $files)
+            {
+            }
+
+            public function resolve(string $path, IncludeContext $context): ResolvedInclude
+            {
+                $id = preg_replace('#^\./#', '', $path) ?? $path;
+                if (!array_key_exists($id, $this->files)) {
+                    throw new RuntimeException("Missing include: {$path}");
+                }
+
+                return new ResolvedInclude($this->files[$id], $id);
+            }
+        };
+
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ a.crv }}\n\n{{ b.crv }}");
+        $expander = new IncludeExpander($resolver);
+        $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame(
+            [
+                ['target' => 'a.crv', 'resolved' => false],
+                ['target' => 'b.crv', 'resolved' => true],
+                ['target' => 'missing.crv', 'resolved' => false],
+            ],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+    }
+
     public function testFilesystemResolverResolvesNestedRelativeIncludesAndRejectsEscapes(): void
     {
         $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'carve-includes-' . uniqid();
@@ -532,5 +665,21 @@ class IncludeExpanderTest extends TestCase
                 return $this->files[$path];
             }
         };
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Transform\IncludeDependency> $dependencies
+     *
+     * @return list<array{target: string, resolved: bool}>
+     */
+    private function dependencyRows(array $dependencies): array
+    {
+        return array_map(
+            static fn (IncludeDependency $dependency): array => [
+                'target' => $dependency->getTarget(),
+                'resolved' => $dependency->isResolved(),
+            ],
+            $dependencies,
+        );
     }
 }

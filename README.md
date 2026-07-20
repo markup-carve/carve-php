@@ -76,15 +76,23 @@ $expander = new IncludeExpander(
 
 $html = $converter->render($converter->transform($document, $expander));
 $warnings = $expander->getWarnings();
+$dependencies = $expander->getDependencies();
 ~~~
 
 The resolver contract is `resolve(string $path, IncludeContext $context):
-string`: return Carve source text or throw on failure. The transform recognizes
-`#section`, `@lines:N-M`, and `@shift:N`; failures leave the directive literal
-and add an include warning. Resolver configuration is the security boundary:
-hosts must opt in and enforce path containment. `FilesystemIncludeResolver`
-canonicalizes targets with `realpath()`, rejects absolute paths by default, and
-rejects targets outside the configured root.
+ResolvedInclude|string|null`: return Carve source text, optionally with a
+canonical id, or throw on failure. The transform recognizes `#section`,
+`@lines:N-M`, `@shift:N`, and `@shift:auto`; automatic shifting places the
+included document's shallowest heading one level below the nearest preceding
+heading in the include site's own or enclosing block container. Failures leave
+the directive literal and add an include warning. `getDependencies()` returns
+the de-duplicated include targets touched across recursive expansion in
+deterministic order, including missing, denied, binary, cycle-broken, and
+budget-blocked attempts; each entry reports its target and whether it resolved.
+Resolver configuration is the security boundary: hosts must opt in and enforce
+path containment. `FilesystemIncludeResolver` canonicalizes targets with
+`realpath()`, rejects absolute paths by default, and rejects targets outside the
+configured root.
 
 ### Source-line tracking
 
