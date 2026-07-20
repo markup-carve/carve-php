@@ -35,6 +35,18 @@ class IncludeExpander implements TransformerInterface
     private const DEFAULT_MIN_BYTE_BUDGET = 1048576;
 
     /**
+     * @var string
+     */
+    private const DIRECTIVE_SCAN = '/\{\{ [^{}]*? \}\}/s';
+
+    /**
+     * Loose directive shape: one whole-paragraph token, valid options or not.
+     *
+     * @var string
+     */
+    private const DIRECTIVE_SHAPE = '/^\{\{[^{}]*\}\}$/s';
+
+    /**
      * @var list<\MarkupCarve\Carve\Exception\ParseWarning>
      */
     protected array $warnings = [];
@@ -122,13 +134,20 @@ class IncludeExpander implements TransformerInterface
     ): void {
         $children = array_values($paragraph->getChildren());
         if ($children !== [] && $this->allTextLike($children)) {
-            $directive = $this->parseDirective($this->textLikeContent($children));
+            $content = $this->textLikeContent($children);
+            $directive = $this->parseDirective($content);
             if ($directive !== null) {
                 $replacement = $this->resolveDirective($directive, true, $currentPath, $stack, $depth, $budget);
                 if ($replacement !== null) {
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
 
+                return;
+            }
+
+            // A whole-paragraph directive that failed to parse was already
+            // reported here; skip the inline scan so it is not warned twice.
+            if (preg_match(self::DIRECTIVE_SHAPE, trim($content)) === 1) {
                 return;
             }
         }
@@ -164,24 +183,127 @@ class IncludeExpander implements TransformerInterface
                 $j++;
             }
 
-            $directive = $this->parseDirective($this->textLikeContent($run));
-            if ($directive !== null) {
-                $replacement = $this->resolveDirective($directive, false, $currentPath, $stack, $depth, $budget);
-                if ($replacement !== null) {
-                    for ($remove = count($run) - 1; $remove >= 1; $remove--) {
-                        $node->removeChild($run[$remove]);
-                    }
-                    $node->replaceChildWithMany($run[0], $replacement);
-                    $children = array_values($node->getChildren());
-                    $count = count($children);
-                    $i += count($replacement);
+            $replaced = $this->expandRun($node, $run, $currentPath, $stack, $depth, $budget);
+            if ($replaced) {
+                $children = array_values($node->getChildren());
+                $count = count($children);
+                $i = 0;
 
-                    continue;
-                }
+                continue;
             }
 
             $i = $j;
         }
+    }
+
+    /**
+     * Scan a contiguous run of text-like inline nodes for directives. The core
+     * splits '{{ x #s @shift:1 }}' into text plus tag and mention nodes, so
+     * recognition reassembles the run before matching, then replaces only the
+     * matched spans. Failed directives keep their original nodes and render
+     * exactly as the core does with no resolver.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param list<\MarkupCarve\Carve\Node\Node> $run
+     * @param string|null $currentPath
+     * @param list<string> $stack
+     * @param int $depth
+     * @param int $budget
+     */
+    protected function expandRun(
+        Node $parent,
+        array $run,
+        ?string $currentPath,
+        array $stack,
+        int $depth,
+        int $budget,
+    ): bool {
+        $full = $this->textLikeContent($run);
+        if (!str_contains($full, '{{')) {
+            return false;
+        }
+
+        if (preg_match_all(self::DIRECTIVE_SCAN, $full, $matches, PREG_OFFSET_CAPTURE) === false) {
+            return false;
+        }
+
+        $spans = [];
+        foreach ($matches[0] as $match) {
+            [$literal, $offset] = $match;
+            $directive = $this->parseDirective($literal);
+            if ($directive === null) {
+                continue;
+            }
+
+            $replacement = $this->resolveDirective($directive, false, $currentPath, $stack, $depth, $budget);
+            if ($replacement === null) {
+                continue;
+            }
+
+            $spans[] = ['start' => $offset, 'end' => $offset + strlen($literal), 'nodes' => $replacement];
+        }
+
+        if ($spans === []) {
+            return false;
+        }
+
+        $nodes = [];
+        $cursor = 0;
+        foreach ($spans as $span) {
+            $nodes = [...$nodes, ...$this->sliceRun($run, $cursor, $span['start'])];
+            $nodes = [...$nodes, ...$span['nodes']];
+            $cursor = $span['end'];
+        }
+        $nodes = [...$nodes, ...$this->sliceRun($run, $cursor, strlen($full))];
+
+        for ($remove = count($run) - 1; $remove >= 1; $remove--) {
+            $parent->removeChild($run[$remove]);
+        }
+        $parent->replaceChildWithMany($run[0], $nodes);
+
+        return true;
+    }
+
+    /**
+     * Return the run nodes covering [$from, $to) of the run's reassembled text.
+     * A directive match starts with '{{' and ends with '}}', which the core
+     * always parses as text, so a boundary can only fall inside a Text node;
+     * mention and tag nodes are either fully kept or fully consumed.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $run
+     * @param int $from
+     * @param int $to
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function sliceRun(array $run, int $from, int $to): array
+    {
+        $out = [];
+        $offset = 0;
+        foreach ($run as $node) {
+            $text = $this->textLikeContent([$node]);
+            $start = $offset;
+            $end = $offset + strlen($text);
+            $offset = $end;
+            if ($end <= $from || $start >= $to) {
+                continue;
+            }
+
+            if (!$node instanceof Text) {
+                $out[] = $node;
+
+                continue;
+            }
+
+            $value = substr($text, max($from, $start) - $start, min($to, $end) - max($from, $start));
+            if ($value === $text) {
+                $out[] = $node;
+            } elseif ($value !== '') {
+                $out[] = new Text($value);
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -306,8 +428,13 @@ class IncludeExpander implements TransformerInterface
         }
 
         $body = $match[1];
-        if (str_starts_with($body, '"')) {
-            if (!preg_match('/^"((?:\\\\.|[^"\\\\])*)"(.*)$/s', $body, $pathMatch)) {
+        // The core's smart-quotes pass rewrites "..." before this pass sees
+        // the text, so a quoted path arrives with typographic quotes.
+        if (str_starts_with($body, '"') || str_starts_with($body, "\u{201c}")) {
+            $pattern = str_starts_with($body, '"')
+                ? '/^"((?:\\\\.|[^"\\\\])*)"(.*)$/s'
+                : '/^\x{201c}([^\x{201d}]*)\x{201d}(.*)$/su';
+            if (!preg_match($pattern, $body, $pathMatch)) {
                 return null;
             }
             $path = stripcslashes($pathMatch[1]);

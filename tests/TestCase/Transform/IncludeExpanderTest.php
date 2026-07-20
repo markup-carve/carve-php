@@ -227,6 +227,44 @@ class IncludeExpanderTest extends TestCase
         $this->assertStringContainsString('Duplicate heading id', $expander->getWarnings()[0]->getMessage());
     }
 
+    public function testExpandsDirectiveMidSentenceAndKeepsSurroundingText(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('Intro: {{ child.crv }} tail.');
+        $expander = new IncludeExpander($this->resolver(['child.crv' => 'a /short/ fragment']));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>Intro: a <em>short</em> fragment tail.</p>\n", $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testRecognizesOptionsSplitIntoTagAndMentionNodes(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ child.crv #pick @shift:1 }}');
+        $expander = new IncludeExpander($this->resolver([
+            'child.crv' => "{#pick}\n# Picked\n\nyes\n",
+        ]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<h2>Picked</h2>', $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testResolvesQuotedPathAfterSmartQuoteRewrite(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ "my chapter.crv" }}');
+        $expander = new IncludeExpander($this->resolver(['my chapter.crv' => 'spaced path body']));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame("<p>spaced path body</p>\n", $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
     public function testMissingSectionWarnsAndStaysLiteral(): void
     {
         $converter = new CarveConverter();
