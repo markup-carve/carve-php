@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -389,7 +390,11 @@ class HeadingIdTracker
                 $text .= $child->getNumber() === null ? '' : (string)$child->getNumber();
             } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $text .= ' ';
-            } elseif ($child instanceof Code || $child instanceof Math) {
+            } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
+                // An inline literal renders as visible prose (§27), so it
+                // contributes its content to the heading text -- otherwise
+                // `` # `Cat`{!} `` would slug to the empty fallback and a
+                // `</#cat>` crossref could never resolve.
                 $text .= $child->getContent();
             } elseif ($child instanceof Symbol) {
                 $text .= ':' . $child->getName() . ':';

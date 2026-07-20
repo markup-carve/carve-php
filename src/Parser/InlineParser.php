@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
@@ -1590,7 +1591,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline|\MarkupCarve\Carve\Node\Inline\LiteralInline, pos: int}|null
      */
     protected function parseCodeSpan(string $text, int $pos): ?array
     {
@@ -1678,6 +1679,35 @@ class InlineParser
                     // Mixed attributes like {=html #id} - treat attribute block as literal text
                     // Don't parse as trailing attributes either
                 }
+            }
+
+            // Check for inline literal: `...`{!} / `...`{! .cls #id} (PART 9
+            // §27). The `!` MUST be the first token in the block; any further
+            // attribute must be whitespace-separated from it (so `{!.ipa}` does
+            // NOT match here and, `!` being an invalid attribute identifier,
+            // stays literal via the strict attribute rule). The verbatim span
+            // content is HTML-escaped and emitted by every renderer, unlike raw
+            // inline's target-routed passthrough; the `<code>` wrapper is
+            // dropped because it is prose, not code.
+            $hasLiteralAttempt = !$hasRawInlineAttempt && $afterClose < $length && $text[$afterClose] === '{';
+            if (
+                $hasLiteralAttempt && preg_match(
+                    '/\G\{[ \t]*!((?:[ \t](?:[^}"\'\n]|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')*)?)\}/',
+                    $text,
+                    $litMatches,
+                    0,
+                    $afterClose,
+                ) && $this->isValidAttrPayload($litMatches[1])
+            ) {
+                $literal = new LiteralInline($content);
+                if (trim($litMatches[1]) !== '') {
+                    $this->applyAttributesToNode($literal, $litMatches[1]);
+                }
+
+                return [
+                    'node' => $literal,
+                    'pos' => $afterClose + strlen($litMatches[0]),
+                ];
             }
 
             $code = new Code($content);

@@ -43,6 +43,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -692,6 +693,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->renderMath($node)),
             $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof LiteralInline => $this->renderLiteralInline($node),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
@@ -773,6 +775,21 @@ class CarveRenderer implements RendererInterface
             || $content === '';
 
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
+    }
+
+    /**
+     * Serialize an inline literal back to `` `content`{!} `` / `` `content`{!
+     * .cls #id} `` (grammar PART 9 §27). The sigil is always the first token;
+     * further attributes follow it separated by a space (the grammar requires
+     * that separation). renderCode widens the backtick fence when the content
+     * holds backticks, so the round-trip is byte-stable and idempotent.
+     */
+    protected function renderLiteralInline(LiteralInline $node): string
+    {
+        $attrs = $this->renderAttrs($node);
+        $inner = $attrs === '' ? '!' : '! ' . substr($attrs, 1, -1);
+
+        return $this->renderCode($node->getContent()) . '{' . $inner . '}';
     }
 
     protected function renderCode(string $content): string

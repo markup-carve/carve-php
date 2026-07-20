@@ -36,6 +36,7 @@ use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -180,6 +181,8 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => '', // Skip raw inlines (format-specific)
+                // §27: always emitted (unlike raw passthrough above), as plain prose.
+                $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
                 default => $this->renderChildren($node),
             };

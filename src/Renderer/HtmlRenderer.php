@@ -43,6 +43,7 @@ use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -198,6 +199,7 @@ class HtmlRenderer implements RendererInterface
             Image::class => 'renderImage',
             Code::class => 'renderCode',
             RawInline::class => 'renderRawInline',
+            LiteralInline::class => 'renderLiteralInline',
             RawText::class => 'renderRawText',
             EscapedText::class => 'renderEscapedText',
             Math::class => 'renderMath',
@@ -2007,6 +2009,18 @@ class HtmlRenderer implements RendererInterface
         }
 
         return $content . "\n";
+    }
+
+    protected function renderLiteralInline(LiteralInline $node): string
+    {
+        // §27: the verbatim content is HTML-escaped and ALWAYS emitted (never
+        // target-routed / dropped like raw inline), with the `<code>` wrapper
+        // removed. An element is emitted only when an attribute needs a home:
+        // bare escaped text with no attributes, a `<span>` carrying any.
+        $text = $this->escape($node->getContent());
+        $attrs = $this->renderAttributes($node);
+
+        return $attrs === '' ? $text : '<span' . $attrs . '>' . $text . '</span>';
     }
 
     protected function renderRawInline(RawInline $node): string

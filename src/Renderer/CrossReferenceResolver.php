@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -274,7 +275,9 @@ class CrossReferenceResolver
                 $text .= $child->getContent();
             } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $text .= ' ';
-            } elseif ($child instanceof Code || $child instanceof Math) {
+            } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
+                // An inline literal renders as visible prose (§27), so its
+                // content counts toward caption text like a code span does.
                 $text .= $child->getContent();
             } elseif ($child instanceof Symbol) {
                 $text .= ':' . $child->getName() . ':';
