@@ -55,6 +55,37 @@ $markdown = CarveConverter::markdown()->convert('# Hello /Carve/');
 $ansi = CarveConverter::ansi()->convert('# Hello /Carve/');
 ~~~
 
+### Include directives
+
+File inclusion is an opt-in transform. Without a resolver, `{{ chapter.crv }}`
+is ordinary text and renders literally. To expand includes, parse first, run
+`IncludeExpander`, then render:
+
+~~~ php
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
+use MarkupCarve\Carve\Transform\IncludeExpander;
+
+$converter = new CarveConverter();
+$document = $converter->parse("Intro.\n\n{{ chapters/one.crv @shift:1 }}\n");
+
+$expander = new IncludeExpander(
+    resolver: new FilesystemIncludeResolver(__DIR__ . '/docs'),
+    currentPath: 'index.crv',
+);
+
+$html = $converter->render($converter->transform($document, $expander));
+$warnings = $expander->getWarnings();
+~~~
+
+The resolver contract is `resolve(string $path, IncludeContext $context):
+string`: return Carve source text or throw on failure. The transform recognizes
+`#section`, `@lines:N-M`, and `@shift:N`; failures leave the directive literal
+and add an include warning. Resolver configuration is the security boundary:
+hosts must opt in and enforce path containment. `FilesystemIncludeResolver`
+canonicalizes targets with `realpath()`, rejects absolute paths by default, and
+rejects targets outside the configured root.
+
 ### Source-line tracking
 
 For editor previews and scroll sync, enable source-line tracking with
