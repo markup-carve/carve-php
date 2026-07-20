@@ -141,12 +141,19 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
+     * Every include target touched during the whole recursive expansion, in the
+     * order each target's directive is first encountered reading the fully
+     * expanded document top to bottom.
+     *
+     * Deliberately NOT sorted. The set is a cross-implementation contract, so
+     * an editor diffing dependency lists across engines has to see the same
+     * sequence; document order is the sequence a host can reason about, and
+     * sorting was an artifact rather than a decision.
+     *
      * @return list<\MarkupCarve\Carve\Transform\IncludeDependency>
      */
     public function getDependencies(): array
     {
-        ksort($this->dependencies);
-
         return array_values($this->dependencies);
     }
 
@@ -402,7 +409,15 @@ class IncludeExpander implements TransformerInterface
             );
         } catch (Throwable $exception) {
             $this->recordDependency($directive['path'], false);
-            $this->warn($exception->getMessage());
+            // The resolver's own message is NOT the warning text. A filesystem
+            // resolver routinely embeds absolute paths in it, so propagating it
+            // verbatim leaks host directory layout into rendered output. The
+            // raw message is still available to hosts on the detail channel,
+            // which they can choose not to render.
+            $this->warn(
+                "Include could not be resolved: {$directive['path']}",
+                detail: $exception->getMessage(),
+            );
 
             return null;
         }
@@ -416,16 +431,9 @@ class IncludeExpander implements TransformerInterface
 
         $source = $resolved instanceof ResolvedInclude ? $resolved->getSource() : $resolved;
         $id = $resolved instanceof ResolvedInclude ? ($resolved->getId() ?? $directive['path']) : $directive['path'];
-        $this->recordDependency($id, true);
-        // The cycle guard compares canonical ids after resolution, so a resolver
-        // that supplies ids catches 'b.crv' vs './b.crv' spellings of one file.
-        if (in_array($id, $stack, true)) {
-            $this->recordDependency($id, false);
-            $this->warn("Include cycle detected for '{$directive['path']}'");
-
-            return null;
-        }
-
+        // Content that is not decodable text was never successfully READ, so it
+        // is recorded unresolved and the target never reaches the resolved
+        // state below.
         if (str_contains($source, "\0") || preg_match('//u', $source) !== 1) {
             $this->recordDependency($id, false);
             $this->warn("Include target is binary or non-text: {$directive['path']}");
@@ -433,9 +441,22 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
+        // The source is in hand and decodable: the target WAS read. Every
+        // refusal past this point (cycle, budget) is about whether the content
+        // may be expanded, not about whether the file could be read, and is
+        // surfaced through a Warning instead. Downgrading the flag here would
+        // leave a host watching fewer files than it should.
+        $this->recordDependency($id, true);
+        // The cycle guard compares canonical ids after resolution, so a resolver
+        // that supplies ids catches 'b.crv' vs './b.crv' spellings of one file.
+        if (in_array($id, $stack, true)) {
+            $this->warn("Include cycle detected for '{$directive['path']}'");
+
+            return null;
+        }
+
         $bytes = strlen($source);
         if ($this->bytesUsed + $bytes > $budget) {
-            $this->recordDependency($id, false);
             $this->warn("Include size budget exceeded for '{$directive['path']}'");
 
             return null;
@@ -453,8 +474,9 @@ class IncludeExpander implements TransformerInterface
                 // The file was read, but the include did not expand, so the
                 // dependency is attempted-but-unresolved: a host must still
                 // watch the target and must not treat the include as having
-                // succeeded.
-                $this->recordDependency($id, false);
+                // succeeded. Forced, because a plain record would be ignored
+                // now that a successful read is never downgraded.
+                $this->markDependencyUnresolved($id);
                 $this->warn("Include has no section '#{$directive['section']}': {$directive['path']}");
 
                 return null;
@@ -895,10 +917,12 @@ class IncludeExpander implements TransformerInterface
      * @param string|null $file Overrides the current file cursor, for warnings
      *   raised outside the expansion walk (the collision pass, which runs once
      *   over the assembled document and recovers the file from the node scope).
+     * @param string|null $detail Untrusted supplementary text kept off the
+     *   rendered message; see ParseWarning.
      */
-    protected function warn(string $message, ?string $file = null): void
+    protected function warn(string $message, ?string $file = null, ?string $detail = null): void
     {
-        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile);
+        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile, $detail);
     }
 
     /**
@@ -917,12 +941,29 @@ class IncludeExpander implements TransformerInterface
         return $this->fileByScope[$scope] ?? null;
     }
 
+    /**
+     * A successful READ always wins: a target first seen unresolved - a missing
+     * file included twice, the second time after it appeared - is upgraded, and
+     * a target already read is never downgraded by a later refusal. Re-recording
+     * an existing key keeps its original position, so the set stays in
+     * first-encounter order.
+     */
     protected function recordDependency(string $target, bool $resolved): void
     {
-        if ($resolved && array_key_exists($target, $this->dependencies) && !$this->dependencies[$target]->isResolved()) {
+        if (!$resolved && array_key_exists($target, $this->dependencies)) {
             return;
         }
 
         $this->dependencies[$target] = new IncludeDependency($target, $resolved);
+    }
+
+    /**
+     * Force a target to unresolved regardless of an earlier successful read.
+     * Reserved for a selection that cannot be satisfied: the file was read, but
+     * the include did not expand and must not be reported as having succeeded.
+     */
+    protected function markDependencyUnresolved(string $target): void
+    {
+        $this->dependencies[$target] = new IncludeDependency($target, false);
     }
 }
