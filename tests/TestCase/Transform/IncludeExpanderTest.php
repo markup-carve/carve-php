@@ -1021,6 +1021,124 @@ class IncludeExpanderTest extends TestCase
     }
 
     /**
+     * A rejected directive must have NO observable side effects: the document
+     * has to come out byte-identical to the same document with that directive
+     * left as literal text.
+     *
+     * The failure this guards against is an identifier reservation that
+     * outlives the rejection - a rejected include whose child heading ids were
+     * already claimed, so a later legitimate heading gets suffixed for no
+     * reason. This implementation is immune by construction, because the
+     * collision pass runs once over the FINAL assembled document and a rejected
+     * child is never spliced into it. That immunity is currently an accident of
+     * ordering, though, so every rejection reason is pinned here: a refactor
+     * toward reserving ids at merge time would reintroduce the bug silently.
+     *
+     * @param string $source
+     * @param array<string, string> $files
+     * @param string|null $currentPath
+     * @param int $depthLimit
+     * @param int|null $byteBudget
+     */
+    #[DataProvider('rejectionProvider')]
+    public function testARejectedDirectiveHasNoSideEffects(
+        string $source,
+        array $files,
+        ?string $currentPath,
+        int $depthLimit,
+        ?int $byteBudget,
+    ): void {
+        $expanded = new CarveConverter();
+        $expander = new IncludeExpander($this->resolver($files), $currentPath, $depthLimit, $byteBudget);
+        $withResolver = $expanded->render($expanded->transform($expanded->parse($source), $expander));
+
+        // No resolver at all: every directive stays literal by definition, which
+        // is exactly the document a rejected directive must produce.
+        $literal = new CarveConverter();
+        $asLiteralText = $literal->render($literal->parse($source));
+
+        $this->assertSame($asLiteralText, $withResolver);
+        $this->assertNotSame([], $expander->getWarnings());
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, string>, string|null, int, int|null}>
+     */
+    public static function rejectionProvider(): iterable
+    {
+        $parentHeading = "\n\n{#dup}\n# Parent\n";
+
+        yield 'unresolvable' => ['{{ gone.crv }}' . $parentHeading, [], null, 16, null];
+
+        yield 'both selections present' => [
+            '{{ a.crv #a @lines:1-2 }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n"],
+            null,
+            16,
+            null,
+        ];
+
+        yield 'cycle' => [
+            '{{ a.crv }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n"],
+            'a.crv',
+            16,
+            null,
+        ];
+
+        yield 'depth exceeded' => [
+            '{{ a.crv }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n"],
+            null,
+            0,
+            null,
+        ];
+
+        yield 'size exceeded' => [
+            '{{ a.crv }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n"],
+            null,
+            16,
+            4,
+        ];
+
+        yield 'binary' => [
+            '{{ a.crv }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n\0binary"],
+            null,
+            16,
+            null,
+        ];
+
+        yield 'missing section' => [
+            '{{ a.crv #nope }}' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n"],
+            null,
+            16,
+            null,
+        ];
+
+        // The found case: a block-structured child cannot merge at an inline
+        // position, and the parent heading after it must keep its own id.
+        yield 'inline include of block content' => [
+            'Say {{ a.crv }} now.' . $parentHeading,
+            ['a.crv' => "{#dup}\n# A\n\nTwo blocks.\n"],
+            null,
+            16,
+            null,
+        ];
+
+        // Footnote labels are the other document-visible namespace.
+        yield 'inline include of block content, footnote label' => [
+            "Say {{ a.crv }} now.\n\nParent[^x]\n\n[^x]: Parent note.\n",
+            ['a.crv' => "One[^x]\n\nTwo blocks.\n\n[^x]: Child note.\n"],
+            null,
+            16,
+            null,
+        ];
+    }
+
+    /**
      * @param array<string, string> $files
      *
      * @throws \RuntimeException
