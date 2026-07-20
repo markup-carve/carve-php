@@ -1868,6 +1868,37 @@ DJOT;
         $this->assertSame(1, $warnings[0]->getLine());
     }
 
+    /**
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('unclosedFenceTrailingNewlineProvider')]
+    public function testUnclosedFenceDoesNotAbsorbTheFinalNewline(string $source, string $expected): void
+    {
+        $converter = new CarveConverter();
+
+        $this->assertSame($expected, $converter->convert($source));
+    }
+
+    /**
+     * A source's final newline terminates its last line; it is not a blank
+     * content line. An unterminated fence running to EOF must therefore render
+     * identically whether or not the file ends with a newline (carve-js parity).
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function unclosedFenceTrailingNewlineProvider(): iterable
+    {
+        $expected = "<p>a</p>\n<pre><code class=\"language-js\">code\n</code></pre>\n";
+
+        yield 'trailing newline' => ["a\n\n``` js\ncode\n", $expected];
+        yield 'no trailing newline' => ["a\n\n``` js\ncode", $expected];
+        yield 'genuine blank line is kept' => [
+            "a\n\n``` js\ncode\n\n",
+            "<p>a</p>\n<pre><code class=\"language-js\">code\n\n</code></pre>\n",
+        ];
+    }
+
     public function testStrictModeThrowsOnUnclosedCodeFence(): void
     {
         $converter = new CarveConverter(strict: true);
