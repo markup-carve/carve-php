@@ -38,6 +38,16 @@ class MarkdownToCarve
         $inCodeBlock = false;
         $fenceChar = '';
         $fenceLength = 0;
+        // Leading spaces to strip from the open fence's opener/body/closer, so
+        // the migrated fence sits at its container's content column (see opener).
+        $fenceStrip = 0;
+        // Stack of enclosing list items' content columns (outermost first), so
+        // a fence is re-based to the DEEPEST item that still contains it.
+        $listCols = [];
+        // Was the previous line blank? A dedented line leaves a list item only
+        // when a blank precedes it; without a blank it is lazy paragraph
+        // continuation and the item stays open (CommonMark).
+        $prevBlank = true;
         $prevLineType = 'blank';
 
         // Bullet-marker run tracking, so adjacent bullet lists stay distinct in
@@ -53,6 +63,35 @@ class MarkdownToCarve
         for ($i = 0; $i < $lineCount; $i++) {
             $line = $lines[$i];
             $trimmed = trim($line);
+            $wasPrevBlank = $prevBlank;
+            $prevBlank = $trimmed === '';
+
+            // Maintain the list-item content-column stack. A marker opens an
+            // item whose content starts after the marker (the task checkbox is
+            // content, so its width is NOT part of the column); a blank line is
+            // transparent; a non-blank line pops items whose content starts to
+            // its right. Code content never changes list tracking.
+            if (!$inCodeBlock) {
+                $indent = strlen($line) - strlen(ltrim($line, " \t"));
+                // A dedented line leaves a list item when a blank precedes it OR
+                // the line itself starts a block (heading, block quote, fence,
+                // thematic break) -- those interrupt lazy continuation (§10).
+                $startsBlock = preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1;
+                if (
+                    preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
+                    && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
+                ) {
+                    $markerIndent = strlen($lm[1]);
+                    while ($listCols !== [] && end($listCols) > $markerIndent) {
+                        array_pop($listCols);
+                    }
+                    $listCols[] = strlen($lm[0]);
+                } elseif ($trimmed !== '' && ($wasPrevBlank || $startsBlock)) {
+                    while ($listCols !== [] && end($listCols) > $indent) {
+                        array_pop($listCols);
+                    }
+                }
+            }
 
             if (!$inCodeBlock && preg_match('/^(\s{0,3})(`{3,}|~{3,})(.*)$/', $line, $matches)) {
                 if ($prevLineType !== 'blank' && $result !== []) {
@@ -75,13 +114,16 @@ class MarkdownToCarve
                 if (str_starts_with($info, '=')) {
                     $info = ltrim(ltrim($info, '='));
                 }
-                // A Markdown fence indented inside a list item carries that
-                // indent as the item's content column; preserve it so the
-                // migrated fence stays in the item (a strict Carve fence opens
-                // AT the content column). A rare document-level 1-3 space
-                // Markdown fence therefore migrates verbatim and reads as prose
-                // under strict Carve -- left for a container-aware pass.
-                $result[] = $matches[1] . $matches[2] . $info;
+                // Re-base the fence to its container's content column: strip
+                // only the indentation ABOVE that column. At document level the
+                // column is 0, so a 1-3 space Markdown fence dedents fully;
+                // inside a list item the fence's own indent IS the content
+                // column, so nothing is stripped and it stays in the item. The
+                // same strip comes off the body and closer.
+                $openerIndent = strlen($matches[1]);
+                $contentCol = $listCols === [] ? 0 : end($listCols);
+                $fenceStrip = max(0, $openerIndent - $contentCol);
+                $result[] = substr($matches[1], $fenceStrip) . $matches[2] . $info;
                 $prevLineType = 'code_fence';
                 $bulletRunBroken = true;
 
@@ -91,17 +133,21 @@ class MarkdownToCarve
             if ($inCodeBlock) {
                 $bulletRunBroken = true;
                 $pattern = '/^\s{0,3}' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/';
+                $dedented = $fenceStrip > 0
+                    ? preg_replace('/^ {0,' . $fenceStrip . '}/', '', $line)
+                    : $line;
                 if (preg_match($pattern, $line)) {
                     $inCodeBlock = false;
                     $fenceChar = '';
                     $fenceLength = 0;
-                    $result[] = $line;
+                    $fenceStrip = 0;
+                    $result[] = $dedented;
                     if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
                         $result[] = '';
                     }
                     $prevLineType = 'code_fence';
                 } else {
-                    $result[] = $line;
+                    $result[] = $dedented;
                     $prevLineType = 'code';
                 }
 
