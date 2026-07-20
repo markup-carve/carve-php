@@ -58,6 +58,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 
 /**
  * Renders AST back to canonical Carve source.
@@ -637,6 +638,13 @@ class CarveRenderer implements RendererInterface
             $count = count($nodes);
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
+                $directive = $this->matchIncludeDirective($nodes, $i);
+                if ($directive !== null) {
+                    $out .= $directive['source'];
+                    $i = $directive['end'];
+
+                    continue;
+                }
                 if ($node instanceof InlineNode) {
                     // A trailing `!` on a Text node immediately before an
                     // unresolved reference (a RawText starting with `[`) must NOT
@@ -667,6 +675,68 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->inlineDepth--;
         }
+    }
+
+    /**
+     * Match an include directive starting at $start over a run of literal-text
+     * nodes, and return its source form plus the index of its last node.
+     *
+     * The core never parses a directive as a node of its own (spec section 19
+     * makes it unreachable from block/inline), so it arrives here as ordinary
+     * text and would otherwise be escaped like any other punctuation-bearing
+     * text - turning `{{ chapter.crv }}` into `\{\{ chapter\.crv \}\}` and
+     * silently breaking every include in a formatted document. A well-formed
+     * directive is therefore emitted verbatim.
+     *
+     * Scope is deliberately narrow: only a run that parses as a well-formed
+     * directive per I1 is preserved. A malformed `{{ oops` stays ordinary text
+     * and is escaped as before. A serializer cannot tell an authored literal
+     * `{{` from a directive - both parse to the same text - which is accepted,
+     * because an author who needs a guaranteed literal writes it in code, where
+     * a directive is inert by construction (I9).
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes Positionally indexed,
+     *   exactly as the surrounding renderInlines() loop already assumes.
+     * @param int $start
+     *
+     * @return array{source: string, end: int}|null
+     */
+    protected function matchIncludeDirective(array $nodes, int $start): ?array
+    {
+        if (!IncludeDirectiveSyntax::isTextLike($nodes[$start])) {
+            return null;
+        }
+
+        $count = count($nodes);
+        $run = [];
+        for ($i = $start; $i < $count && IncludeDirectiveSyntax::isTextLike($nodes[$i]); $i++) {
+            $run[] = $nodes[$i];
+        }
+        $last = $i - 1;
+        $text = IncludeDirectiveSyntax::textLikeContent($run);
+
+        // The run may hold a directive plus surrounding prose, so the directive
+        // span is located inside it and only that span is preserved; the text
+        // on either side is escaped normally.
+        if (!preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $parts = IncludeDirectiveSyntax::parse($match[0][0]);
+        if ($parts === null || $parts['error'] !== null) {
+            return null;
+        }
+
+        $offset = (int)$match[0][1];
+        $before = substr($text, 0, $offset);
+        $after = substr($text, $offset + strlen($match[0][0]));
+
+        return [
+            'source' => $this->escapeText($before)
+                . IncludeDirectiveSyntax::toSource($parts)
+                . $this->escapeText($after),
+            'end' => $last,
+        ];
     }
 
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string
