@@ -178,6 +178,10 @@ class MarkdownToCarveTest extends TestCase
                 "``` php\n*a*\n```",
                 "```php\n*a*\n```",
             ],
+            'preserves a list-nested Markdown fence at its content column' => [
+                "- item\n  ``` php\n  *a*\n    indented\n  ```",
+                "- item\n\n  ```php\n  *a*\n    indented\n  ```",
+            ],
             'strips only the leading space, keeps the rest of the info' => [
                 "``` js title=\"x\"\n*a*\n```",
                 "```js title=\"x\"\n*a*\n```",
@@ -298,9 +302,48 @@ class MarkdownToCarveTest extends TestCase
                 "+ a\n- b",
                 "- a\n* b",
             ],
-            'does not convert inside an indented fenced code block' => [
+            // A fence is re-based to its container's content column. A
+            // document-level fence has column 0, so its 1-3 space Markdown slack
+            // is stripped; the sample text stays opaque either way.
+            'dedents a document-level indented fence to column 0' => [
                 "  ```\n  const x = *a* + _b_\n  ```",
-                "  ```\n  const x = *a* + _b_\n  ```",
+                "```\nconst x = *a* + _b_\n```",
+            ],
+            // An over-indented list fence keeps the item's content column and
+            // loses only the slack above it (item content column 2, fence 3).
+            'strips only the slack above a list item content column' => [
+                "- item\n   ```\n   code\n   ```",
+                "- item\n\n  ```\n  code\n  ```",
+            ],
+            // The task checkbox is content, not marker: the column is 2 (the
+            // `- `), so a col-2 fence stays in the item rather than dedenting.
+            'measures a task item column by marker width, not the checkbox' => [
+                "- [ ] task\n  ```\n  code\n  ```",
+                "- [ ] task\n\n  ```\n  code\n  ```",
+            ],
+            // After a nested child list the fence re-bases to the OUTER item
+            // column (2), not to document level.
+            're-bases a fence to the parent column after a nested child list' => [
+                "- outer\n  - inner\n  ```\n  code\n  ```",
+                "- outer\n  - inner\n\n  ```\n  code\n  ```",
+            ],
+            // A column-0 line with NO blank before it is lazy continuation: the
+            // item stays open and the col-2 fence keeps its indent.
+            'keeps the item column across a lazy paragraph continuation' => [
+                "- item\ncontinued\n  ```\n  code\n  ```",
+                "- item\ncontinued\n\n  ```\n  code\n  ```",
+            ],
+            // A blank before a column-0 line ends the list; the fence is then
+            // document-level and dedents to column 0.
+            'dedents a fence to column 0 once a blank ends the list' => [
+                "- item\n\ntext\n\n  ```\n  code\n  ```",
+                "- item\n\ntext\n\n```\ncode\n```",
+            ],
+            // A block starter (heading) ends the item without a blank, so the
+            // later fence is document-level and dedents to column 0.
+            'dedents a fence after a block starter ends the list' => [
+                "- item\n# heading\n\n  ```\n  code\n  ```",
+                "- item\n\n# heading\n\n```\ncode\n```",
             ],
             'does not convert inside a multi-backtick code span' => [
                 'use ``a `*b*` c`` here',

@@ -584,19 +584,38 @@ class BlockParser
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
         $pendingAttrsInList = false;
-        // Track open fenced code block so `[r]: /u` (or `> [r]: /u`)
-        // shown inside a code sample is not collected as a real def.
+        // Track open fenced code blocks so `[r]: /u` shown inside a top-level
+        // code sample is not collected as a real def.
+        //
+        // This prepass has no reliable container-column context. Under the
+        // strict fence rule, it must therefore only recognize a fence when
+        // there is no residual leading whitespace. That may collect a
+        // definition shown inside a list-nested fence (a spurious link), but it
+        // avoids the unsafe opposite: opening a fence the block parser will not
+        // open and swallowing every later definition as code content.
         $fenceChar = null;
         $fenceLen = 0;
+        $activeListContentIndent = null;
 
         while ($i < $count) {
             $line = $lines[$i];
+
+            if (IndentationHelper::isBlankLine($line)) {
+                $activeListContentIndent = null;
+            } elseif (preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/', $line, $lm) === 1) {
+                $activeListContentIndent = strlen($lm[0]);
+            } elseif (
+                $activeListContentIndent !== null
+                && strlen($line) - strlen(ltrim($line, " \t")) < $activeListContentIndent
+            ) {
+                $activeListContentIndent = null;
+            }
 
             // Fenced-code opacity: definitions inside ``` / ~~~ blocks
             // are literal samples, never registered.
             if ($fenceChar !== null) {
                 if (
-                    preg_match('/^[ ]{0,3}([`~]{3,})\s*$/', $line, $fm)
+                    preg_match('/^([`~]{3,})\s*$/', $line, $fm)
                     && $fm[1][0] === $fenceChar
                     && strlen($fm[1]) >= $fenceLen
                 ) {
@@ -607,13 +626,11 @@ class BlockParser
 
                 continue;
             }
-            // Fast guard: a fence opener begins with up to 3 spaces then a
-            // backtick or tilde, so its first byte is one of those three. Skip
-            // the regex on any other line (a necessary condition of the match).
+            // Fast guard: a strict fence opener begins with a backtick or tilde.
             $c0 = $line[0] ?? '';
             if (
-                ($c0 === ' ' || $c0 === '`' || $c0 === '~')
-                && preg_match('/^[ ]{0,3}([`~]{3,})/', $line, $fm)
+                ($c0 === '`' || $c0 === '~')
+                && preg_match('/^([`~]{3,})/', $line, $fm)
             ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
@@ -664,6 +681,14 @@ class BlockParser
                     $bare = $afterMarker;
                 }
             } while ($bare !== $previousBare);
+            if (
+                !$inList
+                && $activeListContentIndent !== null
+                && strlen($line) - strlen(ltrim($line, " \t")) >= $activeListContentIndent
+            ) {
+                $bare = substr($line, $activeListContentIndent);
+                $inList = true;
+            }
 
             // Check for attributes that may precede a reference definition.
             // Tag the attrs with their origin context so a quoted
@@ -789,7 +814,7 @@ class BlockParser
 
             if ($fenceChar !== null) {
                 if (
-                    preg_match('/^[ ]{0,3}([`~]{3,})\s*$/', $fenceLine, $fm)
+                    preg_match('/^([`~]{3,})\s*$/', $fenceLine, $fm)
                     && $fm[1][0] === $fenceChar
                     && strlen($fm[1]) >= $fenceLen
                 ) {
@@ -802,8 +827,8 @@ class BlockParser
             }
             $fc0 = $fenceLine[0] ?? '';
             if (
-                ($fc0 === ' ' || $fc0 === '`' || $fc0 === '~')
-                && preg_match('/^[ ]{0,3}([`~]{3,})/', $fenceLine, $fm)
+                ($fc0 === '`' || $fc0 === '~')
+                && preg_match('/^([`~]{3,})/', $fenceLine, $fm)
             ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);

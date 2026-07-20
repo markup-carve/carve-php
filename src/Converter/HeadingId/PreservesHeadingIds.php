@@ -39,6 +39,15 @@ trait PreservesHeadingIds
      */
     private const LINE_PREFIX = '[ \t]{0,3}(?:>[ \t]?)*';
 
+    /**
+     * Fenced-code delimiters are column-exact after container prefixes. The
+     * preservation scan only models blockquote prefixes; top-level leading
+     * whitespace is residual indentation and must not open or close a fence.
+     *
+     * @var string
+     */
+    private const FENCE_LINE_PREFIX = '(?:>[ \t]?)*';
+
     protected ?HeadingIdSource $headingIdSource = null;
 
     /**
@@ -129,14 +138,14 @@ trait PreservesHeadingIds
 
         foreach ($lines as $index => $line) {
             if ($inFence) {
-                $close = '/^' . self::LINE_PREFIX . '(' . preg_quote($fenceChar, '/') . '{' . $fenceLen . ',})[ \t]*$/';
+                $close = '/^' . self::FENCE_LINE_PREFIX . '(' . preg_quote($fenceChar, '/') . '{' . $fenceLen . ',})[ \t]*$/';
                 if (preg_match($close, $line) === 1) {
                     $inFence = false;
                 }
 
                 continue;
             }
-            if (preg_match('/^' . self::LINE_PREFIX . '(`{3,}|~{3,})/', $line, $fence) === 1) {
+            if (preg_match('/^' . self::FENCE_LINE_PREFIX . '(`{3,}|~{3,})/', $line, $fence) === 1) {
                 $inFence = true;
                 $fenceChar = $fence[1][0];
                 $fenceLen = strlen($fence[1]);

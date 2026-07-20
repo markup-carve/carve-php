@@ -23,22 +23,22 @@ class FencedBlockParser
      */
     public function parseCodeFenceOpener(string $line): ?array
     {
-        // Fast early exit: code blocks start with ` or ~ (possibly after whitespace)
-        $trimmed = ltrim($line);
-        if ($trimmed === '' || ($trimmed[0] !== '`' && $trimmed[0] !== '~')) {
+        // Fast early exit: code blocks start exactly at the container content
+        // column. Container parsers strip their own prefixes before calling in.
+        if (!isset($line[0]) || ($line[0] !== '`' && $line[0] !== '~')) {
             return null;
         }
 
-        // Match opening fence: 3+ backticks or tildes, optionally with leading whitespace
-        if (!preg_match('/^(\s*)(`{3,}|~{3,})(.*)$/', $line, $matches)) {
+        // Match opening fence: 3+ backticks or tildes, no residual indent.
+        if (!preg_match('/^(`{3,}|~{3,})(.*)$/', $line, $matches)) {
             return null;
         }
 
-        $indent = $matches[1];
-        $fence = $matches[2];
+        $indent = '';
+        $fence = $matches[1];
         $fenceChar = $fence[0];
         $fenceLength = strlen($fence);
-        $info = trim($matches[3]);
+        $info = trim($matches[2]);
 
         // Check for inline code on a single line: ``` foo ``` should be inline code
         if ($fenceChar === '`' && self::hasRunAtLeast($info, '`', $fenceLength)) {
@@ -130,7 +130,7 @@ class FencedBlockParser
      */
     public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
     {
-        $pattern = '/^\s*(' . preg_quote($fenceChar, '/') . '+)\s*$/';
+        $pattern = '/^(' . preg_quote($fenceChar, '/') . '+)\s*$/';
         if (preg_match($pattern, $line, $m) !== 1) {
             return false;
         }
@@ -250,15 +250,13 @@ class FencedBlockParser
      */
     public function parseFencedCommentOpener(string $line): ?array
     {
-        $trimmed = trim($line);
-
         // Fast early exit: fenced comments start with %
-        if (!isset($trimmed[0]) || $trimmed[0] !== '%') {
+        if (!isset($line[0]) || $line[0] !== '%') {
             return null;
         }
 
         // Match opening fence: 3+ percent signs
-        if (!preg_match('/^(%{3,})\s*$/', $trimmed, $matches)) {
+        if (!preg_match('/^(%{3,})\s*$/', $line, $matches)) {
             return null;
         }
 
@@ -278,7 +276,7 @@ class FencedBlockParser
      */
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
-        if (preg_match('/^\s*(%+)\s*$/', $line, $m) !== 1) {
+        if (preg_match('/^(%+)\s*$/', $line, $m) !== 1) {
             return false;
         }
 
