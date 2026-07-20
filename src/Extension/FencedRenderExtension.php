@@ -256,7 +256,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
 
     /**
      * Static render: a build-rendered image if a renderer keyed by this
-     * instance's cssClass is supplied (e.g. `mermaid`, `chart`, `graphviz`), else the
+     * instance's cssClass is supplied (e.g. `mermaid`, `chart`, `graphviz`, `plantuml`), else the
      * diagram source preserved as a readable code block (never blank). A
      * client library cannot run in a static target, so the interactive
      * hydration element would otherwise stay empty.

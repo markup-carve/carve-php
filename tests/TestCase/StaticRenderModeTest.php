@@ -346,6 +346,48 @@ class StaticRenderModeTest extends TestCase
         $this->assertSame('<div class="graphviz"><svg/></div>', $html);
     }
 
+    public function testPlantumlStaticFallsBackToSourceWithoutRenderer(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(FencedRenderExtension::plantuml());
+
+        $html = trim($converter->convert("```plantuml\n@startuml\nA -> B\n@enduml\n```\n"));
+
+        $this->assertSame(
+            '<pre class="plantuml"><code class="language-plantuml">@startuml' . "\n"
+                . 'A -&gt; B' . "\n" . '@enduml</code></pre>',
+            $html,
+        );
+    }
+
+    public function testPlantumlStaticUsesSuppliedRenderer(): void
+    {
+        $converter = new CarveConverter(
+            mode: RenderMode::STATIC,
+            renderers: ['plantuml' => fn (string $src): string => '<img alt="plantuml" src="uml.svg">'],
+        );
+        $converter->addExtension(FencedRenderExtension::plantuml());
+
+        $html = trim($converter->convert("```plantuml\n@startuml\nA -> B\n@enduml\n```\n"));
+
+        $this->assertSame('<div class="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
+    }
+
+    public function testPlantumlPumlAliasConsultsThePlantumlRendererKey(): void
+    {
+        // The plantuml preset also claims the `puml` fence word; both map to the
+        // same `plantuml` renderer key (keyed by cssClass).
+        $converter = new CarveConverter(
+            mode: RenderMode::STATIC,
+            renderers: ['plantuml' => fn (string $src): string => '<img alt="plantuml" src="uml.svg">'],
+        );
+        $converter->addExtension(FencedRenderExtension::plantuml());
+
+        $html = trim($converter->convert("```puml\nA -> B\n```\n"));
+
+        $this->assertSame('<div class="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
+    }
+
     public function testMathStaticPreservesAuthorAttributes(): void
     {
         $source = "{#eq .big}\n```math\n\\pi\n```\n";
