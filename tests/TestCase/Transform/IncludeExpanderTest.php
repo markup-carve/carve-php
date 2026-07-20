@@ -458,7 +458,13 @@ class IncludeExpanderTest extends TestCase
         $this->assertSame(2, $context->getDepth());
     }
 
-    public function testMissingSectionMarksTheDependencyAttemptedNotResolved(): void
+    /**
+     * The resolved flag records ONLY whether the source was read (I11), and a
+     * missing section means the file WAS read. A host must keep watching it:
+     * editing the child to add the section is exactly what should invalidate
+     * the preview, and a dropped watch would never notice.
+     */
+    public function testMissingSectionStillReportsTheDependencyAsResolved(): void
     {
         $converter = new CarveConverter();
         $document = $converter->parse('{{ child.crv #nope }}');
@@ -469,7 +475,34 @@ class IncludeExpanderTest extends TestCase
         $dependencies = $expander->getDependencies();
         $this->assertCount(1, $dependencies);
         $this->assertSame('child.crv', $dependencies[0]->getTarget());
-        $this->assertFalse($dependencies[0]->isResolved());
+        $this->assertTrue($dependencies[0]->isResolved());
+        $this->assertStringContainsString("no section '#nope'", $expander->getWarnings()[0]->getMessage());
+    }
+
+    /**
+     * The dividing line is strictly "did a read happen". A depth refusal is
+     * decided BEFORE the resolver is called, so nothing was read and the target
+     * is correctly unresolved - unlike the missing-section case above.
+     */
+    public function testDepthExceededStaysUnresolvedBecauseNothingWasRead(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ outer.crv }}');
+        $expander = new IncludeExpander($this->resolver([
+            'outer.crv' => "{{ inner.crv }}\n",
+            'inner.crv' => "Deep.\n",
+        ]), null, 1);
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [
+                ['target' => 'outer.crv', 'resolved' => true],
+                ['target' => 'inner.crv', 'resolved' => false],
+            ],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+        $this->assertStringContainsString('depth limit', $expander->getWarnings()[0]->getMessage());
     }
 
     public function testLiteralShiftAlsoCoversHeadingsFromNestedIncludes(): void

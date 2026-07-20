@@ -469,12 +469,12 @@ class IncludeExpander implements TransformerInterface
         if ($directive['section'] !== null) {
             $document = $this->selectSection($document, $directive['section']);
             if ($document === null) {
-                // The file was read, but the include did not expand, so the
-                // dependency is attempted-but-unresolved: a host must still
-                // watch the target and must not treat the include as having
-                // succeeded. Forced, because a plain record would be ignored
-                // now that a successful read is never downgraded.
-                $this->markDependencyUnresolved($id);
+                // The dependency stays RESOLVED: the flag records only whether
+                // the source was READ (I11), and it was. A host must keep
+                // watching this file precisely because editing the child to add
+                // the section is what makes the include start working - marking
+                // it unresolved would drop the watch that invalidates the
+                // preview. The missing section is a Warning, not a read failure.
                 $this->warn("Include has no section '#{$directive['section']}': {$directive['path']}");
 
                 return null;
@@ -891,15 +891,5 @@ class IncludeExpander implements TransformerInterface
         }
 
         $this->dependencies[$target] = new IncludeDependency($target, $resolved);
-    }
-
-    /**
-     * Force a target to unresolved regardless of an earlier successful read.
-     * Reserved for a selection that cannot be satisfied: the file was read, but
-     * the include did not expand and must not be reported as having succeeded.
-     */
-    protected function markDependencyUnresolved(string $target): void
-    {
-        $this->dependencies[$target] = new IncludeDependency($target, false);
     }
 }
