@@ -9,10 +9,8 @@ use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
-use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
-use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -527,75 +525,28 @@ class IncludeExpander implements TransformerInterface
      */
     protected function parseDirective(string $text): ?array
     {
-        if (!preg_match('/^\{\{ (.+) \}\}$/s', $text, $match)) {
+        $parts = IncludeDirectiveSyntax::parse($text);
+        if ($parts === null) {
             return null;
         }
 
-        $body = $match[1];
-        // The core's smart-quotes pass rewrites "..." before this pass sees
-        // the text, so a quoted path arrives with typographic quotes.
-        if (str_starts_with($body, '"') || str_starts_with($body, "\u{201c}")) {
-            $pattern = str_starts_with($body, '"')
-                ? '/^"((?:\\\\.|[^"\\\\])*)"(.*)$/s'
-                : '/^\x{201c}([^\x{201d}]*)\x{201d}(.*)$/su';
-            if (!preg_match($pattern, $body, $pathMatch)) {
-                return null;
+        if ($parts['error'] !== null) {
+            // A directive-shaped run whose options are wrong is worth telling
+            // the author about; a run that is not directive-shaped at all is
+            // just text and stays silent.
+            if ($parts['error'] === IncludeDirectiveSyntax::ERROR_UNKNOWN_OPTION) {
+                $this->warn("Unknown include option '{$parts['errorPart']}'");
             }
-            $path = stripcslashes($pathMatch[1]);
-            $rest = trim($pathMatch[2]);
-        } else {
-            if (!preg_match('/^([^#@} "]+)(.*)$/s', $body, $pathMatch)) {
-                return null;
-            }
-            $path = $pathMatch[1];
-            $rest = trim($pathMatch[2]);
-        }
 
-        $section = null;
-        $lines = null;
-        $shift = 0;
-        if ($rest !== '') {
-            foreach (preg_split('/\s+/', $rest) ?: [] as $part) {
-                if (preg_match('/^#([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
-                    $section = $sectionMatch[1];
-
-                    continue;
-                }
-
-                if (preg_match('/^@lines:(\d+)-(\d+)$/', $part, $lineMatch)) {
-                    $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
-
-                    continue;
-                }
-
-                if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
-                    $shift = (int)$shiftMatch[1];
-
-                    continue;
-                }
-
-                if ($part === '@shift:auto') {
-                    $shift = 'auto';
-
-                    continue;
-                }
-
-                if (str_starts_with($part, '@')) {
-                    $this->warn("Unknown include option '{$part}'");
-
-                    return null;
-                }
-
-                return null;
-            }
+            return null;
         }
 
         return [
             'literal' => $text,
-            'path' => $path,
-            'section' => $section,
-            'lines' => $lines,
-            'shift' => $shift,
+            'path' => $parts['path'],
+            'section' => $parts['section'],
+            'lines' => $parts['lines'],
+            'shift' => $parts['shift'],
         ];
     }
 
@@ -604,18 +555,12 @@ class IncludeExpander implements TransformerInterface
      */
     protected function allTextLike(array $nodes): bool
     {
-        foreach ($nodes as $node) {
-            if (!$this->isTextLike($node)) {
-                return false;
-            }
-        }
-
-        return true;
+        return IncludeDirectiveSyntax::allTextLike($nodes);
     }
 
     protected function isTextLike(Node $node): bool
     {
-        return $node instanceof Text || $node instanceof EscapedText || $node instanceof Mention;
+        return IncludeDirectiveSyntax::isTextLike($node);
     }
 
     /**
@@ -623,16 +568,7 @@ class IncludeExpander implements TransformerInterface
      */
     protected function textLikeContent(array $nodes): string
     {
-        $content = '';
-        foreach ($nodes as $node) {
-            if ($node instanceof Text || $node instanceof EscapedText) {
-                $content .= $node->getContent();
-            } elseif ($node instanceof Mention) {
-                $content .= $this->textLikeContent(array_values($node->getChildren()));
-            }
-        }
-
-        return $content;
+        return IncludeDirectiveSyntax::textLikeContent($nodes);
     }
 
     protected function sliceLines(string $source, int $start, int $end): string
