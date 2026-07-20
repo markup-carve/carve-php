@@ -146,6 +146,83 @@ class CodeFenceHeaderTest extends TestCase
         );
     }
 
+    public function testColumnZeroCodeFenceOpenerOpensAtDocumentLevel(): void
+    {
+        $this->assertSame(
+            "<pre><code>code\n</code></pre>\n",
+            $this->converter->convert("```\ncode\n```"),
+        );
+    }
+
+    public function testIndentedCodeFenceOpenersAreParagraphTextAtDocumentLevel(): void
+    {
+        foreach ([1, 2, 3, 4] as $indent) {
+            $source = str_repeat(' ', $indent) . "```\ncode\n" . str_repeat(' ', $indent) . '```';
+            $html = $this->converter->convert($source);
+
+            $this->assertStringNotContainsString('<pre><code>', $html, 'indent ' . $indent);
+            $this->assertStringContainsString('code', $html, 'indent ' . $indent);
+        }
+    }
+
+    public function testCodeFenceOpenerAtListItemContentColumnOpens(): void
+    {
+        $html = $this->converter->convert("- ```\n  code\n  ```\n");
+
+        $this->assertStringContainsString('<pre><code>code', $html);
+    }
+
+    public function testCodeFenceOpenerOnListItemContinuationLineOpens(): void
+    {
+        // The opener is not on the marker line but on a later continuation line
+        // at the item's content column (spec corpus 84-list-lazy-continuation-7).
+        $this->assertSame(
+            "<ul>\n  <li>item\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>\n",
+            $this->converter->convert("- item\n  ```\n  c\n  ```\ntail"),
+        );
+    }
+
+    public function testCodeFenceOpenerIndentedPastListItemContentColumnDoesNotOpen(): void
+    {
+        $html = $this->converter->convert("- item\n   ```\n   code\n   ```\n");
+
+        $this->assertStringNotContainsString('<pre><code>', $html);
+        $this->assertStringContainsString('code', $html);
+    }
+
+    public function testCodeFenceOpenerAtBlockQuoteContentColumnOpens(): void
+    {
+        $html = $this->converter->convert("> ```\n> code\n> ```\n");
+
+        $this->assertStringContainsString("<blockquote>\n  <pre><code>code", $html);
+    }
+
+    public function testCodeFenceCloserIndentedPastOpenerDoesNotClose(): void
+    {
+        $this->assertSame(
+            "<pre><code>code\n ```\nstill code\n</code></pre>\n",
+            $this->converter->convert("```\ncode\n ```\nstill code\n```"),
+        );
+    }
+
+    public function testIndentedBacktickFenceLineSurvivesAsCodeSampleText(): void
+    {
+        $this->assertSame(
+            "<pre><code>sample:\n ```\n</code></pre>\n",
+            $this->converter->convert("```\nsample:\n ```\n```"),
+        );
+    }
+
+    public function testReferencePrepassKnownLimitationForListNestedFence(): void
+    {
+        // The reference-definition prepass has no list content-column context.
+        // It therefore avoids opening a synthetic fence on `- ````, which means
+        // this definition is intentionally still collected from the sample.
+        $html = $this->converter->convert("[x][r]\n\n- ```\n  [r]: /u\n  ```\n");
+
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
     public function testDivHeaderAndLabelRendersBothCaptions(): void
     {
         // PROPOSAL (graceful degradation): when no extension consumes the

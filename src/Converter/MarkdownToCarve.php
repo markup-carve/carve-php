@@ -63,10 +63,9 @@ class MarkdownToCarve
                 $fenceChar = $matches[2][0];
                 $fenceLength = strlen($matches[2]);
                 // Canonical fence opener has no space between the fence and the
-                // info string (```php, not ``` php). Carve accepts both (lenient
-                // input; Markdown/Djot may write the space), but emits the
-                // no-space form. The rest of the info is preserved (c++, js
-                // title="x").
+                // info string (```php, not ``` php). Carve accepts both info
+                // spellings, but emits the no-space form. The rest of the info
+                // is preserved (c++, js title="x").
                 // A foreign code-fence info string is a LANGUAGE, never a raw
                 // block directive. Neutralize a leading `=` so untrusted
                 // Markdown cannot mint a Carve `=html` raw-HTML block (which the
@@ -76,6 +75,12 @@ class MarkdownToCarve
                 if (str_starts_with($info, '=')) {
                     $info = ltrim(ltrim($info, '='));
                 }
+                // A Markdown fence indented inside a list item carries that
+                // indent as the item's content column; preserve it so the
+                // migrated fence stays in the item (a strict Carve fence opens
+                // AT the content column). A rare document-level 1-3 space
+                // Markdown fence therefore migrates verbatim and reads as prose
+                // under strict Carve -- left for a container-aware pass.
                 $result[] = $matches[1] . $matches[2] . $info;
                 $prevLineType = 'code_fence';
                 $bulletRunBroken = true;

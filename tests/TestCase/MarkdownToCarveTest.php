@@ -178,6 +178,10 @@ class MarkdownToCarveTest extends TestCase
                 "``` php\n*a*\n```",
                 "```php\n*a*\n```",
             ],
+            'preserves a list-nested Markdown fence at its content column' => [
+                "- item\n  ``` php\n  *a*\n    indented\n  ```",
+                "- item\n\n  ```php\n  *a*\n    indented\n  ```",
+            ],
             'strips only the leading space, keeps the rest of the info' => [
                 "``` js title=\"x\"\n*a*\n```",
                 "```js title=\"x\"\n*a*\n```",
@@ -298,7 +302,10 @@ class MarkdownToCarveTest extends TestCase
                 "+ a\n- b",
                 "- a\n* b",
             ],
-            'does not convert inside an indented fenced code block' => [
+            // A fence's indentation is preserved on migration: it may be a list
+            // item's content column, and dedenting to 0 would lift the code out
+            // of the item. The sample text is untouched either way.
+            'preserves the indentation of an indented fenced code block' => [
                 "  ```\n  const x = *a* + _b_\n  ```",
                 "  ```\n  const x = *a* + _b_\n  ```",
             ],
