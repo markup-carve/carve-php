@@ -51,6 +51,75 @@ class IncludeDirectiveSerializationTest extends TestCase
     }
 
     /**
+     * Preservation is decided on SHAPE, not validity. Escaping a run whose
+     * shape is right but whose option is wrong would convert a fixable typo
+     * into permanent literal text, and would also destroy the expansion-time
+     * warning that explains the typo - the author would be left with neither
+     * the directive nor the diagnostic.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('shapeValidButInvalidProvider')]
+    public function testShapeWellFormedDirectivesSurviveEvenWhenTheirOptionsAreInvalid(
+        string $source,
+        string $expected,
+    ): void {
+        $converter = CarveConverter::carve();
+
+        $this->assertSame($expected, $converter->render($converter->parse($source)));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function shapeValidButInvalidProvider(): iterable
+    {
+        yield 'unknown option' => ["{{ child.crv @bogus:1 }}\n", "{{ child.crv @bogus:1 }}\n"];
+        yield 'malformed option' => ["{{ child.crv notanoption }}\n", "{{ child.crv notanoption }}\n"];
+        yield 'missing section' => ["{{ child.crv #nope }}\n", "{{ child.crv #nope }}\n"];
+        yield 'unknown option keeps quoted path plain' => [
+            "{{ \"my file.crv\" @bogus:1 }}\n",
+            "{{ \"my file.crv\" @bogus:1 }}\n",
+        ];
+    }
+
+    /**
+     * The point of preserving an invalid run: the warning that explains it must
+     * still be there after a formatting pass. Escaping the run silenced it,
+     * because escaped text is no longer directive-shaped for the expander.
+     *
+     * @param string $source
+     * @param string $warning
+     */
+    #[DataProvider('warningAfterFormattingProvider')]
+    public function testAnInvalidDirectiveStillWarnsAfterFormatting(string $source, string $warning): void
+    {
+        $formatter = CarveConverter::carve();
+        $formatted = $formatter->render($formatter->parse($source));
+
+        $converter = new CarveConverter();
+        $expander = new IncludeExpander($this->resolver());
+        $converter->transform($converter->parse($formatted), $expander);
+
+        $messages = array_map(
+            static fn ($item): string => $item->getMessage(),
+            $expander->getWarnings(),
+        );
+        $this->assertNotSame([], $messages);
+        $this->assertStringContainsString($warning, $messages[0]);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function warningAfterFormattingProvider(): iterable
+    {
+        yield 'unknown option' => ["{{ chapter.crv @bogus:1 }}\n", "Unknown include option '@bogus:1'"];
+        yield 'missing section' => ["{{ chapter.crv #nope }}\n", "no section '#nope'"];
+    }
+
+    /**
      * A quoted path arrives with typographic quotes because the core's
      * smart-quotes pass has already rewritten it, so echoing the run verbatim
      * would emit a path no resolver can read.
@@ -80,13 +149,17 @@ class IncludeDirectiveSerializationTest extends TestCase
     }
 
     /**
+     * Only a run that is not SHAPE-well-formed stays prose: no closing `}}`, or
+     * no path token to include.
+     *
      * @return iterable<string, array{string}>
      */
     public static function literalProvider(): iterable
     {
         yield 'unterminated' => ["{{ oops\n"];
-        yield 'unknown option' => ["{{ child.crv @bogus:1 }}\n"];
-        yield 'malformed option' => ["{{ child.crv notanoption }}\n"];
+        yield 'empty' => ["{{ }}\n"];
+        yield 'empty with padding' => ["{{  }}\n"];
+        yield 'no path token' => ["{{ #intro }}\n"];
     }
 
     /**
@@ -123,12 +196,17 @@ class IncludeDirectiveSerializationTest extends TestCase
     {
         $converter = CarveConverter::carve();
         $source = "Intro.\n\n{{ chapter.crv @shift:2 }}\n\nSee {{ \"my file.crv\" }} inline.\n\n"
-            . "`{{ literal.crv }}`\n\n{{ oops\n";
+            . "`{{ literal.crv }}`\n\n{{ oops\n\n{{ child.crv @bogus:1 }}\n\n"
+            // An unrecognized token is re-emitted after the options the
+            // serializer knows how to order, so this run moves once and then
+            // must stand still.
+            . "{{ child.crv @bogus:1 #intro }}\n";
 
         $once = $converter->render($converter->parse($source));
         $twice = $converter->render($converter->parse($once));
 
         $this->assertSame($once, $twice);
+        $this->assertStringContainsString('{{ child.crv #intro @bogus:1 }}', $once);
     }
 
     /**

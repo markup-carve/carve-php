@@ -688,12 +688,19 @@ class CarveRenderer implements RendererInterface
      * silently breaking every include in a formatted document. A well-formed
      * directive is therefore emitted verbatim.
      *
-     * Scope is deliberately narrow: only a run that parses as a well-formed
-     * directive per I1 is preserved. A malformed `{{ oops` stays ordinary text
-     * and is escaped as before. A serializer cannot tell an authored literal
-     * `{{` from a directive - both parse to the same text - which is accepted,
-     * because an author who needs a guaranteed literal writes it in code, where
-     * a directive is inert by construction (I9).
+     * The test is SHAPE-well-formedness, not validity: the run must open `{{`,
+     * close `}}` and carry a non-empty path token. Section and option validity
+     * are NOT required, because they are diagnostics the expander reports at
+     * expansion time (I7) - escaping a shape-valid run over a bad option would
+     * convert a fixable typo into permanent literal text AND destroy the very
+     * warning that would have explained it. A run that is not shape-well-formed
+     * (`{{ oops` with no close, or an empty path) stays ordinary text and is
+     * escaped as before.
+     *
+     * A serializer cannot tell an authored literal `{{` from a directive - both
+     * parse to the same text - which is accepted, because an author who needs a
+     * guaranteed literal writes it in code, where a directive is inert by
+     * construction (I9).
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes Positionally indexed,
      *   exactly as the surrounding renderInlines() loop already assumes.
@@ -723,7 +730,7 @@ class CarveRenderer implements RendererInterface
         }
 
         $parts = IncludeDirectiveSyntax::parse($match[0][0]);
-        if ($parts === null || $parts['error'] !== null) {
+        if ($parts === null) {
             return null;
         }
 

@@ -82,12 +82,15 @@ class IncludeDirectiveSyntax
     /**
      * Parse a reassembled run into directive parts.
      *
-     * Returns null when the text is not directive-shaped at all. A run that IS
-     * directive-shaped but carries a bad option returns an error entry instead,
-     * so a caller can tell "not a directive" from "a directive the author got
-     * wrong" and warn only for the latter.
+     * Returns null only when the run is not SHAPE-well-formed: it must open
+     * `{{`, close `}}` and carry a non-empty path token. Section and option
+     * VALIDITY are deliberately not part of that test. A run whose shape is
+     * right but whose options are wrong still parses, keeping its unrecognized
+     * tokens in 'extra' and its first complaint in 'error', so a caller can tell
+     * "not a directive" from "a directive the author got wrong" and treat the
+     * latter as a fixable typo rather than as prose.
      *
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
+     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', extra: list<string>, error: string|null, errorPart: string|null}|null
      */
     public static function parse(string $text): ?array
     {
@@ -118,6 +121,9 @@ class IncludeDirectiveSyntax
         $section = null;
         $lines = null;
         $shift = 0;
+        $extra = [];
+        $error = null;
+        $errorPart = null;
         if ($rest !== '') {
             foreach (preg_split('/\s+/', $rest) ?: [] as $part) {
                 if (preg_match('/^#([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
@@ -144,10 +150,13 @@ class IncludeDirectiveSyntax
                     continue;
                 }
 
-                return static::error(
-                    str_starts_with($part, '@') ? static::ERROR_UNKNOWN_OPTION : static::ERROR_MALFORMED,
-                    $part,
-                );
+                // Scanning continues past the first bad token so the whole run
+                // can be re-emitted; the error is reported, not thrown away.
+                $extra[] = $part;
+                if ($error === null) {
+                    $error = str_starts_with($part, '@') ? static::ERROR_UNKNOWN_OPTION : static::ERROR_MALFORMED;
+                    $errorPart = $part;
+                }
             }
         }
 
@@ -156,8 +165,9 @@ class IncludeDirectiveSyntax
             'section' => $section,
             'lines' => $lines,
             'shift' => $shift,
-            'error' => null,
-            'errorPart' => null,
+            'extra' => $extra,
+            'error' => $error,
+            'errorPart' => $errorPart,
         ];
     }
 
@@ -170,7 +180,12 @@ class IncludeDirectiveSyntax
      * find in a formatted document. Emitting a canonical form makes the result
      * portable and keeps formatting idempotent.
      *
-     * @param array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', error?: string|null, errorPart?: string|null} $parts
+     * Unrecognized tokens are carried through verbatim rather than dropped: a
+     * mistyped option is a fixable typo, and silently deleting it would turn a
+     * diagnostic the author can act on into a directive that quietly means
+     * something else.
+     *
+     * @param array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', extra?: list<string>, error?: string|null, errorPart?: string|null} $parts
      */
     public static function toSource(array $parts): string
     {
@@ -196,21 +211,10 @@ class IncludeDirectiveSyntax
             $out .= ' @shift:' . $parts['shift'];
         }
 
-        return $out . ' }}';
-    }
+        foreach ($parts['extra'] ?? [] as $part) {
+            $out .= ' ' . $part;
+        }
 
-    /**
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', error: string|null, errorPart: string|null}
-     */
-    protected static function error(string $error, string $part): array
-    {
-        return [
-            'path' => '',
-            'section' => null,
-            'lines' => null,
-            'shift' => 0,
-            'error' => $error,
-            'errorPart' => $part,
-        ];
+        return $out . ' }}';
     }
 }
