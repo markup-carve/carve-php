@@ -1757,6 +1757,16 @@ class BlockParser
                 break;
             }
 
+            // Splitting a source that ends with a newline yields a phantom
+            // empty final element. That newline terminates the preceding line,
+            // it does not add a blank content line, so an unterminated fence
+            // running to EOF must not absorb it (matching carve-js).
+            if ($i === $count - 1 && $currentLine === '') {
+                $i++;
+
+                break;
+            }
+
             // Remove indent from content lines (up to the same amount as opening fence)
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen);
 
