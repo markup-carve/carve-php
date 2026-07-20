@@ -60,11 +60,21 @@ class IncludeExpander implements TransformerInterface
 
     protected int $scopeSeq = 0;
 
+    /**
+     * @param \MarkupCarve\Carve\Transform\IncludeResolverInterface|null $resolver
+     * @param string|null $currentPath
+     * @param int $depthLimit
+     * @param int|null $byteBudget
+     * @param string|null $source Parsed source of the document, when the host
+     *   still has it. Supplying it lets the pass skip its AST walk entirely
+     *   for documents that cannot contain a directive.
+     */
     public function __construct(
         protected ?IncludeResolverInterface $resolver = null,
         protected ?string $currentPath = null,
         protected int $depthLimit = self::DEFAULT_DEPTH_LIMIT,
         protected ?int $byteBudget = null,
+        protected ?string $source = null,
     ) {
     }
 
@@ -75,10 +85,19 @@ class IncludeExpander implements TransformerInterface
         $this->scopeByObjectId = [];
         $this->scopeSeq = 0;
 
-        $transformed = clone $document;
         if ($this->resolver === null) {
-            return $transformed;
+            return $document;
         }
+
+        // Recognition needs a parse, but a document whose source contains no
+        // '{{' at all cannot contain a directive in any position, so the walk
+        // is skipped outright. This keeps directive-free documents at parse
+        // cost.
+        if ($this->source !== null && !str_contains($this->source, '{{')) {
+            return $document;
+        }
+
+        $transformed = clone $document;
 
         $budget = $this->byteBudget ?? max(self::DEFAULT_MIN_BYTE_BUDGET, 8 * max(1, $document->getSourceLength()));
         $rootStack = $this->currentPath !== null ? [$this->currentPath] : [];
