@@ -120,6 +120,118 @@ class IncludeDirectiveSerializationTest extends TestCase
     }
 
     /**
+     * Prose does not split a paragraph into separate nodes, so several
+     * directives with text between them arrive as ONE text-like run. The
+     * serializer used to preserve the first span and escape the remainder
+     * wholesale, destroying every later directive even though all of them were
+     * perfectly valid.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('multiDirectiveProvider')]
+    public function testEveryDirectiveInARunSurvivesNotJustTheFirst(string $source, string $expected): void
+    {
+        $converter = CarveConverter::carve();
+
+        $this->assertSame($expected, $converter->render($converter->parse($source)));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function multiDirectiveProvider(): iterable
+    {
+        yield 'two separated by prose' => [
+            "a {{ x.crv }} b {{ y.crv }} c\n",
+            "a {{ x.crv }} b {{ y.crv }} c\n",
+        ];
+
+        yield 'three separated by prose' => [
+            "a {{ x.crv }} b {{ y.crv }} c {{ z.crv }} d\n",
+            "a {{ x.crv }} b {{ y.crv }} c {{ z.crv }} d\n",
+        ];
+
+        yield 'five separated by spaces' => [
+            "{{ a.crv }} {{ b.crv }} {{ c.crv }} {{ d.crv }} {{ e.crv }}\n",
+            "{{ a.crv }} {{ b.crv }} {{ c.crv }} {{ d.crv }} {{ e.crv }}\n",
+        ];
+
+        yield 'adjacent with nothing between' => [
+            "{{ x.crv }}{{ y.crv }}\n",
+            "{{ x.crv }}{{ y.crv }}\n",
+        ];
+
+        yield 'one at the very start and one at the very end' => [
+            "{{ x.crv }} middle {{ y.crv }}\n",
+            "{{ x.crv }} middle {{ y.crv }}\n",
+        ];
+
+        // Sections and options parse into extra Tag / Mention nodes, so these
+        // runs are the ones a naive rescan is most likely to lose.
+        yield 'sections and options' => [
+            "a {{ x.crv #intro }} b {{ y.crv @shift:2 }} c {{ z.crv #a @lines:1-2 }} d\n",
+            "a {{ x.crv #intro }} b {{ y.crv @shift:2 }} c {{ z.crv #a @lines:1-2 }} d\n",
+        ];
+
+        yield 'auto shift twice' => [
+            "{{ a.crv @shift:auto }} {{ b.crv @shift:auto }}\n",
+            "{{ a.crv @shift:auto }} {{ b.crv @shift:auto }}\n",
+        ];
+
+        yield 'quoted paths twice' => [
+            "{{ \"my file.crv\" }} and {{ \"other file.crv\" }}\n",
+            "{{ \"my file.crv\" }} and {{ \"other file.crv\" }}\n",
+        ];
+    }
+
+    /**
+     * A span that is not shape-well-formed is prose, not a reason to stop
+     * scanning. Bailing on it took every valid directive after it down too -
+     * and, when it came first, the entire run.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('mixedValidityProvider')]
+    public function testAnInvalidRunDoesNotSuppressTheValidDirectivesAroundIt(
+        string $source,
+        string $expected,
+    ): void {
+        $converter = CarveConverter::carve();
+
+        $this->assertSame($expected, $converter->render($converter->parse($source)));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function mixedValidityProvider(): iterable
+    {
+        yield 'invalid first, valid after' => [
+            "{{ #intro }} and {{ ok.crv }}\n",
+            "\\{\\{ \\#intro \\}\\} and {{ ok.crv }}\n",
+        ];
+
+        yield 'invalid between two valid' => [
+            "{{ a.crv }} x {{ }} y {{ b.crv }}\n",
+            "{{ a.crv }} x \\{\\{ \\}\\} y {{ b.crv }}\n",
+        ];
+
+        yield 'unterminated first, valid after' => [
+            "{{ oops and {{ b.crv }}\n",
+            "\\{\\{ oops and {{ b.crv }}\n",
+        ];
+
+        // Shape-valid but with a bad option: preserved, and it must not disturb
+        // the ordinary directive next to it.
+        yield 'bad option beside a valid directive' => [
+            "{{ a.crv @bogus:1 }} and {{ b.crv }}\n",
+            "{{ a.crv @bogus:1 }} and {{ b.crv }}\n",
+        ];
+    }
+
+    /**
      * A quoted path arrives with typographic quotes because the core's
      * smart-quotes pass has already rewritten it, so echoing the run verbatim
      * would emit a path no resolver can read.
@@ -200,7 +312,8 @@ class IncludeDirectiveSerializationTest extends TestCase
             // An unrecognized token is re-emitted after the options the
             // serializer knows how to order, so this run moves once and then
             // must stand still.
-            . "{{ child.crv @bogus:1 #intro }}\n";
+            . "{{ child.crv @bogus:1 #intro }}\n\n"
+            . "Many {{ a.crv }} in {{ b.crv }} one {{ c.crv }} paragraph.\n";
 
         $once = $converter->render($converter->parse($source));
         $twice = $converter->render($converter->parse($once));
@@ -214,10 +327,16 @@ class IncludeDirectiveSerializationTest extends TestCase
      * invariant cannot see: the escaped form rendered to the same literal text,
      * so every suite stayed green while the feature was destroyed. What matters
      * is that EXPANDING the formatted document still does the same thing.
+     *
+     * It exercises a paragraph holding SEVERAL directives on purpose. While
+     * every fixture here used one directive per run, a serializer that handled
+     * only the first one satisfied this assertion completely, and the whole
+     * multi-directive failure class stayed invisible.
      */
     public function testExpandingAFormattedDocumentMatchesExpandingTheOriginal(): void
     {
-        $source = "Intro.\n\n{{ chapter.crv @shift:2 }}\n\nSee {{ \"my file.crv\" }} inline.\n";
+        $source = "Intro.\n\n{{ chapter.crv @shift:2 }}\n\nSee {{ \"my file.crv\" }} inline.\n\n"
+            . "One {{ note.crv }} two {{ aside.crv }} three {{ note.crv }} four.\n";
 
         $formatter = CarveConverter::carve();
         $formatted = $formatter->render($formatter->parse($source));
@@ -230,7 +349,10 @@ class IncludeDirectiveSerializationTest extends TestCase
         // Guard the guard: a resolver that never ran would make the assertions
         // above pass trivially.
         $this->assertStringContainsString('<h3>Chapter</h3>', $originalHtml);
-        $this->assertSame(['chapter.crv', 'my file.crv'], $originalDeps);
+        $this->assertSame(['chapter.crv', 'my file.crv', 'note.crv', 'aside.crv'], $originalDeps);
+        // Every directive in the multi-directive paragraph expanded, so a
+        // serializer that dropped the later ones cannot pass.
+        $this->assertStringContainsString('One Noted. two Aside. three Noted. four.', $originalHtml);
     }
 
     /**
@@ -260,6 +382,8 @@ class IncludeDirectiveSerializationTest extends TestCase
                 return match ($path) {
                     'chapter.crv' => "# Chapter\n\nBody.\n",
                     'my file.crv' => "Spaced.\n",
+                    'note.crv' => "Noted.\n",
+                    'aside.crv' => "Aside.\n",
                     default => throw new RuntimeException('missing'),
                 };
             }

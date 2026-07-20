@@ -678,8 +678,8 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Match an include directive starting at $start over a run of literal-text
-     * nodes, and return its source form plus the index of its last node.
+     * Match the include directives in the run of literal-text nodes starting at
+     * $start, and return the run's source form plus the index of its last node.
      *
      * The core never parses a directive as a node of its own (spec section 19
      * makes it unreachable from block/inline), so it arrives here as ordinary
@@ -696,6 +696,11 @@ class CarveRenderer implements RendererInterface
      * warning that would have explained it. A run that is not shape-well-formed
      * (`{{ oops` with no close, or an empty path) stays ordinary text and is
      * escaped as before.
+     *
+     * Every directive in the run is preserved, not just the first: prose splits
+     * a paragraph into one text-like run, so `a {{ x.crv }} b {{ y.crv }} c` is
+     * a single run holding two directives, and stopping after the first escaped
+     * the rest.
      *
      * A serializer cannot tell an authored literal `{{` from a directive - both
      * parse to the same text - which is accepted, because an author who needs a
@@ -722,26 +727,44 @@ class CarveRenderer implements RendererInterface
         $last = $i - 1;
         $text = IncludeDirectiveSyntax::textLikeContent($run);
 
-        // The run may hold a directive plus surrounding prose, so the directive
-        // span is located inside it and only that span is preserved; the text
-        // on either side is escaped normally.
-        if (!preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE)) {
+        // One run can hold ANY number of directives with prose between them, so
+        // the whole run is scanned: every shape-well-formed span is collected
+        // and the gaps around them are escaped as ordinary text. Handling only
+        // the first span - and escaping the remainder wholesale - destroyed
+        // every directive after the first.
+        $spans = [];
+        $cursor = 0;
+        $length = strlen($text);
+        while (
+            $cursor < $length
+            && preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
+        ) {
+            $span = $match[0][0];
+            $offset = (int)$match[0][1];
+            // A span that is not shape-well-formed is prose, not a reason to
+            // stop: scanning resumes after it so a valid directive later in the
+            // same run is still preserved.
+            $parts = IncludeDirectiveSyntax::parse($span);
+            if ($parts !== null) {
+                $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => IncludeDirectiveSyntax::toSource($parts)];
+            }
+            // Each span is at least '{{  }}', so the cursor always advances.
+            $cursor = $offset + strlen($span);
+        }
+
+        if ($spans === []) {
             return null;
         }
 
-        $parts = IncludeDirectiveSyntax::parse($match[0][0]);
-        if ($parts === null) {
-            return null;
+        $out = '';
+        $position = 0;
+        foreach ($spans as $span) {
+            $out .= $this->escapeText(substr($text, $position, $span['offset'] - $position)) . $span['source'];
+            $position = $span['offset'] + $span['length'];
         }
-
-        $offset = (int)$match[0][1];
-        $before = substr($text, 0, $offset);
-        $after = substr($text, $offset + strlen($match[0][0]));
 
         return [
-            'source' => $this->escapeText($before)
-                . IncludeDirectiveSyntax::toSource($parts)
-                . $this->escapeText($after),
+            'source' => $out . $this->escapeText(substr($text, $position)),
             'end' => $last,
         ];
     }
