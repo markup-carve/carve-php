@@ -9,12 +9,25 @@ namespace MarkupCarve\Carve\Exception;
  */
 class ParseWarning
 {
+    /**
+     * @param string $message
+     * @param int $line
+     * @param int $column
+     * @param string|null $category
+     * @param string|null $suggestion
+     * @param string|null $file Identity of the file the warning arose in: the
+     *   canonical id a resolver returned for that file, or the directive path
+     *   when the resolver supplied none. Null when there is no identity to
+     *   report - a top-level document parsed from a string has no path, and
+     *   none is invented for it.
+     */
     public function __construct(
         protected string $message,
         protected int $line,
         protected int $column = 1,
         protected ?string $category = null,
         protected ?string $suggestion = null,
+        protected ?string $file = null,
     ) {
     }
 
@@ -43,8 +56,13 @@ class ParseWarning
         return $this->suggestion;
     }
 
+    public function getFile(): ?string
+    {
+        return $this->file;
+    }
+
     /**
-     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null}
+     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null, file: string|null}
      */
     public function toArray(): array
     {
@@ -54,6 +72,7 @@ class ParseWarning
             'column' => $this->column,
             'category' => $this->category,
             'suggestion' => $this->suggestion,
+            'file' => $this->file,
         ];
     }
 

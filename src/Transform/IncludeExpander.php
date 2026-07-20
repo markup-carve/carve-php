@@ -59,6 +59,23 @@ class IncludeExpander implements TransformerInterface
     protected array $scopeByObjectId = [];
 
     /**
+     * Identity of the file whose content is being expanded right now, used to
+     * attribute warnings (spec I4). A directive that fails to resolve is
+     * attributed to the document that CONTAINS it, so this only advances once
+     * the child is actually being walked.
+     */
+    protected ?string $warningFile = null;
+
+    /**
+     * Scope id to file identity, so the collision pass - which runs once over
+     * the assembled document, after every path context has been popped - can
+     * still name the file each renamed id or label came from.
+     *
+     * @var array<string, string>
+     */
+    protected array $fileByScope = [];
+
+    /**
      * @var array<string, \MarkupCarve\Carve\Transform\IncludeDependency>
      */
     protected array $dependencies = [];
@@ -90,6 +107,8 @@ class IncludeExpander implements TransformerInterface
         $this->scopeByObjectId = [];
         $this->dependencies = [];
         $this->scopeSeq = 0;
+        $this->fileByScope = [];
+        $this->warningFile = $this->currentPath;
 
         if ($this->resolver === null) {
             return $document;
@@ -444,11 +463,20 @@ class IncludeExpander implements TransformerInterface
 
         $scope = $directive['path'] . '#' . (++$this->scopeSeq);
         $this->markScope($document, $scope);
+        $this->fileByScope[$scope] = $id;
+        // Everything from here to the restore below operates on the child's own
+        // content, so a warning it raises (a heading clamp, a nested cycle)
+        // names the child rather than the document that included it.
+        $outerFile = $this->warningFile;
+        $this->warningFile = $id;
         $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
         $shift = $directive['shift'] === 'auto'
             ? $this->autoShift($document, $block, $contextParent, $contextNode)
             : $directive['shift'];
         $this->shiftHeadings($document, $shift);
+        // Back in the parent: the remaining checks are about the DIRECTIVE, not
+        // the child's content, so they are the including document's problem.
+        $this->warningFile = $outerFile;
 
         $nodes = array_values($document->getChildren());
         if ($block) {
@@ -753,7 +781,7 @@ class IncludeExpander implements TransformerInterface
             $newLabel = $this->leastFree($label, $used);
             $footnote->setLabel($newLabel);
             $this->renameFootnoteRefs($document, $label, $newLabel, $this->scopeOf($footnote));
-            $this->warn("Duplicate footnote label '{$label}' renamed to '{$newLabel}'");
+            $this->warn("Duplicate footnote label '{$label}' renamed to '{$newLabel}'", $this->fileOf($footnote));
         }
     }
 
@@ -787,7 +815,7 @@ class IncludeExpander implements TransformerInterface
             $newId = $this->leastFree($id, $used);
             $heading->setAttribute('id', $newId);
             $this->renameHeadingRefs($document, $id, $newId, $this->scopeOf($heading));
-            $this->warn("Duplicate heading id '{$id}' renamed to '{$newId}'");
+            $this->warn("Duplicate heading id '{$id}' renamed to '{$newId}'", $this->fileOf($heading));
         }
     }
 
@@ -862,9 +890,31 @@ class IncludeExpander implements TransformerInterface
         }
     }
 
-    protected function warn(string $message): void
+    /**
+     * @param string $message
+     * @param string|null $file Overrides the current file cursor, for warnings
+     *   raised outside the expansion walk (the collision pass, which runs once
+     *   over the assembled document and recovers the file from the node scope).
+     */
+    protected function warn(string $message, ?string $file = null): void
     {
-        $this->warnings[] = new ParseWarning($message, 1, 1, 'include');
+        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile);
+    }
+
+    /**
+     * File identity for a node in the assembled document: the file the node's
+     * include scope came from, or the top-level document when the node is not
+     * inside any include. Null when the top level has no path - never a
+     * fabricated one.
+     */
+    protected function fileOf(Node $node): ?string
+    {
+        $scope = $this->scopeOf($node);
+        if ($scope === null) {
+            return $this->currentPath;
+        }
+
+        return $this->fileByScope[$scope] ?? null;
     }
 
     protected function recordDependency(string $target, bool $resolved): void
