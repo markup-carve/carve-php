@@ -594,7 +594,9 @@ class IncludeExpanderTest extends TestCase
 
         $this->assertSame(
             [
-                ['target' => 'a.crv', 'resolved' => false],
+                // a.crv was READ before its self-cycle was refused, so it stays
+                // resolved: the refusal travels in the Warning, not this flag.
+                ['target' => 'a.crv', 'resolved' => true],
                 ['target' => 'b.crv', 'resolved' => true],
                 ['target' => 'missing.crv', 'resolved' => false],
             ],
@@ -622,7 +624,13 @@ class IncludeExpanderTest extends TestCase
 
             $this->assertStringContainsString('<p>Deep leaf.</p>', $html);
             $this->assertStringNotContainsString('TOP SECRET', $html);
-            $this->assertStringContainsString('escapes configured root', $expander->getWarnings()[0]->getMessage());
+            $warning = $expander->getWarnings()[0];
+            // The containment denial is reported with the processor's own
+            // wording; the resolver's message, which names the root's absolute
+            // path, stays on the detail channel.
+            $this->assertSame('Include could not be resolved: ../secret.crv', $warning->getMessage());
+            $this->assertStringNotContainsString($root, $warning->getMessage());
+            $this->assertStringContainsString('escapes configured root', (string)$warning->getDetail());
         } finally {
             foreach (
                 [
@@ -867,6 +875,149 @@ class IncludeExpanderTest extends TestCase
         // No path context, so there is no identity to report and none is
         // invented.
         $this->assertNull($warnings[0]->getFile());
+    }
+
+    /**
+     * The set is a cross-implementation contract, so the sequence has to be the
+     * one a host can reason about: the order each target's directive is first
+     * encountered reading the expanded document top to bottom. Target names here
+     * are deliberately anti-alphabetical, so a sorted implementation cannot pass.
+     */
+    public function testDependenciesAreReportedInFirstEncounterOrder(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ zebra.crv }}\n\n{{ alpha.crv }}\n");
+        $expander = new IncludeExpander($this->resolver([
+            'zebra.crv' => "Zebra.\n\n{{ yak.crv }}\n",
+            'yak.crv' => "Yak.\n",
+            'alpha.crv' => "Alpha.\n",
+        ]));
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            ['zebra.crv', 'yak.crv', 'alpha.crv'],
+            array_map(
+                static fn (IncludeDependency $dependency): string => $dependency->getTarget(),
+                $expander->getDependencies(),
+            ),
+        );
+    }
+
+    public function testATargetReadThenRefusedForACycleStaysResolvedAndWarns(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ a.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['a.crv' => "A.\n\n{{ a.crv }}\n"]));
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [['target' => 'a.crv', 'resolved' => true]],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('cycle', $warnings[0]->getMessage());
+    }
+
+    public function testATargetReadThenRefusedForBudgetStaysResolved(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ big.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['big.crv' => str_repeat('x', 200)]), null, 16, 10);
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [['target' => 'big.crv', 'resolved' => true]],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+        $this->assertStringContainsString('size budget', $expander->getWarnings()[0]->getMessage());
+    }
+
+    public function testANeverReadTargetStaysUnresolved(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ gone.crv }}\n");
+        $expander = new IncludeExpander($this->resolver([]));
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [['target' => 'gone.crv', 'resolved' => false]],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+    }
+
+    /**
+     * A target first seen unresolved and later read successfully is upgraded:
+     * the flag answers "was this ever read", so a host watches the file either
+     * way and learns when a previously missing target starts resolving.
+     *
+     * @throws \RuntimeException
+     */
+    public function testAnUnresolvedTargetIsUpgradedWhenALaterReadSucceeds(): void
+    {
+        $resolver = new class implements IncludeResolverInterface {
+            public int $calls = 0;
+
+            /**
+             * @throws \RuntimeException
+             */
+            public function resolve(string $path, IncludeContext $context): string
+            {
+                $this->calls++;
+                if ($this->calls === 1) {
+                    throw new RuntimeException('Missing include: ' . $path);
+                }
+
+                return "Now present.\n";
+            }
+        };
+
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ later.crv }}\n\n{{ later.crv }}\n");
+        $expander = new IncludeExpander($resolver);
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [['target' => 'later.crv', 'resolved' => true]],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+    }
+
+    /**
+     * A resolver's own error text is host-controlled and commonly embeds
+     * absolute paths, so it must not reach the rendered warning message.
+     *
+     * @throws \RuntimeException
+     */
+    public function testResolverErrorTextDoesNotLeakIntoTheWarningMessage(): void
+    {
+        $resolver = new class implements IncludeResolverInterface {
+            /**
+             * @throws \RuntimeException
+             */
+            public function resolve(string $path, IncludeContext $context): string
+            {
+                throw new RuntimeException('failed reading /home/secret-user/private/vault/' . $path);
+            }
+        };
+
+        $converter = new CarveConverter();
+        $document = $converter->parse("{{ child.crv }}\n");
+        $expander = new IncludeExpander($resolver);
+
+        $converter->transform($document, $expander);
+
+        $warnings = $expander->getWarnings();
+        $this->assertCount(1, $warnings);
+        $this->assertSame('Include could not be resolved: child.crv', $warnings[0]->getMessage());
+        $this->assertStringNotContainsString('/home/secret-user', $warnings[0]->getMessage());
+        // Still available to a host that controls its own resolver.
+        $this->assertStringContainsString('/home/secret-user', (string)$warnings[0]->getDetail());
     }
 
     /**
