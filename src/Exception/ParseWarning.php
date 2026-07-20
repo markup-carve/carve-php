@@ -20,6 +20,11 @@ class ParseWarning
      *   when the resolver supplied none. Null when there is no identity to
      *   report - a top-level document parsed from a string has no path, and
      *   none is invented for it.
+     * @param string|null $detail Untrusted supplementary text from outside the
+     *   processor, such as a host resolver's exception message. Kept OFF the
+     *   message so it is never rendered by default: resolver errors commonly
+     *   embed absolute paths, which would disclose host filesystem layout in a
+     *   hosted preview. A host that controls its own resolver may opt in.
      */
     public function __construct(
         protected string $message,
@@ -28,6 +33,7 @@ class ParseWarning
         protected ?string $category = null,
         protected ?string $suggestion = null,
         protected ?string $file = null,
+        protected ?string $detail = null,
     ) {
     }
 
@@ -61,8 +67,13 @@ class ParseWarning
         return $this->file;
     }
 
+    public function getDetail(): ?string
+    {
+        return $this->detail;
+    }
+
     /**
-     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null, file: string|null}
+     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null, file: string|null, detail: string|null}
      */
     public function toArray(): array
     {
@@ -73,6 +84,7 @@ class ParseWarning
             'category' => $this->category,
             'suggestion' => $this->suggestion,
             'file' => $this->file,
+            'detail' => $this->detail,
         ];
     }
 
