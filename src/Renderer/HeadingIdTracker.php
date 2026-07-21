@@ -393,7 +393,7 @@ class HeadingIdTracker
             } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
                 // An inline literal renders as visible prose (§27), so it
                 // contributes its content to the heading text -- otherwise
-                // `` # `Cat`{!} `` would slug to the empty fallback and a
+                // `` # !`Cat` `` would slug to the empty fallback and a
                 // `</#cat>` crossref could never resolve.
                 $text .= $child->getContent();
             } elseif ($child instanceof Symbol) {

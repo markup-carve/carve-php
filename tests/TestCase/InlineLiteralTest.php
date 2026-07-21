@@ -13,12 +13,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Inline literal (`` `content`{!} ``, grammar PART 9 §27).
+ * Inline literal (`` !`content` ``, grammar PART 9 §27).
  *
- * A code span whose trailing attribute block starts with the `!` sigil: the
+ * A `!` prefix on a verbatim code span, mirroring the `$`-math prefix: the
  * verbatim content is HTML-escaped and emitted by every renderer (never
  * dropped / target-routed like raw inline), with the `<code>` wrapper removed.
- * With no further attribute it is bare escaped text; with any it is a `<span>`.
+ * With no attribute block it is bare escaped text; with one it is a `<span>`.
  */
 class InlineLiteralTest extends TestCase
 {
@@ -36,48 +36,48 @@ class InlineLiteralTest extends TestCase
 
     // ==================== HTML semantics ====================
 
-    public function testBareEscapedTextWhenNoFurtherAttribute(): void
+    public function testBareEscapedTextWhenNoAttributeBlock(): void
     {
-        $this->assertSame('<p>/kaet/</p>', $this->html('`/kaet/`{!}'));
+        $this->assertSame('<p>/kaet/</p>', $this->html('!`/kaet/`'));
     }
 
     public function testSpanCarryingClass(): void
     {
-        $this->assertSame('<p><span class="ipa">/kaet/</span></p>', $this->html('`/kaet/`{! .ipa}'));
+        $this->assertSame('<p><span class="ipa">/kaet/</span></p>', $this->html('!`/kaet/`{.ipa}'));
     }
 
     public function testSpanCarryingClassAndIdInSourceOrder(): void
     {
-        $this->assertSame('<p><span class="ipa" id="cat">/kaet/</span></p>', $this->html('`/kaet/`{! .ipa #cat}'));
+        $this->assertSame('<p><span class="ipa" id="cat">/kaet/</span></p>', $this->html('!`/kaet/`{.ipa #cat}'));
     }
 
     public function testMixedAttributesRenderInSourceOrder(): void
     {
-        $this->assertSame('<p><span class="a" id="b" k="v">x</span></p>', $this->html('`x`{! .a #b k=v}'));
+        $this->assertSame('<p><span class="a" id="b" k="v">x</span></p>', $this->html('!`x`{.a #b k=v}'));
         // ... and the reverse source order flips the emitted order.
-        $this->assertSame('<p><span k="v" id="b" class="a">x</span></p>', $this->html('`x`{! k=v #b .a}'));
+        $this->assertSame('<p><span k="v" id="b" class="a">x</span></p>', $this->html('!`x`{k=v #b .a}'));
     }
 
     public function testHtmlEscapesContent(): void
     {
-        $this->assertSame('<p>a&lt;b&gt;</p>', $this->html('`a<b>`{!}'));
-        $this->assertSame('<p><span class="x">&amp;amp; &lt;s&gt;</span></p>', $this->html('`&amp; <s>`{! .x}'));
+        $this->assertSame('<p>a&lt;b&gt;</p>', $this->html('!`a<b>`'));
+        $this->assertSame('<p><span class="x">&amp;amp; &lt;s&gt;</span></p>', $this->html('!`&amp; <s>`{.x}'));
     }
 
     public function testNoInlineConstructRecognizedInside(): void
     {
-        $this->assertSame('<p>*not bold*</p>', $this->html('`*not bold*`{!}'));
-        $this->assertSame('<p>[t](/u)</p>', $this->html('`[t](/u)`{!}'));
+        $this->assertSame('<p>*not bold*</p>', $this->html('!`*not bold*`'));
+        $this->assertSame('<p>[t](/u)</p>', $this->html('!`[t](/u)`'));
     }
 
     public function testFlowsInlineWithinParagraph(): void
     {
-        $this->assertSame('<p>The word cat is /kaet/ in IPA.</p>', $this->html('The word cat is `/kaet/`{!} in IPA.'));
+        $this->assertSame('<p>The word cat is /kaet/ in IPA.</p>', $this->html('The word cat is !`/kaet/` in IPA.'));
     }
 
     public function testParsesToLiteralInlineNodeCarryingVerbatimContent(): void
     {
-        $doc = $this->converter->parse('`/kaet/`{! .ipa}');
+        $doc = $this->converter->parse('!`/kaet/`{.ipa}');
         $paragraph = $doc->getChildren()[0];
         $this->assertInstanceOf(Paragraph::class, $paragraph);
         $node = $paragraph->getChildren()[0];
@@ -91,7 +91,7 @@ class InlineLiteralTest extends TestCase
 
     public function testTypographySuppressedInside(): void
     {
-        $this->assertSame('<p>a -- b ... "q" (c)</p>', $this->html('`a -- b ... "q" (c)`{!}'));
+        $this->assertSame('<p>a -- b ... "q" (c)</p>', $this->html('!`a -- b ... "q" (c)`'));
     }
 
     public function testTypographyStillTransformsInOrdinaryText(): void
@@ -102,7 +102,7 @@ class InlineLiteralTest extends TestCase
 
     public function testTypographySuppressedInsideAttributedLiteral(): void
     {
-        $this->assertSame('<p><span class="x">a -- b</span></p>', $this->html('`a -- b`{! .x}'));
+        $this->assertSame('<p><span class="x">a -- b</span></p>', $this->html('!`a -- b`{.x}'));
     }
 
     // ==================== Regression guards (unchanged constructs) ====================
@@ -119,44 +119,56 @@ class InlineLiteralTest extends TestCase
         $this->assertSame('<p></p>', $this->html('`x`{=latex}'));
     }
 
-    public function testSigilNotFirstIsNotLiteral(): void
+    public function testImageStillBindsBangToBracket(): void
     {
-        // `!` is not a valid attribute identifier, so the strict attribute rule
-        // (§14) makes the whole block literal text.
-        $this->assertSame('<p><code>x</code>{.ipa !}</p>', $this->html('`x`{.ipa !}'));
+        // `!` still opens an image before `[`; only `!` before a backtick run
+        // becomes a literal.
+        $this->assertSame('<p>see <img src="/u" alt="alt"> here</p>', $this->html('see ![alt](/u) here'));
     }
 
-    public function testWhitespaceRequiredBetweenSigilAndAttribute(): void
+    public function testEscapedBangBeforeSpanStaysLiteral(): void
     {
-        $this->assertSame('<p><code>x</code>{!.ipa}</p>', $this->html('`x`{!.ipa}'));
+        // The single case the prefix form reinterprets: a literal `!` before a
+        // code span is written `\!`.
+        $this->assertSame('<p>!<code>x</code></p>', $this->html('\\!`x`'));
     }
 
-    public function testInertOnAnyNodeOtherThanCodeSpan(): void
+    public function testBangBeforeUnclosedRunStaysLiteral(): void
     {
+        // Requires a CLOSED span; a bare `!` before an unclosed run stays
+        // literal and the run is an ordinary (unclosed) code span, mirroring
+        // `$` before an unclosed run.
+        $this->assertSame('<p>!<code>unclosed</code></p>', $this->html('!`unclosed'));
+    }
+
+    public function testBareBraceBangBlockIsLiteralText(): void
+    {
+        // The old trailing `{!}` sigil is gone; `!` is not a valid attribute
+        // identifier, so the block stays literal by the strict attribute rule.
+        $this->assertSame('<p><code>x</code>{!}</p>', $this->html('`x`{!}'));
         $this->assertSame('<p><a href="/u">t</a>{!}</p>', $this->html('[t](/u){!}'));
-        $this->assertSame('<p><strong>b</strong>{!}</p>', $this->html('*b*{!}'));
     }
 
     // ==================== Non-HTML renderers never drop it ====================
 
     public function testMarkdownEscapesMetacharactersSoTextStaysLiteral(): void
     {
-        $this->assertSame('\\*not bold\\*', trim(CarveConverter::markdown()->convert('`*not bold*`{!}')));
+        $this->assertSame('\\*not bold\\*', trim(CarveConverter::markdown()->convert('!`*not bold*`')));
     }
 
     public function testPlainTextEmitsContentAsProse(): void
     {
-        $this->assertSame('*not bold*', trim(CarveConverter::plainText()->convert('`*not bold*`{!}')));
+        $this->assertSame('*not bold*', trim(CarveConverter::plainText()->convert('!`*not bold*`')));
     }
 
     public function testAnsiEmitsContentAsProse(): void
     {
-        $this->assertSame('*not bold*', trim(CarveConverter::ansi()->convert('`*not bold*`{!}')));
+        $this->assertSame('*not bold*', trim(CarveConverter::ansi()->convert('!`*not bold*`')));
     }
 
     public function testTypographyKeptVerbatimInNonHtmlTargets(): void
     {
-        $source = '`a -- b ... "q"`{!}';
+        $source = '!`a -- b ... "q"`';
         $this->assertSame('a -- b ... "q"', trim(CarveConverter::markdown()->convert($source)));
         $this->assertSame('a -- b ... "q"', trim(CarveConverter::plainText()->convert($source)));
         $this->assertSame('a -- b ... "q"', trim(CarveConverter::ansi()->convert($source)));
@@ -166,7 +178,7 @@ class InlineLiteralTest extends TestCase
     {
         // A code span is colorized; the literal is prose, not code.
         $this->assertNotSame('x', trim(CarveConverter::ansi()->convert('`x`')));
-        $this->assertSame('x', trim(CarveConverter::ansi()->convert('`x`{!}')));
+        $this->assertSame('x', trim(CarveConverter::ansi()->convert('!`x`')));
     }
 
     // ==================== Heading id / slug contribution ====================
@@ -177,13 +189,13 @@ class InlineLiteralTest extends TestCase
         // Ids are case-preserving; the crossref folds case-insensitively.
         $this->assertSame(
             "<section id=\"Cat\">\n  <h1>Cat</h1>\n  <p>See <a href=\"#Cat\">Cat</a></p>\n</section>",
-            $this->html("# `Cat`{!}\n\nSee </#cat>"),
+            $this->html("# !`Cat`\n\nSee </#cat>"),
         );
     }
 
     public function testSlugsExactlyLikeTheEquivalentCodeSpan(): void
     {
-        $literal = $this->html("# `Cat`{!}\n\nSee </#cat>");
+        $literal = $this->html("# !`Cat`\n\nSee </#cat>");
         $code = $this->html("# `Cat`\n\nSee </#cat>");
         $strip = static fn (string $html): string => (string)preg_replace('#</?code>#', '', $html);
         $this->assertSame($strip($code), $strip($literal));
@@ -191,7 +203,7 @@ class InlineLiteralTest extends TestCase
 
     public function testCombinesWithSurroundingHeadingText(): void
     {
-        $this->assertStringContainsString('id="The-kaet-sound"', $this->html('# The `/kaet/`{!} sound'));
+        $this->assertStringContainsString('id="The-kaet-sound"', $this->html('# The !`/kaet/` sound'));
     }
 
     // ==================== Carve serialization (fmt) ====================
@@ -202,13 +214,13 @@ class InlineLiteralTest extends TestCase
     public static function fmtCases(): array
     {
         return [
-            'bare' => ['`/kaet/`{!}'],
-            'class' => ['`/kaet/`{! .ipa}'],
-            'class-id' => ['`/kaet/`{! .ipa #cat}'],
-            'mixed' => ['`x`{! .a #b k=v}'],
-            'escaped-content' => ['`a<b>`{!}'],
-            'no-typography' => ['`*not bold*`{!}'],
-            'verbatim-typography' => ['`a -- b ... "q" (c)`{!}'],
+            'bare' => ['!`/kaet/`'],
+            'class' => ['!`/kaet/`{.ipa}'],
+            'class-id' => ['!`/kaet/`{.ipa #cat}'],
+            'mixed' => ['!`x`{.a #b k=v}'],
+            'escaped-content' => ['!`a<b>`'],
+            'no-typography' => ['!`*not bold*`'],
+            'verbatim-typography' => ['!`a -- b ... "q" (c)`'],
         ];
     }
 
@@ -220,20 +232,20 @@ class InlineLiteralTest extends TestCase
 
     public function testFmtWidensBacktickFenceWhenContentContainsBackticks(): void
     {
-        $this->assertSame('``a`b``{!}', trim(CarveConverter::toCarve('``a`b``{!}')));
-        $this->assertSame('```a``b```{!}', trim(CarveConverter::toCarve('```a``b```{!}')));
+        $this->assertSame('!``a`b``', trim(CarveConverter::toCarve('!``a`b``')));
+        $this->assertSame('!```a``b```', trim(CarveConverter::toCarve('!```a``b```')));
         // Content that starts/ends with a backtick gets the padding spaces back.
-        $this->assertSame('`` `x` ``{!}', trim(CarveConverter::toCarve('`` `x` ``{!}')));
+        $this->assertSame('!`` `x` ``', trim(CarveConverter::toCarve('!`` `x` ``')));
     }
 
     public function testFmtIsIdempotent(): void
     {
         $cases = [
-            '`/kaet/`{!}',
-            '`/kaet/`{! .ipa #cat}',
-            '`x`{! .a #b k=v}',
-            '``a`b``{!}',
-            'The word cat is `/kaet/`{!} in IPA',
+            '!`/kaet/`',
+            '!`/kaet/`{.ipa #cat}',
+            '!`x`{.a #b k=v}',
+            '!``a`b``',
+            'The word cat is !`/kaet/` in IPA',
         ];
         foreach ($cases as $source) {
             $once = CarveConverter::toCarve($source);
@@ -244,17 +256,17 @@ class InlineLiteralTest extends TestCase
     public function testFmtPreservesToHtmlInvariant(): void
     {
         $cases = [
-            '`/kaet/`{!}',
-            '`/kaet/`{! .ipa #cat}',
-            '`x`{! .a #b k=v}',
-            '`a<b>`{!}',
-            '`*not bold*`{!}',
-            '`a -- b ... "q" (c)`{!}',
-            '``a`b``{!}',
-            'The word cat is `/kaet/`{!} in IPA',
+            '!`/kaet/`',
+            '!`/kaet/`{.ipa #cat}',
+            '!`x`{.a #b k=v}',
+            '!`a<b>`',
+            '!`*not bold*`',
+            '!`a -- b ... "q" (c)`',
+            '!``a`b``',
+            'The word cat is !`/kaet/` in IPA',
             // The unchanged neighbours must keep the invariant too.
             '`x`{.ipa}',
-            '`x`{.ipa !}',
+            '\\!`x`',
             '[t](/u){!}',
         ];
         foreach ($cases as $source) {
@@ -284,8 +296,8 @@ class InlineLiteralTest extends TestCase
         foreach ([Profile::comment(), Profile::minimal(), Profile::article(), Profile::full()] as $profile) {
             $converter = new CarveConverter(profile: $profile);
             // Its attributes render exactly as an attributed code span's would.
-            $this->assertSame('<p><span class="ipa">x</span></p>', trim($converter->convert('`x`{! .ipa}')));
-            $this->assertSame('<p>x</p>', trim($converter->convert('`x`{!}')));
+            $this->assertSame('<p><span class="ipa">x</span></p>', trim($converter->convert('!`x`{.ipa}')));
+            $this->assertSame('<p>x</p>', trim($converter->convert('!`x`')));
             // Parity: the attributed code span it is a variant of is likewise allowed.
             $this->assertSame('<p><code class="ipa">x</code></p>', trim($converter->convert('`x`{.ipa}')));
         }
@@ -298,8 +310,8 @@ class InlineLiteralTest extends TestCase
         $converter = new CarveConverter(profile: $profile);
         // Denying code demotes the literal to plain text just as it does a code span.
         $this->assertSame('<p>x</p>', trim($converter->convert('`x`')));
-        $this->assertSame('<p>x</p>', trim($converter->convert('`x`{!}')));
-        $this->assertSame('<p>hi</p>', trim($converter->convert('`hi`{! .ipa}')));
+        $this->assertSame('<p>x</p>', trim($converter->convert('!`x`')));
+        $this->assertSame('<p>hi</p>', trim($converter->convert('!`hi`{.ipa}')));
     }
 
     public function testSpaceSurroundedVerbatimStaysFmtIdempotent(): void
@@ -308,7 +320,7 @@ class InlineLiteralTest extends TestCase
         // stripped by one space each side at parse; fmt must pad it back so the
         // strip is reversible. Shared renderCode fix -> holds for code spans and
         // literals alike.
-        $cases = ['``  x  ``{!}', '``  x  ``{.foo}', '``  x  ``', '`` x``{!}', '``x ``{!}'];
+        $cases = ['!``  x  ``', '``  x  ``{.foo}', '``  x  ``', '!`` x``', '!``x ``'];
         foreach ($cases as $source) {
             $once = $this->converter->toCarve($source);
             $this->assertSame($this->converter->convert($source), $this->converter->convert($once), "fmt invariant: $source");

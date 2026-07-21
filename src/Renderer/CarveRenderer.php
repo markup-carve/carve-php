@@ -778,18 +778,16 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Serialize an inline literal back to `` `content`{!} `` / `` `content`{!
-     * .cls #id} `` (grammar PART 9 §27). The sigil is always the first token;
-     * further attributes follow it separated by a space (the grammar requires
-     * that separation). renderCode widens the backtick fence when the content
-     * holds backticks, so the round-trip is byte-stable and idempotent.
+     * Serialize an inline literal back to `` !`content` `` / `` !`content`{.cls
+     * #id} `` (grammar PART 9 §27): a `!` prefix on a verbatim span, mirroring
+     * the `$`-math prefix. A trailing attribute block is the ordinary inline
+     * attribute block (as a code span carries). renderCode widens the backtick
+     * fence when the content holds backticks, so the round-trip is byte-stable
+     * and idempotent.
      */
     protected function renderLiteralInline(LiteralInline $node): string
     {
-        $attrs = $this->renderAttrs($node);
-        $inner = $attrs === '' ? '!' : '! ' . substr($attrs, 1, -1);
-
-        return $this->renderCode($node->getContent()) . '{' . $inner . '}';
+        return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
     }
 
     protected function renderCode(string $content): string

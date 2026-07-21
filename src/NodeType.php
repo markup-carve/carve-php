@@ -182,7 +182,7 @@ final class NodeType
     public const RAW_INLINE = 'raw_inline';
 
     /**
-     * Inline literal (Carve: `` `content`{!} ``, grammar PART 9 §27).
+     * Inline literal (Carve: `` !`content` ``, grammar PART 9 §27).
      *
      * @var string
      */

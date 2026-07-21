@@ -710,6 +710,21 @@ class InlineParser
                 }
             }
 
+            // Inline literal: !`...` (PART 9 §27) — mirrors the $`...` math
+            // prefix. Tried before the image branch; `!` still binds to `[`
+            // for images and stays literal text everywhere else.
+            if ($char === '!' && $nextChar === '`') {
+                $result = $this->parseLiteralInline($text, $pos);
+                if ($result !== null) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $parent->appendChild($result['node']);
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+            }
+
             // Image: ![alt](src)
             if ($char === '!' && $nextChar === '[') {
                 $this->flushText($parent, $textBuffer);
@@ -1591,7 +1606,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline|\MarkupCarve\Carve\Node\Inline\LiteralInline, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline, pos: int}|null
      */
     protected function parseCodeSpan(string $text, int $pos): ?array
     {
@@ -1679,35 +1694,6 @@ class InlineParser
                     // Mixed attributes like {=html #id} - treat attribute block as literal text
                     // Don't parse as trailing attributes either
                 }
-            }
-
-            // Check for inline literal: `...`{!} / `...`{! .cls #id} (PART 9
-            // §27). The `!` MUST be the first token in the block; any further
-            // attribute must be whitespace-separated from it (so `{!.ipa}` does
-            // NOT match here and, `!` being an invalid attribute identifier,
-            // stays literal via the strict attribute rule). The verbatim span
-            // content is HTML-escaped and emitted by every renderer, unlike raw
-            // inline's target-routed passthrough; the `<code>` wrapper is
-            // dropped because it is prose, not code.
-            $hasLiteralAttempt = !$hasRawInlineAttempt && $afterClose < $length && $text[$afterClose] === '{';
-            if (
-                $hasLiteralAttempt && preg_match(
-                    '/\G\{[ \t]*!((?:[ \t](?:[^}"\'\n]|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')*)?)\}/',
-                    $text,
-                    $litMatches,
-                    0,
-                    $afterClose,
-                ) && $this->isValidAttrPayload($litMatches[1])
-            ) {
-                $literal = new LiteralInline($content);
-                if (trim($litMatches[1]) !== '') {
-                    $this->applyAttributesToNode($literal, $litMatches[1]);
-                }
-
-                return [
-                    'node' => $literal,
-                    'pos' => $afterClose + strlen($litMatches[0]),
-                ];
             }
 
             $code = new Code($content);
@@ -3514,6 +3500,93 @@ class InlineParser
         // A trailing `{...}` applies attributes to the math span (math reuses the
         // code-span attribute slot). EXCEPT `{=format}`, the raw-inline form,
         // which is code-span-only and not inherited by math: leave it literal.
+        $endPos = $closePos + $backtickCount;
+        $isRawAttempt = $endPos + 1 < $length && $text[$endPos] === '{' && $text[$endPos + 1] === '=';
+        if (!$isRawAttempt && $endPos < $length && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
+        return [
+            'node' => $node,
+            'pos' => $endPos,
+        ];
+    }
+
+    /**
+     * Inline literal (PART 9 §27): a `!` prefix on a verbatim code span,
+     * mirroring the `$`-math prefix (`literal_inline = '!', code_span`). The
+     * span content is captured verbatim with the code-span single-space strip,
+     * then HTML-escaped and emitted by every renderer with the `<code>` wrapper
+     * dropped -- it is prose, not code. A trailing `{...}` is the ORDINARY
+     * attribute block (as a code span carries), NOT the raw `{=format}` form.
+     * Requires a CLOSED span: a bare `!` before an unclosed run stays literal
+     * text and the run becomes an ordinary (unclosed) code span, exactly as a
+     * bare `$` before an unclosed run behaves.
+     *
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\LiteralInline, pos: int}|null
+     */
+    protected function parseLiteralInline(string $text, int $pos): ?array
+    {
+        $length = strlen($text);
+
+        // $pos is the `!`; the backtick run must start immediately after it.
+        $startPos = $pos + 1;
+        if ($startPos >= $length || $text[$startPos] !== '`') {
+            return null;
+        }
+
+        $backtickCount = 0;
+        while ($startPos + $backtickCount < $length && $text[$startPos + $backtickCount] === '`') {
+            $backtickCount++;
+        }
+
+        $contentStart = $startPos + $backtickCount;
+
+        // Find a closing run of EXACTLY $backtickCount backticks that is not
+        // part of a LONGER run (mirrors the code span / math). An unclosed run
+        // is NOT a literal -- return null so the `!` stays literal text.
+        $closingBackticks = str_repeat('`', $backtickCount);
+        $searchPos = $contentStart;
+        $closePos = false;
+        while ($searchPos < $length) {
+            $cand = strpos($text, $closingBackticks, $searchPos);
+            if ($cand === false) {
+                break;
+            }
+            $before = $cand > 0 ? $text[$cand - 1] : '';
+            $after = $cand + $backtickCount < $length ? $text[$cand + $backtickCount] : '';
+            if ($before === '`' || $after === '`') {
+                $searchPos = $cand;
+                while ($searchPos < $length && $text[$searchPos] === '`') {
+                    $searchPos++;
+                }
+
+                continue;
+            }
+            $closePos = $cand;
+
+            break;
+        }
+
+        if ($closePos === false) {
+            return null;
+        }
+
+        $content = substr($text, $contentStart, $closePos - $contentStart);
+
+        // Code-span single-space strip: drop one leading and one trailing space
+        // when the closed span is space-wrapped but not entirely spaces.
+        if (strlen($content) >= 2 && $content[0] === ' ' && $content[strlen($content) - 1] === ' ') {
+            if (strspn($content, ' ') !== strlen($content)) {
+                $content = substr($content, 1, -1);
+            }
+        }
+
+        $node = new LiteralInline($content);
+
+        // A trailing `{...}` is the ordinary attribute block, EXCEPT the raw
+        // `{=format}` form, which is code-span-only and not inherited here:
+        // leave it literal (mirrors math).
         $endPos = $closePos + $backtickCount;
         $isRawAttempt = $endPos + 1 < $length && $text[$endPos] === '{' && $text[$endPos + 1] === '=';
         if (!$isRawAttempt && $endPos < $length && $text[$endPos] === '{') {
