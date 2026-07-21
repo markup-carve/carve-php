@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -213,12 +214,88 @@ class CodeFenceHeaderTest extends TestCase
         );
     }
 
-    public function testReferencePrepassKnownLimitationForListNestedFence(): void
+    public static function referencePrepassListNestedFenceProvider(): array
     {
-        // The reference-definition prepass has no list content-column context.
-        // It therefore avoids opening a synthetic fence on `- ````, which means
-        // this definition is intentionally still collected from the sample.
-        $html = $this->converter->convert("[x][r]\n\n- ```\n  [r]: /u\n  ```\n");
+        return [
+            'fence on bullet marker line' => ["- ```\n  [r]: /u\n  ```\n\n[r][]"],
+            'bullet item' => ["- one\n  ```\n  [r]: /u\n  ```\n\n[r][]"],
+            'decimal ordered item' => ["1. one\n   ```\n   [r]: /u\n   ```\n\n[r][]"],
+            'alpha ordered item' => ["a. one\n   ```\n   [r]: /u\n   ```\n\n[r][]"],
+            'roman ordered item' => ["i. one\n   ```\n   [r]: /u\n   ```\n\n[r][]"],
+            'attributed bullet item' => ["-{.c} one\n      ```\n      [r]: /u\n      ```\n\n[r][]"],
+        ];
+    }
+
+    #[DataProvider('referencePrepassListNestedFenceProvider')]
+    public function testReferencePrepassSkipsDefinitionsInListNestedFence(string $source): void
+    {
+        $html = $this->converter->convert($source);
+
+        $this->assertStringNotContainsString('<a href="/u">', $html);
+        $this->assertStringContainsString('[r][]', $html);
+    }
+
+    public static function referencePrepassFenceCloserAsymmetryProvider(): array
+    {
+        return [
+            'literal bullet marker in document fence' => ["```\n- ```\n[r]: /u\n```\n\n[r][]"],
+            'literal blockquote marker in document fence' => ["```\n> ```\n[r]: /u\n```\n\n[r][]"],
+            'literal ordered marker in document fence' => ["```\n1. ```\n[r]: /u\n```\n\n[r][]"],
+            'quoted fence' => ["> ```\n> [r]: /u\n> ```\n\n[r][]"],
+        ];
+    }
+
+    #[DataProvider('referencePrepassFenceCloserAsymmetryProvider')]
+    public function testReferencePrepassSkipsDefinitionsInsideFences(string $source): void
+    {
+        $html = $this->converter->convert($source);
+
+        $this->assertStringNotContainsString('<a href="/u">', $html);
+        $this->assertStringContainsString('[r][]', $html);
+    }
+
+    public static function referencePrepassCollectsDefinitionAfterFenceProvider(): array
+    {
+        return [
+            'quoted fence in bullet item' => ["- > ```\n  > code\n  > ```\n\n[r]: /u\n\n[r][]"],
+            'quoted fence in task item' => ["- [ ] > ```\n  > code\n  > ```\n\n[r]: /u\n\n[r][]"],
+        ];
+    }
+
+    #[DataProvider('referencePrepassCollectsDefinitionAfterFenceProvider')]
+    public function testReferencePrepassCollectsDefinitionsAfterQuotedListFences(string $source): void
+    {
+        $html = $this->converter->convert($source);
+
+        $this->assertStringContainsString('<a href="/u">r</a>', $html);
+    }
+
+    public function testReferencePrepassSkipsDefinitionsInFenceNestedTwoListsDeep(): void
+    {
+        $html = $this->converter->convert("- one\n  - two\n    ```\n    [r]: /u\n    ```\n\n[r][]");
+
+        $this->assertStringNotContainsString('<a href="/u">', $html);
+        $this->assertStringContainsString('[r][]', $html);
+    }
+
+    public function testReferencePrepassSkipsExplicitReferenceDefinitionInFenceOnMarkerLine(): void
+    {
+        $html = $this->converter->convert("- ```\n  [r]: /nope\n  ```\n\n[x][r]");
+
+        $this->assertStringNotContainsString('<a href="/nope">', $html);
+        $this->assertStringContainsString('[x][r]', $html);
+    }
+
+    public function testReferencePrepassStillCollectsDefinitionAfterDocumentIndentedRun(): void
+    {
+        $html = $this->converter->convert(" ```\n[r]: /u\n\n[x][r]");
+
+        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+    }
+
+    public function testReferencePrepassStillCollectsForwardReferenceDefinition(): void
+    {
+        $html = $this->converter->convert("[x][r]\n\n[r]: /u");
 
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
