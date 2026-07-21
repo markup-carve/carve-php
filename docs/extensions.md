@@ -89,10 +89,12 @@ the floor.
 
 ### The `renderers` map (client-script extensions)
 
-Client-script extensions (mermaid, chart, math) cannot produce their visual
-inside the engine. A static render therefore accepts a **renderers** map of
-`source -> string` callables keyed by extension name. When the needed renderer
-is absent, the static path falls back to source, never blank.
+Client-script extensions (mermaid, chart, plantuml, math, …) cannot produce
+their visual inside the engine. A static render therefore accepts a
+**renderers** map of `source -> string` callables. The map is **open**: a
+diagram renderer is keyed by the fence's css class, so a custom `FencedRender`
+fence word is static-capable with no engine change. When the needed renderer is
+absent, the static path falls back to source, never blank.
 
 ~~~ php
 use MarkupCarve\Carve\CarveConverter;
@@ -101,6 +103,8 @@ use MarkupCarve\Carve\Renderer\RenderMode;
 $converter = new CarveConverter(mode: RenderMode::STATIC, renderers: [
     'math' => fn (string $tex): string => $katex->renderToString($tex),
     'mermaid' => fn (string $src): string => $mmdc->renderSvg($src),
+    // a custom fence word works the same way, keyed by its css class:
+    'myuml' => fn (string $src): string => $myuml->renderSvg($src),
 ]);
 // or: $converter->setRenderers([...]);
 ~~~
@@ -776,7 +780,8 @@ Content modes:
   > ~~~
 
 Built-in presets (each a one-line factory): `mermaid()`, `d2()`, `graphviz()`
-(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `vegaLite()`, `chart()`.
+(claims `dot` + `graphviz`), `wavedrom()`, `abc()`, `plantuml()` (claims
+`plantuml` + `puml`), `vegaLite()`, `chart()`.
 
 ~~~ php
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -805,7 +810,8 @@ $converter->addExtensions([
 
 > [!NOTE]
 > `presets()` claims every preset fence word (`mermaid`, `d2`, `dot`,
-> `graphviz`, `wavedrom`, `abc`, `vega-lite`, `chart`), so a literal code sample
+> `graphviz`, `wavedrom`, `abc`, `plantuml`, `puml`, `vega-lite`, `chart`), so a
+> literal code sample
 > in one of those languages becomes a hydration element. Register only the
 > presets whose client library you actually load if that matters.
 
@@ -824,11 +830,23 @@ and hand it to the library. The library to load per built-in preset:
 | `graphviz()` | `dot`, `graphviz` | text | viz.js / d3-graphviz |
 | `wavedrom()` | `wavedrom` | text | wavedrom.js |
 | `abc()` | `abc` | text | abcjs |
+| `plantuml()` | `plantuml`, `puml` | text | `@plantuml/core` (TeaVM build, runs in the browser without Java) |
 | `vegaLite()` | `vega-lite` | json | vega-embed |
 | `chart()` | `chart` | json | Chart.js |
 
 (`MathBlockExtension` shares the shape for ` ``` math ` fences; load KaTeX or
 MathJax.)
+
+> [!NOTE]
+> Payload cost, PlantUML vs Mermaid. Both hydrate fully offline (load the file
+> locally, no CDN). `@plantuml/core` is roughly **~2 MB gzipped** - about double
+> Mermaid's **~0.95 MB** - because it bundles Graphviz (`viz.js`, ~0.6 MB gz) to
+> lay out class / component / deployment diagrams; `plantuml.js` itself is
+> ~1.4 MB gz. Sequence diagrams render to SVG without the layout engine, so a
+> sequence-only page is lighter. Load PlantUML only on pages that use the UML
+> types Mermaid cannot draw (use case, component, deployment, timing); prefer
+> Mermaid where it suffices. (Sizes are the shipped browser builds, not npm's
+> `unpackedSize`, which is dominated by source maps and inverts the comparison.)
 
 Text-mode hydration reads `textContent` (Graphviz shown):
 

@@ -179,6 +179,17 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     }
 
     /**
+     * PlantUML preset (text mode); claims both `plantuml` and `puml`.
+     *
+     * Covers the UML shapes Mermaid does not (use case, component, deployment,
+     * timing). Load a client-side PlantUML build to render the diagrams.
+     */
+    public static function plantuml(): self
+    {
+        return new self(language: ['plantuml', 'puml'], cssClass: 'plantuml');
+    }
+
+    /**
      * Vega-Lite preset (json mode, `<div class="vega-lite"><script ...>`).
      */
     public static function vegaLite(): self
@@ -200,7 +211,8 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
      * Convenience for turning on all built-in fence languages at once, e.g.
      * `$converter->addExtensions(FencedRenderExtension::presets())`. This claims
      * every preset fence word (`mermaid`, `d2`, `dot`, `graphviz`, `wavedrom`,
-     * `abc`, `vega-lite`, `chart`), so a literal code sample in one of those
+     * `abc`, `plantuml`, `puml`, `vega-lite`, `chart`), so a literal code sample
+     * in one of those
      * languages becomes a hydration element; register only the presets whose
      * client library you actually load if that matters.
      *
@@ -214,6 +226,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
             self::graphviz(),
             self::wavedrom(),
             self::abc(),
+            self::plantuml(),
             self::vegaLite(),
             self::chart(),
         ];
@@ -243,7 +256,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
 
     /**
      * Static render: a build-rendered image if a renderer keyed by this
-     * instance's cssClass is supplied (e.g. `mermaid`, `chart`, `graphviz`), else the
+     * instance's cssClass is supplied (e.g. `mermaid`, `chart`, `graphviz`, `plantuml`), else the
      * diagram source preserved as a readable code block (never blank). A
      * client library cannot run in a static target, so the interactive
      * hydration element would otherwise stay empty.
