@@ -29,6 +29,11 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      # Runs the full PHPUnit suite, which includes the cross-engine
+      # include-conformance GATE (tests/TestCase/Transform/IncludeConformanceTest.php).
+      # That gate reads the vendored vectors under tests/spec/tests/include-conformance/,
+      # so `submodules: recursive` above is REQUIRED - without it the runner fails
+      # loudly rather than skipping.
       - name: Run tests
         run: vendor/bin/phpunit
 
