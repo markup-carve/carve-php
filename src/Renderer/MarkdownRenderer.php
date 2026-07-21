@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -236,6 +237,11 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof RawInline => $this->renderRawInline($node),
+                // §27: emitted by EVERY renderer, never dropped. It is prose,
+                // not code, so no code fence -- the content becomes literal
+                // text with Markdown metacharacters escaped so `*not bold*`
+                // stays visible as authored.
+                $node instanceof LiteralInline => $this->escapeText($this->stripControls($node->getContent())),
                 $node instanceof RawText => $this->escapeText($this->stripControls($node->getContent())),
                 default => $this->renderChildren($node),
             };

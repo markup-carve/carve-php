@@ -182,6 +182,13 @@ final class NodeType
     public const RAW_INLINE = 'raw_inline';
 
     /**
+     * Inline literal (Carve: `` !`content` ``, grammar PART 9 §27).
+     *
+     * @var string
+     */
+    public const LITERAL_INLINE = 'literal_inline';
+
+    /**
      * @var string
      */
     public const ESCAPED_TEXT = 'escaped_text';
@@ -297,6 +304,7 @@ final class NodeType
             self::SOFT_BREAK,
             self::HARD_BREAK,
             self::RAW_INLINE,
+            self::LITERAL_INLINE,
             self::ESCAPED_TEXT,
             self::FOOTNOTE_REF,
             self::INLINE_FOOTNOTE,

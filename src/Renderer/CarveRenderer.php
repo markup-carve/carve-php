@@ -43,6 +43,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -692,6 +693,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->renderMath($node)),
             $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof LiteralInline => $this->renderLiteralInline($node),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
@@ -775,11 +777,34 @@ class CarveRenderer implements RendererInterface
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
 
+    /**
+     * Serialize an inline literal back to `` !`content` `` / `` !`content`{.cls
+     * #id} `` (grammar PART 9 §27): a `!` prefix on a verbatim span, mirroring
+     * the `$`-math prefix. A trailing attribute block is the ordinary inline
+     * attribute block (as a code span carries). renderCode widens the backtick
+     * fence when the content holds backticks, so the round-trip is byte-stable
+     * and idempotent.
+     */
+    protected function renderLiteralInline(LiteralInline $node): string
+    {
+        return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
+    }
+
     protected function renderCode(string $content): string
     {
         $fence = $this->safeFence($content, 1);
 
-        return str_starts_with($content, '`') || str_ends_with($content, '`')
+        // The parser strips one leading and one trailing space from a verbatim
+        // span whose content BOTH begins and ends with a space, and a single
+        // space around backtick-adjacent content. Pad in those cases so the
+        // strip is reversible and fmt stays idempotent; the padding sits inside
+        // the fence, so a trailing attribute block still attaches to the closing
+        // run. One-sided space is left as-is (the parser only strips both sides).
+        $needsPad = str_starts_with($content, '`')
+            || str_ends_with($content, '`')
+            || (str_starts_with($content, ' ') && str_ends_with($content, ' '));
+
+        return $needsPad
             ? $fence . ' ' . $content . ' ' . $fence
             : $fence . $content . $fence;
     }

@@ -470,6 +470,16 @@ class Profile
      */
     public function isTypeAllowed(string $type): bool
     {
+        // An inline literal is a code span with the `<code>` wrapper dropped
+        // (§27): same verbatim capture, same escaping, same trailing-attribute
+        // surface. Classify it as `code` so it is allowed exactly where a code
+        // span is and denied where code is -- with attributes it renders a
+        // `<span>` carrying class/id just as an attributed code span does, so
+        // it belongs with `code`, not plain text.
+        if ($type === NodeType::LITERAL_INLINE) {
+            $type = NodeType::CODE;
+        }
+
         // Check inline types
         if (in_array($type, NodeType::allInlineTypes(), true)) {
             return $this->isInlineAllowed($type);
