@@ -584,56 +584,135 @@ class BlockParser
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
         $pendingAttrsInList = false;
-        // Track open fenced code blocks so `[r]: /u` shown inside a top-level
-        // code sample is not collected as a real def.
-        //
-        // This prepass has no reliable container-column context. Under the
-        // strict fence rule, it must therefore only recognize a fence when
-        // there is no residual leading whitespace. That may collect a
-        // definition shown inside a list-nested fence (a spurious link), but it
-        // avoids the unsafe opposite: opening a fence the block parser will not
-        // open and swallowing every later definition as code content.
+        // Track open fenced code blocks so `[r]: /u` shown inside a code
+        // sample is not collected as a real def.
         $fenceChar = null;
         $fenceLen = 0;
-        $activeListContentIndent = null;
+        $fenceContentCol = 0;
+        $fenceQuoted = false;
+        // Track the enclosing list item's content column so a fenced-code
+        // delimiter is tested at that column, not blindly at document column 0.
+        //
+        // RESIDUAL: this prepass is still a line-based approximation. It
+        // char-counts tabs, does not model the post-blank baseIndent+2
+        // continuation rule, and does not fully model lists nested inside
+        // blockquotes. Those cases can still produce a spurious link, not
+        // content loss. The sound fix is collecting defs during block parsing.
+        $listContentCols = [];
+        $prevBlank = true;
 
         while ($i < $count) {
             $line = $lines[$i];
+            $wasPrevBlank = $prevBlank;
+            $prevBlank = trim($line) === '';
 
-            if (IndentationHelper::isBlankLine($line)) {
-                $activeListContentIndent = null;
-            } elseif (preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/', $line, $lm) === 1) {
-                $activeListContentIndent = strlen($lm[0]);
-            } elseif (
-                $activeListContentIndent !== null
-                && strlen($line) - strlen(ltrim($line, " \t")) < $activeListContentIndent
-            ) {
-                $activeListContentIndent = null;
+            if ($fenceChar === null) {
+                $indent = strlen($line) - strlen(ltrim($line, " \t"));
+                $rawTrimmed = trim($line);
+                $startsBlock = preg_match('/^#{1,6}([ \t]|$)/', $rawTrimmed) === 1
+                    || str_starts_with($rawTrimmed, '>')
+                    || preg_match('/^(`{3,}|~{3,})/', $rawTrimmed) === 1
+                    || preg_match('/^(-{3,}|\*{3,}|_{3,})$/', $rawTrimmed) === 1;
+
+                if (
+                    preg_match(
+                        '/^([ \t]*)(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +/',
+                        $line,
+                        $lm,
+                    ) === 1
+                    && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
+                ) {
+                    $markerIndent = strlen($lm[1]);
+                    while ($listContentCols !== [] && $listContentCols[array_key_last($listContentCols)] > $markerIndent) {
+                        array_pop($listContentCols);
+                    }
+                    $listContentCols[] = strlen($lm[0]);
+                } elseif ($rawTrimmed !== '' && ($wasPrevBlank || $startsBlock)) {
+                    while ($listContentCols !== [] && $listContentCols[array_key_last($listContentCols)] > $indent) {
+                        array_pop($listContentCols);
+                    }
+                }
             }
+
+            $contentCol = $listContentCols === [] ? 0 : $listContentCols[array_key_last($listContentCols)];
+            // A fence is quoted if a blockquote prefix leads the line,
+            // possibly behind one list/task marker (`- > ````, `- [ ] > ```).
+            $afterMarker = preg_replace(
+                '/^([ \t]*)(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?/',
+                '',
+                $line,
+            ) ?? $line;
+            $rawIsQuoted = preg_match('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', $line) === 1
+                || preg_match('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', $afterMarker) === 1;
+
+            // OPENER view: strip container prefixes (blockquote AND list
+            // marker) and re-base to the current content column.
+            $fenceLine = $line;
+            do {
+                $previousFenceLine = $fenceLine;
+                if (($fenceLine[0] ?? '') === '>' && preg_match('/^> ?/', $fenceLine)) {
+                    $fenceLine = preg_replace('/^> ?/', '', $fenceLine) ?? $fenceLine;
+                }
+                $f0 = $fenceLine[0] ?? '';
+                $afterFenceMarker = (
+                    $f0 === ' '
+                    || $f0 === "\t"
+                    || $f0 === '-'
+                    || $f0 === '*'
+                    || ($f0 >= '0' && $f0 <= '9')
+                    || ($f0 >= 'a' && $f0 <= 'z')
+                    || ($f0 >= 'A' && $f0 <= 'Z')
+                )
+                    ? (preg_replace(
+                        '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+                        '',
+                        $fenceLine,
+                    ) ?? $fenceLine)
+                    : $fenceLine;
+                if ($afterFenceMarker !== $fenceLine) {
+                    $fenceLine = $afterFenceMarker;
+                }
+            } while ($fenceLine !== $previousFenceLine);
+            $keptIndent = strlen($fenceLine) - strlen(ltrim($fenceLine, " \t"));
+            $deIndentedFenceLine = $keptIndent >= $contentCol ? substr($fenceLine, $contentCol) : $fenceLine;
 
             // Fenced-code opacity: definitions inside ``` / ~~~ blocks
             // are literal samples, never registered.
             if ($fenceChar !== null) {
+                // CLOSER view: only quoted fences strip blockquote prefixes,
+                // and list markers are never stripped. A real fence closer is
+                // a continuation line of pure indentation.
+                $closeLine = $fenceQuoted
+                    ? (preg_replace('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', '', $line) ?? $line)
+                    : $line;
+                $closeIndent = strlen($closeLine) - strlen(ltrim($closeLine, " \t"));
+                $deIndentedCloseLine = $closeIndent >= $fenceContentCol
+                    ? substr($closeLine, $fenceContentCol)
+                    : $closeLine;
                 if (
-                    preg_match('/^([`~]{3,})\s*$/', $line, $fm)
+                    preg_match('/^([`~]{3,})\s*$/', $deIndentedCloseLine, $fm)
                     && $fm[1][0] === $fenceChar
                     && strlen($fm[1]) >= $fenceLen
                 ) {
                     $fenceChar = null;
                     $fenceLen = 0;
+                    $fenceContentCol = 0;
+                    $fenceQuoted = false;
                 }
                 $i++;
 
                 continue;
             }
             // Fast guard: a strict fence opener begins with a backtick or tilde.
-            $c0 = $line[0] ?? '';
+            $c0 = $deIndentedFenceLine[0] ?? '';
             if (
                 ($c0 === '`' || $c0 === '~')
-                && preg_match('/^([`~]{3,})/', $line, $fm)
+                && preg_match('/^([`~]{3,})/', $deIndentedFenceLine, $fm)
             ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
+                $fenceContentCol = $contentCol;
+                $fenceQuoted = $rawIsQuoted;
                 $i++;
 
                 continue;
@@ -683,10 +762,10 @@ class BlockParser
             } while ($bare !== $previousBare);
             if (
                 !$inList
-                && $activeListContentIndent !== null
-                && strlen($line) - strlen(ltrim($line, " \t")) >= $activeListContentIndent
+                && $contentCol > 0
+                && strlen($line) - strlen(ltrim($line, " \t")) >= $contentCol
             ) {
-                $bare = substr($line, $activeListContentIndent);
+                $bare = substr($line, $contentCol);
                 $inList = true;
             }
 
