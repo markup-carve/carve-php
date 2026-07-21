@@ -236,6 +236,19 @@ class IncludeExpander implements TransformerInterface
                 continue;
             }
 
+            if ($child instanceof Heading) {
+                // A heading holds INLINE content, so a directive in it expands
+                // as inline (I2), never as a block. Its children are replaced in
+                // place here, before render, so the heading text - and the id
+                // slugged from that text at render time - both come from the
+                // resolved content, matching carve-js / carve-rs. Without this a
+                // heading's inline run never reached the scan and the reader saw
+                // the literal `{{ ... }}`.
+                $this->expandInlineRuns($child, $currentPath, $stack, $depth, $budget);
+
+                continue;
+            }
+
             $this->expandChildren($child, $currentPath, $stack, $depth, $budget);
         }
     }

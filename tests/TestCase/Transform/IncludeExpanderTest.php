@@ -574,6 +574,104 @@ class IncludeExpanderTest extends TestCase
         $this->assertStringContainsString("no section '#nope'", $expander->getWarnings()[0]->getMessage());
     }
 
+    /**
+     * A directive inside a heading's inline content expands: the rendered
+     * heading text AND the slug id both come from the resolved content, not
+     * from the literal `{{ ... }}`. Byte-identical to carve-js / carve-rs.
+     */
+    public function testDirectiveInsideAHeadingExpandsAndDrivesTheId(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("# {{ title.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['title.crv' => "My Title\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<section id="My-Title">', $html);
+        $this->assertStringContainsString('<h1>My Title</h1>', $html);
+        $this->assertStringNotContainsString('{{ title.crv }}', $html);
+    }
+
+    /**
+     * Two directives amid heading prose each expand in place, and the id is the
+     * slug of the fully resolved heading text.
+     */
+    public function testMultipleDirectivesInAHeadingExpandInPlace(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("# a {{ x.crv }} b {{ y.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['x.crv' => "Xtext\n", 'y.crv' => "Ytext\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<section id="a-Xtext-b-Ytext">', $html);
+        $this->assertStringContainsString('<h1>a Xtext b Ytext</h1>', $html);
+    }
+
+    /**
+     * An explicit heading id still wins over the resolved text (§13): the
+     * include expands into the heading text, but the author's `{#custom}` is
+     * the id.
+     */
+    public function testExplicitHeadingIdWinsOverIncludeText(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("{#custom}\n# a {{ x.crv }} b\n");
+        $expander = new IncludeExpander($this->resolver(['x.crv' => "Xtext\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<section id="custom">', $html);
+        $this->assertStringContainsString('<h1>a Xtext b</h1>', $html);
+    }
+
+    /**
+     * A crossref to a heading whose text came from an include resolves against
+     * the slug of the resolved text.
+     */
+    public function testCrossrefResolvesToAnIncludeTitledHeading(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("# {{ title.crv }}\n\nSee </#My-Title>.\n");
+        $expander = new IncludeExpander($this->resolver(['title.crv' => "My Title\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<a href="#My-Title">My Title</a>', $html);
+    }
+
+    /**
+     * A duplicate heading id produced by two include-titled headings is
+     * deduplicated with the 1-based suffix (§13).
+     */
+    public function testDuplicateIncludeTitledHeadingsDeduplicate(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse("# {{ title.crv }}\n\n# {{ title.crv }}\n");
+        $expander = new IncludeExpander($this->resolver(['title.crv' => "My Title\n"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('<section id="My-Title">', $html);
+        $this->assertStringContainsString('<section id="My-Title-2">', $html);
+    }
+
+    /**
+     * A heading with no directive is byte-unchanged by the expansion pass.
+     */
+    public function testHeadingWithoutADirectiveIsUnchanged(): void
+    {
+        $converter = new CarveConverter();
+        $source = "## Plain Heading\n";
+        $expander = new IncludeExpander($this->resolver(['x.crv' => "Xtext\n"]));
+
+        $withResolver = $converter->render($converter->transform($converter->parse($source), $expander));
+        $withoutResolver = $converter->render($converter->parse($source));
+
+        $this->assertSame($withoutResolver, $withResolver);
+        $this->assertStringContainsString('<section id="Plain-Heading">', $withResolver);
+    }
+
     public function testShiftAppliesToHeadingsFromNestedIncludes(): void
     {
         $converter = CarveConverter::carve();
