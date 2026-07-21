@@ -75,7 +75,7 @@ class InlineMatcherTriggerGatingTest extends TestCase
             static fn ($node): string => $node->getType(),
             $paragraph->getChildren(),
         );
-        $this->assertContains('citation-group', $types);
+        $this->assertContains('citation_group', $types);
     }
 
     public function testCitationLeavesPlainBracketRunAlone(): void
@@ -91,7 +91,7 @@ class InlineMatcherTriggerGatingTest extends TestCase
             static fn ($node): string => $node->getType(),
             $paragraph->getChildren(),
         );
-        $this->assertNotContains('citation-group', $types);
+        $this->assertNotContains('citation_group', $types);
 
         $html = $converter->convert('Just [some bracketed text] here.');
         $this->assertStringContainsString('[some bracketed text]', $html);
