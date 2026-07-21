@@ -744,9 +744,8 @@ class CarveRenderer implements RendererInterface
             // A span that is not shape-well-formed is prose, not a reason to
             // stop: scanning resumes after it so a valid directive later in the
             // same run is still preserved.
-            $parts = IncludeDirectiveSyntax::parse($span);
-            if ($parts !== null) {
-                $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => IncludeDirectiveSyntax::toSource($parts)];
+            if (IncludeDirectiveSyntax::parse($span) !== null) {
+                $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => $this->emitDirective($span)];
             }
             // Each span is at least '{{  }}', so the cursor always advances.
             $cursor = $offset + strlen($span);
@@ -767,6 +766,53 @@ class CarveRenderer implements RendererInterface
             'source' => $out . $this->escapeText(substr($text, $position)),
             'end' => $last,
         ];
+    }
+
+    /**
+     * Serialize one recognized directive by emitting its SOURCE SPAN VERBATIM,
+     * repairing only the damage the core's smart-quotes pass did to a quoted
+     * path. This mirrors carve-js / carve-rs: the author's exact token order,
+     * `#section` position, shift sign and spacing survive formatting unchanged -
+     * a rebuild-from-parts would silently reorder or normalize them.
+     *
+     * The one repair: the parser curls the delimiters of `{{ "my file.crv" }}`
+     * to `{{ "my file.crv" }}` before the serializer sees them, and echoing that
+     * would emit the curled form (which engines accepting only plain quotes read
+     * differently). So a curly-quoted path is rebuilt to plain quotes with its
+     * inner quotes re-escaped; everything outside the path is emitted as-is, with
+     * any straight quote backslash-escaped so smart typography cannot re-curl it
+     * on the next parse (keeping fmt idempotent).
+     */
+    protected function emitDirective(string $raw): string
+    {
+        // A curly-quoted path is the first token after `{{ `; capture its inner
+        // content so the exact `"..."` span can be located and replaced.
+        if (preg_match('/^\{\{ \x{201c}([^\x{201d}]*)\x{201d}/su', $raw, $match) !== 1) {
+            return $this->escapeDirectiveQuotes($raw);
+        }
+
+        $curled = $match[1];
+        $delimited = "\u{201c}" . $curled . "\u{201d}";
+        $at = strpos($raw, $delimited);
+        if ($at === false) {
+            return $this->escapeDirectiveQuotes($raw);
+        }
+
+        $plain = '"' . preg_replace('/(["\\\\])/', '\\\\$1', $curled) . '"';
+
+        return $this->escapeDirectiveQuotes(substr($raw, 0, $at))
+            . $plain
+            . $this->escapeDirectiveQuotes(substr($raw, $at + strlen($delimited)));
+    }
+
+    /**
+     * Backslash-escape any straight quote in a verbatim directive fragment: an
+     * unescaped `"` would be curled by smart typography on the next parse,
+     * changing the path and un-recognizing the directive.
+     */
+    protected function escapeDirectiveQuotes(string $text): string
+    {
+        return str_replace('"', '\\"', $text);
     }
 
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string

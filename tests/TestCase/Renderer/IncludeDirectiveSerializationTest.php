@@ -93,6 +93,65 @@ class IncludeDirectiveSerializationTest extends TestCase
     }
 
     /**
+     * A directive is emitted VERBATIM - its source span unchanged - so the
+     * author's exact token order, `#section` position, shift sign and spacing
+     * survive formatting. A rebuild-from-parts would silently reorder or
+     * normalize them; this matches carve-js / carve-rs byte-for-byte.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('verbatimOrderProvider')]
+    public function testDirectivesArePreservedVerbatimInAuthorOrder(string $source, string $expected): void
+    {
+        $converter = CarveConverter::carve();
+
+        $this->assertSame($expected, $converter->render($converter->parse($source)));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function verbatimOrderProvider(): iterable
+    {
+        // A bad option BEFORE a `#section`: the author's order is kept, not
+        // reordered into section-first canonical form (the previous rebuild
+        // emitted `{{ x.crv #intro @bogus:1 }}` here).
+        yield 'option before section keeps order' => [
+            "{{ x.crv @bogus:1 #intro }}\n",
+            "{{ x.crv @bogus:1 #intro }}\n",
+        ];
+
+        yield 'section before signed shift keeps order' => [
+            "{{ x.crv #intro @shift:+2 }}\n",
+            "{{ x.crv #intro @shift:+2 }}\n",
+        ];
+
+        yield 'shift before section keeps order' => [
+            "{{ x.crv @shift:2 #a }}\n",
+            "{{ x.crv @shift:2 #a }}\n",
+        ];
+
+        // The author's spacing is preserved too - not collapsed to one space.
+        yield 'extra spacing preserved' => [
+            "{{ a.crv    @shift:1 }}\n",
+            "{{ a.crv    @shift:1 }}\n",
+        ];
+
+        // Quote repair still applies: a curled quoted path returns to plain
+        // quotes, with an escaped inner quote re-escaped, even amid options.
+        yield 'escaped inner quote in path' => [
+            "{{ \"a\\\"b.crv\" }}\n",
+            "{{ \"a\\\"b.crv\" }}\n",
+        ];
+
+        yield 'quoted path with escaped quote and options' => [
+            "{{ \"a\\\"b.crv\" #sec @lines:1-2 }}\n",
+            "{{ \"a\\\"b.crv\" #sec @lines:1-2 }}\n",
+        ];
+    }
+
+    /**
      * The point of preserving an invalid run: the warning that explains it must
      * still be there after a formatting pass. Escaping the run silenced it,
      * because escaped text is no longer directive-shaped for the expander.
@@ -317,9 +376,8 @@ class IncludeDirectiveSerializationTest extends TestCase
         $converter = CarveConverter::carve();
         $source = "Intro.\n\n{{ chapter.crv @shift:2 }}\n\nSee {{ \"my file.crv\" }} inline.\n\n"
             . "`{{ literal.crv }}`\n\n{{ oops\n\n{{ child.crv @bogus:1 }}\n\n"
-            // An unrecognized token is re-emitted after the options the
-            // serializer knows how to order, so this run moves once and then
-            // must stand still.
+            // The directive is emitted verbatim, so the author's token order is
+            // preserved unchanged - not reordered into a canonical form.
             . "{{ child.crv @bogus:1 #intro }}\n\n"
             . "Many {{ a.crv }} in {{ b.crv }} one {{ c.crv }} paragraph.\n";
 
@@ -327,7 +385,7 @@ class IncludeDirectiveSerializationTest extends TestCase
         $twice = $converter->render($converter->parse($once));
 
         $this->assertSame($once, $twice);
-        $this->assertStringContainsString('{{ child.crv #intro @bogus:1 }}', $once);
+        $this->assertStringContainsString('{{ child.crv @bogus:1 #intro }}', $once);
     }
 
     /**
