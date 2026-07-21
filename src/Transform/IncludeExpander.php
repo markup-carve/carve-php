@@ -45,6 +45,71 @@ class IncludeExpander implements TransformerInterface
     private const DIRECTIVE_SHAPE = '/^\{\{[^{}]*\}\}$/s';
 
     /**
+     * Stable, host-independent rule ids stamped on every include warning. They
+     * are the machine-readable cross-engine contract (carve-js / carve-php /
+     * carve-rs emit the SAME id for the same condition), asserted by the
+     * include-conformance suite; the human `message` prose is not.
+     *
+     * @var string
+     */
+    public const RULE_UNRESOLVED = 'include-unresolved';
+
+    /**
+     * @var string
+     */
+    public const RULE_NON_TEXT = 'include-non-text';
+
+    /**
+     * @var string
+     */
+    public const RULE_CYCLE = 'include-cycle';
+
+    /**
+     * @var string
+     */
+    public const RULE_DEPTH = 'include-depth';
+
+    /**
+     * @var string
+     */
+    public const RULE_BUDGET = 'include-budget';
+
+    /**
+     * @var string
+     */
+    public const RULE_SELECTION_CONFLICT = 'include-selection-conflict';
+
+    /**
+     * @var string
+     */
+    public const RULE_BLOCK_IN_INLINE = 'include-block-in-inline';
+
+    /**
+     * @var string
+     */
+    public const RULE_SECTION = 'include-section';
+
+    /**
+     * @var string
+     */
+    public const RULE_HEADING_CLAMP = 'include-heading-clamp';
+
+    /**
+     * @var string
+     */
+    public const RULE_HEADING_ID_RENAME = 'include-heading-id-rename';
+
+    /**
+     * @var string
+     */
+    public const RULE_FOOTNOTE_RENAME = 'include-footnote-rename';
+
+    /**
+     * @var string
+     */
+    public const RULE_UNKNOWN_OPTION = 'include-unknown-option';
+
+    /**
      * @var list<\MarkupCarve\Carve\Exception\ParseWarning>
      */
     protected array $warnings = [];
@@ -388,14 +453,14 @@ class IncludeExpander implements TransformerInterface
         ?Node $contextNode = null,
     ): ?array {
         if ($directive['section'] !== null && $directive['lines'] !== null) {
-            $this->warn('Include directive cannot combine #section and @lines');
+            $this->warn('Include directive cannot combine #section and @lines', self::RULE_SELECTION_CONFLICT);
 
             return null;
         }
 
         if ($depth >= $this->depthLimit) {
             $this->recordDependency($directive['path'], false);
-            $this->warn("Include depth limit exceeded for '{$directive['path']}'");
+            $this->warn("Include depth limit exceeded for '{$directive['path']}'", self::RULE_DEPTH);
 
             return null;
         }
@@ -414,6 +479,7 @@ class IncludeExpander implements TransformerInterface
             // which they can choose not to render.
             $this->warn(
                 "Include could not be resolved: {$directive['path']}",
+                self::RULE_UNRESOLVED,
                 detail: $exception->getMessage(),
             );
 
@@ -422,7 +488,7 @@ class IncludeExpander implements TransformerInterface
 
         if ($resolved === null) {
             $this->recordDependency($directive['path'], false);
-            $this->warn("Include could not be resolved: {$directive['path']}");
+            $this->warn("Include could not be resolved: {$directive['path']}", self::RULE_UNRESOLVED);
 
             return null;
         }
@@ -434,7 +500,7 @@ class IncludeExpander implements TransformerInterface
         // state below.
         if (str_contains($source, "\0") || preg_match('//u', $source) !== 1) {
             $this->recordDependency($id, false);
-            $this->warn("Include target is binary or non-text: {$directive['path']}");
+            $this->warn("Include target is binary or non-text: {$directive['path']}", self::RULE_NON_TEXT);
 
             return null;
         }
@@ -448,14 +514,14 @@ class IncludeExpander implements TransformerInterface
         // The cycle guard compares canonical ids after resolution, so a resolver
         // that supplies ids catches 'b.crv' vs './b.crv' spellings of one file.
         if (in_array($id, $stack, true)) {
-            $this->warn("Include cycle detected for '{$directive['path']}'");
+            $this->warn("Include cycle detected for '{$directive['path']}'", self::RULE_CYCLE);
 
             return null;
         }
 
         $bytes = strlen($source);
         if ($this->bytesUsed + $bytes > $budget) {
-            $this->warn("Include size budget exceeded for '{$directive['path']}'");
+            $this->warn("Include size budget exceeded for '{$directive['path']}'", self::RULE_BUDGET);
 
             return null;
         }
@@ -475,7 +541,7 @@ class IncludeExpander implements TransformerInterface
                 // the section is what makes the include start working - marking
                 // it unresolved would drop the watch that invalidates the
                 // preview. The missing section is a Warning, not a read failure.
-                $this->warn("Include has no section '#{$directive['section']}': {$directive['path']}");
+                $this->warn("Include has no section '#{$directive['section']}': {$directive['path']}", self::RULE_SECTION);
 
                 return null;
             }
@@ -511,7 +577,7 @@ class IncludeExpander implements TransformerInterface
             return array_values($nodes[0]->getChildren());
         }
 
-        $this->warn("Inline include resolved to block content for '{$directive['path']}'");
+        $this->warn("Inline include resolved to block content for '{$directive['path']}'", self::RULE_BLOCK_IN_INLINE);
 
         return null;
     }
@@ -535,7 +601,7 @@ class IncludeExpander implements TransformerInterface
             // the author about; a run that is not directive-shaped at all is
             // just text and stays silent.
             if ($parts['error'] === IncludeDirectiveSyntax::ERROR_UNKNOWN_OPTION) {
-                $this->warn("Unknown include option '{$parts['errorPart']}'");
+                $this->warn("Unknown include option '{$parts['errorPart']}'", self::RULE_UNKNOWN_OPTION);
             }
 
             return null;
@@ -639,7 +705,7 @@ class IncludeExpander implements TransformerInterface
                 $target = $original + $shift;
                 $child->setLevel($target);
                 if ($target < 1 || $target > 6) {
-                    $this->warn("Included heading level clamped from {$target}");
+                    $this->warn("Included heading level clamped from {$target}", self::RULE_HEADING_CLAMP);
                 }
             }
 
@@ -739,7 +805,11 @@ class IncludeExpander implements TransformerInterface
             $newLabel = $this->leastFree($label, $used);
             $footnote->setLabel($newLabel);
             $this->renameFootnoteRefs($document, $label, $newLabel, $this->scopeOf($footnote));
-            $this->warn("Duplicate footnote label '{$label}' renamed to '{$newLabel}'", $this->fileOf($footnote));
+            $this->warn(
+                "Duplicate footnote label '{$label}' renamed to '{$newLabel}'",
+                self::RULE_FOOTNOTE_RENAME,
+                $this->fileOf($footnote),
+            );
         }
     }
 
@@ -773,7 +843,11 @@ class IncludeExpander implements TransformerInterface
             $newId = $this->leastFree($id, $used);
             $heading->setAttribute('id', $newId);
             $this->renameHeadingRefs($document, $id, $newId, $this->scopeOf($heading));
-            $this->warn("Duplicate heading id '{$id}' renamed to '{$newId}'", $this->fileOf($heading));
+            $this->warn(
+                "Duplicate heading id '{$id}' renamed to '{$newId}'",
+                self::RULE_HEADING_ID_RENAME,
+                $this->fileOf($heading),
+            );
         }
     }
 
@@ -850,15 +924,17 @@ class IncludeExpander implements TransformerInterface
 
     /**
      * @param string $message
+     * @param string|null $rule Stable cross-engine rule id for the condition
+     *   (e.g. `include-unresolved`); see the RULE_* constants.
      * @param string|null $file Overrides the current file cursor, for warnings
      *   raised outside the expansion walk (the collision pass, which runs once
      *   over the assembled document and recovers the file from the node scope).
      * @param string|null $detail Untrusted supplementary text kept off the
      *   rendered message; see ParseWarning.
      */
-    protected function warn(string $message, ?string $file = null, ?string $detail = null): void
+    protected function warn(string $message, ?string $rule = null, ?string $file = null, ?string $detail = null): void
     {
-        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile, $detail);
+        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile, $detail, $rule);
     }
 
     /**

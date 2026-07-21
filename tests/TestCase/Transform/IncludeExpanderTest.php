@@ -505,6 +505,48 @@ class IncludeExpanderTest extends TestCase
         $this->assertStringContainsString('depth limit', $expander->getWarnings()[0]->getMessage());
     }
 
+    /**
+     * An inverted line range (`@lines:3-1`) is not a valid option: the
+     * directive must NOT expand. It warns with the machine-stable
+     * `include-unknown-option` rule, records no dependency, and stays literal -
+     * matching the reference engine, which requires 1-based, forward ranges.
+     */
+    public function testInvertedLineRangeIsInvalidOptionAndStaysLiteral(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ child @lines:3-1 }}');
+        $expander = new IncludeExpander($this->resolver(['child' => "a\nb\nc"]));
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertStringContainsString('{{ child', $html);
+        $this->assertSame([], $this->dependencyRows($expander->getDependencies()));
+        $this->assertCount(1, $expander->getWarnings());
+        $this->assertSame(
+            IncludeExpander::RULE_UNKNOWN_OPTION,
+            $expander->getWarnings()[0]->getRule(),
+        );
+    }
+
+    /**
+     * Every include warning carries a stable, host-independent rule id - the
+     * cross-engine contract the conformance suite asserts - not only the
+     * human-worded message.
+     */
+    public function testIncludeWarningsCarryStableRuleIds(): void
+    {
+        $converter = new CarveConverter();
+        $document = $converter->parse('{{ gone }}');
+        $expander = new IncludeExpander($this->resolver([]));
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            IncludeExpander::RULE_UNRESOLVED,
+            $expander->getWarnings()[0]->getRule(),
+        );
+    }
+
     public function testLiteralShiftAlsoCoversHeadingsFromNestedIncludes(): void
     {
         $converter = CarveConverter::carve();

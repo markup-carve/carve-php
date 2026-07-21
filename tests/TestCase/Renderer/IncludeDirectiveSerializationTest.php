@@ -45,7 +45,15 @@ class IncludeDirectiveSerializationTest extends TestCase
         yield 'line range' => ["{{ child.crv @lines:2-3 }}\n", "{{ child.crv @lines:2-3 }}\n"];
         yield 'shift literal' => ["{{ child.crv @shift:2 }}\n", "{{ child.crv @shift:2 }}\n"];
         yield 'shift negative' => ["{{ child.crv @shift:-1 }}\n", "{{ child.crv @shift:-1 }}\n"];
+
+        // An explicit '+' on a positive shift is the author's, and survives
+        // formatting verbatim rather than being normalized away.
+        yield 'shift explicit positive sign' => ["{{ child.crv @shift:+1 }}\n", "{{ child.crv @shift:+1 }}\n"];
         yield 'shift auto' => ["{{ child.crv @shift:auto }}\n", "{{ child.crv @shift:auto }}\n"];
+
+        // A path the author quoted stays quoted even when it would read bare,
+        // matching the reference engine's verbatim treatment of the directive.
+        yield 'quoted path that would read bare' => ["{{ \"chapter.crv\" }}\n", "{{ \"chapter.crv\" }}\n"];
         yield 'section and shift' => ["{{ child.crv #a @shift:2 }}\n", "{{ child.crv #a @shift:2 }}\n"];
         yield 'inline within a sentence' => ["See {{ chapter.crv }} here\\.\n", "See {{ chapter.crv }} here\\.\n"];
     }

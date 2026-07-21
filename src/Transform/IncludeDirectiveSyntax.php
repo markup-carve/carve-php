@@ -90,7 +90,7 @@ class IncludeDirectiveSyntax
      * "not a directive" from "a directive the author got wrong" and treat the
      * latter as a fixable typo rather than as prose.
      *
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', extra: list<string>, error: string|null, errorPart: string|null}|null
+     * @return array{path: string, quoted: bool, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', shiftToken: string|null, extra: list<string>, error: string|null, errorPart: string|null}|null
      */
     public static function parse(string $text): ?array
     {
@@ -101,6 +101,7 @@ class IncludeDirectiveSyntax
         $body = $match[1];
         // The core's smart-quotes pass rewrites "..." before either caller sees
         // the text, so a quoted path arrives with typographic quotes.
+        $quoted = false;
         if (str_starts_with($body, '"') || str_starts_with($body, "\u{201c}")) {
             $pattern = str_starts_with($body, '"')
                 ? '/^"((?:\\\\.|[^"\\\\])*)"(.*)$/s'
@@ -110,6 +111,7 @@ class IncludeDirectiveSyntax
             }
             $path = stripcslashes($pathMatch[1]);
             $rest = trim($pathMatch[2]);
+            $quoted = true;
         } else {
             if (!preg_match('/^([^#@} "]+)(.*)$/s', $body, $pathMatch)) {
                 return null;
@@ -121,6 +123,7 @@ class IncludeDirectiveSyntax
         $section = null;
         $lines = null;
         $shift = 0;
+        $shiftToken = null;
         $extra = [];
         $error = null;
         $errorPart = null;
@@ -132,14 +135,26 @@ class IncludeDirectiveSyntax
                     continue;
                 }
 
-                if (preg_match('/^@lines:(\d+)-(\d+)$/', $part, $lineMatch)) {
-                    $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
+                if (str_starts_with($part, '@lines:')) {
+                    // Line numbers are 1-based and the range must run forward. A
+                    // leading-zero, zero, or inverted range is NOT a valid
+                    // option: it falls through to the invalid-option handling
+                    // below (Warning + literal), matching the reference engine.
+                    if (
+                        preg_match('/^@lines:([1-9]\d*)-([1-9]\d*)$/', $part, $lineMatch) === 1
+                        && (int)$lineMatch[2] >= (int)$lineMatch[1]
+                    ) {
+                        $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
 
-                    continue;
+                        continue;
+                    }
                 }
 
                 if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
                     $shift = (int)$shiftMatch[1];
+                    // Keep the token exactly as authored so an explicit '+' sign
+                    // survives serialization byte-for-byte.
+                    $shiftToken = $shiftMatch[1];
 
                     continue;
                 }
@@ -162,9 +177,11 @@ class IncludeDirectiveSyntax
 
         return [
             'path' => $path,
+            'quoted' => $quoted,
             'section' => $section,
             'lines' => $lines,
             'shift' => $shift,
+            'shiftToken' => $shiftToken,
             'extra' => $extra,
             'error' => $error,
             'errorPart' => $errorPart,
@@ -180,19 +197,27 @@ class IncludeDirectiveSyntax
      * find in a formatted document. Emitting a canonical form makes the result
      * portable and keeps formatting idempotent.
      *
+     * The author's own choices are preserved where they are observable, so a
+     * formatted directive matches the reference engine byte-for-byte: a path the
+     * author QUOTED stays quoted even when it would read bare, and a signed
+     * shift keeps its explicit sign.
+     *
      * Unrecognized tokens are carried through verbatim rather than dropped: a
      * mistyped option is a fixable typo, and silently deleting it would turn a
      * diagnostic the author can act on into a directive that quietly means
      * something else.
      *
-     * @param array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', extra?: list<string>, error?: string|null, errorPart?: string|null} $parts
+     * @param array{path: string, quoted?: bool, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', shiftToken?: string|null, extra?: list<string>, error?: string|null, errorPart?: string|null} $parts
      */
     public static function toSource(array $parts): string
     {
         $path = $parts['path'];
-        // Only a path that cannot be read bare needs quoting; the bare form
-        // stops at a space, '#', '@' or '}'.
-        $needsQuotes = $path === '' || preg_match('/[\s#@}"]/', $path) === 1;
+        // A path that cannot be read bare (the bare form stops at a space, '#',
+        // '@' or '}') MUST be quoted; a path the author chose to quote STAYS
+        // quoted, matching the reference engine's verbatim treatment.
+        $needsQuotes = ($parts['quoted'] ?? false)
+            || $path === ''
+            || preg_match('/[\s#@}"]/', $path) === 1;
         $out = '{{ ' . ($needsQuotes ? '"' . addcslashes($path, '"\\') . '"' : $path);
 
         if ($parts['section'] !== null) {
@@ -206,9 +231,9 @@ class IncludeDirectiveSyntax
         if ($parts['shift'] === 'auto') {
             $out .= ' @shift:auto';
         } elseif ($parts['shift'] !== 0) {
-            // No explicit '+' on a positive shift: it re-parses identically and
-            // matches how authors write it, so formatting stays a no-op.
-            $out .= ' @shift:' . $parts['shift'];
+            // Emit the shift token as authored so an explicit '+' on a positive
+            // shift survives formatting (`@shift:+1` stays `@shift:+1`).
+            $out .= ' @shift:' . ($parts['shiftToken'] ?? (string)$parts['shift']);
         }
 
         foreach ($parts['extra'] ?? [] as $part) {

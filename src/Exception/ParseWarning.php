@@ -25,6 +25,11 @@ class ParseWarning
      *   message so it is never rendered by default: resolver errors commonly
      *   embed absolute paths, which would disclose host filesystem layout in a
      *   hosted preview. A host that controls its own resolver may opt in.
+     * @param string|null $rule Stable, host-independent identifier for the
+     *   condition that raised the warning (e.g. `include-unresolved`). Unlike
+     *   `message`, which is human-worded prose, this is the machine-readable
+     *   contract a tool keys on - notably the cross-engine include-conformance
+     *   suite, which asserts rule ids rather than wording.
      */
     public function __construct(
         protected string $message,
@@ -34,6 +39,7 @@ class ParseWarning
         protected ?string $suggestion = null,
         protected ?string $file = null,
         protected ?string $detail = null,
+        protected ?string $rule = null,
     ) {
     }
 
@@ -72,8 +78,13 @@ class ParseWarning
         return $this->detail;
     }
 
+    public function getRule(): ?string
+    {
+        return $this->rule;
+    }
+
     /**
-     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null, file: string|null, detail: string|null}
+     * @return array{message: string, line: int, column: int, category: string|null, suggestion: string|null, file: string|null, detail: string|null, rule: string|null}
      */
     public function toArray(): array
     {
@@ -85,6 +96,7 @@ class ParseWarning
             'suggestion' => $this->suggestion,
             'file' => $this->file,
             'detail' => $this->detail,
+            'rule' => $this->rule,
         ];
     }
 
