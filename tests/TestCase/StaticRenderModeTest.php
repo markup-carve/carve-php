@@ -388,6 +388,35 @@ class StaticRenderModeTest extends TestCase
         $this->assertSame('<div class="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
     }
 
+    public function testCustomFenceWordIsStaticCapableViaTheOpenRenderersMap(): void
+    {
+        // The renderers map is open, keyed by cssClass: a custom fence word
+        // renders statically with no canonical key and no engine change. This is
+        // the portability the open map guarantees across engines.
+        $converter = new CarveConverter(
+            mode: RenderMode::STATIC,
+            renderers: ['myuml' => fn (string $src): string => '<img alt="myuml" src="my.svg">'],
+        );
+        $converter->addExtension(new FencedRenderExtension(language: 'myuml', cssClass: 'myuml'));
+
+        $html = trim($converter->convert("```myuml\nA -> B\n```\n"));
+
+        $this->assertSame('<div class="myuml"><img alt="myuml" src="my.svg"></div>', $html);
+    }
+
+    public function testCustomFenceWithoutRendererDegradesToSource(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new FencedRenderExtension(language: 'myuml', cssClass: 'myuml'));
+
+        $html = trim($converter->convert("```myuml\nA -> B\n```\n"));
+
+        $this->assertSame(
+            '<pre class="myuml"><code class="language-myuml">A -&gt; B</code></pre>',
+            $html,
+        );
+    }
+
     public function testMathStaticPreservesAuthorAttributes(): void
     {
         $source = "{#eq .big}\n```math\n\\pi\n```\n";

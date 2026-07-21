@@ -89,10 +89,12 @@ the floor.
 
 ### The `renderers` map (client-script extensions)
 
-Client-script extensions (mermaid, chart, math) cannot produce their visual
-inside the engine. A static render therefore accepts a **renderers** map of
-`source -> string` callables keyed by extension name. When the needed renderer
-is absent, the static path falls back to source, never blank.
+Client-script extensions (mermaid, chart, plantuml, math, …) cannot produce
+their visual inside the engine. A static render therefore accepts a
+**renderers** map of `source -> string` callables. The map is **open**: a
+diagram renderer is keyed by the fence's css class, so a custom `FencedRender`
+fence word is static-capable with no engine change. When the needed renderer is
+absent, the static path falls back to source, never blank.
 
 ~~~ php
 use MarkupCarve\Carve\CarveConverter;
@@ -101,6 +103,8 @@ use MarkupCarve\Carve\Renderer\RenderMode;
 $converter = new CarveConverter(mode: RenderMode::STATIC, renderers: [
     'math' => fn (string $tex): string => $katex->renderToString($tex),
     'mermaid' => fn (string $src): string => $mmdc->renderSvg($src),
+    // a custom fence word works the same way, keyed by its css class:
+    'myuml' => fn (string $src): string => $myuml->renderSvg($src),
 ]);
 // or: $converter->setRenderers([...]);
 ~~~
