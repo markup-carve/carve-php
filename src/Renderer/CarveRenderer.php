@@ -58,6 +58,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 
 /**
  * Renders AST back to canonical Carve source.
@@ -637,6 +638,13 @@ class CarveRenderer implements RendererInterface
             $count = count($nodes);
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
+                $directive = $this->matchIncludeDirective($nodes, $i);
+                if ($directive !== null) {
+                    $out .= $directive['source'];
+                    $i = $directive['end'];
+
+                    continue;
+                }
                 if ($node instanceof InlineNode) {
                     // A trailing `!` on a Text node immediately before an
                     // unresolved reference (a RawText starting with `[`) must NOT
@@ -667,6 +675,144 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->inlineDepth--;
         }
+    }
+
+    /**
+     * Match the include directives in the run of literal-text nodes starting at
+     * $start, and return the run's source form plus the index of its last node.
+     *
+     * The core never parses a directive as a node of its own (spec section 19
+     * makes it unreachable from block/inline), so it arrives here as ordinary
+     * text and would otherwise be escaped like any other punctuation-bearing
+     * text - turning `{{ chapter.crv }}` into `\{\{ chapter\.crv \}\}` and
+     * silently breaking every include in a formatted document. A well-formed
+     * directive is therefore emitted verbatim.
+     *
+     * The test is SHAPE-well-formedness, not validity: the run must open `{{`,
+     * close `}}` and carry a non-empty path token. Section and option validity
+     * are NOT required, because they are diagnostics the expander reports at
+     * expansion time (I7) - escaping a shape-valid run over a bad option would
+     * convert a fixable typo into permanent literal text AND destroy the very
+     * warning that would have explained it. A run that is not shape-well-formed
+     * (`{{ oops` with no close, or an empty path) stays ordinary text and is
+     * escaped as before.
+     *
+     * Every directive in the run is preserved, not just the first: prose splits
+     * a paragraph into one text-like run, so `a {{ x.crv }} b {{ y.crv }} c` is
+     * a single run holding two directives, and stopping after the first escaped
+     * the rest.
+     *
+     * A serializer cannot tell an authored literal `{{` from a directive - both
+     * parse to the same text - which is accepted, because an author who needs a
+     * guaranteed literal writes it in code, where a directive is inert by
+     * construction (I9).
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes Positionally indexed,
+     *   exactly as the surrounding renderInlines() loop already assumes.
+     * @param int $start
+     *
+     * @return array{source: string, end: int}|null
+     */
+    protected function matchIncludeDirective(array $nodes, int $start): ?array
+    {
+        if (!IncludeDirectiveSyntax::isTextLike($nodes[$start])) {
+            return null;
+        }
+
+        $count = count($nodes);
+        $run = [];
+        for ($i = $start; $i < $count && IncludeDirectiveSyntax::isTextLike($nodes[$i]); $i++) {
+            $run[] = $nodes[$i];
+        }
+        $last = $i - 1;
+        $text = IncludeDirectiveSyntax::textLikeContent($run);
+
+        // One run can hold ANY number of directives with prose between them, so
+        // the whole run is scanned: every shape-well-formed span is collected
+        // and the gaps around them are escaped as ordinary text. Handling only
+        // the first span - and escaping the remainder wholesale - destroyed
+        // every directive after the first.
+        $spans = [];
+        $cursor = 0;
+        $length = strlen($text);
+        while (
+            $cursor < $length
+            && preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
+        ) {
+            $span = $match[0][0];
+            $offset = (int)$match[0][1];
+            // A span that is not shape-well-formed is prose, not a reason to
+            // stop: scanning resumes after it so a valid directive later in the
+            // same run is still preserved.
+            if (IncludeDirectiveSyntax::parse($span) !== null) {
+                $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => $this->emitDirective($span)];
+            }
+            // Each span is at least '{{  }}', so the cursor always advances.
+            $cursor = $offset + strlen($span);
+        }
+
+        if ($spans === []) {
+            return null;
+        }
+
+        $out = '';
+        $position = 0;
+        foreach ($spans as $span) {
+            $out .= $this->escapeText(substr($text, $position, $span['offset'] - $position)) . $span['source'];
+            $position = $span['offset'] + $span['length'];
+        }
+
+        return [
+            'source' => $out . $this->escapeText(substr($text, $position)),
+            'end' => $last,
+        ];
+    }
+
+    /**
+     * Serialize one recognized directive by emitting its SOURCE SPAN VERBATIM,
+     * repairing only the damage the core's smart-quotes pass did to a quoted
+     * path. This mirrors carve-js / carve-rs: the author's exact token order,
+     * `#section` position, shift sign and spacing survive formatting unchanged -
+     * a rebuild-from-parts would silently reorder or normalize them.
+     *
+     * The one repair: the parser curls the delimiters of `{{ "my file.crv" }}`
+     * to `{{ "my file.crv" }}` before the serializer sees them, and echoing that
+     * would emit the curled form (which engines accepting only plain quotes read
+     * differently). So a curly-quoted path is rebuilt to plain quotes with its
+     * inner quotes re-escaped; everything outside the path is emitted as-is, with
+     * any straight quote backslash-escaped so smart typography cannot re-curl it
+     * on the next parse (keeping fmt idempotent).
+     */
+    protected function emitDirective(string $raw): string
+    {
+        // A curly-quoted path is the first token after `{{ `; capture its inner
+        // content so the exact `"..."` span can be located and replaced.
+        if (preg_match('/^\{\{ \x{201c}([^\x{201d}]*)\x{201d}/su', $raw, $match) !== 1) {
+            return $this->escapeDirectiveQuotes($raw);
+        }
+
+        $curled = $match[1];
+        $delimited = "\u{201c}" . $curled . "\u{201d}";
+        $at = strpos($raw, $delimited);
+        if ($at === false) {
+            return $this->escapeDirectiveQuotes($raw);
+        }
+
+        $plain = '"' . preg_replace('/(["\\\\])/', '\\\\$1', $curled) . '"';
+
+        return $this->escapeDirectiveQuotes(substr($raw, 0, $at))
+            . $plain
+            . $this->escapeDirectiveQuotes(substr($raw, $at + strlen($delimited)));
+    }
+
+    /**
+     * Backslash-escape any straight quote in a verbatim directive fragment: an
+     * unescaped `"` would be curled by smart typography on the next parse,
+     * changing the path and un-recognizing the directive.
+     */
+    protected function escapeDirectiveQuotes(string $text): string
+    {
+        return str_replace('"', '\\"', $text);
     }
 
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string

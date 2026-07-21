@@ -1,0 +1,184 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Transform;
+
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+
+/**
+ * Recognition and serialization of the include directive shape (spec section 19
+ * I1, I9a).
+ *
+ * The core never parses a directive as a node of its own - it is unreachable
+ * from block/inline and arrives as ordinary text. Both the expander, which
+ * resolves directives, and the Carve renderer, which must emit them back
+ * unescaped so they survive formatting, therefore need the same grammar. It
+ * lives here once so the two cannot drift: a shape the renderer preserves but
+ * the expander does not recognize would silently produce a document whose
+ * includes stop working.
+ *
+ * Recognition is over a RUN, not a node: a directive's own syntax overlaps
+ * constructs the core already parses, so `{{ x #intro @shift:1 }}` arrives as
+ * several adjacent nodes (I9a).
+ */
+class IncludeDirectiveSyntax
+{
+    /**
+     * @var string
+     */
+    public const ERROR_UNKNOWN_OPTION = 'unknown-option';
+
+    /**
+     * @var string
+     */
+    public const ERROR_MALFORMED = 'malformed';
+
+    /**
+     * Nodes whose source form is recoverable verbatim, and which may therefore
+     * take part in a directive run.
+     */
+    public static function isTextLike(Node $node): bool
+    {
+        return $node instanceof Text || $node instanceof EscapedText || $node instanceof Mention;
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    public static function allTextLike(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if (!static::isTextLike($node)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    public static function textLikeContent(array $nodes): string
+    {
+        $content = '';
+        foreach ($nodes as $node) {
+            if ($node instanceof Text || $node instanceof EscapedText) {
+                $content .= $node->getContent();
+            } elseif ($node instanceof Mention) {
+                /** @var list<\MarkupCarve\Carve\Node\Node> $children */
+                $children = array_values($node->getChildren());
+                $content .= static::textLikeContent($children);
+            }
+        }
+
+        return $content;
+    }
+
+    /**
+     * Parse a reassembled run into directive parts.
+     *
+     * Returns null only when the run is not SHAPE-well-formed: it must open
+     * `{{`, close `}}` and carry a non-empty path token. Section and option
+     * VALIDITY are deliberately not part of that test. A run whose shape is
+     * right but whose options are wrong still parses, recording its first
+     * complaint in 'error', so a caller can tell "not a directive" from "a
+     * directive the author got wrong" and treat the latter as a fixable typo
+     * rather than as prose.
+     *
+     * This is a recognizer only. The serializer no longer rebuilds a directive
+     * from these parts - it emits the source span verbatim (see
+     * CarveRenderer::emitDirective) - so option order, spacing and the author's
+     * exact spelling are preserved without this having to carry them.
+     *
+     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
+     */
+    public static function parse(string $text): ?array
+    {
+        if (!preg_match('/^\{\{ (.+) \}\}$/s', $text, $match)) {
+            return null;
+        }
+
+        $body = $match[1];
+        // The core's smart-quotes pass rewrites "..." before either caller sees
+        // the text, so a quoted path arrives with typographic quotes.
+        if (str_starts_with($body, '"') || str_starts_with($body, "\u{201c}")) {
+            $pattern = str_starts_with($body, '"')
+                ? '/^"((?:\\\\.|[^"\\\\])*)"(.*)$/s'
+                : '/^\x{201c}([^\x{201d}]*)\x{201d}(.*)$/su';
+            if (!preg_match($pattern, $body, $pathMatch)) {
+                return null;
+            }
+            $path = stripcslashes($pathMatch[1]);
+            $rest = trim($pathMatch[2]);
+        } else {
+            if (!preg_match('/^([^#@} "]+)(.*)$/s', $body, $pathMatch)) {
+                return null;
+            }
+            $path = $pathMatch[1];
+            $rest = trim($pathMatch[2]);
+        }
+
+        $section = null;
+        $lines = null;
+        $shift = 0;
+        $error = null;
+        $errorPart = null;
+        if ($rest !== '') {
+            foreach (preg_split('/\s+/', $rest) ?: [] as $part) {
+                if (preg_match('/^#([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
+                    $section = $sectionMatch[1];
+
+                    continue;
+                }
+
+                if (str_starts_with($part, '@lines:')) {
+                    // Line numbers are 1-based and the range must run forward. A
+                    // leading-zero, zero, or inverted range is NOT a valid
+                    // option: it falls through to the invalid-option handling
+                    // below (Warning + literal), matching the reference engine.
+                    if (
+                        preg_match('/^@lines:([1-9]\d*)-([1-9]\d*)$/', $part, $lineMatch) === 1
+                        && (int)$lineMatch[2] >= (int)$lineMatch[1]
+                    ) {
+                        $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
+
+                        continue;
+                    }
+                }
+
+                if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
+                    $shift = (int)$shiftMatch[1];
+
+                    continue;
+                }
+
+                if ($part === '@shift:auto') {
+                    $shift = 'auto';
+
+                    continue;
+                }
+
+                // Scanning continues past the first bad token so the error is
+                // reported at the right severity, not thrown away.
+                if ($error === null) {
+                    $error = str_starts_with($part, '@') ? static::ERROR_UNKNOWN_OPTION : static::ERROR_MALFORMED;
+                    $errorPart = $part;
+                }
+            }
+        }
+
+        return [
+            'path' => $path,
+            'section' => $section,
+            'lines' => $lines,
+            'shift' => $shift,
+            'error' => $error,
+            'errorPart' => $errorPart,
+        ];
+    }
+}
