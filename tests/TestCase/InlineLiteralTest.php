@@ -301,4 +301,18 @@ class InlineLiteralTest extends TestCase
         $this->assertSame('<p>x</p>', trim($converter->convert('`x`{!}')));
         $this->assertSame('<p>hi</p>', trim($converter->convert('`hi`{! .ipa}')));
     }
+
+    public function testSpaceSurroundedVerbatimStaysFmtIdempotent(): void
+    {
+        // A verbatim span whose content both begins and ends with a space is
+        // stripped by one space each side at parse; fmt must pad it back so the
+        // strip is reversible. Shared renderCode fix -> holds for code spans and
+        // literals alike.
+        $cases = ['``  x  ``{!}', '``  x  ``{.foo}', '``  x  ``', '`` x``{!}', '``x ``{!}'];
+        foreach ($cases as $source) {
+            $once = $this->converter->toCarve($source);
+            $this->assertSame($this->converter->convert($source), $this->converter->convert($once), "fmt invariant: $source");
+            $this->assertSame($once, $this->converter->toCarve($once), "fmt idempotent: $source");
+        }
+    }
 }

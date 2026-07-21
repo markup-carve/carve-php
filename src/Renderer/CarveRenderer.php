@@ -796,7 +796,17 @@ class CarveRenderer implements RendererInterface
     {
         $fence = $this->safeFence($content, 1);
 
-        return str_starts_with($content, '`') || str_ends_with($content, '`')
+        // The parser strips one leading and one trailing space from a verbatim
+        // span whose content BOTH begins and ends with a space, and a single
+        // space around backtick-adjacent content. Pad in those cases so the
+        // strip is reversible and fmt stays idempotent; the padding sits inside
+        // the fence, so a trailing attribute block still attaches to the closing
+        // run. One-sided space is left as-is (the parser only strips both sides).
+        $needsPad = str_starts_with($content, '`')
+            || str_ends_with($content, '`')
+            || (str_starts_with($content, ' ') && str_ends_with($content, ' '));
+
+        return $needsPad
             ? $fence . ' ' . $content . ' ' . $fence
             : $fence . $content . $fence;
     }
