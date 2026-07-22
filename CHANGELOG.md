@@ -9,6 +9,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Inline literal** via the `` !`…` `` prefix (#378): a `!` immediately before a
+  verbatim backtick span renders its content as escaped prose with no `<code>`
+  wrapper, so notation that collides with the bare emphasis delimiters (phonemic
+  `/kaet/`, glob patterns, paths) needs no per-character escaping. Mirrors the
+  `$`-math prefix; a trailing `{…}` is the ordinary attribute block.
 - Add an HTML `symbols` render map for trusted `:name:` replacements and wrap
   attributed symbols in `<span>` while leaving unmapped symbols literal.
 
