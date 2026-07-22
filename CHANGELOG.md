@@ -14,8 +14,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrapper, so notation that collides with the bare emphasis delimiters (phonemic
   `/kaet/`, glob patterns, paths) needs no per-character escaping. Mirrors the
   `$`-math prefix; a trailing `{…}` is the ordinary attribute block.
-- Add an HTML `symbols` render map for trusted `:name:` replacements and wrap
-  attributed symbols in `<span>` while leaving unmapped symbols literal.
+- **PlantUML fenced-render preset**, and the static renderers map is opened so a
+  custom `FencedRender` fence word can be made static-capable without a spec
+  change (#376).
+- **Opt-in source-line tracking** for editor scroll-sync (`sourceLines: true`):
+  1-based `data-source-line` anchors stamped on block elements, nested blocks,
+  list items and endnote entries (#348, #353, #361, #366).
+- An HTML `symbols` render map for trusted `:name:` replacements, wrapping
+  attributed symbols in a `<span>` while leaving unmapped symbols literal.
+
+### Changed
+
+- **BREAKING**: the bare `^sup^` and `,sub,` delimiters were dropped -
+  superscript and subscript are braced-only (`{^text^}` / `{,text,}`) (#337).
+- Symbol parsing aligned with the pinned carve#261 spec: names start with an
+  alphanumeric character, allow `+` after the first character, and only open at
+  the start of text or after a non-word character. No AST rename was needed
+  because carve-php already used `Symbol` (#338).
+- The citation group node type is spelled in snake_case, matching the spec
+  vocabulary (#383).
 
 ### Fixed
 
@@ -29,10 +46,38 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   carve-rs parity), the serializer pads exactly where the parser strips, and the
   code span, math and inline literal scanners share one `stripVerbatimPadding`
   helper so they cannot drift apart.
-- Align symbol parsing with the pinned carve#261 spec: symbol names now start
-  with an alphanumeric character, allow `+` after the first character, and only
-  open at the start of text or after a non-word character. No AST rename was
-  needed because carve-php already used `Symbol`.
+- Extension attributes render in source order rather than class-first (#384).
+- A fenced-code delimiter sits at its container's content column, so fences
+  inside list items and quotes parse correctly (#377); the definition prepass
+  tracks list content columns, fixing a nested-fence limitation (#380).
+- An unterminated fence no longer absorbs the source's final newline (#374).
+- A definition marker requires a literal space after the colon, not a tab, and
+  tab-separated footnote-definition lines are no longer swallowed (#371, #372).
+- A sublist marker at the content column interrupts an open continuation
+  paragraph, and a footnote definition requires an inline body (#370).
+- A blank line may separate a term from its definition (djot parity) (#355); a
+  multi-line term folds continuation lines like a heading instead of dropping
+  them (#354); definition descriptions support lazy continuation (#350) and the
+  `:  +` first-block form (#352); definition and footnote bodies continue like
+  list items (#345).
+- A thematic break is a contiguous column-zero run only (#363).
+- A trailing backslash at end of input is a hard break, and a bare same-level
+  `#` continues a heading (#362).
+- A leading attribute line attaches to a bare block image (#335).
+- Heading and caption trailing-whitespace handling corrected (#333, #334).
+- A figure caption renders on its own line in the non-HTML renderers, matching
+  carve-js and carve-rs (#323).
+- Tight list items stay unwrapped when source lines are enabled (#365).
+- Tabs keep the quoted opener title inside the panel, and the quoted opener
+  header is separated from the `title` attribute on divs (#324, #326); opener
+  titles render as inline content (#330).
+- Untrusted comment and minimal presets get a default `maxLength` cap (#349).
+- The formatter preserves the authored list marker (bullet character and ordered
+  delimiter) (#369), keeps verbatim content byte-exact through document
+  normalization (#359), and round-trips symbols correctly (#340).
+- Bounded several worst-case quadratic scans (unclosed constructs, emphasis
+  openers, link destinations) so pathological input parses in near-linear time
+  (#341, #343, #344).
 
 ## [0.1.2] - 2026-07-12
 
