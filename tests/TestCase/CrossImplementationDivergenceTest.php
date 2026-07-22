@@ -24,6 +24,29 @@ class CrossImplementationDivergenceTest extends TestCase
         $this->assertSame("<p>abc</p>\n", $converter->convert("abc \n"));
     }
 
+    public function testConstructProducedSpacesSurviveTheTrailingWhitespaceStrip(): void
+    {
+        $converter = new CarveConverter();
+
+        // The paragraph trailing-whitespace strip (corpus 102) is a SOURCE-level
+        // rule: it removes whitespace the author typed at the end of the final
+        // line, not spaces a construct legitimately produced. Trimming rendered
+        // output could not tell the two apart and emptied a paragraph whose only
+        // content is an all-space verbatim span. carve-js and carve-rs both keep
+        // those spaces; these pin the parity.
+        $this->assertSame("<p>  </p>\n", $converter->convert('!`  `'));
+        $this->assertSame("<p> </p>\n", $converter->convert('!` `'));
+        $this->assertSame("<p><code>  </code></p>\n", $converter->convert('`  `'));
+
+        // ... while authored trailing whitespace is still stripped, including
+        // when it follows a construct.
+        $this->assertSame("<p>abc</p>\n", $converter->convert("abc \t \n"));
+        $this->assertSame("<p><code>x</code></p>\n", $converter->convert("`x`  \n"));
+
+        // A trailing NBSP is content everywhere in Carve and must survive.
+        $this->assertSame("<p>abc&nbsp;</p>\n", $converter->convert("abc\u{00A0}\n"));
+    }
+
     public function testSeparatorShapedRowIsNeverPromotedToHeader(): void
     {
         $converter = new CarveConverter();

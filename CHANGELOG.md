@@ -36,6 +36,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Paragraph trailing-whitespace stripping moved to the source layer.** The
+  normative rule strips whitespace at the end of a paragraph's final line
+  *before rendering* (corpus 102), but carve-php applied it to the rendered
+  output. A renderer cannot tell whitespace the author typed from spaces a
+  construct legitimately produced, so a paragraph whose entire content was an
+  all-space verbatim span was emptied - `` !`  ` `` rendered `<p></p>` where
+  carve-js and carve-rs both render `<p>  </p>`. The strip now runs on the
+  paragraph source before inline parsing, which also removes the special case
+  that was needed for a dropped raw-format span. The character class is
+  unchanged (space and tab), and a trailing NBSP remains content.
 - **Never pad all-space verbatim content in `carve fmt`.** A verbatim span whose
   content is entirely spaces was padded by the serializer even though the parser
   leaves it unstripped, so every fmt pass grew the span by two spaces
