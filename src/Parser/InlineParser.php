@@ -1606,6 +1606,30 @@ class InlineParser
     }
 
     /**
+     * The closed-verbatim-span single-space strip: one leading and one trailing
+     * space are removed when the content BOTH begins and ends with a space - but
+     * NOT when it consists entirely of spaces. The all-space guard matches the
+     * executable spec's `codeText()` and the CommonMark rule it derives from
+     * ("...but does not consist entirely of space characters"): all-space content
+     * has no representable stripped form, and padding it on output grew the span
+     * by two spaces on every fmt pass.
+     *
+     * Shared by the code span, math and inline literal scanners so the three
+     * cannot drift apart - that drift is what produced this bug.
+     */
+    protected function stripVerbatimPadding(string $content): string
+    {
+        if (strlen($content) < 2 || $content[0] !== ' ' || $content[strlen($content) - 1] !== ' ') {
+            return $content;
+        }
+        if (strspn($content, ' ') === strlen($content)) {
+            return $content;
+        }
+
+        return substr($content, 1, -1);
+    }
+
+    /**
      * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline, pos: int}|null
      */
     protected function parseCodeSpan(string $text, int $pos): ?array
@@ -1665,13 +1689,7 @@ class InlineParser
             // Found exact match
             $content = substr($text, $contentStart, $closePos - $contentStart);
 
-            // Strip one leading and one trailing space when the closed span is
-            // space-wrapped but not entirely spaces (CommonMark/djot rule).
-            if (strlen($content) >= 2 && $content[0] === ' ' && $content[strlen($content) - 1] === ' ') {
-                if (strspn($content, ' ') !== strlen($content)) {
-                    $content = substr($content, 1, -1);
-                }
-            }
+            $content = $this->stripVerbatimPadding($content);
 
             // Check for raw inline format: `...`{=format}
             // Format must be ONLY {=format} with no other attributes
@@ -3494,7 +3512,13 @@ class InlineParser
             return null;
         }
 
-        $content = substr($text, $contentStart, $closePos - $contentStart);
+        // Math reuses the verbatim span, so it takes the same single-space strip
+        // as a code span (carve-js and carve-rs both do). Without it the content
+        // kept its padding while the serializer padded it again, so `` $` x ` ``
+        // grew by two spaces on every fmt pass.
+        $content = $this->stripVerbatimPadding(
+            substr($text, $contentStart, $closePos - $contentStart),
+        );
         $node = new Math($content, $display);
 
         // A trailing `{...}` applies attributes to the math span (math reuses the
@@ -3574,13 +3598,7 @@ class InlineParser
 
         $content = substr($text, $contentStart, $closePos - $contentStart);
 
-        // Code-span single-space strip: drop one leading and one trailing space
-        // when the closed span is space-wrapped but not entirely spaces.
-        if (strlen($content) >= 2 && $content[0] === ' ' && $content[strlen($content) - 1] === ' ') {
-            if (strspn($content, ' ') !== strlen($content)) {
-                $content = substr($content, 1, -1);
-            }
-        }
+        $content = $this->stripVerbatimPadding($content);
 
         $node = new LiteralInline($content);
 
