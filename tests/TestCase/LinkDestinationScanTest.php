@@ -17,6 +17,8 @@ use PHPUnit\Framework\TestCase;
  */
 class LinkDestinationScanTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     private CarveConverter $converter;
 
     protected function setUp(): void
@@ -72,37 +74,7 @@ class LinkDestinationScanTest extends TestCase
     #[DataProvider('unclosedDestinationProvider')]
     public function testUnclosedDestinationScalesLinearly(string $fragment): void
     {
-        $small = str_repeat($fragment, 25000);
-        $large = str_repeat($fragment, 50000);
-
-        $startSmall = hrtime(true);
-        $this->converter->convert($small);
-        $elapsedSmall = (hrtime(true) - $startSmall) / 1e9;
-
-        $startLarge = hrtime(true);
-        $this->converter->convert($large);
-        $elapsedLarge = (hrtime(true) - $startLarge) / 1e9;
-
-        $this->assertLessThan(
-            20.0,
-            $elapsedSmall,
-            "25000x '{$fragment}' took {$elapsedSmall}s (quadratic regression?)",
-        );
-        $this->assertLessThan(
-            20.0,
-            $elapsedLarge,
-            "50000x '{$fragment}' took {$elapsedLarge}s (quadratic regression?)",
-        );
-
-        // Guard against a small-but-nonzero quadratic term: doubling n must not
-        // triple the time. A floor avoids flakiness when both runs are sub-ms.
-        $ratio = $elapsedLarge / max($elapsedSmall, 0.001);
-        $this->assertLessThan(
-            3.0,
-            $ratio,
-            "Doubling input scaled time {$ratio}x (linear ~2x, quadratic ~4x): "
-                . "small={$elapsedSmall}s large={$elapsedLarge}s",
-        );
+        $this->assertScanScalesLinearly($this->converter, $fragment, '', "'{$fragment}'");
     }
 
     /**

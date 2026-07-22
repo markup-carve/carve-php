@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 class EmphasisScanTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     private CarveConverter $converter;
 
     protected function setUp(): void
@@ -77,56 +79,7 @@ class EmphasisScanTest extends TestCase
     #[DataProvider('unclosableOpenerProvider')]
     public function testUnclosableOpenerScalesLinearly(string $fragment): void
     {
-        $small = str_repeat($fragment, 25000);
-        $large = str_repeat($fragment, 50000);
-
-        // Best-of-N wall-clock. A single timed run is noisy under a full suite
-        // (GC pauses, memory pressure after thousands of prior tests can spike a
-        // linear run's ratio above 3x); the minimum of a few runs filters those
-        // upward transients so the ratio reflects real algorithmic scaling. A
-        // warmup convert() primes any per-instance caches before timing.
-        $elapsedSmall = $this->bestConvertTime($small);
-        $elapsedLarge = $this->bestConvertTime($large);
-
-        $this->assertLessThan(
-            20.0,
-            $elapsedSmall,
-            "25000x '{$fragment}' took {$elapsedSmall}s (quadratic regression?)",
-        );
-        $this->assertLessThan(
-            20.0,
-            $elapsedLarge,
-            "50000x '{$fragment}' took {$elapsedLarge}s (quadratic regression?)",
-        );
-
-        // Guard against a small-but-nonzero quadratic term: doubling n must not
-        // triple the time. A floor avoids flakiness when both runs are sub-ms.
-        $ratio = $elapsedLarge / max($elapsedSmall, 0.001);
-        $this->assertLessThan(
-            3.0,
-            $ratio,
-            "Doubling input scaled time {$ratio}x (linear ~2x, quadratic ~4x): "
-                . "small={$elapsedSmall}s large={$elapsedLarge}s",
-        );
-    }
-
-    /**
-     * Fastest of three convert() runs for the given input, in seconds, after a
-     * warmup run. The minimum is robust against upward timing noise (GC, CPU
-     * contention) that would otherwise make a linear run look super-linear.
-     */
-    private function bestConvertTime(string $input): float
-    {
-        $this->converter->convert($input);
-
-        $best = INF;
-        for ($i = 0; $i < 3; $i++) {
-            $start = hrtime(true);
-            $this->converter->convert($input);
-            $best = min($best, (hrtime(true) - $start) / 1e9);
-        }
-
-        return $best;
+        $this->assertScanScalesLinearly($this->converter, $fragment, '', "'{$fragment}'");
     }
 
     /**
@@ -149,21 +102,7 @@ class EmphasisScanTest extends TestCase
     #[DataProvider('trailingParenProvider')]
     public function testTrailingParenScalesLinearly(string $fragment): void
     {
-        $small = str_repeat($fragment, 25000) . ')';
-        $large = str_repeat($fragment, 50000) . ')';
-
-        $elapsedSmall = $this->bestConvertTime($small);
-        $elapsedLarge = $this->bestConvertTime($large);
-
-        $this->assertLessThan(20.0, $elapsedSmall, "25000x '{$fragment}' + ')' took {$elapsedSmall}s");
-        $this->assertLessThan(20.0, $elapsedLarge, "50000x '{$fragment}' + ')' took {$elapsedLarge}s");
-
-        $ratio = $elapsedLarge / max($elapsedSmall, 0.001);
-        $this->assertLessThan(
-            3.0,
-            $ratio,
-            "Doubling input scaled time {$ratio}x: small={$elapsedSmall}s large={$elapsedLarge}s",
-        );
+        $this->assertScanScalesLinearly($this->converter, $fragment, ')', "'{$fragment}' + ')'");
     }
 
     /**
