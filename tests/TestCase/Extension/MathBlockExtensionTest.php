@@ -103,7 +103,7 @@ DJOT;
         // Author classes merge after the `math display` base; id and other
         // attributes follow in source order, like core inline / display math.
         $this->assertStringContainsString(
-            '<div class="math display numbered" id="eq1" data-ref="x">\[E = mc^2\]</div>',
+            '<div id="eq1" class="math display numbered" data-ref="x">\[E = mc^2\]</div>',
             $html,
         );
     }
@@ -124,7 +124,7 @@ DJOT;
 
         // Always-on attribute hardening strips event handlers regardless of safe
         // mode, while safe author attributes (id, classes) survive.
-        $this->assertStringContainsString('<div class="math display numbered" id="eq1">\[E = mc^2\]</div>', $html);
+        $this->assertStringContainsString('<div id="eq1" class="math display numbered">\[E = mc^2\]</div>', $html);
         $this->assertStringNotContainsString('onclick', $html);
     }
 

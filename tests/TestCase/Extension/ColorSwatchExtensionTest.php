@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ColorSwatchExtension;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 class ColorSwatchExtensionTest extends TestCase
@@ -46,7 +47,7 @@ class ColorSwatchExtensionTest extends TestCase
     public function testInlineMergesClassesAndAttributes(): void
     {
         $this->assertSame(
-            '<p><span class="swatch y" id="x"><span class="swatch-chip" style="background-color:#fff"></span> #fff</span></p>',
+            '<p><span id="x" class="swatch y"><span class="swatch-chip" style="background-color:#fff"></span> #fff</span></p>',
             trim($this->convert(':color[#fff]{#x .y}')),
         );
     }
@@ -110,7 +111,7 @@ class ColorSwatchExtensionTest extends TestCase
     public function testContrastLetsAuthorStyleWinWithoutDuplicateStyle(): void
     {
         $this->assertSame(
-            '<p><span class="swatch-label" style="opacity:0.5">#fff</span></p>',
+            '<p><span style="opacity:0.5" class="swatch-label">#fff</span></p>',
             trim($this->convert(':color[#fff]{contrast style="opacity:0.5"}')),
         );
     }
@@ -220,6 +221,22 @@ class ColorSwatchExtensionTest extends TestCase
             'style="background-color:color-mix(in srgb, #3b82f6 12%, transparent)"',
             $html,
         );
+    }
+
+    public function testTintStyleSurvivesStrictSafeModeButAuthorStyleDoesNot(): void
+    {
+        // The tint `style` is extension-generated (trusted), so a strict safe
+        // mode that blocks `style` must NOT strip it - it is applied after the
+        // author-attribute filtering. An authored `style` is still filtered.
+        $converter = new CarveConverter(safeMode: SafeMode::strict());
+        $converter->addExtension(new ColorSwatchExtension(tint: true));
+
+        $html = trim($converter->convert(':color[#fff]{style="opacity:0.1"}'));
+        $this->assertStringContainsString(
+            'style="background-color:color-mix(in srgb, #fff 12%, transparent)"',
+            $html,
+        );
+        $this->assertStringNotContainsString('opacity:0.1', $html);
     }
 
     public function testRevealWrapsValueAndMakesSwatchFocusable(): void

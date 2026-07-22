@@ -59,6 +59,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class MathBlockExtension implements StaticRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * Static renderers map key for the build-time math renderer.
      *
@@ -117,16 +119,15 @@ class MathBlockExtension implements StaticRenderExtensionInterface
         if ($build !== null) {
             // The build-time renderer owns its own escaping (it emits MathML /
             // HTML), so its output is used verbatim inside the math div.
-            $event->setHtml('<div class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"'
-                . $this->buildExtraAttributes($node) . '>' . $build($source) . '</div>');
+            $event->setHtml('<div' . $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
+                . '>' . $build($source) . '</div>');
 
             return true;
         }
 
         // No renderer: keep the source readable as an escaped block.
-        $event->setHtml('<pre class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"'
-            . $this->buildExtraAttributes($node) . '>'
-            . $this->escapeMath($source) . "</pre>\n");
+        $event->setHtml('<pre' . $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
+            . '>' . $this->escapeMath($source) . "</pre>\n");
 
         return true;
     }
@@ -136,9 +137,12 @@ class MathBlockExtension implements StaticRenderExtensionInterface
      */
     protected function renderMath(CodeBlock $node): string
     {
-        $classAttr = StringUtil::escapeHtml($this->classAttr($node));
+        $renderer = $this->renderer;
+        $attrs = $renderer !== null
+            ? $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
+            : ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
 
-        return '<div class="' . $classAttr . '"' . $this->buildExtraAttributes($node) . '>\\['
+        return '<div' . $attrs . '>\\['
             . $this->escapeMath($node->getContent()) . '\\]</div>';
     }
 

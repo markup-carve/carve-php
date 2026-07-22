@@ -41,7 +41,7 @@ class SpoilerExtensionTest extends TestCase
         // `spoiler` base class ahead of author classes; id after; onclick dropped
         // by the always-on attribute hardening.
         $this->assertStringContainsString(
-            '<span class="spoiler big" id="s">x</span>',
+            '<span id="s" class="spoiler big">x</span>',
             $this->convert(':spoiler[x]{#s .big onclick="y"}'),
         );
     }
@@ -98,6 +98,6 @@ class SpoilerExtensionTest extends TestCase
 
         $this->assertStringNotContainsString('onclick=', $html);
         $this->assertStringNotContainsString('background:url', $html);
-        $this->assertStringContainsString('<details class="spoiler" style="">', $html);
+        $this->assertStringContainsString('<details style="" class="spoiler">', $html);
     }
 }

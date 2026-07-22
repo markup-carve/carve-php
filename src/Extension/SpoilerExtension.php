@@ -41,6 +41,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  */
 class SpoilerExtension implements ExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * The inline extension role this extension claims.
      *
@@ -130,28 +132,7 @@ class SpoilerExtension implements ExtensionInterface
      */
     protected function openAttributes(Node $node, HtmlRenderer $renderer, array $exclude = []): string
     {
-        $classes = [self::KIND];
-        foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = $node->getAttributes();
-        unset($attrs['class']);
-        foreach ($exclude as $name) {
-            unset($attrs[$name]);
-        }
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        $out = ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-
-        return $out . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes($node, $renderer, [self::KIND], $exclude);
     }
 
     /**

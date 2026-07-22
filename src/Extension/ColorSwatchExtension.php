@@ -23,6 +23,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  */
 class ColorSwatchExtension implements ExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * The inline extension role this extension claims.
      *
@@ -367,35 +369,21 @@ class ColorSwatchExtension implements ExtensionInterface
         string $baseClass = self::KIND,
         array $omitAttrs = [],
     ): string {
-        $classes = [$baseClass];
-        foreach ([...$extraClasses, ...$node->getClassList()] as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
+        $defaults = $extraAttrs;
+        // The extension style is a default: applied only when the author did
+        // not set their own `style`.
+        if ($extraStyle !== null) {
+            $defaults = ['style' => $extraStyle] + $defaults;
         }
 
-        $attrs = $node->getAttributes();
-        unset($attrs['class']);
-        foreach ($omitAttrs as $key) {
-            unset($attrs[$key]);
-        }
-        // Author attributes (e.g. an explicit title) take precedence over the
-        // extension defaults; array union keeps the left (author) keys.
-        $attrs += $extraAttrs;
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        $out = ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-        // Only add the extension style when the author did not set their own.
-        if ($extraStyle !== null && !isset($attrs['style'])) {
-            $out .= ' style="' . $renderer->escapeAttribute($extraStyle) . '"';
-        }
-
-        return $out . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes(
+            $node,
+            $renderer,
+            [$baseClass, ...$extraClasses],
+            $omitAttrs,
+            [],
+            $defaults,
+        );
     }
 
     /**

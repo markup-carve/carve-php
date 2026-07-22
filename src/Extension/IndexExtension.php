@@ -28,6 +28,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  */
 class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * The inline extension role this extension claims.
      *
@@ -219,29 +221,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
      */
     protected function openAttributes(Div $div, HtmlRenderer $renderer): string
     {
-        $classes = [self::KIND];
-        foreach ($div->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = $div->getAttributes();
-        unset($attrs['class'], $attrs['title']);
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        $out = '';
-        if (isset($attrs['id'])) {
-            $out .= ' id="' . $renderer->escapeAttribute((string)$attrs['id']) . '"';
-            unset($attrs['id']);
-        }
-        $out .= ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-
-        return $out . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes($div, $renderer, [self::KIND], ['title']);
     }
 
     /**

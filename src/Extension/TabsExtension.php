@@ -180,6 +180,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * Output mode: 'css' for CSS-only, 'aria' for ARIA with JS
      *
@@ -545,36 +547,14 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      */
     protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer, ?string $role = null): string
     {
-        $classes = [$this->wrapperClass];
-
-        // Add any additional classes from the original div (except 'tabs')
-        foreach ($wrapper->getClassList() as $class) {
-            if ($class !== 'tabs' && !in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = ['class' => implode(' ', $classes)];
-
-        if ($role !== null) {
-            $attrs['role'] = $role;
-        }
-
-        // Copy other attributes (except class)
-        foreach ($wrapper->getAttributes() as $name => $value) {
-            if ($name === 'class') {
-                continue;
-            }
-            $attrs[(string)$name] = (string)$value;
-        }
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        return $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes(
+            $wrapper,
+            $renderer,
+            [$this->wrapperClass],
+            [],
+            ['tabs'],
+            $role !== null ? ['role' => $role] : [],
+        );
     }
 
     /**

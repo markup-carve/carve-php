@@ -2114,6 +2114,12 @@ class BlockParser
             $this->inlineParser->parse($headerContainer, $title, $this->lineOffset + $start);
             $div->setHeaderNodes($headerContainer->getChildren());
         }
+        // Author source order, in the Node's canonical slot form (`#id` / `.class`
+        // / key), taken from the pending attribute insertion order.
+        $authorOrder = [];
+        foreach (array_keys($this->pendingAttributes) as $name) {
+            $authorOrder[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
+        }
         foreach ($this->pendingAttributes as $name => $value) {
             if ($name === 'class') {
                 foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
@@ -2125,6 +2131,12 @@ class BlockParser
                 $div->setAttribute($name, $value);
             }
         }
+        // Storage stays class-first (the type class leads; the core renderer
+        // emits it that way). But the type class polluted the recorded order,
+        // so restore the author's SOURCE order for extensions and fmt (#304).
+        // A type class with no authored class slot is not added to the order;
+        // the extension serializer appends it after the ordered attributes.
+        $div->setAttributeOrder($authorOrder);
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
 

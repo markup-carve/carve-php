@@ -76,6 +76,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * Counter for generating unique group IDs
      */
@@ -406,25 +408,6 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
      */
     protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer): string
     {
-        $classes = [$this->wrapperClass];
-
-        // Add any additional classes from the original div (except 'code-group')
-        foreach ($wrapper->getClassList() as $class) {
-            if ($class !== 'code-group' && !in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = $wrapper->getAttributes();
-        unset($attrs['class']);
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        return ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"'
-            . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes($wrapper, $renderer, [$this->wrapperClass], [], ['code-group']);
     }
 }
