@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ColorSwatchExtension;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 class ColorSwatchExtensionTest extends TestCase
@@ -227,7 +228,7 @@ class ColorSwatchExtensionTest extends TestCase
         // The tint `style` is extension-generated (trusted), so a strict safe
         // mode that blocks `style` must NOT strip it - it is applied after the
         // author-attribute filtering. An authored `style` is still filtered.
-        $converter = new CarveConverter(safeMode: \MarkupCarve\Carve\SafeMode::strict());
+        $converter = new CarveConverter(safeMode: SafeMode::strict());
         $converter->addExtension(new ColorSwatchExtension(tint: true));
 
         $html = trim($converter->convert(':color[#fff]{style="opacity:0.1"}'));
