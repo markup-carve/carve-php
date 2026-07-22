@@ -29,6 +29,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  */
 class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * The inline extension role this extension claims.
      *
@@ -213,30 +215,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
      */
     protected function openAttributes(Node $node, HtmlRenderer $renderer, array $exclude = []): string
     {
-        $classes = [self::INLINE_TYPE];
-        foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = $node->getAttributes();
-        unset($attrs['class']);
-        $drop = array_flip(array_map('strtolower', $exclude));
-        foreach (array_keys($attrs) as $name) {
-            if (isset($drop[strtolower((string)$name)])) {
-                unset($attrs[$name]);
-            }
-        }
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        return ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"'
-            . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes($node, $renderer, [self::INLINE_TYPE], $exclude);
     }
 
     protected function slug(Node $node): string

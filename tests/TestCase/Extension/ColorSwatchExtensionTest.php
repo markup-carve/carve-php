@@ -46,7 +46,7 @@ class ColorSwatchExtensionTest extends TestCase
     public function testInlineMergesClassesAndAttributes(): void
     {
         $this->assertSame(
-            '<p><span class="swatch y" id="x"><span class="swatch-chip" style="background-color:#fff"></span> #fff</span></p>',
+            '<p><span id="x" class="swatch y"><span class="swatch-chip" style="background-color:#fff"></span> #fff</span></p>',
             trim($this->convert(':color[#fff]{#x .y}')),
         );
     }
@@ -110,7 +110,7 @@ class ColorSwatchExtensionTest extends TestCase
     public function testContrastLetsAuthorStyleWinWithoutDuplicateStyle(): void
     {
         $this->assertSame(
-            '<p><span class="swatch-label" style="opacity:0.5">#fff</span></p>',
+            '<p><span style="opacity:0.5" class="swatch-label">#fff</span></p>',
             trim($this->convert(':color[#fff]{contrast style="opacity:0.5"}')),
         );
     }

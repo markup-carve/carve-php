@@ -188,6 +188,23 @@ abstract class Node
     }
 
     /**
+     * Override the recorded source order of attribute slots.
+     *
+     * Storage order and source order can legitimately differ: a typed div
+     * stores `class` first (the structural type class leads, which the core
+     * renderer emits), while extensions and fmt want the author's SOURCE order
+     * (an authored `#id` before a class stays first, issue #304). Building the
+     * div appends the type class first, polluting the recorded order, so the
+     * parser sets the author's order explicitly afterwards.
+     *
+     * @param list<string> $order
+     */
+    public function setAttributeOrder(array $order): void
+    {
+        $this->attributeOrder = $order;
+    }
+
+    /**
      * Merge a preceding block-attribute line's attributes as LEADING attributes
      * (§15): the leading classes come first and its slots are ordered BEFORE the
      * node's own, while the node's OWN attributes win on id/key conflict. Used

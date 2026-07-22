@@ -149,7 +149,7 @@ class StaticRenderModeTest extends TestCase
         $converter->addExtension(new TabsExtension());
 
         $expected = implode("\n", [
-            '<div class="tabs" id="install">',
+            '<div id="install" class="tabs">',
             '  <section class="tabs-panel">',
             '  <h3 class="tabs-label">One</h3>',
             '<p>A.</p>',
@@ -273,7 +273,7 @@ class StaticRenderModeTest extends TestCase
             return $c->convert($source);
         })());
         $this->assertSame(
-            '<pre class="mermaid wide" id="diagram" data-x="1">'
+            '<pre id="diagram" class="mermaid wide" data-x="1">'
             . '<code class="language-mermaid">graph TD</code></pre>',
             $noRenderer,
         );
@@ -288,7 +288,7 @@ class StaticRenderModeTest extends TestCase
             return $c->convert($source);
         })());
         $this->assertSame(
-            '<div class="mermaid wide" id="diagram" data-x="1"><svg/></div>',
+            '<div id="diagram" class="mermaid wide" data-x="1"><svg/></div>',
             $withRenderer,
         );
     }
@@ -426,7 +426,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert($source));
 
-        $this->assertSame('<pre class="math display big" id="eq">\pi</pre>', $html);
+        $this->assertSame('<pre id="eq" class="math display big">\pi</pre>', $html);
     }
 
     public function testMermaidInteractiveModeEmitsHydrationElement(): void

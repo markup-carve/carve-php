@@ -65,6 +65,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class FencedRenderExtension implements StaticRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * Body placed as HTML-escaped text inside the wrapper element.
      *
@@ -271,25 +273,24 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
             return false;
         }
 
-        // Author attributes (id, extra classes, data-*) ride onto the wrapper
-        // exactly as the interactive path keeps them via classAttr() /
-        // buildExtraAttributes(), so static output never loses authored metadata.
-        $classAttr = ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
-        $extraAttrs = $this->buildExtraAttributes($node);
-
-        // Round-trip mode: carry the same data-djot-src the interactive openTag()
+        // Author attributes (id, extra classes, data-*) ride onto the wrapper in
+        // source order (the `mermaid` base class merged into the class value), so
+        // static output never loses authored metadata and matches carve-js/rs.
+        // Round-trip mode carries the same data-djot-src the interactive openTag()
         // emits, so Djot -> static HTML -> Djot still reconstructs the fence.
+        $defaults = [];
         if ($this->roundTripMode) {
-            $extraAttrs .= ' data-djot-src="' . StringUtil::escapeHtml($this->reconstructCodeBlockSource($node)) . '"';
+            $defaults['data-djot-src'] = $this->reconstructCodeBlockSource($node);
         }
+        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], [], [], $defaults);
 
         $source = $node->getContent();
         $build = $renderer->getStaticRenderer($this->cssClass);
         $element = $build !== null
             // The build-time renderer owns its escaping (it emits SVG / <img>).
-            ? '<div' . $classAttr . $extraAttrs . '>' . $build($source) . "</div>\n"
+            ? '<div' . $attrs . '>' . $build($source) . "</div>\n"
             // No renderer: keep the source as a language-tagged code block.
-            : '<pre' . $classAttr . $extraAttrs . '><code class="language-'
+            : '<pre' . $attrs . '><code class="language-'
                 . StringUtil::escapeHtml($this->cssClass) . '">'
                 . StringUtil::escapeHtml($source) . "</code></pre>\n";
 

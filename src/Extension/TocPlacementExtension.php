@@ -44,6 +44,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtensionInterface
 {
+    use ExtensionAttributesTrait;
+
     /**
      * The div class this extension claims.
      *
@@ -272,32 +274,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
      */
     protected function openAttributes(Div $div, HtmlRenderer $renderer): string
     {
-        $classes = [self::KIND];
-        foreach ($div->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
-                $classes[] = $class;
-            }
-        }
-
-        $attrs = $div->getAttributes();
-        unset($attrs['class'], $attrs['title']);
-        foreach (self::RESERVED_ATTRS as $reserved) {
-            unset($attrs[$reserved]);
-        }
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        $out = '';
-        if (isset($attrs['id'])) {
-            $out .= ' id="' . $renderer->escapeAttribute((string)$attrs['id']) . '"';
-            unset($attrs['id']);
-        }
-        $out .= ' class="' . $renderer->escapeAttribute(implode(' ', $classes)) . '"';
-
-        return $out . $renderer->renderAttributeArray($attrs);
+        return $this->renderExtensionAttributes($div, $renderer, [self::KIND], ['title', ...self::RESERVED_ATTRS]);
     }
 
     /**
