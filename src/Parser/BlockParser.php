@@ -4667,6 +4667,18 @@ class BlockParser
             $i++;
         }
 
+        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 paragraph rule; pinned
+        // by corpus 102). Whitespace at the end of the paragraph's FINAL line is
+        // stripped BEFORE rendering. It is applied here, to the SOURCE, rather
+        // than to rendered output: a renderer cannot tell authored trailing
+        // whitespace from spaces a construct legitimately produced, so trimming
+        // the output ate the content of an all-space inline literal
+        // (`` !`  ` `` alone rendered `<p></p>` instead of `<p>  </p>`).
+        // Only the final line is affected - interior lines are followed by a
+        // newline, so this rtrim cannot reach them. Space and tab only, matching
+        // carve-rs; a trailing NBSP is content everywhere and must survive.
+        $content = rtrim($content, " \t");
+
         $paragraph = new Paragraph();
         $this->inlineParser->parse($paragraph, $content, $start);
         $this->applyPendingAttributes($paragraph);
