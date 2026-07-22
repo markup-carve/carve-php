@@ -222,6 +222,22 @@ class ColorSwatchExtensionTest extends TestCase
         );
     }
 
+    public function testTintStyleSurvivesStrictSafeModeButAuthorStyleDoesNot(): void
+    {
+        // The tint `style` is extension-generated (trusted), so a strict safe
+        // mode that blocks `style` must NOT strip it - it is applied after the
+        // author-attribute filtering. An authored `style` is still filtered.
+        $converter = new CarveConverter(safeMode: \MarkupCarve\Carve\SafeMode::strict());
+        $converter->addExtension(new ColorSwatchExtension(tint: true));
+
+        $html = trim($converter->convert(':color[#fff]{style="opacity:0.1"}'));
+        $this->assertStringContainsString(
+            'style="background-color:color-mix(in srgb, #fff 12%, transparent)"',
+            $html,
+        );
+        $this->assertStringNotContainsString('opacity:0.1', $html);
+    }
+
     public function testRevealWrapsValueAndMakesSwatchFocusable(): void
     {
         $this->assertSame(

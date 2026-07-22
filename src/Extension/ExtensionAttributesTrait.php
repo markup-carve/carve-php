@@ -88,17 +88,23 @@ trait ExtensionAttributesTrait
         if ($mergedClass !== '' && !array_key_exists('class', $ordered)) {
             $ordered['class'] = $mergedClass;
         }
-        // Defaults only where the author set nothing.
-        foreach ($defaultAttrs as $name => $value) {
-            if (!array_key_exists($name, $ordered)) {
-                $ordered[$name] = $value;
-            }
-        }
-
+        // Author attributes get the always-on hardening and safe-mode name
+        // filtering.
         $ordered = $renderer->sanitizeAttributes($ordered);
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $ordered = $safeMode->filterAttributes($ordered);
+        }
+
+        // Extension-generated defaults are TRUSTED, so they are applied AFTER
+        // filtering (a strict safe mode must not strip an extension's own
+        // `style`, e.g. the color-swatch tint). They win only where the author
+        // set nothing - and an author value that safe mode just stripped counts
+        // as absent, matching the pre-refactor behavior.
+        foreach ($defaultAttrs as $name => $value) {
+            if (!array_key_exists($name, $ordered)) {
+                $ordered[$name] = $value;
+            }
         }
 
         return $renderer->renderAttributeArray($ordered);
