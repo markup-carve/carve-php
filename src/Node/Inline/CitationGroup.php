@@ -54,6 +54,6 @@ class CitationGroup extends InlineNode
 
     public function getType(): string
     {
-        return 'citation-group';
+        return 'citation_group';
     }
 }

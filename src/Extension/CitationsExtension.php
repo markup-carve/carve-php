@@ -152,7 +152,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             return;
         }
 
-        $converter->on('render.citation-group', function (RenderEvent $event) use ($renderer): void {
+        $converter->on('render.citation_group', function (RenderEvent $event) use ($renderer): void {
             $node = $event->getNode();
             if (!$node instanceof CitationGroup) {
                 return;
