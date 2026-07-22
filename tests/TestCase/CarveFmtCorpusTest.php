@@ -109,4 +109,57 @@ class CarveFmtCorpusTest extends TestCase
 
         $this->addToAssertionCount(1);
     }
+
+    /**
+     * A verbatim span whose content is entirely spaces must be neither stripped
+     * by the parser nor padded by the serializer. Padding it grew the span by
+     * two spaces on every fmt pass, breaking both formatter guarantees. Covers
+     * the code span, inline literal and math paths, which share one strip
+     * helper.
+     *
+     * @return array<int, array{0: string}>
+     */
+    public static function allSpaceVerbatimProvider(): array
+    {
+        return [
+            ['` `'], ['`  `'], ['`   `'],
+            ['!` `'], ['!`  `'], ['!`   `'],
+            ['$` x `'], ['$`  `'],
+            ['``  ``'], ['!``  ``'],
+            ['`a b`'], ['` a `'],
+        ];
+    }
+
+    #[DataProvider('allSpaceVerbatimProvider')]
+    public function testAllSpaceVerbatimContentRoundTrips(string $src): void
+    {
+        $converter = new CarveConverter();
+        $formatted = rtrim(CarveConverter::toCarve($src));
+
+        $this->assertSame(
+            $formatted,
+            rtrim(CarveConverter::toCarve($formatted)),
+            'Formatter is not idempotent for ' . var_export($src, true),
+        );
+        $this->assertSame(
+            $converter->convert($src),
+            $converter->convert($formatted),
+            'toHtml(fmt(x)) !== toHtml(x) for ' . var_export($src, true),
+        );
+    }
+
+    /**
+     * The all-space guard matches the executable spec's codeText() and the
+     * CommonMark rule ("...but does not consist entirely of space characters").
+     */
+    public function testAllSpaceVerbatimContentIsPreservedNotCollapsed(): void
+    {
+        $converter = new CarveConverter();
+
+        $this->assertStringContainsString('<code>  </code>', $converter->convert('`  `'));
+        // A non-all-space span still strips exactly one space per side.
+        $this->assertStringContainsString('<code>a</code>', $converter->convert('` a `'));
+        // Math takes the same strip as a code span (carve-js / carve-rs parity).
+        $this->assertStringContainsString('\(x\)', $converter->convert('$` x `'));
+    }
 }

@@ -19,6 +19,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Never pad all-space verbatim content in `carve fmt`.** A verbatim span whose
+  content is entirely spaces was padded by the serializer even though the parser
+  leaves it unstripped, so every fmt pass grew the span by two spaces
+  (`` ` ` `` → `` `   ` `` → `` `     ` ``) and broke both formatter guarantees,
+  `toHtml(fmt(x)) === toHtml(x)` and `fmt(fmt(x)) === fmt(x)`. Math was worse: it
+  took no strip at all while still being padded, so `` $` x ` `` grew on every
+  pass. Math now takes the same single-space strip as a code span (carve-js and
+  carve-rs parity), the serializer pads exactly where the parser strips, and the
+  code span, math and inline literal scanners share one `stripVerbatimPadding`
+  helper so they cannot drift apart.
 - Align symbol parsing with the pinned carve#261 spec: symbol names now start
   with an alphanumeric character, allow `+` after the first character, and only
   open at the start of text or after a non-word character. No AST rename was
