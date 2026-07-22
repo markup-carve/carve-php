@@ -172,6 +172,7 @@ class CarveCorpusTest extends TestCase
         '134-link-reference-definition-separator-must-be-a-space',
         '135-abbreviation-definition-separator-must-be-a-space',
         '136-unclaimed-openers-stay-literal',
+        '137-inline-literal',
     ];
 
     /**
