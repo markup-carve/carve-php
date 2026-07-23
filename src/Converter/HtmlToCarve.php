@@ -1488,8 +1488,22 @@ class HtmlToCarve
                     }
                 }
 
-                // Add nested list content with blank line before it (required by Djot)
+                // Add nested list content with blank line before it (required by
+                // Djot). The recursive render indents nested content by a fixed
+                // two columns per depth; a nested list must instead reach the
+                // PARENT item's content column (content-column model, carve#295),
+                // which for an ordered marker (`1. ` -> 3, `10. ` -> 4) is wider
+                // than two. Pad every non-empty line by that surplus so the
+                // nested list re-parses as a child rather than detaching. The
+                // task checkbox is content, not marker, so a task/bullet item's
+                // content column stays two.
                 if ($nestedContent !== '') {
+                    $markerWidth = $isOrdered ? strlen($prefix) : 2;
+                    $surplus = $markerWidth - 2;
+                    if ($surplus > 0) {
+                        $pad = str_repeat(' ', $surplus);
+                        $nestedContent = (string)preg_replace('/^(?=.)/m', $pad, $nestedContent);
+                    }
                     $output .= "\n" . $nestedContent;
                 }
 
