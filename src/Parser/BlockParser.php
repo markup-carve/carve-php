@@ -2915,6 +2915,12 @@ class BlockParser
         $count = count($lines);
         $lastItemHadBlankAfter = false;
         $firstItem = true; // Track first item to use listInfo directly
+        // Content column of the most recently opened item (marker width + base).
+        // A post-blank continuation belongs to that item only if it reaches this
+        // column (content-column model, carve#295); below it the item body ends.
+        // Seeded with the bullet width; every item overwrites it once its own
+        // marker width is known.
+        $lastItemContentIndent = $baseIndent + 2;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -2984,7 +2990,17 @@ class BlockParser
             // content still requires the blank line (loose nesting).
             $indentedListMarker = $currentIndent > $baseIndent
                 && $this->listParser->parseListItemMarker(ltrim($currentLine)) !== null;
-            if (($lastItemHadBlankAfter || $indentedListMarker) && $currentIndent > $baseIndent) {
+            // Content-column model (carve#295): a continuation - after a blank, or
+            // a no-blank nested marker - belongs to the previous item only when it
+            // REACHES that item's content column. Below it the item body has
+            // ended: a post-blank block detaches to document level, and a
+            // below-column marker folds as lazy item text (handled by the item
+            // collector). The old rule attached at any indent past the base
+            // column, which nested a block one space under the marker.
+            if (
+                ($lastItemHadBlankAfter || $indentedListMarker)
+                && $currentIndent >= $lastItemContentIndent
+            ) {
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
@@ -2994,20 +3010,31 @@ class BlockParser
                     // heading, table). Only a genuine second prose paragraph makes
                     // the list loose. Block recognition and the uniformity
                     // principle are unchanged -- only tight/loose RENDERING moves.
-                    $trimmedCurrent = ltrim($currentLine);
+                    // Recognize the block opener at the item body's COLUMN 0 (the
+                    // content column), not after a full trim: content indented
+                    // PAST the content column carries residual spaces, so - like
+                    // ` # h` at the top level - it is not a block opener but lazy
+                    // paragraph text, which loosens the item (content-column
+                    // model, carve#295). A list marker still nests at any indent
+                    // (Rule B re-recognizes it after the residual), so it keeps
+                    // the item tight.
+                    $strippedCurrent = IndentationHelper::stripLeadingColumns($currentLine, $lastItemContentIndent);
                     $firstContentOpensBlock =
-                        $this->listParser->parseListItemMarker($trimmedCurrent) !== null
-                        || $this->isBlockElementStart($trimmedCurrent);
+                        $this->listParser->parseListItemMarker(ltrim($strippedCurrent)) !== null
+                        || $this->isBlockElementStart($strippedCurrent);
                     if (!$firstContentOpensBlock) {
-                        // Indented plain text after a blank line = a second
-                        // paragraph in the item => loose list.
+                        // Indented plain text (or above-column lazy text) after a
+                        // blank line = a second paragraph in the item => loose.
                         $list->setTight(false);
                     }
 
-                    // Collect all indented content at this new level
+                    // Collect all indented content at this new level. The strip
+                    // column is the item's content column (body column 0), so
+                    // residual indent above it is preserved and a block opener
+                    // there stays lazy text rather than being re-promoted.
                     $subLines = [];
                     $subLineMap = [];
-                    $subIndent = $currentIndent;
+                    $subIndent = $lastItemContentIndent;
                     // Track the maximum content indent we've seen (for detecting drop-back to marker level)
                     $maxContentIndent = $currentIndent;
                     $sawBlankLine = false;
@@ -3282,6 +3309,9 @@ class BlockParser
                 $markerWidth = 2;
             }
             $contentIndent = $baseIndent + $markerWidth;
+            // Remember this item's content column for the next iteration's
+            // post-blank / nested-marker continuation gate (content-column model).
+            $lastItemContentIndent = $contentIndent;
 
             // When the item's content BEGINS, on the marker line, with another
             // list marker (`- - A`, `* - A`, `1. - A`, ...), the lead is itself
@@ -3437,8 +3467,24 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $itemLines[] = $nextTrimmed;
-                    $itemLineMap[] = $this->sourceLineFor($i);
+                    // Content-column model (carve#295): a line BELOW the item's
+                    // content column, with no blank, lazily continues the item's
+                    // paragraph AS TEXT even when it looks like a block opener
+                    // (`> q`, `# h`, a fence, a bare marker). Fold it into the
+                    // open paragraph so parseBlocks does not re-recognize it as a
+                    // nested block. A bare append lets a `>`/`#` line interrupt
+                    // the paragraph, nesting a block one space under the marker -
+                    // the old djot-ish attach behavior this rule removes.
+                    if (
+                        $trailingState['openParagraph']
+                        && $itemLines !== []
+                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                    ) {
+                        $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
+                    } else {
+                        $itemLines[] = $nextTrimmed;
+                        $itemLineMap[] = $this->sourceLineFor($i);
+                    }
                     $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
                 }
                 $i++;

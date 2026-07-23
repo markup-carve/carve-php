@@ -175,6 +175,8 @@ class CarveCorpusTest extends TestCase
         '137-inline-literal',
         '138-all-space-verbatim-content',
         '139-trailing-whitespace-boundaries',
+        '140-table-row-closing-pipe',
+        '141-post-blank-list-continuation-content-column-model',
     ];
 
     /**

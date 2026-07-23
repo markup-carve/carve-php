@@ -36,6 +36,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Post-blank list continuation uses the content-column model** (carve#295). A
+  block opener (quote, heading, fence, thematic break) or a sublist marker
+  belongs to a list item only when it reaches the item's content column (marker
+  width + separator: `- ` -> 2, `1. ` -> 3). Below the content column it no
+  longer attaches at any indent past the marker (the previous djot-ish
+  behavior): after a blank line the item ends and the block parses at document
+  level, and with no blank line the line lazily continues the item's paragraph
+  as text. Above the content column a block opener folds in as lazy paragraph
+  text rather than a real block. Applies to both the blank and no-blank paths;
+  the `HtmlToCarve` reverse converter now indents nested lists to the parent's
+  content column so round-trips stay stable.
 - **Paragraph trailing-whitespace stripping moved to the source layer.** The
   normative rule strips whitespace at the end of a paragraph's final line
   *before rendering* (corpus 102), but carve-php applied it to the rendered
