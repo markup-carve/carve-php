@@ -93,6 +93,35 @@ class ImgFenceExtensionTest extends TestCase
         $this->assertStringNotContainsString('alt=""', $out);
     }
 
+    public function testAltFallsBackToSvgTitle(): void
+    {
+        $out = $this->render(
+            $this->fence('', '<svg viewBox="0 0 1 1"><title>A red square</title><rect width="1" height="1" fill="red"/></svg>'),
+            $this->ext(),
+        );
+        $this->assertStringContainsString('alt="A red square"', $out);
+        $this->assertStringNotContainsString('alt=""', $out);
+    }
+
+    public function testExplicitAltBeatsSvgTitle(): void
+    {
+        $out = $this->render(
+            $this->fence(' {alt="author alt"}', '<svg viewBox="0 0 1 1"><title>title text</title><rect width="1" height="1"/></svg>'),
+            $this->ext(),
+        );
+        $this->assertStringContainsString('alt="author alt"', $out);
+        $this->assertStringNotContainsString('title text', $out);
+    }
+
+    public function testEmptyAltWhenNoAltAndNoTitle(): void
+    {
+        $out = $this->render(
+            $this->fence('', '<svg viewBox="0 0 1 1"><rect width="1" height="1"/></svg>'),
+            $this->ext(),
+        );
+        $this->assertStringContainsString('alt=""', $out);
+    }
+
     public function testStripsSrcSrcsetOverrides(): void
     {
         $out = $this->render(
