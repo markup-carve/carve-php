@@ -141,6 +141,29 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
     }
 
     /**
+     * Fall back to the SVG's own `<title>` for the `<img>` alt text when the
+     * author gave no `{alt=…}`, so a sandboxed image is described to assistive
+     * tech instead of being silently decorative (empty alt). The svg is already
+     * sanitized, so this is a plain extraction; the result is escaped again on
+     * output. Returns null when there is no non-empty title.
+     */
+    protected static function svgTitle(string $svg): ?string
+    {
+        if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $svg, $m) !== 1) {
+            return null;
+        }
+
+        $text = str_replace(
+            ['&lt;', '&gt;', '&quot;', '&#39;', '&amp;'],
+            ['<', '>', '"', "'", '&'],
+            strip_tags($m[1]),
+        );
+        $text = trim($text);
+
+        return $text === '' ? null : $text;
+    }
+
+    /**
      * Render a claimed `img` fence to sandboxed `<img>` or (opt-in) inline SVG.
      */
     protected function renderCodeBlock(CodeBlock $node, HtmlRenderer $renderer): string
@@ -157,7 +180,7 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
         $inline = $this->allowInline && $this->consumedValue($node, 'inline') !== null;
 
         if (!$inline) {
-            $alt = $this->consumedValue($node, 'alt') ?? '';
+            $alt = $this->consumedValue($node, 'alt') ?? self::svgTitle($result['svg']) ?? '';
             $src = 'data:image/svg+xml,' . self::encodeUriComponent($result['svg']);
             // Sandbox mode promises no fetches: drop any author source-selection
             // attribute (`src`, `srcset`) so it cannot override the sanitized
