@@ -36,6 +36,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Definition lists and tables are first-class block openers in list items**
+  (carve#295). A `::` definition-list term now interrupts a list at column 0 and
+  nests as a whole `<dl>` at an item's content column, instead of splitting the
+  two-line marker across the item and a stray paragraph. A table below an item's
+  content column now folds ALL its rows as lazy text rather than folding the
+  first row and splitting the rest off as a document-level paragraph. This
+  brings carve-php byte-identical to carve-js and carve-rs across the full
+  list-continuation matrix.
 - **Post-blank list continuation uses the content-column model** (carve#295). A
   block opener (quote, heading, fence, thematic break) or a sublist marker
   belongs to a list item only when it reaches the item's content column (marker

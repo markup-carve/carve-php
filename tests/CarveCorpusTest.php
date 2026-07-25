@@ -178,6 +178,9 @@ class CarveCorpusTest extends TestCase
         '140-table-row-closing-pipe',
         '141-post-blank-list-continuation-content-column-model',
         '142-nested-item-looseness-does-not-propagate-to-the-outer-item',
+        '143-definition-list-as-a-first-class-block-opener',
+        '144-table-as-a-block-opener-in-a-list-item',
+        '145-adjacent-slash-and-underscore-emphasis-nest',
     ];
 
     /**
