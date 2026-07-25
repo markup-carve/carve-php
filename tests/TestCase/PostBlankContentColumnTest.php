@@ -84,4 +84,33 @@ class PostBlankContentColumnTest extends TestCase
             "1. one\n\n  > q\n",
         );
     }
+
+    public function testDefinitionListInterruptsAtColumnZero(): void
+    {
+        // A `::` def-list term is a first-class block opener, so at column 0 it
+        // interrupts the item and the whole list parses at document level.
+        $this->assertHtml(
+            "<ul>\n  <li>one</li>\n</ul>\n<dl>\n  <dt>term</dt>\n  <dd>def</dd>\n</dl>",
+            "- one\n:: term\n:  def\n",
+        );
+    }
+
+    public function testDefinitionListNestsAtContentColumn(): void
+    {
+        // At the content column the def-list nests as a whole `<dl>` in the item.
+        $this->assertHtml(
+            "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n      <dd>def</dd>\n    </dl>\n  </li>\n</ul>",
+            "- one\n  :: term\n  :  def\n",
+        );
+    }
+
+    public function testTableBelowContentColumnFoldsAllRowsAsLazyText(): void
+    {
+        // Below the content column a table is lazy text: BOTH rows fold into the
+        // item paragraph rather than the second row splitting off (§24 C3).
+        $this->assertHtml(
+            "<ul>\n  <li>one\n|= H |\n| x |</li>\n</ul>",
+            "- one\n |= H |\n | x |\n",
+        );
+    }
 }

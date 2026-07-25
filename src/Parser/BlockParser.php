@@ -3475,17 +3475,29 @@ class BlockParser
                     // nested block. A bare append lets a `>`/`#` line interrupt
                     // the paragraph, nesting a block one space under the marker -
                     // the old djot-ish attach behavior this rule removes.
+                    $foldedAsText = false;
                     if (
                         $trailingState['openParagraph']
                         && $itemLines !== []
                         && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
                     ) {
                         $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
+                        $foldedAsText = true;
                     } else {
                         $itemLines[] = $nextTrimmed;
                         $itemLineMap[] = $this->sourceLineFor($i);
                     }
                     $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
+                    // A folded line is lazy paragraph TEXT, not a real block, so
+                    // the item's paragraph stays open: a following lazy line -
+                    // e.g. a second table row below the content column - folds
+                    // too instead of splitting off as a document-level block
+                    // (§24 C3). inFence/inDiv are preserved so a genuine fence /
+                    // div body is still tracked (its opener line is structural,
+                    // not just text).
+                    if ($foldedAsText && !$trailingState['inFence'] && !$trailingState['inDiv']) {
+                        $trailingState['openParagraph'] = true;
+                    }
                 }
                 $i++;
             }
@@ -5208,6 +5220,13 @@ class BlockParser
                 // Code fences interrupt only if a matching closer exists ahead.
                 return $this->hasClosingFenceAhead($line, $lines, $index);
             case ':':
+                // Definition list term (`:: term`, not `:::` div) is a
+                // first-class block opener (§24 C3), so it interrupts an open
+                // paragraph exactly like a heading or quote.
+                if (preg_match('/^::(?!:)[ \t]+\S/', $line) === 1) {
+                    return true;
+                }
+
                 // Fenced divs interrupt only if a matching closer exists ahead.
                 return $this->hasClosingDivFenceAhead($line, $lines, $index);
             case '%':
@@ -5471,7 +5490,12 @@ class BlockParser
             return true;
         }
 
-        // Definition list terms (: followed by space or content)
+        // Definition list: a term (`:: term`, not `:::` div) opens the list; a
+        // description line (`:  def`) continues it. Both count as a block start
+        // so a def-list nests at an item's content column (§24 C3).
+        if (preg_match('/^::(?!:)[ \t]+\S/', $line)) {
+            return true;
+        }
         if (preg_match('/^: /', $line)) {
             return true;
         }
