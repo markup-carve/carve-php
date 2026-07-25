@@ -5490,13 +5490,14 @@ class BlockParser
             return true;
         }
 
-        // Definition list: a term (`:: term`, not `:::` div) opens the list; a
-        // description line (`:  def`) continues it. Both count as a block start
-        // so a def-list nests at an item's content column (§24 C3).
+        // Definition list: only a term (`:: term`, not `:::` div) opens the
+        // list and thus counts as a block start (a def-list nests at an item's
+        // content column, §24 C3). A bare description line (`:  def`) is NOT an
+        // independent block start -- it only continues an already-open def-list,
+        // so it must never split off to document level when it follows a term
+        // at a mismatched indent (carve#295: match carve-js, which keeps the
+        // whole <dl> together rather than stranding the definition as a <p>).
         if (preg_match('/^::(?!:)[ \t]+\S/', $line)) {
-            return true;
-        }
-        if (preg_match('/^: /', $line)) {
             return true;
         }
 
