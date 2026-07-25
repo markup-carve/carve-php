@@ -181,6 +181,9 @@ class CarveCorpusTest extends TestCase
         '143-definition-list-as-a-first-class-block-opener',
         '144-table-as-a-block-opener-in-a-list-item',
         '145-adjacent-slash-and-underscore-emphasis-nest',
+        '146-colon-fence-as-a-block-opener-in-a-list-item',
+        '147-fence-folds-as-lazy-inline-code-above-the-content-column',
+        '148-abbreviation-title-escapes-its-markup-characters',
     ];
 
     /**

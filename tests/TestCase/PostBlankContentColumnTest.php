@@ -126,4 +126,17 @@ class PostBlankContentColumnTest extends TestCase
             "- one\n  :: term\n:  def\n",
         );
     }
+
+    public function testLazyFoldedFenceDedentsVerbatimContent(): void
+    {
+        // A fence above the content column folds as lazy inline code. Its
+        // verbatim content must NOT be re-indented by the nesting block
+        // indentation -- the literal newlines inside a `<code>` span are
+        // guarded so `<code>\nc\n</code>` stays flush, matching carve-js.
+        // (Regression: the renderer was padding nested verbatim content.)
+        $this->assertHtml(
+            "<ul>\n  <li><p>one</p>\n    <p><code>\nc\n</code></p>\n  </li>\n</ul>",
+            "- one\n\n   ```\n   c\n   ```\n",
+        );
+    }
 }

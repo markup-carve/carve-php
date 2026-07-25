@@ -36,6 +36,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Nested verbatim inline spans no longer get their content re-indented**
+  (carve#295). A multi-line `<code>`, math, inline-literal or raw-inline span -
+  e.g. a fence folded to lazy inline code inside a list item - kept its literal
+  newlines flush instead of being padded by the surrounding block indentation,
+  matching the carve-js reference. The four verbatim renderers now share one
+  newline-guard so they cannot drift apart.
 - **A definition at a mismatched indent no longer splits its definition list**
   (carve#295). When a `:  def` line sits at a lower column than its `:: term`,
   the definition still belongs to the def-list instead of stranding as a

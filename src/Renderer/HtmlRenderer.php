@@ -437,6 +437,19 @@ class HtmlRenderer implements RendererInterface
         };
     }
 
+    /**
+     * Guard the literal newlines inside a VERBATIM inline span (code, math,
+     * inline literal, raw inline) so block indentation does not re-indent the
+     * verbatim content when the span is nested (e.g. a fence folded to lazy
+     * inline code inside a list item). The guard is restored to `\n` at the
+     * top-level render exit. Shared by all verbatim inline renderers so they
+     * cannot drift apart. Matches the carve-js reference.
+     */
+    protected function guardVerbatimNewlines(string $content): string
+    {
+        return str_replace("\n", self::INLINE_BREAK_GUARD, $content);
+    }
+
     protected function restoreSoftBreakGuards(string $html): string
     {
         return str_replace(
@@ -1506,6 +1519,8 @@ class HtmlRenderer implements RendererInterface
             $content = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $content);
         }
 
+        $content = $this->guardVerbatimNewlines($content);
+
         return '<code' . $attrs . '>' . $content . '</code>';
     }
 
@@ -2014,7 +2029,7 @@ class HtmlRenderer implements RendererInterface
         // target-routed / dropped like raw inline), with the `<code>` wrapper
         // removed. An element is emitted only when an attribute needs a home:
         // bare escaped text with no attributes, a `<span>` carrying any.
-        $text = $this->escape($node->getContent());
+        $text = $this->guardVerbatimNewlines($this->escape($node->getContent()));
         $attrs = $this->renderAttributes($node);
 
         return $attrs === '' ? $text : '<span' . $attrs . '>' . $text . '</span>';
@@ -2030,7 +2045,7 @@ class HtmlRenderer implements RendererInterface
             // In round-trip mode, preserve non-HTML raw content for potential recovery
             if ($this->roundTripMode) {
                 return '<span data-djot-raw="' . $this->escapeAttribute($format) . '">'
-                    . $this->escape($content) . '</span>';
+                    . $this->guardVerbatimNewlines($this->escape($content)) . '</span>';
             }
 
             return '';
@@ -2043,16 +2058,16 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->escape($content);
+                return $this->guardVerbatimNewlines($this->escape($content));
             }
         }
 
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
-            return '<span data-djot-raw="html">' . $content . '</span>';
+            return '<span data-djot-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
         }
 
-        return $content;
+        return $this->guardVerbatimNewlines($content);
     }
 
     protected function renderEscapedText(EscapedText $node): string
@@ -2320,7 +2335,7 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderMath(Math $node): string
     {
-        $content = $this->escape($node->getContent());
+        $content = $this->guardVerbatimNewlines($this->escape($node->getContent()));
         $display = $node->isDisplay();
         $delimOpen = $display ? '\\[' : '\\(';
         $delimClose = $display ? '\\]' : '\\)';
