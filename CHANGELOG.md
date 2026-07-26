@@ -36,6 +36,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A colon-fence opener whose body sits below a list item's content column no
+  longer forms a div** (strict content-column rule). `- ::: note\n - x\n :::`
+  opens `:::` at the item content column (2), but its body and closer sit at
+  column 1, below it; the admonition therefore does not form and the whole run
+  is literal text inside the `<li>`, instead of the dedented lines
+  reconstructing an admonition. Matches carve-js and the executable-spec oracle.
+- **An outer list item that owns an internal blank line before its own attached
+  block now renders loose** (carve#322). In `- a\n  - b\n\n   > q` the blank
+  precedes `> q`, which is dedented below the nested list's content column and so
+  attaches to the OUTER item; that item is loose and wraps its first paragraph
+  (`<li><p>a</p>…`). Nested-item looseness still does not propagate to the outer
+  item (corpus 142). Matches carve-js and the oracle.
 - **A table row (or other block opener) below the content column of an INDENTED
   list item no longer escapes to a document paragraph** (carve#295). The item's
   content column now includes the marker's own indentation (`    1. ` is column
