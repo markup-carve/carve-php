@@ -3185,6 +3185,18 @@ class BlockParser
                         array_pop($subLineMap);
                         $subLineCount--;
                     }
+                    // Compact-list rule (carve#322): an internal blank line in
+                    // the item's collected content loosens THIS list only when
+                    // the content after the blank is the item's OWN block (a
+                    // plain paragraph dedented back below the sub-list). Content
+                    // at or past the sub-list's content column belongs to the
+                    // sub-list, whose looseness is decided by its own recursive
+                    // parse, so it must not propagate up (nested-item looseness
+                    // does not propagate, corpus 142). Only the outer item, which
+                    // owns the blank before its own attached block, goes loose.
+                    if ($this->subContentHasLooseningBlank($subLines)) {
+                        $list->setTight(false);
+                    }
                     // Parse nested content
                     if ($subLines !== []) {
                         $this->parseBlocks($lastItem, $subLines, 0, $subLineMap);
@@ -3384,6 +3396,21 @@ class BlockParser
                 }
 
                 continue;
+            }
+
+            // Strict content-column rule: a lead colon-fence opener (`::: note`
+            // / bare `:::`) whose body and closer sit BELOW the item's content
+            // column does not form a div -- its body must reach the content
+            // column. Reaching this point with `inDiv` set means the lead IS a
+            // colon-fence opener that did NOT route through the
+            // leadColonFenceHasBodyCloser branch above, so no closer exists at
+            // the content column. Treat the opener as an open paragraph so the
+            // below-column body folds in as literal text instead of the
+            // dedented lines reconstructing a div (carve strict column rule;
+            // `- ::: note\n - x\n :::` -> literal `<li>` text, not an admonition).
+            if ($trailingState['inDiv']) {
+                $trailingState['inDiv'] = false;
+                $trailingState['openParagraph'] = true;
             }
 
             while ($i < $count) {
@@ -5462,6 +5489,103 @@ class BlockParser
         $state['openParagraph'] = true;
 
         return $state;
+    }
+
+    /**
+     * Compact-list looseness scan over an item's collected (content-column
+     * dedented) sub-content lines. Mirrors carve-js: for each internal blank
+     * line, look at the next non-blank line. Content at or past the sub-list's
+     * content column belongs to that sub-list (its looseness is decided by its
+     * own recursive parse) and does not loosen THIS item; every other block
+     * opener after the blank keeps the item tight too, but a plain paragraph
+     * after the blank loosens it (carve#322).
+     *
+     * @param array<string> $subLines The item's dedented sub-content lines.
+     */
+    protected function subContentHasLooseningBlank(array $subLines): bool
+    {
+        // The first collected sub-list marker fixes the sub-list content column;
+        // content at or past it belongs to the sub-list, not this item.
+        $firstBlockIdx = -1;
+        foreach ($subLines as $idx => $sl) {
+            if ($sl === '') {
+                continue;
+            }
+            if ($this->listParser->parseListItemMarker(ltrim($sl)) !== null) {
+                $firstBlockIdx = $idx;
+
+                break;
+            }
+        }
+        $subCol = $firstBlockIdx === -1 ? -1 : $this->markerContentColumn($subLines[$firstBlockIdx]);
+
+        $n = count($subLines);
+        for ($k = 0; $k < $n; $k++) {
+            if ($subLines[$k] !== '') {
+                continue;
+            }
+            $j = $k + 1;
+            while ($j < $n && $subLines[$j] === '') {
+                $j++;
+            }
+            if ($j >= $n) {
+                continue;
+            }
+            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($subLines[$j]) >= $subCol) {
+                // Belongs to the sub-list; its looseness is its own business.
+                continue;
+            }
+            if (!$this->lineOpensBlockForLooseness($subLines[$j])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The content column of a list-marker line, mirroring THIS parser's own
+     * content-column model (see the `$markerWidth` computation in tryParseList),
+     * so the looseness scan's "belongs to the sub-list" test agrees with where
+     * the recursive parse actually places the content. Returns -1 when the line
+     * is not a list marker. Bullet and task items use a fixed 2-char marker
+     * width (a bullet with extra spaces after the dash still has content column
+     * base + 2, and a task item uses the bullet width, not the full checkbox
+     * width); ordered items use the real marker width.
+     */
+    protected function markerContentColumn(string $line): int
+    {
+        $stripped = ltrim($line, " \t");
+        $info = $this->listParser->parseListItemMarker($stripped);
+        if ($info === null) {
+            return -1;
+        }
+        $base = IndentationHelper::getLeadingColumns($line);
+        if ($info['type'] === ListBlock::TYPE_ORDERED) {
+            /** @var string $content */
+            $content = $info['content'];
+
+            return $base + (strlen($stripped) - strlen($content));
+        }
+
+        return $base + 2;
+    }
+
+    /**
+     * Does this line OPEN a block (vs plain prose)? Used by the compact-list
+     * looseness scan: a blank inside a list item loosens only when the content
+     * after it is a plain paragraph; a blank followed by a block opener keeps
+     * the item tight. Mirrors carve-js lineOpensBlock -- list markers count at
+     * ANY indent, every other opener only at column 0. Lexer-free: a
+     * colon-fence-shaped opener counts regardless of closer lookahead.
+     */
+    protected function lineOpensBlockForLooseness(string $line): bool
+    {
+        if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+            return true;
+        }
+
+        return $this->isBlockElementStart($line);
     }
 
     /**
