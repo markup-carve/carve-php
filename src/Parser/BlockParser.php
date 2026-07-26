@@ -3405,12 +3405,27 @@ class BlockParser
                 // stuck on b). Plain text dedented below the base still lazily
                 // continues the item (CommonMark lazy continuation), so only a
                 // marker/block breaks here. Matches carve-js.
+                // A dedented MARKER always ends this list (Rule B -- a new
+                // sibling list opens at the dedented column). A dedented block
+                // opener ends the item only when it sits at COLUMN 0, where it
+                // is a genuine document-level opener (`  - one` / `> q` -> the
+                // quote interrupts). A block opener dedented to a column BETWEEN
+                // 0 and the item's content column (`    1. y` / `  | x |`, the
+                // row at col 2) is a block opener at no recognized column, so
+                // under the content-column model (carve#295) it is lazy text --
+                // fall through to the lazy branch, which folds it into an open
+                // paragraph or ends the item if there is none. Keying the block
+                // break on col 0 (not just `< baseIndent`) is what stops
+                // `    1. y\n  | x |` from escaping the row to a document
+                // paragraph while still letting a col-0 opener interrupt.
                 if (
                     $nextIndent < $baseIndent
                     && (
                         $this->listParser->parseListItemMarker($nextTrimmed) !== null
-                        || $this->isBlockElementStart($nextTrimmed)
-                        || $this->startsNewBlock($nextTrimmed)
+                        || (
+                            $nextIndent === 0
+                            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                        )
                     )
                 ) {
                     break;
@@ -3428,11 +3443,19 @@ class BlockParser
                     if ($nextTrimmed === '+') {
                         break;
                     }
-                    // Non-list content at base indent: a line that starts a block
-                    // ends the list (lazy continuation only extends a paragraph).
-                    // isBlockElementStart() detects blocks regardless of context;
-                    // startsNewBlock() additionally covers paragraph interruption.
-                    if ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)) {
+                    // A block opener at the base column ends the list ONLY when
+                    // the base column is 0 -- there it is a genuine document-level
+                    // opener that interrupts. When the marker is itself indented
+                    // (`  - one`, base column 2, content column 4), a block opener
+                    // at the base column is still BELOW the content column, so
+                    // under the content-column model (carve#295) it is lazy text
+                    // that folds into an open paragraph -- fall through to the lazy
+                    // branch rather than breaking. (A dedented MARKER above still
+                    // breaks; `+` still breaks.)
+                    if (
+                        $baseIndent === 0
+                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                    ) {
                         break;
                     }
                 }

@@ -36,6 +36,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A table row (or other block opener) below the content column of an INDENTED
+  list item no longer escapes to a document paragraph** (carve#295). The item's
+  content column now includes the marker's own indentation (`    1. ` is column
+  7, not 3), so a `| x |` at column 2 folds as lazy text instead of ending the
+  item. A block opener dedented below an indented marker interrupts only at
+  column 0; between column 0 and the content column it is lazy text.
 - **Nested verbatim inline spans no longer get their content re-indented**
   (carve#295). A multi-line `<code>`, math, inline-literal or raw-inline span -
   e.g. a fence folded to lazy inline code inside a list item - kept its literal
