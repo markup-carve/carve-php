@@ -114,6 +114,19 @@ class PostBlankContentColumnTest extends TestCase
         );
     }
 
+    public function testTableBelowContentColumnOfIndentedOrderedItemFoldsLazy(): void
+    {
+        // The content column includes the marker's OWN indentation: `    1. `
+        // is base column 4 + marker 3 = content column 7. A `| x |` row at
+        // column 2 is below it, so it folds as lazy text rather than ending the
+        // item and escaping the row to a document paragraph (§24 C3). A block
+        // opener dedented below an INDENTED marker interrupts only at column 0.
+        $this->assertHtml(
+            "<ol>\n  <li>y\n| x |</li>\n</ol>",
+            "    1. y\n  | x |\n",
+        );
+    }
+
     public function testDefinitionListMismatchedIndentKeepsWholeDl(): void
     {
         // When the `:  def` line sits at a lower column than its `:: term`, the
