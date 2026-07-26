@@ -113,4 +113,30 @@ class PostBlankContentColumnTest extends TestCase
             "- one\n |= H |\n | x |\n",
         );
     }
+
+    public function testDefinitionListMismatchedIndentKeepsWholeDl(): void
+    {
+        // When the `:  def` line sits at a lower column than its `:: term`, the
+        // definition still belongs to the def-list -- it must not strand as a
+        // document-level `<p>`. A bare `:  def` is not an independent block
+        // opener, so it never interrupts the item; the whole `<dl>` stays
+        // together (matches carve-js).
+        $this->assertHtml(
+            "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n      <dd>def</dd>\n    </dl>\n  </li>\n</ul>",
+            "- one\n  :: term\n:  def\n",
+        );
+    }
+
+    public function testLazyFoldedFenceDedentsVerbatimContent(): void
+    {
+        // A fence above the content column folds as lazy inline code. Its
+        // verbatim content must NOT be re-indented by the nesting block
+        // indentation -- the literal newlines inside a `<code>` span are
+        // guarded so `<code>\nc\n</code>` stays flush, matching carve-js.
+        // (Regression: the renderer was padding nested verbatim content.)
+        $this->assertHtml(
+            "<ul>\n  <li><p>one</p>\n    <p><code>\nc\n</code></p>\n  </li>\n</ul>",
+            "- one\n\n   ```\n   c\n   ```\n",
+        );
+    }
 }
