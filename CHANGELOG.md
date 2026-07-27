@@ -36,6 +36,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Trailing text after a closed block in a tight list item now renders bare**
+  instead of being wrapped in a spurious `<p>`. In a tight item, text that
+  follows a fenced code block, a `:::` div, or an admonition is part of the
+  item's inline content and matches the item's tightness - carve-js and the
+  executable-spec oracle render it bare (corpus category 162), while carve-php
+  wrapped it. A loose item still wraps every paragraph. As a side effect, a
+  tight item led by an attributed paragraph now indents its following blocks
+  correctly, also matching carve-js.
 - **An unresolved footnote reference followed by an attribute block now stays
   literal** instead of forming an inline span. With no matching `[^a]:`
   definition, `Text[^a]{.ref}.` rendered `Text<span class="ref">^a</span>.` -

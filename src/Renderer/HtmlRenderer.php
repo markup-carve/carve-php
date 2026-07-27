@@ -1101,28 +1101,61 @@ class HtmlRenderer implements RendererInterface
     protected function renderListItem(ListItem $node, bool $tight = true): string
     {
         $attrs = $this->renderAttributes($node);
-        $content = rtrim($this->renderChildren($node), "\n");
 
-        // Separate a leading paragraph from any following block content
-        // (typically a nested list). Tight items inline the lead paragraph
-        // without a <p> wrapper; loose items keep it.
+        // Render the item's direct children individually so paragraph
+        // tightness can be applied per child. In a TIGHT item every top-level
+        // plain paragraph renders bare (no <p> wrapper) -- not only the lead,
+        // but also any paragraph that follows a closed block (a fenced code
+        // block, a `:::` div, or an admonition). carve-js and the executable
+        // spec oracle render that trailing text as part of the item's inline
+        // content, matching the item's tightness (corpus 162). A LOOSE item
+        // keeps every <p>; an attributed paragraph or a bare block image keeps
+        // its own rendering in either mode.
         $lead = '';
-        $rest = '';
-        if (preg_match('/^<p( data-source-line="\d+")?>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
-            // A data-source-line-only wrapper is stripped in tight items too
-            // (the source-line option must never change structure; the <li>
-            // keeps the anchor) but preserved on loose items.
-            $lead = $tight ? $m[2] : '<p' . $m[1] . '>' . $m[2] . '</p>';
-            $rest = isset($m[3]) ? trim($m[3], "\n") : '';
-        } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|details|figure|hr|dl|img|h[1-6])\b/', $content)) {
-            // A block-only item (no inline lead, e.g. the `- +` first-block
-            // form) puts the block on its own indented line, matching the
-            // lead+block layout and carve-js, instead of inlining it on the
-            // `<li>` line.
-            $rest = $content;
-        } else {
-            $lead = $content;
+        $haveLead = false;
+        $restParts = [];
+
+        foreach ($node->getChildren() as $child) {
+            $rendered = rtrim($this->renderNode($child), "\n");
+            if ($rendered === '') {
+                continue;
+            }
+
+            $isParagraph = $child instanceof Paragraph && !$this->isBlockImageParagraph($child);
+            // A "plain" paragraph carries no attributes beyond an optional
+            // data-source-line stamp (which must never change structure), so
+            // its <p> wrapper may be dropped in a tight item.
+            $isPlain = $isParagraph
+                && preg_match('/^<p( data-source-line="\d+")?>(.*)<\/p>$/s', $rendered, $pm) === 1;
+
+            // The first child, when it is a paragraph, is the lead that sits
+            // inline on the `<li>` line. A block-first item leaves the lead
+            // empty and places the block on its own indented line.
+            $isLead = !$haveLead && $restParts === [] && $isParagraph;
+
+            if ($isLead) {
+                // Tight lead drops the <p>; loose keeps it. A data-source-line
+                // wrapper is stripped in tight items too (the source-line
+                // option keeps its anchor on the <li>, not the paragraph).
+                $lead = $tight && $isPlain ? $pm[2] : $rendered;
+                $haveLead = true;
+
+                continue;
+            }
+
+            if ($tight && $isPlain) {
+                // A tight paragraph after a closed block renders bare, with its
+                // inline soft breaks guarded so the list's block indentation
+                // leaves the continuation lines flush.
+                $restParts[] = str_replace("\n", self::INLINE_BREAK_GUARD, $pm[2]);
+
+                continue;
+            }
+
+            $restParts[] = $rendered;
         }
+
+        $rest = implode("\n", $restParts);
 
         // The lead sits inline on the `<li>` line; its inline soft breaks must
         // stay flush (not picked up by the list's block indentation), matching
