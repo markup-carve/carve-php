@@ -5534,8 +5534,30 @@ class BlockParser
         $subCol = $firstBlockIdx === -1 ? -1 : $this->markerContentColumn($subLines[$firstBlockIdx]);
 
         $n = count($subLines);
+        // Track fenced-code regions: a blank line INSIDE an open fence is
+        // verbatim content, not an interior block separator, so it must not
+        // loosen the item (carve#326 case C; matches carve-rs / carve-js).
+        $fenceChar = null;
+        $fenceLength = 0;
         for ($k = 0; $k < $n; $k++) {
-            if ($subLines[$k] !== '') {
+            $sl = $subLines[$k];
+            if ($fenceChar !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($sl, $fenceChar, $fenceLength)) {
+                    $fenceChar = null;
+                }
+
+                continue;
+            }
+            $opener = $this->fencedBlockParser->parseCodeFenceOpener($sl);
+            if ($opener !== null) {
+                /** @var string $fenceChar */
+                $fenceChar = $opener['char'];
+                /** @var int $fenceLength */
+                $fenceLength = $opener['length'];
+
+                continue;
+            }
+            if ($sl !== '') {
                 continue;
             }
             $j = $k + 1;
