@@ -3417,6 +3417,20 @@ class BlockParser
                 $nextLine = $lines[$i];
 
                 if (IndentationHelper::isBlankLine($nextLine)) {
+                    // A blank line inside an OPEN fenced code block (a fence
+                    // opened on the marker line, e.g. `- ``` `) is fence content,
+                    // not an item-content terminator. Collect it and keep going
+                    // until the fence closes, so interior blanks survive
+                    // (carve-php#404; matches carve-js / carve-rs). A blank does
+                    // not change the fence state.
+                    if ($trailingState['inFence']) {
+                        $itemLines[] = '';
+                        $itemLineMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
+
                     break;
                 }
 
