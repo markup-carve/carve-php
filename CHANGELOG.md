@@ -36,6 +36,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unresolved footnote reference followed by an attribute block now stays
+  literal** instead of forming an inline span. With no matching `[^a]:`
+  definition, `Text[^a]{.ref}.` rendered `Text<span class="ref">^a</span>.` -
+  the outlier versus carve-js, carve-rs, and the executable-spec oracle, which
+  keep the reference literal and drop the orphan attribute (`Text[^a].`). The
+  unresolved reference is no longer a valid host, so a trailing `{...}` neither
+  attaches nor forms a span (an empty or invalid block still renders literally).
+  Resolved references and legitimate bracketed spans are unaffected.
 - **A colon-fence opener whose body sits below a list item's content column no
   longer forms a div** (strict content-column rule). `- ::: note\n - x\n :::`
   opens `:::` at the item content column (2), but its body and closer sit at
