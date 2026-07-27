@@ -15,6 +15,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for categories 143-162: definition-list block openers, strict column-0 rules,
   the dash-run ladder, unresolved footnote-ref attributes, tight-item trailing
   text, indented-literal blocks, and list-looseness pins.
+- **SVG `img` fence** (Tier-3, opt-in, off by default) (#382, #392): an
+  `` ```img `` block renders a sanitized SVG instead of showing the source.
+  Sandbox by default - the sanitized SVG is encoded into a `data:image/svg+xml`
+  `<img>` the browser isolates (no script, no fetch, no DOM access); a host may
+  opt into a live inline `<svg>` for `currentColor` / CSS theming. When no
+  `{alt=…}` is given, the alt text falls back to the SVG's `<title>`.
 - **Inline literal** via the `` !`…` `` prefix (#378): a `!` immediately before a
   verbatim backtick span renders its content as escaped prose with no `<code>`
   wrapper, so notation that collides with the bare emphasis delimiters (phonemic
