@@ -48,6 +48,71 @@ class DetailsExtensionTest extends TestCase
         $this->assertSame($expected, $html);
     }
 
+    public function testCustomDefaultSummaryReplacesFallbackLabel(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new DetailsExtension(defaultSummary: 'Details anzeigen'));
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>Details anzeigen</summary>',
+            '  <p>Body.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert("::: details\nBody.\n:::")));
+    }
+
+    public function testCustomDefaultSummaryDoesNotOverrideAQuotedTitle(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new DetailsExtension(defaultSummary: 'Details anzeigen'));
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>More info</summary>',
+            '  <p>Body.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert("::: details \"More info\"\nBody.\n:::")));
+    }
+
+    public function testCustomDefaultSummaryIsHtmlEscaped(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new DetailsExtension(defaultSummary: 'A & B <script>'));
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>A &amp; B &lt;script&gt;</summary>',
+            '  <p>Body.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert("::: details\nBody.\n:::")));
+    }
+
+    public function testSubclassWithOwnConstructorStillGetsTheDefaultSummary(): void
+    {
+        // The class is non-final and documents protected extension points, so a
+        // subclass may define its own constructor and never call the parent one.
+        // The fallback label must still be initialized.
+        $extension = new class extends DetailsExtension {
+            public function __construct()
+            {
+            }
+        };
+
+        $converter = new CarveConverter();
+        $converter->addExtension($extension);
+
+        $expected = implode("\n", [
+            '<details>',
+            '  <summary>Details</summary>',
+            '  <p>Body.</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, trim($converter->convert("::: details\nBody.\n:::")));
+    }
+
     public function testEmptyBodyKeepsBlankLine(): void
     {
         // An empty body renders as a single blank line, matching a core empty
