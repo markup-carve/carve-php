@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-27
+
 ### Added
 
 - Bumped the pinned spec corpus to carve `9c5f53a`, adding conformance coverage
