@@ -399,7 +399,16 @@ Be careful here.
 Renders `::: details` admonitions as the HTML5 `<details>`/`<summary>`
 disclosure widget instead of the default `<div class="details">`. The quoted
 title becomes the `<summary>`; a title-less block falls back to
-`<summary>Details</summary>` so the widget always has an accessible label.
+`<summary>Details</summary>` so the widget always has an accessible label. That
+fallback label is configurable via the `defaultSummary` constructor argument, so
+a non-English document can label its own disclosures:
+
+~~~ php
+$converter->addExtension(new DetailsExtension(defaultSummary: 'Details anzeigen'));
+~~~
+
+The custom label is escaped as HTML content, and a quoted opener title always
+wins over it.
 
 The summary renders as escaped plain text. Block attributes on the opener
 (`{#faq open}`) carry onto the `<details>` tag in source order, matching the

@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `DetailsExtension` accepts a `defaultSummary` constructor argument for the
+  fallback `<summary>` label of a title-less `::: details` block. The label was
+  previously the hardcoded English `Details` with no override, so a non-English
+  document had no way to name its own disclosures. The default is unchanged and
+  a quoted opener title still wins; the custom label is HTML-escaped.
+
 ## [0.1.3] - 2026-07-27
 
 ### Added
