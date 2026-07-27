@@ -9,6 +9,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Bumped the pinned spec corpus to carve `9c5f53a`, adding conformance coverage
+  for categories 143-162: definition-list block openers, strict column-0 rules,
+  the dash-run ladder, unresolved footnote-ref attributes, tight-item trailing
+  text, indented-literal blocks, and list-looseness pins.
 - **Inline literal** via the `` !`…` `` prefix (#378): a `!` immediately before a
   verbatim backtick span renders its content as escaped prose with no `<code>`
   wrapper, so notation that collides with the bare emphasis delimiters (phonemic
@@ -36,6 +40,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The formatter (`carve fmt`) no longer loosens a tight list item that has
+  more than one child block.** A tight item whose blocks were, for example, a
+  paragraph, a fenced code block, and trailing text was emitted with blank lines
+  around the inner block, which loosened the item on re-parse so
+  `toHtml(fmt(x))` diverged from `toHtml(x)` (corpus category 162). Adjacent
+  blocks in a tight item are now joined with a single newline; a nested-list
+  child keeps its existing blank separator and indent handling, so an outer item
+  wrapping a nested list (category 142) stays byte-stable and idempotent.
 - **Trailing text after a closed block in a tight list item now renders bare**
   instead of being wrapped in a spurious `<p>`. In a tight item, text that
   follows a fenced code block, a `:::` div, or an admonition is part of the

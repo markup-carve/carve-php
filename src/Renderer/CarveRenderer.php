@@ -227,7 +227,7 @@ class CarveRenderer implements RendererInterface
                         : $bullet . $itemAttrs . ($item->isTask() ? ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ' : ' ');
                 }
 
-                $content = $this->trimNonNbsp($this->renderListItem($item));
+                $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));
                 $itemChildren = $item->getChildren();
                 if (count($itemChildren) === 1 && $itemChildren[0] instanceof ListBlock) {
                     $content = (string)preg_replace('/^  /m', '', $content);
@@ -250,9 +250,41 @@ class CarveRenderer implements RendererInterface
         }
     }
 
-    protected function renderListItem(ListItem $node): string
+    protected function renderListItem(ListItem $node, bool $tight = false): string
     {
-        return $this->renderBlocks($node->getChildren());
+        $children = $node->getChildren();
+        if (!$tight || count($children) < 2) {
+            return $this->renderBlocks($children);
+        }
+
+        // A tight item with more than one child block must not gain a blank line
+        // between its blocks - a blank there loosens the item on re-parse, so
+        // toHtml(fmt(x)) would diverge from toHtml(x) (carve corpus 162).
+        // Adjacent blocks are joined with a single newline instead. A nested
+        // list child is the exception: keep the blank separator so its own
+        // continuation-indent handling stays exactly as-is (carve corpus 142).
+        if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
+            return '';
+        }
+
+        $this->blockDepth++;
+        try {
+            $out = '';
+            foreach ($children as $child) {
+                $rendered = $this->renderBlock($child);
+                if ($rendered === '') {
+                    continue;
+                }
+                if ($out !== '') {
+                    $out .= $child instanceof ListBlock ? "\n\n" : "\n";
+                }
+                $out .= $rendered;
+            }
+
+            return $out;
+        } finally {
+            $this->blockDepth--;
+        }
     }
 
     protected function orderedMarker(int $n, ?string $type): string

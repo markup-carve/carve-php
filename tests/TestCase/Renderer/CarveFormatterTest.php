@@ -107,6 +107,66 @@ class CarveFormatterTest extends TestCase
     }
 
     /**
+     * A tight list item with more than one child block must stay tight through
+     * fmt: the formatter joins its blocks with a single newline, never a blank
+     * line (a blank would loosen the item on re-parse). Corpus category 162.
+     * A nested-list child (category 142) keeps the existing indent handling and
+     * its blank separator, so the outer item stays byte-stable and idempotent.
+     */
+    public function testTightMultiChildItemStaysTight(): void
+    {
+        $converter = new CarveConverter();
+
+        // 162: item / fenced code / trailing text - all joined tight, no blank.
+        $src162 = "- item\n  ```\n  c\n  ```\n  tail\n";
+        $formatted162 = CarveConverter::toCarve($src162);
+        $this->assertSame(
+            "- item\n  ```\n  c\n  ```\n  tail\n",
+            $formatted162,
+            'Tight item with a fence and trailing text must format tight (no loosening blank).',
+        );
+        $this->assertSame(
+            $converter->convert($src162),
+            $converter->convert($formatted162),
+            'Formatted 162 must render the same HTML as the source.',
+        );
+        $this->assertSame(
+            $formatted162,
+            CarveConverter::toCarve($formatted162),
+            'Formatter must be idempotent on 162.',
+        );
+
+        // 162 with an admonition block between the para and the trailing text.
+        $src162b = "- item\n  :::note\n  body\n  :::\n  tail\n";
+        $formatted162b = CarveConverter::toCarve($src162b);
+        $this->assertSame(
+            $converter->convert($src162b),
+            $converter->convert($formatted162b),
+            'Formatted 162 (admonition) must render the same HTML as the source.',
+        );
+        $this->assertSame(
+            $formatted162b,
+            CarveConverter::toCarve($formatted162b),
+            'Formatter must be idempotent on 162 (admonition).',
+        );
+
+        // 142: a nested-list child keeps its 2-space nesting indent and stays
+        // idempotent - the tight-join must not touch nested-list handling.
+        $src142 = "- a\n  - b\n\n  - c\n";
+        $formatted142 = CarveConverter::toCarve($src142);
+        $this->assertSame(
+            $formatted142,
+            CarveConverter::toCarve($formatted142),
+            'Formatter must be idempotent on 142 (nested list).',
+        );
+        $this->assertSame(
+            $converter->convert($src142),
+            $converter->convert($formatted142),
+            'Formatted 142 must render the same HTML as the source.',
+        );
+    }
+
+    /**
      * The list marker is semantic (section 11): a sibling with a different
      * bullet char or ordered delimiter starts a NEW list, so fmt preserves
      * the authored marker (carve issue 286) - normalizing would merge
