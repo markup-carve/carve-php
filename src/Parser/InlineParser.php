@@ -3410,7 +3410,11 @@ class InlineParser
     /**
      * Parse footnote reference [^label]
      *
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\FootnoteRef, pos: int}|null
+     * A resolved reference yields a FootnoteRef node (with any trailing attribute
+     * block attached); an unresolved one yields the literal `[^label]` source as a
+     * Text node, discarding an orphan trailing attribute block.
+     *
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\FootnoteRef|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|null
      */
     protected function parseFootnoteRef(string $text, int $pos): ?array
     {
@@ -3425,7 +3429,25 @@ class InlineParser
         if (!$this->blockParser->hasFootnote($label)) {
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
 
-            return null;
+            // An UNRESOLVED footnote reference stays literal `[^label]` text; it
+            // does NOT host a following attribute block. Emitting the literal
+            // source here (instead of returning null) stops the generic
+            // inline-span path from claiming `[^a]{.ref}` as `<span class="ref">^a</span>`
+            // -- carve-js and carve-rs keep the ref literal and drop the orphan
+            // attribute (`Text[^a]{.ref}.` -> `<p>Text[^a].</p>`). A trailing
+            // `{...}` therefore attaches to nothing: consume and discard any
+            // consecutive VALID attribute blocks (an empty/invalid block stays
+            // literal, matching `[^a]{}` -> `[^a]{}` and `[^a]{???}` -> `[^a]{???}`).
+            $endPos = $pos + strlen($matches[0]);
+            $length = strlen($text);
+            if ($endPos < $length && $text[$endPos] === '{') {
+                $endPos = $this->applyConsecutiveAttributes(new Text(''), $text, $endPos);
+            }
+
+            return [
+                'node' => new Text($matches[0]),
+                'pos' => $endPos,
+            ];
         }
 
         $node = new FootnoteRef($label);
