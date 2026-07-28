@@ -16,9 +16,18 @@ namespace MarkupCarve\Carve\Renderer;
  */
 enum SmartTypographyMode: string
 {
-    /** Render the resolved glyph: `...` becomes an ellipsis. The default. */
+    /**
+     * Render the resolved glyph, so `...` becomes an ellipsis.
+     *
+     * The default, and what a person reading the output expects.
+     */
     case Glyph = 'glyph';
 
-    /** Render the author's source run: `...` stays three periods. */
+    /**
+     * Render the author's source run, so `...` stays three periods.
+     *
+     * For output a machine reads: the glyph is a presentation choice the
+     * consumer did not ask for and cannot reverse.
+     */
     case Source = 'source';
 }
