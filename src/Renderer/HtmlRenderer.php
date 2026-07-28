@@ -48,6 +48,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -201,6 +202,7 @@ class HtmlRenderer implements RendererInterface
             RawInline::class => 'renderRawInline',
             LiteralInline::class => 'renderLiteralInline',
             RawText::class => 'renderRawText',
+            SmartPunctuation::class => 'renderSmartPunctuation',
             EscapedText::class => 'renderEscapedText',
             Math::class => 'renderMath',
             Mention::class => 'renderMention',
@@ -1696,6 +1698,20 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+    }
+
+    /**
+     * The resolved glyph. The Carve renderer emits the source run instead, so
+     * `fmt` reproduces what the author wrote.
+     */
+    protected function renderSmartPunctuation(SmartPunctuation $node): string
+    {
+        $glyph = $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? null;
+
+        // Through escape() like any other text: a locale glyph can contain a
+        // non-breaking space (French guillemets are `«` + U+00A0), which the
+        // text path has always emitted as `&nbsp;`.
+        return $this->escape($glyph ?? $node->getContent());
     }
 
     protected function renderRawText(RawText $node): string

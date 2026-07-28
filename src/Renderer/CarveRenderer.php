@@ -48,6 +48,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -708,6 +709,8 @@ class CarveRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Text => $this->escapeText($node->getContent()),
+            // The whole point: reproduce the author's source run verbatim.
+            $node instanceof SmartPunctuation => $node->getContent(),
             $node instanceof EscapedText => $this->escapeText($node->getContent()),
             $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
             $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),

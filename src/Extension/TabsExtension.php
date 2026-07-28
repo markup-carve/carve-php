@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -416,6 +417,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Text) {
                 $text .= $child->getContent();
+            } elseif ($child instanceof SmartPunctuation) {
+                $text .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
             } else {
                 $text .= $this->getTextContent($child);
             }

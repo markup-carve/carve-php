@@ -1220,6 +1220,31 @@ Constructor options:
   `closeSingleQuote` (`?string`, default null) - explicit overrides that take
   precedence over the locale.
 
+### How smart typography is represented
+
+Smart typography is not a substitution into the text: each transform becomes a
+`SmartPunctuation` inline node carrying both the resolved kind (`ellipsis`,
+`em_dash`, `rightwards_arrow`, `left_double_quote`, …) and the author's source
+run (`...`, `---`, `->`, `"`).
+
+Presentation renderers (HTML, Markdown, plain text, ANSI) resolve the kind to a
+glyph, so their output is what it has always been. The Carve renderer emits the
+source run instead, which is what makes `fmt` reproduce the document rather than
+normalize it:
+
+~~~
+input      He said "hello" and it's fine... a--b
+--html     <p>He said “hello” and it’s fine… a–b</p>
+--carve    He said "hello" and it's fine... a--b
+~~~
+
+An escaped form stays literal in both directions: `a\.\.\.b` renders the three
+dots and formats back to `a\.\.\.b`.
+
+Quote glyphs are locale-dependent, so a quote node carries the character the
+smart-quotes configuration resolved during parsing; every other kind resolves
+through a shared table (`SmartPunctuation::GLYPHS`).
+
 ~~~ php
 $converter->addExtension(new SmartQuotesExtension(locale: 'de'));
 

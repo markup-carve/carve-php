@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
@@ -60,6 +61,15 @@ use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 class PlainTextRenderer implements RendererInterface
 {
     use EventDispatcherTrait;
+
+    /**
+     * Presentation renderers emit the resolved glyph; the Carve renderer emits
+     * the author's source instead, so `fmt` reproduces the input.
+     */
+    protected function renderSmartPunctuation(SmartPunctuation $node): string
+    {
+        return $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? $node->getContent();
+    }
 
     /**
      * @var int
@@ -184,6 +194,7 @@ class PlainTextRenderer implements RendererInterface
                 // §27: always emitted (unlike raw passthrough above), as plain prose.
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
+                $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
                 default => $this->renderChildren($node),
             };
         } finally {
