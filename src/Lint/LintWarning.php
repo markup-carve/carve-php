@@ -14,17 +14,11 @@ namespace MarkupCarve\Carve\Lint;
 class LintWarning
 {
     public function __construct(
-        /** 1-based line number. */
         public readonly int $line,
-        /** 1-based column number. */
         public readonly int $column,
-        /** Stable rule id, e.g. `markdown-strong-asterisks`. */
         public readonly string $rule,
-        /** What was written, what it renders as, and what to write instead. */
         public readonly string $message,
-        /** 0-based start offset in the source, inclusive. */
         public readonly int $start,
-        /** 0-based end offset in the source, exclusive. */
         public readonly int $end,
     ) {
     }

@@ -26,16 +26,28 @@ namespace MarkupCarve\Carve\Lint;
  */
 class MarkdownHabitLinter
 {
+    /**
+     * @var string
+     */
     public const RULE_STRONG_ASTERISKS = 'markdown-strong-asterisks';
 
+    /**
+     * @var string
+     */
     public const RULE_STRONG_UNDERSCORES = 'markdown-strong-underscores';
 
+    /**
+     * @var string
+     */
     public const RULE_STRIKETHROUGH = 'markdown-strikethrough';
 
+    /**
+     * @var string
+     */
     public const RULE_HEADING_LAZY_CONTINUATION = 'heading-lazy-continuation';
 
     /**
-     * @return list<LintWarning>
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
     public function lint(string $source): array
     {
@@ -49,7 +61,7 @@ class MarkdownHabitLinter
             $fence = $this->fenceDelimiter($line);
 
             if ($fence !== null) {
-                if (! $inFence) {
+                if (!$inFence) {
                     $inFence = true;
                     $fenceMarker = $fence;
                 } elseif (str_starts_with($fence, $fenceMarker)) {
@@ -62,7 +74,7 @@ class MarkdownHabitLinter
                 continue;
             }
 
-            if (! $inFence) {
+            if (!$inFence) {
                 foreach ($this->inlineWarnings($line, $index + 1, $offset) as $warning) {
                     $warnings[] = $warning;
                 }
@@ -88,7 +100,9 @@ class MarkdownHabitLinter
     }
 
     /**
-     * @param  list<string>  $lines
+     * @param list<string> $lines
+     * @param int $offset
+     * @param int $index
      */
     private function headingContinuation(array $lines, int $index, int $offset): ?LintWarning
     {
@@ -112,9 +126,9 @@ class MarkdownHabitLinter
             rule: self::RULE_HEADING_LAZY_CONTINUATION,
             message: sprintf(
                 'The line below this heading is folded INTO it (lazy continuation), so the heading '
-                .'reads "%s". Markdown starts a new block here; Carve does not. Leave a blank line '
-                .'after the heading.',
-                $this->truncate(trim(substr($line, strlen($matches[1]))).' '.trim($next)),
+                . 'reads "%s". Markdown starts a new block here; Carve does not. Leave a blank line '
+                . 'after the heading.',
+                $this->truncate(trim(substr($line, strlen($matches[1]))) . ' ' . trim($next)),
             ),
             start: $offset,
             end: $offset + strlen($line),
@@ -122,7 +136,7 @@ class MarkdownHabitLinter
     }
 
     /**
-     * @return list<LintWarning>
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
     private function inlineWarnings(string $line, int $lineNumber, int $offset): array
     {
@@ -150,14 +164,14 @@ class MarkdownHabitLinter
             }
 
             foreach ($matches[0] as $position => $match) {
-                $inner = $this->truncate((string) $matches[1][$position][0]);
+                $inner = $this->truncate((string)$matches[1][$position][0]);
                 $warnings[] = new LintWarning(
                     line: $lineNumber,
                     column: $match[1] + 1,
                     rule: $rule,
-                    message: sprintf('`%s` ', $match[0]).sprintf($explanation, $inner),
+                    message: sprintf('`%s` ', $match[0]) . sprintf($explanation, $inner),
                     start: $offset + $match[1],
-                    end: $offset + $match[1] + strlen((string) $match[0]),
+                    end: $offset + $match[1] + strlen((string)$match[0]),
                 );
             }
         }
@@ -172,7 +186,7 @@ class MarkdownHabitLinter
      */
     private function maskVerbatim(string $line): string
     {
-        return (string) preg_replace_callback(
+        return (string)preg_replace_callback(
             '/(`+)(?:(?!\1).)*\1/',
             static fn (array $m): string => str_repeat(' ', strlen($m[0])),
             $line,
@@ -183,6 +197,6 @@ class MarkdownHabitLinter
     {
         $text = trim($text);
 
-        return mb_strlen($text) <= $limit ? $text : mb_substr($text, 0, $limit - 1).'…';
+        return mb_strlen($text) <= $limit ? $text : mb_substr($text, 0, $limit - 1) . '…';
     }
 }
