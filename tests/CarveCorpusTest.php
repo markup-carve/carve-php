@@ -198,6 +198,7 @@ class CarveCorpusTest extends TestCase
         '160-outer-item-with-an-internal-blank-before-an-attached-block-is-loose',
         '161-unresolved-footnote-reference-with-a-trailing-attribute-stays-literal',
         '162-tight-list-item-keeps-trailing-text-after-a-block-bare',
+        '163-quote-flanking-after-an-escaped-character',
     ];
 
     /**
