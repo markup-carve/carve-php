@@ -65,7 +65,7 @@ class CarveFormatterTest extends TestCase
         $nbsp = "\u{00A0}";
         $cases = [
             "a\n\n\nb\n" => "a\n\nb\n",
-            "+ item\n" => "\\+ item\n",
+            "+ item\n" => "+ item\n",
             "```\na ``` b\n```\n" => "````\na ``` b\n````\n",
             "{k=v .cls #id}\n# H\n" => "{k=v .cls #id}\n# H\n",
             "a  \n{$nbsp}\t \n" => "a\n{$nbsp}\n",
@@ -83,22 +83,23 @@ class CarveFormatterTest extends TestCase
             "![a][nope]\n" => "![a][nope]\n",
             "foo![a][nope]\n" => "foo![a][nope]\n",
             "![a][nope] and [t][nope]\n" => "![a][nope] and [t][nope]\n",
-            // A bare `!` (no reference following) is still escaped.
-            "![a]\n" => "\\!\\[a\\]\n",
-            "!important\n" => "\\!important\n",
+            // Bare `!` / bracket punctuation stays literal when re-parsing it
+            // changes nothing.
+            "![a]\n" => "![a]\n",
+            "!important\n" => "!important\n",
             "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n" =>
-                "{title=\"attr title\"}\n::: note \"opener title\"\nBody\\.\n:::\n",
+                "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n",
             // Extra attributes on a typed opener survive as a preceding
             // attribute line (byte-identical to carve-js).
             "{#x data-k=\"v\"}\n::: tip\nBody.\n:::\n" =>
-                "{#x data-k=v}\n::: tip\nBody\\.\n:::\n",
+                "{#x data-k=v}\n::: tip\nBody.\n:::\n",
             // A non-identifier id falls back to the quoted key=value form.
             "{id=\"a b\"}\n::: tip\nBody.\n:::\n" =>
-                "{id=\"a b\"}\n::: tip\nBody\\.\n:::\n",
+                "{id=\"a b\"}\n::: tip\nBody.\n:::\n",
             // Multi-class admonitions leave the typed-div fast path but keep
             // header, label, and the sibling class on the attribute line.
             "{.callout}\n::: note \"T\" [L]\nBody.\n:::\n" =>
-                "{.callout}\n::: note \"T\" [L]\nBody\\.\n:::\n",
+                "{.callout}\n::: note \"T\" [L]\nBody.\n:::\n",
         ];
 
         foreach ($cases as $input => $expected) {
