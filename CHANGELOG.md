@@ -7,6 +7,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`MarkdownHabitLinter` and a `carve lint` command**: reports Markdown habits
+  that parse as valid Carve but render as something the author did not intend.
+
+  Carve diverges from Markdown deliberately, so `**bold**`, `__bold__` and
+  `~~struck~~` render as literal punctuation and a heading swallows the line
+  beneath it. None of that is an error - the document is valid, it just says
+  something else - so `getWarnings()` stays empty and `fmt --check` passes. A
+  writer coming from Markdown, or a language model whose training makes the
+  Markdown reading the strong prior, gets no signal at all.
+
+  Only forms that are never meaningful Carve are reported. `*x*` and `_x_` are
+  deliberately NOT flagged: they are correct Carve for strong and underline, and
+  warning on them would punish authors writing the language properly. Verbatim
+  spans and fenced blocks are skipped.
+
+  `carve lint [files...]` prints `file:line:column rule message` and exits
+  non-zero when anything is found, so it drops into CI or an agent loop.
+
 ### Changed
 
 - **Smart typography is represented as AST nodes instead of character
