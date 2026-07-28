@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -16,6 +17,7 @@ use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strong;
@@ -358,57 +360,120 @@ class InlineParserTest extends TestCase
     {
         $para = $this->parseInline('"Hello"');
 
-        $text = $this->getFirstChild($para);
-        $this->assertInstanceOf(Text::class, $text);
-        $this->assertStringContainsString("\u{201C}", $text->getContent()); // Left double quote
-        $this->assertStringContainsString("\u{201D}", $text->getContent()); // Right double quote
+        // Each quote is its own node holding the resolved glyph and the source
+        // character, so the Carve renderer can emit the straight quote back.
+        $children = $para->getChildren();
+
+        $open = $children[0];
+        $this->assertInstanceOf(SmartPunctuation::class, $open);
+        $this->assertSame('left_double_quote', $open->getKind());
+        $this->assertSame("\u{201C}", $open->getGlyph());
+        $this->assertSame('"', $open->getContent());
+
+        $close = $children[2];
+        $this->assertInstanceOf(SmartPunctuation::class, $close);
+        $this->assertSame('right_double_quote', $close->getKind());
+        $this->assertSame("\u{201D}", $close->getGlyph());
+        $this->assertSame('"', $close->getContent());
     }
 
     public function testParseSmartSingleQuotes(): void
     {
         $para = $this->parseInline("'Hello'");
 
-        $text = $this->getFirstChild($para);
-        $this->assertInstanceOf(Text::class, $text);
-        $this->assertStringContainsString("\u{2018}", $text->getContent()); // Left single quote
-        $this->assertStringContainsString("\u{2019}", $text->getContent()); // Right single quote
+        $children = $para->getChildren();
+
+        $open = $children[0];
+        $this->assertInstanceOf(SmartPunctuation::class, $open);
+        $this->assertSame('left_single_quote', $open->getKind());
+        $this->assertSame("\u{2018}", $open->getGlyph());
+        $this->assertSame("'", $open->getContent());
+
+        $close = $children[2];
+        $this->assertInstanceOf(SmartPunctuation::class, $close);
+        $this->assertSame('right_single_quote', $close->getKind());
+        $this->assertSame("\u{2019}", $close->getGlyph());
+        $this->assertSame("'", $close->getContent());
     }
 
     public function testParseEmDash(): void
     {
         $para = $this->parseInline('word---word');
 
-        // Multiple text nodes may be created, collect all content
-        $content = '';
-        foreach ($para->getChildren() as $child) {
-            if ($child instanceof Text) {
-                $content .= $child->getContent();
-            }
-        }
-        $this->assertStringContainsString("\u{2014}", $content); // Em dash
+        $dash = $para->getChildren()[1];
+        $this->assertInstanceOf(SmartPunctuation::class, $dash);
+        $this->assertSame('em_dash', $dash->getKind());
+        // The node carries the three hyphens it was built from, so the Carve
+        // renderer reproduces them.
+        $this->assertSame('---', $dash->getContent());
+        $this->assertSame("\u{2014}", SmartPunctuation::GLYPHS[$dash->getKind()]);
     }
 
     public function testParseEnDash(): void
     {
         $para = $this->parseInline('word--word');
 
-        // Multiple text nodes may be created, collect all content
-        $content = '';
-        foreach ($para->getChildren() as $child) {
-            if ($child instanceof Text) {
-                $content .= $child->getContent();
-            }
-        }
-        $this->assertStringContainsString("\u{2013}", $content); // En dash
+        $dash = $para->getChildren()[1];
+        $this->assertInstanceOf(SmartPunctuation::class, $dash);
+        $this->assertSame('en_dash', $dash->getKind());
+        $this->assertSame('--', $dash->getContent());
+        $this->assertSame("\u{2013}", SmartPunctuation::GLYPHS[$dash->getKind()]);
+    }
+
+    public function testDashRunDecomposesIntoOneNodePerGlyph(): void
+    {
+        // Four hyphens resolve to two en dashes, so the run partitions into two
+        // nodes of two hyphens each - together reproducing the original run.
+        $para = $this->parseInline('word----word');
+
+        $first = $para->getChildren()[1];
+        $second = $para->getChildren()[2];
+        $this->assertInstanceOf(SmartPunctuation::class, $first);
+        $this->assertInstanceOf(SmartPunctuation::class, $second);
+        $this->assertSame('en_dash', $first->getKind());
+        $this->assertSame('en_dash', $second->getKind());
+        $this->assertSame('--', $first->getContent());
+        $this->assertSame('--', $second->getContent());
+    }
+
+    public function testSmartSymbolCarriesItsSourceRun(): void
+    {
+        $para = $this->parseInline('a -> b');
+
+        $arrow = $para->getChildren()[1];
+        $this->assertInstanceOf(SmartPunctuation::class, $arrow);
+        $this->assertSame('rightwards_arrow', $arrow->getKind());
+        $this->assertSame('->', $arrow->getContent());
     }
 
     public function testParseEllipsis(): void
     {
         $para = $this->parseInline('wait...');
 
-        $text = $this->getFirstChild($para);
+        // The ellipsis is its own node carrying the author's source run, so the
+        // Carve renderer can reproduce `...`. The leading text node keeps only
+        // the prose before it.
+        $children = $para->getChildren();
+        $this->assertCount(2, $children);
+
+        $text = $children[0];
         $this->assertInstanceOf(Text::class, $text);
-        $this->assertStringContainsString("\u{2026}", $text->getContent()); // Ellipsis
+        $this->assertSame('wait', $text->getContent());
+
+        $ellipsis = $children[1];
+        $this->assertInstanceOf(SmartPunctuation::class, $ellipsis);
+        $this->assertSame('smart_punctuation', $ellipsis->getType());
+        $this->assertSame('ellipsis', $ellipsis->getKind());
+        $this->assertSame('...', $ellipsis->getContent());
+    }
+
+    public function testEllipsisRendersTheGlyphButFormatsBackToSource(): void
+    {
+        $this->assertSame(
+            "<p>wait\u{2026}</p>\n",
+            (new CarveConverter())->convert('wait...'),
+        );
+        $this->assertSame('wait...', trim(CarveConverter::carve()->convert('wait...')));
     }
 
     public function testEmptyEmphasisIsLiteral(): void
@@ -455,6 +520,10 @@ class InlineParserTest extends TestCase
             $this->assertNotInstanceOf(Span::class, $child);
             if ($child instanceof Text) {
                 $content .= $child->getContent();
+            } elseif ($child instanceof SmartPunctuation) {
+                // Smart quotes are their own nodes now; collect their glyph so
+                // this still asserts on the visible text.
+                $content .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()];
             }
         }
         $this->assertSame('b{#id key=“*”}', $content);

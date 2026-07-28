@@ -44,6 +44,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -67,6 +68,15 @@ use MarkupCarve\Carve\Util\StringUtil;
 class AnsiRenderer implements RendererInterface
 {
     use AbbreviationBudgetTrait;
+
+    /**
+     * Presentation renderers emit the resolved glyph; the Carve renderer emits
+     * the author's source instead, so `fmt` reproduces the input.
+     */
+    protected function renderSmartPunctuation(SmartPunctuation $node): string
+    {
+        return $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? $node->getContent();
+    }
 
     /**
      * @var int
@@ -464,6 +474,7 @@ class AnsiRenderer implements RendererInterface
                 // prose, not code, so it carries no code styling.
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
+                $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
                 default => $this->renderChildren($node),
             };
         } finally {

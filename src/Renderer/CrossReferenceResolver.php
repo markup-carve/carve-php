@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -271,6 +272,11 @@ class CrossReferenceResolver
 
             if ($child instanceof Text) {
                 $text .= $child->getContent();
+            } elseif ($child instanceof SmartPunctuation) {
+                // The visible glyph, not the source run: a heading id has always
+                // been slugified from the rendered character (`Don't` -> `Don-t`),
+                // and moving the substitution into a node must not change that.
+                $text .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
             } elseif ($child instanceof EscapedText) {
                 $text .= $child->getContent();
             } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {

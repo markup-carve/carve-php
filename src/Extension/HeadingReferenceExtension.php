@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -282,6 +283,8 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
                 foreach ($node->getChildren() as $child) {
                     if ($child instanceof Text) {
                         $displayText .= $child->getContent();
+                    } elseif ($child instanceof SmartPunctuation) {
+                        $displayText .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
                     }
                 }
 

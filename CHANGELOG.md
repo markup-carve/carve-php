@@ -7,6 +7,29 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Smart typography is represented as AST nodes instead of character
+  substitution** (carve#339). A `SmartPunctuation` inline node carries both the
+  resolved kind and the author's source run, so the Carve renderer reproduces
+  what was written (`...`, `->`, `--`, `"`) instead of normalizing it to the
+  glyph. `fmt` is no longer lossy on smart typography; `to_html(fmt(x))` still
+  equals `to_html(x)` and `fmt` stays idempotent.
+
+  Rendered output is unchanged for every other target: HTML, Markdown, plain
+  text and ANSI all resolve the node back to the same glyph, verified
+  byte-identical against the pinned spec corpus and against a quote matrix
+  diffed with the previous implementation. Quote glyphs stay locale-aware -
+  they are resolved during parsing, as before, so `SmartQuotesExtension` and
+  its locale sets behave exactly as they did.
+
+  Covers all fifteen transforms: the ellipsis, the eleven operators (`<->`,
+  `->`, `<-`, `=>`, `!=`, `<=`, `>=`, `+-`, `(c)`, `(r)`, `(tm)`), the em/en
+  dash ladder, and the quote directions.
+
+  Parser tests that asserted the old internal shape (a glyph inside the `Text`
+  node) now assert the node instead. No test asserting rendered output changed.
+
 ### Added
 
 - `DetailsExtension` accepts a `defaultSummary` constructor argument for the
