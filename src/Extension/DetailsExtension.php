@@ -34,7 +34,14 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * ```
  *
  * A details block with no header gets a default `<summary>Details</summary>`
- * so the widget always has an accessible label. The quoted opener header is
+ * so the widget always has an accessible label. That fallback label is
+ * configurable, so a non-English document can supply its own:
+ *
+ * ```php
+ * $converter->addExtension(new DetailsExtension(defaultSummary: 'Details anzeigen'));
+ * ```
+ *
+ * The quoted opener header is
  * HTML-escaped for the summary. Block attributes on the opener (`{#faq open}`)
  * carry onto the `<details>` tag in source order, matching the default
  * `<div class="details">` behavior; only the auto `details` class is dropped
@@ -67,6 +74,28 @@ class DetailsExtension implements ExtensionInterface
      */
     public const DEFAULT_SUMMARY = 'Details';
 
+    /**
+     * Fallback `<summary>` label for a details block with no quoted opener header.
+     *
+     * Declared with a class-level default rather than via constructor promotion:
+     * the class is non-final and documents protected extension points, so a
+     * subclass that defines its own constructor and never calls this one would
+     * otherwise leave the typed property uninitialized and fatal on render.
+     *
+     * @var string
+     */
+    protected string $defaultSummary = self::DEFAULT_SUMMARY;
+
+    /**
+     * @param string $defaultSummary Fallback `<summary>` label for a details block that
+     *   carries no quoted opener header. Escaped as HTML content, so plain text is
+     *   expected; the default keeps the historical English label.
+     */
+    public function __construct(string $defaultSummary = self::DEFAULT_SUMMARY)
+    {
+        $this->defaultSummary = $defaultSummary;
+    }
+
     public function register(CarveConverter $converter): void
     {
         $renderer = $converter->getRenderer();
@@ -96,7 +125,7 @@ class DetailsExtension implements ExtensionInterface
     protected function renderDetails(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
     {
         $title = $node->getHeader();
-        $summary = self::DEFAULT_SUMMARY;
+        $summary = $this->escapeHtml($this->defaultSummary);
         if ($title !== null && trim($title) !== '') {
             $summaryHtml = $renderer->renderInlineNodesFragment($node->getHeaderNodes());
             if (trim($summaryHtml) !== '') {

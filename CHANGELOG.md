@@ -9,6 +9,69 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`MarkdownHabitLinter` and a `carve lint` command**: reports Markdown habits
+  that parse as valid Carve but render as something the author did not intend.
+
+  Carve diverges from Markdown deliberately, so `**bold**`, `__bold__` and
+  `~~struck~~` render as literal punctuation and a heading swallows the line
+  beneath it. None of that is an error - the document is valid, it just says
+  something else - so `getWarnings()` stays empty and `fmt --check` passes. A
+  writer coming from Markdown, or a language model whose training makes the
+  Markdown reading the strong prior, gets no signal at all.
+
+  Only forms that are never meaningful Carve are reported. `*x*` and `_x_` are
+  deliberately NOT flagged: they are correct Carve for strong and underline, and
+  warning on them would punish authors writing the language properly. Verbatim
+  spans and fenced blocks are skipped.
+
+  `carve lint [files...]` prints `file:line:column rule message` and exits
+  non-zero when anything is found, so it drops into CI or an agent loop.
+
+### Changed
+
+- **Smart typography is represented as AST nodes instead of character
+  substitution** (carve#339). A `SmartPunctuation` inline node carries both the
+  resolved kind and the author's source run, so the Carve renderer reproduces
+  what was written (`...`, `->`, `--`, `"`) instead of normalizing it to the
+  glyph. `fmt` is no longer lossy on smart typography; `to_html(fmt(x))` still
+  equals `to_html(x)` and `fmt` stays idempotent.
+
+  Rendered output is unchanged for every other target: HTML, Markdown, plain
+  text and ANSI all resolve the node back to the same glyph, verified
+  byte-identical against the pinned spec corpus and against a quote matrix
+  diffed with the previous implementation. Quote glyphs stay locale-aware -
+  they are resolved during parsing, as before, so `SmartQuotesExtension` and
+  its locale sets behave exactly as they did.
+
+  Covers all fifteen transforms: the ellipsis, the eleven operators (`<->`,
+  `->`, `<-`, `=>`, `!=`, `<=`, `>=`, `+-`, `(c)`, `(r)`, `(tm)`), the em/en
+  dash ladder, and the quote directions.
+
+  Parser tests that asserted the old internal shape (a glyph inside the `Text`
+  node) now assert the node instead. No test asserting rendered output changed.
+
+### Added
+
+- `DetailsExtension` accepts a `defaultSummary` constructor argument for the
+  fallback `<summary>` label of a title-less `::: details` block. The label was
+  previously the hardcoded English `Details` with no override, so a non-English
+  document had no way to name its own disclosures. The default is unchanged and
+  a quoted opener title still wins; the custom label is HTML-escaped.
+
+## [0.1.3] - 2026-07-27
+
+### Added
+
+- Bumped the pinned spec corpus to carve `9c5f53a`, adding conformance coverage
+  for categories 143-162: definition-list block openers, strict column-0 rules,
+  the dash-run ladder, unresolved footnote-ref attributes, tight-item trailing
+  text, indented-literal blocks, and list-looseness pins.
+- **SVG `img` fence** (Tier-3, opt-in, off by default) (#382, #392): an
+  `` ```img `` block renders a sanitized SVG instead of showing the source.
+  Sandbox by default - the sanitized SVG is encoded into a `data:image/svg+xml`
+  `<img>` the browser isolates (no script, no fetch, no DOM access); a host may
+  opt into a live inline `<svg>` for `currentColor` / CSS theming. When no
+  `{alt=…}` is given, the alt text falls back to the SVG's `<title>`.
 - **Inline literal** via the `` !`…` `` prefix (#378): a `!` immediately before a
   verbatim backtick span renders its content as escaped prose with no `<code>`
   wrapper, so notation that collides with the bare emphasis delimiters (phonemic
@@ -36,6 +99,79 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The formatter (`carve fmt`) no longer loosens a tight list item that has
+  more than one child block.** A tight item whose blocks were, for example, a
+  paragraph, a fenced code block, and trailing text was emitted with blank lines
+  around the inner block, which loosened the item on re-parse so
+  `toHtml(fmt(x))` diverged from `toHtml(x)` (corpus category 162). Adjacent
+  blocks in a tight item are now joined with a single newline; a nested-list
+  child keeps its existing blank separator and indent handling, so an outer item
+  wrapping a nested list (category 142) stays byte-stable and idempotent.
+- **Trailing text after a closed block in a tight list item now renders bare**
+  instead of being wrapped in a spurious `<p>`. In a tight item, text that
+  follows a fenced code block, a `:::` div, or an admonition is part of the
+  item's inline content and matches the item's tightness - carve-js and the
+  executable-spec oracle render it bare (corpus category 162), while carve-php
+  wrapped it. A loose item still wraps every paragraph. As a side effect, a
+  tight item led by an attributed paragraph now indents its following blocks
+  correctly, also matching carve-js.
+- **An unresolved footnote reference followed by an attribute block now stays
+  literal** instead of forming an inline span. With no matching `[^a]:`
+  definition, `Text[^a]{.ref}.` rendered `Text<span class="ref">^a</span>.` -
+  the outlier versus carve-js, carve-rs, and the executable-spec oracle, which
+  keep the reference literal and drop the orphan attribute (`Text[^a].`). The
+  unresolved reference is no longer a valid host, so a trailing `{...}` neither
+  attaches nor forms a span (an empty or invalid block still renders literally).
+  Resolved references and legitimate bracketed spans are unaffected.
+- **A colon-fence opener whose body sits below a list item's content column no
+  longer forms a div** (strict content-column rule). `- ::: note\n - x\n :::`
+  opens `:::` at the item content column (2), but its body and closer sit at
+  column 1, below it; the admonition therefore does not form and the whole run
+  is literal text inside the `<li>`, instead of the dedented lines
+  reconstructing an admonition. Matches carve-js and the executable-spec oracle.
+- **An outer list item that owns an internal blank line before its own attached
+  block now renders loose** (carve#322). In `- a\n  - b\n\n   > q` the blank
+  precedes `> q`, which is dedented below the nested list's content column and so
+  attaches to the OUTER item; that item is loose and wraps its first paragraph
+  (`<li><p>a</p>…`). Nested-item looseness still does not propagate to the outer
+  item (corpus 142). Matches carve-js and the oracle.
+- **A table row (or other block opener) below the content column of an INDENTED
+  list item no longer escapes to a document paragraph** (carve#295). The item's
+  content column now includes the marker's own indentation (`    1. ` is column
+  7, not 3), so a `| x |` at column 2 folds as lazy text instead of ending the
+  item. A block opener dedented below an indented marker interrupts only at
+  column 0; between column 0 and the content column it is lazy text.
+- **Nested verbatim inline spans no longer get their content re-indented**
+  (carve#295). A multi-line `<code>`, math, inline-literal or raw-inline span -
+  e.g. a fence folded to lazy inline code inside a list item - kept its literal
+  newlines flush instead of being padded by the surrounding block indentation,
+  matching the carve-js reference. The four verbatim renderers now share one
+  newline-guard so they cannot drift apart.
+- **A definition at a mismatched indent no longer splits its definition list**
+  (carve#295). When a `:  def` line sits at a lower column than its `:: term`,
+  the definition still belongs to the def-list instead of stranding as a
+  document-level paragraph: a bare `:  def` is not an independent block opener,
+  so it never interrupts the item and the whole `<dl>` stays together, matching
+  carve-js.
+- **Definition lists and tables are first-class block openers in list items**
+  (carve#295). A `::` definition-list term now interrupts a list at column 0 and
+  nests as a whole `<dl>` at an item's content column, instead of splitting the
+  two-line marker across the item and a stray paragraph. A table below an item's
+  content column now folds ALL its rows as lazy text rather than folding the
+  first row and splitting the rest off as a document-level paragraph. This
+  brings carve-php byte-identical to carve-js and carve-rs across the full
+  list-continuation matrix.
+- **Post-blank list continuation uses the content-column model** (carve#295). A
+  block opener (quote, heading, fence, thematic break) or a sublist marker
+  belongs to a list item only when it reaches the item's content column (marker
+  width + separator: `- ` -> 2, `1. ` -> 3). Below the content column it no
+  longer attaches at any indent past the marker (the previous djot-ish
+  behavior): after a blank line the item ends and the block parses at document
+  level, and with no blank line the line lazily continues the item's paragraph
+  as text. Above the content column a block opener folds in as lazy paragraph
+  text rather than a real block. Applies to both the blank and no-blank paths;
+  the `HtmlToCarve` reverse converter now indents nested lists to the parent's
+  content column so round-trips stay stable.
 - **Paragraph trailing-whitespace stripping moved to the source layer.** The
   normative rule strips whitespace at the end of a paragraph's final line
   *before rendering* (corpus 102), but carve-php applied it to the rendered

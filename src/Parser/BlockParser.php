@@ -2915,6 +2915,12 @@ class BlockParser
         $count = count($lines);
         $lastItemHadBlankAfter = false;
         $firstItem = true; // Track first item to use listInfo directly
+        // Content column of the most recently opened item (marker width + base).
+        // A post-blank continuation belongs to that item only if it reaches this
+        // column (content-column model, carve#295); below it the item body ends.
+        // Seeded with the bullet width; every item overwrites it once its own
+        // marker width is known.
+        $lastItemContentIndent = $baseIndent + 2;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -2984,7 +2990,17 @@ class BlockParser
             // content still requires the blank line (loose nesting).
             $indentedListMarker = $currentIndent > $baseIndent
                 && $this->listParser->parseListItemMarker(ltrim($currentLine)) !== null;
-            if (($lastItemHadBlankAfter || $indentedListMarker) && $currentIndent > $baseIndent) {
+            // Content-column model (carve#295): a continuation - after a blank, or
+            // a no-blank nested marker - belongs to the previous item only when it
+            // REACHES that item's content column. Below it the item body has
+            // ended: a post-blank block detaches to document level, and a
+            // below-column marker folds as lazy item text (handled by the item
+            // collector). The old rule attached at any indent past the base
+            // column, which nested a block one space under the marker.
+            if (
+                ($lastItemHadBlankAfter || $indentedListMarker)
+                && $currentIndent >= $lastItemContentIndent
+            ) {
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
@@ -2994,20 +3010,31 @@ class BlockParser
                     // heading, table). Only a genuine second prose paragraph makes
                     // the list loose. Block recognition and the uniformity
                     // principle are unchanged -- only tight/loose RENDERING moves.
-                    $trimmedCurrent = ltrim($currentLine);
+                    // Recognize the block opener at the item body's COLUMN 0 (the
+                    // content column), not after a full trim: content indented
+                    // PAST the content column carries residual spaces, so - like
+                    // ` # h` at the top level - it is not a block opener but lazy
+                    // paragraph text, which loosens the item (content-column
+                    // model, carve#295). A list marker still nests at any indent
+                    // (Rule B re-recognizes it after the residual), so it keeps
+                    // the item tight.
+                    $strippedCurrent = IndentationHelper::stripLeadingColumns($currentLine, $lastItemContentIndent);
                     $firstContentOpensBlock =
-                        $this->listParser->parseListItemMarker($trimmedCurrent) !== null
-                        || $this->isBlockElementStart($trimmedCurrent);
+                        $this->listParser->parseListItemMarker(ltrim($strippedCurrent)) !== null
+                        || $this->isBlockElementStart($strippedCurrent);
                     if (!$firstContentOpensBlock) {
-                        // Indented plain text after a blank line = a second
-                        // paragraph in the item => loose list.
+                        // Indented plain text (or above-column lazy text) after a
+                        // blank line = a second paragraph in the item => loose.
                         $list->setTight(false);
                     }
 
-                    // Collect all indented content at this new level
+                    // Collect all indented content at this new level. The strip
+                    // column is the item's content column (body column 0), so
+                    // residual indent above it is preserved and a block opener
+                    // there stays lazy text rather than being re-promoted.
                     $subLines = [];
                     $subLineMap = [];
-                    $subIndent = $currentIndent;
+                    $subIndent = $lastItemContentIndent;
                     // Track the maximum content indent we've seen (for detecting drop-back to marker level)
                     $maxContentIndent = $currentIndent;
                     $sawBlankLine = false;
@@ -3158,6 +3185,18 @@ class BlockParser
                         array_pop($subLineMap);
                         $subLineCount--;
                     }
+                    // Compact-list rule (carve#322): an internal blank line in
+                    // the item's collected content loosens THIS list only when
+                    // the content after the blank is the item's OWN block (a
+                    // plain paragraph dedented back below the sub-list). Content
+                    // at or past the sub-list's content column belongs to the
+                    // sub-list, whose looseness is decided by its own recursive
+                    // parse, so it must not propagate up (nested-item looseness
+                    // does not propagate, corpus 142). Only the outer item, which
+                    // owns the blank before its own attached block, goes loose.
+                    if ($this->subContentHasLooseningBlank($subLines)) {
+                        $list->setTight(false);
+                    }
                     // Parse nested content
                     if ($subLines !== []) {
                         $this->parseBlocks($lastItem, $subLines, 0, $subLineMap);
@@ -3282,6 +3321,9 @@ class BlockParser
                 $markerWidth = 2;
             }
             $contentIndent = $baseIndent + $markerWidth;
+            // Remember this item's content column for the next iteration's
+            // post-blank / nested-marker continuation gate (content-column model).
+            $lastItemContentIndent = $contentIndent;
 
             // When the item's content BEGINS, on the marker line, with another
             // list marker (`- - A`, `* - A`, `1. - A`, ...), the lead is itself
@@ -3356,10 +3398,39 @@ class BlockParser
                 continue;
             }
 
+            // Strict content-column rule: a lead colon-fence opener (`::: note`
+            // / bare `:::`) whose body and closer sit BELOW the item's content
+            // column does not form a div -- its body must reach the content
+            // column. Reaching this point with `inDiv` set means the lead IS a
+            // colon-fence opener that did NOT route through the
+            // leadColonFenceHasBodyCloser branch above, so no closer exists at
+            // the content column. Treat the opener as an open paragraph so the
+            // below-column body folds in as literal text instead of the
+            // dedented lines reconstructing a div (carve strict column rule;
+            // `- ::: note\n - x\n :::` -> literal `<li>` text, not an admonition).
+            if ($trailingState['inDiv']) {
+                $trailingState['inDiv'] = false;
+                $trailingState['openParagraph'] = true;
+            }
+
             while ($i < $count) {
                 $nextLine = $lines[$i];
 
                 if (IndentationHelper::isBlankLine($nextLine)) {
+                    // A blank line inside an OPEN fenced code block (a fence
+                    // opened on the marker line, e.g. `- ``` `) is fence content,
+                    // not an item-content terminator. Collect it and keep going
+                    // until the fence closes, so interior blanks survive
+                    // (carve-php#404; matches carve-js / carve-rs). A blank does
+                    // not change the fence state.
+                    if ($trailingState['inFence']) {
+                        $itemLines[] = '';
+                        $itemLineMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
+
                     break;
                 }
 
@@ -3375,12 +3446,27 @@ class BlockParser
                 // stuck on b). Plain text dedented below the base still lazily
                 // continues the item (CommonMark lazy continuation), so only a
                 // marker/block breaks here. Matches carve-js.
+                // A dedented MARKER always ends this list (Rule B -- a new
+                // sibling list opens at the dedented column). A dedented block
+                // opener ends the item only when it sits at COLUMN 0, where it
+                // is a genuine document-level opener (`  - one` / `> q` -> the
+                // quote interrupts). A block opener dedented to a column BETWEEN
+                // 0 and the item's content column (`    1. y` / `  | x |`, the
+                // row at col 2) is a block opener at no recognized column, so
+                // under the content-column model (carve#295) it is lazy text --
+                // fall through to the lazy branch, which folds it into an open
+                // paragraph or ends the item if there is none. Keying the block
+                // break on col 0 (not just `< baseIndent`) is what stops
+                // `    1. y\n  | x |` from escaping the row to a document
+                // paragraph while still letting a col-0 opener interrupt.
                 if (
                     $nextIndent < $baseIndent
                     && (
                         $this->listParser->parseListItemMarker($nextTrimmed) !== null
-                        || $this->isBlockElementStart($nextTrimmed)
-                        || $this->startsNewBlock($nextTrimmed)
+                        || (
+                            $nextIndent === 0
+                            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                        )
                     )
                 ) {
                     break;
@@ -3398,11 +3484,19 @@ class BlockParser
                     if ($nextTrimmed === '+') {
                         break;
                     }
-                    // Non-list content at base indent: a line that starts a block
-                    // ends the list (lazy continuation only extends a paragraph).
-                    // isBlockElementStart() detects blocks regardless of context;
-                    // startsNewBlock() additionally covers paragraph interruption.
-                    if ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)) {
+                    // A block opener at the base column ends the list ONLY when
+                    // the base column is 0 -- there it is a genuine document-level
+                    // opener that interrupts. When the marker is itself indented
+                    // (`  - one`, base column 2, content column 4), a block opener
+                    // at the base column is still BELOW the content column, so
+                    // under the content-column model (carve#295) it is lazy text
+                    // that folds into an open paragraph -- fall through to the lazy
+                    // branch rather than breaking. (A dedented MARKER above still
+                    // breaks; `+` still breaks.)
+                    if (
+                        $baseIndent === 0
+                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                    ) {
                         break;
                     }
                 }
@@ -3437,9 +3531,37 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $itemLines[] = $nextTrimmed;
-                    $itemLineMap[] = $this->sourceLineFor($i);
+                    // Content-column model (carve#295): a line BELOW the item's
+                    // content column, with no blank, lazily continues the item's
+                    // paragraph AS TEXT even when it looks like a block opener
+                    // (`> q`, `# h`, a fence, a bare marker). Fold it into the
+                    // open paragraph so parseBlocks does not re-recognize it as a
+                    // nested block. A bare append lets a `>`/`#` line interrupt
+                    // the paragraph, nesting a block one space under the marker -
+                    // the old djot-ish attach behavior this rule removes.
+                    $foldedAsText = false;
+                    if (
+                        $trailingState['openParagraph']
+                        && $itemLines !== []
+                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                    ) {
+                        $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
+                        $foldedAsText = true;
+                    } else {
+                        $itemLines[] = $nextTrimmed;
+                        $itemLineMap[] = $this->sourceLineFor($i);
+                    }
                     $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
+                    // A folded line is lazy paragraph TEXT, not a real block, so
+                    // the item's paragraph stays open: a following lazy line -
+                    // e.g. a second table row below the content column - folds
+                    // too instead of splitting off as a document-level block
+                    // (§24 C3). inFence/inDiv are preserved so a genuine fence /
+                    // div body is still tracked (its opener line is structural,
+                    // not just text).
+                    if ($foldedAsText && !$trailingState['inFence'] && !$trailingState['inDiv']) {
+                        $trailingState['openParagraph'] = true;
+                    }
                 }
                 $i++;
             }
@@ -5162,6 +5284,13 @@ class BlockParser
                 // Code fences interrupt only if a matching closer exists ahead.
                 return $this->hasClosingFenceAhead($line, $lines, $index);
             case ':':
+                // Definition list term (`:: term`, not `:::` div) is a
+                // first-class block opener (§24 C3), so it interrupts an open
+                // paragraph exactly like a heading or quote.
+                if (preg_match('/^::(?!:)[ \t]+\S/', $line) === 1) {
+                    return true;
+                }
+
                 // Fenced divs interrupt only if a matching closer exists ahead.
                 return $this->hasClosingDivFenceAhead($line, $lines, $index);
             case '%':
@@ -5377,6 +5506,125 @@ class BlockParser
     }
 
     /**
+     * Compact-list looseness scan over an item's collected (content-column
+     * dedented) sub-content lines. Mirrors carve-js: for each internal blank
+     * line, look at the next non-blank line. Content at or past the sub-list's
+     * content column belongs to that sub-list (its looseness is decided by its
+     * own recursive parse) and does not loosen THIS item; every other block
+     * opener after the blank keeps the item tight too, but a plain paragraph
+     * after the blank loosens it (carve#322).
+     *
+     * @param array<string> $subLines The item's dedented sub-content lines.
+     */
+    protected function subContentHasLooseningBlank(array $subLines): bool
+    {
+        // The first collected sub-list marker fixes the sub-list content column;
+        // content at or past it belongs to the sub-list, not this item.
+        $firstBlockIdx = -1;
+        foreach ($subLines as $idx => $sl) {
+            if ($sl === '') {
+                continue;
+            }
+            if ($this->listParser->parseListItemMarker(ltrim($sl)) !== null) {
+                $firstBlockIdx = $idx;
+
+                break;
+            }
+        }
+        $subCol = $firstBlockIdx === -1 ? -1 : $this->markerContentColumn($subLines[$firstBlockIdx]);
+
+        $n = count($subLines);
+        // Track fenced-code regions: a blank line INSIDE an open fence is
+        // verbatim content, not an interior block separator, so it must not
+        // loosen the item (carve#326 case C; matches carve-rs / carve-js).
+        $fenceChar = null;
+        $fenceLength = 0;
+        for ($k = 0; $k < $n; $k++) {
+            $sl = $subLines[$k];
+            if ($fenceChar !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($sl, $fenceChar, $fenceLength)) {
+                    $fenceChar = null;
+                }
+
+                continue;
+            }
+            $opener = $this->fencedBlockParser->parseCodeFenceOpener($sl);
+            if ($opener !== null) {
+                /** @var string $fenceChar */
+                $fenceChar = $opener['char'];
+                /** @var int $fenceLength */
+                $fenceLength = $opener['length'];
+
+                continue;
+            }
+            if ($sl !== '') {
+                continue;
+            }
+            $j = $k + 1;
+            while ($j < $n && $subLines[$j] === '') {
+                $j++;
+            }
+            if ($j >= $n) {
+                continue;
+            }
+            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($subLines[$j]) >= $subCol) {
+                // Belongs to the sub-list; its looseness is its own business.
+                continue;
+            }
+            if (!$this->lineOpensBlockForLooseness($subLines[$j])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The content column of a list-marker line, mirroring THIS parser's own
+     * content-column model (see the `$markerWidth` computation in tryParseList),
+     * so the looseness scan's "belongs to the sub-list" test agrees with where
+     * the recursive parse actually places the content. Returns -1 when the line
+     * is not a list marker. Bullet and task items use a fixed 2-char marker
+     * width (a bullet with extra spaces after the dash still has content column
+     * base + 2, and a task item uses the bullet width, not the full checkbox
+     * width); ordered items use the real marker width.
+     */
+    protected function markerContentColumn(string $line): int
+    {
+        $stripped = ltrim($line, " \t");
+        $info = $this->listParser->parseListItemMarker($stripped);
+        if ($info === null) {
+            return -1;
+        }
+        $base = IndentationHelper::getLeadingColumns($line);
+        if ($info['type'] === ListBlock::TYPE_ORDERED) {
+            /** @var string $content */
+            $content = $info['content'];
+
+            return $base + (strlen($stripped) - strlen($content));
+        }
+
+        return $base + 2;
+    }
+
+    /**
+     * Does this line OPEN a block (vs plain prose)? Used by the compact-list
+     * looseness scan: a blank inside a list item loosens only when the content
+     * after it is a plain paragraph; a blank followed by a block opener keeps
+     * the item tight. Mirrors carve-js lineOpensBlock -- list markers count at
+     * ANY indent, every other opener only at column 0. Lexer-free: a
+     * colon-fence-shaped opener counts regardless of closer lookahead.
+     */
+    protected function lineOpensBlockForLooseness(string $line): bool
+    {
+        if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+            return true;
+        }
+
+        return $this->isBlockElementStart($line);
+    }
+
+    /**
      * Check if line starts a block element that should terminate list content collection.
      *
      * This is different from startsNewBlock() which is about paragraph interruption.
@@ -5425,8 +5673,14 @@ class BlockParser
             return true;
         }
 
-        // Definition list terms (: followed by space or content)
-        if (preg_match('/^: /', $line)) {
+        // Definition list: only a term (`:: term`, not `:::` div) opens the
+        // list and thus counts as a block start (a def-list nests at an item's
+        // content column, §24 C3). A bare description line (`:  def`) is NOT an
+        // independent block start -- it only continues an already-open def-list,
+        // so it must never split off to document level when it follows a term
+        // at a mismatched indent (carve#295: match carve-js, which keeps the
+        // whole <dl> together rather than stranding the definition as a <p>).
+        if (preg_match('/^::(?!:)[ \t]+\S/', $line)) {
             return true;
         }
 

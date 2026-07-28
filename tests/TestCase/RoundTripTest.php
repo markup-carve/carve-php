@@ -666,13 +666,16 @@ DJOT;
 
     public function testNestedOrderedLists(): void
     {
-        // Djot nested lists use 2-space indentation per level
-        // Blank lines between items may not be preserved (tight vs loose list)
+        // A nested list must reach the parent item's content column. Under `1. `
+        // that column is 3 (marker width), so the sub-list is indented three
+        // spaces; a two-space indent would be below the content column and
+        // detach to document level (content-column model, carve#295).
+        // Blank lines between items may not be preserved (tight vs loose list).
         $djot = <<<'DJOT'
 1. First
 
-  1. Nested first
-  2. Nested second
+   1. Nested first
+   2. Nested second
 2. Second
 DJOT;
         $this->assertRoundTrip($djot);

@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AttributeScanTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     private CarveConverter $converter;
 
     protected function setUp(): void
@@ -61,21 +63,7 @@ class AttributeScanTest extends TestCase
     #[DataProvider('attributeShapeProvider')]
     public function testAttributeScanScalesLinearly(string $fragment, string $suffix): void
     {
-        $small = str_repeat($fragment, 25000) . $suffix;
-        $large = str_repeat($fragment, 50000) . $suffix;
-
-        $elapsedSmall = $this->bestConvertTime($small);
-        $elapsedLarge = $this->bestConvertTime($large);
-
-        $this->assertLessThan(20.0, $elapsedSmall, "25000x '{$fragment}' took {$elapsedSmall}s");
-        $this->assertLessThan(20.0, $elapsedLarge, "50000x '{$fragment}' took {$elapsedLarge}s");
-
-        $ratio = $elapsedLarge / max($elapsedSmall, 0.001);
-        $this->assertLessThan(
-            3.0,
-            $ratio,
-            "Doubling input scaled time {$ratio}x: small={$elapsedSmall}s large={$elapsedLarge}s",
-        );
+        $this->assertScanScalesLinearly($this->converter, $fragment, $suffix, "'{$fragment}'");
     }
 
     /**
@@ -87,19 +75,5 @@ class AttributeScanTest extends TestCase
             'no-closer' => ['[x]{', ''],
             'far-brace' => ['[x]{', '}'],
         ];
-    }
-
-    private function bestConvertTime(string $input): float
-    {
-        $this->converter->convert($input);
-
-        $best = INF;
-        for ($i = 0; $i < 3; $i++) {
-            $start = hrtime(true);
-            $this->converter->convert($input);
-            $best = min($best, (hrtime(true) - $start) / 1e9);
-        }
-
-        return $best;
     }
 }

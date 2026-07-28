@@ -399,7 +399,16 @@ Be careful here.
 Renders `::: details` admonitions as the HTML5 `<details>`/`<summary>`
 disclosure widget instead of the default `<div class="details">`. The quoted
 title becomes the `<summary>`; a title-less block falls back to
-`<summary>Details</summary>` so the widget always has an accessible label.
+`<summary>Details</summary>` so the widget always has an accessible label. That
+fallback label is configurable via the `defaultSummary` constructor argument, so
+a non-English document can label its own disclosures:
+
+~~~ php
+$converter->addExtension(new DetailsExtension(defaultSummary: 'Details anzeigen'));
+~~~
+
+The custom label is escaped as HTML content, and a quoted opener title always
+wins over it.
 
 The summary renders as escaped plain text. Block attributes on the opener
 (`{#faq open}`) carry onto the `<details>` tag in source order, matching the
@@ -1210,6 +1219,31 @@ Constructor options:
 - `openDoubleQuote` / `closeDoubleQuote` / `openSingleQuote` /
   `closeSingleQuote` (`?string`, default null) - explicit overrides that take
   precedence over the locale.
+
+### How smart typography is represented
+
+Smart typography is not a substitution into the text: each transform becomes a
+`SmartPunctuation` inline node carrying both the resolved kind (`ellipsis`,
+`em_dash`, `rightwards_arrow`, `left_double_quote`, …) and the author's source
+run (`...`, `---`, `->`, `"`).
+
+Presentation renderers (HTML, Markdown, plain text, ANSI) resolve the kind to a
+glyph, so their output is what it has always been. The Carve renderer emits the
+source run instead, which is what makes `fmt` reproduce the document rather than
+normalize it:
+
+~~~
+input      He said "hello" and it's fine... a--b
+--html     <p>He said “hello” and it’s fine… a–b</p>
+--carve    He said "hello" and it's fine... a--b
+~~~
+
+An escaped form stays literal in both directions: `a\.\.\.b` renders the three
+dots and formats back to `a\.\.\.b`.
+
+Quote glyphs are locale-dependent, so a quote node carries the character the
+smart-quotes configuration resolved during parsing; every other kind resolves
+through a shared table (`SmartPunctuation::GLYPHS`).
 
 ~~~ php
 $converter->addExtension(new SmartQuotesExtension(locale: 'de'));

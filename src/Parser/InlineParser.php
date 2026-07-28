@@ -25,6 +25,7 @@ use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -942,31 +943,61 @@ class InlineParser
                 // with prior output as `'x'` (closing), so a quote after a
                 // wrapped line stays closing (`a"b\n""` -> `a”b\n””`). A truly
                 // empty run with no prior children is start-of-content.
-                $prevConverted = $this->lastCharOf($textBuffer);
-                if ($prevConverted === '' && $parent->hasChildren()) {
-                    $prevConverted = 'x';
-                }
+                $prevConverted = $this->previousConvertedChar($parent, $textBuffer);
                 $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
-                $textBuffer .= $smartQuote;
+
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(
+                    new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote),
+                );
                 $pos++;
 
                 continue;
             }
 
-            // Smart dashes
+            // Smart dashes. The run decomposes into one or more glyphs (the
+            // em/en ladder), and each glyph consumes a fixed number of source
+            // hyphens - 3 for an em dash, 2 for an en dash - so the run
+            // partitions cleanly into one node per glyph, each carrying the
+            // hyphens it came from.
             if ($char === '-' && $nextChar === '-') {
+                $result = $this->parseSmartDash($text, $pos);
+                $glyphs = $result['text'];
+
+                // A lone hyphen is not a substitution; it stays literal text.
+                if ($glyphs === '-') {
+                    $textBuffer .= '-';
+                    $pos = $result['pos'];
+
+                    continue;
+                }
+
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseSmartDash($text, $pos);
-                $textBuffer .= $result['text'];
+
+                $sourcePos = $pos;
+                foreach (preg_split('//u', $glyphs, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $glyph) {
+                    $kind = $glyph === "\u{2014}" ? 'em_dash' : 'en_dash';
+                    $width = $kind === 'em_dash' ? 3 : 2;
+                    $parent->appendChild(
+                        new SmartPunctuation($kind, substr($text, $sourcePos, $width)),
+                    );
+                    $sourcePos += $width;
+                }
+
                 $pos = $result['pos'];
 
                 continue;
             }
 
-            // Ellipsis
+            // Ellipsis. Emitted as a node carrying the source run rather than
+            // substituted into the text buffer, so the Carve renderer can
+            // reproduce `...` instead of normalizing it to the glyph.
             if ($char === '.' && substr($text, $pos, 3) === '...') {
-                $textBuffer .= "\u{2026}";
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(new SmartPunctuation('ellipsis', '...'));
                 $pos += 3;
 
                 continue;
@@ -976,7 +1007,12 @@ class InlineParser
             // Runs after the escape check, so `\->` etc. are already absorbed.
             $symbol = $this->parseSmartSymbol($text, $pos);
             if ($symbol !== null) {
-                $textBuffer .= $symbol[0];
+                $source = substr($text, $pos, $symbol[1]);
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $parent->appendChild(
+                    new SmartPunctuation($this->smartSymbolKind($source), $source),
+                );
                 $pos += $symbol[1];
 
                 continue;
@@ -2646,6 +2682,65 @@ class InlineParser
      * empty string when the buffer is empty. Used to determine the rendered
      * character preceding a smart quote.
      */
+
+    /**
+     * The previously emitted character, for the quote open/close decision.
+     *
+     * The decision keys off the last character already produced. That used to
+     * be the tail of the text buffer, but a smart-typography node flushes the
+     * buffer, so the glyph it produced would otherwise be invisible here and an
+     * adjacent quote would misread its context: an opening curly quote is one
+     * of the few characters that puts the NEXT quote in opening context, so
+     * losing it flips `""` from opening to closing.
+     */
+    protected function previousConvertedChar(Node $parent, string $textBuffer): string
+    {
+        $last = $this->lastCharOf($textBuffer);
+        if ($last !== '') {
+            return $last;
+        }
+
+        $children = $parent->getChildren();
+        $previous = $children === [] ? null : $children[array_key_last($children)];
+
+        if ($previous instanceof SmartPunctuation) {
+            $glyph = $previous->getGlyph() ?? (SmartPunctuation::GLYPHS[$previous->getKind()] ?? '');
+            if ($glyph !== '') {
+                return $glyph;
+            }
+        }
+
+        // An escaped character still flanks as the character it is: `\{"q"` has
+        // to open the quote exactly as `{"q"` does. carve-js decides flanking
+        // from the literal, and carve-php diverged here because the escape
+        // became a node and the buffer went empty - which only became visible
+        // once the formatter re-derived quotes instead of emitting the glyph.
+        if ($previous instanceof EscapedText) {
+            $literal = $this->lastCharOf($previous->getContent());
+            if ($literal !== '') {
+                return $literal;
+            }
+        }
+
+        // Any other flushed state with prior output is word-adjacent, i.e.
+        // closing context (carve-js treats this the same way).
+        return $previous === null ? '' : 'x';
+    }
+
+    /**
+     * The node kind for a resolved quote glyph.
+     */
+    protected function smartQuoteKind(string $glyph): string
+    {
+        return match ($glyph) {
+            $this->openDoubleQuote => 'left_double_quote',
+            $this->closeDoubleQuote => 'right_double_quote',
+            $this->openSingleQuote => 'left_single_quote',
+            $this->closeSingleQuote, $this->apostrophe => 'right_single_quote',
+            default => 'text',
+        };
+    }
+
     protected function lastCharOf(string $buffer): string
     {
         if ($buffer === '') {
@@ -2782,6 +2877,30 @@ class InlineParser
         }
 
         return null;
+    }
+
+    /**
+     * The node kind for a smart-symbol source run.
+     *
+     * Kept separate from parseSmartSymbol() so that method's return contract
+     * stays as-is for any subclass overriding it.
+     */
+    protected function smartSymbolKind(string $source): string
+    {
+        return match ($source) {
+            '<->' => 'left_right_arrow',
+            '->' => 'rightwards_arrow',
+            '<-' => 'leftwards_arrow',
+            '=>' => 'rightwards_double_arrow',
+            '<=' => 'less_than_or_equal',
+            '>=' => 'greater_than_or_equal',
+            '!=' => 'not_equal',
+            '+-' => 'plus_minus',
+            '(c)' => 'copyright',
+            '(r)' => 'registered',
+            '(tm)' => 'trademark',
+            default => 'text',
+        };
     }
 
     /**
@@ -3410,7 +3529,11 @@ class InlineParser
     /**
      * Parse footnote reference [^label]
      *
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\FootnoteRef, pos: int}|null
+     * A resolved reference yields a FootnoteRef node (with any trailing attribute
+     * block attached); an unresolved one yields the literal `[^label]` source as a
+     * Text node, discarding an orphan trailing attribute block.
+     *
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\FootnoteRef|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|null
      */
     protected function parseFootnoteRef(string $text, int $pos): ?array
     {
@@ -3425,7 +3548,25 @@ class InlineParser
         if (!$this->blockParser->hasFootnote($label)) {
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
 
-            return null;
+            // An UNRESOLVED footnote reference stays literal `[^label]` text; it
+            // does NOT host a following attribute block. Emitting the literal
+            // source here (instead of returning null) stops the generic
+            // inline-span path from claiming `[^a]{.ref}` as `<span class="ref">^a</span>`
+            // -- carve-js and carve-rs keep the ref literal and drop the orphan
+            // attribute (`Text[^a]{.ref}.` -> `<p>Text[^a].</p>`). A trailing
+            // `{...}` therefore attaches to nothing: consume and discard any
+            // consecutive VALID attribute blocks (an empty/invalid block stays
+            // literal, matching `[^a]{}` -> `[^a]{}` and `[^a]{???}` -> `[^a]{???}`).
+            $endPos = $pos + strlen($matches[0]);
+            $length = strlen($text);
+            if ($endPos < $length && $text[$endPos] === '{') {
+                $endPos = $this->applyConsecutiveAttributes(new Text(''), $text, $endPos);
+            }
+
+            return [
+                'node' => new Text($matches[0]),
+                'pos' => $endPos,
+            ];
         }
 
         $node = new FootnoteRef($label);

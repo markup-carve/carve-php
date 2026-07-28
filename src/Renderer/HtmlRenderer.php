@@ -48,6 +48,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -201,6 +202,7 @@ class HtmlRenderer implements RendererInterface
             RawInline::class => 'renderRawInline',
             LiteralInline::class => 'renderLiteralInline',
             RawText::class => 'renderRawText',
+            SmartPunctuation::class => 'renderSmartPunctuation',
             EscapedText::class => 'renderEscapedText',
             Math::class => 'renderMath',
             Mention::class => 'renderMention',
@@ -435,6 +437,19 @@ class HtmlRenderer implements RendererInterface
             SoftBreakMode::Space => ' ',
             SoftBreakMode::Break => ($this->xhtml ? '<br />' : '<br>') . "\n",
         };
+    }
+
+    /**
+     * Guard the literal newlines inside a VERBATIM inline span (code, math,
+     * inline literal, raw inline) so block indentation does not re-indent the
+     * verbatim content when the span is nested (e.g. a fence folded to lazy
+     * inline code inside a list item). The guard is restored to `\n` at the
+     * top-level render exit. Shared by all verbatim inline renderers so they
+     * cannot drift apart. Matches the carve-js reference.
+     */
+    protected function guardVerbatimNewlines(string $content): string
+    {
+        return str_replace("\n", self::INLINE_BREAK_GUARD, $content);
     }
 
     protected function restoreSoftBreakGuards(string $html): string
@@ -1088,28 +1103,61 @@ class HtmlRenderer implements RendererInterface
     protected function renderListItem(ListItem $node, bool $tight = true): string
     {
         $attrs = $this->renderAttributes($node);
-        $content = rtrim($this->renderChildren($node), "\n");
 
-        // Separate a leading paragraph from any following block content
-        // (typically a nested list). Tight items inline the lead paragraph
-        // without a <p> wrapper; loose items keep it.
+        // Render the item's direct children individually so paragraph
+        // tightness can be applied per child. In a TIGHT item every top-level
+        // plain paragraph renders bare (no <p> wrapper) -- not only the lead,
+        // but also any paragraph that follows a closed block (a fenced code
+        // block, a `:::` div, or an admonition). carve-js and the executable
+        // spec oracle render that trailing text as part of the item's inline
+        // content, matching the item's tightness (corpus 162). A LOOSE item
+        // keeps every <p>; an attributed paragraph or a bare block image keeps
+        // its own rendering in either mode.
         $lead = '';
-        $rest = '';
-        if (preg_match('/^<p( data-source-line="\d+")?>(.*?)<\/p>(?:\n(.*))?$/s', $content, $m)) {
-            // A data-source-line-only wrapper is stripped in tight items too
-            // (the source-line option must never change structure; the <li>
-            // keeps the anchor) but preserved on loose items.
-            $lead = $tight ? $m[2] : '<p' . $m[1] . '>' . $m[2] . '</p>';
-            $rest = isset($m[3]) ? trim($m[3], "\n") : '';
-        } elseif (preg_match('/^<(?:blockquote|table|pre|ul|ol|div|aside|details|figure|hr|dl|img|h[1-6])\b/', $content)) {
-            // A block-only item (no inline lead, e.g. the `- +` first-block
-            // form) puts the block on its own indented line, matching the
-            // lead+block layout and carve-js, instead of inlining it on the
-            // `<li>` line.
-            $rest = $content;
-        } else {
-            $lead = $content;
+        $haveLead = false;
+        $restParts = [];
+
+        foreach ($node->getChildren() as $child) {
+            $rendered = rtrim($this->renderNode($child), "\n");
+            if ($rendered === '') {
+                continue;
+            }
+
+            $isParagraph = $child instanceof Paragraph && !$this->isBlockImageParagraph($child);
+            // A "plain" paragraph carries no attributes beyond an optional
+            // data-source-line stamp (which must never change structure), so
+            // its <p> wrapper may be dropped in a tight item.
+            $isPlain = $isParagraph
+                && preg_match('/^<p( data-source-line="\d+")?>(.*)<\/p>$/s', $rendered, $pm) === 1;
+
+            // The first child, when it is a paragraph, is the lead that sits
+            // inline on the `<li>` line. A block-first item leaves the lead
+            // empty and places the block on its own indented line.
+            $isLead = !$haveLead && $restParts === [] && $isParagraph;
+
+            if ($isLead) {
+                // Tight lead drops the <p>; loose keeps it. A data-source-line
+                // wrapper is stripped in tight items too (the source-line
+                // option keeps its anchor on the <li>, not the paragraph).
+                $lead = $tight && $isPlain ? $pm[2] : $rendered;
+                $haveLead = true;
+
+                continue;
+            }
+
+            if ($tight && $isPlain) {
+                // A tight paragraph after a closed block renders bare, with its
+                // inline soft breaks guarded so the list's block indentation
+                // leaves the continuation lines flush.
+                $restParts[] = str_replace("\n", self::INLINE_BREAK_GUARD, $pm[2]);
+
+                continue;
+            }
+
+            $restParts[] = $rendered;
         }
+
+        $rest = implode("\n", $restParts);
 
         // The lead sits inline on the `<li>` line; its inline soft breaks must
         // stay flush (not picked up by the list's block indentation), matching
@@ -1506,6 +1554,8 @@ class HtmlRenderer implements RendererInterface
             $content = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $content);
         }
 
+        $content = $this->guardVerbatimNewlines($content);
+
         return '<code' . $attrs . '>' . $content . '</code>';
     }
 
@@ -1648,6 +1698,20 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+    }
+
+    /**
+     * The resolved glyph. The Carve renderer emits the source run instead, so
+     * `fmt` reproduces what the author wrote.
+     */
+    protected function renderSmartPunctuation(SmartPunctuation $node): string
+    {
+        $glyph = $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? null;
+
+        // Through escape() like any other text: a locale glyph can contain a
+        // non-breaking space (French guillemets are `«` + U+00A0), which the
+        // text path has always emitted as `&nbsp;`.
+        return $this->escape($glyph ?? $node->getContent());
     }
 
     protected function renderRawText(RawText $node): string
@@ -2014,7 +2078,7 @@ class HtmlRenderer implements RendererInterface
         // target-routed / dropped like raw inline), with the `<code>` wrapper
         // removed. An element is emitted only when an attribute needs a home:
         // bare escaped text with no attributes, a `<span>` carrying any.
-        $text = $this->escape($node->getContent());
+        $text = $this->guardVerbatimNewlines($this->escape($node->getContent()));
         $attrs = $this->renderAttributes($node);
 
         return $attrs === '' ? $text : '<span' . $attrs . '>' . $text . '</span>';
@@ -2030,7 +2094,7 @@ class HtmlRenderer implements RendererInterface
             // In round-trip mode, preserve non-HTML raw content for potential recovery
             if ($this->roundTripMode) {
                 return '<span data-djot-raw="' . $this->escapeAttribute($format) . '">'
-                    . $this->escape($content) . '</span>';
+                    . $this->guardVerbatimNewlines($this->escape($content)) . '</span>';
             }
 
             return '';
@@ -2043,16 +2107,16 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->escape($content);
+                return $this->guardVerbatimNewlines($this->escape($content));
             }
         }
 
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
-            return '<span data-djot-raw="html">' . $content . '</span>';
+            return '<span data-djot-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
         }
 
-        return $content;
+        return $this->guardVerbatimNewlines($content);
     }
 
     protected function renderEscapedText(EscapedText $node): string
@@ -2320,7 +2384,7 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderMath(Math $node): string
     {
-        $content = $this->escape($node->getContent());
+        $content = $this->guardVerbatimNewlines($this->escape($node->getContent()));
         $display = $node->isDisplay();
         $delimOpen = $display ? '\\[' : '\\(';
         $delimClose = $display ? '\\]' : '\\)';
