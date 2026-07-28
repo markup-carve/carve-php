@@ -8,6 +8,7 @@ declare(strict_types=1);
  *
  * Usage:
  *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
+ *   carve lint [files...]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -79,6 +80,9 @@ function parseArgs(array $argv): array
     if (($argv[1] ?? null) === 'fmt') {
         return parseFmtArgs($argv);
     }
+    if (($argv[1] ?? null) === 'lint') {
+        return parseLintArgs($argv);
+    }
     for ($i = 1; $i < $argc; $i++) {
         $arg = $argv[$i];
 
@@ -133,6 +137,28 @@ function parseArgs(array $argv): array
  * @param array<int, string> $argv
  * @return array{options: array<string, bool|string|null|array<int, string>>, input: ?string}
  */
+/**
+ * @param list<string> $argv
+ * @return array<string, mixed>
+ */
+function parseLintArgs(array $argv): array
+{
+    $options = ['command' => 'lint', 'help' => false, 'files' => []];
+
+    foreach (array_slice($argv, 2) as $arg) {
+        if ($arg === '-h' || $arg === '--help') {
+            $options['help'] = true;
+        } elseif (str_starts_with($arg, '-')) {
+            fwrite(STDERR, "Error: Unknown lint option: $arg\n");
+            exit(1);
+        } else {
+            $options['files'][] = $arg;
+        }
+    }
+
+    return ['options' => $options, 'input' => null];
+}
+
 function parseFmtArgs(array $argv): array
 {
     $files = [];
@@ -197,6 +223,7 @@ Output format (default --html; last one wins):
   --carve             canonical Carve source
 
 Formatter:
+  lint                Report Markdown habits that render as something else
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
@@ -239,6 +266,50 @@ function showVersion(): void
 $parsed = parseArgs($argv);
 $options = $parsed['options'];
 $inputFile = $parsed['input'];
+
+if (($options['command'] ?? null) === 'lint') {
+    if ($options['help']) {
+        showHelp();
+        exit(0);
+    }
+
+    $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
+    $sources = [];
+
+    if ($options['files'] === []) {
+        $stdin = stream_get_contents(STDIN);
+        if ($stdin === false) {
+            fwrite(STDERR, "Error: Failed to read from stdin\n");
+            exit(1);
+        }
+        $sources['-'] = $stdin;
+    } else {
+        foreach ($options['files'] as $file) {
+            if (!is_file($file)) {
+                fwrite(STDERR, "Error: File not found: $file\n");
+                exit(1);
+            }
+            $sources[$file] = (string) file_get_contents($file);
+        }
+    }
+
+    $found = 0;
+    foreach ($sources as $name => $source) {
+        foreach ($linter->lint($source) as $warning) {
+            $found++;
+            fwrite(STDOUT, sprintf(
+                "%s:%d:%d %s %s\n",
+                $name,
+                $warning->line,
+                $warning->column,
+                $warning->rule,
+                $warning->message,
+            ));
+        }
+    }
+
+    exit($found === 0 ? 0 : 1);
+}
 
 if (($options['command'] ?? null) === 'fmt') {
     if ($options['help']) {
