@@ -165,6 +165,8 @@ class MarkdownRenderer implements RendererInterface
 
         $markdown = trim($markdown) . "\n";
 
+        $markdown = $this->dropRedundantUnderscoreEscapes($markdown);
+
         // The internal non-breaking-space placeholder (U+E000) becomes a literal
         // non-breaking space (U+00A0). Markdown is a re-parseable round-trip
         // format, so unlike the display renderers it keeps the real nbsp: that
@@ -172,6 +174,33 @@ class MarkdownRenderer implements RendererInterface
         // code-block prefix the way ordinary leading spaces would be. Done after
         // trimming so placeholder-derived leading indentation survives.
         return str_replace("\u{E000}", "\u{00A0}", $markdown);
+    }
+
+    /**
+     * Drop the backslash from an intraword underscore.
+     *
+     * CommonMark does not honour an intraword underscore, so `company_id`
+     * renders literally with or without the escape - the backslash only
+     * litters identifiers in output meant to be read and searched. An
+     * asterisk is NOT symmetric here (`a*b*c` does emphasise), so this
+     * applies to `_` alone.
+     *
+     * Runs on the assembled output rather than in escapeText() because
+     * whether an underscore is intraword is a property of the rendered
+     * stream, not of one node: the parser splits `company_id` into the text
+     * nodes `company` and `_id`, so at escape time the underscore looks
+     * like it starts a word.
+     *
+     * Code spans are unaffected: their content is emitted verbatim and
+     * never carries these escapes to begin with.
+     */
+    protected function dropRedundantUnderscoreEscapes(string $markdown): string
+    {
+        return preg_replace(
+            '/(?<=[\p{L}\p{N}])\\\\_(?=[\p{L}\p{N}])/u',
+            '_',
+            $markdown,
+        ) ?? $markdown;
     }
 
     protected function renderNode(Node $node): string
