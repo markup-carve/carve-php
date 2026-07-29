@@ -142,6 +142,16 @@ class InlineParser
     protected ?string $lastCloseParenText = null;
 
     /**
+     * Memo for matchingCloseParen: maps each `(` position in the current text
+     * to the `)` that balances it.
+     *
+     * @var array<int, int>
+     */
+    protected array $matchingCloseParen = [];
+
+    protected ?string $matchingCloseParenText = null;
+
+    /**
      * Memo for the emphasis-opener forward scan in parseDelimited(). Each `_`,
      * `*`, `~`, `=`, `/` opener scans toward end-of-text for a matching closer.
      * When the tail holds no valid closer for a delimiter (e.g. every candidate
@@ -1836,14 +1846,28 @@ class InlineParser
                 ];
             }
 
+            // A destination's parentheses BALANCE: the scan ends at the first
+            // `)` with no opener left to pair with, so a URL carrying a
+            // parenthesis (Wikipedia, MDN) is written plainly. Djot and
+            // CommonMark both balance the same way. An escaped character never
+            // opens or closes a level.
+            $depth = 0;
             while ($urlEnd < $length) {
-                if ($text[$urlEnd] === '\\' && $urlEnd + 1 < $length) {
-                    $urlEnd++;
-                } elseif ($text[$urlEnd] === ')') {
-                    break;
-                } else {
-                    $urlEnd++;
+                $char = $text[$urlEnd];
+                if ($char === '\\' && $urlEnd + 1 < $length) {
+                    $urlEnd += 2;
+
+                    continue;
                 }
+                if ($char === '(') {
+                    $depth++;
+                } elseif ($char === ')') {
+                    if ($depth === 0) {
+                        break;
+                    }
+                    $depth--;
+                }
+                $urlEnd++;
             }
 
             if ($urlEnd < $length && $text[$urlEnd] === ')') {
@@ -1883,9 +1907,14 @@ class InlineParser
                     return null;
                 }
 
-                // A link destination has NO backslash escapes: a backslash is
-                // an ordinary URL character (grammar url_char), kept verbatim,
-                // matching carve-js / carve-rs. `[t](a\b)` -> href="a\b".
+                // An escaped parenthesis, and an escaped backslash, are the only
+                // escapes a destination has -- they carry the unbalanced case,
+                // which balancing alone cannot express. A backslash before
+                // anything else is an ordinary URL character (grammar
+                // url_char) kept verbatim, matching carve-js / carve-rs, so
+                // `[t](a\b)` still links to `a\b`.
+                $url = strtr($url, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
+
                 $link = new Link($url, $title);
                 $this->parseInlines($link, $linkText);
 
@@ -3276,13 +3305,23 @@ class InlineParser
             return null;
         }
 
-        // A `)` lies ahead: resolve the first UNESCAPED one in O(1) via the
-        // per-text jump table. Without it, a run of openers each reaching a `](`
-        // whose only closer is one far `)` (input `_a](` repeated + `)`) would
-        // re-walk the same tail per opener -> O(n^2). Byte-identical to the old
-        // char-by-char walk (which likewise skipped an escaped `)` and returned
-        // the index after the first unescaped `)`).
-        $close = $this->nextUnescapedCloseParen($text, $pos + 1);
+        // A `)` lies ahead: resolve the one that BALANCES this `(` in O(1) via
+        // the per-text match table. Without a table, a run of openers each
+        // reaching a `](` whose only closer is one far `)` (input `_a](`
+        // repeated + `)`) would re-walk the same tail per opener -> O(n^2).
+        // Matching rather than taking the first unescaped `)` is what keeps
+        // this agreeing with the destination scan in parseLink, which balances.
+        $close = $this->matchingCloseParen($text, $pos);
+        if ($close === false) {
+            // Nothing balances this `(`, so it opens no destination and there is
+            // no link here to skip. The first unescaped `)` is still a sound
+            // place to resume from -- it is what this returned before
+            // destinations balanced -- and taking it keeps the skip O(1). Left
+            // to walk instead, a run of openers whose only closer is one far `)`
+            // (input `_a](` repeated + `)`) re-walks the same tail per opener,
+            // which is the quadratic case the tables above exist to prevent.
+            $close = $this->nextUnescapedCloseParen($text, $pos + 1);
+        }
 
         return $close === false ? null : $close + 1;
     }
@@ -3347,6 +3386,43 @@ class InlineParser
         }
 
         return $this->braceCloseSuffix[$from] ?? 0;
+    }
+
+    /**
+     * Index of the `)` that balances the `(` at $pos, or false when there is
+     * none.
+     *
+     * Backed by a per-text table built in one left-to-right pass with a stack,
+     * so every destination skip over the same text is an O(1) lookup rather
+     * than its own walk. An escaped character neither opens nor closes a level,
+     * matching the destination scan in parseLink.
+     *
+     * @return int|false
+     */
+    protected function matchingCloseParen(string $text, int $pos): int|false
+    {
+        if ($text !== $this->matchingCloseParenText) {
+            $this->matchingCloseParenText = $text;
+            $length = strlen($text);
+            $match = [];
+            $openers = [];
+            for ($p = 0; $p < $length; $p++) {
+                $char = $text[$p];
+                if ($char === '\\') {
+                    $p++;
+
+                    continue;
+                }
+                if ($char === '(') {
+                    $openers[] = $p;
+                } elseif ($char === ')' && $openers !== []) {
+                    $match[array_pop($openers)] = $p;
+                }
+            }
+            $this->matchingCloseParen = $match;
+        }
+
+        return $this->matchingCloseParen[$pos] ?? false;
     }
 
     /**

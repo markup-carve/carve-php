@@ -1359,12 +1359,56 @@ class CarveRenderer implements RendererInterface
             $scheme = strtolower($m[1]);
         }
         $sanitizeBlank = $scheme !== null && in_array($scheme, ['javascript', 'vbscript', 'data', 'file'], true);
-        // A backslash is a literal destination character (no destination
-        // escapes), emitted verbatim -- escaping it would double on re-parse.
-        // Whitespace is percent-encoded (it would otherwise end the destination).
+        // Whitespace is percent-encoded (it would otherwise end the
+        // destination). A parenthesis is escaped only when it is UNBALANCED: a
+        // balanced pair re-parses as itself, so leaving it bare is both the
+        // minimal escaping PART 11 section 4 asks for and what keeps the common
+        // URL readable. A backslash is escaped only in front of the three
+        // characters the destination scan treats as escapes, so backslashes
+        // elsewhere in a URL stay verbatim.
+        if (!$sanitizeBlank) {
+            $text = $this->escapeDestinationEscapes($text);
+        }
         $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : sprintf('%%%02X', ord($m[0])), $text);
 
         return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
+    }
+
+    /**
+     * Backslash-escape exactly what the destination scan would otherwise read
+     * differently: a parenthesis with no partner, and a backslash sitting in
+     * front of one of the three escapable characters.
+     */
+    protected function escapeDestinationEscapes(string $text): string
+    {
+        $length = strlen($text);
+        $openers = [];
+        $marked = [];
+        for ($i = 0; $i < $length; $i++) {
+            if ($text[$i] === '(') {
+                $openers[] = $i;
+            } elseif ($text[$i] === ')') {
+                if ($openers === []) {
+                    $marked[$i] = true;
+                } else {
+                    array_pop($openers);
+                }
+            }
+        }
+        foreach ($openers as $i) {
+            $marked[$i] = true;
+        }
+
+        $out = '';
+        for ($i = 0; $i < $length; $i++) {
+            $char = $text[$i];
+            $escapable = $char === '\\'
+                && $i + 1 < $length
+                && in_array($text[$i + 1], ['(', ')', '\\'], true);
+            $out .= isset($marked[$i]) || $escapable ? '\\' . $char : $char;
+        }
+
+        return $out;
     }
 
     protected function escapeQuoted(string $text): string
