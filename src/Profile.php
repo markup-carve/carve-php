@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve;
 
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Node;
 
 /**
@@ -462,7 +464,48 @@ class Profile
      */
     public function isNodeAllowed(Node $node): bool
     {
-        return $this->isTypeAllowed($node->getType());
+        return $this->isTypeAllowed(self::canonicalTypeOf($node));
+    }
+
+    /**
+     * The canonical type name for a node.
+     *
+     * Two constructs are not their own node class here - an autolink is a Link
+     * carrying a flag, an admonition a Div carrying one - so `getType()` reports
+     * the broader name and a profile naming the narrower one matched nothing.
+     * That was silent: a host could deny autolinks, get no error and no
+     * violation, and still emit them (carve#362).
+     */
+    public static function canonicalTypeOf(Node $node): string
+    {
+        if ($node instanceof Link && $node->isAutolink()) {
+            return NodeType::AUTOLINK;
+        }
+        if ($node instanceof Div && $node->isTyped()) {
+            return NodeType::ADMONITION;
+        }
+
+        return $node->getType();
+    }
+
+    /**
+     * Types that are a SPECIALIZATION of a broader one.
+     *
+     * A subtype stays COVERED BY the broader name: a profile that denies `link`
+     * must keep stripping autolinks, and one that denies `div` must keep
+     * stripping admonitions. Otherwise naming them separately would quietly
+     * widen every profile already written against the broad name - the opposite
+     * of what a deny list is for.
+     *
+     * @return list<string> The type itself, plus its supertype when it has one.
+     */
+    protected static function withSupertype(string $type): array
+    {
+        return match ($type) {
+            NodeType::AUTOLINK => [NodeType::AUTOLINK, NodeType::LINK],
+            NodeType::ADMONITION => [NodeType::ADMONITION, NodeType::DIV],
+            default => [$type],
+        };
     }
 
     /**
@@ -504,14 +547,17 @@ class Profile
      */
     public function isInlineAllowed(string $type): bool
     {
+        // A subtype answers to its own name and to the broader one.
+        $names = self::withSupertype($type);
+
         // Check deny list first
-        if (in_array($type, $this->deniedInline, true)) {
+        if (array_intersect($names, $this->deniedInline) !== []) {
             return false;
         }
 
         // If allowlist is set, check against it
         if ($this->allowedInline !== null) {
-            return in_array($type, $this->allowedInline, true);
+            return array_intersect($names, $this->allowedInline) !== [];
         }
 
         // Otherwise allowed
@@ -523,14 +569,17 @@ class Profile
      */
     public function isBlockAllowed(string $type): bool
     {
+        // A subtype answers to its own name and to the broader one.
+        $names = self::withSupertype($type);
+
         // Check deny list first
-        if (in_array($type, $this->deniedBlock, true)) {
+        if (array_intersect($names, $this->deniedBlock) !== []) {
             return false;
         }
 
         // If allowlist is set, check against it
         if ($this->allowedBlock !== null) {
-            return in_array($type, $this->allowedBlock, true);
+            return array_intersect($names, $this->allowedBlock) !== [];
         }
 
         // Otherwise allowed

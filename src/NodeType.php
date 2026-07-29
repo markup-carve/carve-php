@@ -66,6 +66,16 @@ final class NodeType
     public const DIV = 'div';
 
     /**
+     * A callout (`::: note`). Its own canonical name rather than a `div`
+     * carrying a class: profiles.md requires a profile that denies callouts
+     * while allowing generic containers to be able to say so, which it cannot
+     * if the kind lives in a class string (carve#362).
+     *
+     * @var string
+     */
+    public const ADMONITION = 'admonition';
+
+    /**
      * @var string
      */
     public const RAW_BLOCK = 'raw_block';
@@ -160,6 +170,15 @@ final class NodeType
      * @var string
      */
     public const LINK = 'link';
+
+    /**
+     * An angle autolink (`<https://example.com>`). Its own canonical name rather
+     * than a `link`: folding it in loses the authored form a round trip has to
+     * restore (carve#362).
+     *
+     * @var string
+     */
+    public const AUTOLINK = 'autolink';
 
     /**
      * @var string
@@ -261,6 +280,7 @@ final class NodeType
     public static function allBlockTypes(): array
     {
         return [
+            self::ADMONITION,
             self::PARAGRAPH,
             self::HEADING,
             self::CODE_BLOCK,
@@ -291,6 +311,7 @@ final class NodeType
     public static function allInlineTypes(): array
     {
         return [
+            self::AUTOLINK,
             self::TEXT,
             self::EMPHASIS,
             self::STRONG,
