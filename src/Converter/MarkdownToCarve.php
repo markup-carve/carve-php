@@ -17,10 +17,27 @@ use RuntimeException;
  * - Blank lines are required around block elements (headings, code fences, lists)
  * - Emphasis uses / (not * or _), strong uses * (not **)
  * - _x_ is underline in Carve, so Markdown underscore emphasis becomes /x/
+ *
+ * CommonMark defines no math syntax. By default this converter leaves paired
+ * dollar runs untouched. Pass `convertMath: true` only for Markdown flavours
+ * that treat dollars as math delimiters (for example Pandoc / GitHub-style
+ * input); enabling it rewrites any prose containing paired dollars.
  */
 class MarkdownToCarve
 {
     use PreservesHeadingIds;
+
+    /**
+     * When true, rewrite paired-dollar Markdown-flavour math spans to Carve
+     * math syntax. Default false because plain CommonMark treats dollars as
+     * literal text.
+     */
+    protected bool $convertMath = false;
+
+    public function __construct(bool $convertMath = false)
+    {
+        $this->convertMath = $convertMath;
+    }
 
     /**
      * Convert Markdown text to Carve text.
@@ -400,12 +417,14 @@ class MarkdownToCarve
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/^\s*\[[^^\]][^\]]*\]:\s*\S.*$/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
 
-        $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
-        $line = preg_replace_callback('/\$([^$\s][^$]*[^$\s]|\S)\$(?!\d)/', function (array $match) use ($protect): string {
-            return preg_match('/^[\d.,]+$/', $match[1])
-                ? $match[0]
-                : $protect('$`' . $match[1] . '`');
-        }, $line) ?? $line;
+        if ($this->convertMath) {
+            $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
+            $line = preg_replace_callback('/\$([^$\s][^$]*[^$\s]|\S)\$(?!\d)/', function (array $match) use ($protect): string {
+                return preg_match('/^[\d.,]+$/', $match[1])
+                    ? $match[0]
+                    : $protect('$`' . $match[1] . '`');
+            }, $line) ?? $line;
+        }
 
         $stash = [];
         $hold = function (string $span) use (&$stash): string {

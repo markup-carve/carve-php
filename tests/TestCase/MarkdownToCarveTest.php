@@ -90,13 +90,25 @@ class MarkdownToCarveTest extends TestCase
                 'x^2^ end',
                 'x^2^ end',
             ],
-            'converts inline math $x$ to $`x`' => [
-                'value $a+b$ here',
-                'value $`a+b` here',
+            'leaves bare dollar variable pair literal by default' => [
+                'a $x/$y b',
+                'a $x/$y b',
             ],
-            'converts display math $$x$$ to $$`x`' => [
-                '$$a+b$$',
-                '$$`a+b`',
+            'leaves paired PHP variables literal by default' => [
+                'setzt $sortBy/$sortDirection, Neu',
+                'setzt $sortBy/$sortDirection, Neu',
+            ],
+            'leaves currency range literal by default' => [
+                'cost $5 to $9',
+                'cost $5 to $9',
+            ],
+            'leaves shell variable pair literal by default' => [
+                '$a and $b',
+                '$a and $b',
+            ],
+            'leaves display math delimiters literal by default' => [
+                '$$x$$',
+                '$$x$$',
             ],
             'does not treat currency $5 as math' => [
                 'costs $5 today',
@@ -105,14 +117,6 @@ class MarkdownToCarveTest extends TestCase
             'does not treat a currency range $5-$10 as math' => [
                 'costs $5-$10 today',
                 'costs $5-$10 today',
-            ],
-            'converts digit-starting math like $2+2$' => [
-                'so $2+2$ holds',
-                'so $`2+2` holds',
-            ],
-            'preserves delimiter characters inside a math span' => [
-                'eq $*x*$ end',
-                'eq $`*x*` end',
             ],
             'leaves intraword underscores literal' => [
                 'foo__bar__baz',
@@ -388,6 +392,47 @@ class MarkdownToCarveTest extends TestCase
             'leaves an already well-spaced document unchanged' => [
                 "# Title\n\nA /para/ here.\n\n- one\n- two\n",
                 "# Title\n\nA /para/ here.\n\n- one\n- two\n",
+            ],
+        ];
+    }
+
+    /**
+     * @param string $markdown
+     * @param string $expected
+     */
+    #[DataProvider('mathConversionProvider')]
+    public function testConvertsMathWhenEnabled(string $markdown, string $expected): void
+    {
+        $converter = new MarkdownToCarve(convertMath: true);
+
+        $this->assertSame($expected, $converter->convert($markdown));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function mathConversionProvider(): array
+    {
+        return [
+            'converts inline math $x$ to $`x`' => [
+                'a $x$ b',
+                'a $`x` b',
+            ],
+            'converts display math $$x$$ to $$`x`' => [
+                '$$x$$',
+                '$$`x`',
+            ],
+            'numeric guard still leaves currency range literal' => [
+                'cost $5 to $9',
+                'cost $5 to $9',
+            ],
+            'converts digit-starting math like $2+2$' => [
+                'so $2+2$ holds',
+                'so $`2+2` holds',
+            ],
+            'preserves delimiter characters inside a math span' => [
+                'eq $*x*$ end',
+                'eq $`*x*` end',
             ],
         ];
     }
