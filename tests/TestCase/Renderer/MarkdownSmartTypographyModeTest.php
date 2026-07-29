@@ -55,8 +55,15 @@ class MarkdownSmartTypographyModeTest extends TestCase
     {
         // Escaping is a separate concern with its own security rationale, and
         // this mode deliberately leaves it alone.
-        $this->assertSame('company\_id', trim($this->source()->convert('company_id')));
+        $this->assertSame('a \* b', trim($this->source()->convert('a * b')));
         $this->assertSame('a &amp; b', trim($this->source()->convert('a & b')));
+
+        // An intraword underscore is NOT escaped: it needs no escape, and
+        // escaping it degrades exact-match search in a generated corpus (#417).
+        // This mode does not change that either. Pinned alongside the cases
+        // above because using it as the example of escaping is exactly what
+        // went stale here.
+        $this->assertSame('company_id', trim($this->source()->convert('company_id')));
     }
 
     public function testEscapedSourceStaysEscaped(): void
