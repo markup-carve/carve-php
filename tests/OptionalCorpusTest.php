@@ -13,6 +13,10 @@ use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\SmartQuotesExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\RendererInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -25,9 +29,30 @@ use function json_decode;
 class OptionalCorpusTest extends TestCase
 {
     /**
+     * Expected-file extension per target, and how to render it.
+     *
+     * A case pins the HTML target unless its manifest entry names another one
+     * (carve#360). The extension is the pairing rule rather than a label: a
+     * case is located from its slug and its target alone.
+     *
+     * `carve` is absent by design - Carve-source expectations live in the
+     * spec's corpus-roundtrip, which has its own runner.
+     *
+     * @var array<string, array{extension: string, renderer: ?class-string<\MarkupCarve\Carve\Renderer\RendererInterface>}>
+     */
+    private const TARGETS = [
+        // Null renderer: the converter builds the HTML renderer itself, which
+        // is also what carries the symbol map and safe-mode configuration.
+        'html' => ['extension' => 'html', 'renderer' => null],
+        'markdown' => ['extension' => 'md', 'renderer' => MarkdownRenderer::class],
+        'plain' => ['extension' => 'txt', 'renderer' => PlainTextRenderer::class],
+        'ansi' => ['extension' => 'ansi', 'renderer' => AnsiRenderer::class],
+    ];
+
+    /**
      * @throws \RuntimeException
      *
-     * @return array<string, array{slug: string, feature: string, crv: string, html: string}>
+     * @return array<string, array{slug: string, feature: string, target: string, crv: string, expected: ?string}>
      */
     public static function optionalCorpusProvider(): array
     {
@@ -46,17 +71,24 @@ class OptionalCorpusTest extends TestCase
 
         foreach ($manifest['cases'] ?? [] as $entry) {
             $slug = basename($entry['slug']);
+            $target = $entry['target'] ?? 'html';
             $crvPath = $dir . '/' . $slug . '.crv';
-            $htmlPath = $dir . '/' . $slug . '.html';
-            if (!file_exists($crvPath) || !file_exists($htmlPath)) {
-                continue;
-            }
 
-            $cases[$slug] = [
+            $extension = self::TARGETS[$target]['extension'] ?? null;
+            $expectedPath = $extension === null ? null : $dir . '/' . $slug . '.' . $extension;
+
+            // A missing pair is reported by the test rather than dropped here.
+            // Skipping it in the provider made the case vanish from the run
+            // entirely, so a corpus this runner cannot pair looked the same as
+            // one that passed.
+            $cases[$slug . ' (' . $target . ')'] = [
                 'slug' => $slug,
                 'feature' => $entry['feature'],
-                'crv' => (string)file_get_contents($crvPath),
-                'html' => (string)file_get_contents($htmlPath),
+                'target' => $target,
+                'crv' => file_exists($crvPath) ? (string)file_get_contents($crvPath) : null,
+                'expected' => $expectedPath !== null && file_exists($expectedPath)
+                    ? (string)file_get_contents($expectedPath)
+                    : null,
             ];
         }
 
@@ -64,25 +96,40 @@ class OptionalCorpusTest extends TestCase
     }
 
     #[DataProvider('optionalCorpusProvider')]
-    public function testOptionalCorpus(string $slug, string $feature, string $crv, string $html): void
+    public function testOptionalCorpus(string $slug, string $feature, string $target, ?string $crv, ?string $expected): void
     {
-        $converter = $this->createConverterForFeature($feature);
+        // An unknown target is a corpus error, not an unsupported feature:
+        // skipping it would read as "carve-php does not do that yet".
+        $this->assertArrayHasKey(
+            $target,
+            self::TARGETS,
+            "Unknown target '{$target}' for {$slug} - expected one of " . implode(', ', array_keys(self::TARGETS)),
+        );
+
+        $converter = $this->createConverterForFeature($feature, $target);
         if ($converter === null) {
             $this->markTestSkipped('Optional Tier-2 feature not supported by carve-php: ' . $feature);
         }
 
+        $this->assertNotNull($crv, "Missing {$slug}.crv pair");
+        $this->assertNotNull(
+            $expected,
+            "Missing {$slug}." . self::TARGETS[$target]['extension'] . ' pair',
+        );
+
         $actual = $converter->convert($crv);
 
         $this->assertSame(
-            $this->normalize($html),
+            $this->normalize($expected),
             $this->normalize($actual),
             'Optional Tier-2 corpus mismatch for ' . $slug,
         );
     }
 
-    protected function createConverterForFeature(string $feature): ?CarveConverter
+    protected function createConverterForFeature(string $feature, string $target = 'html'): ?CarveConverter
     {
-        $converter = new CarveConverter();
+        $renderer = $this->rendererForTarget($target);
+        $converter = new CarveConverter(renderer: $renderer);
 
         return match ($feature) {
             'social-link-templates' => $converter->addExtension(new MentionsExtension(
@@ -97,7 +144,10 @@ class OptionalCorpusTest extends TestCase
             'list-table' => $converter->addExtension(new ListTableExtension()),
             'spoiler' => $converter->addExtension(new SpoilerExtension()),
             'tabs' => $converter->addExtension(new TabsExtension()),
-            'symbol-map' => new CarveConverter(symbols: [
+            // The map is consumed by the HTML renderer, so on another target it
+            // reaches nothing - which is what the Markdown case asserts: a
+            // symbol keeps its `:name:` source spelling there.
+            'symbol-map' => new CarveConverter(renderer: $renderer, symbols: [
                 'rocket' => "\u{1F680}",
                 'tada' => "\u{1F389}",
                 '+1' => "\u{1F44D}",
@@ -105,6 +155,16 @@ class OptionalCorpusTest extends TestCase
             ]),
             default => null,
         };
+    }
+
+    protected function rendererForTarget(string $target): ?RendererInterface
+    {
+        $class = self::TARGETS[$target]['renderer'] ?? null;
+        if ($class === null) {
+            return null;
+        }
+
+        return new $class();
     }
 
     protected function normalize(string $s): string
