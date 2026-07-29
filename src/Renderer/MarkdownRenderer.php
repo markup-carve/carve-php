@@ -86,6 +86,10 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function renderSmartPunctuation(SmartPunctuation $node): string
     {
+        if ($this->smartTypography === SmartTypographyMode::Source) {
+            return $node->getContent();
+        }
+
         return $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? $node->getContent();
     }
 
@@ -133,9 +137,27 @@ class MarkdownRenderer implements RendererInterface
      */
     protected array $headingIds = [];
 
+    protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
+    }
+
+    /**
+     * Render smart typography as its glyph (the default) or as the source run.
+     *
+     * Source mode is for output a machine reads rather than a person: the
+     * ellipsis, dashes and curly quotes are a presentation choice, and a
+     * consumer searching the text for what the author wrote does not want them.
+     * It only affects smart typography - escaping is a separate concern and is
+     * unchanged.
+     */
+    public function setSmartTypography(SmartTypographyMode $mode): self
+    {
+        $this->smartTypography = $mode;
+
+        return $this;
     }
 
     /**

@@ -34,6 +34,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`MarkdownRenderer::setSmartTypography()`**: render smart typography as the
+  author's source run instead of the resolved glyph.
+
+  Smart typography is a presentation choice - right for a person reading the
+  output, usually wrong for a machine reading it. A corpus searched by a
+  language model does not want `...` silently replaced by an ellipsis, and the
+  consumer cannot undo the substitution. Now that smart typography is an AST
+  node carrying both halves, the renderer can emit either.
+
+  `SmartTypographyMode::Glyph` stays the default, so nothing changes unless a
+  caller opts in. Only the Markdown renderer is affected.
+
+  This covers typography only. Escaping - HTML metacharacters and Markdown
+  metacharacters - is a separate concern with its own security rationale and is
+  untouched: `company_id` still renders as `company\_id` in both modes.
+
+### Added
+
 - **`MarkdownHabitLinter` and a `carve lint` command**: reports Markdown habits
   that parse as valid Carve but render as something the author did not intend.
 
