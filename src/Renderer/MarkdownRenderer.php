@@ -696,11 +696,17 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderLineBlock(LineBlock $node): string
     {
-        // Line blocks don't exist in Markdown, use hard breaks
-        $content = $this->renderChildren($node);
-
-        // Replace soft breaks with hard breaks
-        return str_replace("\n", "  \n", trim($content)) . "\n\n";
+        // Line blocks don't exist in Markdown, so the line structure is carried
+        // by hard breaks -- which the PARSER already put in the AST, one per
+        // newline inside the block. Rewriting every newline here added a second
+        // hard break on top of each of those, and turned the blank line between
+        // two stanzas into a pair of them:
+        //
+        //   before   Stanza one,[4 spaces]\nstill one.[2 spaces]\n[2 spaces]\n...
+        //   after    Stanza one,[2 spaces]\nstill one.\n\n...
+        //
+        // carve-js and carve-rs both emit the second form (carve#352).
+        return trim($this->renderChildren($node)) . "\n\n";
     }
 
     protected function renderFootnote(Footnote $node): string
