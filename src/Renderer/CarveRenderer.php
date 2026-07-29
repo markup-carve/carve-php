@@ -1193,6 +1193,18 @@ class CarveRenderer implements RendererInterface
             // non-breaking space: PHP trim() leaves NBSP in place where JS
             // trim() removes it, and the two writers must agree on which lines
             // end a block.
+            // A line whose only content is ASCII space or tab is emitted EMPTY,
+            // wherever it sits (PART 11 section 7). Editors and CI that strip
+            // trailing whitespace rewrite such a line, so `fmt` would report a
+            // diff on a file nobody edited (carve#375). NBSP is excluded because
+            // it is content the author wrote, and verbatim content is still
+            // sentinel-protected here, so three spaces inside a code block are
+            // not reachable by this and stay intact.
+            if ($line !== '' && trim($line, " \t") === '') {
+                $lines[$i] = '';
+
+                continue;
+            }
             $next = $lines[$i + 1] ?? null;
             if ($next !== null && preg_replace('/[\s\x{00A0}]+/u', '', $next) !== '') {
                 continue;
