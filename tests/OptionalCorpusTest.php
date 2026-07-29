@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -153,6 +154,13 @@ class OptionalCorpusTest extends TestCase
                 '+1' => "\u{1F44D}",
                 'UPPER' => "\u{2B06}\u{FE0F}",
             ]),
+            // PART 9 §8 confines this one to the Markdown target, so it is the
+            // renderer that offers it and no other renderer may. Returning null
+            // on another target skips rather than quietly passing, which is what
+            // an html-target case for this feature would deserve.
+            'markdown-typography-source' => $renderer instanceof MarkdownRenderer
+                ? new CarveConverter(renderer: $renderer->setSmartTypography(SmartTypographyMode::Source))
+                : null,
             default => null,
         };
     }
