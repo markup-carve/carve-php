@@ -276,7 +276,12 @@ class CarveRenderer implements RendererInterface
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
             $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimNonNbsp($this->renderInlines($node->getChildren()))),
             $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
-            $node instanceof CodeBlock => $withAttrs($this->renderCodeBlock($node)),
+            // The opener's quoted title is resolved onto the `title` attribute at
+            // parse time so it reaches every consumer, but the fence carries it
+            // too - emitting both says it twice and re-parses with an attribute
+            // order the source never had (carve#369). The fence is the authored
+            // spelling, so it wins.
+            $node instanceof CodeBlock => $this->withCodeBlockAttrs($node),
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
             $node instanceof ListBlock => $withAttrs($this->renderList($node)),
             $node instanceof ListItem => $this->renderListItem($node),
@@ -294,6 +299,25 @@ class CarveRenderer implements RendererInterface
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
             default => $this->renderBlocks($node->getChildren()),
         };
+    }
+
+    /**
+     * A code block's attribute line, minus a `title` the fence already carries.
+     */
+    protected function withCodeBlockAttrs(CodeBlock $node): string
+    {
+        $body = $this->renderCodeBlock($node);
+        $header = $node->getHeader();
+        $attributes = $node->getAttributes();
+        if ($header !== null && ($attributes['title'] ?? null) === $header) {
+            $clone = clone $node;
+            $clone->removeAttribute('title');
+            $attrs = $this->renderAttrs($clone);
+        } else {
+            $attrs = $this->renderAttrs($node);
+        }
+
+        return $attrs === '' ? $body : $attrs . "\n" . $body;
     }
 
     protected function renderCodeBlock(CodeBlock $node): string
