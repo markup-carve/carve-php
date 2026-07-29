@@ -492,6 +492,44 @@ class MarkdownToCarveTest extends TestCase
                 '\%% line',
                 '<p>%% line</p>',
             ],
+            'escapes braced highlight literal' => [
+                'a {=x=} b',
+                'a \{=x=} b',
+                '<p>a {=x=} b</p>',
+            ],
+            'escapes braced insert literal' => [
+                'a {+x+} b',
+                'a \{+x+} b',
+                '<p>a {+x+} b</p>',
+            ],
+            'escapes braced delete literal' => [
+                'a {-x-} b',
+                'a \{-x-} b',
+                '<p>a {-x-} b</p>',
+            ],
+            'escapes braced strike literal' => [
+                'a {~x~} b',
+                'a \{~x~} b',
+                '<p>a {~x~} b</p>',
+            ],
+            'escapes braced emphasis literal' => [
+                'a {/x/} b',
+                'a \{/x/} b',
+                '<p>a {/x/} b</p>',
+            ],
+            // One pass escapes only the outer brace and the inner pair would
+            // then render as a subscript inside otherwise literal text, so the
+            // braced rule repeats until stable.
+            'escapes both braces of a nested braced pair' => [
+                'nested {^a{,b,}c^} d',
+                'nested \{^a\{,b,}c^} d',
+                '<p>nested {^a{,b,}c^} d</p>',
+            ],
+            'escapes each of two braced pairs on one line' => [
+                'two {^a^} and {,b,} x',
+                'two \{^a^} and \{,b,} x',
+                '<p>two {^a^} and {,b,} x</p>',
+            ],
         ];
     }
 
@@ -522,6 +560,11 @@ class MarkdownToCarveTest extends TestCase
             'plain pipes' => ['|x|'],
             'emoji shortcode' => [':rocket:'],
             'plain dollar math' => ['$x$'],
+            'windows-style path' => ['C:/path/to/file'],
+            'aspect ratio' => ['ratio 16/9'],
+            'slashed flags' => ['flags -x/-y'],
+            'attribute-style key value' => ['k {a=b} v'],
+            'attribute-style class' => ['c {.cls} d'],
         ];
     }
 
