@@ -142,7 +142,7 @@ class CarveCorpusTest extends TestCase
         '104-blocked-span-marker-renders-as-empty-cell',
         '105-colspan-marker-scans-left-past-a-consumed-cell',
         '106-security-hardening',
-        '107-link-destination-stops-at-the-first-parenthesis',
+        '107-link-destination-parentheses-balance',
         '108-empty-link-and-image-titles-are-preserved',
         '109-cross-references-resolve-inside-footnote-bodies',
         '110-unquoted-attribute-values-may-contain-dots-and-colons',
