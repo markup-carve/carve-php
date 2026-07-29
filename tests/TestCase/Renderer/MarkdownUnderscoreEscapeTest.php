@@ -52,6 +52,31 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame('`code_span`', trim(CarveConverter::markdown()->convert('`code_span`')));
     }
 
+    /**
+     * A backslash the author typed is content, not an escape this renderer
+     * added. The de-escaping used to run over the assembled document, where it
+     * could not tell the two apart, and rewrote verbatim regions that carry a
+     * literal backslash before an underscore (carve-js issue 400).
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function verbatimProvider(): array
+    {
+        return [
+            'code span' => ['`a\_b`', '`a\_b`'],
+            'code block' => ["```\ncompany\\_id\n```", "```\ncompany\\_id\n```"],
+            'link destination' => ['[x](a\_b)', '[x](a\_b)'],
+            'image source' => ['![a](x\_y)', '![a](x\_y)'],
+            'raw html' => ["```=html\n<i>a\\_b</i>\n```", '&lt;i&gt;a\_b&lt;/i&gt;'],
+        ];
+    }
+
+    #[DataProvider('verbatimProvider')]
+    public function testABackslashTheRendererDidNotWriteIsKept(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
     public function testUnderlineEmphasisStillRenders(): void
     {
         $this->assertSame('<u>underline</u>', trim(CarveConverter::markdown()->convert('_underline_')));
