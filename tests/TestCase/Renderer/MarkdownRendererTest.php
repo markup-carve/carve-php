@@ -32,6 +32,23 @@ class MarkdownRendererTest extends TestCase
         $this->assertSame("Hello world!\n", $this->renderer->render($document));
     }
 
+    /**
+     * A line block's line structure is carried by hard breaks, and the PARSER
+     * already puts one in the AST per newline inside the block. Rewriting every
+     * newline in the renderer added a SECOND hard break on top of each of those,
+     * and turned the blank line between two stanzas into a pair of them
+     * (carve#352).
+     */
+    public function testLineBlockUsesTheHardBreaksAlreadyInTheAst(): void
+    {
+        $document = $this->converter->parse("::: |\nStanza one,\nstill one.\n\nStanza two.\n:::\n");
+
+        $this->assertSame(
+            "Stanza one,  \nstill one.\n\nStanza two.\n",
+            $this->renderer->render($document),
+        );
+    }
+
     public function testEmphasis(): void
     {
         $djot = 'This is /emphasized/ text.';
