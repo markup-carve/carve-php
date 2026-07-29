@@ -142,14 +142,34 @@ class InlineParserTest extends TestCase
         $this->assertSame('https://example.com', $link->getDestination());
     }
 
-    public function testAngleBracketWrappedInlineLinkDestinationStaysLiteral(): void
+    /**
+     * The angle form is a destination now, not literal text. It is the only
+     * spelling that can carry a parenthesis or a space, which is what a URL
+     * like `https://x/Foo_(bar)` needs - formatting one used to truncate the
+     * href and leak the rest into the text (carve#377).
+     */
+    public function testAngleBracketWrappedInlineLinkDestinationIsALink(): void
     {
         $para = $this->parseInline('[a](<u v>)');
 
-        $this->assertCount(1, $para->getChildren());
-        $text = $this->getFirstChild($para);
-        $this->assertInstanceOf(Text::class, $text);
-        $this->assertSame('[a](<u v>)', $text->getContent());
+        $link = $this->getFirstChild($para);
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertSame('u v', $link->getDestination());
+
+        $para = $this->parseInline('[a](<https://x/Foo_(bar)>)');
+        $link = $this->getFirstChild($para);
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertSame('https://x/Foo_(bar)', $link->getDestination());
+    }
+
+    public function testUnclosedAngleDestinationStaysLiteral(): void
+    {
+        // No closing `>`, so the bare scan runs and stops at the `)`; the `<`
+        // is ordinary content.
+        $para = $this->parseInline('[a](<https://x/plain)');
+        $link = $this->getFirstChild($para);
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertSame('<https://x/plain', $link->getDestination());
     }
 
     public function testEmptyInlineLinkDestinationStaysLiteral(): void

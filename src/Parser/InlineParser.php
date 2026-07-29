@@ -1836,6 +1836,21 @@ class InlineParser
                 ];
             }
 
+            // An ANGLE destination (`<...>`) runs to its closing `>`, so a `)`
+            // inside it is ordinary URL content rather than the end of the
+            // tail. That is what lets a URL carry a parenthesis at all
+            // (carve#377). Without a closing `>` the bare scan below runs, so
+            // an unclosed `<` stays ordinary content.
+            if (($text[$urlEnd] ?? '') === '<') {
+                $probe = $urlEnd + 1;
+                while ($probe < $length && !in_array($text[$probe], ['>', '<', "\n"], true)) {
+                    $probe++;
+                }
+                if (($text[$probe] ?? '') === '>') {
+                    $urlEnd = $probe + 1;
+                }
+            }
+
             while ($urlEnd < $length) {
                 if ($text[$urlEnd] === '\\' && $urlEnd + 1 < $length) {
                     $urlEnd++;
@@ -1879,7 +1894,16 @@ class InlineParser
                 // whitespace too, so `[t](url` / `more)` is NOT a link and
                 // stays literal (grammar.ebnf link_destination, decision B).
                 $url = $raw;
-                if ($url === '' || preg_match('/\s/', $url) || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
+                // The angle form carries what a bare run cannot - a
+                // parenthesis or a space - so it is unwrapped here rather than
+                // rejected. A bare destination still ends at the first
+                // whitespace (grammar link_destination, decision B).
+                if (str_starts_with($url, '<') && str_ends_with($url, '>') && strlen($url) >= 2) {
+                    $url = substr($url, 1, -1);
+                    if ($url === '') {
+                        return null;
+                    }
+                } elseif ($url === '' || preg_match('/\s/', $url)) {
                     return null;
                 }
 

@@ -1354,6 +1354,14 @@ class CarveRenderer implements RendererInterface
     protected function escapeDestination(string $text): string
     {
         $text = (string)preg_replace('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]+/u', '', $text);
+        // A parenthesis cannot survive a bare destination: the run stops at the
+        // first `)`, so the href truncates and the rest leaks into the text.
+        // The angle form is the spelling that can hold one, so use it rather
+        // than rewriting the URL (carve#377). It cannot carry `<`, `>` or a
+        // newline, so a destination with those falls through below.
+        if (preg_match('/[()]/', $text) === 1 && preg_match('/[<>\n]/', $text) !== 1) {
+            return '<' . $text . '>';
+        }
         $scheme = null;
         if (preg_match('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]*([a-zA-Z][a-zA-Z0-9+.-]*):/u', $text, $m) === 1) {
             $scheme = strtolower($m[1]);
