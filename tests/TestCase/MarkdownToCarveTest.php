@@ -530,6 +530,16 @@ class MarkdownToCarveTest extends TestCase
                 'two \{^a^} and \{,b,} x',
                 '<p>two {^a^} and {,b,} x</p>',
             ],
+            'escapes an emphasis run whose closer is followed by a slash' => [
+                'a /it// b',
+                'a \/it// b',
+                '<p>a /it// b</p>',
+            ],
+            'escapes emphasis while leaving a neighbouring url alone' => [
+                'a /it/ and ftp://h/f',
+                'a \/it/ and ftp://h/f',
+                '<p>a /it/ and ftp://h/f</p>',
+            ],
         ];
     }
 
@@ -563,6 +573,15 @@ class MarkdownToCarveTest extends TestCase
             'windows-style path' => ['C:/path/to/file'],
             'aspect ratio' => ['ratio 16/9'],
             'slashed flags' => ['flags -x/-y'],
+            // Only http/https URLs are protected upstream, so any other scheme
+            // reaches the slash rule. Escaping the second slash of `//` would
+            // free the first one to open emphasis - `ftp:/\/x/` renders as
+            // `ftp:<em>/x</em>`, markup the input never had.
+            'ftp url' => ['ftp://x/'],
+            'protocol-relative url' => ['//host/path'],
+            'git url' => ['git://h/r/'],
+            'file url' => ['file:///etc/hosts'],
+            'doubled slashes in prose' => ['a //b// c'],
             'attribute-style key value' => ['k {a=b} v'],
             'attribute-style class' => ['c {.cls} d'],
         ];

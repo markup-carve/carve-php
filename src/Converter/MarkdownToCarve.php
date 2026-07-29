@@ -530,7 +530,12 @@ class MarkdownToCarve
             ) ?? $line;
         } while ($line !== $previous);
 
-        $line = preg_replace_callback('/(?<![A-Za-z0-9{])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
+        // The `/` in the lookbehind is not symmetry with the rules below, it is
+        // load-bearing: without it the SECOND slash of `ftp://x/` matched, and
+        // escaping it freed the first one to open emphasis - `ftp:/\/x/`
+        // rendering as `ftp:<em>/x</em>`. Only `http`/`https` URLs are protected
+        // upstream, so every other scheme reached this rule.
+        $line = preg_replace_callback('/(?<![A-Za-z0-9{\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
         $line = preg_replace_callback('/(?<![A-Za-z0-9={])=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
 
         return preg_replace_callback('/(?<![A-Za-z0-9~{])~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
