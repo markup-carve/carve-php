@@ -648,10 +648,9 @@ class InlineParserTest extends TestCase
         $this->assertInstanceOf(Emphasis::class, $children[0]);
 
         $emChildren = $children[0]->getChildren();
+        $this->assertCount(1, $emChildren);
         $this->assertInstanceOf(Link::class, $emChildren[0]);
-        $this->assertSame('http://en.wikipedia.org/wiki/Foo_(bar', $emChildren[0]->getDestination());
-        $this->assertInstanceOf(Text::class, $emChildren[1]);
-        $this->assertSame(')', $emChildren[1]->getContent());
+        $this->assertSame('http://en.wikipedia.org/wiki/Foo_(bar)', $emChildren[0]->getDestination());
     }
 
     /**
@@ -667,8 +666,9 @@ class InlineParserTest extends TestCase
 
         $emChildren = $children[0]->getChildren();
         $this->assertInstanceOf(Link::class, $emChildren[0]);
-        // A link destination has no backslash escapes; the backslash is kept
-        // verbatim (grammar url_char), matching carve-js / carve-rs.
+        // A backslash before anything other than a parenthesis or another
+        // backslash is not an escape, so it is kept verbatim (grammar
+        // url_char), matching carve-js / carve-rs.
         $this->assertSame('path/to\_file', $emChildren[0]->getDestination());
     }
 
@@ -1115,16 +1115,26 @@ class InlineParserTest extends TestCase
         $this->assertEmpty($em->getAttributes());
     }
 
-    public function testInlineLinkDestinationEndsAtFirstClosingParen(): void
+    public function testInlineLinkDestinationBalancesParentheses(): void
     {
         $para = $this->parseInline('[x](http://a/b(c))');
         $children = $para->getChildren();
 
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Link::class, $children[0]);
+        $this->assertSame('http://a/b(c)', $children[0]->getDestination());
+    }
+
+    public function testInlineLinkDestinationEndsAtAnUnmatchedClosingParen(): void
+    {
+        $para = $this->parseInline('[x](e)f)');
+        $children = $para->getChildren();
+
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Link::class, $children[0]);
-        $this->assertSame('http://a/b(c', $children[0]->getDestination());
+        $this->assertSame('e', $children[0]->getDestination());
         $this->assertInstanceOf(Text::class, $children[1]);
-        $this->assertSame(')', $children[1]->getContent());
+        $this->assertSame('f)', $children[1]->getContent());
     }
 
     public function testInlineLinkTitleAllowsBackslashEscapedQuote(): void

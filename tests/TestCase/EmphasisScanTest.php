@@ -58,10 +58,11 @@ class EmphasisScanTest extends TestCase
     public function testTrailingParenEscapedCloserSkipsInEmphasisScan(): void
     {
         // findLinkDestinationEnd skips the escaped `)` and lands on the real one,
-        // so the emphasis spans the whole link; the link's own destination stops
-        // at the first `)` (escapes do not protect it there).
+        // so the emphasis spans the whole link. An escaped `)` is one of the
+        // three escapes a destination has, so it is content rather than the
+        // terminator, and the href carries it (carve-js and carve-rs agree).
         $this->assertSame(
-            '<p><u><a href="u\\">a</a>v)</u></p>',
+            '<p><u><a href="u)v">a</a></u></p>',
             trim($this->converter->convert('_[a](u\\)v)_')),
         );
     }

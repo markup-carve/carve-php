@@ -2240,8 +2240,10 @@ DJOT;
         $djot = '[Wikipedia](https://en.wikipedia.org/wiki/Example_(disambiguation))';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('href="https://en.wikipedia.org/wiki/Example_(disambiguation"', $result);
-        $this->assertStringContainsString('</a>)', $result);
+        // The parentheses balance, so the whole URL is the destination and
+        // nothing leaks out past the anchor.
+        $this->assertStringContainsString('href="https://en.wikipedia.org/wiki/Example_(disambiguation)"', $result);
+        $this->assertStringNotContainsString('</a>)', $result);
     }
 
     public function testLinkWithEscapedBracket(): void
