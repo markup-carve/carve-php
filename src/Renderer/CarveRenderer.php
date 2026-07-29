@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
@@ -60,6 +61,8 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
+use ReflectionObject;
+use Throwable;
 
 /**
  * Renders AST back to canonical Carve source.
@@ -76,13 +79,47 @@ class CarveRenderer implements RendererInterface
      */
     private const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
+    /**
+     * @var string
+     */
+    private const ESCAPE_MODE_MINIMAL = 'minimal';
+
+    /**
+     * @var string
+     */
+    private const ESCAPE_MODE_CONSERVATIVE = 'conservative';
+
     protected int $blockDepth = 0;
 
     protected int $inlineDepth = 0;
 
     protected int $listDepth = 0;
 
+    protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
+
     public function render(Document $document): string
+    {
+        $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
+        $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
+        if ($minimal === $conservative) {
+            return $minimal;
+        }
+
+        return $this->escapingIsRedundant($minimal, $conservative) ? $minimal : $conservative;
+    }
+
+    protected function renderWithEscapeMode(Document $document, string $escapeMode): string
+    {
+        $previousEscapeMode = $this->escapeMode;
+        $this->escapeMode = $escapeMode;
+        try {
+            return $this->renderDocumentParts($document);
+        } finally {
+            $this->escapeMode = $previousEscapeMode;
+        }
+    }
+
+    protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
         $abbrs = [];
@@ -101,6 +138,102 @@ class CarveRenderer implements RendererInterface
         }
 
         return $this->normalize(implode("\n\n", $parts));
+    }
+
+    /**
+     * PART 11 section 4: compare the parsed minimal and conservative renders,
+     * not either render against the source AST. If parsing fails, keep the old
+     * conservative behavior.
+     */
+    protected function escapingIsRedundant(string $minimal, string $conservative): bool
+    {
+        try {
+            $parser = new CarveConverter();
+
+            return $this->canonicalizeAst($parser->parse($minimal)) == $this->canonicalizeAst($parser->parse($conservative));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function canonicalizeAst(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $key => $child) {
+                $out[$key] = $this->canonicalizeAst($child);
+            }
+            if (array_is_list($out)) {
+                $out = $this->coalesceTextNodes($out);
+            } else {
+                ksort($out);
+            }
+
+            return $out;
+        }
+
+        if (is_object($value)) {
+            $ref = new ReflectionObject($value);
+            $class = $value instanceof EscapedText ? Text::class : $ref->getName();
+            $out = ['__class' => $class];
+            foreach ($ref->getProperties() as $property) {
+                $name = $property->getName();
+                if ($name === 'parent' || $name === 'sourceLength') {
+                    continue;
+                }
+                $property->setAccessible(true);
+                $out[$name] = $this->canonicalizeAst($property->getValue($value));
+            }
+            ksort($out);
+
+            return $out;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     *
+     * @return array<mixed>
+     */
+    protected function coalesceTextNodes(array $nodes): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            $lastIndex = count($out) - 1;
+            $content = $this->canonicalTextContent($node);
+            if ($lastIndex >= 0 && $content !== null) {
+                $previousContent = $this->canonicalTextContent($out[$lastIndex]);
+                if ($previousContent !== null && is_array($out[$lastIndex])) {
+                    $out[$lastIndex]['content'] = $previousContent . $content;
+
+                    continue;
+                }
+            }
+            $out[] = $node;
+        }
+
+        return $out;
+    }
+
+    protected function canonicalTextContent(mixed $node): ?string
+    {
+        if (
+            is_array($node)
+            && ($node['__class'] ?? null) === Text::class
+            && ($node['attributes'] ?? []) === []
+            && ($node['attributeOrder'] ?? []) === []
+            && ($node['children'] ?? []) === []
+            && is_string($node['content'] ?? null)
+        ) {
+            return $node['content'];
+        }
+
+        return null;
     }
 
     /**
@@ -261,9 +394,8 @@ class CarveRenderer implements RendererInterface
         // A tight item with more than one child block must not gain a blank line
         // between its blocks - a blank there loosens the item on re-parse, so
         // toHtml(fmt(x)) would diverge from toHtml(x) (carve corpus 162).
-        // Adjacent blocks are joined with a single newline instead. A nested
-        // list child is the exception: keep the blank separator so its own
-        // continuation-indent handling stays exactly as-is (carve corpus 142).
+        // Adjacent blocks are joined with a single newline instead, matching
+        // the canonical carve-js writer.
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             return '';
         }
@@ -277,7 +409,7 @@ class CarveRenderer implements RendererInterface
                     continue;
                 }
                 if ($out !== '') {
-                    $out .= $child instanceof ListBlock ? "\n\n" : "\n";
+                    $out .= "\n";
                 }
                 $out .= $rendered;
             }
@@ -708,7 +840,7 @@ class CarveRenderer implements RendererInterface
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
 
         return match (true) {
-            $node instanceof Text => $this->escapeText($node->getContent()),
+            $node instanceof Text => $this->escapeText($node->getContent()) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
             $node instanceof EscapedText => $this->escapeText($node->getContent()),
@@ -749,12 +881,7 @@ class CarveRenderer implements RendererInterface
 
     protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
     {
-        $children = $node->getChildren();
-        if (count($children) === 1 && $children[0] instanceof Emphasis) {
-            return '/*' . $this->renderInlines($children[0]->getChildren()) . '*/';
-        }
-
-        return $this->renderEmphasis('*', $this->renderInlines($children), $prevChar, $nextChar);
+        return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar);
     }
 
     protected function renderLink(Link $node): string
@@ -877,7 +1004,13 @@ class CarveRenderer implements RendererInterface
 
                 return;
             }
-            if (isset($seen[$slot]) || !array_key_exists($slot, $attrs) || $slot === 'id' || $slot === 'class') {
+            if (
+                isset($seen[$slot])
+                || !array_key_exists($slot, $attrs)
+                || $slot === 'id'
+                || $slot === 'class'
+                || $slot === 'data-carve-raw-suffix'
+            ) {
                 return;
             }
             $seen[$slot] = true;
@@ -1026,11 +1159,30 @@ class CarveRenderer implements RendererInterface
     protected function escapeText(string $text): string
     {
         $text = (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F-\x9F]/u', '', $text);
+        if (preg_match('/^\[\^[^\]\n]+\]$/u', $text) === 1) {
+            return $text;
+        }
 
-        // A comma needs no escape: there is no bare subscript delimiter, and
-        // the braced opener is neutralized by the brace escape. The caret
-        // stays escaped for the inline-footnote and caption channels.
-        return (string)preg_replace('/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/', '\\\\$1', $text);
+        $pattern = $this->escapeMode === self::ESCAPE_MODE_MINIMAL
+            ? '/([\\\\`"\'^])/'
+            : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/';
+
+        $minimal = $this->escapeMode === self::ESCAPE_MODE_MINIMAL;
+
+        return (string)preg_replace_callback(
+            $pattern,
+            static function (array $match) use ($text, $minimal): string {
+                $char = $match[1][0];
+                $offset = $match[1][1];
+                if ($minimal && $char === '^' && $offset > 0 && $text[$offset - 1] === '[') {
+                    return '^';
+                }
+
+                return '\\' . $char;
+            },
+            $text,
+            flags: PREG_OFFSET_CAPTURE,
+        );
     }
 
     protected function escapeImageAlt(string $text): string
