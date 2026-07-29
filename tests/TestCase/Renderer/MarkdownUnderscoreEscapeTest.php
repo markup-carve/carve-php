@@ -77,6 +77,13 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
     }
 
+    public function testAnAuthoredEscapeIsDeEscapedWhenIntraword(): void
+    {
+        // `a\_b` and `a_b` are two spellings of the same document, so they have
+        // to render the same - the escape the author wrote is still an escape.
+        $this->assertSame('a_b', trim(CarveConverter::markdown()->convert('a\_b')));
+    }
+
     public function testUnderlineEmphasisStillRenders(): void
     {
         $this->assertSame('<u>underline</u>', trim(CarveConverter::markdown()->convert('_underline_')));

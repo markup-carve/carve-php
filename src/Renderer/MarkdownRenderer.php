@@ -189,6 +189,24 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
+     * An escape the author wrote, kept as an escape - but an underscore goes
+     * through the same sentinel as escapeText() so resolveUnderscoreEscapes()
+     * can drop the backslash when it turns out to be intraword. Without that
+     * the two spellings of the same document diverge: `a\_b` would stay
+     * escaped while `a_b` came out bare.
+     */
+    protected function renderEscapedText(EscapedText $node): string
+    {
+        $content = $this->stripControls($node->getContent());
+
+        if ($content === '_') {
+            return self::UNDERSCORE_ESCAPE;
+        }
+
+        return '\\' . $content;
+    }
+
+    /**
      * Drop the backslash from an intraword underscore.
      *
      * CommonMark does not honour an intraword underscore, so `company_id`
@@ -264,7 +282,7 @@ class MarkdownRenderer implements RendererInterface
                 // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
                 // ordered list. EscapedText only ever holds escaped ASCII
                 // punctuation, all of which CommonMark allows a `\` before.
-                $node instanceof EscapedText => '\\' . $this->stripControls($node->getContent()),
+                $node instanceof EscapedText => $this->renderEscapedText($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Abbreviation => $this->renderAbbreviation($node),
