@@ -531,12 +531,16 @@ class MarkdownRenderer implements RendererInterface
                     $prefix = $counter . $marker . ' ';
                     $counter++;
                 } elseif ($node->getListType() === ListBlock::TYPE_TASK) {
-                    $marker = $node->getMarker() ?? '-';
+                    // Normalize the bullet, like the ordered markers above.
+                    // Markdown is a conversion target rather than a round-trip
+                    // format: `*` and `-` mean the same thing to every consumer,
+                    // so reproducing the author's spelling buys nothing and made
+                    // this engine disagree with carve-js and carve-rs on every
+                    // list written with `*` (carve#352).
                     $checkbox = $child->getChecked() ? '[x] ' : '[ ] ';
-                    $prefix = $marker . ' ' . $checkbox;
+                    $prefix = '- ' . $checkbox;
                 } else {
-                    $marker = $node->getMarker() ?? '-';
-                    $prefix = $marker . ' ';
+                    $prefix = '- ';
                 }
 
                 $content = trim($this->renderChildren($child));
