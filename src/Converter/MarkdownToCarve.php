@@ -426,6 +426,8 @@ class MarkdownToCarve
             }, $line) ?? $line;
         }
 
+        $line = $this->escapePlainCarveInlineSyntax($line);
+
         $stash = [];
         $hold = function (string $span) use (&$stash): string {
             $stash[] = $span;
@@ -482,6 +484,24 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    /**
+     * CommonMark treats these Carve inline constructs as literal text. Escape
+     * their first delimiter before Markdown rewrites generate intentional Carve
+     * syntax below.
+     */
+    protected function escapePlainCarveInlineSyntax(string $line): string
+    {
+        $escapeFirst = static fn (array $match): string => '\\' . $match[0];
+
+        $line = preg_replace_callback('/(^|[ \t])%%(?!%)/', fn (array $match): string => $match[1] . '\%%', $line) ?? $line;
+        $line = preg_replace_callback('/(?<![A-Za-z0-9])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
+        $line = preg_replace_callback('/(?<![A-Za-z0-9=])=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
+        $line = preg_replace_callback('/(?<![A-Za-z0-9~])~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
+        $line = preg_replace_callback('/\{\^(?!\s)([^\n]+?)(?<!\s)\^\}/', $escapeFirst, $line) ?? $line;
+
+        return preg_replace_callback('/\{,(?!\s)([^\n]+?)(?<!\s),\}/', $escapeFirst, $line) ?? $line;
     }
 
     /**

@@ -389,9 +389,9 @@ class MarkdownToCarveTest extends TestCase
                 '  > quote',
                 '> quote',
             ],
-            'leaves an already well-spaced document unchanged' => [
+            'leaves an already well-spaced document structure unchanged' => [
                 "# Title\n\nA /para/ here.\n\n- one\n- two\n",
-                "# Title\n\nA /para/ here.\n\n- one\n- two\n",
+                "# Title\n\nA \/para/ here.\n\n- one\n- two\n",
             ],
         ];
     }
@@ -434,6 +434,131 @@ class MarkdownToCarveTest extends TestCase
                 'eq $*x*$ end',
                 'eq $`*x*` end',
             ],
+        ];
+    }
+
+    /**
+     * @param string $markdown
+     * @param string $expectedCarve
+     * @param string $expectedHtml
+     */
+    #[DataProvider('plainCarveInlineSyntaxProvider')]
+    public function testPlainMarkdownCarveInlineSyntaxRendersLiteral(string $markdown, string $expectedCarve, string $expectedHtml): void
+    {
+        $carve = $this->converter->convert($markdown);
+
+        $this->assertSame($expectedCarve, $carve);
+        $this->assertSame($expectedHtml, trim((new CarveConverter())->convert($carve)));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function plainCarveInlineSyntaxProvider(): array
+    {
+        return [
+            'escapes slash emphasis literal' => [
+                'a /it/ b',
+                'a \/it/ b',
+                '<p>a /it/ b</p>',
+            ],
+            'escapes highlight literal' => [
+                'a =hl= b',
+                'a \=hl= b',
+                '<p>a =hl= b</p>',
+            ],
+            'escapes strike literal' => [
+                'a ~s~ b',
+                'a \~s~ b',
+                '<p>a ~s~ b</p>',
+            ],
+            'escapes superscript literal' => [
+                'a {^y^} b',
+                'a \{^y^} b',
+                '<p>a {^y^} b</p>',
+            ],
+            'escapes subscript literal' => [
+                'a {,y,} b',
+                'a \{,y,} b',
+                '<p>a {,y,} b</p>',
+            ],
+            'escapes inline comment literal' => [
+                'a %%c%% b',
+                'a \%%c%% b',
+                '<p>a %%c%% b</p>',
+            ],
+            'escapes line comment literal' => [
+                '%% line',
+                '\%% line',
+                '<p>%% line</p>',
+            ],
+        ];
+    }
+
+    /**
+     * @param string $markdown
+     */
+    #[DataProvider('plainCarveNegativeProvider')]
+    public function testDoesNotOverEscapePlainMarkdownText(string $markdown): void
+    {
+        $this->assertSame($markdown, $this->converter->convert($markdown));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function plainCarveNegativeProvider(): array
+    {
+        return [
+            'path-like slashes' => ['a/b/c'],
+            'and-or slashes' => ['and/or'],
+            'fraction slashes' => ['1/2'],
+            'spaced equals' => ['x = y = z'],
+            'approximate tilde' => ['approx ~5'],
+            'single percent' => ['a 50% of b'],
+            'plain braces' => ['{x}'],
+            'plain brackets' => ['[x]'],
+            'plain angle brackets' => ['<x>'],
+            'plain pipes' => ['|x|'],
+            'emoji shortcode' => [':rocket:'],
+            'plain dollar math' => ['$x$'],
+        ];
+    }
+
+    /**
+     * @param string $markdown
+     * @param string $expected
+     */
+    #[DataProvider('markdownRewriteRegressionProvider')]
+    public function testMarkdownRewritesStillWork(string $markdown, string $expected): void
+    {
+        $this->assertSame($expected, $this->converter->convert($markdown));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function markdownRewriteRegressionProvider(): array
+    {
+        return [
+            'strong asterisks' => ['**b**', '*b*'],
+            'strong underscores' => ['__b__', '*b*'],
+            'bold italic asterisks' => ['***bi***', '/*bi*/'],
+            'underscore emphasis' => ['_em_', '/em/'],
+            'asterisk emphasis' => ['*em*', '/em/'],
+            'GFM strike' => ['~~s~~', '~s~'],
+            'Markdown highlight' => ['==h==', '=h='],
+            'HTML sup' => ['<sup>x</sup>', '{^x^}'],
+            'HTML sub' => ['<sub>x</sub>', '{,x,}'],
+            'HTML mark' => ['<mark>x</mark>', '{=x=}'],
+            'HTML ins' => ['<ins>x</ins>', '{+x+}'],
+            'HTML del' => ['<del>x</del>', '~x~'],
+            'fenced code' => ["```php\n*x*\n```", "```php\n*x*\n```"],
+            'inline code' => ['`*x*`', '`*x*`'],
+            'links' => ['[*x*](/u)', '[/x/](/u)'],
+            'bare URLs' => ['see https://example.com/a_b/c', 'see https://example.com/a_b/c'],
+            'reference definitions' => ['[id]: /a_b/c', '[id]: /a_b/c'],
+            'GFM tables' => ["| a | b |\n|---|---|\n| c | d |", "|= a |= b |\n| c | d |"],
         ];
     }
 

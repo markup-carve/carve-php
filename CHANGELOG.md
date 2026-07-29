@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`MarkdownToCarve` no longer turns plain Markdown text into Carve markup.**
+  CommonMark defines no `/…/`, `=…=`, single-`~…~`, `{^…^}`, `{,…,}` or `%%…%%`
+  syntax, so all of those are literal text in Markdown - and the converter passed
+  them through for Carve to parse as markup. `a {,y,} b` came out as a
+  subscript, `a /it/ b` as emphasis, and `a %%c%% b` lost the text entirely,
+  because `%%` opens a comment. The first delimiter of each construct is now
+  escaped, which is the same rule #420 applied to the bare dollar pair: the
+  converter must not introduce a construct that was not in the input. Escaping
+  happens after code spans, links and URLs are protected and before the
+  Markdown rewrites run, so `**b**`, `_em_`, `~~s~~`, `==h==` and the HTML
+  inline tags still convert, and `a/b/c`, `1/2`, `x = y`, `~5` and `50%` are
+  left alone. Note the behavior change: Markdown that contained Carve inline
+  syntax and previously passed through verbatim is now escaped.
 - **Tables are written in the native header form** (`=` cells plus per-cell
   alignment markers) instead of a GFM delimiter row, and a line block's indent
   is written back as spaces rather than a literal non-breaking space. Both are
