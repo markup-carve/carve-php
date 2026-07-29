@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Tables are written in the native header form** (`=` cells plus per-cell
+  alignment markers) instead of a GFM delimiter row, and a line block's indent
+  is written back as spaces rather than a literal non-breaking space. Both are
+  round-trip fixes: a delimiter row's alignment applies to the whole column
+  while alignment belongs to each cell, and a real nbsp re-parses as literal
+  text rather than as indentation. Closes carve#359 for this engine; the
+  `carve` output is byte-identical to carve-js and carve-rs on every affected
+  corpus case.
+
 - **The Markdown renderer no longer de-escapes underscores inside verbatim
   content.** The intraword-underscore cleanup matched a literal `\_` anywhere in
   the assembled document, so a backslash the author wrote was rewritten along
