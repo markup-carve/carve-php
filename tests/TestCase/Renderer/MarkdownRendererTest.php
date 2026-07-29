@@ -220,15 +220,21 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('- Item 2', $result);
         $this->assertStringContainsString('- Item 3', $result);
 
-        // Test asterisk marker (round-trip)
+        // An asterisk bullet normalizes to `-`, like the ordered markers do.
+        // Markdown is a conversion target rather than a round-trip format, so
+        // the author's choice of bullet carries no meaning downstream -
+        // reproducing it only made this engine disagree with carve-js and
+        // carve-rs on every list written with `*` or `+` (carve#352).
         $djot = "* Item 1\n* Item 2";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertStringContainsString('* Item 1', $result);
-        $this->assertStringContainsString('* Item 2', $result);
+        $this->assertStringContainsString('- Item 1', $result);
+        $this->assertStringNotContainsString('* Item 1', $result);
 
-        // Test plus marker (round-trip)
+        // `+` is Carve's list CONTINUATION marker, so a `+` list is its own
+        // construct rather than a bullet spelling - carve-js keeps it too, and
+        // both engines agree here.
         $djot = "+ Item 1\n+ Item 2";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
