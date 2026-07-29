@@ -499,6 +499,8 @@ class MarkdownToCarve
      * Markdown rewrites below own it. `@` and `"` are absent because `{@x@}`
      * and `{"x"}` reinterpret through mentions and smart typography, which
      * apply to any Carve source rather than being introduced here.
+     *
+     * @var string
      */
     protected const BRACED_DELIMITERS = '\^,=+\-~\/#';
 
