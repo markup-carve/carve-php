@@ -261,11 +261,14 @@ class CarveRenderer implements RendererInterface
         }
     }
 
+    /**
+     * Depth of line-block nesting, so the inline writer can drop the explicit
+     * hard-break backslash where the container already implies one.
+     */
+    protected int $inLineBlock = 0;
+
     protected function renderBlock(Node $node): string
     {
-        if ($node instanceof LineBlock && !$node->hasClass('line-block')) {
-            $node->addClass('line-block');
-        }
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
 
@@ -572,9 +575,22 @@ class CarveRenderer implements RendererInterface
 
     protected function renderLineBlock(LineBlock $node): string
     {
-        $body = $this->renderBlocks($node->getChildren());
+        // Inside a line block every newline IS a hard break (grammar PART 3,
+        // line_block_body), so the explicit backslash the inline writer emits
+        // for a HardBreak would double it on re-parse.
+        $this->inLineBlock++;
 
-        return ":::\n" . $body . "\n:::";
+        try {
+            $body = $this->renderBlocks($node->getChildren());
+        } finally {
+            $this->inLineBlock--;
+        }
+
+        // `::: |` is the line-block opener (grammar PART 3, line_block_open).
+        // Emitting a bare `:::` and tagging the node with a `line-block` class
+        // instead re-parsed as an ordinary div, so the node type changed across
+        // a format round trip and `parse(fmt(x)) == parse(x)` did not hold.
+        return "::: |\n" . $body . "\n:::";
     }
 
     /**
@@ -868,7 +884,9 @@ class CarveRenderer implements RendererInterface
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']'),
             $node instanceof SoftBreak => "\n",
-            $node instanceof HardBreak => "\\\n",
+            $node instanceof HardBreak => $this->inLineBlock > 0
+                ? "\n"
+                : "\\\n",
             $node instanceof Insert => $withAttrs('{+' . $this->renderInlines($node->getChildren()) . '+}'),
             $node instanceof Delete => $withAttrs('{-' . $this->renderInlines($node->getChildren()) . '-}'),
             $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',

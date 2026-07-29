@@ -7,6 +7,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The canonical writer reproduces a line block as a line block** (carve#359).
+  It emitted a bare colon fence and tagged the node with a `line-block` class,
+  so a formatted line block re-parsed as an ordinary div. The rendered HTML
+  matched, which is why nothing caught it, but the node type changed across a
+  format round trip: `parse(fmt(x)) == parse(x)` did not hold, and a profile
+  denying `line_block` stopped matching after `fmt`.
+
+  The writer now emits the `::: |` opener from the grammar, and drops the
+  explicit hard-break backslash inside a line block - the container already
+  makes every newline a hard break, so emitting both doubled them.
+
+  All seven line-block corpus cases now round-trip; four did not before.
+
 ### Added
 
 - **`MarkdownHabitLinter` and a `carve lint` command**: reports Markdown habits
