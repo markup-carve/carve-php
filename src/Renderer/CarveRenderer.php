@@ -275,7 +275,7 @@ class CarveRenderer implements RendererInterface
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
             $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimNonNbsp($this->renderInlines($node->getChildren()))),
-            $node instanceof Paragraph => $withAttrs($this->renderInlines($node->getChildren())),
+            $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
             $node instanceof CodeBlock => $withAttrs($this->renderCodeBlock($node)),
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
             $node instanceof ListBlock => $withAttrs($this->renderList($node)),
@@ -1054,11 +1054,61 @@ class CarveRenderer implements RendererInterface
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
+    /**
+     * Protect a paragraph line that would re-parse as a thematic break.
+     *
+     * Source indentation is not in the AST, so an indented `---` - a paragraph
+     * holding an em dash - is emitted at column 0, where it stops being a
+     * paragraph and becomes a thematic break.
+     *
+     * Text nodes are already covered: the conservative form escapes the
+     * hyphens, so the round-trip check sees the difference and picks that form.
+     * A smart-punctuation run is not, because its source run is emitted
+     * verbatim in BOTH forms - that is the point of the node - so the check
+     * never has a difference to act on. Escaping the run in the conservative
+     * form does not work either: it would make that form change the document,
+     * and the check could then never prefer the minimal one.
+     *
+     * It INDENTS rather than escapes: escaping would split the run (a leading
+     * escaped hyphen plus an en dash) and change the document just as surely,
+     * while a single leading space keeps the line a paragraph and keeps the em
+     * dash - which is what the source said.
+     *
+     * The marker is a sentinel rather than a literal space because
+     * normalize() trims the document's leading whitespace, which would
+     * silently undo the guard whenever the paragraph is the first block.
+     */
+    protected function guardThematicBreakLines(string $body): string
+    {
+        if (!str_contains($body, '-')) {
+            return $body;
+        }
+
+        $lines = explode("\n", $body);
+        foreach ($lines as $i => $line) {
+            if (preg_match('/^-{3,}[ \t]*$/', $line) === 1) {
+                $lines[$i] = "\u{E004}" . $line;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     protected function normalize(string $text): string
     {
         $text = str_replace("\u{E000}", "\u{00A0}", $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
+            // Strip a line's trailing whitespace only where it cannot be
+            // content. At the end of a paragraph the parser drops it too, so
+            // the writer must; before a SOFT BREAK the parser keeps it, and
+            // stripping it there changed the rendered output (carve#359).
+            // A line whose successor is blank ends its block; one followed by
+            // more text is mid-paragraph.
+            $next = $lines[$i + 1] ?? null;
+            if ($next !== null && trim($next) !== '') {
+                continue;
+            }
             $lines[$i] = (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $line);
         }
         $text = implode("\n", $lines);
@@ -1095,7 +1145,12 @@ class CarveRenderer implements RendererInterface
 
     protected function restoreVerbatim(string $text): string
     {
-        return strtr($text, ["\u{E001}" => ' ', "\u{E002}" => "\t", "\u{E003}" => '']);
+        $result = strtr($text, ["\u{E001}" => ' ', "\u{E002}" => "\t", "\u{E003}" => '']);
+
+        // U+E004 marks a paragraph line that must not begin at column 0. It
+        // resolves AFTER normalize()'s trims, which would otherwise strip a
+        // plain leading space when the paragraph is the document's first block.
+        return str_replace("\u{E004}", ' ', $result);
     }
 
     protected function trimNonNbsp(string $text): string
