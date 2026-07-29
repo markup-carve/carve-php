@@ -1105,8 +1105,12 @@ class CarveRenderer implements RendererInterface
             // stripping it there changed the rendered output (carve#359).
             // A line whose successor is blank ends its block; one followed by
             // more text is mid-paragraph.
+            // A line is blank when it holds only whitespace, counting the
+            // non-breaking space: PHP trim() leaves NBSP in place where JS
+            // trim() removes it, and the two writers must agree on which lines
+            // end a block.
             $next = $lines[$i + 1] ?? null;
-            if ($next !== null && trim($next) !== '') {
+            if ($next !== null && preg_replace('/[\s\x{00A0}]+/u', '', $next) !== '') {
                 continue;
             }
             $lines[$i] = (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $line);
