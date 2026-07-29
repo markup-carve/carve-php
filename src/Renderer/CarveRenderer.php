@@ -914,7 +914,13 @@ class CarveRenderer implements RendererInterface
             $node instanceof Text => $this->escapeText($this->resolveIndentPlaceholder($node->getContent())) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
-            $node instanceof EscapedText => $this->escapeText($node->getContent()),
+            // The author escaped this character; the writer says so again. No
+            // minimal/conservative decision applies -- the node IS the decision.
+            // Routing it through escapeText() made the minimal render DROP the
+            // author's escape, so `\*x\*` came back as `*x*`, re-parsed with a
+            // Strong, and W4 escalated the whole document to conservative
+            // (carve#374).
+            $node instanceof EscapedText => '\\' . $node->getContent(),
             $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
             $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),
             $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
