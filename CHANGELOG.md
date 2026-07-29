@@ -44,6 +44,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`MarkdownToCarve` math conversion is now opt-in**. Plain CommonMark treats
+  dollar runs as literal text, so the converter no longer rewrites paired
+  dollars by default. Pass `convertMath: true` for Markdown flavours that use
+  `$...$` and `$$...$$` as math delimiters.
+
 - **Smart typography is represented as AST nodes instead of character
   substitution** (carve#339). A `SmartPunctuation` inline node carries both the
   resolved kind and the author's source run, so the Carve renderer reproduces
