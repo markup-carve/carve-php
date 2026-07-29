@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`autolink` and `admonition` are deniable by name** (carve#362). Neither is a
+  node class of its own here - an autolink is a `Link` carrying a flag, an
+  admonition a `Div` carrying one - so the profile filter matched the broader
+  name and a profile naming the narrower one matched nothing, silently: a host
+  could deny autolinks, get no error and no violation, and still emit them. The
+  canonical name is now resolved from the node rather than its class. Both stay
+  covered by the broader name, so denying `link` still strips autolinks and
+  denying `div` still strips admonitions.
+
 - **The Markdown renderer no longer de-escapes underscores inside verbatim
   content.** The intraword-underscore cleanup matched a literal `\_` anywhere in
   the assembled document, so a backslash the author wrote was rewritten along
