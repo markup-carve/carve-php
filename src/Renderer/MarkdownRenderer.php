@@ -94,6 +94,18 @@ class MarkdownRenderer implements RendererInterface
      */
     private const MAX_RENDER_DEPTH = 512;
 
+    /**
+     * Sentinel standing in for an underscore escape this renderer emitted, so
+     * the final pass can tell those apart from a backslash the author wrote.
+     * U+E000 is the NBSP sentinel and the Carve writer claims U+E001..U+E003;
+     * this extends the scheme. Author content never carries it: stripControls()
+     * drops it on the way in, and every path to the output runs through
+     * stripControls().
+     *
+     * @var string
+     */
+    private const UNDERSCORE_ESCAPE = "\u{E004}";
+
     protected int $listDepth = 0;
 
     protected bool $inBlockQuote = false;
@@ -165,7 +177,7 @@ class MarkdownRenderer implements RendererInterface
 
         $markdown = trim($markdown) . "\n";
 
-        $markdown = $this->dropRedundantUnderscoreEscapes($markdown);
+        $markdown = $this->resolveUnderscoreEscapes($markdown);
 
         // The internal non-breaking-space placeholder (U+E000) becomes a literal
         // non-breaking space (U+00A0). Markdown is a re-parseable round-trip
@@ -174,6 +186,24 @@ class MarkdownRenderer implements RendererInterface
         // code-block prefix the way ordinary leading spaces would be. Done after
         // trimming so placeholder-derived leading indentation survives.
         return str_replace("\u{E000}", "\u{00A0}", $markdown);
+    }
+
+    /**
+     * An escape the author wrote, kept as an escape - but an underscore goes
+     * through the same sentinel as escapeText() so resolveUnderscoreEscapes()
+     * can drop the backslash when it turns out to be intraword. Without that
+     * the two spellings of the same document diverge: `a\_b` would stay
+     * escaped while `a_b` came out bare.
+     */
+    protected function renderEscapedText(EscapedText $node): string
+    {
+        $content = $this->stripControls($node->getContent());
+
+        if ($content === '_') {
+            return self::UNDERSCORE_ESCAPE;
+        }
+
+        return '\\' . $content;
     }
 
     /**
@@ -191,16 +221,23 @@ class MarkdownRenderer implements RendererInterface
      * nodes `company` and `_id`, so at escape time the underscore looks
      * like it starts a word.
      *
-     * Code spans are unaffected: their content is emitted verbatim and
-     * never carries these escapes to begin with.
+     * It decides on the sentinel rather than on `\_` because the assembled
+     * document also contains regions this renderer must reproduce byte-exact -
+     * code spans, code blocks, link destinations, titles, raw HTML - and a
+     * backslash there is content, not an escape. Matching `\_` rewrote those
+     * too (carve-js issue 400).
      */
-    protected function dropRedundantUnderscoreEscapes(string $markdown): string
+    protected function resolveUnderscoreEscapes(string $markdown): string
     {
-        return preg_replace(
-            '/(?<=[\p{L}\p{N}])\\\\_(?=[\p{L}\p{N}])/u',
+        $sentinel = preg_quote(self::UNDERSCORE_ESCAPE, '/');
+
+        $markdown = preg_replace(
+            '/(?<=[\p{L}\p{N}])' . $sentinel . '(?=[\p{L}\p{N}])/u',
             '_',
             $markdown,
         ) ?? $markdown;
+
+        return str_replace(self::UNDERSCORE_ESCAPE, '\\_', $markdown);
     }
 
     protected function renderNode(Node $node): string
@@ -245,7 +282,7 @@ class MarkdownRenderer implements RendererInterface
                 // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
                 // ordered list. EscapedText only ever holds escaped ASCII
                 // punctuation, all of which CommonMark allows a `\` before.
-                $node instanceof EscapedText => '\\' . $this->stripControls($node->getContent()),
+                $node instanceof EscapedText => $this->renderEscapedText($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Abbreviation => $this->renderAbbreviation($node),
@@ -875,7 +912,16 @@ class MarkdownRenderer implements RendererInterface
 
         // Escape special Markdown characters in text (be careful not to
         // over-escape). None overlap with the HTML chars escaped above.
-        return preg_replace('/([\\\\`*_\[\]#])/', '\\\\$1', $text) ?? $text;
+        //
+        // The underscore escape is emitted as a sentinel rather than a
+        // backslash: whether it survives depends on its neighbours in the
+        // assembled document, which only resolveUnderscoreEscapes() can see.
+        // See UNDERSCORE_ESCAPE.
+        return preg_replace_callback(
+            '/([\\\\`*_\[\]#])/',
+            static fn (array $m): string => $m[1] === '_' ? self::UNDERSCORE_ESCAPE : '\\' . $m[1],
+            $text,
+        ) ?? $text;
     }
 
     /**
@@ -921,8 +967,16 @@ class MarkdownRenderer implements RendererInterface
         return $this->stripControls($url);
     }
 
+    /**
+     * Drop C0/C1 control characters (keeping tab and newline) from author
+     * content, and the underscore-escape sentinel with them: author content
+     * that carried it would otherwise be read as an escape this renderer
+     * emitted. Every path to the output passes through here.
+     */
     protected function stripControls(string $text): string
     {
+        $text = str_replace(self::UNDERSCORE_ESCAPE, '', $text);
+
         return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
     }
 }
