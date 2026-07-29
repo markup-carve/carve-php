@@ -637,12 +637,57 @@ class CarveRenderer implements RendererInterface
             }
             $columns = max($columns, $width);
         }
-        $gfmHeader = isset($tableRows[0]) && $tableRows[0]->isHeader();
+        // Tables prefer the NATIVE header form: an `=` on each header cell plus
+        // the per-cell alignment markers. The GFM delimiter row is an accepted
+        // alias on input, but it says something the AST does not - its alignment
+        // applies to the WHOLE column, header and body alike (PART 9 T7), while
+        // alignment on the AST belongs to each cell. Writing one for the
+        // ordinary shape (aligned header over unaligned body cells) brought
+        // every body cell back aligned, so `parse(fmt(x)) == parse(x)` did not
+        // hold (carve#359).
+        //
+        // Two header shapes have no native spelling, because `header_cell` in
+        // the grammar is `'=' [alignment_marker] content` and admits neither an
+        // attribute block nor a span marker:
+        //
+        //     | < | b |     a span marker promoted to a header cell
+        //     |{.x} a | b | a header cell carrying attributes
+        //
+        // Those keep a delimiter row to promote the first row, emitted BARE so
+        // the cells keep their own alignment markers and the delimiter cannot
+        // spill alignment down the column.
+        $headerRow = isset($tableRows[0]) && $tableRows[0]->isHeader();
+        // This parser resolves a cell's alignment at parse time, so a body cell
+        // carries the column's alignment even when the author only wrote it on
+        // the header. carve-js and carve-rs keep the author's own marker and
+        // resolve at render, and their AST is the one the writer can reproduce.
+        // Until the three agree (carve#361), suppress the marker on a body cell
+        // that merely inherited it: the emitted source then matches the other
+        // two engines byte for byte, and re-parsing it here restores the same
+        // resolved alignment.
         $headerAligns = [];
-        if ($gfmHeader) {
+        if ($headerRow) {
+            $headerColumn = 0;
             foreach ($tableRows[0]->getChildren() as $cell) {
-                if ($cell instanceof TableCell) {
-                    $headerAligns[] = $cell->getAlignment();
+                if (!$cell instanceof TableCell) {
+                    continue;
+                }
+                $width = max(1, $cell->getColspan());
+                for ($i = 0; $i < $width; $i++) {
+                    $headerAligns[$headerColumn++] = $cell->getAlignment();
+                }
+            }
+        }
+        $needsDelimiter = false;
+        if ($headerRow) {
+            foreach ($tableRows[0]->getChildren() as $cell) {
+                if (!$cell instanceof TableCell) {
+                    continue;
+                }
+                if ($cell->getSpanMarker() !== null || $this->renderAttrs($cell) !== '') {
+                    $needsDelimiter = true;
+
+                    break;
                 }
             }
         }
@@ -665,9 +710,13 @@ class CarveRenderer implements RendererInterface
 
                     continue;
                 }
-                $suppressHeader = $gfmHeader && $rowIndex === 0;
-                $suppressAlign = $gfmHeader && $rowIndex > 0 && ($headerAligns[$column] ?? null) === $cell->getAlignment();
-                $cells[] = $this->renderTableCell($cell, $suppressHeader, $suppressAlign);
+                // In the delimiter form the promoted row is written as ordinary
+                // data cells - the row after it is what makes them headers.
+                $markHeader = !($needsDelimiter && $rowIndex === 0);
+                $inherited = $headerRow
+                    && $rowIndex > 0
+                    && ($headerAligns[$column] ?? null) === $cell->getAlignment();
+                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
                 if ($cell->getRowspan() > 1) {
                     $rowspans[$column] = $cell->getRowspan() - 1;
                 }
@@ -685,17 +734,8 @@ class CarveRenderer implements RendererInterface
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
         }
-        if ($gfmHeader) {
-            $seps = [];
-            foreach ($tableRows[0]->getChildren() as $cell) {
-                $seps[] = $cell instanceof TableCell ? $this->tableSeparator($cell) : '---';
-            }
-            $separatorCount = count($seps);
-            while ($separatorCount < $columns) {
-                $seps[] = '---';
-                $separatorCount++;
-            }
-            array_splice($rows, 1, 0, '|' . implode('|', $seps) . '|');
+        if ($needsDelimiter) {
+            array_splice($rows, 1, 0, '|' . implode('|', array_fill(0, max(1, $columns), '---')) . '|');
         }
         if ($node->hasCaption()) {
             $caption = $node->getCaption();
@@ -719,25 +759,16 @@ class CarveRenderer implements RendererInterface
     /**
      * @return array{text: string, tight: bool}
      */
-    protected function renderTableCell(TableCell $cell, bool $suppressHeader, bool $suppressAlign): array
+    protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): array
     {
         $attrs = $this->renderAttrs($cell);
         if ($cell->getSpanMarker() !== null) {
             return ['text' => $attrs . $cell->getSpanMarker(), 'tight' => true];
         }
-        $prefix = $attrs . ($cell->isHeader() && !$suppressHeader ? '=' : '') . ($suppressAlign ? '' : $this->alignMarker($cell->getAlignment()));
+        $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
+        $prefix = $attrs . ($cell->isHeader() && $markHeader ? '=' : '') . $align;
 
         return ['text' => $prefix . $this->renderInlines($cell->getChildren()), 'tight' => $prefix !== ''];
-    }
-
-    protected function tableSeparator(TableCell $cell): string
-    {
-        return match ($cell->getAlignment()) {
-            TableCell::ALIGN_LEFT => ':---',
-            TableCell::ALIGN_RIGHT => '---:',
-            TableCell::ALIGN_CENTER => ':---:',
-            default => '---',
-        };
     }
 
     protected function renderFigure(Figure $node): string
@@ -856,7 +887,7 @@ class CarveRenderer implements RendererInterface
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
 
         return match (true) {
-            $node instanceof Text => $this->escapeText($node->getContent()) . (string)$node->getAttribute('data-carve-raw-suffix'),
+            $node instanceof Text => $this->escapeText($this->resolveIndentPlaceholder($node->getContent())) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
             $node instanceof EscapedText => $this->escapeText($node->getContent()),
@@ -1092,6 +1123,35 @@ class CarveRenderer implements RendererInterface
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Write a line block's leading indentation back as ordinary spaces.
+     *
+     * The parser records that indentation with the U+E000 placeholder - the
+     * same sentinel an escaped space uses, so it never collides with a literal
+     * nbsp - and normalize() resolves every remaining one to a real nbsp. That
+     * is right for an escaped space and wrong here: the source form of a line
+     * block's indent is a plain space, and a real nbsp re-parses as literal
+     * text rather than as indentation, so the text node came back different
+     * (carve#359).
+     *
+     * Only a run at the START of a line is indentation, so a mid-line escaped
+     * space inside a line block still resolves to a real nbsp. The leading run
+     * goes to the verbatim scheme, which restores plain spaces after
+     * normalize() has run.
+     */
+    protected function resolveIndentPlaceholder(string $text): string
+    {
+        if ($this->inLineBlock === 0) {
+            return $text;
+        }
+
+        return (string)preg_replace_callback(
+            '/^\x{E000}+/mu',
+            static fn (array $m): string => str_repeat("\u{E001}", (int)mb_strlen($m[0], 'UTF-8')),
+            $text,
+        );
     }
 
     protected function normalize(string $text): string
