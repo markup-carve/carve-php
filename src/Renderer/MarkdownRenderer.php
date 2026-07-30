@@ -870,7 +870,8 @@ class MarkdownRenderer implements RendererInterface
      * (carve-php#462, PART 9 section 25).
      *
      * @param \MarkupCarve\Carve\Node\Inline\Image $node
-     * @param string $attrs Pre-serialized attributes, `src` excluded.
+     * @param string $attrs Pre-serialized attributes, with the names this method
+     *   spells itself already excluded.
      */
     protected function renderImageTag(Image $node, string $attrs): string
     {
