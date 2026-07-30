@@ -1925,6 +1925,23 @@ class HtmlRenderer implements RendererInterface
      */
     private function sanitizeUrlBaseline(string $url): string
     {
+        return self::blankDangerousScheme($url);
+    }
+
+    /**
+     * Blank a URL whose scheme is on the denylist. THE one implementation: the
+     * Markdown target calls this too, because a Markdown destination is resolved
+     * by whatever renders that Markdown, so a scheme blanked here and passed
+     * through there is the same sink one step removed (PART 9 section 25,
+     * markup-carve/carve#385).
+     *
+     * That target used to carry its own copy listing four schemes and probing with
+     * an ASCII-only strip, so `ms-msdt:` reached the output and
+     * `\u{202F}javascript:` slipped past -- both blanked here. A second copy is
+     * how the two drifted, so there is now one.
+     */
+    public static function blankDangerousScheme(string $url): string
+    {
         // Strip ASCII C0/space plus Unicode whitespace and separators before the
         // scheme probe so a leading NBSP (U+00A0) or other Unicode space cannot
         // hide a `javascript:` / `data:` scheme from the denylist.

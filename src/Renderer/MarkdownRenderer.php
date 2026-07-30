@@ -981,17 +981,21 @@ class MarkdownRenderer implements RendererInterface
         return str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
     }
 
+    /**
+     * Blank a URL whose scheme is on the denylist, using the HTML renderer's one
+     * implementation rather than a copy.
+     *
+     * The copy that used to live here listed four schemes and probed with an
+     * ASCII-only strip, so the twenty OS protocol-handler schemes (`ms-msdt`,
+     * `search-ms`, `shell`, `vscode`, `jar`, ...) reached the output, and
+     * `\u{202F}javascript:` slipped past -- both blanked by the HTML renderer.
+     * A Markdown destination is resolved by whatever renders that Markdown, so
+     * this is the same sink one step removed (PART 9 section 25,
+     * markup-carve/carve#385).
+     */
     protected function sanitizeUrl(string $url): string
     {
-        $probe = (string)preg_replace('/[\x00-\x20]+/', '', $url);
-        if (preg_match('/^([a-zA-Z][a-zA-Z0-9+.\-]*):/', $probe, $m) === 1) {
-            $dangerous = ['javascript', 'vbscript', 'data', 'file'];
-            if (in_array(strtolower($m[1]), $dangerous, true)) {
-                return '';
-            }
-        }
-
-        return $url;
+        return HtmlRenderer::blankDangerousScheme($url);
     }
 
     protected function encodeMarkdownDestination(string $url): string
