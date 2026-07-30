@@ -1,162 +1,340 @@
 {
-    "abbreviation": [
-        "title"
-    ],
-    "block_quote": [],
-    "caption": [],
-    "caption_number": [
-        "number"
-    ],
-    "citation_group": [
-        "items",
-        "raw",
-        "integral"
-    ],
-    "code": [
-        "content"
-    ],
-    "code_block": [
-        "content",
-        "language",
-        "label",
-        "header"
-    ],
-    "comment": [
-        "content",
-        "fenceLength"
-    ],
-    "definition_description": [],
-    "definition_list": [],
-    "definition_term": [],
-    "delete": [],
-    "div": [
-        "label",
-        "header",
-        "headerNodes",
-        "typed"
-    ],
-    "document": [
-        "abbreviations",
-        "abbreviationsBeforeBody",
-        "sourceLength"
-    ],
-    "emphasis": [],
-    "escaped_text": [
-        "content"
-    ],
-    "figure": [],
-    "footnote": [
-        "label"
-    ],
-    "footnote_ref": [
-        "label"
-    ],
-    "frontmatter": [
-        "content",
-        "format"
-    ],
-    "hard_break": [],
-    "heading": [
-        "level"
-    ],
-    "heading_ref": [
-        "targetId"
-    ],
-    "highlight": [],
-    "image": [
-        "referenceLabel",
-        "source",
-        "alt",
-        "title"
-    ],
-    "inline_extension": [
-        "extensionType"
-    ],
-    "inline_footnote": [],
-    "insert": [],
-    "line_block": [],
-    "link": [
-        "referenceLabel",
-        "isAutolink",
-        "destination",
-        "title"
-    ],
-    "list": [
-        "listType",
-        "start",
-        "tight",
-        "marker",
-        "style"
-    ],
-    "list_item": [
-        "taskMarker"
-    ],
-    "literal_inline": [
-        "content"
-    ],
-    "math": [
-        "content",
-        "display"
-    ],
-    "mention": [
-        "cssClass",
-        "referenceLabel",
-        "isAutolink",
-        "destination",
-        "title"
-    ],
-    "paragraph": [],
-    "raw_block": [
-        "content",
-        "format"
-    ],
-    "raw_inline": [
-        "content",
-        "format"
-    ],
-    "raw_text": [
-        "content"
-    ],
-    "section": [],
-    "smart_punctuation": [
-        "kind",
-        "content",
-        "glyph"
-    ],
-    "soft_break": [],
-    "span": [],
-    "strike": [],
-    "strong": [
-        "boldItalic"
-    ],
-    "subscript": [],
-    "substitution": [
-        "oldText",
-        "newText"
-    ],
-    "superscript": [],
-    "symbol": [
-        "name"
-    ],
-    "table": [
-        "caption",
-        "separatorWidths"
-    ],
-    "table_cell": [
-        "isHeader",
-        "alignment",
-        "rowspan",
-        "colspan",
-        "spanMarker"
-    ],
-    "table_row": [
-        "isHeader"
-    ],
-    "text": [
-        "content"
-    ],
-    "thematic_break": [
-        "char"
-    ],
-    "underline": []
+    "abbreviation": {
+        "fields": [
+            "title"
+        ],
+        "required": [
+            "title"
+        ]
+    },
+    "block_quote": {
+        "fields": [],
+        "required": []
+    },
+    "caption": {
+        "fields": [],
+        "required": []
+    },
+    "caption_number": {
+        "fields": [
+            "number"
+        ],
+        "required": []
+    },
+    "citation_group": {
+        "fields": [
+            "items",
+            "raw",
+            "integral"
+        ],
+        "required": [
+            "items",
+            "raw"
+        ]
+    },
+    "code": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "code_block": {
+        "fields": [
+            "content",
+            "language",
+            "label",
+            "header"
+        ],
+        "required": []
+    },
+    "comment": {
+        "fields": [
+            "content",
+            "fenceLength"
+        ],
+        "required": []
+    },
+    "definition_description": {
+        "fields": [],
+        "required": []
+    },
+    "definition_list": {
+        "fields": [],
+        "required": []
+    },
+    "definition_term": {
+        "fields": [],
+        "required": []
+    },
+    "delete": {
+        "fields": [],
+        "required": []
+    },
+    "div": {
+        "fields": [
+            "label",
+            "header",
+            "headerNodes",
+            "typed"
+        ],
+        "required": []
+    },
+    "document": {
+        "fields": [
+            "abbreviations",
+            "abbreviationsBeforeBody",
+            "sourceLength"
+        ],
+        "required": []
+    },
+    "emphasis": {
+        "fields": [],
+        "required": []
+    },
+    "escaped_text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "figure": {
+        "fields": [],
+        "required": []
+    },
+    "footnote": {
+        "fields": [
+            "label"
+        ],
+        "required": []
+    },
+    "footnote_ref": {
+        "fields": [
+            "label"
+        ],
+        "required": []
+    },
+    "frontmatter": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "hard_break": {
+        "fields": [],
+        "required": []
+    },
+    "heading": {
+        "fields": [
+            "level"
+        ],
+        "required": []
+    },
+    "heading_ref": {
+        "fields": [
+            "targetId"
+        ],
+        "required": [
+            "targetId"
+        ]
+    },
+    "highlight": {
+        "fields": [],
+        "required": []
+    },
+    "image": {
+        "fields": [
+            "referenceLabel",
+            "source",
+            "alt",
+            "title"
+        ],
+        "required": []
+    },
+    "inline_extension": {
+        "fields": [
+            "extensionType"
+        ],
+        "required": [
+            "extensionType"
+        ]
+    },
+    "inline_footnote": {
+        "fields": [],
+        "required": []
+    },
+    "insert": {
+        "fields": [],
+        "required": []
+    },
+    "line_block": {
+        "fields": [],
+        "required": []
+    },
+    "link": {
+        "fields": [
+            "referenceLabel",
+            "isAutolink",
+            "destination",
+            "title"
+        ],
+        "required": []
+    },
+    "list": {
+        "fields": [
+            "listType",
+            "start",
+            "tight",
+            "marker",
+            "style"
+        ],
+        "required": []
+    },
+    "list_item": {
+        "fields": [
+            "taskMarker"
+        ],
+        "required": []
+    },
+    "literal_inline": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "math": {
+        "fields": [
+            "content",
+            "display"
+        ],
+        "required": []
+    },
+    "mention": {
+        "fields": [
+            "cssClass",
+            "referenceLabel",
+            "isAutolink",
+            "destination",
+            "title"
+        ],
+        "required": [
+            "cssClass",
+            "destination",
+            "title"
+        ]
+    },
+    "paragraph": {
+        "fields": [],
+        "required": []
+    },
+    "raw_block": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "raw_inline": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "raw_text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "section": {
+        "fields": [],
+        "required": []
+    },
+    "smart_punctuation": {
+        "fields": [
+            "kind",
+            "content",
+            "glyph"
+        ],
+        "required": []
+    },
+    "soft_break": {
+        "fields": [],
+        "required": []
+    },
+    "span": {
+        "fields": [],
+        "required": []
+    },
+    "strike": {
+        "fields": [],
+        "required": []
+    },
+    "strong": {
+        "fields": [
+            "boldItalic"
+        ],
+        "required": []
+    },
+    "subscript": {
+        "fields": [],
+        "required": []
+    },
+    "substitution": {
+        "fields": [
+            "oldText",
+            "newText"
+        ],
+        "required": []
+    },
+    "superscript": {
+        "fields": [],
+        "required": []
+    },
+    "symbol": {
+        "fields": [
+            "name"
+        ],
+        "required": []
+    },
+    "table": {
+        "fields": [
+            "caption",
+            "separatorWidths"
+        ],
+        "required": []
+    },
+    "table_cell": {
+        "fields": [
+            "isHeader",
+            "alignment",
+            "rowspan",
+            "colspan",
+            "spanMarker"
+        ],
+        "required": []
+    },
+    "table_row": {
+        "fields": [
+            "isHeader"
+        ],
+        "required": []
+    },
+    "text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "thematic_break": {
+        "fields": [
+            "char"
+        ],
+        "required": []
+    },
+    "underline": {
+        "fields": [],
+        "required": []
+    }
 }

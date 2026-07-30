@@ -79,6 +79,13 @@ class AstCodec
     private static array $registered = [];
 
     /**
+     * Per-property default cache, keyed by class and property name.
+     *
+     * @var array<string, array{has: bool, value: mixed}>
+     */
+    private static array $defaults = [];
+
+    /**
      * Teach the codec a node class defined outside this package.
      *
      * @param class-string<\MarkupCarve\Carve\Node\Node> $class
@@ -141,18 +148,29 @@ class AstCodec
     }
 
     /**
-     * The encodable field names per node type, for documentation and drift tests.
+     * The encodable fields per node type, and which of them a payload must
+     * carry, for documentation and drift tests.
      *
-     * @return array<string, array<string>>
+     * A field is required when the node has no default for it - neither a
+     * declared property default nor a constructor parameter default - so there
+     * is nothing to fall back on when it is omitted.
+     *
+     * @return array<string, array{fields: array<string>, required: array<string>}>
      */
     public static function schema(): array
     {
         $schema = [];
         foreach (self::classMap() as $type => $class) {
-            $schema[$type] = array_map(
-                static fn (ReflectionProperty $property): string => $property->getName(),
-                self::stateProperties(new ReflectionClass($class)),
-            );
+            $reflection = new ReflectionClass($class);
+            $fields = [];
+            $required = [];
+            foreach (self::stateProperties($reflection) as $property) {
+                $fields[] = $property->getName();
+                if (!self::defaultFor($reflection, $property)['has']) {
+                    $required[] = $property->getName();
+                }
+            }
+            $schema[$type] = ['fields' => $fields, 'required' => $required];
         }
         ksort($schema);
 
@@ -166,13 +184,19 @@ class AstCodec
     {
         $encoded = ['type' => $node->getType()];
 
-        foreach (self::stateProperties(new ReflectionClass($node)) as $property) {
-            $value = $property->getValue($node);
-            if ($value === null || $value === [] || $value === false) {
-                // Defaults are the common case; omitting them keeps the payload
-                // readable and lets a decoder rely on the constructor default.
+        $reflection = new ReflectionClass($node);
+        foreach (self::stateProperties($reflection) as $property) {
+            $value = $property->isInitialized($node) ? $property->getValue($node) : null;
+            $default = self::defaultFor($reflection, $property);
+
+            // Omit a field only when it holds the node's own default. Omitting
+            // every null/[]/false instead would lose information wherever the
+            // default is not falsy: a loose list (tight = false, default true)
+            // encoded without `tight` and decoded back as tight.
+            if ($default['has'] && $value === $default['value']) {
                 continue;
             }
+
             $encoded[$property->getName()] = $this->encodeValue($value);
         }
 
@@ -236,8 +260,9 @@ class AstCodec
             if (!array_key_exists($name, $data)) {
                 // Omission means "the default". The constructor was bypassed, so
                 // a typed property without a declared default would otherwise stay
-                // uninitialized and throw on first read - initialize it here.
-                $this->initializeDefault($node, $property);
+                // uninitialized and throw on first read - initialize it here, or
+                // reject the node when it has no sensible default to fall back on.
+                $this->initializeDefault($node, $property, $type);
 
                 continue;
             }
@@ -261,40 +286,67 @@ class AstCodec
 
     /**
      * Give an omitted property the value the constructor would have given it.
+     *
+     * A non-nullable property with no declared default has no such value, so it
+     * is required: omitting it used to yield a zero. That produced nonsense
+     * rather than an error - a heading without a level rendered as `<h0>` - so
+     * those are rejected instead. The encoder never omits them (it only omits
+     * null, [] and false), so this only ever fires on hand-written or foreign
+     * trees, which is exactly where it is wanted.
+     *
+     * @throws \RuntimeException When a required field is missing.
      */
-    private function initializeDefault(Node $node, ReflectionProperty $property): void
+    private function initializeDefault(Node $node, ReflectionProperty $property, string $nodeType): void
     {
-        if ($property->isInitialized($node)) {
-            return;
+        $default = self::defaultFor(new ReflectionClass($node), $property);
+
+        if (!$default['has']) {
+            throw new RuntimeException(sprintf(
+                'Node "%s" is missing the required field "%s"',
+                $nodeType,
+                $property->getName(),
+            ));
         }
+
+        $property->setValue($node, $default['value']);
+    }
+
+    /**
+     * The value a node gives a property when nobody sets it: the declared
+     * property default, else the matching constructor parameter default. When
+     * there is neither, the field is required - inventing a scalar zero there
+     * produced nonsense (a heading without a level rendered as `<h0>`).
+     *
+     * @param \ReflectionClass<\MarkupCarve\Carve\Node\Node> $reflection
+     * @param \ReflectionProperty $property
+     *
+     * @return array{has: bool, value: mixed}
+     */
+    private static function defaultFor(ReflectionClass $reflection, ReflectionProperty $property): array
+    {
+        $cacheKey = $reflection->getName() . '::' . $property->getName();
+        if (array_key_exists($cacheKey, self::$defaults)) {
+            return self::$defaults[$cacheKey];
+        }
+
+        $default = ['has' => false, 'value' => null];
 
         if ($property->hasDefaultValue()) {
-            $property->setValue($node, $property->getDefaultValue());
+            $default = ['has' => true, 'value' => $property->getDefaultValue()];
+        } else {
+            $constructor = $reflection->getConstructor();
+            foreach ($constructor?->getParameters() ?? [] as $parameter) {
+                if ($parameter->getName() === $property->getName() && $parameter->isDefaultValueAvailable()) {
+                    $default = ['has' => true, 'value' => $parameter->getDefaultValue()];
 
-            return;
+                    break;
+                }
+            }
         }
 
-        $type = $property->getType();
-        if (!$type instanceof ReflectionNamedType) {
-            $property->setValue($node, null);
+        self::$defaults[$cacheKey] = $default;
 
-            return;
-        }
-
-        if ($type->allowsNull()) {
-            $property->setValue($node, null);
-
-            return;
-        }
-
-        $property->setValue($node, match ($type->getName()) {
-            'array' => [],
-            'bool' => false,
-            'int' => 0,
-            'float' => 0.0,
-            'string' => '',
-            default => null,
-        });
+        return $default;
     }
 
     private function decodeValue(mixed $value, ReflectionProperty $property): mixed
