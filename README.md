@@ -167,6 +167,26 @@ report a document's provenance marker (see below). `-o FILE` writes to a file; `
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.
 
+## ProseMirror / Tiptap
+
+The AST converts to a ProseMirror document and back, so a Tiptap editor in the
+browser and PHP rendering on the server can share one source of truth without a
+Node runtime:
+
+~~~ php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$json = (new ProseMirrorRenderer())->renderJson($converter->parse($source));
+$document = (new ProseMirrorToCarve())->convertJson($json);
+~~~
+
+Node and mark names come from the map published by carve-grammars rather than
+being restated here. Types the editor model cannot hold are reported by
+`droppedTypes()` and `degradedTypes()` instead of vanishing. Full contract, the
+fidelity numbers and the application-node pattern:
+[`docs/prosemirror.md`](docs/prosemirror.md).
+
 ## Stored documents and spec versions
 
 `carve fmt --stamp` records the spec version a document was last processed under:
