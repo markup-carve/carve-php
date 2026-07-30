@@ -140,11 +140,13 @@ class CliTest extends TestCase
 
     public function testFromJsonReportsBadInputWithoutAStackTrace(): void
     {
-        foreach ([
-            '{"ast": 99, "type": "document"}' => 'Unsupported AST encoding version',
-            '{not json' => 'Syntax error',
-            '{"type": "document", "children": [{"type": "nope"}]}' => 'Unknown node type',
-        ] as $input => $expected) {
+        foreach (
+            [
+                '{"ast": 99, "type": "document"}' => 'Unsupported AST encoding version',
+                '{not json' => 'Syntax error',
+                '{"type": "document", "children": [{"type": "nope"}]}' => 'Unknown node type',
+            ] as $input => $expected
+        ) {
             $res = $this->runCliInput(['--from-json'], (string)$input);
 
             $this->assertSame(1, $res['exit'], 'malformed input must exit 1, not fatal');
