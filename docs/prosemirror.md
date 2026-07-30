@@ -21,6 +21,22 @@ The point of the pair: an editor in the browser, and PHP rendering the stored
 document to HTML, PDF or DOCX in queue workers and CLI commands where no Node
 runtime exists.
 
+## This is the import route; the HTML path is the fallback
+
+Before this bridge existed, the way into an editor was to render Carve to HTML
+and let Tiptap's `parseHTML` re-derive the document. That still works and is
+still worth keeping - it is how you load content an extension understands but
+this engine has no node for. It is no longer the recommended route, for one
+reason: fidelity there is bounded by what each extension's `parseHTML` claims,
+so an attribute no extension declares is dropped **silently**. For a stored
+document format, silent attribute loss on load is the failure you cannot
+recover from, because nothing records that it happened.
+
+The bridge builds from the AST instead, and reports what it could not carry -
+`droppedTypes()` for content that is gone, `degradedTypes()` for a node type
+that is gone while its text survives. Prefer it for anything you intend to
+store and read back.
+
 ## Where the names come from
 
 Node and mark names are **not** defined here. They come from
