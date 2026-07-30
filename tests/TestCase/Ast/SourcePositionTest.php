@@ -127,6 +127,49 @@ class SourcePositionTest extends TestCase
         $this->assertSame([], $wrong, sprintf('%d spans point at the wrong source', count($wrong)));
     }
 
+    public function testTwoCellsWithTheSameTextGetDifferentPositions(): void
+    {
+        // The case that forced cell offsets to come from the split rather than
+        // from searching the row. Both cells hold "a", so a search returns the
+        // first for BOTH - and a span selecting the right bytes at the wrong
+        // cell passes every check a consumer could apply, including this
+        // engine's own verification. Only the splitter knows which is which.
+        $source = "| a | a |\n|---|---|\n| x | y |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $offsets = [];
+        foreach (self::walk($document) as $node) {
+            $pos = $node->getPos();
+            if ($node instanceof Text && $node->getContent() === 'a' && $pos !== null) {
+                $offsets[] = $pos->startOffset;
+            }
+        }
+
+        $this->assertCount(2, $offsets, 'both cells should be placed');
+        $this->assertNotSame($offsets[0], $offsets[1], 'the second cell must not reuse the first cell position');
+        $this->assertSame([2, 6], $offsets);
+    }
+
+    public function testACellWithAnEscapedPipeDeclinesAPosition(): void
+    {
+        // `\|` collapses to `|`, so the cell's text is one byte shorter than
+        // the source it came from and offsets inside it would drift. Declining
+        // is correct; a span that is nearly right is the failure mode section 4
+        // rules out.
+        $source = "| a\|b | c |\n|---|---|\n| x | y |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if ($node instanceof Text && $node->getContent() === 'a|b') {
+                $this->assertNull($node->getPos(), 'a rewritten cell must not carry a span');
+
+                return;
+            }
+        }
+
+        $this->fail('the escaped-pipe cell was not found');
+    }
+
     public function testPositionsAreOffByDefault(): void
     {
         // Opt-in: normal parsing must not pay for spans it did not ask for.

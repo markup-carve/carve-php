@@ -191,24 +191,57 @@ class TableParser
      */
     public function parseTableCells(string $line): array
     {
-        // Strip row attributes first
+        return array_column($this->splitCells($line), 'content');
+    }
+
+    /**
+     * Split a row into cells, each with where it began in the ORIGINAL line.
+     *
+     * The offset is what makes a table cell placeable (PART 12 §4). Locating a
+     * cell by searching the row for its text does NOT work and is actively
+     * dangerous: `| a | a |` has two cells with identical content, so a search
+     * returns the first for both - and a span that selects the right BYTES at
+     * the wrong place passes every verification a consumer could apply. The
+     * position has to come from the split itself, which is the only place that
+     * knows which cell is which.
+     *
+     * `verbatim` is false when the cell's content is not a byte-for-byte copy
+     * of that stretch of source - an escaped pipe collapses `\|` to `|`, so
+     * offsets inside it no longer line up. Those cells decline a position
+     * rather than carry a drifting one.
+     *
+     * @return list<array{content: string, offset: int, verbatim: bool}>
+     */
+    public function splitCells(string $line): array
+    {
+        // Row attributes and trailing whitespace are stripped from the END, and
+        // the leading `|` is one byte, so every offset below shifts by exactly
+        // that one byte to become an offset in the original line.
         $line = $this->stripRowAttributes($line);
-
-        // Trailing whitespace after the closing pipe is insignificant.
         $line = rtrim($line, " \t");
-
-        // Remove leading and trailing |
         $line = substr($line, 1, -1);
+        $shift = 1;
 
         // Fast path: with no code spans (backticks) and no escaped pipes, every
         // `|` is a delimiter, so a plain split is identical to the scan below.
         if (!str_contains($line, '`') && !str_contains($line, '\\|')) {
-            return explode('|', $line);
+            $result = [];
+            $at = 0;
+            foreach (explode('|', $line) as $content) {
+                $result[] = ['content' => $content, 'offset' => $at + $shift, 'verbatim' => true];
+                $at += strlen($content) + 1;
+            }
+
+            return $result;
         }
 
         // Split by | but not \| and not | inside code spans
         $cells = [];
         $currentCell = '';
+        $cellStart = 0;
+        $cellVerbatim = true;
+        $offsets = [];
+        $verbatims = [];
         $inCode = false;
         $codeDelimLength = 0;
         $length = strlen($line);
@@ -249,6 +282,7 @@ class TableParser
             // Check for escaped pipe
             if ($char === '\\' && $i + 1 < $length && $line[$i + 1] === '|') {
                 $currentCell .= '|';
+                $cellVerbatim = false;
                 $i++; // Skip the |
 
                 continue;
@@ -257,7 +291,11 @@ class TableParser
             // Cell delimiter (unescaped | outside code span)
             if ($char === '|' && !$inCode) {
                 $cells[] = $currentCell;
+                $offsets[] = $cellStart + $shift;
+                $verbatims[] = $cellVerbatim;
                 $currentCell = '';
+                $cellStart = $i + 1;
+                $cellVerbatim = true;
 
                 continue;
             }
@@ -267,8 +305,19 @@ class TableParser
 
         // Add the last cell
         $cells[] = $currentCell;
+        $offsets[] = $cellStart + $shift;
+        $verbatims[] = $cellVerbatim;
 
-        return $cells;
+        $result = [];
+        foreach ($cells as $index => $content) {
+            $result[] = [
+                'content' => $content,
+                'offset' => $offsets[$index],
+                'verbatim' => $verbatims[$index],
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -277,14 +326,23 @@ class TableParser
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string}> Array of cell data (attributes = raw `{...}` inner, empty when none)
+     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool}> Cell data:
+     *   attributes is the raw `{...}` inner (empty when none); offset is where the
+     *   content begins in the original line, and verbatim says whether that stretch
+     *   is a byte-for-byte copy of it (see splitCells)
      */
     public function parseTableCellsWithAttributes(string $line): array
     {
-        $cells = $this->parseTableCells($line);
+        $cells = $this->splitCells($line);
         $result = [];
 
-        foreach ($cells as $cellContent) {
+        foreach ($cells as $cell) {
+            $cellContent = $cell['content'];
+            // Carried through so a cell can be placed in the source. An
+            // attribute block shifts the content right within its own cell, so
+            // the offset is adjusted below rather than reused as-is.
+            $cellOffset = $cell['offset'];
+            $cellVerbatim = $cell['verbatim'];
             // The attribute string (raw inner of the `{...}`), empty when the
             // cell has none; applied later in source order via applyToNode.
             $attributes = '';
@@ -306,7 +364,9 @@ class TableParser
                         && AttributeParser::isValidPayload($inner)
                     ) {
                         $attributes = $inner;
-                        $content = ltrim(substr($cellContent, $end + 1));
+                        $rest = substr($cellContent, $end + 1);
+                        $content = ltrim($rest);
+                        $cellOffset += $end + 1 + (strlen($rest) - strlen($content));
                     }
                 }
             }
@@ -314,6 +374,8 @@ class TableParser
             $result[] = [
                 'content' => $content,
                 'attributes' => $attributes,
+                'offset' => $cellOffset,
+                'verbatim' => $cellVerbatim,
             ];
         }
 
@@ -478,6 +540,7 @@ class TableParser
             // Check for escaped pipe
             if ($char === '\\' && $i + 1 < $length && $line[$i + 1] === '|') {
                 $currentCell .= '|';
+                $cellVerbatim = false;
                 $i++; // Skip the |
 
                 continue;

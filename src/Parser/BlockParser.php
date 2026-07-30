@@ -4419,9 +4419,17 @@ class BlockParser
             // Rebuild cellsWithAttrs with merged content
             $mergedCellsWithAttrs = [];
             foreach ($mergedCells as $idx => $content) {
+                // A cell whose content was merged from a continuation row is no
+                // longer a run of THIS line, so it keeps the offset but loses
+                // the claim to be a verbatim slice, and declines a position.
+                $original = $cellsWithAttrs[$idx] ?? null;
                 $mergedCellsWithAttrs[] = [
                     'content' => $content,
                     'attributes' => $cellAttributes[$idx] ?? '',
+                    'offset' => $original === null ? null : $original['offset'],
+                    'verbatim' => $original !== null
+                        && $original['verbatim']
+                        && $content === $original['content'],
                 ];
             }
 
@@ -4509,10 +4517,18 @@ class BlockParser
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
                 $trimmedContent = trim($marker['content']);
+                $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent);
                 if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
-                    $cell->appendChild(new Text($trimmedContent));
+                    $text = new Text($trimmedContent);
+                    if ($cellMap !== null) {
+                        $text->setPos($cellMap->spanFor(0, $trimmedContent));
+                    }
+                    $cell->appendChild($text);
                 } else {
-                    $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow);
+                    $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
+                }
+                if ($cellMap !== null) {
+                    $cell->setPos($cellMap->spanFor(0, $trimmedContent));
                 }
                 $row->appendChild($cell);
                 $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
@@ -4580,7 +4596,7 @@ class BlockParser
      * and per-column alignment stay keyed by the true column even when a colspan
      * jumps a consumed `^`.
      *
-     * @param array<int, array{content: string, attributes: string}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
@@ -4666,6 +4682,10 @@ class BlockParser
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,
                 'spanMarker' => $spanMarkers[$col],
+                // A filler cell produced by a span marker has no source of its
+                // own, so it keeps no offset and takes no position.
+                'offset' => $isEmpty ? null : $cellData['offset'],
+                'verbatim' => !$isEmpty && $cellData['verbatim'],
             ];
         }
 
@@ -4934,6 +4954,44 @@ class BlockParser
      * the block layer rebuilt). The inline parser then places nothing, which is
      * what PART 12 section 4 requires of a position it cannot know.
      */
+
+    /**
+     * A source map for one table cell's content.
+     *
+     * The cell's own offset comes from the split (TableParser::splitCells), not
+     * from searching the row - `| a | a |` has two cells with identical text,
+     * and a span selecting the right BYTES at the wrong cell would pass every
+     * check a consumer could apply. Searching WITHIN the cell is fine, and is
+     * how the alignment marker and surrounding whitespace are skipped.
+     *
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool} $cellData
+     * @param string $content
+     */
+    private function cellSourceMap(int $index, array $cellData, string $content): ?SourceMap
+    {
+        if (!$this->trackPositions || $content === '' || ($cellData['verbatim'] ?? false) !== true) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        $cellOffset = $cellData['offset'] ?? null;
+        if ($lineStart === null || $cellOffset === null) {
+            return null;
+        }
+
+        $within = strpos($cellData['content'], $content);
+        if ($within === false) {
+            return null;
+        }
+
+        $start = $lineStart + $cellOffset + $within;
+
+        return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $cellOffset + $within + 1)
+            ->withSource($this->normalizedSource);
+    }
+
     private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
     {
         if (!$this->trackPositions || $content === '') {
