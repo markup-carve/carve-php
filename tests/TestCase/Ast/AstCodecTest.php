@@ -196,6 +196,48 @@ class AstCodecTest extends TestCase
         $this->assertArrayNotHasKey('typed', $div);
     }
 
+    public function testAPayloadSpellingOutADefaultIsNotALoss(): void
+    {
+        // The encoder omits a field holding the node's own default, so a payload
+        // that writes one out explicitly is not losing anything - an empty
+        // document is the common case, and rejecting it would break the most
+        // trivial valid tree there is.
+        $document = $this->codec->decode([
+            'type' => 'document',
+            'children' => [],
+            'srcByteLength' => 0,
+        ]);
+
+        $this->assertSame('', $this->converter->render($document));
+    }
+
+    public function testAnExplicitNonDefaultValueIsStillCarried(): void
+    {
+        // The mirror case: `tight` defaults to true, so an explicit false has to
+        // survive rather than be written off as a spelled-out default.
+        $document = $this->codec->decode([
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'list',
+                    'ordered' => false,
+                    'tight' => false,
+                    'items' => [
+                        [
+
+                            'type' => 'list_item',
+                            'children' => [
+                                ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'a']]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame("- a\n", (new CarveRenderer())->render($document));
+    }
+
     public function testDecodeRejectsAnUnknownNodeType(): void
     {
         $this->expectException(RuntimeException::class);

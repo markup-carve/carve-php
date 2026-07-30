@@ -177,20 +177,6 @@ final class ReferenceShape
         return $renames[$property] ?? $property;
     }
 
-    /**
-     * The internal property for a reference field name.
-     */
-    public static function propertyFor(string $carveType, string $field): string
-    {
-        foreach (self::RENAMES[$carveType] ?? [] as $property => $name) {
-            if ($name === $field) {
-                return $property;
-            }
-        }
-
-        return $field;
-    }
-
     public static function containerFor(string $carveType): string
     {
         return self::CONTAINERS[$carveType] ?? 'children';
