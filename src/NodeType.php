@@ -262,6 +262,16 @@ final class NodeType
     /**
      * @var string
      */
+    public const SUBSTITUTION = 'substitution';
+
+    /**
+     * @var string
+     */
+    public const CRITIC_COMMENT = 'critic_comment';
+
+    /**
+     * @var string
+     */
     public const SYMBOL = 'symbol';
 
     /**
@@ -336,6 +346,8 @@ final class NodeType
             self::HIGHLIGHT,
             self::INSERT,
             self::DELETE,
+            self::SUBSTITUTION,
+            self::CRITIC_COMMENT,
             self::SYMBOL,
             self::MATH,
             self::ABBREVIATION,

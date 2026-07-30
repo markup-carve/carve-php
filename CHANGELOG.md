@@ -29,6 +29,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A full profile no longer drops a substitution.** `Profile::full()` denied
+  `{~old~>new~}` and rendered it as nothing, losing both texts, because
+  `substitution` was never registered in the profile vocabulary and an
+  unregistered type is denied rather than allowed. Found while registering
+  `critic_comment`, which needed the same entry. Two corpus documents render
+  correctly under a full profile that did not before.
+
+### Fixed
+
 - **A document full of comment-fence openers with distinct widths no longer
   rescans itself per opener.** The closer lookahead added with the comment-fence
   tail fix (#471) scanned to the end of the line set for every `%%%` opener.
