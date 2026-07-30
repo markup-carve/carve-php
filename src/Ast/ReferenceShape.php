@@ -51,13 +51,45 @@ final class ReferenceShape
         'strong' => ['boldItalic' => 'boldItalic'],
         'heading' => ['level' => 'level'],
         'list' => ['start' => 'start', 'tight' => 'tight', 'marker' => 'bulletChar', 'style' => 'delim'],
-        'table_cell' => ['alignment' => 'align', 'rowspan' => 'rowspan', 'colspan' => 'colspan'],
+        'table_cell' => [
+            'alignment' => 'align',
+            'rowspan' => 'rowspan',
+            'colspan' => 'colspan',
+            'spanMarker' => 'span',
+        ],
         // The reference's `title` is an array of inline nodes, which is what
         // headerNodes holds; the raw header string is this engine's own.
         'div' => ['label' => 'label', 'headerNodes' => 'title'],
         'smart_punctuation' => ['kind' => 'kind', 'glyph' => 'value'],
         'thematic_break' => [],
         'document' => ['sourceLength' => 'srcByteLength'],
+        // The reference shows an autolink's target twice - `href` is the
+        // resolved target (a bare mail address gains `mailto:`), `text` is what
+        // the author sees - and gives it no children.
+        'autolink' => ['destination' => 'href'],
+        // `kind` is the admonition word (`::: warning`), which this engine keeps
+        // as a class; `title` is the quoted opener.
+        'admonition' => ['headerNodes' => 'title'],
+    ];
+
+    /**
+     * Wire node type => the class this engine builds it from.
+     *
+     * profiles.md is explicit that these are their OWN types, not a broader
+     * type carrying a flag: "An `autolink` is its own type, not a `link` ...
+     * folding it into `link` loses the authored form, so a round-trip could not
+     * restore it", and the same for `admonition` versus `div`. carve-php models
+     * both as the broader class plus a flag, which is exactly the internals-do-
+     * not-match case §1 says to MAP on the way out.
+     *
+     * `Profile::canonicalTypeOf()` already made this distinction for profile
+     * matching (carve#362); the codec now publishes the same name.
+     *
+     * @var array<string, string>
+     */
+    public const TYPE_ALIASES = [
+        'autolink' => 'link',
+        'admonition' => 'div',
     ];
 
     /**
@@ -95,15 +127,34 @@ final class ReferenceShape
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
         // `header` carries this; the row flag is recomputed from its cells.
-        'table_cell' => ['isHeader', 'spanMarker'],
+        'table_cell' => ['isHeader'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
         'div' => ['typed', 'header'],
-        'code_block' => ['label', 'header'],
+        // `typed` IS the type name on the wire; `header` is re-rendered from
+        // `title`. `label` stays: the reference has it (`[Build]` on the opener
+        // is authored content, verified against carve-js).
+        'admonition' => ['typed', 'header'],
+        // `isAutolink` IS the type name on the wire; the single text child is
+        // published as `text`.
+        'autolink' => ['isAutolink', 'referenceLabel', 'title'],
+        // Nothing. `label` is authored (`[NPM]` on the opener), and the
+        // reference keeps `header` too - it is how a title written IN the fence
+        // is told apart from one written on an attribute line above it, which
+        // both land in `attrs.title`. A div's `header` is different: the
+        // reference has no such field there, so that one stays internal.
+        'code_block' => [],
         'link' => ['isAutolink'],
         'thematic_break' => ['char'],
         'table' => ['separatorWidths'],
-        'document' => ['abbreviations', 'abbreviationsBeforeBody'],
+        // `document` lists nothing. `abbreviations` and the flag recording
+        // whether they preceded the body are authored content - dropping them
+        // loses every `*[HTML]: ...` line, or moves it to the end. The reference
+        // puts definitions in `abbreviation_def` nodes among the document's
+        // children rather than in a field, so their POSITION is structural
+        // there; this engine keeps a field, a divergence recorded in
+        // docs/ast-json.md rather than a reason to drop the content.
+        'document' => [],
     ];
 
     /**
@@ -143,5 +194,13 @@ final class ReferenceShape
     public static function containerFor(string $carveType): string
     {
         return self::CONTAINERS[$carveType] ?? 'children';
+    }
+
+    /**
+     * The class-level type a wire type is built from.
+     */
+    public static function classTypeFor(string $wireType): string
+    {
+        return self::TYPE_ALIASES[$wireType] ?? $wireType;
     }
 }

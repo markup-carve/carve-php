@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -130,6 +132,70 @@ class AstCodecTest extends TestCase
         $this->assertArrayNotHasKey('listType', $list, 'an internal must not be exported');
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function authoredFormProvider(): array
+    {
+        return [
+            // profiles.md: an autolink is its OWN type, "folding it into `link`
+            // loses the authored form, so a round-trip could not restore it".
+            'autolink' => ["<https://example.com>\n"],
+            'mail autolink' => ["<a@b.com>\n"],
+            // Same for an admonition versus a div carrying a class.
+            'admonition' => ["::: warning\nBody.\n:::\n"],
+            'titled admonition' => ["::: warning \"Pro Tip\"\nBody.\n:::\n"],
+            'labelled admonition' => ["::: tip \"T\" [Build]\nBody.\n:::\n"],
+            // Four internal list types collapse onto one `ordered` boolean.
+            'task list' => ["- [x] done\n- [ ] todo\n"],
+            'ordered list' => ["1. one\n"],
+            'loose list' => ["- one\n\n- two\n"],
+            // A title written in the fence, versus one on an attribute line.
+            'code fence title' => ["``` php \"src/Auth.php\"\n\$ok = true;\n```\n"],
+            'code fence label' => ["``` php [NPM]\nnpm install x\n```\n"],
+            'abbreviation before' => ["*[HTML]: HyperText Markup Language\n\nHTML rocks.\n"],
+            'abbreviation after' => ["HTML rocks.\n\n*[HTML]: HyperText Markup Language\n"],
+            'table span marker' => ["|<| b |\n|---|---|\n| c | d |\n"],
+        ];
+    }
+
+    /**
+     * PART 12 section 6 is about the AUTHORED form, not the rendered one.
+     *
+     * Every case here rendered identical HTML while being corrupted, which is
+     * how they survived a corpus gate that only compared HTML.
+     */
+    #[DataProvider('authoredFormProvider')]
+    public function testTheAuthoredFormSurvivesARoundTrip(string $source): void
+    {
+        $renderer = new CarveRenderer();
+        $document = $this->converter->parse($source);
+        $decoded = $this->codec->decode($this->codec->encode($this->converter->parse($source)));
+
+        $this->assertSame($renderer->render($document), $renderer->render($decoded));
+    }
+
+    public function testAnAutolinkIsItsOwnTypeOnTheWire(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('<https://example.com>'));
+        $link = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('autolink', $link['type']);
+        $this->assertSame('https://example.com', $link['text']);
+        $this->assertArrayNotHasKey('children', $link, 'the reference gives an autolink no children');
+        $this->assertArrayNotHasKey('isAutolink', $link, 'the type name carries this, not a flag');
+    }
+
+    public function testAnAdmonitionIsItsOwnTypeOnTheWire(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("::: warning\nBody.\n:::"));
+        $div = $encoded['children'][0];
+
+        $this->assertSame('admonition', $div['type']);
+        $this->assertSame('warning', $div['kind']);
+        $this->assertArrayNotHasKey('typed', $div);
+    }
+
     public function testDecodeRejectsAnUnknownNodeType(): void
     {
         $this->expectException(RuntimeException::class);
@@ -167,8 +233,16 @@ class AstCodecTest extends TestCase
 
     /**
      * The real gate: every corpus document must survive encode plus decode with
-     * byte-identical HTML. This is what makes the encoding usable as an
-     * interchange format rather than a lossy debug dump.
+     * byte-identical HTML **and** byte-identical Carve source.
+     *
+     * HTML alone is not enough, and that is not theoretical - it passed while
+     * three constructs were being corrupted. An autolink decoded as a plain
+     * link renders the same HTML but writes back as `[url](url)`. A task list
+     * decoded as a bullet list renders the same checkboxes (the item marker
+     * drives them) but writes back without `[x]`. A titled admonition rendered
+     * the same `<aside>` while losing its title entirely. Carve output is the
+     * stricter surface because it has to reproduce what the AUTHOR wrote, which
+     * is exactly what PART 12 §6 is about.
      */
     public function testEveryCorpusDocumentSurvivesARoundTrip(): void
     {
@@ -176,22 +250,33 @@ class AstCodecTest extends TestCase
         $inputs = glob($directory . '/*.crv') ?: [];
         $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
 
-        $failures = [];
+        $renderer = new CarveRenderer();
+        $htmlFailures = [];
+        $carveFailures = [];
         foreach ($inputs as $input) {
             $source = (string)file_get_contents($input);
 
             $converter = new CarveConverter();
-            $expected = $converter->render($converter->parse($source));
+            $document = $converter->parse($source);
+            $expected = $converter->render($document);
+            $expectedCarve = $renderer->render($document);
 
             $roundTripped = new CarveConverter();
             $decoded = $this->codec->decode($this->codec->encode($roundTripped->parse($source)));
-            $actual = $roundTripped->render($decoded);
 
-            if ($actual !== $expected) {
-                $failures[] = basename($input);
+            if ($roundTripped->render($decoded) !== $expected) {
+                $htmlFailures[] = basename($input);
+            }
+            if ($renderer->render($decoded) !== $expectedCarve) {
+                $carveFailures[] = basename($input);
             }
         }
 
-        $this->assertSame([], $failures, sprintf('%d corpus documents did not round-trip', count($failures)));
+        $this->assertSame([], $htmlFailures, sprintf('%d corpus documents lost HTML', count($htmlFailures)));
+        $this->assertSame(
+            [],
+            $carveFailures,
+            sprintf('%d corpus documents lost authored form: %s', count($carveFailures), implode(', ', array_slice($carveFailures, 0, 8))),
+        );
     }
 }

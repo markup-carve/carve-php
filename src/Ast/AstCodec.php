@@ -12,7 +12,10 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Profile;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -209,7 +212,13 @@ class AstCodec
             }
 
             if (!array_key_exists($key, $roundTripped)) {
-                $lost[] = $here . '.' . $key;
+                // The encoder omits a field holding the node's own default, so a
+                // payload that spells one out explicitly - `children: []` on an
+                // empty document, `srcByteLength: 0` - is not losing anything.
+                // Only a value the re-encode would have written counts.
+                if (!self::isOmittedDefault($type, $key, $value)) {
+                    $lost[] = $here . '.' . $key;
+                }
 
                 continue;
             }
@@ -232,6 +241,39 @@ class AstCodec
                 $this->compareNode($childNode, $mirrorNode, $here . '.' . $key, $lost);
             }
         }
+    }
+
+    /**
+     * Whether the encoder legitimately omits this field/value pair.
+     *
+     * @param string $type
+     * @param string $field
+     * @param mixed $value
+     */
+    private static function isOmittedDefault(string $type, string $field, mixed $value): bool
+    {
+        if ($value === [] || $value === null) {
+            // Empty children/attrs and an absent value carry nothing either way.
+            return true;
+        }
+
+        $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
+        if ($class === null) {
+            return false;
+        }
+
+        $reflection = new ReflectionClass($class);
+        foreach (self::stateProperties($reflection) as $property) {
+            if (ReferenceShape::fieldFor($type, $property->getName()) !== $field) {
+                continue;
+            }
+
+            $default = self::defaultFor($reflection, $property);
+
+            return $default['has'] && $value === $default['value'];
+        }
+
+        return false;
     }
 
     public function decodeJson(string $json): Document
@@ -284,9 +326,12 @@ class AstCodec
      */
     private function encodeNode(Node $node): array
     {
-        $encoded = ['type' => $node->getType()];
-
-        $type = $node->getType();
+        // PART 12 §3 and profiles.md: an autolink and an admonition are their
+        // OWN types, not a link/div carrying a flag. This engine models them as
+        // the broader class, so the canonical name is what goes on the wire -
+        // the same distinction Profile already draws for profile matching.
+        $type = Profile::canonicalTypeOf($node);
+        $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
@@ -320,6 +365,12 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($type === 'autolink') {
+            // The reference gives an autolink no children - `text` is the label,
+            // and publishing both would be a second representation of the same
+            // content. The decoder rebuilds the text node from it.
+            $children = [];
+        }
         if ($children !== []) {
             $encoded[ReferenceShape::containerFor($type)] = array_map(
                 fn (Node $child): array => $this->encodeNode($child),
@@ -346,8 +397,20 @@ class AstCodec
      */
     private function derivedFields(Node $node): array
     {
+        if ($node instanceof Link && $node->isAutolink()) {
+            // The reference gives an autolink no children: `href` is the
+            // resolved target, `text` what the author sees.
+            return ['text' => self::plainText($node)];
+        }
+
+        if ($node instanceof Div && $node->isTyped()) {
+            // `::: warning` - the word is the admonition kind, which this engine
+            // keeps as a class rather than a field of its own.
+            return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
+        }
+
         if ($node instanceof ListBlock) {
-            return ['ordered' => $node->getListType() === 'ordered'];
+            return ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
         }
 
         if ($node instanceof ListItem) {
@@ -367,8 +430,45 @@ class AstCodec
      */
     private function applyDerivedFields(Node $node, array $data): void
     {
+        if ($node instanceof Link && ($data['type'] ?? null) === 'autolink') {
+            self::writeProperty($node, 'isAutolink', true);
+            if ($node->getChildren() === []) {
+                $text = $data['text'] ?? null;
+                $node->appendChild(new Text(is_string($text) ? $text : (string)$node->getDestination()));
+            }
+
+            return;
+        }
+
+        if ($node instanceof Div && ($data['type'] ?? null) === 'admonition') {
+            self::writeProperty($node, 'typed', true);
+            $kind = $data['kind'] ?? null;
+            if (is_string($kind) && $kind !== '') {
+                $node->setAttribute('class', $kind);
+            }
+            // Falls through to the Div branch below, which recomputes the raw
+            // title string an admonition needs just as much as a plain div.
+        }
+
         if ($node instanceof ListBlock && array_key_exists('ordered', $data)) {
-            self::writeProperty($node, 'listType', $data['ordered'] === true ? 'ordered' : 'bullet');
+            // Four internal list types collapse onto one boolean, so `bullet` is
+            // not the only unordered answer: a list whose items carry `checked`
+            // is a task list, and rendering it as a plain bullet list would drop
+            // every `[x]` marker from the Carve output.
+            $unordered = ListBlock::TYPE_BULLET;
+            foreach ($node->getChildren() as $item) {
+                if ($item instanceof ListItem && $item->isTask()) {
+                    $unordered = ListBlock::TYPE_TASK;
+
+                    break;
+                }
+            }
+
+            self::writeProperty(
+                $node,
+                'listType',
+                $data['ordered'] === true ? ListBlock::TYPE_ORDERED : $unordered,
+            );
 
             return;
         }
@@ -436,6 +536,19 @@ class AstCodec
         return trim($source);
     }
 
+    /**
+     * The concatenated text of a node's inline descendants.
+     */
+    private static function plainText(Node $node): string
+    {
+        $text = '';
+        foreach ($node->getChildren() as $child) {
+            $text .= $child instanceof Text ? $child->getContent() : self::plainText($child);
+        }
+
+        return $text;
+    }
+
     private static function writeProperty(Node $node, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($node);
@@ -469,7 +582,7 @@ class AstCodec
             throw new RuntimeException('Every node needs a string type');
         }
 
-        $class = self::classMap()[$type] ?? null;
+        $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
             throw new RuntimeException(sprintf(
                 'Unknown node type: %s. Application node types must be registered with %s::register().',

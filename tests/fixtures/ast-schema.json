@@ -41,7 +41,9 @@
     "code_block": {
         "fields": [
             "content",
-            "lang"
+            "lang",
+            "label",
+            "header"
         ],
         "required": []
     },
@@ -77,6 +79,8 @@
     },
     "document": {
         "fields": [
+            "abbreviations",
+            "abbreviationsBeforeBody",
             "srcByteLength"
         ],
         "required": []
@@ -298,7 +302,8 @@
         "fields": [
             "align",
             "rowspan",
-            "colspan"
+            "colspan",
+            "span"
         ],
         "required": []
     },
