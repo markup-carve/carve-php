@@ -55,6 +55,63 @@ $markdown = CarveConverter::markdown()->convert('# Hello /Carve/');
 $ansi = CarveConverter::ansi()->convert('# Hello /Carve/');
 ~~~
 
+### Markdown output options
+
+`MarkdownRenderer` has three fluent setters. Build the renderer yourself and hand
+it to `CarveConverter::create()` to use them:
+
+~~~ php
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\AttributeFallback;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
+
+$renderer = (new MarkdownRenderer())
+    ->setSoftBreakMode(SoftBreakMode::Space)
+    ->setSmartTypography(SmartTypographyMode::Source)
+    ->setAttributeFallback(AttributeFallback::Html);
+
+$markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
+~~~
+
+- `setSoftBreakMode()`: a soft line break inside a paragraph becomes a newline
+  (`SoftBreakMode::Newline`, the default), a space (`::Space`), or a hard break
+  (`::Break`).
+- `setSmartTypography()`: smart typography renders as the resolved glyph
+  (`SmartTypographyMode::Glyph`, the default) or as the author's source run
+  (`::Source`). Source mode suits output a machine reads, where `...` and `--`
+  should stay what the author typed.
+- `setAttributeFallback()`: Markdown has no block container and no attribute
+  syntax on an image, so a `::: class` div and an `![alt](src){.class}` lose
+  their `{#id .class data-*}` by default (`AttributeFallback::Drop`), which is
+  right for human-facing export. `AttributeFallback::Html` keeps them as raw
+  HTML instead - a `<div ...>` wrapper with blank lines around its
+  Markdown-rendered body, and an `<img ...>` tag - the way an inline `{=mark=}`
+  already degrades to `<mark>`. Use it when the Markdown is an interchange
+  format rather than a rendering. Attribute names and values are validated and
+  escaped by the same code the HTML target uses, so event handlers, injection
+  sinks and denylisted URL schemes are dropped there too.
+
+With the HTML fallback, this Carve source:
+
+~~~
+{#c1 .calc data-unit="kWh"}
+::: calc
+Value 42
+:::
+~~~
+
+renders to:
+
+~~~ markdown
+<div class="calc" id="c1" data-unit="kWh">
+
+Value 42
+
+</div>
+~~~
+
 ### Source-line tracking
 
 For editor previews and scroll sync, enable source-line tracking with

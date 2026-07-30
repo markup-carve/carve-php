@@ -73,6 +73,17 @@ use MarkupCarve\Carve\Util\StringUtil;
  *
  * Note: Some Djot features don't have direct Markdown equivalents
  * and will be rendered as HTML or approximated.
+ *
+ * Attributes are the one case where the approximation is a policy choice rather
+ * than a mapping. Markdown has no block container and no attribute syntax on an
+ * image, so a `::: class` div and an `![alt](src){.class}` drop their
+ * `{#id .class data-*}` by default - right for the human-facing export this
+ * target is normally used for, data loss for a consumer treating Markdown as an
+ * interchange format. `setAttributeFallback(AttributeFallback::Html)` keeps them
+ * as raw HTML instead, the way an inline mark already degrades to `<mark>`
+ * (carve-php#458).
+ *
+ * Options: setSoftBreakMode(), setSmartTypography(), setAttributeFallback().
  */
 class MarkdownRenderer implements RendererInterface
 {
@@ -139,6 +150,15 @@ class MarkdownRenderer implements RendererInterface
 
     protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
 
+    protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
+
+    /**
+     * Lazily built HTML renderer used ONLY to serialize attributes under
+     * AttributeFallback::Html, so the raw HTML this target emits is validated and
+     * escaped by the same code as the HTML target rather than by a second copy.
+     */
+    private ?HtmlRenderer $attributeSerializer = null;
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
@@ -166,6 +186,25 @@ class MarkdownRenderer implements RendererInterface
     public function setSoftBreakMode(SoftBreakMode $mode): self
     {
         $this->softBreakMode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * Keep attributes Markdown cannot spell as raw HTML, or drop them (the
+     * default).
+     *
+     * Markdown has no block container and no attribute syntax on an image, so
+     * `{#id .class data-*}` has nowhere to go and is dropped - right for
+     * human-facing export, data loss for a consumer using Markdown as an
+     * interchange format. `AttributeFallback::Html` degrades those two to raw
+     * HTML instead, the way an inline mark already degrades to `<mark>`.
+     * Everything else is unchanged, and `Drop` output is byte-identical to
+     * before.
+     */
+    public function setAttributeFallback(AttributeFallback $mode): self
+    {
+        $this->attributeFallback = $mode;
 
         return $this;
     }
@@ -620,6 +659,20 @@ class MarkdownRenderer implements RendererInterface
             $prefix .= '**' . $this->escapeText($this->stripControls($label)) . "**\n\n";
         }
 
+        if ($this->attributeFallback === AttributeFallback::Html) {
+            $attrs = $this->htmlAttributes($node);
+            if ($attrs !== '') {
+                // Blank lines inside the wrapper on purpose: a `<div>` line
+                // followed by one ends the raw HTML block (CommonMark HTML block
+                // type 6), so the body is still read as Markdown rather than as
+                // one opaque chunk. The title/label lines stay INSIDE - they are
+                // content this container introduces.
+                return '<div' . $attrs . ">\n\n"
+                    . rtrim($prefix . $body, "\n")
+                    . "\n\n</div>\n\n";
+            }
+        }
+
         return $prefix . $body;
     }
 
@@ -778,6 +831,25 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
+        if ($this->attributeFallback === AttributeFallback::Html) {
+            // Exclude exactly the names the tag spells itself: `src` and `alt`
+            // always, `title` only when the image carries one. Emitting a name
+            // twice is invalid HTML, and an HTML parser keeps the first
+            // occurrence, so the shadowed copy would be inert anyway - dropping
+            // it changes nothing a consumer could read. When the shadowed copy
+            // was the ONLY attribute, nothing is left to carry and the ordinary
+            // Markdown image (which already spells alt and title) is emitted.
+            $exclude = ['src', 'alt'];
+            if ($node->getTitle() !== null) {
+                $exclude[] = 'title';
+            }
+
+            $attrs = $this->htmlAttributes($node, $exclude);
+            if ($attrs !== '') {
+                return $this->renderImageTag($node, $attrs);
+            }
+        }
+
         $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
         $src = $this->encodeMarkdownDestination((string)$node->getSource());
         $title = $node->getTitle();
@@ -787,6 +859,33 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return '![' . $alt . '](' . $src . ')';
+    }
+
+    /**
+     * An attributed image as a raw `<img>` tag, mirroring the HTML target's
+     * `src` / `alt` / `title` / attribute order.
+     *
+     * `src` runs through the same denylist a Markdown destination gets: a raw
+     * tag is the more direct sink of the two, so it cannot be laxer
+     * (carve-php#462, PART 9 section 25).
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\Image $node
+     * @param string $attrs Pre-serialized attributes, with the names this method
+     *   spells itself already excluded.
+     */
+    protected function renderImageTag(Image $node, string $attrs): string
+    {
+        $serializer = $this->attributeSerializer();
+        $src = $this->stripControls($this->sanitizeUrl((string)$node->getSource()));
+        $html = '<img src="' . $serializer->escapeAttribute($src) . '"'
+            . ' alt="' . $serializer->escapeAttribute($this->stripControls($node->getAlt())) . '"';
+
+        $title = $node->getTitle();
+        if ($title !== null) {
+            $html .= ' title="' . $serializer->escapeAttribute($this->stripControls($title)) . '"';
+        }
+
+        return $html . $attrs . '>';
     }
 
     protected function renderSuperscript(Superscript $node): string
@@ -996,6 +1095,39 @@ class MarkdownRenderer implements RendererInterface
     protected function sanitizeUrl(string $url): string
     {
         return HtmlRenderer::blankDangerousScheme($url);
+    }
+
+    /**
+     * A node's attributes serialized for a raw HTML tag, by the HTML renderer
+     * itself: name validation (`on*` handlers, the `srcdoc` / `formaction` sinks,
+     * and the identifier check that closed a name-level bypass), value hardening
+     * (the URL denylist, CSS `expression(...)`) and attribute-context escaping all
+     * come from that one implementation. A copy here would be free to drift into
+     * being the laxer of the two, which is exactly how the URL denylist diverged.
+     *
+     * Returns `''` when nothing survives, so an attribute-less container gets no
+     * pointless wrapper.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string> $exclude Attribute names the caller spells itself.
+     */
+    protected function htmlAttributes(Node $node, array $exclude = []): string
+    {
+        $attrs = $this->attributeSerializer()->renderAttributesExcluding($node, $exclude);
+
+        // A newline in a value would put a blank line inside the opening tag,
+        // ending the raw HTML block early and leaving the closing tag dangling as
+        // literal text. Tabs and newlines survive stripControls() by design, so
+        // fold them here; every other control character is already gone.
+        return (string)preg_replace('/[\t\n]+/', ' ', $this->stripControls($attrs));
+    }
+
+    /**
+     * The HTML renderer used for attribute serialization only, built on first use.
+     */
+    protected function attributeSerializer(): HtmlRenderer
+    {
+        return $this->attributeSerializer ??= new HtmlRenderer();
     }
 
     protected function encodeMarkdownDestination(string $url): string
