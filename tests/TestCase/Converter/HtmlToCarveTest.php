@@ -2359,4 +2359,58 @@ HTML;
         $this->assertStringContainsString('| ^ | Banana |', $result);
         $this->assertStringContainsString('| ^ | Cherry |', $result);
     }
+
+    public function testBlockAlignmentIsDroppedByDefault(): void
+    {
+        $html = '<p style="text-align: center">Zentriert</p>';
+
+        $this->assertSame("Zentriert\n", $this->converter->convert($html));
+    }
+
+    public function testBlockAlignmentMapsToTheConfiguredClass(): void
+    {
+        $converter = new HtmlToCarve(alignmentClasses: ['center' => 'text-center', 'right' => 'text-right']);
+
+        $this->assertSame("{.text-center}\nZentriert\n", $converter->convert('<p style="text-align: center">Zentriert</p>'));
+        $this->assertSame("{.text-right}\n## Rechts\n", $converter->convert('<h2 style="text-align:right">Rechts</h2>'));
+    }
+
+    public function testAlignmentClassJoinsExistingClasses(): void
+    {
+        $converter = new HtmlToCarve(alignmentClasses: ['center' => 'text-center']);
+
+        $result = $converter->convert('<p class="lead" style="text-align: CENTER">Text</p>');
+
+        $this->assertSame("{.lead .text-center}\nText\n", $result);
+    }
+
+    public function testUnmappedAlignmentValueIsDropped(): void
+    {
+        // justify has no configured class: dropping beats guessing a class name
+        // the consuming stylesheet may not define.
+        $converter = new HtmlToCarve(alignmentClasses: ['center' => 'text-center']);
+
+        $this->assertSame("Text\n", $converter->convert('<p style="text-align: justify">Text</p>'));
+    }
+
+    public function testAlignmentClassSurvivesBackToHtml(): void
+    {
+        $converter = new HtmlToCarve(alignmentClasses: ['center' => 'text-center']);
+
+        $carve = $converter->convert('<p style="text-align: center">Zentriert</p>');
+        $html = (new CarveConverter())->convert($carve);
+
+        $this->assertStringContainsString('class="text-center"', $html);
+    }
+
+    public function testTableCellAlignmentStillUsesTheNativeMarkerNotAClass(): void
+    {
+        // Cells have a native Carve representation, so they must not gain a class
+        // when the block mapping is configured.
+        $converter = new HtmlToCarve(alignmentClasses: ['center' => 'text-center']);
+
+        $result = $converter->convert('<table><tr><td style="text-align: center">Mitte</td></tr></table>');
+
+        $this->assertStringNotContainsString('text-center', $result);
+    }
 }
