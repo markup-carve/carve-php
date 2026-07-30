@@ -28,7 +28,19 @@ vendor/bin/phpunit --filter testHeading
 
 There is a single `default` suite covering `tests/`. Part of it is driven by the
 shared spec corpus in `tests/spec`, so a spec bump can change expectations
-without any local edit.
+without any local edit. Two classes do that work:
+
+| Test | Covers |
+|------|--------|
+| `tests/CarveCorpusTest.php` | the mandatory corpus, byte for byte |
+| `tests/OptionalCorpusTest.php` | Tier-2 opt-in features |
+
+A corpus category this implementation does not support yet is declared rather
+than quietly absent. `CarveCorpusTest::IMPLEMENTED` lists the categories that
+must pass; `KNOWN_GAPS` maps a category to the reason it does not, and is empty
+today. Implementing a feature therefore means adding its category to
+`IMPLEMENTED` (and dropping any `KNOWN_GAPS` entry), not only making the parser
+handle it.
 
 ### Code Style
 
@@ -50,6 +62,11 @@ composer stan       # phpstan, level 9
 ```bash
 composer check      # cs-check + test
 ```
+
+With a change in flight, run them in this order: **phpunit, then phpstan, then
+phpcs**. PHPStan finds wrong types and missing properties that would otherwise
+make a passing assertion lie, and `cs-fix` rewrites formatting, so running it
+before the logic settles means running it twice.
 
 ### Fuzzing
 
@@ -94,6 +111,13 @@ public function testHeadingRendersAsH1(): void
 Two conventions worth knowing:
 
 - Prefer `assertSame()` over `assertEquals()` for rendered strings.
+- **Make the test able to fail.** Revert the fix and watch it go red before you
+  trust it. Several bugs across the Carve implementations survived behind a check
+  that structurally could not see what it was checking. One from this repository:
+  the dangerous-scheme probe in `MarkdownRenderer` stripped ASCII whitespace
+  only, so a `U+202F`-prefixed `javascript:` URL passed the Markdown target while
+  `HtmlRenderer` blanked it - and the HTML tests stayed green throughout
+  ([#462](https://github.com/markup-carve/carve-php/pull/462)).
 - If your change affects behavior documented in `docs/`, add or extend the test
   that pins that documentation - see `tests/TestCase/Documentation/` for the
   pattern. A wrong security doc is worse than a missing one.
@@ -105,6 +129,14 @@ semantics live in [markup-carve/carve](https://github.com/markup-carve/carve)
 (`resources/grammar.ebnf` plus the corpus). If a change would alter what valid
 Carve means, open the discussion there first - the other implementations
 (carve-js, carve-rs, carve-rb, carve-py, carve-go) are held to the same corpus.
+
+Rendered output is byte-identical across implementations by design, so a change
+that alters it is rarely a single-repository change. Expect to pair it with the
+same fix in [carve-js](https://github.com/markup-carve/carve-js) and
+[carve-rs](https://github.com/markup-carve/carve-rs), and to check whether the
+spec actually pins the behavior first - where it does not, all implementations
+can agree with each other and still be wrong together, which is how the scheme
+bypass above went unnoticed. Link the sibling PRs from your description.
 
 ## Pull Requests
 
