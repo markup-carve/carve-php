@@ -203,11 +203,18 @@ class BlockParser
     protected ?Node $currentMatcherParent = null;
 
     /**
-     * Negative cache for fenced-comment closer lookahead in the current line set.
+     * Comment-fence index for the current line set, built once per line set.
      *
-     * @var array<int, int> Fence length => earliest index known to have no closer at or after it.
+     * A closer must match the opener width EXACTLY, so any later line carrying a
+     * fence of that width IS a valid closer: "is there a closer after $i" is
+     * exactly "last index for this width > $i". That replaces a per-opener scan
+     * to the end of the line set, which is superlinear on input full of openers
+     * with DISTINCT widths - the case where a per-width negative cache can never
+     * help, because each width is only seen once.
+     *
+     * @var array<int, int>|null Fence length => LAST index carrying that fence.
      */
-    protected array $commentNoCloserAtOrAfter = [];
+    protected ?array $commentFenceLastIndex = null;
 
     /**
      * Optional slug transform mirrored onto the parse-time heading-id
@@ -1453,14 +1460,14 @@ class BlockParser
 
         $this->nestingDepth++;
         $previousLineMap = $this->currentLineMap;
-        $previousCommentNoCloserAtOrAfter = $this->commentNoCloserAtOrAfter;
+        $previousCommentFenceLastIndex = $this->commentFenceLastIndex;
         $this->currentLineMap = $lineMap;
-        $this->commentNoCloserAtOrAfter = [];
+        $this->commentFenceLastIndex = null;
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
         } finally {
             $this->currentLineMap = $previousLineMap;
-            $this->commentNoCloserAtOrAfter = $previousCommentNoCloserAtOrAfter;
+            $this->commentFenceLastIndex = $previousCommentFenceLastIndex;
             $this->nestingDepth--;
         }
     }
@@ -5369,33 +5376,39 @@ class BlockParser
             return true;
         }
 
-        $length = $fenceInfo['length'];
-        if (
-            isset($this->commentNoCloserAtOrAfter[$length])
-            && $this->commentNoCloserAtOrAfter[$length] <= $index
-        ) {
-            return false;
-        }
+        return $this->lastCommentFenceIndex($lines, $fenceInfo['length']) > $index;
+    }
 
-        $count = count($lines);
-        for ($i = $index + 1; $i < $count; $i++) {
-            if ($this->fencedBlockParser->isFencedCommentCloser($lines[$i], $length)) {
-                return true;
+    /**
+     * Last index in $lines carrying a comment fence of exactly $length, or -1.
+     *
+     * Built once per line set: see the $commentFenceLastIndex docblock for why
+     * this is exact rather than an approximation.
+     *
+     * @param array<string> $lines
+     * @param int $length
+     */
+    protected function lastCommentFenceIndex(array $lines, int $length): int
+    {
+        if ($this->commentFenceLastIndex === null) {
+            $index = [];
+            foreach ($lines as $i => $candidate) {
+                $info = $this->fencedBlockParser->parseFencedCommentOpener($candidate);
+                if ($info !== null) {
+                    $index[$info['length']] = $i;
+                }
             }
+
+            $this->commentFenceLastIndex = $index;
         }
 
-        $this->commentNoCloserAtOrAfter[$length] = min(
-            $this->commentNoCloserAtOrAfter[$length] ?? $index,
-            $index,
-        );
-
-        return false;
+        return $this->commentFenceLastIndex[$length] ?? -1;
     }
 
     /**
      * @param array<string> $lines
-     * @param int $length
      * @param int $index
+     * @param int $length
      */
     protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
     {

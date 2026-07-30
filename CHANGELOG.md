@@ -9,6 +9,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A document full of comment-fence openers with distinct widths no longer
+  rescans itself per opener.** The closer lookahead added with the comment-fence
+  tail fix (#471) scanned to the end of the line set for every `%%%` opener.
+  Where every opener carries a different width no line can close any other, so
+  every scan ran the whole way. It is now answered from a fence width to
+  last-index map built in one pass. A closer must match the opener width exactly,
+  so any later line of that width IS a valid closer, which makes the map exact
+  rather than an approximation.
+
+  The per-width negative cache that shipped with #471 is removed: its hit
+  condition is a second opener of the same width after a proven-no-closer point,
+  and a second line of the same width is itself the closer for the first, so the
+  state is unreachable. Those lines were the entire `codecov/patch` gap on #471 -
+  coverage was pointing at unreachable code, not at a missing test.
+
+  The perf test guarding it repeated a single width, where line two simply closes
+  line one, so it never reached the lookahead at all and passed regardless of what
+  that code did. The replacement uses distinct widths, measures cost per byte, and
+  fails against the old scan. Three tests for the block-quote lookahead paths
+  cover what the removed branches left untested.
+
 - **A `%%%` comment opener with trailing text no longer leaks the comment body
   and drops the next block.** `%%% html` and `%%% notes` were not accepted as
   fence lines, so the `%%` line-comment rule ate the opener, the body rendered

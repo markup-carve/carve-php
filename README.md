@@ -158,10 +158,67 @@ echo '# Hello' | bin/carve           # render from stdin
 `--html` / `--markdown` (`--md`) / `--plain` (`--plain-text`) / `--ansi` select
 the format. `--json` (`--ast`) emits the parsed AST instead of rendering it, and
 `--from-json` reads an encoded AST instead of Carve source, so a tree can be
-produced by one tool and rendered by another - see
-[`docs/ast-json.md`](docs/ast-json.md). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
+produced by one tool and rendered by another **as long as both use this codec** -
+the encoding is carve-php's own and does not yet match the shape the spec pins in
+PART 12, so a tree from carve-js decodes into the wrong document rather than being
+rejected. See [`docs/ast-json.md`](docs/ast-json.md) and
+[#476](https://github.com/markup-carve/carve-php/issues/476). `--stamp-info` and `--stamp-check`
+report a document's provenance marker (see below). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.
+
+## ProseMirror / Tiptap
+
+The AST converts to a ProseMirror document and back, so a Tiptap editor in the
+browser and PHP rendering on the server can share one source of truth without a
+Node runtime:
+
+~~~ php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$json = (new ProseMirrorRenderer())->renderJson($converter->parse($source));
+$document = (new ProseMirrorToCarve())->convertJson($json);
+~~~
+
+Node and mark names come from the map published by carve-grammars rather than
+being restated here. Types the editor model cannot hold are reported by
+`droppedTypes()` and `degradedTypes()` instead of vanishing. Full contract, the
+fidelity numbers and the application-node pattern:
+[`docs/prosemirror.md`](docs/prosemirror.md).
+
+## Stored documents and spec versions
+
+`carve fmt --stamp` records the spec version a document was last processed under:
+
+~~~
+%% carve-version: 0.1; generated-by: carve-php 0.1.0
+~~~
+
+That marker is what makes the spec's
+[upgrade procedure](https://markup-carve.github.io/carve/versioning) actionable -
+when moving a stored document to a newer spec version you only review the
+`[behavior]` changelog entries between its stamped version and the target. Read
+it back with:
+
+~~~ php
+use MarkupCarve\Carve\Stamp;
+
+Stamp::read($source);          // ['version' => '0.1', 'generatedBy' => 'carve-php 0.1.0'] or null
+Stamp::needsReview($source);   // true when the document predates this engine's spec version
+~~~
+
+An unstamped document answers `needsReview() === true`: its provenance is
+unknown, and assuming it is current is the unsafe direction. From the CLI:
+
+~~~ bash
+bin/carve --stamp-info doc.crv    # report version and writer
+bin/carve --stamp-check doc.crv   # exit 1 when the document predates this spec version
+~~~
+
+`--stamp-check` is meant for a repository of stored `.crv` files: run it over the
+directory in CI and a document left behind by a spec upgrade fails the build
+instead of silently rendering differently.
 
 ## Sandbox
 
