@@ -1,163 +1,193 @@
-# Contributing to djot-php
+# Contributing to carve-php
 
-Thank you for your interest in contributing to djot-php!
+Thank you for your interest in contributing to carve-php, the PHP implementation of
+[Carve](https://github.com/markup-carve/carve).
 
 ## Getting Started
 
 ```bash
-# Clone the repository
-git clone https://github.com/php-collective/djot-php.git
-cd djot-php
+# Clone the repository, including the spec submodule the corpus tests need
+git clone --recurse-submodules https://github.com/markup-carve/carve-php.git
+cd carve-php
 
 # Install dependencies
 composer install
 ```
+
+If you cloned without `--recurse-submodules`, fetch the spec afterwards:
+
+```bash
+git submodule update --init tests/spec
+```
+
+`tests/spec` is the [carve](https://github.com/markup-carve/carve) spec repository. The
+conformance corpus lives there, so `CarveCorpusTest` and `OptionalCorpusTest` are
+skipped or fail without it.
 
 ## Development Workflow
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run everything
 composer test
 
-# Run only project tests (excludes official djot spec tests)
-vendor/bin/phpunit --testsuite own
+# Run one test file
+vendor/bin/phpunit tests/TestCase/CarveConverterTest.php
 
-# Run only the official djot test suite
-vendor/bin/phpunit --testsuite official
-
-# Run a specific test file
-vendor/bin/phpunit tests/TestCase/DjotConverterTest.php
-
-# Run a specific test method
+# Run one test method (note: `phpunit File.php::testName` is NOT valid)
 vendor/bin/phpunit --filter testHeading
 ```
 
-### Test Suites
+The suite is a single `default` suite; there is no separate spec suite to opt out of.
+The corpus is exercised by ordinary test classes:
 
-| Suite | Description |
-|-------|-------------|
-| `default` | All tests |
-| `own` | Project tests only (recommended for development) |
-| `official` | Official djot specification tests |
+| Test | Covers |
+|------|--------|
+| `tests/CarveCorpusTest.php` | the mandatory spec corpus, byte-for-byte |
+| `tests/OptionalCorpusTest.php` | Tier-2 opt-in features, visible as skipped when unimplemented |
+| `tests/TestCase/**` | this implementation's own unit and integration tests |
 
-The `own` suite excludes the official test suite which may have expected failures due to implementation differences.
+A corpus category this implementation does not yet support is declared rather than
+silently absent — see the `IMPLEMENTED` and `KNOWN_GAPS` lists in `CarveCorpusTest`.
 
 ### Code Style
 
-This project follows PHP Collective coding standards.
+This project uses [php-collective/code-sniffer](https://github.com/php-collective/code-sniffer),
+configured in `phpcs.xml`.
 
 ```bash
 # Check code style
 composer cs-check
 
-# Auto-fix code style issues
+# Auto-fix what can be fixed automatically
 composer cs-fix
 ```
 
 ### Static Analysis
 
 ```bash
-# Run PHPStan (level 8)
+# PHPStan, level 9 (see phpstan.neon)
 composer stan
 ```
 
 ### Full Check
 
 ```bash
-# Run all checks (code style + tests)
+# Code style + tests
 composer check
+```
+
+Run the checks in this order when you have a change in flight: **phpunit, then
+phpstan, then phpcs**. PHPStan catches wrong types and missing properties that would
+otherwise make a passing assertion lie, and `cs-fix` can rewrite formatting once the
+logic is settled.
+
+### Fuzzing
+
+```bash
+composer fuzz          # parser/renderer, lenient
+composer fuzz-strict   # additionally asserts the strict invariants
 ```
 
 ## Project Structure
 
 ```
 src/
-├── DjotConverter.php       # Main entry point
+├── CarveConverter.php      # Main entry point (parse, convert, toCarve)
 ├── Parser/
 │   ├── BlockParser.php     # Block-level parsing
 │   └── InlineParser.php    # Inline content parsing
 ├── Renderer/
-│   ├── HtmlRenderer.php    # HTML output
+│   ├── HtmlRenderer.php    # HTML output, and the URL/attribute hardening
+│   ├── CarveRenderer.php   # Canonical source writer (PART 11)
+│   ├── MarkdownRenderer.php
 │   ├── PlainTextRenderer.php
-│   └── MarkdownRenderer.php
+│   └── AnsiRenderer.php
 ├── Node/                   # AST node classes
-│   ├── Block/              # Block-level nodes
-│   └── Inline/             # Inline nodes
-└── Event/
-    └── RenderEvent.php     # Render customization events
+│   ├── Block/
+│   └── Inline/
+├── Extension/              # Tier-2 and Tier-3 features
+├── Converter/              # HTML-to-Carve, Markdown-to-Carve
+├── Transform/              # AST transforms
+├── Filter/                 # Profile filtering
+├── Lint/                   # carve lint rules
+├── Event/                  # Render customization events
+├── Exception/
+└── Util/
 ```
 
 ## Writing Tests
 
-Tests are located in `tests/TestCase/`. Follow the existing patterns:
+Tests live in `tests/TestCase/`. Follow the existing patterns:
 
 ```php
 public function testFeatureName(): void
 {
-    $djot = "input text";
+    $carve = 'input text';
     $expected = "<p>expected output</p>\n";
 
-    $this->assertSame($expected, $this->converter->convert($djot));
+    $this->assertSame($expected, $this->converter->convert($carve));
 }
 ```
 
-For tests that check partial output:
+Prefer `assertSame` over `assertEquals` for strings — it checks type as well as value.
+For partial output:
 
 ```php
 public function testFeatureContains(): void
 {
-    $result = $this->converter->convert($djot);
+    $result = $this->converter->convert($carve);
 
     $this->assertStringContainsString('expected part', $result);
 }
 ```
 
-## Documentation Site
+Two habits matter more here than in most projects:
 
-The documentation is built with [VitePress](https://vitepress.dev/).
+- **Make the test able to fail.** Revert the fix and watch it go red before you trust
+  it. Several bugs in this repo's history survived behind checks that could not fail.
+- **Pin behaviour against the spec, not against current output.** If a divergence from
+  carve-js or carve-rs is involved, resolve it against `tests/spec/resources/grammar.ebnf`
+  and the corpus, not by majority vote between implementations.
 
-### Local Development
+## Cross-Implementation Changes
 
-```bash
-cd docs
-npm install    # Fetches Djot grammar from djot-intellij automatically
-npm run docs:dev
-```
-
-This starts a dev server at `http://localhost:5173/djot-php/` with hot reload.
-
-The Djot syntax highlighting grammar is fetched from [djot-intellij](https://github.com/php-collective/djot-intellij) during `npm install` (via postinstall hook), ensuring you always have the latest version.
-
-### Building
-
-```bash
-cd docs
-npm run docs:build
-npm run docs:preview  # Preview the build
-```
+Carve has several implementations, and the HTML output is byte-identical across them
+by design. If a change alters rendered output, it usually needs the same change in
+[carve-js](https://github.com/markup-carve/carve-js) and
+[carve-rs](https://github.com/markup-carve/carve-rs), and sometimes a spec change in
+[carve](https://github.com/markup-carve/carve) first. Mention the sibling PRs in your
+description.
 
 ## Pull Request Guidelines
 
-1. Create a feature branch from `master`
+1. Create a feature branch from `main`
 2. Write tests for new functionality
-3. Ensure all tests pass: `vendor/bin/phpunit --testsuite own`
-4. Ensure code style passes: `composer cs-check`
-5. Ensure PHPStan passes: `composer stan`
-6. Submit a pull request with a clear description
+3. Ensure the suite passes: `composer test`
+4. Ensure static analysis passes: `composer stan`
+5. Ensure code style passes: `composer cs-check`
+6. Submit a pull request with a clear description of what changed and why
 
 ## Reporting Issues
 
 When reporting bugs, please include:
 
 - PHP version
-- Minimal djot input that reproduces the issue
+- Minimal Carve input that reproduces the issue
 - Expected output
 - Actual output
 
+If the same input behaves differently in carve-js or carve-rs, say so — a
+cross-implementation divergence is tracked differently from a single-engine bug.
+
 ## Resources
 
-- [Djot Syntax Reference](https://djot.net/)
-- [Official Djot Repository](https://github.com/jgm/djot)
-- [Project Documentation](docs/README.md)
+- [Carve specification](https://github.com/markup-carve/carve) — `resources/grammar.ebnf` is normative
+- [Carve documentation site](https://markup-carve.github.io/carve/)
+- [Extension authoring](docs/extensions.md) — the only doc file in this repo today;
+  the rest of the prose lives in `README.md` and on the site above
+
+carve-php is a hard fork of [djot-php](https://github.com/php-collective/djot-php) by
+the PHP Collective; see `README.md` for what the fork preserved and `LICENSE` for the
+copyright lines that carry over.
