@@ -323,7 +323,13 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
-                $node instanceof HardBreak => "  \n",
+                // A BACKSLASH, not two trailing spaces (PART 11 section 9). Both
+                // mean `<br />` to a CommonMark reader, but trailing whitespace is
+                // removed by editors that strip on save, by
+                // `git apply --whitespace=fix` and by CI whitespace checks -- and
+                // losing ONE of the two spaces is enough for the break to vanish
+                // rather than degrade, silently, in a file nobody edited.
+                $node instanceof HardBreak => "\\\n",
                 $node instanceof SoftBreak => match ($this->softBreakMode) {
                     SoftBreakMode::Newline => "\n",
                     SoftBreakMode::Space => ' ',
