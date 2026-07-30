@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -95,6 +96,43 @@ class CliTest extends TestCase
         $this->assertSame(0, $res['exit']);
     }
 
+    public function testStampInfoReportsProvenanceAndExitsZero(): void
+    {
+        $res = $this->runCliInput(['--stamp-info'], "text\n\n%% carve-version: 0.0.9; generated-by: carve-js 0.0.9\n");
+
+        $this->assertSame(0, $res['exit']);
+        $this->assertStringContainsString('carve-version: 0.0.9', $res['out']);
+        $this->assertStringContainsString('generated-by: carve-js 0.0.9', $res['out']);
+    }
+
+    public function testStampInfoSaysSoWhenThereIsNoMarker(): void
+    {
+        $res = $this->runCliInput(['--stamp-info'], "text\n");
+
+        $this->assertSame(0, $res['exit']);
+        $this->assertStringContainsString('unstamped', $res['out']);
+    }
+
+    public function testStampCheckFailsForAnOlderOrUnknownDocument(): void
+    {
+        // Usable as a CI gate over a directory of stored documents.
+        $older = $this->runCliInput(['--stamp-check'], "text\n\n%% carve-version: 0.0.9; generated-by: x\n");
+        $unstamped = $this->runCliInput(['--stamp-check'], "text\n");
+
+        $this->assertSame(1, $older['exit']);
+        $this->assertStringContainsString('[behavior]', $older['err']);
+        $this->assertSame(1, $unstamped['exit']);
+    }
+
+    public function testStampCheckPassesForACurrentDocument(): void
+    {
+        $current = "text\n\n%% carve-version: "
+            . CarveConverter::SPEC_VERSION
+            . "; generated-by: x\n";
+
+        $this->assertSame(0, $this->runCliInput(['--stamp-check'], $current)['exit']);
+    }
+
     public function testHelpListsFormatFlags(): void
     {
         $out = $this->runCli(['--help']);
@@ -102,6 +140,7 @@ class CliTest extends TestCase
         $this->assertStringContainsString('--markdown', $out);
         $this->assertStringContainsString('--json', $out);
         $this->assertStringContainsString('--from-json', $out);
+        $this->assertStringContainsString('--stamp-check', $out);
     }
 
     public function testJsonEmitsTheEncodedAst(): void
