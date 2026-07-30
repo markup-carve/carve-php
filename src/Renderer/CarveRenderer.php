@@ -1198,7 +1198,19 @@ class CarveRenderer implements RendererInterface
 
     protected function normalize(string $text): string
     {
-        $text = str_replace("\u{E000}", "\u{00A0}", $text);
+        // The placeholder means the author wrote an ESCAPED SPACE, so the writer
+        // says that again. Resolving it to a literal no-break space instead lost
+        // the distinction the parser draws: `10\ kg` came back carrying U+00A0,
+        // which re-parses as a literal nbsp rather than as an escape, so the text
+        // node differed even though the HTML did not (carve#352, corpus
+        // 29-non-breaking-space; carve-js fixed this in carve#369 and carve-rs in
+        // carve-rs#310).
+        //
+        // This runs AFTER escaping, so the backslash it introduces is not seen by
+        // escapeText and cannot be doubled. A line block's leading indent is
+        // already routed through the verbatim scheme by resolveIndentPlaceholder
+        // before this point, so what is left here is an escaped space.
+        $text = str_replace("\u{E000}", '\ ', $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
             // Strip a line's trailing whitespace only where it cannot be
