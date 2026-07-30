@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
@@ -186,6 +187,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof Text => $this->stripControls($node->getContent()),
                 $node instanceof EscapedText => $this->stripControls($node->getContent()),
                 $node instanceof Code => $this->stripControls($node->getContent()),
+                $node instanceof CriticComment => $this->stripControls($node->getContent()),
                 $node instanceof Math => $this->stripControls($node->getContent()),
                 $node instanceof Image => $this->stripControls($node->getAlt()),
                 $node instanceof Mention => $this->renderMention($node),

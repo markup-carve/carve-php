@@ -172,6 +172,11 @@
       "kind": "mark",
       "pm": "carveDelete"
     },
+    "critic_comment": {
+      "kind": "mark",
+      "pm": "carveCriticComment",
+      "notes": "content is literal, so it rides on a text node under the mark - the same shape `code` uses"
+    },
     "span": {
       "kind": "mark",
       "pm": "carveSpan",

@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -462,6 +463,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Insert => $this->renderInsert($node),
                 $node instanceof Delete => $this->renderDelete($node),
                 $node instanceof Substitution => $this->renderSubstitution($node),
+                $node instanceof CriticComment => $this->stripControls($node->getContent()),
                 $node instanceof Span => $this->renderChildren($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => $this->renderSymbol($node),
