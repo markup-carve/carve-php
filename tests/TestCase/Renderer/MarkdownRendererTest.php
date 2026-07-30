@@ -44,7 +44,7 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse("::: |\nStanza one,\nstill one.\n\nStanza two.\n:::\n");
 
         $this->assertSame(
-            "Stanza one,  \nstill one.\n\nStanza two.\n",
+            "Stanza one,\\\nstill one.\n\nStanza two.\n",
             $this->renderer->render($document),
         );
     }
@@ -465,8 +465,12 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        // Hard break in Markdown is two spaces before newline
-        $this->assertStringContainsString("  \n", $result);
+        // A hard break is a BACKSLASH before the newline, never two trailing
+        // spaces (PART 11 section 9): both mean `<br />` to a CommonMark reader,
+        // but whitespace is stripped by editors and CI, and losing one of the two
+        // spaces makes the break vanish rather than degrade.
+        $this->assertStringContainsString("\\\n", $result);
+        $this->assertStringNotContainsString("  \n", $result);
     }
 
     public function testRawHtml(): void
