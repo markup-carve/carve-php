@@ -4,6 +4,19 @@ Carve source from anyone who is not you - comments, form fields, imported
 documents, LLM output - needs configuring before it reaches a browser. This page
 is the whole story in one place.
 
+## The default
+
+`new CarveConverter()` has **no safe mode and no profile**. Raw passthrough
+renders verbatim, every construct is allowed, and there is no length cap. That is
+the right default for content you author yourself and the wrong one for anything
+else - nothing below happens unless you ask for it.
+
+| Entry point | Safe mode | Profile |
+|-------------|-----------|---------|
+| `new CarveConverter()` | off | none |
+| `new CarveConverter(safeMode: true)` | `SafeMode::defaults()` | none |
+| `markup-carve/laravel-carve`, shipped `default` profile | on | none |
+
 ## The short version
 
 ```php
@@ -31,13 +44,14 @@ Two independent layers, and you usually want both:
   containing headings, tables or footnotes.
 
 On Laravel, `markup-carve/laravel-carve` already ships `safe_mode => true` as the
-default converter profile, so the first layer is on unless you opt out with the
-`trusted` profile or the raw Blade directive.
+default (and only) shipped converter profile, so the first layer is on there
+unless you define a profile of your own with `safe_mode => false` or reach for the
+raw Blade directive. Using carve-php directly, neither layer is on until you set
+it.
 
-## What is NOT safe by default
+## What the default does not protect against
 
-Without a `SafeMode`, raw passthrough renders **verbatim**, and that includes
-event handlers:
+Raw passthrough renders **verbatim**, and that includes event handlers:
 
 ````
 ```=html
@@ -62,10 +76,12 @@ SafeMode::defaults();  // escape raw HTML, block dangerous schemes and on* attri
 SafeMode::strict();    // strip raw HTML entirely, and also block the style attribute
 ```
 
-Defaults, all overridable:
+What a `SafeMode` instance enforces **once you attach one**. These are the values
+inside `SafeMode::defaults()`, not what the converter does without a safe mode -
+without one, none of these rules apply at all:
 
-| Setting | Default |
-|---------|---------|
+| Setting | Value in `defaults()` |
+|---------|-----------------------|
 | raw HTML mode | `RAW_HTML_ESCAPE` (`strict()`: `RAW_HTML_STRIP`, or `RAW_HTML_ALLOW`) |
 | dangerous schemes | `javascript`, `vbscript`, `data`, `file` |
 | allowed schemes | null, meaning everything not listed as dangerous |
