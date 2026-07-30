@@ -92,6 +92,35 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`MarkdownRenderer::setAttributeFallback()`**: keep attributes Markdown cannot
+  spell as raw HTML instead of dropping them.
+
+  The Markdown target degraded an inline mark to a raw `<mark>` but dropped a
+  container's and an image's attributes outright, so `{=x=}` survived an export
+  while `{#id .class data-*}` did not. Since `::: class` plus an attribute block
+  is the only vehicle Carve offers for an application-specific block, "export and
+  re-import" was data loss for the one construct that carries application state
+  (carve-php#458).
+
+  `AttributeFallback::Html` renders an attributed container as a `<div ...>`
+  wrapper - blank lines around a body that is still Markdown - and an attributed
+  image as an `<img ...>` tag. An attribute-less container gets no wrapper, and
+  the bold title/label lines the renderer already surfaced stay, inside it. A
+  `src` / `alt` / `title` attribute the tag already spells is not emitted a
+  second time - a duplicate attribute is invalid HTML and the second copy is
+  inert.
+
+  `AttributeFallback::Drop` remains the default and its output is byte-identical
+  to before, so a consumer rendering divs to Markdown today sees no change.
+
+  The raw HTML is built by the HTML renderer's own attribute code, not a second
+  copy: names go through the same validation (`on*` handlers, the `srcdoc` /
+  `formaction` sinks, and the identifier check that closed a name-level bypass),
+  values through the same hardening (the full URL denylist, CSS `expression(...)`)
+  and the same attribute-context escaping. The image `src` gets the denylist the
+  Markdown destination already gets - a raw tag is the more direct sink of the
+  two, so it cannot be the laxer one.
+
 - **`MarkdownRenderer::setSmartTypography()`**: render smart typography as the
   author's source run instead of the resolved glyph.
 

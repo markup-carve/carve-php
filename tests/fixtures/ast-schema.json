@@ -1,0 +1,340 @@
+{
+    "abbreviation": {
+        "fields": [
+            "title"
+        ],
+        "required": [
+            "title"
+        ]
+    },
+    "block_quote": {
+        "fields": [],
+        "required": []
+    },
+    "caption": {
+        "fields": [],
+        "required": []
+    },
+    "caption_number": {
+        "fields": [
+            "number"
+        ],
+        "required": []
+    },
+    "citation_group": {
+        "fields": [
+            "items",
+            "raw",
+            "integral"
+        ],
+        "required": [
+            "items",
+            "raw"
+        ]
+    },
+    "code": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "code_block": {
+        "fields": [
+            "content",
+            "language",
+            "label",
+            "header"
+        ],
+        "required": []
+    },
+    "comment": {
+        "fields": [
+            "content",
+            "fenceLength"
+        ],
+        "required": []
+    },
+    "definition_description": {
+        "fields": [],
+        "required": []
+    },
+    "definition_list": {
+        "fields": [],
+        "required": []
+    },
+    "definition_term": {
+        "fields": [],
+        "required": []
+    },
+    "delete": {
+        "fields": [],
+        "required": []
+    },
+    "div": {
+        "fields": [
+            "label",
+            "header",
+            "headerNodes",
+            "typed"
+        ],
+        "required": []
+    },
+    "document": {
+        "fields": [
+            "abbreviations",
+            "abbreviationsBeforeBody",
+            "sourceLength"
+        ],
+        "required": []
+    },
+    "emphasis": {
+        "fields": [],
+        "required": []
+    },
+    "escaped_text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "figure": {
+        "fields": [],
+        "required": []
+    },
+    "footnote": {
+        "fields": [
+            "label"
+        ],
+        "required": []
+    },
+    "footnote_ref": {
+        "fields": [
+            "label"
+        ],
+        "required": []
+    },
+    "frontmatter": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "hard_break": {
+        "fields": [],
+        "required": []
+    },
+    "heading": {
+        "fields": [
+            "level"
+        ],
+        "required": []
+    },
+    "heading_ref": {
+        "fields": [
+            "targetId"
+        ],
+        "required": [
+            "targetId"
+        ]
+    },
+    "highlight": {
+        "fields": [],
+        "required": []
+    },
+    "image": {
+        "fields": [
+            "referenceLabel",
+            "source",
+            "alt",
+            "title"
+        ],
+        "required": []
+    },
+    "inline_extension": {
+        "fields": [
+            "extensionType"
+        ],
+        "required": [
+            "extensionType"
+        ]
+    },
+    "inline_footnote": {
+        "fields": [],
+        "required": []
+    },
+    "insert": {
+        "fields": [],
+        "required": []
+    },
+    "line_block": {
+        "fields": [],
+        "required": []
+    },
+    "link": {
+        "fields": [
+            "referenceLabel",
+            "isAutolink",
+            "destination",
+            "title"
+        ],
+        "required": []
+    },
+    "list": {
+        "fields": [
+            "listType",
+            "start",
+            "tight",
+            "marker",
+            "style"
+        ],
+        "required": []
+    },
+    "list_item": {
+        "fields": [
+            "taskMarker"
+        ],
+        "required": []
+    },
+    "literal_inline": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "math": {
+        "fields": [
+            "content",
+            "display"
+        ],
+        "required": []
+    },
+    "mention": {
+        "fields": [
+            "cssClass",
+            "referenceLabel",
+            "isAutolink",
+            "destination",
+            "title"
+        ],
+        "required": [
+            "cssClass",
+            "destination",
+            "title"
+        ]
+    },
+    "paragraph": {
+        "fields": [],
+        "required": []
+    },
+    "raw_block": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "raw_inline": {
+        "fields": [
+            "content",
+            "format"
+        ],
+        "required": []
+    },
+    "raw_text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "section": {
+        "fields": [],
+        "required": []
+    },
+    "smart_punctuation": {
+        "fields": [
+            "kind",
+            "content",
+            "glyph"
+        ],
+        "required": []
+    },
+    "soft_break": {
+        "fields": [],
+        "required": []
+    },
+    "span": {
+        "fields": [],
+        "required": []
+    },
+    "strike": {
+        "fields": [],
+        "required": []
+    },
+    "strong": {
+        "fields": [
+            "boldItalic"
+        ],
+        "required": []
+    },
+    "subscript": {
+        "fields": [],
+        "required": []
+    },
+    "substitution": {
+        "fields": [
+            "oldText",
+            "newText"
+        ],
+        "required": []
+    },
+    "superscript": {
+        "fields": [],
+        "required": []
+    },
+    "symbol": {
+        "fields": [
+            "name"
+        ],
+        "required": []
+    },
+    "table": {
+        "fields": [
+            "caption",
+            "separatorWidths"
+        ],
+        "required": []
+    },
+    "table_cell": {
+        "fields": [
+            "isHeader",
+            "alignment",
+            "rowspan",
+            "colspan",
+            "spanMarker"
+        ],
+        "required": []
+    },
+    "table_row": {
+        "fields": [
+            "isHeader"
+        ],
+        "required": []
+    },
+    "text": {
+        "fields": [
+            "content"
+        ],
+        "required": []
+    },
+    "thematic_break": {
+        "fields": [
+            "char"
+        ],
+        "required": []
+    },
+    "underline": {
+        "fields": [],
+        "required": []
+    }
+}
