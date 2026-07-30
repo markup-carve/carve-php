@@ -960,6 +960,18 @@ class CarveRenderer implements RendererInterface
 
     protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
     {
+        // The COMBINED bold-italic form is a single production, and the nested
+        // spelling parses to the same Strong>Emphasis tree -- so serializing the
+        // nesting alone normalized one into the other, rewriting the spelling
+        // Carve documents (cheatsheet, migrate-from-markdown) into one documented
+        // nowhere. `isBoldItalic()` carries which one the author wrote
+        // (PART 11 section 6; carve#375).
+        $children = $node->getChildren();
+        $inner = $children[0] ?? null;
+        if ($node->isBoldItalic() && count($children) === 1 && $inner instanceof Emphasis) {
+            return '/*' . $this->renderInlines($inner->getChildren()) . '*/';
+        }
+
         return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar);
     }
 

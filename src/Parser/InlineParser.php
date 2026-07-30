@@ -2528,6 +2528,10 @@ class InlineParser
                 $emphasis = new Emphasis();
                 $this->parseInlines($emphasis, $content);
                 $strong = new Strong();
+                // Record that the author used the COMBINED form. The nested
+                // spelling yields the same Strong>Emphasis tree, so the writer
+                // needs the mark to reproduce what was written (PART 11 section 6).
+                $strong->setBoldItalic(true);
                 $strong->appendChild($emphasis);
 
                 $endPos = $searchPos + 2;
