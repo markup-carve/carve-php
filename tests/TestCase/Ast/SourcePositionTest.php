@@ -127,6 +127,33 @@ class SourcePositionTest extends TestCase
         $this->assertSame([], $wrong, sprintf('%d spans point at the wrong source', count($wrong)));
     }
 
+    public function testCoverageDoesNotRegress(): void
+    {
+        // A floor, not a target. Correctness is pinned by the sweep above; this
+        // only catches a change that silently stops placing nodes it used to -
+        // which would otherwise look like a passing suite with quietly emptier
+        // output. Raise it when coverage rises.
+        $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
+        $total = 0;
+        $placed = 0;
+
+        foreach ($files as $file) {
+            $document = (new BlockParser(trackPositions: true))->parse((string)file_get_contents($file));
+            foreach (self::walk($document) as $node) {
+                $total++;
+                if ($node->getPos() !== null) {
+                    $placed++;
+                }
+            }
+        }
+
+        $this->assertGreaterThan(
+            0.90,
+            $placed / $total,
+            sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
+        );
+    }
+
     public function testTwoCellsWithTheSameTextGetDifferentPositions(): void
     {
         // The case that forced cell offsets to come from the split rather than

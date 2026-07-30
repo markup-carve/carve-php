@@ -117,6 +117,46 @@ final class SourceMap
      */
     private ?string $source = null;
 
+    /**
+     * A view of this map for a SUBSTRING starting at `$delta`.
+     *
+     * The inline parser re-parses inner content (a link's text, an emphasis
+     * body) as a fresh string with its cursor back at 0. Without this the inner
+     * nodes would resolve against the OUTER text and land at the start of it -
+     * the failure the verification guard exists to catch, and which it catches
+     * only when the bytes happen to differ. Shifting is how the inner parse
+     * keeps a real position instead of relying on that.
+     */
+
+    /**
+     * A span for a source RANGE the parser measured itself, with no text check.
+     *
+     * spanFor() verifies that the bytes selected equal the node's text, which is
+     * right for a node whose text IS its source. It is wrong for a node whose
+     * text was rewritten on the way in - a smart quote is one byte of source and
+     * three of output, an escape is two bytes of source and one of output - and
+     * those would decline forever under a text comparison.
+     *
+     * Safe without the check because the range comes from the parser's own
+     * cursor, which knows what it consumed, rather than from searching for the
+     * text somewhere.
+     */
+    public function spanRange(int $start, int $end): ?SourceSpan
+    {
+        return $this->span($start, $end);
+    }
+
+    public function shifted(int $delta): self
+    {
+        $shifted = new self();
+        $shifted->source = $this->source;
+        foreach ($this->segments as [$textStart, $sourceStart, $length, $line, $column]) {
+            $shifted->segments[] = [$textStart - $delta, $sourceStart, $length, $line, $column];
+        }
+
+        return $shifted;
+    }
+
     public function withSource(string $source): self
     {
         $this->source = $source;

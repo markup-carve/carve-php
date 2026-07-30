@@ -469,13 +469,13 @@ class InlineParser
         }
     }
 
-    public function parseHeading(Node $parent, string $text, int $sourceLine = 0): void
+    public function parseHeading(Node $parent, string $text, int $sourceLine = 0, ?SourceMap $sourceMap = null): void
     {
         $previousWordAttributes = $this->wordAttributesEnabled;
         $this->wordAttributesEnabled = false;
 
         try {
-            $this->parse($parent, $text, $sourceLine);
+            $this->parse($parent, $text, $sourceLine, sourceMap: $sourceMap);
         } finally {
             $this->wordAttributesEnabled = $previousWordAttributes;
         }
@@ -508,6 +508,33 @@ class InlineParser
      * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
      */
     protected int $inlineDepth = 0;
+
+    /**
+     * Re-parse inner content, keeping positions when the caller knows where the
+     * substring began in the text it came from.
+     */
+    protected function parseInlinesAt(
+        Node $parent,
+        string $text,
+        int $offsetInParent,
+        ?bool $footnoteRecognitionEnabled = null,
+    ): void {
+        $outer = $this->sourceMap;
+        $outerStart = $this->textBufferStart;
+        $outerRewritten = $this->textBufferRewritten;
+
+        $this->sourceMap = $outer?->shifted($offsetInParent);
+        $this->textBufferStart = null;
+        $this->textBufferRewritten = false;
+
+        try {
+            $this->parseInlines($parent, $text, $footnoteRecognitionEnabled);
+        } finally {
+            $this->sourceMap = $outer;
+            $this->textBufferStart = $outerStart;
+            $this->textBufferRewritten = $outerRewritten;
+        }
+    }
 
     protected function parseInlines(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
     {
@@ -553,6 +580,35 @@ class InlineParser
      * when the run was rewritten - none of which is a failure. PART 12 section 4
      * requires a real position or none, so declining is the correct outcome.
      */
+
+    /**
+     * Place a node from the source extent the parser consumed for it.
+     *
+     * For nodes whose text is NOT their source: a smart quote, an escape, a code
+     * span's fence, a link's whole `[text](url)`. The parser knows exactly which
+     * bytes it read, which is a better answer than any search could give.
+     */
+    private function placeAt(Node $node, int $start, int $end): void
+    {
+        if ($this->sourceMap === null) {
+            return;
+        }
+
+        // A Text node's content IS its source, so it can be checked - and must
+        // be. A handler that fails to recognize a construct returns the literal
+        // text but still reports the end of everything it CONSUMED, including a
+        // trailing attribute block that never became part of the node. That
+        // produced the one wrong span this sweep has ever found:
+        // `[^a]{.ref}` selected for a text node holding `[^a]`.
+        if ($node instanceof Text) {
+            $node->setPos($this->sourceMap->spanFor($start, $node->getContent()));
+
+            return;
+        }
+
+        $node->setPos($this->sourceMap->spanRange($start, $end));
+    }
+
     private function placeInline(Node $node, ?int $start, string $text, bool $rewritten): void
     {
         if ($this->sourceMap === null || $start === null || $rewritten) {
@@ -671,7 +727,11 @@ class InlineParser
                     // Create EscapedText node for round-trip support
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
-                    $parent->appendChild(new EscapedText($escaped));
+                    // Two bytes of source (`\*`), one of output - the reason
+                    // placement here is by extent rather than by text.
+                    $escapedNode = new EscapedText($escaped);
+                    $this->placeAt($escapedNode, $pos, $pos + 2);
+                    $parent->appendChild($escapedNode);
                     $pos += 2;
 
                     continue;
@@ -682,7 +742,9 @@ class InlineParser
             if ($char === "\n") {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new SoftBreak());
+                $softBreak = new SoftBreak();
+                $this->placeAt($softBreak, $pos, $pos + 1);
+                $parent->appendChild($softBreak);
                 $pos++;
 
                 continue;
@@ -731,6 +793,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseMath($text, $pos);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -750,6 +813,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseCodeSpan($text, $pos);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -763,6 +827,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -776,6 +841,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -791,6 +857,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -804,6 +871,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseImage($text, $pos);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -817,6 +885,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -841,6 +910,7 @@ class InlineParser
                         continue;
                     }
                     // At this point, result has node/pos (not unclosed_link)
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -866,6 +936,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -879,6 +950,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseBoldItalic($text, $pos);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -892,6 +964,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '/', Emphasis::class);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -905,6 +978,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '_', Underline::class);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -918,6 +992,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '*', Strong::class);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -932,6 +1007,7 @@ class InlineParser
                 if ($result !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -948,6 +1024,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '~', Strike::class);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -961,6 +1038,7 @@ class InlineParser
                 $textBuffer = '';
                 $result = $this->parseDelimited($text, $pos, '=', Highlight::class);
                 if ($result !== null) {
+                    $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
@@ -1020,9 +1098,9 @@ class InlineParser
 
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(
-                    new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote),
-                );
+                $quote = new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote);
+                $this->placeAt($quote, $pos, $pos + 1);
+                $parent->appendChild($quote);
                 $pos++;
 
                 continue;
@@ -1053,9 +1131,9 @@ class InlineParser
                 foreach (preg_split('//u', $glyphs, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $glyph) {
                     $kind = $glyph === "\u{2014}" ? 'em_dash' : 'en_dash';
                     $width = $kind === 'em_dash' ? 3 : 2;
-                    $parent->appendChild(
-                        new SmartPunctuation($kind, substr($text, $sourcePos, $width)),
-                    );
+                    $dash = new SmartPunctuation($kind, substr($text, $sourcePos, $width));
+                    $this->placeAt($dash, $sourcePos, $sourcePos + $width);
+                    $parent->appendChild($dash);
                     $sourcePos += $width;
                 }
 
@@ -1070,7 +1148,9 @@ class InlineParser
             if ($char === '.' && substr($text, $pos, 3) === '...') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new SmartPunctuation('ellipsis', '...'));
+                $ellipsis = new SmartPunctuation('ellipsis', '...');
+                $this->placeAt($ellipsis, $pos, $pos + 3);
+                $parent->appendChild($ellipsis);
                 $pos += 3;
 
                 continue;
@@ -1083,9 +1163,9 @@ class InlineParser
                 $source = substr($text, $pos, $symbol[1]);
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(
-                    new SmartPunctuation($this->smartSymbolKind($source), $source),
-                );
+                $symbolNode = new SmartPunctuation($this->smartSymbolKind($source), $source);
+                $this->placeAt($symbolNode, $pos, $pos + $symbol[1]);
+                $parent->appendChild($symbolNode);
                 $pos += $symbol[1];
 
                 continue;
@@ -1987,7 +2067,7 @@ class InlineParser
                 $url = strtr($url, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
 
                 $link = new Link($url, $title);
-                $this->parseInlines($link, $linkText);
+                $this->parseInlinesAt($link, $linkText, $pos + 1);
 
                 // Track anchor links for validation
                 if (preg_match('/^#(.+)$/', $url, $anchorMatch)) {
@@ -2045,7 +2125,7 @@ class InlineParser
                     $link = new Link($refDef->url, $refDef->title);
                     // Store reference info for round-trip support
                     $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
-                    $this->parseInlines($link, $linkText);
+                    $this->parseInlinesAt($link, $linkText, $pos + 1);
 
                     // Track anchor links for validation
                     if (preg_match('/^#(.+)$/', $refDef->url, $anchorMatch)) {
@@ -2108,7 +2188,7 @@ class InlineParser
                     // leaving it literal -- e.g. `[x]{.a}{???}`).
                     $this->applyAttributesToNode($span, $attrStr);
                     $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
-                    $this->parseInlines($span, $linkText);
+                    $this->parseInlinesAt($span, $linkText, $pos + 1);
 
                     return [
                         'node' => $span,
@@ -2514,7 +2594,7 @@ class InlineParser
                     }
 
                     $node = new $nodeClass();
-                    $this->parseInlines($node, $content);
+                    $this->parseInlinesAt($node, $content, $pos + 1);
 
                     $endPos = $actualClose + 1;
 
@@ -2597,7 +2677,10 @@ class InlineParser
                 }
 
                 $emphasis = new Emphasis();
-                $this->parseInlines($emphasis, $content);
+                // The inner emphasis of a combined `/*...*/`: its source is the
+                // body between the delimiters, which the outer Strong wraps.
+                $this->placeAt($emphasis, $start, $searchPos);
+                $this->parseInlinesAt($emphasis, $content, $start);
                 $strong = new Strong();
                 // Record that the author used the COMBINED form. The nested
                 // spelling yields the same Strong>Emphasis tree, so the writer
@@ -2754,7 +2837,7 @@ class InlineParser
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
                 $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                 $node = new $nodeClass();
-                $this->parseInlines($node, $content);
+                $this->parseInlinesAt($node, $content, $pos + 2);
 
                 $endPos = $searchPos + 2;
 
@@ -3662,7 +3745,7 @@ class InlineParser
         }
 
         $node = new InlineFootnote();
-        $this->parseInlines($node, $content, false);
+        $this->parseInlinesAt($node, $content, $pos + 2, false);
 
         $endPos = $close + 1;
         if ($endPos < $length && $text[$endPos] === '{') {
