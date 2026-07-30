@@ -226,10 +226,17 @@ class ProseMirrorToCarve
         foreach ($nodes as $node) {
             $previous = $merged[count($merged) - 1] ?? null;
 
+            // A content-bearing mark never merges. Its text lives on the node
+            // rather than in children, so appending children would silently drop
+            // the second one's content - and merging would be wrong even if it
+            // were lossless, since `{#a#}{#b#}` is two comments, not one.
+            $mergeable = SchemaMap::isMark($node->getType())
+                && !isset(self::CONTENT_BEARING_MARKS[$node->getType()]);
+
             if (
                 $previous !== null
                 && $previous::class === $node::class
-                && SchemaMap::isMark($node->getType())
+                && $mergeable
                 && $previous->getAttributes() === $node->getAttributes()
             ) {
                 foreach ($node->getChildren() as $child) {
@@ -241,7 +248,7 @@ class ProseMirrorToCarve
                 continue;
             }
 
-            if (SchemaMap::isMark($node->getType())) {
+            if ($mergeable) {
                 $this->replaceChildren($node, $this->mergeAdjacentMarks($node->getChildren()));
             }
 

@@ -9,6 +9,8 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -88,6 +90,21 @@ class CriticCommentNodeTest extends TestCase
             $this->converter->convert($source),
             $this->converter->render($decoded),
         );
+    }
+
+    public function testAdjacentCommentsSurviveTheProseMirrorBridge(): void
+    {
+        // They arrive as two text nodes carrying the same mark, and the generic
+        // merge for adjacent same-marks appends CHILDREN - which a comment has
+        // none of, so the second one's text was dropped and `{#one#}{#two#}`
+        // came back as `{#one#}`. Merging would be wrong even if it were
+        // lossless: that is two comments, not one.
+        $source = "a {#one#}{#two#} b\n";
+        $bridged = (new ProseMirrorToCarve())->convert(
+            (new ProseMirrorRenderer())->render($this->parser->parse($source)),
+        );
+
+        $this->assertSame($this->converter->convert($source), $this->converter->render($bridged));
     }
 
     /**
