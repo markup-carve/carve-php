@@ -496,6 +496,13 @@ try {
 }
 
 if ($options['format'] === 'json') {
+    // PART 12 §4 requires `pos` on every node but the root, and forbids both
+    // inventing values and omitting them silently. This engine records no
+    // positions yet, so it says so rather than presenting the output as
+    // conformant.
+    fwrite(STDERR, "Note: this AST carries no `pos` fields; carve-php does not record positions yet, "
+        . "so the output is not PART 12 conformant (§4).\n");
+
     $output = $codec->encodeJson(
         $document ?? $converter->parse($input),
         JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,

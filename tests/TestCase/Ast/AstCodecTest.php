@@ -21,12 +21,23 @@ class AstCodecTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
-    public function testTheRootCarriesTheEncodingVersion(): void
+    public function testTheRootCarriesNoEnvelope(): void
     {
+        // PART 12 §3 forbids a field the reference shape lacks, and carve-js's
+        // root is exactly type + children + srcByteLength. A version envelope
+        // here made the conformance checker report the root as non-conformant
+        // on all 12 sampled documents.
         $encoded = $this->codec->encode($this->converter->parse('text'));
 
-        $this->assertSame(AstCodec::VERSION, $encoded['ast']);
-        $this->assertSame('document', $encoded['type']);
+        $this->assertSame(['type', 'srcByteLength', 'children'], array_keys($encoded));
+    }
+
+    public function testAVersion1PayloadIsRejectedWithTheReasonNamed(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('`content` became `value`');
+
+        $this->codec->decode(['ast' => 1, 'type' => 'document', 'children' => []]);
     }
 
     public function testNodeStateIsEncodedAlongsideChildren(): void
@@ -37,7 +48,8 @@ class AstCodecTest extends TestCase
         $this->assertSame('heading', $heading['type']);
         $this->assertSame(2, $heading['level']);
         $this->assertSame('text', $heading['children'][0]['type']);
-        $this->assertSame('Title', $heading['children'][0]['content']);
+        // PART 12 §3: the reference calls a text node's payload `value`.
+        $this->assertSame('Title', $heading['children'][0]['value']);
     }
 
     public function testAttributesAreEncodedUnderAttrsAndOmittedWhenEmpty(): void
@@ -62,6 +74,62 @@ class AstCodecTest extends TestCase
         $this->assertSame($this->converter->render($document), $this->converter->render($decoded));
     }
 
+    public function testAForeignTreeIsRejectedRatherThanDecodedWrongly(): void
+    {
+        // The failure this replaces: carve-js writes `value`, this codec used to
+        // read `content`, unrecognized keys were ignored and a missing content
+        // field defaulted to '' - so every text node came back EMPTY and the
+        // process exited 0.
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Decoding lost 1 field');
+
+        $this->codec->decode([
+
+            'type' => 'document',
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'text', 'content' => 'Text']]],
+            ],
+        ]);
+    }
+
+    public function testAConformantTreeCarryingPositionsStillDecodes(): void
+    {
+        // This engine cannot emit `pos` yet (PART 12 §4), but it must not refuse
+        // a tree from an engine that can, or conformance would be a trap.
+        $document = $this->codec->decode([
+
+            'type' => 'document',
+            'children' => [
+                [
+
+                    'type' => 'paragraph',
+                    'pos' => [
+                        'startLine' => 1,
+                    ],
+                    'children' => [
+                        ['type' => 'text', 'value' => 'Text', 'pos' => ['startLine' => 1]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame("<p>Text</p>\n", $this->converter->render($document));
+    }
+
+    public function testFieldNamesAreTheReferenceShape(): void
+    {
+        // PART 12 §3: field names are spec surface, taken from carve-js.
+        $encoded = $this->codec->encode($this->converter->parse("[x](u)\n\n- one\n"));
+
+        $link = $encoded['children'][0]['children'][0];
+        $this->assertSame('href', array_key_first(array_diff_key($link, ['type' => 1, 'children' => 1])));
+
+        $list = $encoded['children'][1];
+        $this->assertArrayHasKey('items', $list, 'the reference calls a list\'s children `items`');
+        $this->assertArrayHasKey('ordered', $list);
+        $this->assertArrayNotHasKey('listType', $list, 'an internal must not be exported');
+    }
+
     public function testDecodeRejectsAnUnknownNodeType(): void
     {
         $this->expectException(RuntimeException::class);
@@ -73,7 +141,7 @@ class AstCodecTest extends TestCase
     public function testDecodeRejectsAFutureEncodingVersion(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Unsupported AST encoding version');
+        $this->expectExceptionMessage('AST encoding version');
 
         $this->codec->decode(['ast' => AstCodec::VERSION + 1, 'type' => 'document']);
     }

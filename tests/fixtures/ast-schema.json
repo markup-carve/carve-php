@@ -34,16 +34,14 @@
     },
     "code": {
         "fields": [
-            "content"
+            "value"
         ],
         "required": []
     },
     "code_block": {
         "fields": [
             "content",
-            "language",
-            "label",
-            "header"
+            "lang"
         ],
         "required": []
     },
@@ -73,17 +71,13 @@
     "div": {
         "fields": [
             "label",
-            "header",
-            "headerNodes",
-            "typed"
+            "title"
         ],
         "required": []
     },
     "document": {
         "fields": [
-            "abbreviations",
-            "abbreviationsBeforeBody",
-            "sourceLength"
+            "srcByteLength"
         ],
         "required": []
     },
@@ -93,7 +87,7 @@
     },
     "escaped_text": {
         "fields": [
-            "content"
+            "value"
         ],
         "required": []
     },
@@ -103,7 +97,7 @@
     },
     "footnote": {
         "fields": [
-            "label"
+            "id"
         ],
         "required": []
     },
@@ -132,10 +126,10 @@
     },
     "heading_ref": {
         "fields": [
-            "targetId"
+            "target"
         ],
         "required": [
-            "targetId"
+            "target"
         ]
     },
     "highlight": {
@@ -144,8 +138,8 @@
     },
     "image": {
         "fields": [
-            "referenceLabel",
-            "source",
+            "ref",
+            "src",
             "alt",
             "title"
         ],
@@ -173,27 +167,23 @@
     },
     "link": {
         "fields": [
-            "referenceLabel",
-            "isAutolink",
-            "destination",
+            "ref",
+            "href",
             "title"
         ],
         "required": []
     },
     "list": {
         "fields": [
-            "listType",
             "start",
             "tight",
-            "marker",
-            "style"
+            "bulletChar",
+            "delim"
         ],
         "required": []
     },
     "list_item": {
-        "fields": [
-            "taskMarker"
-        ],
+        "fields": [],
         "required": []
     },
     "literal_inline": {
@@ -255,7 +245,7 @@
         "fields": [
             "kind",
             "content",
-            "glyph"
+            "value"
         ],
         "required": []
     },
@@ -300,37 +290,30 @@
     },
     "table": {
         "fields": [
-            "caption",
-            "separatorWidths"
+            "caption"
         ],
         "required": []
     },
     "table_cell": {
         "fields": [
-            "isHeader",
-            "alignment",
+            "align",
             "rowspan",
-            "colspan",
-            "spanMarker"
+            "colspan"
         ],
         "required": []
     },
     "table_row": {
-        "fields": [
-            "isHeader"
-        ],
+        "fields": [],
         "required": []
     },
     "text": {
         "fields": [
-            "content"
+            "value"
         ],
         "required": []
     },
     "thematic_break": {
-        "fields": [
-            "char"
-        ],
+        "fields": [],
         "required": []
     },
     "underline": {
