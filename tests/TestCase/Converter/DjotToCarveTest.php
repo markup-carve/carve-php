@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DjotToCarveTest extends TestCase
@@ -68,12 +70,12 @@ class DjotToCarveTest extends TestCase
 
     public function testPreBracedForcedSuperscriptIsUntouched(): void
     {
-        $this->assertSame('{^x^}', $this->converter->convert('{^x^}'));
+        $this->assertSame('\\{^x^}', $this->converter->convert('{^x^}'));
     }
 
     public function testPreBracedForcedSubscriptIsUntouched(): void
     {
-        $this->assertSame('{,x,}', $this->converter->convert('{,x,}'));
+        $this->assertSame('\\{,x,}', $this->converter->convert('{,x,}'));
     }
 
     public function testMixedProtectedConstructsAndRealSuperscript(): void
@@ -167,6 +169,77 @@ class DjotToCarveTest extends TestCase
     {
         $input = "```\n+ literal\n```";
         $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function literalCarveInlineTextProvider(): array
+    {
+        return [
+            'bare slash' => ['a /it/ b', 'a /it/ b'],
+            'bare equals' => ['a =hi= b', 'a =hi= b'],
+            'braced subscript' => ['a {,y,} b', 'a {,y,} b'],
+            'braced superscript' => ['a {^y^} b', 'a {^y^} b'],
+            'braced strikethrough' => ['a {~y~} b', 'a {~y~} b'],
+            'braced emphasis' => ['a {/y/} b', 'a {/y/} b'],
+            'braced comment' => ['a {#y#} b', 'a {#y#} b'],
+            'percent comments' => ['a %%c%% b', 'a %%c%% b'],
+        ];
+    }
+
+    #[DataProvider('literalCarveInlineTextProvider')]
+    public function testPlainDjotTextDoesNotBecomeCarveMarkup(string $input, string $literal): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($input));
+
+        $this->assertStringContainsString($literal, strip_tags($html));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function djotNegativeEscapeProvider(): array
+    {
+        return [
+            'path' => ['a/b/c'],
+            'fraction' => ['1/2'],
+            'assignment chain' => ['x = y = z'],
+            'approximate number' => ['~5'],
+            'percent' => ['50%'],
+            'ftp url' => ['ftp://x/'],
+            'protocol-relative url' => ['//host/path'],
+            'file url' => ['file:///etc/hosts'],
+        ];
+    }
+
+    #[DataProvider('djotNegativeEscapeProvider')]
+    public function testDjotEscapePassDoesNotOverEscape(string $input): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($input));
+
+        $this->assertStringContainsString($input, strip_tags($html));
+    }
+
+    public function testDjotSourceConstructBaselinesStillConvert(): void
+    {
+        $cases = [
+            '_em_' => '<em>em</em>',
+            '*strong*' => '<strong>strong</strong>',
+            '~sub~' => '<sub>sub</sub>',
+            '^sup^' => '<sup>sup</sup>',
+            '{=hl=}' => '<mark>hl</mark>',
+            '{+ins+}' => '<ins>ins</ins>',
+            '{-del-}' => '<del>del</del>',
+            '`code`' => '<code>code</code>',
+            '[t](/u)' => '<a href="/u">t</a>',
+        ];
+
+        $renderer = new CarveConverter();
+        foreach ($cases as $input => $expectedHtml) {
+            $html = $renderer->convert($this->converter->convert($input));
+            $this->assertStringContainsString($expectedHtml, $html, $input);
+        }
     }
 
     /**

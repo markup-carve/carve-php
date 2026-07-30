@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  */
 class DjotToCarve
 {
+    use EscapesCarveConstructs;
     use PreservesHeadingIds;
 
     /**
@@ -89,6 +90,8 @@ class DjotToCarve
     public function convert(string $djot): string
     {
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
+        $masked = $this->maskCodeAndDestinations($source);
+        $source = $this->escapePlainDjotText($source, $masked);
         $masked = $this->maskCode($source);
 
         // Accepted [start, end] delimiter ranges per family, kept sorted by start
@@ -149,6 +152,33 @@ class DjotToCarve
         $carve = $this->normalizePlusBullets($source, $masked);
 
         return $this->applyHeadingIdPreservation($carve, $djot);
+    }
+
+    protected function escapePlainDjotText(string $source, string $masked): string
+    {
+        $result = '';
+        $plain = '';
+        $length = strlen($source);
+
+        for ($i = 0; $i < $length; $i++) {
+            if ($masked[$i] === ' ' && $source[$i] !== "\n") {
+                if ($plain !== '') {
+                    $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-', 'bare' => '~']);
+                    $plain = '';
+                }
+                $result .= $source[$i];
+
+                continue;
+            }
+
+            $plain .= $source[$i];
+        }
+
+        if ($plain !== '') {
+            $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-', 'bare' => '~']);
+        }
+
+        return $result;
     }
 
     /**
@@ -259,6 +289,23 @@ class DjotToCarve
      */
     protected function maskCode(string $source): string
     {
+        // Stage 4: constructs whose inner delimiters already mean something
+        // else in Carve/Djot and must not be migrated again. Math spans need
+        // no handling here: both languages write math as `$` plus a code
+        // span, which stage 1 code masking already protects.
+        return $this->maskProtectedInlineForms($this->maskCodeAndDestinations($source));
+    }
+
+    /**
+     * Stages 1 to 3 alone: code and destinations masked, the protected inline
+     * forms left visible.
+     *
+     * The escape pass needs this narrower mask. It runs BEFORE any Carve form
+     * exists in the source, so masking those forms would hide the plain text it
+     * has to escape.
+     */
+    protected function maskCodeAndDestinations(string $source): string
+    {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
         $fenceChar = null;
@@ -325,18 +372,13 @@ class DjotToCarve
             $masked,
         );
 
-        $masked ??= $source;
-
-        // Stage 4: constructs whose inner delimiters already mean something
-        // else in Carve/Djot and must not be migrated again. Math spans need
-        // no handling here: both languages write math as `$` plus a code
-        // span, which stage 1 code masking already protects.
-        return $this->maskProtectedInlineForms($masked);
+        return $masked ?? $source;
     }
 
     protected function maskProtectedInlineForms(string $masked): string
     {
         $patterns = [
+            '/\\\\\{([' . $this->bracedDelimiterClass() . '])(?!\s)[^\n]+?(?<!\s)\1\}/',
             '/\[\^[^\]\n]+\]:?/',
             '/\{\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^\}/',
             '/\{,(?!\s)((?:(?!\n[ \t]*\n)[^,])+?)(?<!\s),\}/',
