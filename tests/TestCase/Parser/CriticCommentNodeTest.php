@@ -92,6 +92,21 @@ class CriticCommentNodeTest extends TestCase
         );
     }
 
+    public function testACommentDoesNotContributeToAHeadingId(): void
+    {
+        // A behavior CHANGE, and a deliberate one. While the comment was a span
+        // holding a text child, the id slugger walked into it and folded the
+        // commentary into the slug: `# Title {#note#} tail` produced
+        // `Title-note-tail` here and `Title-tail` in the reference. An editorial
+        // aside is not part of the heading, so the reference is right and this
+        // divergence is now gone. No corpus document has a comment inside a
+        // heading, which is why the cross-engine sweep never showed it.
+        $this->assertStringContainsString(
+            '<section id="Title-tail">',
+            $this->converter->convert("# Title {#note#} tail\n"),
+        );
+    }
+
     public function testAdjacentCommentsSurviveTheProseMirrorBridge(): void
     {
         // They arrive as two text nodes carrying the same mark, and the generic

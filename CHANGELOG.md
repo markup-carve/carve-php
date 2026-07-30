@@ -27,6 +27,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `carveInsert` and `carveDelete`. Without it the node had no mapping and its
   text would have been dropped from the editor model.
 
+  One behavior does change, and removes a divergence: an editorial comment no
+  longer contributes to a generated heading id. `# Title {#note#} tail`
+  produced `Title-note-tail` here and `Title-tail` in the reference, because the
+  slugger walked into the span and folded the commentary into the slug. An
+  aside is not part of the heading, so the reference is right.
+
 ### Fixed
 
 - **A full profile no longer drops a substitution.** `Profile::full()` denied
