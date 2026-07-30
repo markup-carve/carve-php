@@ -155,6 +155,21 @@ The normative extension contract lives in
 Extensions bundled with this package (such as `PlusBulletExtension`) are
 documented in [`docs/extensions.md`](docs/extensions.md).
 
+## Untrusted input
+
+Raw passthrough renders **verbatim** unless a safe mode is set, so anything you
+did not author needs configuring first:
+
+```php
+$converter = new CarveConverter(safeMode: SafeMode::strict());
+$converter->setProfile(Profile::comment());
+```
+
+`SafeMode` governs raw HTML, URL schemes and event-handler attributes; `Profile`
+governs which constructs are allowed at all (four presets, per-feature reasons,
+length caps) and pairs with `LinkPolicy` for destinations. Full recipe, defaults
+table and checklist: [`docs/security.md`](docs/security.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

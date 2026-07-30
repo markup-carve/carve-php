@@ -1,163 +1,120 @@
-# Contributing to djot-php
+# Contributing to carve-php
 
-Thank you for your interest in contributing to djot-php!
+Thanks for your interest in contributing.
 
 ## Getting Started
 
 ```bash
-# Clone the repository
-git clone https://github.com/php-collective/djot-php.git
-cd djot-php
-
-# Install dependencies
+git clone https://github.com/markup-carve/carve-php.git
+cd carve-php
 composer install
+
+# The spec corpus is a submodule; the conformance tests need it.
+git submodule update --init
 ```
+
+Without the submodule, corpus-driven tests fail with "the corpus was not found"
+rather than skipping.
 
 ## Development Workflow
 
 ### Running Tests
 
 ```bash
-# Run all tests
-composer test
-
-# Run only project tests (excludes official djot spec tests)
-vendor/bin/phpunit --testsuite own
-
-# Run only the official djot test suite
-vendor/bin/phpunit --testsuite official
-
-# Run a specific test file
-vendor/bin/phpunit tests/TestCase/DjotConverterTest.php
-
-# Run a specific test method
+composer test                                  # phpunit, the whole suite
+vendor/bin/phpunit tests/TestCase/CarveConverterTest.php
 vendor/bin/phpunit --filter testHeading
 ```
 
-### Test Suites
-
-| Suite | Description |
-|-------|-------------|
-| `default` | All tests |
-| `own` | Project tests only (recommended for development) |
-| `official` | Official djot specification tests |
-
-The `own` suite excludes the official test suite which may have expected failures due to implementation differences.
+There is a single `default` suite covering `tests/`. Part of it is driven by the
+shared spec corpus in `tests/spec`, so a spec bump can change expectations
+without any local edit.
 
 ### Code Style
 
-This project follows PHP Collective coding standards.
+PHP Collective coding standards:
 
 ```bash
-# Check code style
 composer cs-check
-
-# Auto-fix code style issues
-composer cs-fix
+composer cs-fix     # phpcbf, fixes most findings automatically
 ```
 
 ### Static Analysis
 
 ```bash
-# Run PHPStan (level 8)
-composer stan
+composer stan       # phpstan, level 9
 ```
 
-### Full Check
+### Everything at once
 
 ```bash
-# Run all checks (code style + tests)
-composer check
+composer check      # cs-check + test
 ```
 
-## Project Structure
+### Fuzzing
+
+```bash
+composer fuzz         # php-fuzzer against fuzz/target.php
+composer fuzz-strict  # the strict-profile target
+```
+
+Worth running when you touch the parser: crashes and infinite loops surface here
+long before anyone files them.
+
+## Project Layout
 
 ```
 src/
-├── DjotConverter.php       # Main entry point
-├── Parser/
-│   ├── BlockParser.php     # Block-level parsing
-│   └── InlineParser.php    # Inline content parsing
-├── Renderer/
-│   ├── HtmlRenderer.php    # HTML output
-│   ├── PlainTextRenderer.php
-│   └── MarkdownRenderer.php
-├── Node/                   # AST node classes
-│   ├── Block/              # Block-level nodes
-│   └── Inline/             # Inline nodes
-└── Event/
-    └── RenderEvent.php     # Render customization events
+├── CarveConverter.php   # main entry point (parse / render / convert)
+├── Parser/              # block and inline parsing
+├── Node/                # AST node types (Block/, Inline/)
+├── Renderer/            # HTML, Markdown, Carve, ANSI, PlainText
+├── Converter/           # Markdown/HTML/Djot/Bbcode to Carve
+├── Extension/           # opt-in extensions
+├── Transform/           # AST transformers
+├── Lint/                # linting
+├── Profile.php          # allowed constructs for untrusted input
+├── SafeMode.php         # raw HTML / URL / attribute handling
+└── LinkPolicy.php       # link destination rules
 ```
 
 ## Writing Tests
 
-Tests are located in `tests/TestCase/`. Follow the existing patterns:
+Match the shape of the surrounding test class:
 
 ```php
-public function testFeatureName(): void
+public function testHeadingRendersAsH1(): void
 {
-    $djot = "input text";
-    $expected = "<p>expected output</p>\n";
+    $document = $this->converter->parse('# Title');
 
-    $this->assertSame($expected, $this->converter->convert($djot));
+    $this->assertSame("<h1>Title</h1>\n", $this->renderer->render($document));
 }
 ```
 
-For tests that check partial output:
+Two conventions worth knowing:
 
-```php
-public function testFeatureContains(): void
-{
-    $result = $this->converter->convert($djot);
+- Prefer `assertSame()` over `assertEquals()` for rendered strings.
+- If your change affects behavior documented in `docs/`, add or extend the test
+  that pins that documentation - see `tests/TestCase/Documentation/` for the
+  pattern. A wrong security doc is worse than a missing one.
 
-    $this->assertStringContainsString('expected part', $result);
-}
-```
+## Spec Changes
 
-## Documentation Site
+This repository implements the language; it does not define it. Syntax and
+semantics live in [markup-carve/carve](https://github.com/markup-carve/carve)
+(`resources/grammar.ebnf` plus the corpus). If a change would alter what valid
+Carve means, open the discussion there first - the other implementations
+(carve-js, carve-rs, carve-rb, carve-py, carve-go) are held to the same corpus.
 
-The documentation is built with [VitePress](https://vitepress.dev/).
+## Pull Requests
 
-### Local Development
+- One logical change per PR, with a test that fails without it.
+- `composer check` and `composer stan` green.
+- Say what behavior changed in the description; the commit body is where the
+  reasoning belongs.
 
-```bash
-cd docs
-npm install    # Fetches Djot grammar from djot-intellij automatically
-npm run docs:dev
-```
+## Sandbox
 
-This starts a dev server at `http://localhost:5173/djot-php/` with hot reload.
-
-The Djot syntax highlighting grammar is fetched from [djot-intellij](https://github.com/php-collective/djot-intellij) during `npm install` (via postinstall hook), ensuring you always have the latest version.
-
-### Building
-
-```bash
-cd docs
-npm run docs:build
-npm run docs:preview  # Preview the build
-```
-
-## Pull Request Guidelines
-
-1. Create a feature branch from `master`
-2. Write tests for new functionality
-3. Ensure all tests pass: `vendor/bin/phpunit --testsuite own`
-4. Ensure code style passes: `composer cs-check`
-5. Ensure PHPStan passes: `composer stan`
-6. Submit a pull request with a clear description
-
-## Reporting Issues
-
-When reporting bugs, please include:
-
-- PHP version
-- Minimal djot input that reproduces the issue
-- Expected output
-- Actual output
-
-## Resources
-
-- [Djot Syntax Reference](https://djot.net/)
-- [Official Djot Repository](https://github.com/jgm/djot)
-- [Project Documentation](docs/README.md)
+The [Carve sandbox](https://sandbox.dereuromark.de/sandbox/carve) runs this
+implementation live, which makes it a quick way to reproduce a parsing question
+before filing it.
