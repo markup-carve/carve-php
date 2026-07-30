@@ -117,25 +117,87 @@ class FencedCommentFenceTest extends TestCase
         );
     }
 
-    public function testRepeatedUnterminatedFencedCommentsScaleLinearly(): void
+    /**
+     * Every line is a fence opener of a DISTINCT width, so no line can close any
+     * other and each one has to answer "is there a closer ahead?".
+     *
+     * This is the shape a per-width negative cache can never help with, because
+     * each width is seen once. The previous test here repeated ONE width, where
+     * the second line simply closes the first, so it never reached the closer
+     * lookahead at all and passed no matter what that lookahead did.
+     *
+     * The input's own size grows quadratically with the line count (the widths
+     * get longer), so this asserts ELAPSED TIME PER BYTE, which stays flat for a
+     * linear parse. Measured on this input: ~1.4 with a per-opener scan to the
+     * end of the line set, ~0.5 with the width index.
+     */
+    public function testDistinctWidthFenceOpenersDoNotRescanPerOpener(): void
     {
-        $small = str_repeat("%%% x\n", 2000);
-        $large = str_repeat("%%% x\n", 4000);
+        $build = static function (int $n): string {
+            $out = '';
+            for ($i = 0; $i < $n; $i++) {
+                $out .= str_repeat('%', 3 + $i) . "\n\n";
+            }
 
+            return $out;
+        };
+
+        $small = $build(300);
+        $large = $build(600);
+
+        // Warm up so autoloading and JIT are not attributed to the first sample.
         (new CarveConverter())->convert($small);
 
-        $smallStart = hrtime(true);
-        (new CarveConverter())->convert($small);
-        $smallElapsed = hrtime(true) - $smallStart;
+        $perByte = static function (string $src): float {
+            $best = INF;
+            for ($run = 0; $run < 3; $run++) {
+                $start = hrtime(true);
+                (new CarveConverter())->convert($src);
+                $best = min($best, (float)(hrtime(true) - $start));
+            }
 
-        $largeStart = hrtime(true);
-        (new CarveConverter())->convert($large);
-        $largeElapsed = hrtime(true) - $largeStart;
+            return $best / strlen($src);
+        };
+
+        $ratio = $perByte($large) / max($perByte($small), 1e-9);
 
         $this->assertLessThan(
-            3.5,
-            $largeElapsed / max(1, $smallElapsed),
-            sprintf('Expected 2n input to stay near linear; ratio was %.2f.', $largeElapsed / max(1, $smallElapsed)),
+            1.1,
+            $ratio,
+            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
         );
+    }
+
+    public function testFencedCommentInsideABlockQuoteHidesItsBody(): void
+    {
+        $input = "> %%% x\n> hidden\n> %%%\n\nafter\n";
+
+        $this->assertSame(
+            "<blockquote>\n\n</blockquote>\n<p>after</p>\n",
+            (new CarveConverter())->convert($input),
+        );
+    }
+
+    public function testUnterminatedFencedCommentInsideABlockQuoteKeepsTheBody(): void
+    {
+        // No closer inside the quote, so the opener degrades to a line comment
+        // and the quoted body still renders.
+        $input = "> %%% x\n> visible\n\nafter\n";
+
+        $this->assertSame(
+            "<blockquote>\n  <p>visible</p>\n</blockquote>\n<p>after</p>\n",
+            (new CarveConverter())->convert($input),
+        );
+    }
+
+    public function testFencedCommentInABlockQuoteEndsAtABlankLine(): void
+    {
+        // A blank line ends the quote, so a closer after it cannot close the
+        // fence inside it: the opener degrades and the body renders.
+        $input = "> %%% x\n> visible\n\n> %%%\n";
+
+        $html = (new CarveConverter())->convert($input);
+
+        $this->assertStringContainsString('visible', $html);
     }
 }
