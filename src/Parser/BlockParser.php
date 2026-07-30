@@ -199,6 +199,12 @@ class BlockParser
     protected array $sourceLines = [];
 
     /**
+     * The normalized source, kept so a computed span can be verified against
+     * what it actually selects before a node is allowed to carry it.
+     */
+    protected string $normalizedSource = '';
+
+    /**
      * Custom block patterns: array of [pattern => callback]
      * Callback receives (array $lines, int $startIndex, Node $parent, BlockParser $parser)
      * and should return number of lines consumed, or null if not matched
@@ -4904,11 +4910,51 @@ class BlockParser
         $content = rtrim($content, " \t");
 
         $paragraph = new Paragraph();
-        $this->inlineParser->parse($paragraph, $content, $start);
+        $this->inlineParser->parse(
+            $paragraph,
+            $content,
+            $start,
+            sourceMap: $this->contiguousMapFor($start, $lines[$start], $content),
+        );
         $this->applyPendingAttributes($paragraph);
         $parent->appendChild($paragraph);
 
         return $i - $start;
+    }
+
+    /**
+     * A source map for inline text that is a verbatim run of ONE source line.
+     *
+     * The dominant case - a single-line paragraph, a heading, a cell - where the
+     * only difference from the source is leading and trailing whitespace, so the
+     * content sits at a known offset within the line and nothing was joined or
+     * re-indented.
+     *
+     * Returns null the moment that does not hold (a multi-line paragraph, text
+     * the block layer rebuilt). The inline parser then places nothing, which is
+     * what PART 12 section 4 requires of a position it cannot know.
+     */
+    private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
+    {
+        if (!$this->trackPositions || $content === '') {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        $column = strpos($line, $content);
+        if ($column === false) {
+            // Rebuilt rather than sliced - joined continuations, stripped
+            // indentation, an expanded tab.
+            return null;
+        }
+
+        return SourceMap::contiguous($lineStart + $column, strlen($content), $sourceLine + 1, $column + 1)
+            ->withSource($this->normalizedSource);
     }
 
     /**
@@ -5974,6 +6020,7 @@ class BlockParser
         // no longer relates to the document (PART 12 §4).
         $this->lineStartOffsets = [];
         $this->sourceLines = $lines;
+        $this->normalizedSource = $normalized;
         $offset = 0;
         foreach ($lines as $index => $line) {
             $this->lineStartOffsets[$index] = $offset;

@@ -107,4 +107,48 @@ final class SourceMap
 
         return $map;
     }
+
+    /**
+     * The source the offsets index into, when the map was given it.
+     *
+     * Present so a span can be CHECKED before it is used: a computed span is
+     * only correct if the source it selects is the text the node actually
+     * holds. See SourceMap::spanFor().
+     */
+    private ?string $source = null;
+
+    public function withSource(string $source): self
+    {
+        $this->source = $source;
+
+        return $this;
+    }
+
+    /**
+     * A span for `$text` at `$start`, verified against the source.
+     *
+     * The check is the point. A nested parse restarts its cursor at 0 while
+     * still holding the enclosing map, so an inner node would otherwise be
+     * placed at the start of the outer text - a plausible, wrong, silently
+     * wrong position. Comparing the selected bytes to the node's own text
+     * catches that and every other mapping mistake in one place, and turns it
+     * into NO position, which is what PART 12 section 4 asks for when an
+     * implementation cannot place a node honestly.
+     */
+    public function spanFor(int $start, string $text): ?SourceSpan
+    {
+        $span = $this->span($start, $start + strlen($text));
+        if ($span === null) {
+            return null;
+        }
+
+        if ($this->source !== null) {
+            $selected = substr($this->source, $span->startOffset, $span->endOffset - $span->startOffset);
+            if ($selected !== $text) {
+                return null;
+            }
+        }
+
+        return $span;
+    }
 }

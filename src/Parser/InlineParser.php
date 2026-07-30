@@ -440,9 +440,18 @@ class InlineParser
      * @param string $text
      * @param int $sourceLine Source line number (0-indexed) for error reporting
      * @param bool $captionContext
+     * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
      */
-    public function parse(Node $parent, string $text, int $sourceLine = 0, bool $captionContext = false): void
-    {
+    public function parse(
+        Node $parent,
+        string $text,
+        int $sourceLine = 0,
+        bool $captionContext = false,
+        ?SourceMap $sourceMap = null,
+    ): void {
+        $this->sourceMap = $sourceMap;
+        $this->textBufferStart = null;
+        $this->textBufferRewritten = false;
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
         $previousCaptionContext = $this->captionContextEnabled;
@@ -520,6 +529,55 @@ class InlineParser
         }
     }
 
+    /**
+     * Where the text currently buffered started in the built string, so a Text
+     * node can be placed. Null when nothing is buffered.
+     */
+    protected ?int $textBufferStart = null;
+
+    /**
+     * Whether the buffered run contains text that is not a verbatim copy of the
+     * source - a decoded escape, a smart-punctuation glyph, an internal
+     * sentinel. Offsets into it would not line up, so the node gets NO span
+     * rather than a wrong one (PART 12 section 4 forbids invented positions).
+     */
+    protected bool $textBufferRewritten = false;
+
+    protected ?SourceMap $sourceMap = null;
+
+    /**
+     * Give an inline node its span, when it has one honestly.
+     *
+     * Silently does nothing without a map (positions not requested), without a
+     * recorded start (the run began somewhere this parser did not observe), or
+     * when the run was rewritten - none of which is a failure. PART 12 section 4
+     * requires a real position or none, so declining is the correct outcome.
+     */
+    private function placeInline(Node $node, ?int $start, string $text, bool $rewritten): void
+    {
+        if ($this->sourceMap === null || $start === null || $rewritten) {
+            return;
+        }
+
+        $node->setPos($this->sourceMap->spanFor($start, $text));
+    }
+
+    /**
+     * Remember where a buffered run begins, the first time anything lands in it.
+     */
+    private function noteTextStart(string $buffer, int $pos, bool $rewritten = false): void
+    {
+        if ($buffer === '') {
+            $this->textBufferStart = $pos;
+            $this->textBufferRewritten = $rewritten;
+
+            return;
+        }
+        if ($rewritten) {
+            $this->textBufferRewritten = true;
+        }
+    }
+
     protected function parseInlinesImpl(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
     {
         $previousFootnoteRecognition = $this->footnoteRecognitionEnabled;
@@ -547,6 +605,7 @@ class InlineParser
             // appended directly. Byte-identical to falling through every handler
             // (all of which would decline) to the text-buffer append.
             if ($sig !== null && !isset($sig[$char])) {
+                $this->noteTextStart($textBuffer, $pos);
                 $textBuffer .= $char;
                 $pos++;
 
@@ -601,6 +660,7 @@ class InlineParser
                     if ($escaped === ' ') {
                         // Non-breaking space - use placeholder that renderer converts to &nbsp;
                         // We use U+E000 (private use area) to distinguish from literal NBSP
+                        $this->noteTextStart($textBuffer, $pos, rewritten: true);
                         $textBuffer .= "\u{E000}";
                         $pos += 2;
 
@@ -677,6 +737,7 @@ class InlineParser
                     continue;
                 }
                 // Not math, add to buffer
+                $this->noteTextStart($textBuffer, $pos);
                 $textBuffer .= $char;
                 $pos++;
 
@@ -978,6 +1039,7 @@ class InlineParser
 
                 // A lone hyphen is not a substitution; it stays literal text.
                 if ($glyphs === '-') {
+                    $this->noteTextStart($textBuffer, $pos, rewritten: true);
                     $textBuffer .= '-';
                     $pos = $result['pos'];
 
@@ -1040,6 +1102,7 @@ class InlineParser
             }
 
             // Regular character
+            $this->noteTextStart($textBuffer, $pos);
             $textBuffer .= $char;
             $pos++;
         }
@@ -1066,6 +1129,11 @@ class InlineParser
 
     protected function flushText(Node $parent, string $text): void
     {
+        $start = $this->textBufferStart;
+        $rewritten = $this->textBufferRewritten;
+        $this->textBufferStart = null;
+        $this->textBufferRewritten = false;
+
         if ($text === '') {
             return;
         }
@@ -1073,7 +1141,9 @@ class InlineParser
         // Check if there are any abbreviations to process
         $abbreviations = $this->blockParser->getAbbreviations();
         if ($abbreviations === []) {
-            $parent->appendChild(new Text($text));
+            $node = new Text($text);
+            $this->placeInline($node, $start, $text, $rewritten);
+            $parent->appendChild($node);
 
             return;
         }
