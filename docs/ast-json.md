@@ -90,6 +90,11 @@ Field names come from the node class's declared properties, which is what keeps
 the codec complete: a new node type is encodable the day it is added, with no
 table to update and no chance of forgetting one.
 
+> They are the contract for *this* codec, not across implementations. The spec
+> pins a different set - see the PART 12 bullet under
+> [Guarantees and limits](#guarantees-and-limits) before treating this output as
+> portable.
+
 The trade-off is that renaming a property changes the wire format. That is pinned
 by `tests/fixtures/ast-schema.json` plus `AstCodecSchemaTest`: the full
 type-to-fields map is a golden file, so a rename fails CI and has to be either
@@ -128,12 +133,33 @@ does. An unregistered type fails loudly rather than silently dropping content.
 - **Round-trip:** every document in the spec corpus survives encode plus decode
   with byte-identical HTML. `AstCodecTest` asserts this over the whole corpus, so
   it is a standing gate rather than a claim.
-- **Not a spec artifact yet.** This is one implementation's encoding. Sharing it
-  across implementations (so carve-js and carve-rs read the same JSON, and the
-  corpus can assert AST equality rather than only HTML equality) needs the shape
-  adopted in the spec repo - see markup-carve/carve#386.
-- **Source positions are not included** beyond what nodes already carry. The
-  `data-source-line` tier stays a rendering concern.
+- **The spec now pins a shape, and this encoding is not it.** PART 12 of
+  `resources/grammar.ebnf` is normative: field names are spec surface and are
+  carve-js's, every node except the document root carries `pos`, and an
+  implementation whose internals differ is required to map on the way out rather
+  than export them. This codec derives field names from node properties, so it
+  exports `content` where the reference says `value` and `destination` where the
+  reference says `href`, and it emits no `pos` at all. Running the spec repo's
+  `npm run ast:check` against `bin/carve --json` reports 48 findings over 12
+  documents. Tracked in
+  [carve-php#476](https://github.com/markup-carve/carve-php/issues/476) - do not
+  treat this output as portable between implementations until that closes.
+  Round-trip within carve-php is unaffected.
+- **A foreign tree decodes wrongly rather than failing.** Unrecognized keys are
+  ignored and `text.content` has a default, so feeding `--from-json` a carve-js
+  tree of `Text with *bold*.` renders `<p><strong></strong></p>` and exits 0: the
+  text is gone because carve-js writes `value`, not `content`. Until #476 closes,
+  only pass this decoder trees that this codec produced.
+  Until it closes, the cross-implementation goal behind
+  [markup-carve/carve#386](https://github.com/markup-carve/carve/issues/386) -
+  carve-js and carve-rs reading the same JSON, and the corpus asserting AST
+  equality rather than only HTML equality - is blocked on this encoding, not on
+  the spec.
+- **Source positions are not included.** PART 12 §4 requires them and anticipates
+  this: carve-php's nodes do not carry positions, so the codec has none to emit.
+  §4 also says an implementation in that state "MUST NOT emit `pos` with invented
+  values, and MUST NOT omit it silently" - hence this bullet. The
+  `data-source-line` tier stays a separate rendering concern.
 - **Not a security boundary.** Decoding builds a tree from whatever it is given;
   treat decoded input exactly like parsed input and apply `SafeMode` and
   `Profile` when rendering. See [security.md](security.md).
