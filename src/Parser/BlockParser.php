@@ -203,6 +203,13 @@ class BlockParser
     protected ?Node $currentMatcherParent = null;
 
     /**
+     * Negative cache for fenced-comment closer lookahead in the current line set.
+     *
+     * @var array<int, int> Fence length => earliest index known to have no closer at or after it.
+     */
+    protected array $commentNoCloserAtOrAfter = [];
+
+    /**
      * Optional slug transform mirrored onto the parse-time heading-id
      * tracker so implicit `[Heading][]` references agree with the
      * render-time ids (set by AsciiHeadingIdsExtension).
@@ -1446,11 +1453,14 @@ class BlockParser
 
         $this->nestingDepth++;
         $previousLineMap = $this->currentLineMap;
+        $previousCommentNoCloserAtOrAfter = $this->commentNoCloserAtOrAfter;
         $this->currentLineMap = $lineMap;
+        $this->commentNoCloserAtOrAfter = [];
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
         } finally {
             $this->currentLineMap = $previousLineMap;
+            $this->commentNoCloserAtOrAfter = $previousCommentNoCloserAtOrAfter;
             $this->nestingDepth--;
         }
     }
@@ -1950,16 +1960,23 @@ class BlockParser
         }
 
         $fenceLength = $fenceInfo['length'];
+        if (!$this->hasClosingCommentFenceAhead($line, $lines, $start)) {
+            $this->addWarning('Unclosed fenced comment', $start, 1, true);
+
+            return null;
+        }
+
         $contentLines = [];
+        if ($fenceInfo['tail'] !== '') {
+            $contentLines[] = $fenceInfo['tail'];
+        }
         $i = $start + 1;
         $count = count($lines);
-        $closed = false;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
 
             if ($this->fencedBlockParser->isFencedCommentCloser($currentLine, $fenceLength)) {
-                $closed = true;
                 $i++;
 
                 break;
@@ -1967,10 +1984,6 @@ class BlockParser
 
             $contentLines[] = $currentLine;
             $i++;
-        }
-
-        if (!$closed) {
-            $this->addWarning('Unclosed fenced comment', $start, 1, true);
         }
 
         // Trim trailing empty lines but preserve internal blank lines
@@ -2525,8 +2538,11 @@ class BlockParser
                 // the open heading and starts a new one. The bare-`#` line then
                 // forms its own paragraph (it is not itself a heading).
                 break;
-            } elseif (preg_match('/^\^ +.*\S/', $nextLine) || preg_match('/^%{3,}/', $nextLine)) {
-                // A caption (`^ `) or a fenced comment (`%%%`) ends the heading.
+            } elseif (
+                preg_match('/^\^ +.*\S/', $nextLine)
+                || $this->hasClosingCommentFenceAhead($nextLine, $lines, $i)
+            ) {
+                // A caption (`^ `) or a closed fenced comment (`%%%`) ends the heading.
                 break;
             } elseif (
                 preg_match('/^\[[^\]]+\]: [ \t]*\S/', $nextLine)
@@ -2657,7 +2673,7 @@ class BlockParser
 
         $innerLines[] = $content;
         $innerLineMap[] = $this->sourceLineFor($start);
-        $this->trackBlockQuoteLazyState($content, $lazyState);
+        $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start);
 
         $i = $start + 1;
         $count = count($lines);
@@ -2721,7 +2737,7 @@ class BlockParser
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
-                $this->trackBlockQuoteLazyState($content, $lazyState);
+                $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i);
                 $i++;
             } elseif ($lazyState['paragraphOpen'] && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'])) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
@@ -2737,7 +2753,7 @@ class BlockParser
                 // list (endsBlockQuote() handles this via paragraphTextOpen).
                 $innerLines[] = $currentLine;
                 $innerLineMap[] = $this->sourceLineFor($i);
-                $this->trackBlockQuoteLazyState($currentLine, $lazyState);
+                $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i);
                 $i++;
             } else {
                 break;
@@ -2774,8 +2790,10 @@ class BlockParser
      * @param string $content Inner content line (after the "> " marker is stripped).
      * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool,paragraphTextOpen:bool} $state
      *     Running state, mutated in place.
+     * @param array<string> $sourceLines
+     * @param int $sourceIndex
      */
-    private function trackBlockQuoteLazyState(string $content, array &$state): void
+    private function trackBlockQuoteLazyState(string $content, array &$state, array $sourceLines, int $sourceIndex): void
     {
         if ($state['inComment']) {
             if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
@@ -2824,7 +2842,7 @@ class BlockParser
             }
 
             $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($content);
-            if ($commentInfo !== null) {
+            if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
                 $state['inComment'] = true;
                 $state['commentLength'] = $commentInfo['length'];
                 $state['paragraphOpen'] = false;
@@ -5294,8 +5312,8 @@ class BlockParser
                 // Fenced divs interrupt only if a matching closer exists ahead.
                 return $this->hasClosingDivFenceAhead($line, $lines, $index);
             case '%':
-                // Fenced comments: %{3,}
-                return isset($line[1], $line[2]) && $line[1] === '%' && $line[2] === '%';
+                // Fenced comments interrupt only if a matching closer exists ahead.
+                return $this->hasClosingCommentFenceAhead($line, $lines, $index);
             default:
                 // An ordered-list marker does NOT interrupt a paragraph: it
                 // needs a blank line (matching Djot). Allowing it would require
@@ -5328,6 +5346,71 @@ class BlockParser
         // never accept a closer the fence collector would reject (no drift).
         for ($i = $index + 1; $i < $count; $i++) {
             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $char, $length)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function hasClosingCommentFenceAhead(string $line, ?array $lines, ?int $index): bool
+    {
+        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpener($line);
+        if ($fenceInfo === null) {
+            return false;
+        }
+
+        if ($lines === null || $index === null) {
+            return true;
+        }
+
+        $length = $fenceInfo['length'];
+        if (
+            isset($this->commentNoCloserAtOrAfter[$length])
+            && $this->commentNoCloserAtOrAfter[$length] <= $index
+        ) {
+            return false;
+        }
+
+        $count = count($lines);
+        for ($i = $index + 1; $i < $count; $i++) {
+            if ($this->fencedBlockParser->isFencedCommentCloser($lines[$i], $length)) {
+                return true;
+            }
+        }
+
+        $this->commentNoCloserAtOrAfter[$length] = min(
+            $this->commentNoCloserAtOrAfter[$length] ?? $index,
+            $index,
+        );
+
+        return false;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $length
+     * @param int $index
+     */
+    protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
+    {
+        $count = count($lines);
+        for ($i = $index + 1; $i < $count; $i++) {
+            if (IndentationHelper::isBlankLine($lines[$i])) {
+                return false;
+            }
+
+            $content = $this->blockQuoteLineContent($lines[$i]);
+            if ($content === null) {
+                $content = $lines[$i];
+            }
+
+            if ($this->fencedBlockParser->isFencedCommentCloser($content, $length)) {
                 return true;
             }
         }
@@ -5652,7 +5735,7 @@ class BlockParser
         }
 
         // Comment fences (%%%)
-        if (preg_match('/^%{3,}/', $line)) {
+        if ($this->fencedBlockParser->parseFencedCommentOpener($line) !== null) {
             return true;
         }
 

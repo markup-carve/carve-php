@@ -898,7 +898,7 @@ DJOT;
 
     public function testFencedCommentClosingNeedsMatchingLength(): void
     {
-        // Closing fence must have at least as many % as opening
+        // A shorter fence inside the body does not close the comment.
         $djot = "Before\n\n%%%%\ncomment\n%%%\nstill comment\n%%%%\n\nAfter";
 
         $result = $this->converter->convert($djot);

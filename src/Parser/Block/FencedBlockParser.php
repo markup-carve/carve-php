@@ -246,7 +246,7 @@ class FencedBlockParser
      *
      * @param string $line The line to check
      *
-     * @return array{fence: string, length: int}|null
+     * @return array{fence: string, length: int, tail: string}|null
      */
     public function parseFencedCommentOpener(string $line): ?array
     {
@@ -255,14 +255,16 @@ class FencedBlockParser
             return null;
         }
 
-        // Match opening fence: 3+ percent signs
-        if (!preg_match('/^(%{3,})\s*$/', $line, $matches)) {
+        // Match the leading structural run only. Everything after it is an
+        // insignificant tail, not an info string.
+        if (!preg_match('/^(%{3,})(.*)$/', $line, $matches)) {
             return null;
         }
 
         return [
             'fence' => $matches[1],
             'length' => strlen($matches[1]),
+            'tail' => ltrim($matches[2], " \t"),
         ];
     }
 
@@ -270,17 +272,17 @@ class FencedBlockParser
      * Check if a line closes a fenced comment block.
      *
      * @param string $line The line to check
-     * @param int $fenceLength The minimum fence length required
+     * @param int $fenceLength The exact fence length required
      *
      * @return bool True if this line closes the fence
      */
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
-        if (preg_match('/^(%+)\s*$/', $line, $m) !== 1) {
+        if (preg_match('/^(%{3,})/', $line, $m) !== 1) {
             return false;
         }
 
-        return strlen($m[1]) >= $fenceLength;
+        return strlen($m[1]) === $fenceLength;
     }
 
     /**
