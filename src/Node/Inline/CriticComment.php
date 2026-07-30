@@ -28,11 +28,6 @@ class CriticComment extends InlineNode implements ContentNodeInterface
         return $this->content;
     }
 
-    public function setContent(string $content): void
-    {
-        $this->content = $content;
-    }
-
     public function getType(): string
     {
         return 'critic_comment';
