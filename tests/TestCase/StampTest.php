@@ -85,4 +85,68 @@ class StampTest extends TestCase
 
         $this->assertSame($stamped, CarveConverter::toCarve($stamped));
     }
+
+    public function testReadReturnsNullForAnUnstampedDocument(): void
+    {
+        // Hand-written documents are the normal case for this.
+        $this->assertNull(Stamp::read("# Title\n\ntext\n"));
+        $this->assertNull(Stamp::read(''));
+    }
+
+    public function testReadRecognizesTheLineForm(): void
+    {
+        $stamp = Stamp::read("text\n\n%% carve-version: 0.1; generated-by: carve-php 0.1.0\n");
+
+        $this->assertSame(['version' => '0.1', 'generatedBy' => 'carve-php 0.1.0'], $stamp);
+    }
+
+    public function testReadRecognizesTheBlockForm(): void
+    {
+        $source = "text\n\n%%%\ncarve-version: 0.0.9\ngenerated-by: carve-js 0.0.9\n%%%\n";
+
+        $this->assertSame(['version' => '0.0.9', 'generatedBy' => 'carve-js 0.0.9'], Stamp::read($source));
+    }
+
+    public function testReadIgnoresAnUnrelatedTrailingComment(): void
+    {
+        // The marker is identified by carve-version: as its first field, so an
+        // ordinary trailing comment must not be read as provenance.
+        $this->assertNull(Stamp::read("text\n\n%% just a note\n"));
+        $this->assertNull(Stamp::read("text\n\n%%%\njust a note\n%%%\n"));
+    }
+
+    public function testReadToleratesAMissingGeneratedBy(): void
+    {
+        $stamp = Stamp::read("text\n\n%% carve-version: 0.1\n");
+
+        $this->assertSame(['version' => '0.1', 'generatedBy' => null], $stamp);
+    }
+
+    public function testWhatStampCarveWritesIsWhatReadReturns(): void
+    {
+        // The pair has to agree, or the upgrade procedure reads the wrong version.
+        foreach (['line', 'block'] as $form) {
+            $stamped = Stamp::stampCarve("text\n", self::GENERATED_BY, $form);
+            $stamp = Stamp::read($stamped);
+
+            $this->assertNotNull($stamp, sprintf('%s form must be readable', $form));
+            $this->assertSame(CarveConverter::SPEC_VERSION, $stamp['version']);
+            $this->assertSame(self::GENERATED_BY, $stamp['generatedBy']);
+        }
+    }
+
+    public function testNeedsReviewComparesAgainstTheTargetedSpecVersion(): void
+    {
+        $current = "text\n\n%% carve-version: " . CarveConverter::SPEC_VERSION . "; generated-by: x\n";
+
+        $this->assertFalse(Stamp::needsReview($current));
+        $this->assertTrue(Stamp::needsReview("text\n\n%% carve-version: 0.0.9; generated-by: x\n"));
+
+        // Unknown provenance answers true: assuming a document is current is the
+        // unsafe direction.
+        $this->assertTrue(Stamp::needsReview("text\n"));
+
+        // A document from a future version does not need review by this engine.
+        $this->assertFalse(Stamp::needsReview("text\n\n%% carve-version: 99.0; generated-by: x\n"));
+    }
 }

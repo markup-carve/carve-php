@@ -55,6 +55,7 @@ use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\Stamp;
 
 /**
  * Parse command line arguments
@@ -104,6 +105,10 @@ function parseArgs(array $argv): array
             $options['format'] = 'carve';
         } elseif ($arg === '--json' || $arg === '--ast') {
             $options['format'] = 'json';
+        } elseif ($arg === '--stamp-info') {
+            $options['format'] = 'stamp-info';
+        } elseif ($arg === '--stamp-check') {
+            $options['format'] = 'stamp-check';
         } elseif ($arg === '--from-json') {
             $options['fromJson'] = true;
         } elseif ($arg === '-x' || $arg === '--xhtml') {
@@ -226,6 +231,8 @@ Output format (default --html; last one wins):
   --markdown, --md    Markdown
   --plain, --plain-text  plain text
   --json, --ast          the parsed AST as JSON (see docs/ast-json.md)
+  --stamp-info           report the document's provenance marker
+  --stamp-check          exit 1 when the document predates this spec version
   --from-json            read an encoded AST instead of Carve source
   --ansi              ANSI-colored terminal text
   --carve             canonical Carve source
@@ -410,6 +417,32 @@ if ($inputFile !== null) {
         fwrite(STDERR, "Error: Failed to read from stdin\n");
         exit(1);
     }
+}
+
+// The stamp modes answer a question about the document rather than rendering it,
+// so they short-circuit before any converter exists.
+if ($options['format'] === 'stamp-info' || $options['format'] === 'stamp-check') {
+    $stamp = Stamp::read($input);
+    $current = CarveConverter::SPEC_VERSION;
+
+    if ($stamp === null) {
+        fwrite(STDOUT, "unstamped (spec version unknown; this engine targets $current)\n");
+    } else {
+        fwrite(STDOUT, sprintf(
+            "carve-version: %s\ngenerated-by: %s\nthis engine targets: %s\n",
+            $stamp['version'],
+            $stamp['generatedBy'] ?? '(unrecorded)',
+            $current,
+        ));
+    }
+
+    if ($options['format'] === 'stamp-check' && Stamp::needsReview($input, $current)) {
+        fwrite(STDERR, "Review the [behavior] changelog entries between that version and $current.\n");
+
+        exit(1);
+    }
+
+    exit(0);
 }
 
 // Create converter. The non-HTML renderers (Markdown / plain text / ANSI) are
