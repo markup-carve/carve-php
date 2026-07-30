@@ -158,11 +158,12 @@ echo '# Hello' | bin/carve           # render from stdin
 `--html` / `--markdown` (`--md`) / `--plain` (`--plain-text`) / `--ansi` select
 the format. `--json` (`--ast`) emits the parsed AST instead of rendering it, and
 `--from-json` reads an encoded AST instead of Carve source, so a tree can be
-produced by one tool and rendered by another **as long as both use this codec** -
-the encoding is carve-php's own and does not yet match the shape the spec pins in
-PART 12, so a tree from carve-js decodes into the wrong document rather than being
-rejected. See [`docs/ast-json.md`](docs/ast-json.md) and
-[#476](https://github.com/markup-carve/carve-php/issues/476). `--stamp-info` and `--stamp-check`
+produced by one tool and rendered by another. The field names are the ones PART 12
+of the spec pins, so a tree from another engine reads correctly - and one this
+decoder cannot fully understand is rejected rather than silently decoded into the
+wrong document. Source positions are the remaining gap: carve-php's nodes carry
+none, so `--json` writes a note to stderr saying so rather than inventing them.
+See [`docs/ast-json.md`](docs/ast-json.md). `--stamp-info` and `--stamp-check`
 report a document's provenance marker (see below). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.

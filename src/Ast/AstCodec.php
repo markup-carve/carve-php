@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Node;
 use RecursiveDirectoryIterator;
@@ -50,12 +57,20 @@ use SplFileInfo;
 class AstCodec
 {
     /**
-     * Encoding version. Bump when the shape changes in a way consumers must
-     * notice; the spec version of the content itself is a separate concern.
+     * Encoding version.
+     *
+     * NOT emitted: PART 12 §3 forbids exposing a field the reference shape does
+     * not have, and carve-js's document root is `type`, `children`,
+     * `srcByteLength` - no envelope. The shape is spec-defined, so a consumer
+     * does not need to be told which version it is reading.
+     *
+     * It is still read: version 1 used this engine's internal field names
+     * (`content` where the reference says `value`), so a payload announcing it
+     * gets a message naming the change rather than a field-loss error.
      *
      * @var int
      */
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     /**
      * Base-class state that is either structural (children) or not part of the
@@ -105,10 +120,7 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
-        $encoded = $this->encodeNode($document);
-        $encoded['ast'] = self::VERSION;
-
-        return $encoded;
+        return $this->encodeNode($document);
     }
 
     public function encodeJson(Document $document, int $flags = 0): string
@@ -126,8 +138,11 @@ class AstCodec
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
             throw new RuntimeException(sprintf(
-                'Unsupported AST encoding version: %s',
+                'This payload announces AST encoding version %s; this codec writes %d. Version 1 used '
+                    . "this engine's internal field names, which version 2 maps to the PART 12 "
+                    . 'reference shape (`content` became `value`, a list\'s `children` became `items`).',
                 is_scalar($version) ? (string)$version : get_debug_type($version),
+                self::VERSION,
             ));
         }
 
@@ -136,7 +151,87 @@ class AstCodec
             throw new RuntimeException('The payload root must be a document node');
         }
 
+        $this->verifyNothingWasLost($data, $node);
+
         return $node;
+    }
+
+    /**
+     * Re-encode what was just decoded and complain if a field went missing.
+     *
+     * A foreign tree used to decode WRONGLY and exit 0: carve-js writes `value`
+     * where this codec read `content`, unrecognized keys were ignored, and a
+     * missing content field defaulted to an empty string - so every text node
+     * came back empty and nothing said so. PART 12 §6 calls that out: "a
+     * serializer that loses a field is not a lossy convenience; it is a consumer
+     * breaking silently one document later."
+     *
+     * Comparing the re-encoded tree against the input catches exactly that,
+     * including fields lost for reasons nobody predicted. Keys the encoder does
+     * not produce - `pos`, which this engine cannot yet emit - are ignored, so
+     * accepting a conformant tree from another engine stays possible.
+     *
+     * @param array<string, mixed> $input
+     * @param \MarkupCarve\Carve\Node\Document $document
+     *
+     * @throws \RuntimeException When decoding dropped content the input carried.
+     */
+    private function verifyNothingWasLost(array $input, Document $document): void
+    {
+        $lost = [];
+        $this->compareNode($input, $this->encodeNode($document), '', $lost);
+
+        if ($lost !== []) {
+            throw new RuntimeException(sprintf(
+                'Decoding lost %d field(s) the payload carried: %s. The payload may come from an '
+                    . 'engine whose field names differ; this decoder reads the PART 12 shape.',
+                count($lost),
+                implode(', ', array_slice($lost, 0, 6)),
+            ));
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $roundTripped
+     * @param string $path
+     * @param array<string> $lost
+     */
+    private function compareNode(array $input, array $roundTripped, string $path, array &$lost): void
+    {
+        $type = is_string($input['type'] ?? null) ? $input['type'] : '?';
+        $here = $path === '' ? $type : $path . '.' . $type;
+
+        foreach ($input as $key => $value) {
+            if ($key === 'ast' || $key === 'pos') {
+                // Envelope, and a field this engine cannot yet produce (§4).
+                continue;
+            }
+
+            if (!array_key_exists($key, $roundTripped)) {
+                $lost[] = $here . '.' . $key;
+
+                continue;
+            }
+
+            $mirrors = $roundTripped[$key];
+            if (!is_array($value) || !is_array($mirrors) || !is_array($value[0] ?? null)) {
+                continue;
+            }
+
+            foreach ($value as $index => $child) {
+                $mirror = $mirrors[$index] ?? null;
+                if (!is_array($child) || !is_array($mirror)) {
+                    continue;
+                }
+
+                /** @var array<string, mixed> $childNode */
+                $childNode = $child;
+                /** @var array<string, mixed> $mirrorNode */
+                $mirrorNode = $mirror;
+                $this->compareNode($childNode, $mirrorNode, $here . '.' . $key, $lost);
+            }
+        }
     }
 
     public function decodeJson(string $json): Document
@@ -165,9 +260,16 @@ class AstCodec
             $fields = [];
             $required = [];
             foreach (self::stateProperties($reflection) as $property) {
-                $fields[] = $property->getName();
+                // The schema describes the WIRE, so it reports PART 12 field
+                // names; an internal with no reference counterpart is absent
+                // rather than renamed.
+                $field = ReferenceShape::fieldFor($type, $property->getName());
+                if ($field === null) {
+                    continue;
+                }
+                $fields[] = $field;
                 if (!self::defaultFor($reflection, $property)['has']) {
-                    $required[] = $property->getName();
+                    $required[] = $field;
                 }
             }
             $schema[$type] = ['fields' => $fields, 'required' => $required];
@@ -184,6 +286,7 @@ class AstCodec
     {
         $encoded = ['type' => $node->getType()];
 
+        $type = $node->getType();
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
@@ -197,7 +300,14 @@ class AstCodec
                 continue;
             }
 
-            $encoded[$property->getName()] = $this->encodeValue($value);
+            // PART 12 §3: publish the reference field name, and never an
+            // internal the reference does not have.
+            $field = ReferenceShape::fieldFor($type, $property->getName());
+            if ($field === null) {
+                continue;
+            }
+
+            $encoded[$field] = $this->encodeValue($value);
         }
 
         $attributes = $node->getAttributes();
@@ -205,9 +315,16 @@ class AstCodec
             $encoded['attrs'] = $attributes;
         }
 
+        foreach ($this->derivedFields($node) as $field => $derived) {
+            $encoded[$field] = $derived;
+        }
+
         $children = $node->getChildren();
         if ($children !== []) {
-            $encoded['children'] = array_map(fn (Node $child): array => $this->encodeNode($child), $children);
+            $encoded[ReferenceShape::containerFor($type)] = array_map(
+                fn (Node $child): array => $this->encodeNode($child),
+                $children,
+            );
         }
 
         return $encoded;
@@ -217,6 +334,116 @@ class AstCodec
      * Node-valued state (a div's header nodes, a table caption) is encoded the
      * same way as children, so nothing in the tree needs a second format.
      */
+
+    /**
+     * Fields the reference derives from state this engine keeps differently.
+     *
+     * `ordered` is a boolean over a `listType` string, `checked` comes from a
+     * task marker, `header` from a cell flag. They are computed on the way out
+     * and reversed on the way in, rather than exported as internals (PART 12 §3).
+     *
+     * @return array<string, mixed>
+     */
+    private function derivedFields(Node $node): array
+    {
+        if ($node instanceof ListBlock) {
+            return ['ordered' => $node->getListType() === 'ordered'];
+        }
+
+        if ($node instanceof ListItem) {
+            return $node->isTask() ? ['checked' => $node->isCompleted()] : [];
+        }
+
+        if ($node instanceof TableCell) {
+            return ['header' => $node->isHeader()];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, mixed> $data
+     */
+    private function applyDerivedFields(Node $node, array $data): void
+    {
+        if ($node instanceof ListBlock && array_key_exists('ordered', $data)) {
+            self::writeProperty($node, 'listType', $data['ordered'] === true ? 'ordered' : 'bullet');
+
+            return;
+        }
+
+        if ($node instanceof ListItem && array_key_exists('checked', $data)) {
+            self::writeProperty($node, 'taskMarker', $data['checked'] === true ? 'x' : ' ');
+
+            return;
+        }
+
+        if ($node instanceof TableCell && array_key_exists('header', $data)) {
+            self::writeProperty($node, 'isHeader', $data['header'] === true);
+
+            return;
+        }
+
+        if ($node instanceof Div) {
+            // The reference publishes a container's title as inline NODES, and
+            // has no field for this engine's raw title string. Rather than
+            // export an internal (PART 12 §3) or lose the title (§6), the raw
+            // form is recomputed by writing the nodes back to Carve source.
+            $title = $node->getHeaderNodes();
+            if ($title !== [] && $node->getHeader() === null) {
+                self::writeProperty($node, 'header', self::sourceFor($title));
+            }
+
+            return;
+        }
+
+        if ($node instanceof TableRow) {
+            // The reference has no row flag: a header row is one whose cells are
+            // header cells, so recompute rather than invent a field.
+            $cells = $node->getChildren();
+            $allHeaders = $cells !== [];
+            foreach ($cells as $cell) {
+                if (!$cell instanceof TableCell || !$cell->isHeader()) {
+                    $allHeaders = false;
+
+                    break;
+                }
+            }
+            self::writeProperty($node, 'isHeader', $allHeaders);
+        }
+    }
+
+    /**
+     * The Carve source for a run of inline nodes, used to recompute a raw form
+     * the reference does not carry.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    private static function sourceFor(array $nodes): string
+    {
+        $paragraph = new Paragraph();
+        foreach ($nodes as $node) {
+            $paragraph->appendChild($node);
+        }
+
+        $document = new Document();
+        $document->appendChild($paragraph);
+
+        $source = CarveConverter::carve()->getRenderer()->render($document);
+
+        // Undo the block framing the writer adds; only the inline run is wanted.
+        return trim($source);
+    }
+
+    private static function writeProperty(Node $node, string $property, mixed $value): void
+    {
+        $reflection = new ReflectionClass($node);
+        if ($reflection->hasProperty($property)) {
+            $reflection->getProperty($property)->setValue($node, $value);
+        }
+    }
+
     private function encodeValue(mixed $value): mixed
     {
         if ($value instanceof Node) {
@@ -256,7 +483,7 @@ class AstCodec
         $node = $reflection->newInstanceWithoutConstructor();
 
         foreach (self::stateProperties($reflection) as $property) {
-            $name = $property->getName();
+            $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
             if (!array_key_exists($name, $data)) {
                 // Omission means "the default". The constructor was bypassed, so
                 // a typed property without a declared default would otherwise stay
@@ -275,11 +502,14 @@ class AstCodec
             $node->setAttribute((string)$key, $value);
         }
 
+        $container = ReferenceShape::containerFor($type);
         /** @var array<int, array<string, mixed>> $children */
-        $children = is_array($data['children'] ?? null) ? $data['children'] : [];
+        $children = is_array($data[$container] ?? null) ? $data[$container] : [];
         foreach ($children as $child) {
             $node->appendChild($this->decodeNode($child));
         }
+
+        $this->applyDerivedFields($node, $data);
 
         return $node;
     }

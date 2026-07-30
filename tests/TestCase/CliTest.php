@@ -151,7 +151,7 @@ class CliTest extends TestCase
         $decoded = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('document', $decoded['type']);
-        $this->assertSame(1, $decoded['ast']);
+        $this->assertArrayNotHasKey('ast', $decoded, 'the reference root carries no envelope (PART 12 §3)');
         $this->assertSame('heading', $decoded['children'][0]['type']);
     }
 
@@ -181,7 +181,7 @@ class CliTest extends TestCase
     {
         foreach (
             [
-                '{"ast": 99, "type": "document"}' => 'Unsupported AST encoding version',
+                '{"ast": 99, "type": "document"}' => 'AST encoding version',
                 '{not json' => 'Syntax error',
                 '{"type": "document", "children": [{"type": "nope"}]}' => 'Unknown node type',
             ] as $input => $expected

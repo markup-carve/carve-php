@@ -46,11 +46,14 @@ A document:
 
 ```json
 {
-  "ast": 1,
   "type": "document",
+  "srcByteLength": 25,
   "children": [ ... ]
 }
 ```
+
+There is no version envelope: the shape is spec-defined (PART 12), and §3 forbids
+a field the reference does not have.
 
 Any node:
 
@@ -59,7 +62,7 @@ Any node:
   "type": "heading",
   "level": 2,
   "attrs": {"id": "title"},
-  "children": [{"type": "text", "content": "Title"}]
+  "children": [{"type": "text", "value": "Title"}]
 }
 ```
 
@@ -81,24 +84,42 @@ Rules, all of them:
 6. **Node-valued state is encoded like a child.** A div's quoted opener nodes or
    a table caption are nodes, so they use the same shape - no second
    representation anywhere in the format.
-7. **`ast`** is the encoding version, on the root only. A decoder rejects a
-   version it does not know rather than guessing.
+7. **Names are the reference's, not this engine's.** `ReferenceShape` maps them
+   on the way out: `content` is published as `value`, `destination` as `href`, a
+   list's children as `items`. Internals the reference has no field for are not
+   exported at all; the decoder recomputes them.
 
-## Field names are the contract
+## Field names are spec surface
 
-Field names come from the node class's declared properties, which is what keeps
-the codec complete: a new node type is encodable the day it is added, with no
-table to update and no chance of forgetting one.
+PART 12 §3 makes the field names normative and takes them from carve-js: a
+consumer reading `href` must not have to know which engine produced the tree.
+This engine's internals differ, so `src/Ast/ReferenceShape.php` maps between the
+two in one table:
 
-> They are the contract for *this* codec, not across implementations. The spec
-> pins a different set - see the PART 12 bullet under
-> [Guarantees and limits](#guarantees-and-limits) before treating this output as
-> portable.
+| what this engine calls it | what goes on the wire |
+|---|---|
+| `text.content`, `code.content` | `value` |
+| `link.destination` | `href` |
+| `image.source` | `src` |
+| `code_block.language` | `lang` |
+| `footnote.label` | `id` |
+| a list's `children` | `items` |
+| a table's / row's `children` | `rows` / `cells` |
 
-The trade-off is that renaming a property changes the wire format. That is pinned
-by `tests/fixtures/ast-schema.json` plus `AstCodecSchemaTest`: the full
-type-to-fields map is a golden file, so a rename fails CI and has to be either
-reverted or accepted with a deliberate `AstCodec::VERSION` bump.
+Three kinds of difference exist, and only the first is a rename. Containers
+publish their children under another key. Derived state converts in both
+directions: `ordered` is a boolean over an internal `listType` string, `checked`
+comes from a task marker, a cell's `header` from its flag.
+
+Internal fields the reference has no counterpart for are **not** exported (§3) -
+a div's raw header string, a row's `isHeader`, a fence's width. Each is listed in
+`ReferenceShape::INTERNAL_ONLY` so the omission is a decision rather than an
+oversight, and each must be *recomputable*, or the §6 round trip would break.
+That constraint is what the corpus gate enforces.
+
+The wire shape is pinned by `tests/fixtures/ast-schema.json` plus
+`AstCodecSchemaTest`: the full type-to-fields map is a golden file, so a change
+fails CI and has to be either reverted or accepted deliberately.
 
 Some fields have no default at all - neither a property nor a constructor one -
 so a payload must carry them. Omitting one is an error rather than a guess,
@@ -133,33 +154,23 @@ does. An unregistered type fails loudly rather than silently dropping content.
 - **Round-trip:** every document in the spec corpus survives encode plus decode
   with byte-identical HTML. `AstCodecTest` asserts this over the whole corpus, so
   it is a standing gate rather than a claim.
-- **The spec now pins a shape, and this encoding is not it.** PART 12 of
-  `resources/grammar.ebnf` is normative: field names are spec surface and are
-  carve-js's, every node except the document root carries `pos`, and an
-  implementation whose internals differ is required to map on the way out rather
-  than export them. This codec derives field names from node properties, so it
-  exports `content` where the reference says `value` and `destination` where the
-  reference says `href`, and it emits no `pos` at all. Running the spec repo's
-  `npm run ast:check` against `bin/carve --json` reports 48 findings over 12
-  documents. Tracked in
-  [carve-php#476](https://github.com/markup-carve/carve-php/issues/476) - do not
-  treat this output as portable between implementations until that closes.
-  Round-trip within carve-php is unaffected.
-- **A foreign tree decodes wrongly rather than failing.** Unrecognized keys are
-  ignored and `text.content` has a default, so feeding `--from-json` a carve-js
-  tree of `Text with *bold*.` renders `<p><strong></strong></p>` and exits 0: the
-  text is gone because carve-js writes `value`, not `content`. Until #476 closes,
-  only pass this decoder trees that this codec produced.
-  Until it closes, the cross-implementation goal behind
-  [markup-carve/carve#386](https://github.com/markup-carve/carve/issues/386) -
-  carve-js and carve-rs reading the same JSON, and the corpus asserting AST
-  equality rather than only HTML equality - is blocked on this encoding, not on
-  the spec.
-- **Source positions are not included.** PART 12 §4 requires them and anticipates
-  this: carve-php's nodes do not carry positions, so the codec has none to emit.
-  §4 also says an implementation in that state "MUST NOT emit `pos` with invented
-  values, and MUST NOT omit it silently" - hence this bullet. The
-  `data-source-line` tier stays a separate rendering concern.
+- **Field names match the spec; positions do not exist yet.** Running the spec
+  repo's `npm run ast:check` against `bin/carve --json` reports **23 findings over
+  12 documents, every one of them a missing `pos`** - down from 48, with the
+  shape findings gone. PART 12 §4 requires `pos` on every node but the root and
+  anticipates this state exactly, calling it "a scheduling note": carve-php's
+  nodes carry no positions, so the codec has none to emit, and §4 forbids
+  inventing them. It also forbids omitting them *silently*, so `--json` writes a
+  note to stderr saying the output is not conformant. Tracked in
+  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); position
+  tracking is a parser change, not a codec one.
+- **A foreign tree is rejected, not decoded wrongly.** The decoder re-encodes what
+  it built and compares against the input, so a field it did not understand is an
+  error naming the field rather than silent loss. This replaces a real failure:
+  a carve-js tree of `Text with *bold*.` used to render `<p><strong></strong></p>`
+  and exit 0, because carve-js writes `value` where this codec read `content` and
+  the missing field defaulted to empty. Keys this engine cannot produce - `pos` -
+  are ignored, so a conformant tree from another engine is still accepted.
 - **Not a security boundary.** Decoding builds a tree from whatever it is given;
   treat decoded input exactly like parsed input and apply `SafeMode` and
   `Profile` when rendering. See [security.md](security.md).
