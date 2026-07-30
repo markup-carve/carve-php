@@ -54,6 +54,12 @@
         ],
         "required": []
     },
+    "critic_comment": {
+        "fields": [
+            "text"
+        ],
+        "required": []
+    },
     "definition_description": {
         "fields": [],
         "required": []

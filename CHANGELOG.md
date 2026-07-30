@@ -7,6 +7,41 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (AST): an editorial comment is now a `critic_comment` node.** It
+  was a `span` carrying a `critic-comment` class, so this engine's tree
+  disagreed with the reference for the same document and nothing keyed by node
+  type - a profile, a schema bridge - could name it. It is its own type for the
+  reason an autolink is not a link: the two are written differently and a
+  formatter has to reproduce which one the author used
+  (markup-carve/carve#401). The encoded field is `text`, matching the
+  reference.
+
+  Rendered output does not change on any target. HTML still emits
+  `<span class="critic-comment">`, which is user-visible styling that
+  stylesheets and syntax themes select on, so it does not follow the AST
+  vocabulary. Markdown, plain, ANSI and Carve output are byte-identical.
+
+  The ProseMirror bridge gains a `carveCriticComment` mark, joining
+  `carveInsert` and `carveDelete`. Without it the node had no mapping and its
+  text would have been dropped from the editor model.
+
+  One behavior does change, and removes a divergence: an editorial comment no
+  longer contributes to a generated heading id. `# Title {#note#} tail`
+  produced `Title-note-tail` here and `Title-tail` in the reference, because the
+  slugger walked into the span and folded the commentary into the slug. An
+  aside is not part of the heading, so the reference is right.
+
+### Fixed
+
+- **A full profile no longer drops a substitution.** `Profile::full()` denied
+  `{~old~>new~}` and rendered it as nothing, losing both texts, because
+  `substitution` was never registered in the profile vocabulary and an
+  unregistered type is denied rather than allowed. Found while registering
+  `critic_comment`, which needed the same entry. Two corpus documents render
+  correctly under a full profile that did not before.
+
 ### Fixed
 
 - **A document full of comment-fence openers with distinct widths no longer

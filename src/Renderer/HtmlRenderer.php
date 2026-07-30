@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -214,6 +215,7 @@ class HtmlRenderer implements RendererInterface
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
+            CriticComment::class => 'renderCriticComment',
             Highlight::class => 'renderHighlight',
             Superscript::class => 'renderSuperscript',
             Subscript::class => 'renderSubscript',
@@ -1574,6 +1576,17 @@ class HtmlRenderer implements RendererInterface
         $attrs = $this->renderAttributes($node);
 
         return '<span' . $attrs . '>' . $this->renderChildren($node) . '</span>';
+    }
+
+    /**
+     * The class is `critic-comment`, hyphenated, while the node type is
+     * `critic_comment`. That is deliberate: the class is user-visible styling
+     * that stylesheets and syntax themes select on, so it does not move when
+     * the AST vocabulary does.
+     */
+    protected function renderCriticComment(CriticComment $node): string
+    {
+        return '<span class="critic-comment">' . $this->escape($node->getContent()) . '</span>';
     }
 
     protected function renderHighlight(Highlight $node): string

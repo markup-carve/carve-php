@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -2552,7 +2553,7 @@ class InlineParser
     }
 
     /**
-     * Editorial comment {# ... #} -> <span class="critic-comment">…</span>.
+     * Editorial comment {# ... #} -> a `critic_comment` node.
      * Content is literal (spaces preserved), matching carve-js.
      *
      * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
@@ -2572,11 +2573,9 @@ class InlineParser
         if ($close === false) {
             return null;
         }
-        $span = new Span();
-        $span->addClass('critic-comment');
-        $span->appendChild(new Text(substr($text, $pos + 2, $close - $pos - 2)));
+        $comment = new CriticComment(substr($text, $pos + 2, $close - $pos - 2));
 
-        return ['node' => $span, 'pos' => $close + 2];
+        return ['node' => $comment, 'pos' => $close + 2];
     }
 
     /**

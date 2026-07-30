@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -215,13 +216,15 @@ class ProseMirrorRenderer
                 continue;
             }
 
-            if ($node instanceof Code) {
+            if ($node instanceof Code || $node instanceof CriticComment) {
                 // Same asymmetry inline: Carve holds the text on the node, while
-                // ProseMirror wants a text node carrying a `code` mark.
+                // ProseMirror wants a text node carrying a mark. Both of these
+                // have literal content and no children, so descending as a mark
+                // would emit an empty element and lose the text.
                 $out[] = [
                     'type' => 'text',
                     'text' => $node->getContent(),
-                    'marks' => [...$marks, ['type' => (string)SchemaMap::nameFor('code')]],
+                    'marks' => [...$marks, ['type' => (string)SchemaMap::nameFor($type)]],
                 ];
 
                 continue;

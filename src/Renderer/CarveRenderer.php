@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -933,7 +934,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
-            $node instanceof Span && $node->hasClass('critic-comment') => '{#' . $this->escapeCriticText($this->plainInlineText($node)) . '#}',
+            $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->renderMath($node)),
             $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',

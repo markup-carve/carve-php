@@ -40,6 +40,9 @@ final class ReferenceShape
         'text' => ['content' => 'value'],
         'code' => ['content' => 'value'],
         'escaped_text' => ['content' => 'value'],
+        // The reference calls it `text` here, not `value`: the content is
+        // literal, so it is closer to a footnote's label than to a text node.
+        'critic_comment' => ['content' => 'text'],
         'code_block' => ['content' => 'content', 'language' => 'lang'],
         'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref'],
         'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref'],

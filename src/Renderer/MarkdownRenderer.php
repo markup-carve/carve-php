@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -380,6 +381,10 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Insert => $this->renderInsert($node),
                 $node instanceof Delete => $this->renderDelete($node),
                 $node instanceof Substitution => $this->renderSubstitution($node),
+                // Markdown has no critic syntax, so the text is what degrades
+                // gracefully. Dropping it would make two targets of one engine
+                // disagree about whether the document says it.
+                $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
                 $node instanceof Span => $this->renderSpan($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',

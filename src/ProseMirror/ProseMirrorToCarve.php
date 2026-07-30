@@ -24,6 +24,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
@@ -64,6 +65,18 @@ use RuntimeException;
  */
 class ProseMirrorToCarve
 {
+    /**
+     * Carve types that hold their content as a string and take a ProseMirror
+     * MARK rather than a node, so the text arrives on a text node and has to be
+     * lifted back onto the Carve node.
+     *
+     * @var array<string, class-string<\MarkupCarve\Carve\Node\Inline\InlineNode>>
+     */
+    private const CONTENT_BEARING_MARKS = [
+        'code' => Code::class,
+        'critic_comment' => CriticComment::class,
+    ];
+
     /**
      * @param array<string, mixed> $document
      *
@@ -213,10 +226,17 @@ class ProseMirrorToCarve
         foreach ($nodes as $node) {
             $previous = $merged[count($merged) - 1] ?? null;
 
+            // A content-bearing mark never merges. Its text lives on the node
+            // rather than in children, so appending children would silently drop
+            // the second one's content - and merging would be wrong even if it
+            // were lossless, since `{#a#}{#b#}` is two comments, not one.
+            $mergeable = SchemaMap::isMark($node->getType())
+                && !isset(self::CONTENT_BEARING_MARKS[$node->getType()]);
+
             if (
                 $previous !== null
                 && $previous::class === $node::class
-                && SchemaMap::isMark($node->getType())
+                && $mergeable
                 && $previous->getAttributes() === $node->getAttributes()
             ) {
                 foreach ($node->getChildren() as $child) {
@@ -228,7 +248,7 @@ class ProseMirrorToCarve
                 continue;
             }
 
-            if (SchemaMap::isMark($node->getType())) {
+            if ($mergeable) {
                 $this->replaceChildren($node, $this->mergeAdjacentMarks($node->getChildren()));
             }
 
@@ -276,23 +296,24 @@ class ProseMirrorToCarve
             $text = self::asString($data['text'] ?? '');
             $marks = is_array($data['marks'] ?? null) ? $data['marks'] : [];
 
-            // `code` is a mark in ProseMirror but a content-bearing node in Carve:
-            // the text belongs on the node, and appending it as a child would
-            // render an empty <code>.
-            $codeIndex = null;
-            foreach ($marks as $index => $mark) {
-                if (is_array($mark) && ($mark['type'] ?? null) === SchemaMap::nameFor('code')) {
-                    $codeIndex = $index;
+            // `code` and `critic_comment` are marks in ProseMirror but
+            // content-bearing nodes in Carve: the text belongs on the node, and
+            // appending it as a child would render an empty element.
+            foreach (self::CONTENT_BEARING_MARKS as $carveType => $class) {
+                $markIndex = null;
+                foreach ($marks as $index => $mark) {
+                    if (is_array($mark) && ($mark['type'] ?? null) === SchemaMap::nameFor($carveType)) {
+                        $markIndex = $index;
 
-                    break;
+                        break;
+                    }
                 }
-            }
 
-            if ($codeIndex !== null) {
-                $code = new Code($text);
-                unset($marks[$codeIndex]);
+                if ($markIndex !== null) {
+                    unset($marks[$markIndex]);
 
-                return [$this->wrapInMarks($code, array_values($marks))];
+                    return [$this->wrapInMarks(new $class($text), array_values($marks))];
+                }
             }
 
             return [$this->wrapInMarks(new Text($text), $marks)];
