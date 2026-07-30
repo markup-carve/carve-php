@@ -534,7 +534,10 @@ class AnsiRenderer implements RendererInterface
             3 => self::FG_BRIGHT_BLUE,
             4 => self::FG_BRIGHT_GREEN,
             5 => self::FG_BRIGHT_YELLOW,
-            default => self::FG_WHITE,
+            // Levels 1-5 are all BRIGHT variants, so level 6 is too. Plain white
+            // here broke the engine's own series and was the only heading colour
+            // the other two engines disagreed with (carve#352, corpus 02).
+            default => self::FG_BRIGHT_WHITE,
         };
 
         $styled = $this->style($content, self::BOLD . $color);
@@ -915,7 +918,19 @@ class AnsiRenderer implements RendererInterface
         // Format: \033]8;;URL\033\\TEXT\033]8;;\033\\
         $styled = $this->style($text, self::UNDERLINE . self::FG_BLUE);
 
-        if ($url !== null && $url !== '' && $url !== $text && !str_starts_with($url, '#')) {
+        // The target is shown alongside the text only when the author wrote
+        // something DIFFERENT from it. An autolink's visible text IS its target,
+        // so there is nothing to add -- and for an email autolink the `mailto:`
+        // was added by the parser, never written: the grammar's DISPLAY TEXT rule
+        // says that scheme goes on the href only, so showing it to the reader put
+        // it exactly where it must not appear (carve#352, corpus 03-links-5 and
+        // 36-autolinks).
+        $showTarget = $url !== null
+            && $url !== ''
+            && $url !== $text
+            && !$node->isAutolink()
+            && !str_starts_with($url, '#');
+        if ($showTarget) {
             $styled .= $this->style(' (' . $this->stripControls($url) . ')', self::DIM);
         }
 

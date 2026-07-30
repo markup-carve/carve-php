@@ -317,20 +317,33 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('> This is quoted text.', $result);
     }
 
-    public function testThematicBreak(): void
+    /**
+     * Every marker renders as `---`, whichever one the author wrote.
+     *
+     * The marker is not part of the canonical AST -- carve-js, whose shape PART 12
+     * pins, has no field for it -- and this engine's own canonical writer
+     * normalizes it too, so reproducing it here made the Markdown target disagree
+     * with the Carve target of the same document (carve#352).
+     */
+    public function testThematicBreakIsNormalizedToDashes(): void
     {
-        $djot = "Above\n\n***\n\nBelow";
-        $document = $this->converter->parse($djot);
-        $result = $this->renderer->render($document);
+        foreach (['***', '---', '___'] as $marker) {
+            $document = $this->converter->parse("Above\n\n{$marker}\n\nBelow");
+            $result = $this->renderer->render($document);
 
-        $this->assertStringContainsString('***', $result);
+            $this->assertStringContainsString('---', $result, "authored as {$marker}");
+            $this->assertStringNotContainsString('***', $result, "authored as {$marker}");
+            $this->assertStringNotContainsString('___', $result, "authored as {$marker}");
+        }
+    }
 
-        // Test with dashes
-        $djot = "Above\n\n---\n\nBelow";
-        $document = $this->converter->parse($djot);
-        $result = $this->renderer->render($document);
+    public function testThematicBreakAgreesWithTheCarveTarget(): void
+    {
+        $source = "Above\n\n***\n\nBelow\n";
+        $markdown = $this->renderer->render($this->converter->parse($source));
 
-        $this->assertStringContainsString('---', $result);
+        $this->assertStringContainsString('---', $markdown);
+        $this->assertStringContainsString('---', CarveConverter::toCarve($source));
     }
 
     public function testTable(): void
@@ -668,8 +681,8 @@ DJOT;
             ],
             'thematic_break_star' => [
                 "Above\n\n***\n\nBelow",
-                "Above\n\n***\n\nBelow",
-                'Thematic break with stars should round-trip',
+                "Above\n\n---\n\nBelow",
+                'Thematic break markers normalize to dashes',
             ],
         ];
     }

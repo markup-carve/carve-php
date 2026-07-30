@@ -294,7 +294,14 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof DefinitionList => $this->renderDefinitionList($node),
                 $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
                 $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
-                $node instanceof ThematicBreak => str_repeat($node->char, 3) . "\n\n",
+                // Always `---`, not the authored marker. The marker is not part
+                // of the canonical AST -- carve-js, whose shape PART 12 pins, has
+                // no field for it -- and this engine's OWN canonical writer
+                // normalizes it too, so reproducing it here made the Markdown
+                // target disagree with the Carve target of the same document
+                // (carve#352, corpus 34 and 130). All three markers render as one
+                // `<hr>`, so nothing is lost.
+                $node instanceof ThematicBreak => "---\n\n",
                 $node instanceof Div => $this->renderDiv($node),
                 $node instanceof Table => $this->renderTable($node),
                 $node instanceof LineBlock => $this->renderLineBlock($node),
