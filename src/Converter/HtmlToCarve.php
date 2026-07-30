@@ -47,9 +47,30 @@ class HtmlToCarve
      */
     protected bool $trustedRoundTrip = false;
 
-    public function __construct(bool $trustedRoundTrip = false)
+    /**
+     * Maps a CSS `text-align` value to the class name that should carry it.
+     *
+     * Empty by default: `style` is skipped wholesale, so block alignment is
+     * dropped. Table cells are the exception - alignment there has a native
+     * Carve representation and extractTableCellAlignment() always reads it.
+     *
+     * Editors that produce alignment as inline CSS (Tiptap's TextAlign, Word,
+     * Google Docs) otherwise lose it on import. The class names stay the
+     * caller's choice because they belong to the consuming stylesheet, not to
+     * Carve: e.g. ['center' => 'text-center', 'right' => 'text-right'].
+     *
+     * @var array<string, string>
+     */
+    protected array $alignmentClasses = [];
+
+    /**
+     * @param bool $trustedRoundTrip
+     * @param array<string, string> $alignmentClasses text-align value => class name
+     */
+    public function __construct(bool $trustedRoundTrip = false, array $alignmentClasses = [])
     {
         $this->trustedRoundTrip = $trustedRoundTrip;
+        $this->alignmentClasses = array_change_key_case($alignmentClasses);
     }
 
     protected int $listDepth = 0;
@@ -1965,6 +1986,32 @@ class HtmlToCarve
         return $output . "\n";
     }
 
+    /**
+     * The class configured for this element's inline `text-align`, or null when
+     * the feature is off, the element carries no alignment, or the value has no
+     * configured class (an unmapped value is dropped rather than guessed at).
+     */
+    protected function extractAlignmentClass(DOMElement $node): ?string
+    {
+        if ($this->alignmentClasses === []) {
+            return null;
+        }
+
+        // Cells are handled by extractTableCellAlignment(), which maps alignment
+        // onto the native separator markers. Adding a class as well would emit
+        // the same information twice, in two different mechanisms.
+        if ($node->tagName === 'td' || $node->tagName === 'th') {
+            return null;
+        }
+
+        $style = $node->getAttribute('style');
+        if ($style === '' || preg_match('/text-align\s*:\s*([A-Za-z-]+)/i', $style, $matches) !== 1) {
+            return null;
+        }
+
+        return $this->alignmentClasses[strtolower($matches[1])] ?? null;
+    }
+
     protected function extractTableCellAlignment(DOMElement $cell): string
     {
         $style = $cell->getAttribute('style');
@@ -2332,6 +2379,11 @@ class HtmlToCarve
                         }
                     }
                 }
+            }
+
+            $alignmentClass = $this->extractAlignmentClass($node);
+            if ($alignmentClass !== null) {
+                $parts[] = '.' . $alignmentClass;
             }
         }
 
