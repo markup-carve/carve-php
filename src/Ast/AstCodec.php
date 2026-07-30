@@ -81,7 +81,7 @@ class AstCodec
      *
      * @var array<string>
      */
-    private const BASE_PROPERTIES = ['parent', 'children', 'attributes', 'attributeOrder'];
+    private const BASE_PROPERTIES = ['parent', 'children', 'attributes', 'attributeOrder', 'pos'];
 
     /**
      * @var array<string, class-string<\MarkupCarve\Carve\Node\Node>>|null
@@ -623,6 +623,16 @@ class AstCodec
         }
 
         $this->applyDerivedFields($node, $data);
+
+        // PART 12 §4. Handled here rather than through the reflection walk: the
+        // spec gives `pos` a defined shape, so it converts to the value object
+        // instead of being assigned raw. This engine cannot yet PRODUCE spans
+        // for every node, but it can carry one it is given.
+        if (is_array($data['pos'] ?? null)) {
+            /** @var array<string, mixed> $span */
+            $span = $data['pos'];
+            $node->setPos(SourceSpan::fromArray($span));
+        }
 
         return $node;
     }

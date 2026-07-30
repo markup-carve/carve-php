@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node;
 
+use MarkupCarve\Carve\Ast\SourceSpan;
+
 /**
  * Base class for all AST nodes
  */
@@ -27,6 +29,25 @@ abstract class Node
      * @var list<string>
      */
     protected array $attributeOrder = [];
+
+    /**
+     * Where this node came from, when the parser recorded it.
+     *
+     * Null is a real answer, not a placeholder: PART 12 §4 forbids emitting a
+     * span with invented values, so a node the parser could not place honestly
+     * carries none and the serializer omits `pos` for it.
+     */
+    protected ?SourceSpan $pos = null;
+
+    public function getPos(): ?SourceSpan
+    {
+        return $this->pos;
+    }
+
+    public function setPos(?SourceSpan $pos): void
+    {
+        $this->pos = $pos;
+    }
 
     public function appendChild(Node $child): void
     {

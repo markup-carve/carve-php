@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use Closure;
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -180,6 +181,24 @@ class BlockParser
     protected int $lineOffset = 0;
 
     /**
+     * Byte offset of each line's first character in the normalized source.
+     *
+     * Keyed by index into the top-level line array, so it is only meaningful
+     * alongside a line map that resolves back to that array.
+     *
+     * @var array<int, int>
+     */
+    protected array $lineStartOffsets = [];
+
+    /**
+     * The normalized top-level source lines, kept so a block span can measure
+     * where its last line ends.
+     *
+     * @var array<int, string>
+     */
+    protected array $sourceLines = [];
+
+    /**
      * Custom block patterns: array of [pattern => callback]
      * Callback receives (array $lines, int $startIndex, Node $parent, BlockParser $parser)
      * and should return number of lines consumed, or null if not matched
@@ -250,6 +269,17 @@ class BlockParser
     protected bool $trackSourceLines = false;
 
     /**
+     * When true, nodes carry a full PART 12 §4 source span.
+     *
+     * Separate from trackSourceLines, which stamps a `data-source-line`
+     * ATTRIBUTE for editor scroll-sync and is line-granular. A span is AST
+     * state, carries all six fields, and never reaches rendered output.
+     *
+     * @var bool
+     */
+    protected bool $trackPositions = false;
+
+    /**
      * Per-line map for the line array currently being parsed.
      *
      * @var array<int, int>|null
@@ -260,10 +290,12 @@ class BlockParser
         bool $collectWarnings = false,
         bool $strictMode = false,
         bool $trackSourceLines = false,
+        bool $trackPositions = false,
     ) {
         $this->collectWarnings = $collectWarnings;
         $this->strictMode = $strictMode;
         $this->trackSourceLines = $trackSourceLines;
+        $this->trackPositions = $trackPositions;
         $this->inlineParser = new InlineParser($this);
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
@@ -1512,7 +1544,8 @@ class BlockParser
             // how many children the parent had, so newly appended blocks can be
             // stamped with `data-source-line` after the dispatch below.
             $sourceLine = $this->sourceLineFor($i);
-            $childrenBefore = ($this->trackSourceLines && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
+            $tracking = $this->trackSourceLines || $this->trackPositions;
+            $childrenBefore = ($tracking && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
 
             // A bare `---` at the very start of the document is ambiguous between
             // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
@@ -1589,7 +1622,15 @@ class BlockParser
 
             $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
-            $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+            // The block ran from $i to $i + $consumed - 1 in THIS line array;
+            // resolve the last one back to the top-level array the offsets are
+            // keyed by, the same way the first one was.
+            $this->stampSourceLine(
+                $parent,
+                $childrenBefore,
+                $sourceLine,
+                $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+            );
             $i += $consumed;
         }
     }
@@ -1607,10 +1648,11 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
      * @param int $sourceLine 0-indexed original source line; emitted as 1-based (+1).
+     * @param int $endLine
      *
      * @return void
      */
-    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine): void
+    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine, int $endLine = -1): void
     {
         if ($childrenBefore < 0 || $sourceLine < 0) {
             return;
@@ -1619,13 +1661,48 @@ class BlockParser
         $children = $parent->getChildren();
         $total = count($children);
         for ($k = $childrenBefore; $k < $total; $k++) {
-            if (!$this->canStampSourceLine($children[$k])) {
+            if ($this->trackPositions) {
+                $this->stampBlockSpan($children[$k], $sourceLine, $endLine < 0 ? $sourceLine : $endLine);
+            }
+            if (!$this->trackSourceLines || !$this->canStampSourceLine($children[$k])) {
                 continue;
             }
             if ($children[$k]->getAttribute('data-source-line') === null) {
                 $children[$k]->setAttribute('data-source-line', (string)($sourceLine + 1));
             }
         }
+    }
+
+    /**
+     * Give a block the span covering the source lines it was parsed from.
+     *
+     * Only set when both ends resolve to a recorded line, and never overwritten:
+     * a parser that already placed a node more precisely than "these whole
+     * lines" knows better than this does.
+     */
+    private function stampBlockSpan(Node $node, int $startLine, int $endLine): void
+    {
+        if ($node->getPos() !== null) {
+            return;
+        }
+
+        $start = $this->lineStartOffsets[$startLine] ?? null;
+        $end = $this->lineStartOffsets[$endLine] ?? null;
+        if ($start === null || $end === null) {
+            // Synthesized content (a footnote section, a resolved reference)
+            // has no line of its own. §4 forbids inventing one.
+            return;
+        }
+
+        $endOffset = $end + strlen($this->sourceLines[$endLine] ?? '');
+        $node->setPos(new SourceSpan(
+            startLine: $startLine + 1,
+            endLine: $endLine + 1,
+            startColumn: 1,
+            endColumn: ($endOffset - $end) + 1,
+            startOffset: $start,
+            endOffset: $endOffset,
+        ));
     }
 
     private function stampNodeSourceLine(Node $node, int $sourceLine): void
@@ -5888,7 +5965,22 @@ class BlockParser
      */
     protected function splitLines(string $input): array
     {
-        return explode("\n", str_replace(["\r\n", "\r"], "\n", $input));
+        $normalized = str_replace(["\r\n", "\r"], "\n", $input);
+        $lines = explode("\n", $normalized);
+
+        // Record where each line starts in the NORMALIZED source, while the
+        // information still exists. After this point the block layer strips
+        // indentation and re-joins lines, and a byte offset into what it builds
+        // no longer relates to the document (PART 12 §4).
+        $this->lineStartOffsets = [];
+        $this->sourceLines = $lines;
+        $offset = 0;
+        foreach ($lines as $index => $line) {
+            $this->lineStartOffsets[$index] = $offset;
+            $offset += strlen($line) + 1;
+        }
+
+        return $lines;
     }
 
     /**
