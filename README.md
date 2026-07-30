@@ -99,7 +99,10 @@ echo '# Hello' | bin/carve           # render from stdin
 ~~~
 
 `--html` / `--markdown` (`--md`) / `--plain` (`--plain-text`) / `--ansi` select
-the format. `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
+the format. `--json` (`--ast`) emits the parsed AST instead of rendering it, and
+`--from-json` reads an encoded AST instead of Carve source, so a tree can be
+produced by one tool and rendered by another - see
+[`docs/ast-json.md`](docs/ast-json.md). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.
 

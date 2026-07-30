@@ -45,6 +45,7 @@ if (!$autoloaderFound) {
     exit(1);
 }
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
@@ -66,6 +67,7 @@ function parseArgs(array $argv): array
     $options = [
         'output' => null,
         'format' => 'html',
+        'fromJson' => false,
         'xhtml' => false,
         'safe' => false,
         'static' => false,
@@ -100,6 +102,10 @@ function parseArgs(array $argv): array
             $options['format'] = 'ansi';
         } elseif ($arg === '--carve') {
             $options['format'] = 'carve';
+        } elseif ($arg === '--json' || $arg === '--ast') {
+            $options['format'] = 'json';
+        } elseif ($arg === '--from-json') {
+            $options['fromJson'] = true;
         } elseif ($arg === '-x' || $arg === '--xhtml') {
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
@@ -219,6 +225,8 @@ Output format (default --html; last one wins):
   --html              HTML
   --markdown, --md    Markdown
   --plain, --plain-text  plain text
+  --json, --ast          the parsed AST as JSON (see docs/ast-json.md)
+  --from-json            read an encoded AST instead of Carve source
   --ansi              ANSI-colored terminal text
   --carve             canonical Carve source
 
@@ -415,6 +423,7 @@ $wantWarnings = $options['warnings'] || $options['strict'];
 // --strict is enforced by the CLI below (non-zero exit when warnings exist),
 // matching the HTML path.
 $converter = match ($options['format']) {
+    'json' => new CarveConverter(warnings: $wantWarnings),
     'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
     'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
     'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
@@ -440,10 +449,31 @@ if ($options['format'] === 'html') {
     $converter->addExtension(FencedRenderExtension::mermaid());
 }
 
-// Convert
-$output = $options['format'] === 'carve'
-    ? $converter->getRenderer()->render($converter->parse($input))
-    : $converter->convert($input);
+// Convert. --from-json reads an encoded AST instead of Carve source, so the
+// parse step is replaced by a decode; every format then renders as usual.
+$codec = new AstCodec();
+try {
+    $document = $options['fromJson'] ? $codec->decodeJson($input) : null;
+} catch (JsonException | RuntimeException $exception) {
+    // A malformed tree is user input like any other: report it on stderr and
+    // exit 1 rather than dumping a PHP stack trace.
+    fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+
+    exit(1);
+}
+
+if ($options['format'] === 'json') {
+    $output = $codec->encodeJson(
+        $document ?? $converter->parse($input),
+        JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+    ) . "\n";
+} elseif ($document !== null) {
+    $output = $converter->render($document);
+} else {
+    $output = $options['format'] === 'carve'
+        ? $converter->getRenderer()->render($converter->parse($input))
+        : $converter->convert($input);
+}
 
 // Handle warnings
 $exitCode = 0;

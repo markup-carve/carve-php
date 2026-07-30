@@ -18,6 +18,19 @@ $again = $codec->decodeJson($json);
 $converter->render($again); // identical to render($document)
 ```
 
+## From the CLI
+
+```bash
+bin/carve --json README.crv > tree.json     # parse and emit the AST
+bin/carve --from-json tree.json             # render a tree back to HTML
+bin/carve --from-json --markdown tree.json  # or to any other format
+```
+
+`--json` (alias `--ast`) replaces the renderer with the encoder; `--from-json`
+replaces the parse step with a decode, so a tree produced by any tool in any
+language renders through the same formats as source. Malformed input reports on
+stderr and exits 1.
+
 ## Why
 
 Until now the AST was reachable only as PHP objects, so anything that is not
@@ -59,8 +72,12 @@ Rules, all of them:
 3. **`children`** holds child nodes, omitted when empty.
 4. **Every other key** is the node's own declared state: `level` on a heading,
    `language` on a code block, `colspan` on a table cell.
-5. **Defaults are omitted.** A `null`, `[]` or `false` value is left out, and a
-   decoder restores the declared default. Payloads stay small and diffable.
+5. **A field is omitted when it holds the node's default**, and a decoder puts
+   the default back. The default is the declared property default, or failing
+   that the constructor parameter default. Note what this is *not*: omitting
+   every falsy value would lose information wherever the default is not falsy -
+   a loose list is `tight: false` against a default of `true`, so it is written
+   out explicitly.
 6. **Node-valued state is encoded like a child.** A div's quoted opener nodes or
    a table caption are nodes, so they use the same shape - no second
    representation anywhere in the format.
@@ -78,11 +95,21 @@ by `tests/fixtures/ast-schema.json` plus `AstCodecSchemaTest`: the full
 type-to-fields map is a golden file, so a rename fails CI and has to be either
 reverted or accepted with a deliberate `AstCodec::VERSION` bump.
 
-Inspect the current map:
+Some fields have no default at all - neither a property nor a constructor one -
+so a payload must carry them. Omitting one is an error rather than a guess,
+because the alternative was inventing a zero: a heading without `level` used to
+render as `<h0>`.
+
+Inspect both, per type:
 
 ```php
-AstCodec::schema();   // ['heading' => ['level'], 'code_block' => ['content', 'language', ...], ...]
+AstCodec::schema();
+// ['heading' => ['fields' => ['level'], 'required' => []],
+//  'mention' => ['fields' => ['cssClass', ...], 'required' => ['cssClass', 'destination', 'title']], ...]
 ```
+
+Five types currently have required fields: `abbreviation`, `citation_group`,
+`heading_ref`, `inline_extension`, `mention`.
 
 ## Application node types
 

@@ -26,9 +26,9 @@ class CliTest extends TestCase
     }
 
     /**
-     * Run bin/carve with $args and a given stdin; returns ['out', 'exit'].
+     * Run bin/carve with $args and a given stdin; returns ['out', 'err', 'exit'].
      *
-     * @return array{out: string, exit: int}
+     * @return array{out: string, err: string, exit: int}
      */
     private function runCliInput(array $args, string $stdin): array
     {
@@ -44,10 +44,11 @@ class CliTest extends TestCase
         fclose($pipes[0]);
         $out = stream_get_contents($pipes[1]);
         fclose($pipes[1]);
+        $err = stream_get_contents($pipes[2]);
         fclose($pipes[2]);
         $exit = proc_close($process);
 
-        return ['out' => (string)$out, 'exit' => $exit];
+        return ['out' => (string)$out, 'err' => (string)$err, 'exit' => $exit];
     }
 
     public function testRendersHtmlByDefault(): void
@@ -99,5 +100,56 @@ class CliTest extends TestCase
         $out = $this->runCli(['--help']);
         $this->assertStringContainsString('--ansi', $out);
         $this->assertStringContainsString('--markdown', $out);
+        $this->assertStringContainsString('--json', $out);
+        $this->assertStringContainsString('--from-json', $out);
+    }
+
+    public function testJsonEmitsTheEncodedAst(): void
+    {
+        $out = $this->runCli(['--json']);
+
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('document', $decoded['type']);
+        $this->assertSame(1, $decoded['ast']);
+        $this->assertSame('heading', $decoded['children'][0]['type']);
+    }
+
+    public function testFromJsonRendersTheSameHtmlAsTheSource(): void
+    {
+        // The point of the pair: a tree produced anywhere renders identically to
+        // parsing the source it came from.
+        $json = $this->runCli(['--json']);
+
+        $viaJson = $this->runCliInput(['--from-json'], $json)['out'];
+        $direct = $this->runCli([]);
+
+        $this->assertSame($direct, $viaJson);
+    }
+
+    public function testFromJsonFeedsEveryOtherFormat(): void
+    {
+        $json = $this->runCli(['--json']);
+
+        $this->assertSame(
+            $this->runCli(['--markdown']),
+            $this->runCliInput(['--from-json', '--markdown'], $json)['out'],
+        );
+    }
+
+    public function testFromJsonReportsBadInputWithoutAStackTrace(): void
+    {
+        foreach ([
+            '{"ast": 99, "type": "document"}' => 'Unsupported AST encoding version',
+            '{not json' => 'Syntax error',
+            '{"type": "document", "children": [{"type": "nope"}]}' => 'Unknown node type',
+        ] as $input => $expected) {
+            $res = $this->runCliInput(['--from-json'], (string)$input);
+
+            $this->assertSame(1, $res['exit'], 'malformed input must exit 1, not fatal');
+            $this->assertStringContainsString($expected, $res['err']);
+            $this->assertStringNotContainsString('Stack trace', $res['err']);
+        }
     }
 }
