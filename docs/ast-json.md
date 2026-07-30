@@ -111,11 +111,29 @@ publish their children under another key. Derived state converts in both
 directions: `ordered` is a boolean over an internal `listType` string, `checked`
 comes from a task marker, a cell's `header` from its flag.
 
+**Two node types differ by NAME, not by field.** profiles.md is explicit that an
+`autolink` is its own type rather than a `link` carrying a flag - "folding it
+into `link` loses the authored form, so a round-trip could not restore it" - and
+likewise `admonition` versus a `div` carrying a class. This engine models both
+as the broader class plus a flag, so the codec publishes the canonical name,
+reusing the same distinction `Profile::canonicalTypeOf()` already draws:
+
+| authored | wire type | fields |
+|---|---|---|
+| `<https://example.com>` | `autolink` | `href`, `text`, no children |
+| `::: warning "Tip"` | `admonition` | `kind`, `title`, children are the body |
+
 Internal fields the reference has no counterpart for are **not** exported (§3) -
 a div's raw header string, a row's `isHeader`, a fence's width. Each is listed in
 `ReferenceShape::INTERNAL_ONLY` so the omission is a decision rather than an
 oversight, and each must be *recomputable*, or the §6 round trip would break.
 That constraint is what the corpus gate enforces.
+
+Deciding what belongs on that list is a question about the reference, not about
+this engine: a code block's `header` looks internal but the reference keeps it,
+because it is what tells a title written inside the fence apart from one written
+on an attribute line above it - both land in `attrs.title`. A div's `header` has
+no counterpart and is recomputed from its title nodes.
 
 The wire shape is pinned by `tests/fixtures/ast-schema.json` plus
 `AstCodecSchemaTest`: the full type-to-fields map is a golden file, so a change
@@ -152,8 +170,17 @@ does. An unregistered type fails loudly rather than silently dropping content.
 ## Guarantees and limits
 
 - **Round-trip:** every document in the spec corpus survives encode plus decode
-  with byte-identical HTML. `AstCodecTest` asserts this over the whole corpus, so
-  it is a standing gate rather than a claim.
+  with byte-identical HTML **and** byte-identical Carve source. `AstCodecTest`
+  asserts both over the whole corpus, so it is a standing gate rather than a
+  claim.
+
+  Comparing HTML alone is not enough, and that is not theoretical - it passed
+  while three constructs were being corrupted. An autolink decoded as a plain
+  link renders the same HTML but writes back as `[url](url)`. A task list
+  decoded as a bullet list renders the same checkboxes, because the item marker
+  drives them, but writes back without `[x]`. A titled admonition rendered the
+  same `<aside>` while losing its title. §6 is about the authored form, so the
+  Carve renderer is the stricter surface.
 - **Field names match the spec; positions do not exist yet.** Running the spec
   repo's `npm run ast:check` against `bin/carve --json` reports **23 findings over
   12 documents, every one of them a missing `pos`** - down from 48, with the
@@ -164,6 +191,13 @@ does. An unregistered type fails loudly rather than silently dropping content.
   note to stderr saying the output is not conformant. Tracked in
   [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); position
   tracking is a parser change, not a codec one.
+- **One structural divergence remains.** Abbreviation definitions live in a
+  `abbreviations` field on the document here, where the reference emits
+  `abbreviation_def` nodes among the document's children - so their POSITION is
+  structural there and a field here. The definitions themselves are exported
+  either way, and a companion flag records whether they preceded the body, so
+  nothing is lost in a carve-php round trip; a consumer written against the
+  reference will not find them where it expects.
 - **A foreign tree is rejected, not decoded wrongly.** The decoder re-encodes what
   it built and compares against the input, so a field it did not understand is an
   error naming the field rather than silent loss. This replaces a real failure:
