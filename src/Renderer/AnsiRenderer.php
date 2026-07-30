@@ -889,6 +889,19 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderStrong(Strong $node): string
     {
+        // The COMBINED bold-italic form is one construct, so it gets one style run
+        // and one reset. Rendering it as nested strong-around-emphasis emitted a
+        // reset per level, and the second is redundant since a reset clears every
+        // attribute -- which is why the output was never visibly wrong and this
+        // surfaced only as a cross-engine divergence. carve-rs carries bold-italic
+        // as a single kind and always emitted one (carve#352, corpus 01-emphasis
+        // and both 128-bold-italic cases).
+        $children = $node->getChildren();
+        $inner = $children[0] ?? null;
+        if ($node->isBoldItalic() && count($children) === 1 && $inner instanceof Emphasis) {
+            return $this->style($this->renderChildren($inner), self::BOLD . self::ITALIC);
+        }
+
         return $this->style($this->renderChildren($node), self::BOLD);
     }
 
