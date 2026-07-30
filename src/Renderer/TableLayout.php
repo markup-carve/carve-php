@@ -43,18 +43,33 @@ final class TableLayout
 
                 $colspan = max(1, $cell->getColspan());
                 $rowspan = max(1, $cell->getRowspan());
+
+                // Track the columns this cell actually occupies. A column reserved
+                // by a rowspan from an earlier row is NOT available to this cell's
+                // span, so the span skips past it -- which is exactly what the
+                // `<` marker does when it scans left past a consumed cell.
+                //
+                // The colspan loop used to push its continuation fillers without
+                // consulting the active rowspans, so a spanning cell wrote over the
+                // reserved column and the rowspan filler was then never emitted at
+                // all: `| p | ^ | < | e |` came out three fields wide where the
+                // header had four, with `e` shifted a column left
+                // (carve#352, corpus 105).
+                $occupied = [$column];
                 $cells[] = $renderCell($cell);
+                $column++;
                 for ($offset = 1; $offset < $colspan; $offset++) {
+                    self::appendActiveRowspans($cells, $activeRowspans, $column);
+                    $occupied[] = $column;
                     $cells[] = null;
+                    $column++;
                 }
 
                 if ($rowspan > 1) {
-                    for ($offset = 0; $offset < $colspan; $offset++) {
-                        $activeRowspans[$column + $offset] = $rowspan - 1;
+                    foreach ($occupied as $occupiedColumn) {
+                        $activeRowspans[$occupiedColumn] = $rowspan - 1;
                     }
                 }
-
-                $column += $colspan;
             }
 
             self::appendTrailingActiveRowspans($cells, $activeRowspans, $column);
