@@ -125,7 +125,16 @@ class PlainTextRenderer implements RendererInterface
         // Normalize multiple blank lines to single
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
-        $text = trim($text) . "\n";
+        // The two ends need different rules. At the START, trim blank lines only:
+        // the indentation of the first content line is DATA -- a document opening
+        // with a fenced code block whose first line is indented had that eaten
+        // here, so a tab the HTML target emits inside `<code>` vanished from plain
+        // text (carve#352, corpus 11-fenced-code-2). At the END, trailing
+        // whitespace is still trimmed, because there it is layout rather than
+        // content: a table row ending in an empty cell renders `x | ` and that
+        // space is an artifact of the separator. rtrim's default character list
+        // leaves a non-breaking space alone, which is what we want.
+        $text = rtrim(ltrim($text, "\n")) . "\n";
 
         // The internal non-breaking-space placeholder (U+E000) collapses to an
         // ordinary space in plain text. Done after trimming so placeholder-derived
@@ -413,12 +422,17 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderLineBlock(LineBlock $node): string
     {
-        $text = '';
+        // Each child is a stanza, separated by a BLANK line. Joining them with a
+        // single newline merged the stanzas into one run of lines, losing the
+        // separation the source wrote and the HTML target keeps (carve#352, corpus
+        // 41-line-blocks-3). Lines WITHIN a stanza are still single-newline
+        // separated -- that is the line block's whole point.
+        $stanzas = [];
         foreach ($node->getChildren() as $child) {
-            $text .= trim($this->renderNode($child)) . "\n";
+            $stanzas[] = trim($this->renderNode($child));
         }
 
-        return $text . "\n";
+        return implode("\n\n", $stanzas) . "\n\n";
     }
 
     protected function renderFootnote(Footnote $node): string
