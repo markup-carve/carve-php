@@ -13,6 +13,8 @@ use InvalidArgumentException;
  */
 class BbcodeToCarve
 {
+    use EscapesCarveConstructs;
+
     /**
      * Maximum input length. The converter runs many full-string regex passes,
      * so cost is super-linear on a single huge input; BBCode is bounded forum
@@ -40,6 +42,7 @@ class BbcodeToCarve
         // Normalize line endings
         $djot = str_replace("\r\n", "\n", $djot);
         $djot = str_replace("\r", "\n", $djot);
+        $djot = $this->escapePlainBbcodeText($djot);
 
         // Links and images first (before basic formatting escapes brackets)
         $djot = $this->convertLinks($djot);
@@ -64,6 +67,30 @@ class BbcodeToCarve
         $djot = $this->cleanup($djot);
 
         return $djot;
+    }
+
+    protected function escapePlainBbcodeText(string $bbcode): string
+    {
+        $protected = [];
+        $protect = function (array $match) use (&$protected): string {
+            $protected[] = $match[0];
+
+            return "\x00B" . (count($protected) - 1) . "\x00";
+        };
+
+        $text = preg_replace_callback('/\[code(?:=[^\]]*)?\].*?\[\/code\]/is', $protect, $bbcode) ?? $bbcode;
+        $text = preg_replace_callback('/\[(?:c|icode)\].*?\[\/(?:c|icode)\]/is', $protect, $text) ?? $text;
+        $text = preg_replace_callback('/\[url\].*?\[\/url\]/is', $protect, $text) ?? $text;
+        $text = preg_replace_callback('/\[img(?:=[^\]]*)?\].*?\[\/img\]/is', $protect, $text) ?? $text;
+        $text = preg_replace_callback('/\[\/?[a-z][a-z0-9]*(?:=[^\]]*)?\]/i', $protect, $text) ?? $text;
+
+        $text = $this->escapePlainCarveInlineSyntax($text);
+
+        return preg_replace_callback(
+            '/\x00B(\d+)\x00/',
+            fn (array $match): string => $protected[(int)$match[1]],
+            $text,
+        ) ?? $text;
     }
 
     protected function convertBasicFormatting(string $text): string

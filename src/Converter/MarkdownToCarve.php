@@ -25,6 +25,7 @@ use RuntimeException;
  */
 class MarkdownToCarve
 {
+    use EscapesCarveConstructs;
     use PreservesHeadingIds;
 
     /**
@@ -484,63 +485,6 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
-    }
-
-    /**
-     * The braced-pair delimiters that are literal text in Markdown.
-     *
-     * `{X…X}` is a Carve construct for each of these: superscript, subscript,
-     * highlight, insert, delete, strike, emphasis and an editorial comment. The
-     * list is deliberately longer than the two obvious cases - a delimiter
-     * missing from it renders as markup.
-     *
-     * `*` and `_` are absent on purpose: `{*x*}` and `{_x_}` carry MARKDOWN
-     * emphasis inside braces, so their content is not plain text and the
-     * Markdown rewrites below own it. `@` and `"` are absent because `{@x@}`
-     * and `{"x"}` reinterpret through mentions and smart typography, which
-     * apply to any Carve source rather than being introduced here.
-     *
-     * @var string
-     */
-    protected const BRACED_DELIMITERS = '\^,=+\-~\/#';
-
-    /**
-     * CommonMark treats these Carve inline constructs as literal text. Escape
-     * their first delimiter before Markdown rewrites generate intentional Carve
-     * syntax below.
-     */
-    protected function escapePlainCarveInlineSyntax(string $line): string
-    {
-        $escapeFirst = static fn (array $match): string => '\\' . $match[0];
-
-        $line = preg_replace_callback('/(^|[ \t])%%(?!%)/', fn (array $match): string => $match[1] . '\%%', $line) ?? $line;
-
-        // Braced forms first, so the bare rules below see an escaped `{` and
-        // leave the delimiter inside it alone instead of escaping it twice.
-        //
-        // Repeated until stable, because one pass escapes only the outermost
-        // brace of a nested `{^a{,b,}c^}` - the match consumes the inner pair,
-        // which would then render as a subscript inside literal text. The
-        // `(?<!\\)` guard is what makes this terminate: an escaped brace is
-        // never re-matched, and each pass escapes at least one.
-        do {
-            $previous = $line;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)\{([' . self::BRACED_DELIMITERS . '])(?!\s)[^\n]+?(?<!\s)\1\}/',
-                $escapeFirst,
-                $line,
-            ) ?? $line;
-        } while ($line !== $previous);
-
-        // The `/` in the lookbehind is not symmetry with the rules below, it is
-        // load-bearing: without it the SECOND slash of `ftp://x/` matched, and
-        // escaping it freed the first one to open emphasis - `ftp:/\/x/`
-        // rendering as `ftp:<em>/x</em>`. Only `http`/`https` URLs are protected
-        // upstream, so every other scheme reached this rule.
-        $line = preg_replace_callback('/(?<![A-Za-z0-9{\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
-        $line = preg_replace_callback('/(?<![A-Za-z0-9={])=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
-
-        return preg_replace_callback('/(?<![A-Za-z0-9~{])~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
     }
 
     /**

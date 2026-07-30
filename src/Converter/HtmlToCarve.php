@@ -33,6 +33,8 @@ use RuntimeException;
  */
 class HtmlToCarve
 {
+    use EscapesCarveConstructs;
+
     /**
      * @var list<string>
      */
@@ -228,7 +230,7 @@ class HtmlToCarve
                 $text = preg_replace('/\s+/', ' ', $text) ?? $text;
             }
 
-            return $text;
+            return $this->inPre ? $text : $this->escapePlainCarveInlineSyntax($text);
         }
 
         if (!($node instanceof DOMElement)) {

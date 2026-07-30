@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`DjotToCarve`, `HtmlToCarve` and `BbcodeToCarve` no longer turn plain input
+  text into Carve markup either.** The same defect the Markdown converter had
+  below: `a {,y,} b` came out as a subscript through all three, and `a %%c%% b`
+  lost its text entirely because `%%` opens a comment. The escaper is now a
+  shared `EscapesCarveConstructs` trait, with a per-caller opt-out for
+  delimiters the source language owns - Djot keeps `~x~` and `^x^`, which it
+  converts to a subscript and a superscript, and the braced `=`/`+`/`-` forms it
+  carries verbatim. HTML escapes text nodes only, never a generated construct,
+  an attribute, a URL or `pre`/`code` content; BBCode escapes plain text with
+  tags and their parameters protected, so `[color=red]` and `[url=…]` are
+  untouched.
 - **`MarkdownToCarve` no longer turns plain Markdown text into Carve markup.**
   CommonMark defines no `/…/`, `=…=`, single-`~…~`, `{^…^}`, `{,…,}` or `%%…%%`
   syntax, so all of those are literal text in Markdown - and the converter passed

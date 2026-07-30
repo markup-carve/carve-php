@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
 use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Profile;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class HtmlToCarveTest extends TestCase
@@ -187,6 +188,71 @@ class HtmlToCarveTest extends TestCase
             $roundTripped = $toHtml->convert($carve);
             $this->assertStringContainsString($expectedInner, $roundTripped, "Round-trip drift for {$html} (via Carve: " . trim($carve) . ')');
         }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function literalCarveInlineTextProvider(): array
+    {
+        return [
+            'bare slash' => ['<p>a /it/ b</p>', 'a /it/ b'],
+            'bare equals' => ['<p>a =hi= b</p>', 'a =hi= b'],
+            'bare tilde' => ['<p>a ~no~ b</p>', 'a ~no~ b'],
+            'braced superscript' => ['<p>a {^y^} b</p>', 'a {^y^} b'],
+            'braced subscript' => ['<p>a {,y,} b</p>', 'a {,y,} b'],
+            'braced highlight' => ['<p>a {=y=} b</p>', 'a {=y=} b'],
+            'braced insert' => ['<p>a {+y+} b</p>', 'a {+y+} b'],
+            'braced delete' => ['<p>a {-y-} b</p>', 'a {-y-} b'],
+            'braced strikethrough' => ['<p>a {~y~} b</p>', 'a {~y~} b'],
+            'braced emphasis' => ['<p>a {/y/} b</p>', 'a {/y/} b'],
+            'braced comment' => ['<p>a {#y#} b</p>', 'a {#y#} b'],
+            'percent comments' => ['<p>a %%c%% b</p>', 'a %%c%% b'],
+        ];
+    }
+
+    #[DataProvider('literalCarveInlineTextProvider')]
+    public function testPlainHtmlTextDoesNotBecomeCarveMarkup(string $input, string $literal): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($input));
+
+        $this->assertStringContainsString($literal, html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    public function testHtmlEscapePassDoesNotTouchCodeOrUrls(): void
+    {
+        $carve = $this->converter->convert(
+            '<p><code>a {,y,} b</code> <a href="ftp://x/">a {,y,} b</a></p><pre>a %%c%% b</pre>',
+        );
+
+        $this->assertStringContainsString('`a {,y,} b`', $carve);
+        $this->assertStringContainsString('[a \\\\{,y,} b](ftp://x/)', $carve);
+        $this->assertStringContainsString("```\na %%c%% b\n```", $carve);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function htmlNegativeEscapeProvider(): array
+    {
+        return [
+            'path' => ['a/b/c'],
+            'fraction' => ['1/2'],
+            'assignment chain' => ['x = y = z'],
+            'approximate number' => ['~5'],
+            'percent' => ['50%'],
+            'ftp url' => ['ftp://x/'],
+            'protocol-relative url' => ['//host/path'],
+            'file url' => ['file:///etc/hosts'],
+        ];
+    }
+
+    #[DataProvider('htmlNegativeEscapeProvider')]
+    public function testHtmlEscapePassDoesNotOverEscape(string $input): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert('<p>' . $input . '</p>'));
+
+        $this->assertStringContainsString($input, strip_tags($html));
     }
 
     public function testEmptyInlineTags(): void

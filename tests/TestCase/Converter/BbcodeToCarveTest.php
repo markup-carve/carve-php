@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class BbcodeToCarveTest extends TestCase
@@ -63,6 +64,81 @@ class BbcodeToCarveTest extends TestCase
     public function testColorStripped(): void
     {
         $this->assertSame("red text\n", $this->converter->convert('[color=red]red text[/color]'));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function literalCarveInlineTextProvider(): array
+    {
+        return [
+            'bare slash' => ['a /it/ b', 'a /it/ b'],
+            'bare equals' => ['a =hi= b', 'a =hi= b'],
+            'bare tilde' => ['a ~no~ b', 'a ~no~ b'],
+            'braced superscript' => ['a {^y^} b', 'a {^y^} b'],
+            'braced subscript' => ['a {,y,} b', 'a {,y,} b'],
+            'braced highlight' => ['a {=y=} b', 'a {=y=} b'],
+            'braced insert' => ['a {+y+} b', 'a {+y+} b'],
+            'braced delete' => ['a {-y-} b', 'a {-y-} b'],
+            'braced strikethrough' => ['a {~y~} b', 'a {~y~} b'],
+            'braced emphasis' => ['a {/y/} b', 'a {/y/} b'],
+            'braced comment' => ['a {#y#} b', 'a {#y#} b'],
+            'percent comments' => ['a %%c%% b', 'a %%c%% b'],
+        ];
+    }
+
+    #[DataProvider('literalCarveInlineTextProvider')]
+    public function testPlainBbcodeTextDoesNotBecomeCarveMarkup(string $input, string $literal): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($input));
+
+        $this->assertStringContainsString($literal, strip_tags($html));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function bbcodeNegativeEscapeProvider(): array
+    {
+        return [
+            'path' => ['a/b/c'],
+            'fraction' => ['1/2'],
+            'assignment chain' => ['x = y = z'],
+            'approximate number' => ['~5'],
+            'percent' => ['50%'],
+            'ftp url' => ['ftp://x/'],
+            'protocol-relative url' => ['//host/path'],
+            'file url' => ['file:///etc/hosts'],
+        ];
+    }
+
+    #[DataProvider('bbcodeNegativeEscapeProvider')]
+    public function testBbcodeEscapePassDoesNotOverEscape(string $input): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($input));
+
+        $this->assertStringContainsString($input, strip_tags($html));
+    }
+
+    public function testBbcodeSourceConstructBaselinesStillConvert(): void
+    {
+        $cases = [
+            '[i]x[/i]' => '<em>x</em>',
+            '[b]x[/b]' => '<strong>x</strong>',
+            '[u]x[/u]' => '<u>x</u>',
+            '[s]x[/s]' => '<s>x</s>',
+            '[url=http://e.com]x[/url]' => '<a href="http://e.com">x</a>',
+            '[color=red]x[/color]' => '>x<',
+            '[size=3]x[/size]' => '>x<',
+            '[code]x[/code]' => '<pre><code>x',
+            '[quote=bob]x[/quote]' => '<blockquote>',
+        ];
+
+        $renderer = new CarveConverter();
+        foreach ($cases as $input => $expectedHtml) {
+            $html = $renderer->convert($this->converter->convert($input));
+            $this->assertStringContainsString($expectedHtml, $html, $input);
+        }
     }
 
     // ==================== Links ====================
