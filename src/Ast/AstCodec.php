@@ -82,7 +82,50 @@ class AstCodec
      *
      * @var array<string>
      */
-    private const ALWAYS_PUBLISHED = ['heading.level'];
+    /**
+     * Fields the reference publishes on EVERY node of that type, so this engine
+     * must too - even when the value equals this engine's property default.
+     *
+     * Suppressing a default-valued field makes two documents differ in FIELD SET
+     * rather than in value: a tight list dropped `tight` while a loose one kept
+     * it, so a consumer could not tell "absent because it is the default" from
+     * "absent because this engine does not support it". PART 12 section 3 exists
+     * to remove exactly that guess.
+     *
+     * The list was DERIVED, not curated: every node type in the reference's
+     * output over the 507-document corpus, keeping the fields present on all
+     * occurrences of that type. It replaced a one-entry list that had been grown
+     * a bug at a time (`heading.level`, after `# H` and `## H` disagreed).
+     *
+     * Keyed by the WIRE field name, so it is compared after the rename.
+     *
+     * @var array<string>
+     */
+    private const ALWAYS_PUBLISHED = [
+        'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
+        'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
+        'autolink.href', 'autolink.text', 'block_quote.children',
+        'code.value', 'code_block.content', 'comment.block',
+        'comment.content', 'critic_comment.text', 'definition_list.items',
+        'delete.children', 'div.children', 'document.children',
+        'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
+        'figure.caption', 'figure.target', 'footnote_ref.id',
+        'heading.children', 'heading.level', 'heading_ref.target',
+        'highlight.children', 'image.alt', 'image.src',
+        'inline_extension.content', 'inline_extension.name', 'inline_footnote.inline',
+        'insert.children', 'line_block.children', 'link.children',
+        'link.href', 'list.items', 'list.ordered',
+        'list.tight', 'list_item.children', 'literal_inline.content',
+        'math.content', 'math.display', 'mention.user',
+        'paragraph.children', 'raw_block.content', 'raw_block.format',
+        'raw_inline.content', 'raw_inline.format', 'smart_punctuation.kind',
+        'smart_punctuation.value', 'span.attrs', 'span.children',
+        'strike.children', 'strong.children', 'subscript.children',
+        'substitution.newText', 'substitution.oldText', 'superscript.children',
+        'symbol.name', 'table.rows', 'table_cell.children',
+        'table_cell.header', 'table_row.cells', 'tag.name',
+        'text.value', 'underline.children',
+    ];
 
     /**
      * Base-class state that is either structural (children) or not part of the
@@ -476,19 +519,22 @@ class AstCodec
             // type, while `## H` did. A consumer would have to treat the field
             // as optional and guess 1, which is the implicit rule PART 12 §3
             // exists to remove.
+            // PART 12 §3: publish the reference field name, and never an
+            // internal the reference does not have. Resolved BEFORE the
+            // always-published test, because that list is keyed by the field
+            // name that goes on the wire, not by this engine's property name
+            // (`marker` is published as `bulletChar`).
+            $field = ReferenceShape::fieldFor($type, $property->getName());
+            if ($field === null) {
+                continue;
+            }
+
             $alwaysPublished = in_array(
-                $type . '.' . $property->getName(),
+                $type . '.' . $field,
                 self::ALWAYS_PUBLISHED,
                 true,
             );
             if (!$alwaysPublished && $default['has'] && $value === $default['value']) {
-                continue;
-            }
-
-            // PART 12 §3: publish the reference field name, and never an
-            // internal the reference does not have.
-            $field = ReferenceShape::fieldFor($type, $property->getName());
-            if ($field === null) {
                 continue;
             }
 
@@ -522,8 +568,16 @@ class AstCodec
             // content. The decoder rebuilds the text node from it.
             $children = [];
         }
+        // An EMPTY container is still published when the reference publishes it
+        // unconditionally: a table cell claimed by a neighbour's span marker has
+        // no children, and dropping the key made it differ from every other cell
+        // in field set rather than in content.
+        $container = ReferenceShape::containerFor($type);
+        if ($children === [] && in_array($type . '.' . $container, self::ALWAYS_PUBLISHED, true)) {
+            $encoded[$container] = [];
+        }
         if ($children !== []) {
-            $encoded[ReferenceShape::containerFor($type)] = array_map(
+            $encoded[$container] = array_map(
                 fn (Node $child): array => $this->encodeNode($child),
                 $children,
             );
