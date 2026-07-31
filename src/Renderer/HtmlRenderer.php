@@ -2367,6 +2367,13 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderFootnoteRef(FootnoteRef $node): string
     {
+        // No definition: the reference never formed, so it renders as the
+        // literal source it was written as - no number, no backlink, and no
+        // attributes, which had nothing to attach to (carve#352).
+        if ($node->isUnresolved()) {
+            return $this->escape('[^' . $node->getLabel() . ']');
+        }
+
         $context = $this->getRenderContext();
         $label = $node->getLabel();
 

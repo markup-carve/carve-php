@@ -196,6 +196,8 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof Substitution => '~' . $this->stripControls($node->getOldText()) . '~' . $this->stripControls($node->getNewText()),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
+                $node instanceof FootnoteRef && $node->isUnresolved()
+                => $this->stripControls('[^' . $node->getLabel() . ']'),
                 $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),

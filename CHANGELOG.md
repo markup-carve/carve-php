@@ -19,6 +19,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bytes the parser measures. Coverage is ~99% of corpus nodes; the remainder is
   text the parser rewrote, where no span can equal the node's content.
 
+### Fixed
+
+- **An unresolved footnote reference keeps a trailing attribute block.** It
+  became a Text node with the attributes consumed and discarded, so
+  `Text[^a]{.ref}.` lost `{.ref}` from the tree entirely and the canonical
+  writer emitted `Text[^a].` where carve-js and carve-rs emit
+  `Text[^a]{.ref}.`. It is now still a `footnote_ref`, marked unresolved, and
+  every target renders it as the literal source exactly as before - only the
+  `carve` target's output changes, and it changes to match the other two
+  engines. This was the last of the 98 cross-engine divergences in carve#352.
+
 ### Changed
 
 - **BREAKING (AST wire): a footnote reference encodes its label as `id`, and an
