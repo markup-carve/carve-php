@@ -860,7 +860,33 @@ class BlockParser
             if (($bare[0] ?? '') === '[' && preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
-                $url = trim($matches[2]);
+                // UNICODE whitespace, not just ASCII. `trim()` leaves a
+                // narrow no-break space in place, so `[r]: <U+202F>javascript:...`
+                // kept an invisible character in the destination - visible in
+                // the ANSI target, which prints the destination to a terminal,
+                // and exactly the shape the scheme probe strips to detect
+                // (carve#352, carve#404). Zero-width characters are NOT
+                // whitespace and stay, matching carve-rs, whose `str::trim`
+                // uses the Unicode White_Space property.
+                $url = self::trimUnicodeWhitespace($matches[2]);
+
+                // Trimming can empty the destination, and an empty destination
+                // is NOT a definition - the line stays literal, exactly as
+                // `[r]:` and `[r]:   ` already do. The regex only guaranteed a
+                // non-space byte, which a narrow no-break space satisfies, so
+                // without this re-check `[r]: <U+202F>` registered a reference
+                // with an empty href and `[x][r]` rendered as `<a href="">`,
+                // where carve-js and carve-rs both leave the line as prose.
+                if ($url === '') {
+                    if (!IndentationHelper::isBlankLine($line)) {
+                        $pendingAttrs = [];
+                        $pendingAttrsInQuote = false;
+                        $pendingAttrsInList = false;
+                    }
+                    $i++;
+
+                    continue;
+                }
 
                 // Attach pendingAttrs only when the attributes line and the
                 // definition share the same context (both quoted or both
@@ -4857,7 +4883,16 @@ class BlockParser
         // the canonical carve-js / carve-rs. No continuation gathering. The
         // separator after `]:` must START with a literal SPACE; a tab-first
         // separator (`[r]:\t/u`) does not form a definition (issue 288).
-        if (!preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*\S.*$/', $line)) {
+        if (!preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches)) {
+            return null;
+        }
+
+        // `\S` is satisfied by a Unicode space, so a destination made only of
+        // those looks present here and is empty once trimmed. It has to stay
+        // literal like `[r]:` does, and the first-pass collector applies the
+        // same re-check - otherwise this pass would swallow a line the
+        // collector deliberately refused to register (carve#352).
+        if (self::trimUnicodeWhitespace($matches[2]) === '') {
             return null;
         }
 
@@ -6631,5 +6666,23 @@ class BlockParser
         // Carve's delimiters: / (italic), and , / = (the ,, subscript
         // and == highlight pairs).
         return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n/,=') === false;
+    }
+
+    /**
+     * Trim Unicode whitespace (the White_Space property) from both ends.
+     *
+     * `trim()` only knows ASCII, which left invisible characters at the edges
+     * of a link destination. Zero-width characters (U+200B, U+FEFF) are not
+     * whitespace and are deliberately preserved.
+     */
+    private static function trimUnicodeWhitespace(string $value): string
+    {
+        $trimmed = preg_replace(
+            '/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+|[\p{Z}\x{0009}-\x{000D}\x{0085}]+$/u',
+            '',
+            $value,
+        );
+
+        return $trimmed ?? trim($value);
     }
 }
