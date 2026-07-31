@@ -47,6 +47,11 @@ final class ReferenceShape
         'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref'],
         'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref'],
         'footnote' => ['label' => 'id'],
+        // The INLINE reference, which the reference calls `footnote_ref` and
+        // keys by `id`. The entry above is the block definition; without this
+        // one the rename never applied and the wire carried `label`
+        // (carve#405).
+        'footnote_ref' => ['label' => 'id'],
         'heading_ref' => ['targetId' => 'target'],
         'math' => ['content' => 'content', 'display' => 'display'],
         'symbol' => ['name' => 'name'],
@@ -105,6 +110,10 @@ final class ReferenceShape
         'definition_list' => 'items',
         'table' => 'rows',
         'table_row' => 'cells',
+        // An inline footnote's body is `inline` in the reference, not
+        // `children` - it is the note's content, not nested structure
+        // (carve#405).
+        'inline_footnote' => 'inline',
     ];
 
     /**

@@ -110,14 +110,28 @@ class AttributeHardeningTest extends TestCase
 
     public function testLeadingUnicodeWhitespaceCannotHideDangerousScheme(): void
     {
-        // A leading NBSP (U+00A0) must not smuggle a javascript: scheme past the
-        // denylist: the probe strips Unicode whitespace before scheme matching.
+        // A leading NBSP (U+00A0) must not smuggle a javascript: scheme into an
+        // href or src. It no longer can for a stronger reason than the denylist:
+        // Unicode whitespace ends a destination (PART 9 link_destination), so
+        // the construct is not a link or an image at all and there is no
+        // attribute to smuggle anything into (carve#404).
+        //
+        // The assertion is about the ATTRIBUTE, not the string. It used to read
+        // "the output does not contain `javascript:`", which passed while the
+        // link formed and its href was blanked. That is now the wrong shape of
+        // question: the text survives as inert, escaped prose, with no anchor
+        // around it, and asserting on the substring would fail a document that
+        // is safe.
         $nbsp = "\u{00A0}";
-        $this->assertStringNotContainsString('javascript:', $this->render('[x](' . $nbsp . 'javascript:alert(1))'));
-        $this->assertStringNotContainsString(
-            'javascript:',
-            $this->render('![i](' . $nbsp . 'javascript:alert(1))'),
-        );
+
+        foreach (['[x](' . $nbsp . 'javascript:alert(1))', '![i](' . $nbsp . 'javascript:alert(1))'] as $source) {
+            $out = $this->render($source);
+
+            $this->assertStringNotContainsString('href=', $out);
+            $this->assertStringNotContainsString('src=', $out);
+            $this->assertStringNotContainsString('<a', $out);
+            $this->assertStringNotContainsString('<img', $out);
+        }
     }
 
     public function testCssStyleHardeningBlanksFetchAndScriptConstructs(): void

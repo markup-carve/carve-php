@@ -16,7 +16,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parser cannot place honestly carries none, and `--json` prints a note saying
   the output is not yet conformant rather than omitting silently. Columns and
   offsets count Unicode codepoints (§4), converted once per document from the
-  bytes the parser measures. Coverage is ~97% of corpus nodes.
+  bytes the parser measures. Coverage is ~99% of corpus nodes; the remainder is
+  text the parser rewrote, where no span can equal the node's content.
+
+### Changed
+
+- **BREAKING (AST wire): a footnote reference encodes its label as `id`, and an
+  inline footnote's body as `inline`.** The rename table keyed `label` -> `id`
+  on `footnote`, which is the BLOCK definition, so it never applied to the
+  inline `footnote_ref` and the wire carried `label`. An inline footnote's body
+  encoded as `children`, where the reference calls it `inline` - it is the
+  note's content, not nested structure. Both now match carve-js field for
+  field (carve#405).
+
+### Fixed
+
+- **A link label's closing `]` is found past an editorial comment.** The scan
+  already skipped code spans, because a `]` inside one is content. An editorial
+  comment holds literal content too and was not skipped, so `[{#a]b#}](u)`
+  ended the label at the comment's bracket and formed no link - with no
+  spelling that worked, since `{# ... #}` resolves no escapes and `\]` puts a
+  real backslash in the comment (carve#403).
 
 ### Fixed
 

@@ -367,6 +367,20 @@ class MarkdownAttributeFallbackTest extends TestCase
         );
     }
 
+    public function testAWhitespaceHiddenSchemeIsNotAnImageAtAll(): void
+    {
+        // This used to live in the provider above, asserting `<img src="">`:
+        // the image formed and its src was blanked by the denylist. Unicode
+        // whitespace now ends a destination (PART 9 link_destination), so there
+        // is no image and nothing to blank - a stronger outcome than blanking,
+        // and the reason the case cannot share the provider's assertion
+        // (carve#404).
+        $out = $this->html()->convert("![P](\u{202F}javascript:alert(1)){.wide}");
+
+        $this->assertStringNotContainsString('<img', $out);
+        $this->assertStringNotContainsString('src=', $out);
+    }
+
     /**
      * @return array<string, array{0: string}>
      */
@@ -385,7 +399,6 @@ class MarkdownAttributeFallbackTest extends TestCase
             'shell' => ['shell:AppsFolder'],
             'vscode' => ['vscode:extension/x'],
             'jar' => ['jar:http://x!/y'],
-            'whitespace hidden' => ["\u{202F}javascript:alert(1)"],
         ];
     }
 

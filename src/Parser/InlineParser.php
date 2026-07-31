@@ -2093,7 +2093,17 @@ class InlineParser
                 // whitespace too, so `[t](url` / `more)` is NOT a link and
                 // stays literal (grammar.ebnf link_destination, decision B).
                 $url = $raw;
-                if ($url === '' || preg_match('/\s/', $url) || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
+                // UNICODE whitespace, not just ASCII: `unicode_url_char` is
+                // "any non-whitespace, non-ASCII Unicode character", with no
+                // qualifier, so a narrow no-break space is not a destination
+                // character either. `\s` is byte-based and let one through, so
+                // `[x](<U+202F>https://e.com)` linked with the invisible
+                // character sitting in the href (carve#404).
+                if (
+                    $url === ''
+                    || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
+                    || (str_starts_with($url, '<') && str_ends_with($url, '>'))
+                ) {
                     return null;
                 }
 
@@ -2266,6 +2276,22 @@ class InlineParser
                 $pos = $codeEnd;
 
                 continue;
+            }
+
+            // An editorial comment is opaque for the same reason a code span
+            // is: its content is LITERAL (PART 9 `editorial_comment`), so a `]`
+            // inside it is text, and no escape can say so - `{# ... #}`
+            // resolves none, so `\]` puts a real backslash in the comment. Left
+            // unskipped, `[{#a]b#}](u)` had no spelling that produced a link
+            // with the author's text intact (carve#403). An unclosed `{#` is
+            // not a comment and falls through unchanged.
+            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
+                $commentEnd = strpos($text, '#}', $pos + 2);
+                if ($commentEnd !== false) {
+                    $pos = $commentEnd + 2;
+
+                    continue;
+                }
             }
 
             if ($text[$pos] === '[') {
