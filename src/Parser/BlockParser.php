@@ -811,7 +811,15 @@ class BlockParser
             if (($bare[0] ?? '') === '[' && preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $bare, $matches)) {
                 // Normalize label: collapse whitespace, trim
                 $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
-                $url = trim($matches[2]);
+                // UNICODE whitespace, not just ASCII. `trim()` leaves a
+                // narrow no-break space in place, so `[r]: <U+202F>javascript:...`
+                // kept an invisible character in the destination - visible in
+                // the ANSI target, which prints the destination to a terminal,
+                // and exactly the shape the scheme probe strips to detect
+                // (carve#352, carve#404). Zero-width characters are NOT
+                // whitespace and stay, matching carve-rs, whose `str::trim`
+                // uses the Unicode White_Space property.
+                $url = self::trimUnicodeWhitespace($matches[2]);
 
                 // Attach pendingAttrs only when the attributes line and the
                 // definition share the same context (both quoted or both
@@ -6111,5 +6119,23 @@ class BlockParser
         // Carve's delimiters: / (italic), and , / = (the ,, subscript
         // and == highlight pairs).
         return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n/,=') === false;
+    }
+
+    /**
+     * Trim Unicode whitespace (the White_Space property) from both ends.
+     *
+     * `trim()` only knows ASCII, which left invisible characters at the edges
+     * of a link destination. Zero-width characters (U+200B, U+FEFF) are not
+     * whitespace and are deliberately preserved.
+     */
+    private static function trimUnicodeWhitespace(string $value): string
+    {
+        $trimmed = preg_replace(
+            '/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+|[\p{Z}\x{0009}-\x{000D}\x{0085}]+$/u',
+            '',
+            $value,
+        );
+
+        return $trimmed ?? trim($value);
     }
 }
