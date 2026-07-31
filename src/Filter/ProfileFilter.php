@@ -24,10 +24,12 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -220,10 +222,20 @@ class ProfileFilter
         $textContent = $this->extractTextContent($node, 0);
 
         if ($textContent === '') {
-            // If no text content, just remove the node
-            $parent->removeChild($node);
+            // A node that renders nothing has nothing to degrade to, so removing
+            // it loses nothing. Anything else reaching here means extractTextContent
+            // has no arm for the node's payload: record it rather than deleting
+            // visible content, and substitute a marker deliberately ugly enough
+            // that it cannot pass for intended output.
+            if ($this->rendersNothing($node)) {
+                $parent->removeChild($node);
 
-            return;
+                return;
+            }
+
+            $type = Profile::canonicalTypeOf($node);
+            $this->violations[] = new ProfileViolation($type, 'to_text_yielded_nothing', null);
+            $textContent = '[' . $type . ']';
         }
 
         // For block nodes, wrap text in a paragraph to maintain block structure
@@ -237,6 +249,20 @@ class ProfileFilter
             $textNode = new Text($textContent);
             $parent->replaceChildNode($node, $textNode);
         }
+    }
+
+    /**
+     * Whether a node contributes no visible output of its own.
+     *
+     * Only such a node may be removed outright by `to_text`; for anything else
+     * removal would be data loss wearing the name of a downgrade.
+     */
+    protected function rendersNothing(Node $node): bool
+    {
+        // Only Comment today. Deliberately not a list of "probably empty" node
+        // types: a ThematicBreak already extracts to `---` and never reaches
+        // here, so adding it would be a branch that cannot fire.
+        return $node instanceof Comment;
     }
 
     /**
@@ -440,6 +466,19 @@ class ProfileFilter
             }
 
             return implode("\n", $items);
+        }
+
+        // A substitution keeps both texts in fields, not children. Dropping to
+        // the generic child walk below would return '' and delete the node,
+        // losing the old wording AND the new one.
+        if ($node instanceof Substitution) {
+            return $node->getOldText() . $node->getNewText();
+        }
+
+        // A citation group likewise renders from its items; `raw` is the
+        // author's source form, which is the closest honest degradation.
+        if ($node instanceof CitationGroup) {
+            return $node->getRaw();
         }
 
         // Special handling for symbols - use the symbol name
