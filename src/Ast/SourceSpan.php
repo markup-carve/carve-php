@@ -13,12 +13,17 @@ namespace MarkupCarve\Carve\Ast;
  * values, which is why this object cannot be constructed without all six - a
  * "we only know the line" position is not a position.
  *
- * UNITS. Offsets and columns are **bytes**, per §4. PHP strings are byte
- * indexed, so this is what the parser produces for free and what a consumer
- * slicing with `substr()` needs. The unit is currently under discussion
- * upstream (markup-carve/carve#394) because carve-js emits UTF-16 code units
- * for positions while reporting `srcByteLength` in bytes; this follows the spec
- * text rather than the reference's behavior.
+ * UNITS. Offsets and columns count **Unicode codepoints**, per §4 - NOT bytes,
+ * even though PHP strings are byte indexed and the parser measures in bytes
+ * internally. Slice with `mb_substr($source, $startOffset, $endOffset -
+ * $startOffset, 'UTF-8')`; a plain `substr()` selects the wrong range as soon
+ * as the document contains a multi-byte character.
+ *
+ * §4 chose codepoints because such an index always lands on a character
+ * boundary, while a byte offset can point inside a UTF-8 sequence and a UTF-16
+ * offset inside a surrogate pair - either lets a consumer slice a document into
+ * invalid text. `Parser\PositionIndex` performs the conversion once per
+ * document.
  *
  * SOURCE. Offsets are into the source AFTER the parser's own normalization -
  * BOM stripped, CRLF folded to LF, NUL replaced. That matches carve-js, which

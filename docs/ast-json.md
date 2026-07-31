@@ -193,9 +193,18 @@ does. An unregistered type fails loudly rather than silently dropping content.
   About 97% of corpus nodes carry a span; the rest are deeply nested list
   content and span-marker filler cells.
 
-  The codec does **not** emit `pos` yet, because partial coverage would be
-  exactly the output §4 rules out. Tracked in
-  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478).
+  Offsets and columns count **codepoints**, per §4 - slice with `mb_substr()`,
+  not `substr()`.
+
+  The codec emits `pos` for every node that has one. That is deliberately not
+  the same as being conformant: §4 requires a position on every node but the
+  root, and coverage is ~97%. What §4 forbids is *inventing* a position and
+  omitting one *silently*, so `--json` prints a note saying the output is not
+  yet conformant. Publishing what was measured keeps the remaining gaps visible
+  as "missing pos on X" in the conformance checker, rather than hiding the
+  feature behind an encoder that drops it. Tracked in
+  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); until
+  it closes, treat `pos` as present-or-absent rather than guaranteed.
 - **Field names match the spec; positions do not exist yet.** Running the spec
   repo's `npm run ast:check` against `bin/carve --json` reports **23 findings over
   12 documents, every one of them a missing `pos`** - down from 48, with the
