@@ -7,6 +7,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Source positions on AST nodes (PART 12 §4), opt-in.**
+  `new BlockParser(trackPositions: true)` records a `SourceSpan` on each node,
+  read with `Node::getPos()`, and the codec emits it as `pos`. All six fields
+  are present or the span is `null` - §4 forbids inventing one, so a node the
+  parser cannot place honestly carries none, and `--json` prints a note saying
+  the output is not yet conformant rather than omitting silently. Columns and
+  offsets count Unicode codepoints (§4), converted once per document from the
+  bytes the parser measures. Coverage is ~99% of corpus nodes; the remainder is
+  text the parser rewrote, where no span can equal the node's content.
+
 ### Fixed
 
 - **A carve-js tree decodes.** carve-js keeps footnote definitions in a
@@ -49,15 +61,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **A link label's closing `]` is found past an editorial comment.** The scan
-  already skipped code spans, because a `]` inside one is content. An editorial
-  comment holds literal content too and was not skipped, so `[{#a]b#}](u)`
-  ended the label at the comment's bracket and formed no link - with no
-  spelling that worked, since `{# ... #}` resolves no escapes and `\]` puts a
-  real backslash in the comment (carve#403).
-
-### Fixed
-
 - **A link reference definition's destination is trimmed of Unicode
   whitespace.** `trim()` only knows ASCII, so
   `[a]: <U+202F>javascript:alert(1)` kept the narrow no-break space in the
@@ -66,7 +69,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   destination to a terminal, where an invisible character is the spoofing shape
   the probe exists to catch. Only the ends are trimmed: whitespace inside the
   destination is part of it. Zero-width characters are not whitespace and stay,
-  matching carve-rs (carve#352, carve#404).
+  matching carve#352, carve#404.
 
 ### Changed
 

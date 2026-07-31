@@ -88,6 +88,10 @@ class AstCodec
         'children',
         'attributes',
         'attributeOrder',
+        // Handled explicitly rather than by the reflection walk: PART 12 §4
+        // gives `pos` a defined shape, so it converts to and from the value
+        // object instead of being assigned raw.
+        'pos',
         // Derived state, not document content: whether a footnote reference
         // found its definition. The reference engine computes it at render time
         // from the definitions it already has, so publishing it would be a
@@ -481,6 +485,17 @@ class AstCodec
             $encoded[$field] = $derived;
         }
 
+        // PART 12 §4. Emitted when the parser recorded one, omitted when it
+        // could not place the node honestly - §4 forbids inventing a position,
+        // and forbids omitting one SILENTLY, which is why `--json` prints a
+        // note saying the output is not yet conformant. Publishing what exists
+        // makes the remaining gaps visible as "missing pos on X" rather than
+        // hiding the whole feature behind an encoder that drops it.
+        $span = $node->getPos();
+        if ($span !== null && !$node instanceof Document) {
+            $encoded['pos'] = $span->toArray();
+        }
+
         $children = $node->getChildren();
         if ($type === 'autolink') {
             // The reference gives an autolink no children - `text` is the label,
@@ -740,6 +755,16 @@ class AstCodec
         }
 
         $this->applyDerivedFields($node, $data);
+
+        // PART 12 §4. Handled here rather than through the reflection walk: the
+        // spec gives `pos` a defined shape, so it converts to the value object
+        // instead of being assigned raw. This engine cannot yet PRODUCE spans
+        // for every node, but it can carry one it is given.
+        if (is_array($data['pos'] ?? null)) {
+            /** @var array<string, mixed> $span */
+            $span = $data['pos'];
+            $node->setPos(SourceSpan::fromArray($span));
+        }
 
         return $node;
     }

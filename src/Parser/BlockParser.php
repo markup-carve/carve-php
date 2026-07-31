@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use Closure;
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -180,6 +181,35 @@ class BlockParser
     protected int $lineOffset = 0;
 
     /**
+     * Byte offset of each line's first character in the normalized source.
+     *
+     * Keyed by index into the top-level line array, so it is only meaningful
+     * alongside a line map that resolves back to that array.
+     *
+     * @var array<int, int>
+     */
+    protected array $lineStartOffsets = [];
+
+    /**
+     * The normalized top-level source lines, kept so a block span can measure
+     * where its last line ends.
+     *
+     * @var array<int, string>
+     */
+    protected array $sourceLines = [];
+
+    /**
+     * The normalized source, kept so a computed span can be verified against
+     * what it actually selects before a node is allowed to carry it.
+     */
+    protected string $normalizedSource = '';
+
+    /**
+     * Converts the parser's byte positions to the codepoints PART 12 §4 counts.
+     */
+    protected ?PositionIndex $positionIndex = null;
+
+    /**
      * Custom block patterns: array of [pattern => callback]
      * Callback receives (array $lines, int $startIndex, Node $parent, BlockParser $parser)
      * and should return number of lines consumed, or null if not matched
@@ -250,6 +280,17 @@ class BlockParser
     protected bool $trackSourceLines = false;
 
     /**
+     * When true, nodes carry a full PART 12 §4 source span.
+     *
+     * Separate from trackSourceLines, which stamps a `data-source-line`
+     * ATTRIBUTE for editor scroll-sync and is line-granular. A span is AST
+     * state, carries all six fields, and never reaches rendered output.
+     *
+     * @var bool
+     */
+    protected bool $trackPositions = false;
+
+    /**
      * Per-line map for the line array currently being parsed.
      *
      * @var array<int, int>|null
@@ -260,10 +301,12 @@ class BlockParser
         bool $collectWarnings = false,
         bool $strictMode = false,
         bool $trackSourceLines = false,
+        bool $trackPositions = false,
     ) {
         $this->collectWarnings = $collectWarnings;
         $this->strictMode = $strictMode;
         $this->trackSourceLines = $trackSourceLines;
+        $this->trackPositions = $trackPositions;
         $this->inlineParser = new InlineParser($this);
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
@@ -544,6 +587,12 @@ class BlockParser
         // and keeps its id there) and BEFORE rendering (so render-time extension
         // attributes are untouched -- they still land on the <p> wrapper).
         $this->promoteBlockImageAttributes($document);
+
+        if ($this->trackPositions) {
+            // After every pass that can move or wrap nodes, so a container sees
+            // its final children.
+            $this->deriveContainerSpans($document);
+        }
 
         // Validate references and anchor links if warnings are enabled
         if ($this->collectWarnings) {
@@ -1318,6 +1367,7 @@ class BlockParser
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
+                $headingParts = [[$i, $headingText]];
                 $level = strlen($matches[1]);
 
                 // Collect continuation lines. This mirrors tryParseHeading so
@@ -1332,6 +1382,7 @@ class BlockParser
                         break;
                     }
                     if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+                        $headingParts[] = [$j, trim($contMatch[1])];
                         $headingText .= ' ' . trim($contMatch[1]);
                         $j++;
 
@@ -1348,6 +1399,7 @@ class BlockParser
                         break;
                     }
                     if (!$this->startsNewBlock($nextLine)) {
+                        $headingParts[] = [$j, trim($nextLine)];
                         $headingText .= ' ' . trim($nextLine);
                         $j++;
                     } else {
@@ -1376,7 +1428,29 @@ class BlockParser
                     $heading->setAttribute('id', $pendingId);
                     $pendingId = null;
                 }
-                $this->inlineParser->parseHeading($heading, $headingText, $i);
+                // A heading folds continuation lines with a SPACE rather than a
+                // newline, but the mapping is the same shape: one segment per
+                // physical line, each a run of its own source line.
+                $headingContentLines = [];
+                foreach ($headingParts as [$partIndex, $partText]) {
+                    $partSourceLine = $this->sourceLineFor($partIndex);
+                    $partColumn = $partSourceLine < 0
+                        ? false
+                        : strpos($this->sourceLines[$partSourceLine] ?? '', $partText);
+                    $headingContentLines[] = [
+                        $partSourceLine,
+                        $partColumn === false ? 0 : $partColumn,
+                        strlen($partText),
+                        $partText,
+                    ];
+                }
+
+                $this->inlineParser->parseHeading(
+                    $heading,
+                    $headingText,
+                    $i,
+                    $this->foldedLinesMap($headingContentLines),
+                );
 
                 $plainText = $headingIdTracker->getPlainText($heading);
                 $id = $headingIdTracker->getIdForHeading($heading);
@@ -1543,7 +1617,8 @@ class BlockParser
             // how many children the parent had, so newly appended blocks can be
             // stamped with `data-source-line` after the dispatch below.
             $sourceLine = $this->sourceLineFor($i);
-            $childrenBefore = ($this->trackSourceLines && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
+            $tracking = $this->trackSourceLines || $this->trackPositions;
+            $childrenBefore = ($tracking && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
 
             // A bare `---` at the very start of the document is ambiguous between
             // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
@@ -1620,7 +1695,15 @@ class BlockParser
 
             $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
-            $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+            // The block ran from $i to $i + $consumed - 1 in THIS line array;
+            // resolve the last one back to the top-level array the offsets are
+            // keyed by, the same way the first one was.
+            $this->stampSourceLine(
+                $parent,
+                $childrenBefore,
+                $sourceLine,
+                $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+            );
             $i += $consumed;
         }
     }
@@ -1638,10 +1721,11 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
      * @param int $sourceLine 0-indexed original source line; emitted as 1-based (+1).
+     * @param int $endLine
      *
      * @return void
      */
-    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine): void
+    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine, int $endLine = -1): void
     {
         if ($childrenBefore < 0 || $sourceLine < 0) {
             return;
@@ -1650,13 +1734,41 @@ class BlockParser
         $children = $parent->getChildren();
         $total = count($children);
         for ($k = $childrenBefore; $k < $total; $k++) {
-            if (!$this->canStampSourceLine($children[$k])) {
+            if ($this->trackPositions) {
+                $this->stampBlockSpan($children[$k], $sourceLine, $endLine < 0 ? $sourceLine : $endLine);
+            }
+            if (!$this->trackSourceLines || !$this->canStampSourceLine($children[$k])) {
                 continue;
             }
             if ($children[$k]->getAttribute('data-source-line') === null) {
                 $children[$k]->setAttribute('data-source-line', (string)($sourceLine + 1));
             }
         }
+    }
+
+    /**
+     * Give a block the span covering the source lines it was parsed from.
+     *
+     * Only set when both ends resolve to a recorded line, and never overwritten:
+     * a parser that already placed a node more precisely than "these whole
+     * lines" knows better than this does.
+     */
+    private function stampBlockSpan(Node $node, int $startLine, int $endLine): void
+    {
+        if ($node->getPos() !== null) {
+            return;
+        }
+
+        $start = $this->lineStartOffsets[$startLine] ?? null;
+        $end = $this->lineStartOffsets[$endLine] ?? null;
+        if ($start === null || $end === null) {
+            // Synthesized content (a footnote section, a resolved reference)
+            // has no line of its own. §4 forbids inventing one.
+            return;
+        }
+
+        $endOffset = $end + strlen($this->sourceLines[$endLine] ?? '');
+        $node->setPos($this->positionIndex?->span($start, $endOffset, $startLine + 1, $endLine + 1, $start, $end));
     }
 
     private function stampNodeSourceLine(Node $node, int $sourceLine): void
@@ -2542,6 +2654,7 @@ class BlockParser
         // whitespace is INTERIOR once continuation lines fold in, so it is not
         // stripped now; only the final line's trailing run is stripped below.
         $content = $matches[2];
+        $foldedLines = [[$start, $content]];
 
         // Collect continuation lines
         $i = $start + 1;
@@ -2563,6 +2676,7 @@ class BlockParser
             if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
                 // The heading already has non-empty first-line content, so a
                 // newline always precedes a folded continuation.
+                $foldedLines[] = [$i, $contMatch[1]];
                 $content .= "\n" . $contMatch[1];
                 $i++;
             } elseif (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
@@ -2604,6 +2718,7 @@ class BlockParser
                 break;
             } else {
                 // Plain text folds into the heading text.
+                $foldedLines[] = [$i, $nextLine];
                 $content .= "\n" . $nextLine;
                 $i++;
             }
@@ -2622,7 +2737,28 @@ class BlockParser
         // A leading tab is preserved (see the extraction note above).
         $content = rtrim($content);
 
-        $this->inlineParser->parseHeading($heading, $content, $start);
+        // Folded continuation lines need one segment each; the single-line map
+        // finds nothing the moment a heading wraps.
+        $headingLines = [];
+        foreach ($foldedLines as [$foldIndex, $foldText]) {
+            $foldSourceLine = $this->sourceLineFor($foldIndex);
+            $foldColumn = $foldSourceLine < 0
+                ? false
+                : strpos($this->sourceLines[$foldSourceLine] ?? '', $foldText);
+            $headingLines[] = [
+                $foldSourceLine,
+                $foldColumn === false ? 0 : $foldColumn,
+                strlen($foldText),
+                $foldText,
+            ];
+        }
+
+        $this->inlineParser->parseHeading(
+            $heading,
+            $content,
+            $start,
+            $this->foldedLinesMap($headingLines),
+        );
         $this->applyPendingAttributes($heading);
         $parent->appendChild($heading);
 
@@ -3444,6 +3580,7 @@ class BlockParser
                     $itemLines,
                     $itemLineMap,
                 );
+                $listItem->setPos($this->spanForLineMap($itemLineMap));
                 $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
                 $list->appendChild($listItem);
 
@@ -3631,6 +3768,7 @@ class BlockParser
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
+            $listItem->setPos($this->spanForLineMap($itemLineMap));
             $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
 
             $list->appendChild($listItem);
@@ -3801,6 +3939,7 @@ class BlockParser
             while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
                 $termStart = $i;
                 $termText = trim($m[1]);
+                $termLines = [$termText];
                 $i++;
                 // A term folds a following plain line like a heading (soft
                 // break), so a wrapped term line does not strand the definition.
@@ -3816,11 +3955,32 @@ class BlockParser
                     ) {
                         break;
                     }
+                    $termLines[] = $nextLine;
                     $termText .= "\n" . $nextLine;
                     $i++;
                 }
+                // A term folds continuation lines exactly as a paragraph does,
+                // so it needs the same per-line map rather than the single-line
+                // one - which found nothing the moment a term wrapped.
+                $termContentLines = [];
+                $termFirstLine = $this->sourceLineFor($termStart);
+                foreach ($termLines as $offsetInTerm => $termLine) {
+                    $termContentLines[] = [
+                        $termFirstLine < 0 ? -1 : $termFirstLine + $offsetInTerm,
+                        0,
+                        strlen($termLine),
+                        $termLine,
+                    ];
+                }
+
                 $term = new DefinitionTerm();
-                $this->inlineParser->parse($term, $termText, $termStart);
+                $term->setPos($this->foldedLinesSpan($termContentLines) ?? $this->wholeLineSpan($termStart));
+                $this->inlineParser->parse(
+                    $term,
+                    $termText,
+                    $termStart,
+                    sourceMap: $this->foldedLinesMap($termContentLines),
+                );
                 $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
                 $dl->appendChild($term);
             }
@@ -4118,7 +4278,11 @@ class BlockParser
         foreach ($lines as $index => [$line, $lineNumber]) {
             $this->appendLineBlockLine($paragraph, $line, $lineNumber);
             if ($index < $lastIndex) {
-                $paragraph->appendChild(new HardBreak());
+                // The break IS the line ending, so its extent is the newline
+                // that terminates this stanza line.
+                $hardBreak = new HardBreak();
+                $hardBreak->setPos($this->endOfLineSpan($lineNumber));
+                $paragraph->appendChild($hardBreak);
             }
         }
 
@@ -4169,7 +4333,12 @@ class BlockParser
 
             if (!$seenContent || $width >= 2) {
                 if ($text !== '') {
-                    $this->inlineParser->parse($paragraph, $text, $lineNo);
+                    $this->inlineParser->parse(
+                        $paragraph,
+                        $text,
+                        $lineNo,
+                        sourceMap: $this->contiguousMapFor($lineNo, $this->sourceLines[$this->sourceLineFor($lineNo)] ?? '', $text),
+                    );
                     $text = '';
                 }
                 $paragraph->appendChild(new Text(str_repeat("\u{E000}", $width)));
@@ -4181,7 +4350,12 @@ class BlockParser
         }
 
         if ($text !== '') {
-            $this->inlineParser->parse($paragraph, $text, $lineNo);
+            $this->inlineParser->parse(
+                $paragraph,
+                $text,
+                $lineNo,
+                sourceMap: $this->contiguousMapFor($lineNo, $this->sourceLines[$this->sourceLineFor($lineNo)] ?? '', $text),
+            );
         }
     }
 
@@ -4301,6 +4475,9 @@ class BlockParser
                         $headerRow = new TableRow(true);
                         // Preserve row attributes from original row
                         $headerRow->setAttributes($lastRow->getAttributes());
+                        // Same source, so the same span; it is a re-typing of
+                        // the row that was already parsed, not a new one.
+                        $headerRow->setPos($lastRow->getPos());
                         $cellIndex = 0;
                         $colPos = 0;
                         foreach ($lastRow->getChildren() as $cell) {
@@ -4317,6 +4494,8 @@ class BlockParser
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributes());
+                                // Same source as the cell it replaces.
+                                $headerCell->setPos($cell->getPos());
                                 foreach ($cell->getChildren() as $child) {
                                     $headerCell->appendChild($child);
                                 }
@@ -4367,9 +4546,18 @@ class BlockParser
             // Rebuild cellsWithAttrs with merged content
             $mergedCellsWithAttrs = [];
             foreach ($mergedCells as $idx => $content) {
+                // A cell whose content was merged from a continuation row is no
+                // longer a run of THIS line, so it keeps the offset but loses
+                // the claim to be a verbatim slice, and declines a position.
+                $original = $cellsWithAttrs[$idx] ?? null;
                 $mergedCellsWithAttrs[] = [
                     'content' => $content,
                     'attributes' => $cellAttributes[$idx] ?? '',
+                    'offset' => $original === null ? null : $original['offset'],
+                    'rawLength' => $original === null ? null : $original['rawLength'],
+                    'verbatim' => $original !== null
+                        && $original['verbatim']
+                        && $content === $original['content'],
                 ];
             }
 
@@ -4401,6 +4589,7 @@ class BlockParser
 
             // Parse regular row
             $row = new TableRow($isHeaderRow);
+            $row->setPos($this->wholeLineSpan($baseLineForRow));
             if ($rowAttributes) {
                 $row->setAttributes($rowAttributes);
             }
@@ -4457,11 +4646,24 @@ class BlockParser
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
                 $trimmedContent = trim($marker['content']);
+                $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent);
+                $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
+                // NOT used for the cell's text: the cell extent includes the
+                // padding around the content, so handing it to the text node
+                // produces a span covering bytes the node does not hold. The
+                // cell itself takes it; its text declines until the trimmed
+                // content's own offset is tracked.
                 if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
-                    $cell->appendChild(new Text($trimmedContent));
+                    $text = new Text($trimmedContent);
+                    $text->setPos($cellMap?->spanFor(0, $trimmedContent));
+                    $cell->appendChild($text);
                 } else {
-                    $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow);
+                    $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
                 }
+                // Prefer the measured extent: it covers the cell even when its
+                // text was rewritten (an escaped pipe), where a text lookup
+                // cannot match and rightly declines.
+                $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
                 $row->appendChild($cell);
                 $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
             }
@@ -4528,7 +4730,7 @@ class BlockParser
      * and per-column alignment stay keyed by the true column even when a colspan
      * jumps a consumed `^`.
      *
-     * @param array<int, array{content: string, attributes: string}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
@@ -4614,6 +4816,11 @@ class BlockParser
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,
                 'spanMarker' => $spanMarkers[$col],
+                // A filler cell produced by a span marker has no source of its
+                // own, so it keeps no offset and takes no position.
+                'offset' => $isEmpty ? null : $cellData['offset'],
+                'rawLength' => $isEmpty ? null : $cellData['rawLength'],
+                'verbatim' => !$isEmpty && $cellData['verbatim'],
             ];
         }
 
@@ -4824,6 +5031,27 @@ class BlockParser
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line);
+        // Where each folded line's content sits, so a multi-line paragraph can
+        // still place its inlines: [line index, column in that line, length].
+        // Nested content arrives PRE-JOINED: a list item hands its body over as
+        // one entry containing newlines, so recording it as a single segment
+        // would produce text that appears in no source line at all. Split it
+        // back into physical lines, which is what the map resolves against.
+        $contentLines = [];
+        $indent = strlen($line) - strlen($content);
+        $firstSourceLine = $this->sourceLineFor($start);
+        foreach (explode("\n", $content) as $piece => $pieceText) {
+            // The source line is resolved HERE, not later: the pieces are
+            // consecutive physical lines, but a pre-joined item has no line-map
+            // entry for any of them past the first, so re-resolving downstream
+            // would give -1 and drop the segment.
+            $contentLines[] = [
+                $firstSourceLine < 0 ? -1 : $firstSourceLine + $piece,
+                $piece === 0 ? $indent : 0,
+                strlen($pieceText),
+                $pieceText,
+            ];
+        }
 
         $i = $start + 1;
         $count = count($lines);
@@ -4847,7 +5075,14 @@ class BlockParser
             }
 
             // Strip leading whitespace from continuation lines (matching JS reference)
+            $rawNextLine = $nextLine;
             $nextLine = ltrim($nextLine);
+            $contentLines[] = [
+                $this->sourceLineFor($i),
+                strlen($rawNextLine) - strlen($nextLine),
+                strlen($nextLine),
+                $nextLine,
+            ];
             $segment = "\n" . $nextLine;
             $content .= $segment;
             $braceState = $this->scanBraceState($segment, $braceState);
@@ -4864,14 +5099,401 @@ class BlockParser
         // Only the final line is affected - interior lines are followed by a
         // newline, so this rtrim cannot reach them. Space and tab only, matching
         // carve-rs; a trailing NBSP is content everywhere and must survive.
-        $content = rtrim($content, " \t");
+        $trimmedContent = rtrim($content, " \t");
+        if ($trimmedContent !== $content) {
+            $last = count($contentLines) - 1;
+            $shrink = strlen($content) - strlen($trimmedContent);
+            $contentLines[$last][2] -= $shrink;
+            $contentLines[$last][3] = substr($contentLines[$last][3], 0, max(0, strlen($contentLines[$last][3]) - $shrink));
+        }
+        $content = $trimmedContent;
 
         $paragraph = new Paragraph();
-        $this->inlineParser->parse($paragraph, $content, $start);
+        // Set here rather than leaving it to the block-loop stamp, which spans
+        // whole lines: a folded paragraph knows exactly which lines it took and
+        // where its content starts and ends within them.
+        $paragraph->setPos($this->foldedLinesSpan($contentLines));
+        $this->inlineParser->parse(
+            $paragraph,
+            $content,
+            $start,
+            sourceMap: $this->foldedLinesMap($contentLines),
+        );
         $this->applyPendingAttributes($paragraph);
         $parent->appendChild($paragraph);
 
         return $i - $start;
+    }
+
+    /**
+     * A source map for inline text that is a verbatim run of ONE source line.
+     *
+     * The dominant case - a single-line paragraph, a heading, a cell - where the
+     * only difference from the source is leading and trailing whitespace, so the
+     * content sits at a known offset within the line and nothing was joined or
+     * re-indented.
+     *
+     * Returns null the moment that does not hold (a multi-line paragraph, text
+     * the block layer rebuilt). The inline parser then places nothing, which is
+     * what PART 12 section 4 requires of a position it cannot know.
+     */
+
+    /**
+     * A source map for one table cell's content.
+     *
+     * The cell's own offset comes from the split (TableParser::splitCells), not
+     * from searching the row - `| a | a |` has two cells with identical text,
+     * and a span selecting the right BYTES at the wrong cell would pass every
+     * check a consumer could apply. Searching WITHIN the cell is fine, and is
+     * how the alignment marker and surrounding whitespace are skipped.
+     *
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool} $cellData
+     * @param string $content
+     */
+    /**
+     * The span covering one whole source line, for a node that IS its line.
+     *
+     * A table row is the case: it has no content of its own beyond the cells,
+     * and its extent is exactly the line it was read from.
+     */
+
+    /**
+     * The span covering every source line a nested block was built from.
+     *
+     * A list item is the case: its content is a re-indented copy of several
+     * lines, and the line map is what records which ones. Using it keeps the
+     * item's extent honest without needing the item text to be a slice.
+     *
+     * @param array<int, int> $lineMap
+     */
+    private function spanForLineMap(array $lineMap): ?SourceSpan
+    {
+        if (!$this->trackPositions || $lineMap === []) {
+            return null;
+        }
+
+        $first = $lineMap[array_key_first($lineMap)];
+        $last = $lineMap[array_key_last($lineMap)];
+        $start = $this->lineStartOffsets[$first] ?? null;
+        $lastStart = $this->lineStartOffsets[$last] ?? null;
+        if ($start === null || $lastStart === null) {
+            return null;
+        }
+
+        $lastLength = strlen($this->sourceLines[$last] ?? '');
+
+        return $this->positionIndex?->span(
+            $start,
+            $lastStart + $lastLength,
+            $first + 1,
+            $last + 1,
+            $start,
+            $lastStart,
+        );
+    }
+
+    /**
+     * A source map for text folded from one or more whole lines.
+     *
+     * A paragraph's continuation lines are joined with "\n" after their
+     * indentation is stripped, so the built string is not a slice of anything -
+     * but each line within it IS. One segment per line is enough to resolve any
+     * position in the result, which is what lets a multi-line paragraph place
+     * its inlines instead of declining wholesale.
+     *
+     * @param list<array{int, int, int}> $contentLines line index, column, length
+     */
+
+    /**
+     * The span from the first folded line's content to the last line's end.
+     *
+     * @param list<array{int, int, int, string}> $contentLines resolved source line, column, length, text
+     */
+    private function foldedLinesSpan(array $contentLines): ?SourceSpan
+    {
+        if (!$this->trackPositions || $contentLines === []) {
+            return null;
+        }
+
+        [$firstLine, $firstColumn, , $firstText] = $contentLines[0];
+        [$lastLine, $lastColumn, $lastLength, $lastText] = $contentLines[count($contentLines) - 1];
+
+        // Both ends must actually be found in the lines they claim, or the span
+        // would cover bytes belonging to something else.
+        $firstFound = $firstText === '' ? $firstColumn : strpos($this->sourceLines[$firstLine] ?? '', $firstText);
+        $lastFound = $lastText === '' ? $lastColumn : strpos($this->sourceLines[$lastLine] ?? '', $lastText);
+        if ($firstFound === false || $lastFound === false) {
+            return null;
+        }
+        $firstColumn = $firstFound;
+        $lastColumn = $lastFound;
+        $start = $this->lineStartOffsets[$firstLine] ?? null;
+        $lastStart = $this->lineStartOffsets[$lastLine] ?? null;
+        if ($start === null || $lastStart === null) {
+            return null;
+        }
+
+        return $this->positionIndex?->span(
+            $start + $firstColumn,
+            $lastStart + $lastColumn + $lastLength,
+            $firstLine + 1,
+            $lastLine + 1,
+            $start,
+            $lastStart,
+        );
+    }
+
+    /**
+     * @param list<array{int, int, int, string}> $contentLines resolved source line, column, length, text
+     */
+    private function foldedLinesMap(array $contentLines): ?SourceMap
+    {
+        if (!$this->trackPositions || $contentLines === []) {
+            return null;
+        }
+
+        $map = new SourceMap();
+        $textOffset = 0;
+        $any = false;
+        foreach ($contentLines as [$sourceLine, $column, $length, $lineText]) {
+            $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+            // Nested content arrives already re-indented, so the column measured
+            // against that copy is short by whatever was stripped. Locate the
+            // text in the real source line instead.
+            $sourceColumn = $lineText === ''
+                ? $column
+                : strpos($this->sourceLines[$sourceLine] ?? '', $lineText);
+            if ($sourceColumn === false) {
+                // The line is not a run of the source line it claims to come
+                // from - deeply nested content that was re-indented more than
+                // once. Falling back to the nested column produced spans that
+                // pointed at unrelated bytes; skipping the segment means the
+                // affected nodes get no position, which is the correct answer.
+                $textOffset += $length + 1;
+
+                continue;
+            }
+            if ($lineStart !== null && $length >= 0) {
+                $map->add($textOffset, $lineStart + $sourceColumn, $length, $sourceLine + 1, $sourceColumn + 1);
+                $any = true;
+            }
+            // +1 for the "\n" the join inserted between lines.
+            $textOffset += $length + 1;
+        }
+
+        return $any ? $map->withSource($this->normalizedSource, $this->positionIndex) : null;
+    }
+
+    /**
+     * Give a container the extent of the children it holds.
+     *
+     * A node that wraps others - a figure around an image and its caption, a
+     * footnote around its body, an emphasis around its text - has no source of
+     * its own to measure, but its extent is exactly the span of what it
+     * contains. Deriving it is not inventing a position (PART 12 §4): every
+     * number comes from a child that was placed by measurement.
+     *
+     * Runs bottom-up so a container of containers resolves too, and never
+     * overwrites a span the parser already set, which is always more precise.
+     */
+    private function deriveContainerSpans(Node $node): ?SourceSpan
+    {
+        $first = null;
+        $last = null;
+        foreach ($node->getChildren() as $child) {
+            $span = $this->deriveContainerSpans($child);
+            if ($span === null) {
+                continue;
+            }
+            if ($first === null || $span->startOffset < $first->startOffset) {
+                $first = $span;
+            }
+            if ($last === null || $span->endOffset > $last->endOffset) {
+                $last = $span;
+            }
+        }
+
+        $own = $node->getPos();
+        if ($own !== null) {
+            // A node contains what it holds, so its extent is the UNION of its
+            // own and its children's - not whichever was set first. A list item
+            // measured from its marker line stops there, while the nested list
+            // inside it runs on for several more; reporting only the first line
+            // is a span that does not cover its own content.
+            if ($first === null || $last === null) {
+                return $own;
+            }
+            if ($own->startOffset <= $first->startOffset && $own->endOffset >= $last->endOffset) {
+                return $own;
+            }
+            $first = $own->startOffset <= $first->startOffset ? $own : $first;
+            $last = $own->endOffset >= $last->endOffset ? $own : $last;
+        }
+
+        if ($first === null || $last === null) {
+            return null;
+        }
+
+        $derived = new SourceSpan(
+            startLine: $first->startLine,
+            endLine: $last->endLine,
+            startColumn: $first->startColumn,
+            endColumn: $last->endColumn,
+            startOffset: $first->startOffset,
+            endOffset: $last->endOffset,
+        );
+        $node->setPos($derived);
+
+        return $derived;
+    }
+
+    /**
+     * The span of the newline that ends a source line.
+     *
+     * A hard break in a line block has no text of its own: what it represents
+     * is the line ending, which is one byte of real source.
+     */
+    private function endOfLineSpan(int $index): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $start = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($start === null) {
+            return null;
+        }
+
+        $end = $start + strlen($this->sourceLines[$sourceLine] ?? '');
+
+        return $this->positionIndex?->span($end, $end + 1, $sourceLine + 1, $sourceLine + 1, $start, $start);
+    }
+
+    private function wholeLineSpan(int $index): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $start = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($start === null) {
+            return null;
+        }
+
+        $length = strlen($this->sourceLines[$sourceLine] ?? '');
+
+        return $this->positionIndex?->span(
+            $start,
+            $start + $length,
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $start,
+            $start,
+        );
+    }
+
+    /**
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool} $cellData
+     * @param string $content
+     */
+
+    /**
+     * The span of a cell's own source, from what the split measured.
+     *
+     * Independent of whether the cell's TEXT can be verified: an escaped pipe
+     * collapses two source bytes into one of content, so the text lookup fails
+     * and declines, but the cell still occupied a known stretch of the line.
+     *
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null} $cellData
+     */
+    private function cellExtentSpan(int $index, array $cellData): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+
+        $offset = $cellData['offset'] ?? null;
+        $rawLength = $cellData['rawLength'] ?? null;
+        if ($offset === null || $rawLength === null) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        return $this->positionIndex?->span(
+            $lineStart + $offset,
+            $lineStart + $offset + $rawLength,
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+    }
+
+    /**
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null} $cellData
+     * @param string $content
+     */
+    private function cellSourceMap(int $index, array $cellData, string $content): ?SourceMap
+    {
+        if (!$this->trackPositions || $content === '' || ($cellData['verbatim'] ?? false) !== true) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        $cellOffset = $cellData['offset'] ?? null;
+        if ($lineStart === null || $cellOffset === null) {
+            return null;
+        }
+
+        $within = strpos($cellData['content'], $content);
+        if ($within === false) {
+            return null;
+        }
+
+        $start = $lineStart + $cellOffset + $within;
+
+        return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $cellOffset + $within + 1)
+            ->withSource($this->normalizedSource, $this->positionIndex);
+    }
+
+    private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
+    {
+        if (!$this->trackPositions || $content === '') {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        // Search the ORIGINAL source line, not the one passed in. Nested
+        // content reaches here already re-indented - a paragraph inside a list
+        // item or blockquote has had its marker and indentation stripped - so a
+        // column measured against that copy would be short by the amount
+        // removed, and the span would select the wrong bytes.
+        $column = strpos($this->sourceLines[$sourceLine] ?? $line, $content);
+        if ($column === false) {
+            // Rebuilt rather than sliced - joined continuations, stripped
+            // indentation, an expanded tab.
+            return null;
+        }
+
+        return SourceMap::contiguous($lineStart + $column, strlen($content), $sourceLine + 1, $column + 1)
+            ->withSource($this->normalizedSource, $this->positionIndex);
     }
 
     /**
@@ -5082,7 +5704,14 @@ class BlockParser
         // Handle Table - add caption directly to table
         if ($lastChild instanceof Table) {
             $caption = new Caption();
-            $this->inlineParser->parse($caption, $captionText, $start, true);
+            $caption->setPos($this->wholeLineSpan($start));
+            $this->inlineParser->parse(
+                $caption,
+                $captionText,
+                $start,
+                true,
+                $this->contiguousMapFor($start, $lines[$start], $captionText),
+            );
             $lastChild->setCaption($caption);
 
             return $linesConsumed;
@@ -5100,7 +5729,14 @@ class BlockParser
             }
 
             $caption = new Caption();
-            $this->inlineParser->parse($caption, $captionText, $start, true);
+            $caption->setPos($this->wholeLineSpan($start));
+            $this->inlineParser->parse(
+                $caption,
+                $captionText,
+                $start,
+                true,
+                $this->contiguousMapFor($start, $lines[$start], $captionText),
+            );
 
             $figure->appendChild($lastChild);
             $figure->appendChild($caption);
@@ -5122,7 +5758,14 @@ class BlockParser
 
             // Create caption
             $caption = new Caption();
-            $this->inlineParser->parse($caption, $captionText, $start, true);
+            $caption->setPos($this->wholeLineSpan($start));
+            $this->inlineParser->parse(
+                $caption,
+                $captionText,
+                $start,
+                true,
+                $this->contiguousMapFor($start, $lines[$start], $captionText),
+            );
 
             // Build figure: blockquote + caption
             $figure->appendChild($lastChild);
@@ -5152,7 +5795,13 @@ class BlockParser
 
                 // Create caption
                 $caption = new Caption();
-                $this->inlineParser->parse($caption, $captionText, $start, true);
+                $this->inlineParser->parse(
+                    $caption,
+                    $captionText,
+                    $start,
+                    true,
+                    $this->contiguousMapFor($start, $lines[$start], $captionText),
+                );
 
                 // Build figure: image + caption
                 $figure->appendChild($image);
@@ -5186,7 +5835,13 @@ class BlockParser
                 }
 
                 $caption = new Caption();
-                $this->inlineParser->parse($caption, $captionText, $start, true);
+                $this->inlineParser->parse(
+                    $caption,
+                    $captionText,
+                    $start,
+                    true,
+                    $this->contiguousMapFor($start, $lines[$start], $captionText),
+                );
 
                 $figure->appendChild($lastChild);
                 $figure->appendChild($caption);
@@ -5928,7 +6583,24 @@ class BlockParser
      */
     protected function splitLines(string $input): array
     {
-        return explode("\n", str_replace(["\r\n", "\r"], "\n", $input));
+        $normalized = str_replace(["\r\n", "\r"], "\n", $input);
+        $lines = explode("\n", $normalized);
+
+        // Record where each line starts in the NORMALIZED source, while the
+        // information still exists. After this point the block layer strips
+        // indentation and re-joins lines, and a byte offset into what it builds
+        // no longer relates to the document (PART 12 §4).
+        $this->lineStartOffsets = [];
+        $this->sourceLines = $lines;
+        $this->normalizedSource = $normalized;
+        $this->positionIndex = $this->trackPositions ? new PositionIndex($normalized) : null;
+        $offset = 0;
+        foreach ($lines as $index => $line) {
+            $this->lineStartOffsets[$index] = $offset;
+            $offset += strlen($line) + 1;
+        }
+
+        return $lines;
     }
 
     /**
