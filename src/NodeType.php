@@ -88,6 +88,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const FRONTMATTER = 'frontmatter';
+
+    /**
+     * @var string
+     */
     public const DEFINITION_LIST = 'definition_list';
 
     /**
@@ -318,6 +323,7 @@ final class NodeType
             self::DIV,
             self::RAW_BLOCK,
             self::FOOTNOTE,
+            self::FRONTMATTER,
             self::DEFINITION_LIST,
             self::DEFINITION_TERM,
             self::DEFINITION_DESCRIPTION,

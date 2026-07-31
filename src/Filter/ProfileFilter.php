@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Filter;
 
 use MarkupCarve\Carve\Exception\ProfileViolationException;
+use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\LinkPolicy;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -259,10 +260,18 @@ class ProfileFilter
      */
     protected function rendersNothing(Node $node): bool
     {
-        // Only Comment today. Deliberately not a list of "probably empty" node
-        // types: a ThematicBreak already extracts to `---` and never reaches
-        // here, so adding it would be a branch that cannot fire.
-        return $node instanceof Comment;
+        // Deliberately not a list of "probably empty" node types: a
+        // ThematicBreak already extracts to `---` and never reaches here, so
+        // adding it would be a branch that cannot fire.
+        //
+        // A comment produces no output by definition. Frontmatter is document
+        // METADATA - it is published on the serialized root rather than in the
+        // document's flow (PART 12 section 2) and renders nowhere - so degrading
+        // it to text has nothing to substitute. Without this it took the
+        // missing-extractor path and injected a literal `[frontmatter]`
+        // paragraph into the output, which is the marker's way of saying an arm
+        // is missing rather than a claim about the content.
+        return $node instanceof Comment || $node instanceof Frontmatter;
     }
 
     /**

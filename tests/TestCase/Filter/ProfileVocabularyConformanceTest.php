@@ -76,6 +76,7 @@ class ProfileVocabularyConformanceTest extends TestCase
             'admonition' => ["::: note\nbody\n:::\n", $block],
             'raw_block' => ["```=html\n<b>x</b>\n```\n", $block],
             'footnote' => ["ref[^a]\n\n[^a]: note\n", $block],
+            'frontmatter' => ["---\ntitle: x\n---\n\nbody\n", $block],
             'definition_list' => [":: term\n:  definition\n", $block],
             'definition_term' => [":: term\n:  definition\n", $block],
             'definition_description' => [":: term\n:  definition\n", $block],

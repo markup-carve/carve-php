@@ -550,15 +550,20 @@ class Profile
      * Types outside the vocabulary that are always allowed.
      *
      * A profile cannot name these, so denying them would express nothing:
-     * `raw_text` serves the formatter, `abbreviation_def` and `frontmatter`
-     * render nothing, and the document root is the tree itself.
+     * `raw_text` serves the formatter, `abbreviation_def` renders nothing, and
+     * the document root is the tree itself.
+     *
+     * `frontmatter` used to sit here on the same "renders nothing" reasoning.
+     * The spec's block vocabulary lists it, so a profile CAN name it - and
+     * since PART 12 §2 publishes it as a root field, denying it is a real
+     * decision about what leaves the engine even though the HTML is unchanged.
+     * Keeping it here meant a host denying frontmatter was silently ignored.
      *
      * @var list<string>
      */
     private const NON_DENIABLE_TYPES = [
         'raw_text',
         'abbreviation_def',
-        'frontmatter',
         'document',
     ];
 
