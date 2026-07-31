@@ -1252,14 +1252,15 @@ class InlineParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param string $text
      * @param array<string, string> $abbreviations
+     * @param int|null $start Where the flushed run began, or null when its text
+     *   was rewritten and offsets into it would not line up.
      */
     protected function flushTextWithAbbreviations(
         Node $parent,
         string $text,
         array $abbreviations,
         ?int $start = null,
-    ): void
-    {
+    ): void {
         // Cache the regex pattern for abbreviations (built once per document)
         if ($this->cachedAbbreviations !== $abbreviations) {
             // Sort abbreviations by length (longest first) to match longer abbreviations first
