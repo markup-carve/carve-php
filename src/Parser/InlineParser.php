@@ -577,13 +577,6 @@ class InlineParser
      */
     protected ?int $textBufferEnd = null;
 
-    /**
-     * The ASCII punctuation a backslash escapes, per the grammar.
-     *
-     * @var string
-     */
-    private const ESCAPABLE = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
-
     protected ?SourceMap $sourceMap = null;
 
     /**
