@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\NodeType;
 use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -116,6 +118,44 @@ class ProfileVocabularyTest extends TestCase
 
         $fixed = array_values(array_diff(self::KNOWN_LOSSY_UNDER_A_FULL_PROFILE, $offenders));
         $this->assertSame([], $fixed, 'these are lossless now - drop them from the list so it keeps ratcheting');
+    }
+
+    public function testAFullProfileAllowsATypeTheVocabularyDoesNotKnow(): void
+    {
+        $source = "---\ntitle: x\n---\n\nBody with \"smart quotes\" and an em dash -- here.\n";
+
+        $this->assertSame(
+            (new CarveConverter())->convert($source),
+            $this->withFullProfile()->convert($source),
+            'a full profile denied a type outside the vocabulary instead of allowing it',
+        );
+    }
+
+    public function testAnAllowlistProfileStillDeniesATypeItDoesNotKnow(): void
+    {
+        $converter = new CarveConverter();
+        $converter->setProfile(Profile::comment());
+        $converter->convert("Body with a {~old~>new~} substitution.\n");
+
+        $this->assertNotSame([], $converter->getProfileViolations(), 'an allowlist profile must keep excluding types it does not list');
+    }
+
+    public function testANodeResolvesOnItsOwnAxisNotTheOtherOne(): void
+    {
+        $inline = new class extends InlineNode {
+            public function getType(): string
+            {
+                return 'wibble_inline';
+            }
+        };
+
+        // Restricts the BLOCK axis only; the inline axis stays "all".
+        $profile = Profile::full()->allowBlock([NodeType::PARAGRAPH]);
+
+        $this->assertTrue(
+            $profile->isNodeAllowed($inline),
+            'an inline node was resolved against the block allow list, so a restriction on one axis silently denied the other',
+        );
     }
 
     private function withFullProfile(): CarveConverter

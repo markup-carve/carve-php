@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve;
 
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Node;
@@ -460,11 +461,24 @@ class Profile
     }
 
     /**
-     * Check if a node is allowed by this profile
+     * Check if a node is allowed by this profile.
+     *
+     * Resolves on the node's OWN axis rather than by looking the name up in the
+     * vocabulary lists, so a type this build does not know still resolves
+     * exactly - profiles.md §Resolution, which has no "deny the unrecognized"
+     * step. A node is the only place the axis is unambiguous.
      */
     public function isNodeAllowed(Node $node): bool
     {
-        return $this->isTypeAllowed(self::canonicalTypeOf($node));
+        $type = self::trustClass(self::canonicalTypeOf($node));
+
+        if (in_array($type, self::NON_DENIABLE_TYPES, true)) {
+            return true;
+        }
+
+        return $node instanceof BlockNode
+            ? $this->isBlockAllowed($type)
+            : $this->isInlineAllowed($type);
     }
 
     /**
