@@ -7,6 +7,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Source positions on AST nodes (PART 12 §4), opt-in.**
+  `new BlockParser(trackPositions: true)` records a `SourceSpan` on each node,
+  read with `Node::getPos()`. All six fields are present or the span is `null` -
+  §4 forbids inventing one, so a node the parser cannot place honestly carries
+  none. Offsets are bytes, into the source after normalization (BOM stripped,
+  CRLF folded). Not serialized yet: coverage is ~97% of corpus nodes, and
+  emitting `pos` partially is what §4 rules out.
+
 ### Changed
 
 - **BREAKING (AST): an editorial comment is now a `critic_comment` node.** It

@@ -181,6 +181,21 @@ does. An unregistered type fails loudly rather than silently dropping content.
   drives them, but writes back without `[x]`. A titled admonition rendered the
   same `<aside>` while losing its title. §6 is about the authored form, so the
   Carve renderer is the stricter surface.
+- **Source positions are recorded, but not yet serialized.** Opt in with
+  `new BlockParser(trackPositions: true)` and read `Node::getPos()`, which
+  returns a `SourceSpan` (all six PART 12 §4 fields, offsets in bytes) or
+  `null`.
+
+  Null is a real answer, not a gap: §4 forbids emitting a span with invented
+  values, so a node the parser cannot place honestly carries none. Two
+  invariants are enforced over the whole corpus - a text node's span selects
+  exactly its own bytes, and a child's span never falls outside its parent's.
+  About 97% of corpus nodes carry a span; the rest are deeply nested list
+  content and span-marker filler cells.
+
+  The codec does **not** emit `pos` yet, because partial coverage would be
+  exactly the output §4 rules out. Tracked in
+  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478).
 - **Field names match the spec; positions do not exist yet.** Running the spec
   repo's `npm run ast:check` against `bin/carve --json` reports **23 findings over
   12 documents, every one of them a missing `pos`** - down from 48, with the
