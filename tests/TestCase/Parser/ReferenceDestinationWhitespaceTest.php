@@ -98,6 +98,22 @@ class ReferenceDestinationWhitespaceTest extends TestCase
         );
     }
 
+    #[DataProvider('unicodeWhitespaceProvider')]
+    public function testAWhitespaceOnlyDestinationIsNotADefinition(string $space): void
+    {
+        // Trimming can empty the destination, and an empty destination is not a
+        // definition - `[r]:` and `[r]:   ` already stay literal. The regex only
+        // requires a non-space BYTE, which a Unicode space satisfies, so without
+        // a re-check after trimming this registered a reference with an empty
+        // href and rendered `<a href="">`.
+        $out = (new CarveConverter())->convert("[x][r]\n\n[r]: {$space}\n");
+
+        $this->assertStringNotContainsString('<a', $out);
+        $this->assertStringContainsString('[x][r]', $out);
+        // The line itself survives as prose rather than being swallowed.
+        $this->assertStringContainsString('[r]:', $out);
+    }
+
     public function testTheAnsiTargetShowsNoInvisibleCharacter(): void
     {
         // The case that made this visible: the destination is denied and blanked

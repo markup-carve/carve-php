@@ -821,6 +821,24 @@ class BlockParser
                 // uses the Unicode White_Space property.
                 $url = self::trimUnicodeWhitespace($matches[2]);
 
+                // Trimming can empty the destination, and an empty destination
+                // is NOT a definition - the line stays literal, exactly as
+                // `[r]:` and `[r]:   ` already do. The regex only guaranteed a
+                // non-space byte, which a narrow no-break space satisfies, so
+                // without this re-check `[r]: <U+202F>` registered a reference
+                // with an empty href and `[x][r]` rendered as `<a href="">`,
+                // where carve-js and carve-rs both leave the line as prose.
+                if ($url === '') {
+                    if (!IndentationHelper::isBlankLine($line)) {
+                        $pendingAttrs = [];
+                        $pendingAttrsInQuote = false;
+                        $pendingAttrsInList = false;
+                    }
+                    $i++;
+
+                    continue;
+                }
+
                 // Attach pendingAttrs only when the attributes line and the
                 // definition share the same context (both quoted or both
                 // top-level). This prevents a `> {.note}` line from leaking
@@ -4724,7 +4742,16 @@ class BlockParser
         // the canonical carve-js / carve-rs. No continuation gathering. The
         // separator after `]:` must START with a literal SPACE; a tab-first
         // separator (`[r]:\t/u`) does not form a definition (issue 288).
-        if (!preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*\S.*$/', $line)) {
+        if (!preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches)) {
+            return null;
+        }
+
+        // `\S` is satisfied by a Unicode space, so a destination made only of
+        // those looks present here and is empty once trimmed. It has to stay
+        // literal like `[r]:` does, and the first-pass collector applies the
+        // same re-check - otherwise this pass would swallow a line the
+        // collector deliberately refused to register (carve#352).
+        if (self::trimUnicodeWhitespace($matches[2]) === '') {
             return null;
         }
 
