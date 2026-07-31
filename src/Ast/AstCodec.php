@@ -167,6 +167,25 @@ class AstCodec
             throw new RuntimeException('The payload root must be a document node');
         }
 
+        // carve-js keeps footnote DEFINITIONS in a root-level `footnoteDefs`
+        // map rather than as block nodes in `children`, so a tree it produced
+        // could not be read here at all: the map is a field this decoder does
+        // not build, and the loss check refused the payload outright.
+        //
+        // Which representation is canonical is an open spec question
+        // (carve#408) - `footnote` IS a block type in the vocabulary, which
+        // argues for nodes, while a definition's POSITION carries no meaning,
+        // which argues for a map. Accepting the map converts it to the nodes
+        // this engine uses, so the exchange PART 12 exists for works while that
+        // is settled, without either engine changing what it emits.
+        if ($this->adoptFootnoteDefs($data, $node)) {
+            // Adopted, so it is not lost - the definitions are in the tree now.
+            // The loss check compares the payload against a RE-ENCODE, and this
+            // engine encodes definitions as nodes, so leaving the map in the
+            // comparison would report the very field that was just honored.
+            unset($data['footnoteDefs']);
+        }
+
         $this->verifyNothingWasLost($data, $node);
         self::resolveFootnoteRefs($node);
 
@@ -223,6 +242,59 @@ class AstCodec
      * @param \MarkupCarve\Carve\Node\Document $document
      *
      * @throws \RuntimeException When decoding dropped content the input carried.
+     */
+
+    /**
+     * Turn a root-level `footnoteDefs` map into the block nodes this engine uses.
+     *
+     * Appended at the end, which is where they render from regardless of where
+     * they were written - a definition's position is not content.
+     *
+     * @param array<string, mixed> $data
+     * @param \MarkupCarve\Carve\Node\Document $document
+     *
+     * @return bool Whether the payload carried a map.
+     */
+    private function adoptFootnoteDefs(array $data, Document $document): bool
+    {
+        $defs = $data['footnoteDefs'] ?? null;
+        if (!is_array($defs)) {
+            return false;
+        }
+
+        $existing = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof FootnoteBlock) {
+                $existing[$child->getLabel()] = true;
+            }
+        }
+
+        foreach ($defs as $label => $blocks) {
+            if (isset($existing[(string)$label]) || !is_array($blocks)) {
+                continue;
+            }
+
+            $footnote = new FootnoteBlock((string)$label);
+            foreach ($blocks as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+
+                /** @var array<string, mixed> $decoded */
+                $decoded = $block;
+                $footnote->appendChild($this->decodeNode($decoded));
+            }
+            $document->appendChild($footnote);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @param \MarkupCarve\Carve\Node\Document $document
+     *
+     * @throws \RuntimeException
      */
     private function verifyNothingWasLost(array $input, Document $document): void
     {
