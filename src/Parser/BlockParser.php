@@ -205,6 +205,11 @@ class BlockParser
     protected string $normalizedSource = '';
 
     /**
+     * Converts the parser's byte positions to the codepoints PART 12 §4 counts.
+     */
+    protected ?PositionIndex $positionIndex = null;
+
+    /**
      * Custom block patterns: array of [pattern => callback]
      * Callback receives (array $lines, int $startIndex, Node $parent, BlockParser $parser)
      * and should return number of lines consumed, or null if not matched
@@ -1712,14 +1717,7 @@ class BlockParser
         }
 
         $endOffset = $end + strlen($this->sourceLines[$endLine] ?? '');
-        $node->setPos(new SourceSpan(
-            startLine: $startLine + 1,
-            endLine: $endLine + 1,
-            startColumn: 1,
-            endColumn: ($endOffset - $end) + 1,
-            startOffset: $start,
-            endOffset: $endOffset,
-        ));
+        $node->setPos($this->positionIndex?->span($start, $endOffset, $startLine + 1, $endLine + 1, $start, $end));
     }
 
     private function stampNodeSourceLine(Node $node, int $sourceLine): void
@@ -5056,13 +5054,13 @@ class BlockParser
 
         $lastLength = strlen($this->sourceLines[$last] ?? '');
 
-        return new SourceSpan(
-            startLine: $first + 1,
-            endLine: $last + 1,
-            startColumn: 1,
-            endColumn: $lastLength + 1,
-            startOffset: $start,
-            endOffset: $lastStart + $lastLength,
+        return $this->positionIndex?->span(
+            $start,
+            $lastStart + $lastLength,
+            $first + 1,
+            $last + 1,
+            $start,
+            $lastStart,
         );
     }
 
@@ -5110,13 +5108,13 @@ class BlockParser
             return null;
         }
 
-        return new SourceSpan(
-            startLine: $firstLine + 1,
-            endLine: $lastLine + 1,
-            startColumn: $firstColumn + 1,
-            endColumn: $lastColumn + $lastLength + 1,
-            startOffset: $start + $firstColumn,
-            endOffset: $lastStart + $lastColumn + $lastLength,
+        return $this->positionIndex?->span(
+            $start + $firstColumn,
+            $lastStart + $lastColumn + $lastLength,
+            $firstLine + 1,
+            $lastLine + 1,
+            $start,
+            $lastStart,
         );
     }
 
@@ -5159,7 +5157,7 @@ class BlockParser
             $textOffset += $length + 1;
         }
 
-        return $any ? $map->withSource($this->normalizedSource) : null;
+        return $any ? $map->withSource($this->normalizedSource, $this->positionIndex) : null;
     }
 
     /**
@@ -5239,13 +5237,13 @@ class BlockParser
 
         $length = strlen($this->sourceLines[$sourceLine] ?? '');
 
-        return new SourceSpan(
-            startLine: $sourceLine + 1,
-            endLine: $sourceLine + 1,
-            startColumn: 1,
-            endColumn: $length + 1,
-            startOffset: $start,
-            endOffset: $start + $length,
+        return $this->positionIndex?->span(
+            $start,
+            $start + $length,
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $start,
+            $start,
         );
     }
 
@@ -5275,7 +5273,7 @@ class BlockParser
         $start = $lineStart + $cellOffset + $within;
 
         return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $cellOffset + $within + 1)
-            ->withSource($this->normalizedSource);
+            ->withSource($this->normalizedSource, $this->positionIndex);
     }
 
     private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
@@ -5303,7 +5301,7 @@ class BlockParser
         }
 
         return SourceMap::contiguous($lineStart + $column, strlen($content), $sourceLine + 1, $column + 1)
-            ->withSource($this->normalizedSource);
+            ->withSource($this->normalizedSource, $this->positionIndex);
     }
 
     /**
@@ -6403,6 +6401,7 @@ class BlockParser
         $this->lineStartOffsets = [];
         $this->sourceLines = $lines;
         $this->normalizedSource = $normalized;
+        $this->positionIndex = $this->trackPositions ? new PositionIndex($normalized) : null;
         $offset = 0;
         foreach ($lines as $index => $line) {
             $this->lineStartOffsets[$index] = $offset;

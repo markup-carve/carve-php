@@ -78,19 +78,52 @@ final class SourceMap
      */
     public function span(int $start, int $end): ?SourceSpan
     {
+        $bytes = $this->byteSpan($start, $end);
+
+        return $bytes === null ? null : $this->convert($bytes);
+    }
+
+    /**
+     * The span in BYTE positions, which is what the parser measured.
+     *
+     * Kept separate because verification has to happen in this unit: the source
+     * is a PHP string, so checking what a span selects means a byte `substr`.
+     * Converting first and then verifying would compare codepoint offsets
+     * against byte indices - which silently passed nonsense until the corpus
+     * sweep caught it.
+     *
+     * @return array{int, int, int, int, int, int}|null start/end byte, start/end
+     *   line, start/end line-start byte
+     */
+    private function byteSpan(int $start, int $end): ?array
+    {
         $from = $this->resolve($start);
         $to = $this->resolve($end);
         if ($from === null || $to === null) {
             return null;
         }
 
+        return [$from[0], $to[0], $from[1], $to[1], $from[0] - ($from[2] - 1), $to[0] - ($to[2] - 1)];
+    }
+
+    /**
+     * @param array{int, int, int, int, int, int} $bytes
+     */
+    private function convert(array $bytes): SourceSpan
+    {
+        // PART 12 §4 counts codepoints; the parser counts bytes. This is the one
+        // place every span from this map passes through.
+        if ($this->index !== null) {
+            return $this->index->span($bytes[0], $bytes[1], $bytes[2], $bytes[3], $bytes[4], $bytes[5]);
+        }
+
         return new SourceSpan(
-            startLine: $from[1],
-            endLine: $to[1],
-            startColumn: $from[2],
-            endColumn: $to[2],
-            startOffset: $from[0],
-            endOffset: $to[0],
+            startLine: $bytes[2],
+            endLine: $bytes[3],
+            startColumn: $bytes[0] - $bytes[4] + 1,
+            endColumn: $bytes[1] - $bytes[5] + 1,
+            startOffset: $bytes[0],
+            endOffset: $bytes[1],
         );
     }
 
@@ -116,6 +149,11 @@ final class SourceMap
      * holds. See SourceMap::spanFor().
      */
     private ?string $source = null;
+
+    /**
+     * Converts byte positions to the codepoints PART 12 §4 counts.
+     */
+    private ?PositionIndex $index = null;
 
     /**
      * A view of this map for a SUBSTRING starting at `$delta`.
@@ -150,6 +188,7 @@ final class SourceMap
     {
         $shifted = new self();
         $shifted->source = $this->source;
+        $shifted->index = $this->index;
         foreach ($this->segments as [$textStart, $sourceStart, $length, $line, $column]) {
             $shifted->segments[] = [$textStart - $delta, $sourceStart, $length, $line, $column];
         }
@@ -157,9 +196,10 @@ final class SourceMap
         return $shifted;
     }
 
-    public function withSource(string $source): self
+    public function withSource(string $source, ?PositionIndex $index = null): self
     {
         $this->source = $source;
+        $this->index = $index;
 
         return $this;
     }
@@ -177,18 +217,18 @@ final class SourceMap
      */
     public function spanFor(int $start, string $text): ?SourceSpan
     {
-        $span = $this->span($start, $start + strlen($text));
-        if ($span === null) {
+        $bytes = $this->byteSpan($start, $start + strlen($text));
+        if ($bytes === null) {
             return null;
         }
 
         if ($this->source !== null) {
-            $selected = substr($this->source, $span->startOffset, $span->endOffset - $span->startOffset);
+            $selected = substr($this->source, $bytes[0], $bytes[1] - $bytes[0]);
             if ($selected !== $text) {
                 return null;
             }
         }
 
-        return $span;
+        return $this->convert($bytes);
     }
 }

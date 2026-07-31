@@ -44,7 +44,7 @@ class SourcePositionTest extends TestCase
         $found = null;
         foreach ($document->getChildren() as $child) {
             $pos = $child->getPos();
-            if ($pos !== null && substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset) === $expected) {
+            if ($pos !== null && mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8') === $expected) {
                 $found = $child;
 
                 break;
@@ -54,18 +54,24 @@ class SourcePositionTest extends TestCase
         $this->assertNotNull($found, sprintf('no block span selected %s', json_encode($expected)));
     }
 
-    public function testOffsetsAreBytesNotUtf16(): void
+    public function testOffsetsAreCountedInCodepoints(): void
     {
-        // The unit is the whole of markup-carve/carve#394. An emoji is 4 bytes
-        // and 2 UTF-16 code units, so the two answers differ by 2 here - which
-        // is exactly the case no corpus fixture covers.
+        // PART 12 section 4 counts codepoints, and says why: a codepoint index
+        // always lands on a character boundary, while a byte offset can point
+        // inside a UTF-8 sequence and a UTF-16 offset inside a surrogate pair.
+        // An emoji is 1 codepoint, 2 UTF-16 units and 4 bytes, so all three
+        // answers differ here - the case no corpus fixture covered while the
+        // units silently disagreed (markup-carve/carve#394).
         $source = "\u{1F600} text\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
         $pos = $document->getChildren()[0]->getPos();
 
         $this->assertNotNull($pos);
-        $this->assertSame(9, $pos->endOffset, 'bytes; UTF-16 would be 7');
-        $this->assertSame("\u{1F600} text", substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset));
+        $this->assertSame(6, $pos->endOffset, 'codepoints; UTF-16 would be 7 and bytes 9');
+        $this->assertSame(
+            "\u{1F600} text",
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+        );
     }
 
     public function testAWrongSpanIsDeclinedRatherThanEmitted(): void
@@ -86,7 +92,7 @@ class SourcePositionTest extends TestCase
 
             $this->assertSame(
                 $node->getContent(),
-                substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
+                mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
                 'a text span must select exactly the text it belongs to',
             );
         }
@@ -116,7 +122,7 @@ class SourcePositionTest extends TestCase
                 }
 
                 $checked++;
-                $selected = substr($normalized, $pos->startOffset, $pos->endOffset - $pos->startOffset);
+                $selected = mb_substr($normalized, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
                 if ($selected !== $node->getContent()) {
                     $wrong[] = basename($file) . ': ' . json_encode($selected);
                 }
