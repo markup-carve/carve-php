@@ -51,31 +51,27 @@ class ReferenceDestinationWhitespaceTest extends TestCase
         );
     }
 
-    /**
-     * A no-break space is excluded: this engine renders one in an href as the
-     * `&nbsp;` entity, so the assertion would be about HTML escaping rather
-     * than about trimming. It is covered by the both-ends case above.
-     *
-     * @return array<string, array{string}>
-     */
-    public static function interiorProvider(): array
+    #[DataProvider('unicodeWhitespaceProvider')]
+    public function testTheDestinationEndsAtInteriorWhitespace(string $space): void
     {
-        $cases = self::unicodeWhitespaceProvider();
-        unset($cases['no-break space']);
-
-        return $cases;
-    }
-
-    #[DataProvider('interiorProvider')]
-    public function testTheInteriorIsPreserved(string $space): void
-    {
-        // Only the ends are noise. A definition runs to end of line, so
-        // whitespace inside the destination is unambiguous and part of it -
-        // dropping it would silently rewrite the URL.
+        // Not "trimmed at the ends, interior preserved" - that reads as the
+        // friendlier rule and contradicts `link_destination`, which admits no
+        // whitespace at all. The destination ENDS there, and what follows is
+        // ignored unless it is a quoted title, exactly as a plain space behaves
+        // (PART 9 link_destination, carve#404).
         $this->assertStringContainsString(
-            'href="https://e.com' . $space . '/path"',
+            'href="https://e.com"',
             (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$space}/path\n"),
         );
+    }
+
+    #[DataProvider('unicodeWhitespaceProvider')]
+    public function testAnInlineDestinationCannotContainIt(string $space): void
+    {
+        // The inline form gets the same rule, so the link does not form at all.
+        $out = (new CarveConverter())->convert("[x]({$space}https://e.com)\n");
+
+        $this->assertStringNotContainsString('<a', $out);
     }
 
     /**

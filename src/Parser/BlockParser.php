@@ -846,9 +846,12 @@ class BlockParser
                 $attrsToUse = ($pendingAttrsInQuote === $inQuote && $pendingAttrsInList === $inList)
                     ? $pendingAttrs
                     : [];
-                // The destination ends at the first whitespace (grammar.ebnf
-                // link_destination / reference_definition, decision A): it is
-                // the first non-whitespace run. A following quoted run is the
+                // The destination ends at the first UNICODE whitespace
+                // (grammar.ebnf link_destination: `unicode_url_char` is "any
+                // non-whitespace, non-ASCII Unicode character", unqualified).
+                // `\S` is byte-based, so a narrow no-break space read as an
+                // ordinary destination character and stayed in the href
+                // (carve#404). It is the first non-whitespace run. A following quoted run is the
                 // title; anything else after the destination is ignored (the
                 // definition still registers with the bare token). Mirrors the
                 // canonical oracle carve-js (RE_LINK_DEF). The title run allows
@@ -862,7 +865,9 @@ class BlockParser
                 // the earlier (empty) double-quote group.
                 if (
                     preg_match(
-                        '/^(\S+)(?:\s+(?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\'))?/',
+                        '/^([^\p{Z}\x{0009}-\x{000D}\x{0085}]+)'
+                        . '(?:[\p{Z}\x{0009}-\x{000D}\x{0085}]+'
+                        . '(?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\'))?/u',
                         $url,
                         $tm,
                         PREG_UNMATCHED_AS_NULL,
