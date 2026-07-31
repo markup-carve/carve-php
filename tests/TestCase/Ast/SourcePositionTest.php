@@ -239,6 +239,53 @@ class SourcePositionTest extends TestCase
         $this->fail('the escaped-pipe cell was not found');
     }
 
+    public function testCellTextIsPlacedInsideItsOwnCellNotThePadding(): void
+    {
+        // The cell span covers the padding around the content, so handing it to
+        // the text node produced spans covering bytes the node does not hold.
+        $source = "| a | b |\n|---|---|\n| x | y |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $found = [];
+        foreach (self::walk($document) as $node) {
+            $pos = $node->getPos();
+            if (!$node instanceof Text || $pos === null) {
+                continue;
+            }
+            $found[$node->getContent()] = mb_substr(
+                $source,
+                $pos->startOffset,
+                $pos->endOffset - $pos->startOffset,
+                'UTF-8',
+            );
+        }
+
+        $this->assertSame(['a' => 'a', 'b' => 'b', 'x' => 'x', 'y' => 'y'], $found);
+    }
+
+    public function testCellTextInsideAListItemIsPlacedDespiteReindentation(): void
+    {
+        // A table nested in a list item arrives already re-indented, so the cell
+        // offset is short by whatever was stripped. Four spans landed on the
+        // wrong bytes before the span was checked against the source and the
+        // content looked up in the real line instead.
+        $source = "- item\n\n  | H |\n  |---|\n  | x |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            $pos = $node->getPos();
+            if (!$node instanceof Text || $pos === null) {
+                continue;
+            }
+
+            $this->assertSame(
+                $node->getContent(),
+                mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+                'a nested cell span must still select its own text',
+            );
+        }
+    }
+
     public function testPositionsAreOffByDefault(): void
     {
         // Opt-in: normal parsing must not pay for spans it did not ask for.
