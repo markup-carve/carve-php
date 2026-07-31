@@ -181,10 +181,14 @@ class ProfileFilter
 
     protected function handleViolation(Node $node, Node $parent, Profile $profile, string $reason): void
     {
-        $reasonDescription = $profile->getReasonDisallowed($node->getType());
+        // The canonical name, not getType(): the allow check tested `autolink`
+        // and `admonition`, so reporting the broader `link` / `div` would name a
+        // different decision than the one that was made.
+        $type = Profile::canonicalTypeOf($node);
+        $reasonDescription = $profile->getReasonDisallowed($type);
 
         $this->violations[] = new ProfileViolation(
-            $node->getType(),
+            $type,
             $reason,
             $reasonDescription,
         );
