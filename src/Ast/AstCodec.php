@@ -99,7 +99,7 @@ class AstCodec
      *
      * Keyed by the WIRE field name, so it is compared after the rename.
      *
-     * @var array
+     * @var array<string>
      */
     private const ALWAYS_PUBLISHED = [
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
