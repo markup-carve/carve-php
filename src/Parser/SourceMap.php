@@ -179,6 +179,22 @@ final class SourceMap
      * cursor, which knows what it consumed, rather than from searching for the
      * text somewhere.
      */
+
+    /**
+     * The source bytes a range in the built string came from, when they are one
+     * contiguous run. Used to check that rewritten text really was produced by
+     * the source its span claims.
+     */
+    public function slice(int $start, int $end): ?string
+    {
+        $bytes = $this->byteSpan($start, $end);
+        if ($bytes === null || $this->source === null) {
+            return null;
+        }
+
+        return substr($this->source, $bytes[0], $bytes[1] - $bytes[0]);
+    }
+
     public function spanRange(int $start, int $end): ?SourceSpan
     {
         return $this->span($start, $end);

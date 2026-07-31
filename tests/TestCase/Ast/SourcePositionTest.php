@@ -123,9 +123,19 @@ class SourcePositionTest extends TestCase
 
                 $checked++;
                 $selected = mb_substr($normalized, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
-                if ($selected !== $node->getContent()) {
-                    $wrong[] = basename($file) . ': ' . json_encode($selected);
+                // Two verified classes, not one. A verbatim run's span selects
+                // exactly its content. A run the parser REWROTE cannot - its
+                // text is not its source by construction - so it is checked the
+                // other way: the source it covers must PRODUCE the text under
+                // the same rewrite. Anything that satisfies neither is wrong.
+                if ($selected === $node->getContent()) {
+                    continue;
                 }
+                if (self::applyEscapes($selected) === $node->getContent()) {
+                    continue;
+                }
+
+                $wrong[] = basename($file) . ': ' . json_encode($selected);
             }
         }
 
@@ -190,7 +200,7 @@ class SourcePositionTest extends TestCase
         }
 
         $this->assertGreaterThan(
-            0.99,
+            0.997,
             $placed / $total,
             sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
         );
@@ -239,12 +249,116 @@ class SourcePositionTest extends TestCase
         $this->fail('the escaped-pipe cell was not found');
     }
 
+    public function testCellTextIsPlacedInsideItsOwnCellNotThePadding(): void
+    {
+        // The cell span covers the padding around the content, so handing it to
+        // the text node produced spans covering bytes the node does not hold.
+        $source = "| a | b |\n|---|---|\n| x | y |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $found = [];
+        foreach (self::walk($document) as $node) {
+            $pos = $node->getPos();
+            if (!$node instanceof Text || $pos === null) {
+                continue;
+            }
+            $found[$node->getContent()] = mb_substr(
+                $source,
+                $pos->startOffset,
+                $pos->endOffset - $pos->startOffset,
+                'UTF-8',
+            );
+        }
+
+        $this->assertSame(['a' => 'a', 'b' => 'b', 'x' => 'x', 'y' => 'y'], $found);
+    }
+
+    public function testCellTextInsideAListItemIsPlacedDespiteReindentation(): void
+    {
+        // A table nested in a list item arrives already re-indented, so the cell
+        // offset is short by whatever was stripped. Four spans landed on the
+        // wrong bytes before the span was checked against the source and the
+        // content looked up in the real line instead.
+        $source = "- item\n\n  | H |\n  |---|\n  | x |\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            $pos = $node->getPos();
+            if (!$node instanceof Text || $pos === null) {
+                continue;
+            }
+
+            $this->assertSame(
+                $node->getContent(),
+                mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+                'a nested cell span must still select its own text',
+            );
+        }
+    }
+
+    public function testARewrittenRunIsPlacedOnSourceThatProducesIt(): void
+    {
+        // `\ ` is Carve's non-breaking-space form: two source bytes become one
+        // sentinel, so the span cannot equal the text. It is verified the other
+        // way - the source it covers, put through the same rewrite, produces it.
+        $source = "10\\ kg\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if (!$node instanceof Text) {
+                continue;
+            }
+
+            $pos = $node->getPos();
+            $this->assertNotNull($pos, 'a rewritten run should still be placed');
+            $selected = mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
+            $this->assertNotSame($node->getContent(), $selected, 'the span cannot equal rewritten text');
+            $this->assertSame(self::applyEscapes($selected), $node->getContent());
+
+            return;
+        }
+
+        $this->fail('no text node was found');
+    }
+
     public function testPositionsAreOffByDefault(): void
     {
         // Opt-in: normal parsing must not pay for spans it did not ask for.
         $document = (new BlockParser())->parse("# Title\n");
 
         $this->assertNull($document->getChildren()[0]->getPos());
+    }
+
+    /**
+     * The escape rewrites a buffered text run can carry: `\ ` becomes the
+     * non-breaking-space sentinel, and a backslash before ASCII punctuation
+     * becomes the punctuation alone.
+     */
+    private static function applyEscapes(string $slice): string
+    {
+        $escapable = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+        $out = '';
+        $length = strlen($slice);
+        for ($i = 0; $i < $length; $i++) {
+            if ($slice[$i] === '\\' && $i + 1 < $length) {
+                $next = $slice[$i + 1];
+                if ($next === ' ') {
+                    $out .= "\u{E000}";
+                    $i++;
+
+                    continue;
+                }
+                if (strpos($escapable, $next) !== false) {
+                    $out .= $next;
+                    $i++;
+
+                    continue;
+                }
+            }
+            $out .= $slice[$i];
+        }
+
+        return $out;
     }
 
     /**

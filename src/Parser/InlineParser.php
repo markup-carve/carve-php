@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use Closure;
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
@@ -615,6 +616,60 @@ class InlineParser
         $node->setPos($this->sourceMap->spanRange($start, $end));
     }
 
+    /**
+     * The span of a run whose text the parser rewrote, when the source it
+     * covers demonstrably produces that text.
+     *
+     * Only one rewrite can survive into a buffered run: `\ `, Carve's
+     * non-breaking-space form, which becomes a sentinel. A backslash before
+     * ASCII punctuation produces an EscapedText NODE instead, so it flushes the
+     * buffer and never reaches here. Applying the rewrite to the source slice
+     * and comparing is a real check - the span is rejected when the slice does
+     * not produce the text, exactly as the equality check rejects a verbatim
+     * span that selects the wrong bytes.
+     */
+    private function rewrittenSpan(?int $start, ?int $end, string $text): ?SourceSpan
+    {
+        if ($this->sourceMap === null || $start === null || $end === null) {
+            return null;
+        }
+
+        $span = $this->sourceMap->spanRange($start, $end);
+        if ($span === null) {
+            return null;
+        }
+
+        $slice = $this->sourceMap->slice($start, $end);
+        if ($slice === null || self::applyEscapes($slice) !== $text) {
+            return null;
+        }
+
+        return $span;
+    }
+
+    /**
+     * The rewrite a buffered text run can carry.
+     */
+    private static function applyEscapes(string $slice): string
+    {
+        $out = '';
+        $length = strlen($slice);
+        for ($i = 0; $i < $length; $i++) {
+            if ($slice[$i] === '\\' && $i + 1 < $length) {
+                $next = $slice[$i + 1];
+                if ($next === ' ') {
+                    $out .= "\u{E000}";
+                    $i++;
+
+                    continue;
+                }
+            }
+            $out .= $slice[$i];
+        }
+
+        return $out;
+    }
+
     private function placeInline(Node $node, ?int $start, string $text, bool $rewritten): void
     {
         if ($this->sourceMap === null || $start === null || $rewritten) {
@@ -737,7 +792,8 @@ class InlineParser
                     if ($escaped === ' ') {
                         // Non-breaking space - use placeholder that renderer converts to &nbsp;
                         // We use U+E000 (private use area) to distinguish from literal NBSP
-                        $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
+                        // Two source bytes (`\ `) become one sentinel.
+                        $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 2);
                         $textBuffer .= "\u{E000}";
                         $pos += 2;
 
@@ -1261,14 +1317,17 @@ class InlineParser
         $abbreviations = $this->blockParser->getAbbreviations();
         if ($abbreviations === []) {
             $node = new Text($text);
-            // A rewritten run declines, deliberately. Its measured extent is
-            // available ($textBufferEnd), and covering it would raise coverage -
-            // but the span would then select source that does NOT equal the
-            // node's text, and "a text span selects exactly its content" is the
-            // invariant that caught every real defect in this work. Raising the
-            // number by weakening the check is the wrong trade; the fix is to
-            // track the content's own extent, not to widen the span.
-            $this->placeInline($node, $start, $text, $rewritten);
+            if ($rewritten) {
+                // A rewritten run cannot be checked by comparing its span's
+                // bytes to its text - they differ by construction. It is checked
+                // the other way instead: run the source through the same rewrite
+                // and require that it PRODUCES the text. That keeps every placed
+                // node verified, rather than raising coverage by dropping the
+                // check that makes coverage mean anything.
+                $node->setPos($this->rewrittenSpan($start, $end, $text));
+            } else {
+                $this->placeInline($node, $start, $text, $rewritten);
+            }
             $parent->appendChild($node);
 
             return;
