@@ -78,6 +78,13 @@ class AstCodec
     public const VERSION = 2;
 
     /**
+     * Fields the reference publishes even when they hold this engine's default.
+     *
+     * @var array<string>
+     */
+    private const ALWAYS_PUBLISHED = ['heading.level'];
+
+    /**
      * Base-class state that is either structural (children) or not part of the
      * tree's identity (parent, and the attribute bookkeeping handled by attrs).
      *
@@ -462,7 +469,19 @@ class AstCodec
             // every null/[]/false instead would lose information wherever the
             // default is not falsy: a loose list (tight = false, default true)
             // encoded without `tight` and decoded back as tight.
-            if ($default['has'] && $value === $default['value']) {
+            // ALWAYS_PUBLISHED wins over the default suppression. The
+            // reference emits a heading's `level` unconditionally, so dropping
+            // it on `# H` - level 1 being the property default - produced a
+            // heading whose field set did not match the reference's for that
+            // type, while `## H` did. A consumer would have to treat the field
+            // as optional and guess 1, which is the implicit rule PART 12 §3
+            // exists to remove.
+            $alwaysPublished = in_array(
+                $type . '.' . $property->getName(),
+                self::ALWAYS_PUBLISHED,
+                true,
+            );
+            if (!$alwaysPublished && $default['has'] && $value === $default['value']) {
                 continue;
             }
 

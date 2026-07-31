@@ -456,7 +456,10 @@ $wantWarnings = $options['warnings'] || $options['strict'];
 // --strict is enforced by the CLI below (non-zero exit when warnings exist),
 // matching the HTML path.
 $converter = match ($options['format']) {
-    'json' => new CarveConverter(warnings: $wantWarnings),
+    // PART 12 §4 requires `pos` on every node but the root, so the AST output
+    // asks the parser to record them. Tracking is opt-in because it costs work
+    // on every parse, and this is the only format that publishes the result.
+    'json' => new CarveConverter(parser: new BlockParser($wantWarnings, false, false, true)),
     'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
     'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
     'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
@@ -496,13 +499,6 @@ try {
 }
 
 if ($options['format'] === 'json') {
-    // PART 12 §4 requires `pos` on every node but the root, and forbids both
-    // inventing values and omitting them silently. This engine records no
-    // positions yet, so it says so rather than presenting the output as
-    // conformant.
-    fwrite(STDERR, "Note: this AST carries no `pos` fields; carve-php does not record positions yet, "
-        . "so the output is not PART 12 conformant (§4).\n");
-
     $output = $codec->encodeJson(
         $document ?? $converter->parse($input),
         JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
