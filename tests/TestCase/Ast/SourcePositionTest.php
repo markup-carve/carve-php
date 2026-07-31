@@ -296,6 +296,31 @@ class SourcePositionTest extends TestCase
         }
     }
 
+    public function testARewrittenRunIsPlacedOnSourceThatProducesIt(): void
+    {
+        // `\ ` is Carve's non-breaking-space form: two source bytes become one
+        // sentinel, so the span cannot equal the text. It is verified the other
+        // way - the source it covers, put through the same rewrite, produces it.
+        $source = "10\\ kg\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if (!$node instanceof Text) {
+                continue;
+            }
+
+            $pos = $node->getPos();
+            $this->assertNotNull($pos, 'a rewritten run should still be placed');
+            $selected = mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
+            $this->assertNotSame($node->getContent(), $selected, 'the span cannot equal rewritten text');
+            $this->assertSame(self::applyEscapes($selected), $node->getContent());
+
+            return;
+        }
+
+        $this->fail('no text node was found');
+    }
+
     public function testPositionsAreOffByDefault(): void
     {
         // Opt-in: normal parsing must not pay for spans it did not ask for.
