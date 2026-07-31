@@ -4555,6 +4555,7 @@ class BlockParser
                     'attributes' => $cellAttributes[$idx] ?? '',
                     'offset' => $original === null ? null : $original['offset'],
                     'rawLength' => $original === null ? null : $original['rawLength'],
+                    'raw' => $original === null ? null : $original['raw'],
                     'verbatim' => $original !== null
                         && $original['verbatim']
                         && $content === $original['content'],
@@ -4648,14 +4649,13 @@ class BlockParser
                 $trimmedContent = trim($marker['content']);
                 $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
-                // NOT used for the cell's text: the cell extent includes the
-                // padding around the content, so handing it to the text node
-                // produces a span covering bytes the node does not hold. The
-                // cell itself takes it; its text declines until the trimmed
-                // content's own offset is tracked.
+                // The text's OWN extent inside the cell: the cell span covers
+                // the padding too, so the text is located within the raw slice
+                // the split kept for exactly this.
+                $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
                 if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                     $text = new Text($trimmedContent);
-                    $text->setPos($cellMap?->spanFor(0, $trimmedContent));
+                    $text->setPos($cellMap?->spanFor(0, $trimmedContent) ?? $cellTextSpan);
                     $cell->appendChild($text);
                 } else {
                     $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
@@ -4730,7 +4730,7 @@ class BlockParser
      * and per-column alignment stay keyed by the true column even when a colspan
      * jumps a consumed `^`.
      *
-     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null, raw: string|null}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
@@ -4820,6 +4820,7 @@ class BlockParser
                 // own, so it keeps no offset and takes no position.
                 'offset' => $isEmpty ? null : $cellData['offset'],
                 'rawLength' => $isEmpty ? null : $cellData['rawLength'],
+                'raw' => $isEmpty ? null : $cellData['raw'],
                 'verbatim' => !$isEmpty && $cellData['verbatim'],
             ];
         }
@@ -5410,6 +5411,75 @@ class BlockParser
      *
      * @param int $index
      * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null} $cellData
+     */
+
+    /**
+     * The span of a cell's trimmed CONTENT, located inside its raw source slice.
+     *
+     * Different from cellExtentSpan(), which covers the whole cell including the
+     * padding. Handing that to a text node produced spans covering bytes the
+     * node did not hold; this finds where the content actually sits.
+     *
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
+     * @param string $content
+     */
+    private function cellContentSpan(int $index, array $cellData, string $content): ?SourceSpan
+    {
+        if (!$this->trackPositions || $content === '') {
+            return null;
+        }
+
+        $offset = $cellData['offset'] ?? null;
+        $raw = $cellData['raw'] ?? null;
+        if ($offset === null || $raw === null) {
+            return null;
+        }
+
+        // Locate the content in the raw slice. When the text was rewritten (an
+        // escape collapsed) it will not be found verbatim, and the node keeps no
+        // position rather than one that covers different bytes.
+        $within = strpos($raw, $content);
+        if ($within === false) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        $start = $lineStart + $offset + $within;
+
+        // A table nested in a list item reaches here already re-indented, so the
+        // cell offset is short by whatever was stripped and the span would land
+        // on the wrong bytes. Check, and fall back to locating the content in
+        // the real source line before giving up.
+        if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+            $inSourceLine = strpos($this->sourceLines[$sourceLine] ?? '', $content);
+            if ($inSourceLine === false) {
+                return null;
+            }
+            $start = $lineStart + $inSourceLine;
+            if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+                return null;
+            }
+        }
+
+        return $this->positionIndex?->span(
+            $start,
+            $start + strlen($content),
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+    }
+
+    /**
+     * @param int $index
+     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
      */
     private function cellExtentSpan(int $index, array $cellData): ?SourceSpan
     {

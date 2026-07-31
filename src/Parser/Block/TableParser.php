@@ -210,7 +210,7 @@ class TableParser
      * offsets inside it no longer line up. Those cells decline a position
      * rather than carry a drifting one.
      *
-     * @return list<array{content: string, offset: int, verbatim: bool, rawLength: int}>
+     * @return list<array{content: string, offset: int, verbatim: bool, rawLength: int, raw: string}>
      */
     public function splitCells(string $line): array
     {
@@ -233,6 +233,7 @@ class TableParser
                     'offset' => $at + $shift,
                     'verbatim' => true,
                     'rawLength' => strlen($content),
+                    'raw' => $content,
                 ];
                 $at += strlen($content) + 1;
             }
@@ -322,6 +323,10 @@ class TableParser
                 'content' => $content,
                 'offset' => $offsets[$index],
                 'verbatim' => $verbatims[$index],
+                // The exact source the cell occupied, so the TEXT inside it can
+                // be placed at its own offset rather than taking the cell's -
+                // which includes the padding around the content.
+                'raw' => substr($line, $offsets[$index] - $shift, $rawLengths[$index]),
                 // The bytes the cell occupied in the source, which differ from
                 // the content's length whenever an escape was collapsed. This
                 // is what lets a rewritten cell still be PLACED even though its
@@ -339,7 +344,7 @@ class TableParser
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool, rawLength: int}> Cell data:
+     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
      *   attributes is the raw `{...}` inner (empty when none); offset is where the
      *   content begins in the original line, and verbatim says whether that stretch
      *   is a byte-for-byte copy of it (see splitCells)
@@ -357,6 +362,7 @@ class TableParser
             $cellOffset = $cell['offset'];
             $cellVerbatim = $cell['verbatim'];
             $cellRawLength = $cell['rawLength'];
+            $cellRaw = $cell['raw'];
             // The attribute string (raw inner of the `{...}`), empty when the
             // cell has none; applied later in source order via applyToNode.
             $attributes = '';
@@ -391,6 +397,7 @@ class TableParser
                 'offset' => $cellOffset,
                 'verbatim' => $cellVerbatim,
                 'rawLength' => $cellRawLength,
+                'raw' => $cellRaw,
             ];
         }
 
