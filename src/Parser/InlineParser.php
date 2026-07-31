@@ -627,12 +627,13 @@ class InlineParser
      * The span of a run whose text the parser rewrote, when the source it
      * covers demonstrably produces that text.
      *
-     * The two rewrites a buffered run can contain are the escape forms: `\ `
-     * becomes the non-breaking-space sentinel, and a backslash before ASCII
-     * punctuation becomes the punctuation alone. Applying them to the source
-     * slice and comparing is a real check - the span is rejected when the slice
-     * does not produce the text, exactly as the equality check rejects a
-     * verbatim span that selects the wrong bytes.
+     * Only one rewrite can survive into a buffered run: `\ `, Carve's
+     * non-breaking-space form, which becomes a sentinel. A backslash before
+     * ASCII punctuation produces an EscapedText NODE instead, so it flushes the
+     * buffer and never reaches here. Applying the rewrite to the source slice
+     * and comparing is a real check - the span is rejected when the slice does
+     * not produce the text, exactly as the equality check rejects a verbatim
+     * span that selects the wrong bytes.
      */
     private function rewrittenSpan(?int $start, ?int $end, string $text): ?SourceSpan
     {
@@ -654,7 +655,7 @@ class InlineParser
     }
 
     /**
-     * The escape rewrites a buffered text run can carry.
+     * The rewrite a buffered text run can carry.
      */
     private static function applyEscapes(string $slice): string
     {
@@ -665,12 +666,6 @@ class InlineParser
                 $next = $slice[$i + 1];
                 if ($next === ' ') {
                     $out .= "\u{E000}";
-                    $i++;
-
-                    continue;
-                }
-                if (strpos(self::ESCAPABLE, $next) !== false) {
-                    $out .= $next;
                     $i++;
 
                     continue;
