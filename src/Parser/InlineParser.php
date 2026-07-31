@@ -1904,7 +1904,17 @@ class InlineParser
                 // whitespace too, so `[t](url` / `more)` is NOT a link and
                 // stays literal (grammar.ebnf link_destination, decision B).
                 $url = $raw;
-                if ($url === '' || preg_match('/\s/', $url) || (str_starts_with($url, '<') && str_ends_with($url, '>'))) {
+                // UNICODE whitespace, not just ASCII: `unicode_url_char` is
+                // "any non-whitespace, non-ASCII Unicode character", with no
+                // qualifier, so a narrow no-break space is not a destination
+                // character either. `\s` is byte-based and let one through, so
+                // `[x](<U+202F>https://e.com)` linked with the invisible
+                // character sitting in the href (carve#404).
+                if (
+                    $url === ''
+                    || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
+                    || (str_starts_with($url, '<') && str_ends_with($url, '>'))
+                ) {
                     return null;
                 }
 
