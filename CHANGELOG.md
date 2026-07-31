@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A carve-js tree decodes.** carve-js keeps footnote definitions in a
+  root-level `footnoteDefs` map rather than as block nodes in `children`, so the
+  map was a field this decoder does not produce and the loss check refused the
+  payload outright - any carve-js document containing a footnote could not be
+  read here at all. The map is now adopted into the block nodes this engine
+  uses. Which representation is canonical is still open (carve#408); this only
+  makes the exchange work either way.
+
+### Fixed
+
 - **An unresolved footnote reference keeps a trailing attribute block.** It
   became a Text node with the attributes consumed and discarded, so
   `Text[^a]{.ref}.` lost `{.ref}` from the tree entirely and the canonical
