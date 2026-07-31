@@ -7,6 +7,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A link reference definition's destination is trimmed of Unicode
+  whitespace.** `trim()` only knows ASCII, so
+  `[a]: <U+202F>javascript:alert(1)` kept the narrow no-break space in the
+  destination. HTML hid it - the scheme probe strips Unicode whitespace to see
+  `javascript:` and blanks the href either way - but the ANSI target prints the
+  destination to a terminal, where an invisible character is the spoofing shape
+  the probe exists to catch. Only the ends are trimmed: whitespace inside the
+  destination is part of it. Zero-width characters are not whitespace and stay,
+  matching carve-rs (carve#352, carve#404).
+
 ### Changed
 
 - **BREAKING (AST): an editorial comment is now a `critic_comment` node.** It
