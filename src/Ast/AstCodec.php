@@ -110,6 +110,7 @@ class AstCodec
         'delete.children', 'div.children', 'document.children',
         'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
         'figure.caption', 'figure.target', 'footnote_ref.id',
+        'frontmatter.content', 'frontmatter.format',
         'heading.children', 'heading.level', 'heading_ref.target',
         'highlight.children', 'image.alt', 'image.src',
         'inline_extension.content', 'inline_extension.name', 'inline_footnote.inline',
