@@ -2089,6 +2089,22 @@ class InlineParser
                 continue;
             }
 
+            // An editorial comment is opaque for the same reason a code span
+            // is: its content is LITERAL (PART 9 `editorial_comment`), so a `]`
+            // inside it is text, and no escape can say so - `{# ... #}`
+            // resolves none, so `\]` puts a real backslash in the comment. Left
+            // unskipped, `[{#a]b#}](u)` had no spelling that produced a link
+            // with the author's text intact (carve#403). An unclosed `{#` is
+            // not a comment and falls through unchanged.
+            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
+                $commentEnd = strpos($text, '#}', $pos + 2);
+                if ($commentEnd !== false) {
+                    $pos = $commentEnd + 2;
+
+                    continue;
+                }
+            }
+
             if ($text[$pos] === '[') {
                 $bracketDepth++;
 
