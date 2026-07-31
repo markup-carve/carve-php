@@ -3653,23 +3653,31 @@ class InlineParser
         if (!$this->blockParser->hasFootnote($label)) {
             $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
 
-            // An UNRESOLVED footnote reference stays literal `[^label]` text; it
-            // does NOT host a following attribute block. Emitting the literal
-            // source here (instead of returning null) stops the generic
-            // inline-span path from claiming `[^a]{.ref}` as `<span class="ref">^a</span>`
-            // -- carve-js and carve-rs keep the ref literal and drop the orphan
-            // attribute (`Text[^a]{.ref}.` -> `<p>Text[^a].</p>`). A trailing
-            // `{...}` therefore attaches to nothing: consume and discard any
-            // consecutive VALID attribute blocks (an empty/invalid block stays
-            // literal, matching `[^a]{}` -> `[^a]{}` and `[^a]{???}` -> `[^a]{???}`).
+            // An UNRESOLVED footnote reference RENDERS literally as `[^label]`,
+            // but it is still a footnote_ref node - which is what lets it keep a
+            // trailing attribute block.
+            //
+            // It used to become a Text node and the attribute was consumed and
+            // thrown away, so `Text[^a]{.ref}.` lost `{.ref}` from the tree
+            // entirely and the canonical writer emitted `Text[^a].` where
+            // carve-js and carve-rs emit `Text[^a]{.ref}.`. The old comment here
+            // said those two "drop the orphan attribute" - true of their HTML,
+            // and not of their AST, which keeps it (carve#352, carve#405).
+            //
+            // Emitting a node rather than returning null still stops the generic
+            // inline-span path from claiming `[^a]{.ref}` as
+            // `<span class="ref">^a</span>`. An empty or invalid block stays
+            // literal, so `[^a]{}` and `[^a]{???}` are unchanged.
+            $node = new FootnoteRef($label);
+            $node->setUnresolved(true);
             $endPos = $pos + strlen($matches[0]);
             $length = strlen($text);
             if ($endPos < $length && $text[$endPos] === '{') {
-                $endPos = $this->applyConsecutiveAttributes(new Text(''), $text, $endPos);
+                $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
             }
 
             return [
-                'node' => new Text($matches[0]),
+                'node' => $node,
                 'pos' => $endPos,
             ];
         }
