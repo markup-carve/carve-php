@@ -1071,6 +1071,7 @@ class InlineParser
                 if ($comment !== null) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
+                    $this->placeAt($comment['node'], $pos, $comment['pos']);
                     $parent->appendChild($comment['node']);
                     $pos = $comment['pos'];
 
@@ -1083,10 +1084,16 @@ class InlineParser
                 $result = $this->parseBracedInline($text, $pos);
                 if ($result !== null) {
                     if (isset($result['nodes'])) {
+                        // Several nodes from one construct: their individual
+                        // extents are not known here, and giving them all the
+                        // construct's span would be a position none of them
+                        // actually has. They take one from their children if
+                        // they have placed ones, or none.
                         foreach ($result['nodes'] as $bracedNode) {
                             $parent->appendChild($bracedNode);
                         }
                     } else {
+                        $this->placeAt($result['node'], $pos, $result['pos']);
                         $parent->appendChild($result['node']);
                     }
                     $pos = $result['pos'];
@@ -1189,6 +1196,7 @@ class InlineParser
             if ($matchResult !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
+                $this->placeAt($matchResult['node'], $pos, $matchResult['end']);
                 $parent->appendChild($matchResult['node']);
                 $pos = $matchResult['end'];
 

@@ -210,7 +210,7 @@ class TableParser
      * offsets inside it no longer line up. Those cells decline a position
      * rather than carry a drifting one.
      *
-     * @return list<array{content: string, offset: int, verbatim: bool}>
+     * @return list<array{content: string, offset: int, verbatim: bool, rawLength: int}>
      */
     public function splitCells(string $line): array
     {
@@ -228,7 +228,12 @@ class TableParser
             $result = [];
             $at = 0;
             foreach (explode('|', $line) as $content) {
-                $result[] = ['content' => $content, 'offset' => $at + $shift, 'verbatim' => true];
+                $result[] = [
+                    'content' => $content,
+                    'offset' => $at + $shift,
+                    'verbatim' => true,
+                    'rawLength' => strlen($content),
+                ];
                 $at += strlen($content) + 1;
             }
 
@@ -242,6 +247,7 @@ class TableParser
         $cellVerbatim = true;
         $offsets = [];
         $verbatims = [];
+        $rawLengths = [];
         $inCode = false;
         $codeDelimLength = 0;
         $length = strlen($line);
@@ -293,6 +299,7 @@ class TableParser
                 $cells[] = $currentCell;
                 $offsets[] = $cellStart + $shift;
                 $verbatims[] = $cellVerbatim;
+                $rawLengths[] = $i - $cellStart;
                 $currentCell = '';
                 $cellStart = $i + 1;
                 $cellVerbatim = true;
@@ -307,6 +314,7 @@ class TableParser
         $cells[] = $currentCell;
         $offsets[] = $cellStart + $shift;
         $verbatims[] = $cellVerbatim;
+        $rawLengths[] = $length - $cellStart;
 
         $result = [];
         foreach ($cells as $index => $content) {
@@ -314,6 +322,11 @@ class TableParser
                 'content' => $content,
                 'offset' => $offsets[$index],
                 'verbatim' => $verbatims[$index],
+                // The bytes the cell occupied in the source, which differ from
+                // the content's length whenever an escape was collapsed. This
+                // is what lets a rewritten cell still be PLACED even though its
+                // text cannot be verified against the source.
+                'rawLength' => $rawLengths[$index],
             ];
         }
 
@@ -326,7 +339,7 @@ class TableParser
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool}> Cell data:
+     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool, rawLength: int}> Cell data:
      *   attributes is the raw `{...}` inner (empty when none); offset is where the
      *   content begins in the original line, and verbatim says whether that stretch
      *   is a byte-for-byte copy of it (see splitCells)
@@ -343,6 +356,7 @@ class TableParser
             // the offset is adjusted below rather than reused as-is.
             $cellOffset = $cell['offset'];
             $cellVerbatim = $cell['verbatim'];
+            $cellRawLength = $cell['rawLength'];
             // The attribute string (raw inner of the `{...}`), empty when the
             // cell has none; applied later in source order via applyToNode.
             $attributes = '';
@@ -376,6 +390,7 @@ class TableParser
                 'attributes' => $attributes,
                 'offset' => $cellOffset,
                 'verbatim' => $cellVerbatim,
+                'rawLength' => $cellRawLength,
             ];
         }
 
