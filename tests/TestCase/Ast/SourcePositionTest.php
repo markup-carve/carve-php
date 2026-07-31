@@ -127,6 +127,42 @@ class SourcePositionTest extends TestCase
         $this->assertSame([], $wrong, sprintf('%d spans point at the wrong source', count($wrong)));
     }
 
+    public function testNoSpanEscapesItsParent(): void
+    {
+        // The invariant that catches what the text sweep cannot. Verifying text
+        // nodes only left every OTHER span unchecked, and there were 49 wrong
+        // ones hiding there: a list item measured from its marker line stopped
+        // at that line while the nested list inside it ran on for several more.
+        // A node contains what it holds, so a child span outside its parent is
+        // a defect no matter which node type it is.
+        $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
+        $violations = [];
+        $checked = 0;
+
+        foreach ($files as $file) {
+            $document = (new BlockParser(trackPositions: true))->parse((string)file_get_contents($file));
+            foreach (self::walk($document) as $node) {
+                $parent = $node->getPos();
+                if ($parent === null) {
+                    continue;
+                }
+                foreach ($node->getChildren() as $child) {
+                    $span = $child->getPos();
+                    if ($span === null) {
+                        continue;
+                    }
+                    $checked++;
+                    if ($span->startOffset < $parent->startOffset || $span->endOffset > $parent->endOffset) {
+                        $violations[] = sprintf('%s: %s escapes %s', basename($file), $child->getType(), $node->getType());
+                    }
+                }
+            }
+        }
+
+        $this->assertGreaterThan(1000, $checked, 'the sweep checked almost nothing');
+        $this->assertSame([], $violations, sprintf('%d spans fall outside their parent', count($violations)));
+    }
+
     public function testCoverageDoesNotRegress(): void
     {
         // A floor, not a target. Correctness is pinned by the sweep above; this

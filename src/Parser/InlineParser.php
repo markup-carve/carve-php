@@ -676,7 +676,9 @@ class InlineParser
             if ($char === '\\' && $pos + 1 >= $length) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new HardBreak());
+                $hardBreak = new HardBreak();
+                $this->placeAt($hardBreak, $pos, $pos + 1);
+                $parent->appendChild($hardBreak);
                 $pos++;
 
                 continue;
@@ -689,7 +691,9 @@ class InlineParser
                     // Hard break
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
-                    $parent->appendChild(new HardBreak());
+                    $hardBreak = new HardBreak();
+                    $this->placeAt($hardBreak, $pos, $pos + 2);
+                    $parent->appendChild($hardBreak);
                     $pos += 2;
 
                     continue;
@@ -706,7 +710,9 @@ class InlineParser
                         $textBuffer = rtrim($textBuffer, " \t");
                         $this->flushText($parent, $textBuffer);
                         $textBuffer = '';
-                        $parent->appendChild(new HardBreak());
+                        $hardBreak = new HardBreak();
+                        $this->placeAt($hardBreak, $pos, $lookAhead + 1);
+                        $parent->appendChild($hardBreak);
                         $pos = $lookAhead + 1;
 
                         continue;
@@ -753,7 +759,11 @@ class InlineParser
             if ($char === '#' && $this->isCaptionNumberPlaceholder($text, $pos)) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new CaptionNumber());
+                // The `#` placeholder in `^ Figure #: …` IS in the source; only
+                // the number it resolves to is not.
+                $captionNumber = new CaptionNumber();
+                $this->placeAt($captionNumber, $pos, $pos + 1);
+                $parent->appendChild($captionNumber);
                 $this->captionNumberEmitted = true;
                 $pos++;
 
@@ -781,7 +791,9 @@ class InlineParser
                 $textBuffer = rtrim($textBuffer, " \t");
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new Comment($content));
+                $comment = new Comment($content);
+                $this->placeAt($comment, $pos, $end);
+                $parent->appendChild($comment);
                 $pos = $end;
 
                 continue;
@@ -903,7 +915,7 @@ class InlineParser
                     if (isset($result['unclosed_link'])) {
                         // Output [ then parse linkText in isolation then output ](
                         $parent->appendChild(new Text('['));
-                        $this->parseInlines($parent, $result['link_text']);
+                        $this->parseInlinesAt($parent, $result['link_text'], $pos + 1);
                         $parent->appendChild(new Text(']('));
                         $pos = $result['continue_pos'];
 
@@ -923,7 +935,9 @@ class InlineParser
                 if (preg_match('/\G<\/#([^>\s]+)>/u', $text, $hm, 0, $pos)) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
-                    $parent->appendChild(new HeadingRef($hm[1]));
+                    $headingRef = new HeadingRef($hm[1]);
+                    $this->placeAt($headingRef, $pos, $pos + strlen($hm[0]));
+                    $parent->appendChild($headingRef);
                     $pos += strlen($hm[0]);
 
                     continue;
@@ -1229,7 +1243,7 @@ class InlineParser
         }
 
         // Process abbreviations in the text
-        $this->flushTextWithAbbreviations($parent, $text, $abbreviations);
+        $this->flushTextWithAbbreviations($parent, $text, $abbreviations, $rewritten ? null : $start);
     }
 
     /**
@@ -1239,7 +1253,12 @@ class InlineParser
      * @param string $text
      * @param array<string, string> $abbreviations
      */
-    protected function flushTextWithAbbreviations(Node $parent, string $text, array $abbreviations): void
+    protected function flushTextWithAbbreviations(
+        Node $parent,
+        string $text,
+        array $abbreviations,
+        ?int $start = null,
+    ): void
     {
         // Cache the regex pattern for abbreviations (built once per document)
         if ($this->cachedAbbreviations !== $abbreviations) {
@@ -1267,15 +1286,26 @@ class InlineParser
             return;
         }
 
+        // Each part is a contiguous run of the text that was buffered, so the
+        // offsets follow from the buffer's own start.
+        $offset = $start;
         foreach ($parts as $part) {
             if (isset($abbreviations[$part])) {
                 // This is an abbreviation match
                 $abbr = new Abbreviation($abbreviations[$part]);
-                $abbr->appendChild(new Text($part));
+                $label = new Text($part);
+                $this->placeInline($label, $offset, $part, false);
+                $this->placeInline($abbr, $offset, $part, false);
+                $abbr->appendChild($label);
                 $parent->appendChild($abbr);
             } else {
                 // Regular text
-                $parent->appendChild(new Text($part));
+                $node = new Text($part);
+                $this->placeInline($node, $offset, $part, false);
+                $parent->appendChild($node);
+            }
+            if ($offset !== null) {
+                $offset += strlen($part);
             }
         }
     }
@@ -2364,7 +2394,11 @@ class InlineParser
         if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content)) {
             $link = new Link($content);
             $link->setAutolink(true);
-            $link->appendChild(new Text($content));
+            // The label sits between the angle brackets, so one byte past the
+            // opener. The Link itself is placed by the dispatch that called us.
+            $label = new Text($content);
+            $this->placeAt($label, $pos + 1, $pos + 1 + strlen($content));
+            $link->appendChild($label);
 
             $endPos = $end + 1;
 
@@ -2386,7 +2420,11 @@ class InlineParser
         if (preg_match('/^[A-Za-z0-9._+-]+@[A-Za-z0-9._+-]+\.[A-Za-z]+$/', $content)) {
             $link = new Link('mailto:' . $content);
             $link->setAutolink(true);
-            $link->appendChild(new Text($content));
+            // The label sits between the angle brackets, so one byte past the
+            // opener. The Link itself is placed by the dispatch that called us.
+            $label = new Text($content);
+            $this->placeAt($label, $pos + 1, $pos + 1 + strlen($content));
+            $link->appendChild($label);
 
             $endPos = $end + 1;
 
@@ -4006,7 +4044,7 @@ class InlineParser
         }
 
         $node = new InlineExtension($matches[1]);
-        $this->parseInlines($node, $matches[2]);
+        $this->parseInlinesAt($node, $matches[2], $pos + strlen($matches[1]) + 2);
 
         $endPos = $pos + strlen($matches[0]);
         $length = strlen($text);

@@ -583,6 +583,12 @@ class BlockParser
         // attributes are untouched -- they still land on the <p> wrapper).
         $this->promoteBlockImageAttributes($document);
 
+        if ($this->trackPositions) {
+            // After every pass that can move or wrap nodes, so a container sees
+            // its final children.
+            $this->deriveContainerSpans($document);
+        }
+
         // Validate references and anchor links if warnings are enabled
         if ($this->collectWarnings) {
             $this->validateReferences();
@@ -5083,11 +5089,21 @@ class BlockParser
             return null;
         }
 
-        [$firstIndex, $firstColumn] = $contentLines[0];
-        [$lastIndex, $lastColumn, $lastLength] = $contentLines[count($contentLines) - 1];
+        [$firstIndex, $firstColumn, , $firstText] = $contentLines[0];
+        [$lastIndex, $lastColumn, $lastLength, $lastText] = $contentLines[count($contentLines) - 1];
 
         $firstLine = $this->sourceLineFor($firstIndex);
         $lastLine = $this->sourceLineFor($lastIndex);
+
+        // Both ends must actually be found in the lines they claim, or the span
+        // would cover bytes belonging to something else.
+        $firstFound = $firstText === '' ? $firstColumn : strpos($this->sourceLines[$firstLine] ?? '', $firstText);
+        $lastFound = $lastText === '' ? $lastColumn : strpos($this->sourceLines[$lastLine] ?? '', $lastText);
+        if ($firstFound === false || $lastFound === false) {
+            return null;
+        }
+        $firstColumn = $firstFound;
+        $lastColumn = $lastFound;
         $start = $this->lineStartOffsets[$firstLine] ?? null;
         $lastStart = $this->lineStartOffsets[$lastLine] ?? null;
         if ($start === null || $lastStart === null) {
@@ -5126,7 +5142,14 @@ class BlockParser
                 ? $column
                 : strpos($this->sourceLines[$sourceLine] ?? '', $lineText);
             if ($sourceColumn === false) {
-                $sourceColumn = $column;
+                // The line is not a run of the source line it claims to come
+                // from - deeply nested content that was re-indented more than
+                // once. Falling back to the nested column produced spans that
+                // pointed at unrelated bytes; skipping the segment means the
+                // affected nodes get no position, which is the correct answer.
+                $textOffset += $length + 1;
+
+                continue;
             }
             if ($lineStart !== null && $length >= 0) {
                 $map->add($textOffset, $lineStart + $sourceColumn, $length, $sourceLine + 1, $sourceColumn + 1);
@@ -5137,6 +5160,69 @@ class BlockParser
         }
 
         return $any ? $map->withSource($this->normalizedSource) : null;
+    }
+
+    /**
+     * Give a container the extent of the children it holds.
+     *
+     * A node that wraps others - a figure around an image and its caption, a
+     * footnote around its body, an emphasis around its text - has no source of
+     * its own to measure, but its extent is exactly the span of what it
+     * contains. Deriving it is not inventing a position (PART 12 §4): every
+     * number comes from a child that was placed by measurement.
+     *
+     * Runs bottom-up so a container of containers resolves too, and never
+     * overwrites a span the parser already set, which is always more precise.
+     */
+    private function deriveContainerSpans(Node $node): ?SourceSpan
+    {
+        $first = null;
+        $last = null;
+        foreach ($node->getChildren() as $child) {
+            $span = $this->deriveContainerSpans($child);
+            if ($span === null) {
+                continue;
+            }
+            if ($first === null || $span->startOffset < $first->startOffset) {
+                $first = $span;
+            }
+            if ($last === null || $span->endOffset > $last->endOffset) {
+                $last = $span;
+            }
+        }
+
+        $own = $node->getPos();
+        if ($own !== null) {
+            // A node contains what it holds, so its extent is the UNION of its
+            // own and its children's - not whichever was set first. A list item
+            // measured from its marker line stops there, while the nested list
+            // inside it runs on for several more; reporting only the first line
+            // is a span that does not cover its own content.
+            if ($first === null || $last === null) {
+                return $own;
+            }
+            if ($own->startOffset <= $first->startOffset && $own->endOffset >= $last->endOffset) {
+                return $own;
+            }
+            $first = $own->startOffset <= $first->startOffset ? $own : $first;
+            $last = $own->endOffset >= $last->endOffset ? $own : $last;
+        }
+
+        if ($first === null || $last === null) {
+            return null;
+        }
+
+        $derived = new SourceSpan(
+            startLine: $first->startLine,
+            endLine: $last->endLine,
+            startColumn: $first->startColumn,
+            endColumn: $last->endColumn,
+            startOffset: $first->startOffset,
+            endOffset: $last->endOffset,
+        );
+        $node->setPos($derived);
+
+        return $derived;
     }
 
     private function wholeLineSpan(int $index): ?SourceSpan
