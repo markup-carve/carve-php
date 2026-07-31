@@ -7,6 +7,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (AST wire): a footnote reference encodes its label as `id`, and an
+  inline footnote's body as `inline`.** The rename table keyed `label` -> `id`
+  on `footnote`, which is the BLOCK definition, so it never applied to the
+  inline `footnote_ref` and the wire carried `label`. An inline footnote's body
+  encoded as `children`, where the reference calls it `inline` - it is the
+  note's content, not nested structure. Both now match carve-js field for
+  field (carve#405).
+
 ### Fixed
 
 - **A link label's closing `]` is found past an editorial comment.** The scan
