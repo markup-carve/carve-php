@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Ast;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
@@ -110,6 +111,7 @@ class AstCodec
         'delete.children', 'div.children', 'document.children',
         'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
         'figure.caption', 'figure.target', 'footnote_ref.id',
+        'frontmatter.content', 'frontmatter.format',
         'heading.children', 'heading.level', 'heading_ref.target',
         'highlight.children', 'image.alt', 'image.src',
         'inline_extension.content', 'inline_extension.name', 'inline_footnote.inline',
@@ -190,7 +192,75 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
-        return $this->encodeNode($document);
+        return self::liftRootFields($this->encodeNode($document));
+    }
+
+    /**
+     * Move frontmatter and footnote definitions from `children` onto the root.
+     *
+     * PART 12 section 2 fixes the root's fields and puts both there. This engine
+     * models them as block nodes, which is a defensible internal choice and the
+     * wrong thing to publish: `children` is an ORDER, and neither of these has a
+     * position in the document's flow. A footnote definition renders where the
+     * REFERENCE to it appears, not where it was written, and frontmatter renders
+     * nowhere at all - so a consumer walking `children` to render had to know to
+     * skip two of the types it found there (carve#411).
+     *
+     * The tree itself is untouched. This is the map-on-the-way-out that PART 12
+     * section 1 asks for, not a change to how the parser models a document -
+     * and `decode()` already adopted the reference's form for footnote
+     * definitions, so the two directions now agree.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function liftRootFields(array $encoded): array
+    {
+        $children = $encoded['children'] ?? null;
+        if (!is_array($children)) {
+            return $encoded;
+        }
+
+        $kept = [];
+        $defs = [];
+        $frontmatter = null;
+        foreach ($children as $child) {
+            if (!is_array($child)) {
+                $kept[] = $child;
+
+                continue;
+            }
+            $type = $child['type'] ?? null;
+            $label = $child['id'] ?? null;
+            if ($type === 'footnote' && is_scalar($label)) {
+                $defs[(string)$label] = $child['children'] ?? [];
+
+                continue;
+            }
+            if ($type === 'frontmatter') {
+                $frontmatter = [
+                    'format' => $child['format'] ?? 'yaml',
+                    'content' => $child['content'] ?? '',
+                ];
+
+                continue;
+            }
+            $kept[] = $child;
+        }
+
+        $encoded['children'] = $kept;
+        // Carried EXACTLY when the document has them (PART 12 section 2). An
+        // empty object would say "this document has frontmatter, and it is
+        // empty", which is a different claim.
+        if ($frontmatter !== null) {
+            $encoded['frontmatter'] = $frontmatter;
+        }
+        if ($defs !== []) {
+            $encoded['footnoteDefs'] = $defs;
+        }
+
+        return $encoded;
     }
 
     public function encodeJson(Document $document, int $flags = 0): string
@@ -232,6 +302,14 @@ class AstCodec
         // which argues for a map. Accepting the map converts it to the nodes
         // this engine uses, so the exchange PART 12 exists for works while that
         // is settled, without either engine changing what it emits.
+        // Same shape as the footnote-definition adoption below: the root form is
+        // what PART 12 section 2 fixes, and this engine models it as a block, so
+        // the decoder converts on the way in. Without it the loss check refuses
+        // its own encoder's output - which is how this was caught.
+        if ($this->adoptFrontmatter($data, $node)) {
+            unset($data['frontmatter']);
+        }
+
         if ($this->adoptFootnoteDefs($data, $node)) {
             // Adopted, so it is not lost - the definitions are in the tree now.
             // The loss check compares the payload against a RE-ENCODE, and this
@@ -299,6 +377,34 @@ class AstCodec
      */
 
     /**
+     * Rebuild the frontmatter block from the root field the wire carries.
+     *
+     * @param array<string, mixed> $data
+     * @param \MarkupCarve\Carve\Node\Document $document
+     */
+    private function adoptFrontmatter(array $data, Document $document): bool
+    {
+        $frontmatter = $data['frontmatter'] ?? null;
+        if (!is_array($frontmatter)) {
+            return false;
+        }
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof FrontmatterBlock) {
+                return false;
+            }
+        }
+
+        $content = $frontmatter['content'] ?? '';
+        $format = $frontmatter['format'] ?? 'yaml';
+        $document->prependChild(new FrontmatterBlock(
+            is_string($content) ? $content : '',
+            is_string($format) ? $format : 'yaml',
+        ));
+
+        return true;
+    }
+
+    /**
      * Turn a root-level `footnoteDefs` map into the block nodes this engine uses.
      *
      * Appended at the end, which is where they render from regardless of where
@@ -353,7 +459,11 @@ class AstCodec
     private function verifyNothingWasLost(array $input, Document $document): void
     {
         $lost = [];
-        $this->compareNode($input, $this->encodeNode($document), '', $lost);
+        // Compare against what this codec would PUBLISH, not against the raw
+        // node encoding: the root form lifts frontmatter and footnote
+        // definitions out of `children` (PART 12 section 2), so an unlifted
+        // re-encode shifts every child index and reports the shift as loss.
+        $this->compareNode($input, self::liftRootFields($this->encodeNode($document)), '', $lost);
 
         if ($lost !== []) {
             throw new RuntimeException(sprintf(
