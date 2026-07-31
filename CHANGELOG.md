@@ -7,6 +7,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`carve --json` publishes source positions, so the AST output is PART 12 §4
+  conformant.** The machinery landed first and nothing turned it on:
+  `trackPositions` defaults to false and no caller passed true, so the code to
+  produce positions sat unused while the output carried none and said so. The
+  AST format now asks for them; the other formats do not, since tracking costs
+  work on every parse and only this one publishes the result (carve-php#478).
+- **A heading always publishes its `level`.** Level 1 is this engine's property
+  default, so the encoder dropped it - making `# H` and `## H` differ in field
+  SET rather than in value, and leaving a consumer to treat the field as
+  optional and guess.
+
 ### Added
 
 - **Source positions on AST nodes (PART 12 §4), opt-in.**
