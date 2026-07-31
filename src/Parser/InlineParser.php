@@ -570,6 +570,12 @@ class InlineParser
      */
     protected bool $textBufferRewritten = false;
 
+    /**
+     * Where the buffered run ends in the source, so a rewritten run still has a
+     * measured extent to be placed by.
+     */
+    protected ?int $textBufferEnd = null;
+
     protected ?SourceMap $sourceMap = null;
 
     /**
@@ -621,17 +627,26 @@ class InlineParser
     /**
      * Remember where a buffered run begins, the first time anything lands in it.
      */
-    private function noteTextStart(string $buffer, int $pos, bool $rewritten = false): void
+
+    /**
+     * Remember where a buffered run begins and how far it has consumed.
+     *
+     * `$consumed` is the number of SOURCE bytes this piece took, which is not
+     * the number it contributed to the buffer whenever the text was rewritten -
+     * an escape reads two and writes one. Tracking the end as well as the start
+     * is what lets a rewritten run still be placed: its extent is measured by
+     * the parser, so no text comparison is needed or possible.
+     */
+    private function noteTextStart(string $buffer, int $pos, bool $rewritten = false, int $consumed = 1): void
     {
         if ($buffer === '') {
             $this->textBufferStart = $pos;
             $this->textBufferRewritten = $rewritten;
-
-            return;
-        }
-        if ($rewritten) {
+        } elseif ($rewritten) {
             $this->textBufferRewritten = true;
         }
+
+        $this->textBufferEnd = $pos + $consumed;
     }
 
     protected function parseInlinesImpl(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
@@ -722,7 +737,7 @@ class InlineParser
                     if ($escaped === ' ') {
                         // Non-breaking space - use placeholder that renderer converts to &nbsp;
                         // We use U+E000 (private use area) to distinguish from literal NBSP
-                        $this->noteTextStart($textBuffer, $pos, rewritten: true);
+                        $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
                         $textBuffer .= "\u{E000}";
                         $pos += 2;
 
@@ -1138,7 +1153,7 @@ class InlineParser
 
                 // A lone hyphen is not a substitution; it stays literal text.
                 if ($glyphs === '-') {
-                    $this->noteTextStart($textBuffer, $pos, rewritten: true);
+                    $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
                     $textBuffer .= '-';
                     $pos = $result['pos'];
 
@@ -1232,8 +1247,10 @@ class InlineParser
     protected function flushText(Node $parent, string $text): void
     {
         $start = $this->textBufferStart;
+        $end = $this->textBufferEnd;
         $rewritten = $this->textBufferRewritten;
         $this->textBufferStart = null;
+        $this->textBufferEnd = null;
         $this->textBufferRewritten = false;
 
         if ($text === '') {
@@ -1244,6 +1261,13 @@ class InlineParser
         $abbreviations = $this->blockParser->getAbbreviations();
         if ($abbreviations === []) {
             $node = new Text($text);
+            // A rewritten run declines, deliberately. Its measured extent is
+            // available ($textBufferEnd), and covering it would raise coverage -
+            // but the span would then select source that does NOT equal the
+            // node's text, and "a text span selects exactly its content" is the
+            // invariant that caught every real defect in this work. Raising the
+            // number by weakening the check is the wrong trade; the fix is to
+            // track the content's own extent, not to widen the span.
             $this->placeInline($node, $start, $text, $rewritten);
             $parent->appendChild($node);
 

@@ -190,7 +190,7 @@ class SourcePositionTest extends TestCase
         }
 
         $this->assertGreaterThan(
-            0.98,
+            0.99,
             $placed / $total,
             sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
         );

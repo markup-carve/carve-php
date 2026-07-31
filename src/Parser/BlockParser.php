@@ -4278,7 +4278,11 @@ class BlockParser
         foreach ($lines as $index => [$line, $lineNumber]) {
             $this->appendLineBlockLine($paragraph, $line, $lineNumber);
             if ($index < $lastIndex) {
-                $paragraph->appendChild(new HardBreak());
+                // The break IS the line ending, so its extent is the newline
+                // that terminates this stanza line.
+                $hardBreak = new HardBreak();
+                $hardBreak->setPos($this->endOfLineSpan($lineNumber));
+                $paragraph->appendChild($hardBreak);
             }
         }
 
@@ -4644,11 +4648,14 @@ class BlockParser
                 $trimmedContent = trim($marker['content']);
                 $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
+                // NOT used for the cell's text: the cell extent includes the
+                // padding around the content, so handing it to the text node
+                // produces a span covering bytes the node does not hold. The
+                // cell itself takes it; its text declines until the trimmed
+                // content's own offset is tracked.
                 if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                     $text = new Text($trimmedContent);
-                    if ($cellMap !== null) {
-                        $text->setPos($cellMap->spanFor(0, $trimmedContent));
-                    }
+                    $text->setPos($cellMap?->spanFor(0, $trimmedContent));
                     $cell->appendChild($text);
                 } else {
                     $this->inlineParser->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
@@ -5339,6 +5346,29 @@ class BlockParser
         $node->setPos($derived);
 
         return $derived;
+    }
+
+    /**
+     * The span of the newline that ends a source line.
+     *
+     * A hard break in a line block has no text of its own: what it represents
+     * is the line ending, which is one byte of real source.
+     */
+    private function endOfLineSpan(int $index): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $start = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($start === null) {
+            return null;
+        }
+
+        $end = $start + strlen($this->sourceLines[$sourceLine] ?? '');
+
+        return $this->positionIndex?->span($end, $end + 1, $sourceLine + 1, $sourceLine + 1, $start, $start);
     }
 
     private function wholeLineSpan(int $index): ?SourceSpan
