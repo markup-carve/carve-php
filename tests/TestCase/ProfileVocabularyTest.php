@@ -55,11 +55,29 @@ class ProfileVocabularyTest extends TestCase
     /**
      * Corpus documents a full profile still changes, which it should not.
      *
-     * A ratchet, not an allowance. Every entry is a construct denied because
-     * its node type is missing from the profile vocabulary - the same defect
-     * fixed here for `substitution` and `critic_comment`, in constructs nobody
-     * has swept yet (smart typography, symbols, autolinks, numbered
-     * cross-references). The list may shrink and must never grow.
+     * A ratchet, not an allowance. The vocabulary entries are gone - a profile
+     * that denies nothing now denies nothing. What remains has two other
+     * causes, and the list may shrink but must never grow.
+     *
+     * `120-footnotes-placement` is the first: a `::: footnotes` placement
+     * directive is lost under any configured profile, so the notes relocate to
+     * the end of the document instead of rendering where the directive sits.
+     *
+     * The other six are all `cleanupEmptyContainers` / `isEmptyContainer`
+     * (Filter/ProfileFilter.php) pruning a container the unfiltered render
+     * emits. The container differs, which is why this is not a one-shape bug:
+     * a genuinely empty `<blockquote>` in `16-reference-link-3` and
+     * `115-...-is-collected`; an `<aside>` or a `<ul><li>` in
+     * `16-reference-link-4`, `115-...-is-collected-2` and
+     * `114-fence-opener-...` (which loses its whole rendered output); and in
+     * `83-blockquote-lazy-continuation-...` a blockquote that is NOT visually
+     * empty, wrapping a `CodeBlock` whose content is `''` - treated as an
+     * empty leaf, cascading up to prune the blockquote.
+     *
+     * Whether the pruning is a defect or an improvement is undecided: removing
+     * genuinely empty markup may well be the better output. It is pinned here
+     * because a full profile must not change output at all, not because the
+     * new output is known to be wrong.
      *
      * @var array<string>
      */
@@ -68,32 +86,9 @@ class ProfileVocabularyTest extends TestCase
         '115-footnote-definition-inside-a-container-is-collected-2.crv',
         '115-footnote-definition-inside-a-container-is-collected.crv',
         '120-footnotes-placement.crv',
-        '15-heading-ids-4.crv',
-        '157-indented-reference-and-footnote-definitions-stay-literal.crv',
         '16-reference-link-3.crv',
         '16-reference-link-4.crv',
-        '163-quote-flanking-after-an-escaped-character.crv',
-        '19-smart-typography-dashes-and-quotes-2.crv',
-        '19-smart-typography-dashes-and-quotes-3.crv',
-        '19-smart-typography-dashes-and-quotes-4.crv',
-        '19-smart-typography-dashes-and-quotes-5.crv',
-        '19-smart-typography-dashes-and-quotes-6.crv',
-        '19-smart-typography-dashes-and-quotes-7.crv',
-        '19-smart-typography-dashes-and-quotes-8.crv',
-        '19-smart-typography-dashes-and-quotes-9.crv',
-        '19-smart-typography-dashes-and-quotes.crv',
-        '20-smart-typography-arrows-and-symbols.crv',
-        '29-non-breaking-space-2.crv',
-        '36-autolinks-3.crv',
-        '46-symbols-3.crv',
-        '47-numbered-cross-references-2.crv',
-        '47-numbered-cross-references-3.crv',
-        '47-numbered-cross-references-5.crv',
-        '47-numbered-cross-references-8.crv',
-        '47-numbered-cross-references-9.crv',
-        '47-numbered-cross-references.crv',
         '83-blockquote-lazy-continuation-stops-at-a-fenced-block-3.crv',
-        '89-mention-and-tag-name-boundaries.crv',
     ];
 
     public function testAFullProfileChangesNothingAcrossTheCorpus(): void
