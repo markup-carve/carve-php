@@ -113,7 +113,7 @@
     },
     "footnote_ref": {
         "fields": [
-            "label"
+            "id"
         ],
         "required": []
     },
