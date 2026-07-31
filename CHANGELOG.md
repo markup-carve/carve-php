@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A link label's closing `]` is found past an editorial comment.** The scan
+  already skipped code spans, because a `]` inside one is content. An editorial
+  comment holds literal content too and was not skipped, so `[{#a]b#}](u)`
+  ended the label at the comment's bracket and formed no link - with no
+  spelling that worked, since `{# ... #}` resolves no escapes and `\]` puts a
+  real backslash in the comment (carve#403).
+
+### Fixed
+
 - **A link reference definition's destination is trimmed of Unicode
   whitespace.** `trim()` only knows ASCII, so
   `[a]: <U+202F>javascript:alert(1)` kept the narrow no-break space in the
