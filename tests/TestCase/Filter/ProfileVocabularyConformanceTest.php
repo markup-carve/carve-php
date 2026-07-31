@@ -40,14 +40,6 @@ class ProfileVocabularyConformanceTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_GAPS = [
-        // An autolink is a Link carrying `isAutolink`, not its own node type, so
-        // `autolink` never reaches the filter. carve-js has the type but folds it
-        // to `link` for profiles, so neither engine honours the name.
-        'autolink' => 'modelled as a Link with isAutolink',
-        // An admonition is a typed Div, so the kind lives in a class string -
-        // exactly what profiles.md says must NOT happen, because a profile that
-        // wants to deny callouts while allowing generic containers cannot.
-        'admonition' => 'modelled as a typed Div',
         // Section.php and NodeType::SECTION exist but `new Section(` appears
         // nowhere: the <section> wrapper is generated while rendering, so no
         // section node is ever parsed. This one fails in carve-js too.
@@ -80,10 +72,11 @@ class ProfileVocabularyConformanceTest extends TestCase
             'table_row' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", $block],
             'table_cell' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", $block],
             'thematic_break' => ["---\n", $block],
-            'div' => ["::: sidebar\nbody\n:::\n", $block],
+            'div' => [":::\nbody\n:::\n", $block],
             'admonition' => ["::: note\nbody\n:::\n", $block],
             'raw_block' => ["```=html\n<b>x</b>\n```\n", $block],
             'footnote' => ["ref[^a]\n\n[^a]: note\n", $block],
+            'frontmatter' => ["---\ntitle: x\n---\n\nbody\n", $block],
             'definition_list' => [":: term\n:  definition\n", $block],
             'definition_term' => [":: term\n:  definition\n", $block],
             'definition_description' => [":: term\n:  definition\n", $block],
@@ -153,7 +146,7 @@ class ProfileVocabularyConformanceTest extends TestCase
     {
         $found = [];
         $walk = function (Node $node) use (&$walk, &$found): void {
-            $found[$node->getType()] = true;
+            $found[Profile::canonicalTypeOf($node)] = true;
             foreach ($node->getChildren() as $child) {
                 $walk($child);
             }
@@ -223,8 +216,8 @@ class ProfileVocabularyConformanceTest extends TestCase
     public function testTheKnownGapListDoesNotGrow(): void
     {
         // Pinned so a new gap cannot be waved through by appending to the list.
-        $this->assertCount(3, self::KNOWN_GAPS);
-        $this->assertSame(['autolink', 'admonition', 'section'], array_keys(self::KNOWN_GAPS));
+        $this->assertCount(1, self::KNOWN_GAPS);
+        $this->assertSame(['section'], array_keys(self::KNOWN_GAPS));
     }
 
     private function gapReason(string $type): string

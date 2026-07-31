@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve;
 
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Node;
@@ -460,11 +461,24 @@ class Profile
     }
 
     /**
-     * Check if a node is allowed by this profile
+     * Check if a node is allowed by this profile.
+     *
+     * Resolves on the node's OWN axis rather than by looking the name up in the
+     * vocabulary lists, so a type this build does not know still resolves
+     * exactly - profiles.md §Resolution, which has no "deny the unrecognized"
+     * step. A node is the only place the axis is unambiguous.
      */
     public function isNodeAllowed(Node $node): bool
     {
-        return $this->isTypeAllowed(self::canonicalTypeOf($node));
+        $type = self::trustClass(self::canonicalTypeOf($node));
+
+        if (in_array($type, self::NON_DENIABLE_TYPES, true)) {
+            return true;
+        }
+
+        return $node instanceof BlockNode
+            ? $this->isBlockAllowed($type)
+            : $this->isInlineAllowed($type);
     }
 
     /**
@@ -509,37 +523,77 @@ class Profile
     }
 
     /**
+     * Types that are not their own trust class.
+     *
+     * Folding happens BEFORE resolution, never inside it: a fold says "this
+     * node has the same capability as that one", which is a different question
+     * from whether a profile allows it. Every entry here is normative in
+     * profiles.md.
+     */
+    protected static function trustClass(string $type): string
+    {
+        return match ($type) {
+            // A code span with the `<code>` wrapper dropped (PART 9 §27):
+            // same verbatim capture, escaping and trailing-attribute surface.
+            NodeType::LITERAL_INLINE => NodeType::CODE,
+            // Typographic substitution is ordinary visible prose. An em dash is
+            // not a different trust level from the words around it.
+            'smart_punctuation' => NodeType::TEXT,
+            // `@user` and `#tag` share boundary rules and render through the
+            // same inert-span mechanism, so they are one trust class.
+            'tag' => NodeType::MENTION,
+            default => $type,
+        };
+    }
+
+    /**
+     * Types outside the vocabulary that are always allowed.
+     *
+     * A profile cannot name these, so denying them would express nothing:
+     * `raw_text` serves the formatter, `abbreviation_def` renders nothing, and
+     * the document root is the tree itself.
+     *
+     * `frontmatter` used to sit here on the same "renders nothing" reasoning.
+     * The spec's block vocabulary lists it, so a profile CAN name it - and
+     * since PART 12 §2 publishes it as a root field, denying it is a real
+     * decision about what leaves the engine even though the HTML is unchanged.
+     * Keeping it here meant a host denying frontmatter was silently ignored.
+     *
+     * @var list<string>
+     */
+    private const NON_DENIABLE_TYPES = [
+        'raw_text',
+        'abbreviation_def',
+        'document',
+    ];
+
+    /**
      * Check if a type string is allowed by this profile
      */
     public function isTypeAllowed(string $type): bool
     {
-        // An inline literal is a code span with the `<code>` wrapper dropped
-        // (§27): same verbatim capture, same escaping, same trailing-attribute
-        // surface. Classify it as `code` so it is allowed exactly where a code
-        // span is and denied where code is -- with attributes it renders a
-        // `<span>` carrying class/id just as an attributed code span does, so
-        // it belongs with `code`, not plain text.
-        if ($type === NodeType::LITERAL_INLINE) {
-            $type = NodeType::CODE;
+        $type = self::trustClass($type);
+
+        if (in_array($type, self::NON_DENIABLE_TYPES, true)) {
+            return true;
         }
 
-        // Check inline types
         if (in_array($type, NodeType::allInlineTypes(), true)) {
             return $this->isInlineAllowed($type);
         }
 
-        // Check block types
         if (in_array($type, NodeType::allBlockTypes(), true)) {
             return $this->isBlockAllowed($type);
         }
 
-        // Document type is always allowed
-        if ($type === 'document') {
-            return true;
-        }
-
-        // Unknown types are denied by default
-        return false;
+        // Outside the vocabulary and outside the non-deniable set: a type this
+        // build does not know, e.g. one an extension introduced. profiles.md
+        // §Resolution is exhaustive - there is no "deny the unrecognized" step.
+        // It cannot be in a deny list (nothing can name it), and an allow list
+        // excludes it by definition. Without a node we cannot tell which axis
+        // it belongs to, so any allow list at all is taken as excluding it;
+        // isNodeAllowed() below knows the axis and is exact.
+        return $this->allowedInline === null && $this->allowedBlock === null;
     }
 
     /**

@@ -88,6 +88,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const FRONTMATTER = 'frontmatter';
+
+    /**
+     * @var string
+     */
     public const DEFINITION_LIST = 'definition_list';
 
     /**
@@ -230,6 +235,20 @@ final class NodeType
     public const HEADING_REF = 'heading_ref';
 
     /**
+     * A citation group (`[@key]`), delivered by the citations extension.
+     *
+     * @var string
+     */
+    public const CITATION_GROUP = 'citation_group';
+
+    /**
+     * The resolved number inside a numbered caption (`^ Figure #: ...`).
+     *
+     * @var string
+     */
+    public const CAPTION_NUMBER = 'caption_number';
+
+    /**
      * @var string
      */
     public const SPAN = 'span';
@@ -304,6 +323,7 @@ final class NodeType
             self::DIV,
             self::RAW_BLOCK,
             self::FOOTNOTE,
+            self::FRONTMATTER,
             self::DEFINITION_LIST,
             self::DEFINITION_TERM,
             self::DEFINITION_DESCRIPTION,
@@ -335,11 +355,12 @@ final class NodeType
             self::SOFT_BREAK,
             self::HARD_BREAK,
             self::RAW_INLINE,
-            self::LITERAL_INLINE,
             self::ESCAPED_TEXT,
             self::FOOTNOTE_REF,
             self::INLINE_FOOTNOTE,
             self::HEADING_REF,
+            self::CITATION_GROUP,
+            self::CAPTION_NUMBER,
             self::SPAN,
             self::SUPERSCRIPT,
             self::SUBSCRIPT,
@@ -351,6 +372,9 @@ final class NodeType
             self::SYMBOL,
             self::MATH,
             self::ABBREVIATION,
+            // `literal_inline` is deliberately absent: Profile::trustClass() folds
+            // it to `code` before this list is consulted (profiles.md PART 9 §27),
+            // and the spec excludes it from the nameable vocabulary.
         ];
     }
 }
