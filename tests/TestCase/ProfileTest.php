@@ -363,6 +363,9 @@ DJOT;
      * denies any type it finds in neither list, so an unclassified node type is
      * silently filtered out under every profile (including full). This test fails
      * the moment a new NodeType constant is added without registering it.
+     *
+     * Exception: LITERAL_INLINE is intentionally not classified (folded to CODE
+     * via trustClass() before resolution).
      */
     public function testEveryNodeTypeConstantIsClassifiedForProfiles(): void
     {
@@ -370,6 +373,11 @@ DJOT;
 
         foreach ((new ReflectionClass(NodeType::class))->getConstants() as $name => $value) {
             if (!is_string($value)) {
+                continue;
+            }
+
+            // LITERAL_INLINE is intentionally not in either list; it folds to CODE via trustClass()
+            if ($value === NodeType::LITERAL_INLINE) {
                 continue;
             }
 
@@ -793,8 +801,12 @@ DJOT;
     {
         $profile = Profile::full();
 
-        // Unknown types should be denied
-        $this->assertFalse($profile->isTypeAllowed('unknown_type'));
+        // Unknown types are allowed when there is no allowlist
+        $this->assertTrue($profile->isTypeAllowed('unknown_type'));
+
+        // But they are denied when there is an allowlist
+        $restrictive = Profile::minimal();
+        $this->assertFalse($restrictive->isTypeAllowed('unknown_type'));
     }
 
     public function testIsTypeAllowedWithDocumentType(): void
@@ -1271,5 +1283,36 @@ DJOT;
         $this->assertStringContainsString('Before', $html);
         $this->assertStringContainsString('After', $html);
         $this->assertFalse($converter->hasProfileViolations());
+    }
+
+    public function testSmartPunctuationSharesTheTextTrustClass(): void
+    {
+        $this->assertTrue(
+            Profile::full()->isTypeAllowed('smart_punctuation'),
+            'smart typography must be allowed wherever text is allowed',
+        );
+
+        $profile = Profile::full()->denyInline([NodeType::TEXT]);
+
+        $this->assertFalse($profile->isTypeAllowed('smart_punctuation'), 'denying text must deny smart typography, which folds into it');
+    }
+
+    public function testATagSharesTheMentionTrustClass(): void
+    {
+        $this->assertTrue(
+            Profile::full()->isTypeAllowed('tag'),
+            'a tag must be allowed wherever a mention is allowed',
+        );
+
+        $profile = Profile::full()->denyInline([NodeType::MENTION]);
+
+        $this->assertFalse($profile->isTypeAllowed('tag'), 'denying mention must deny tags, which fold into it');
+    }
+
+    public function testAFormatterTypeCannotBeDenied(): void
+    {
+        $profile = Profile::full()->denyInline(['raw_text']);
+
+        $this->assertTrue($profile->isTypeAllowed('raw_text'), 'raw_text serves the formatter and is not in the vocabulary, so naming it must do nothing');
     }
 }
