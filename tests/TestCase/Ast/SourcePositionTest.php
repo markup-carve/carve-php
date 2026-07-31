@@ -123,9 +123,19 @@ class SourcePositionTest extends TestCase
 
                 $checked++;
                 $selected = mb_substr($normalized, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
-                if ($selected !== $node->getContent()) {
-                    $wrong[] = basename($file) . ': ' . json_encode($selected);
+                // Two verified classes, not one. A verbatim run's span selects
+                // exactly its content. A run the parser REWROTE cannot - its
+                // text is not its source by construction - so it is checked the
+                // other way: the source it covers must PRODUCE the text under
+                // the same rewrite. Anything that satisfies neither is wrong.
+                if ($selected === $node->getContent()) {
+                    continue;
                 }
+                if (self::applyEscapes($selected) === $node->getContent()) {
+                    continue;
+                }
+
+                $wrong[] = basename($file) . ': ' . json_encode($selected);
             }
         }
 
@@ -190,7 +200,7 @@ class SourcePositionTest extends TestCase
         }
 
         $this->assertGreaterThan(
-            0.99,
+            0.997,
             $placed / $total,
             sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
         );
@@ -245,6 +255,38 @@ class SourcePositionTest extends TestCase
         $document = (new BlockParser())->parse("# Title\n");
 
         $this->assertNull($document->getChildren()[0]->getPos());
+    }
+
+    /**
+     * The escape rewrites a buffered text run can carry: `\ ` becomes the
+     * non-breaking-space sentinel, and a backslash before ASCII punctuation
+     * becomes the punctuation alone.
+     */
+    private static function applyEscapes(string $slice): string
+    {
+        $escapable = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+        $out = '';
+        $length = strlen($slice);
+        for ($i = 0; $i < $length; $i++) {
+            if ($slice[$i] === '\\' && $i + 1 < $length) {
+                $next = $slice[$i + 1];
+                if ($next === ' ') {
+                    $out .= "\u{E000}";
+                    $i++;
+
+                    continue;
+                }
+                if (strpos($escapable, $next) !== false) {
+                    $out .= $next;
+                    $i++;
+
+                    continue;
+                }
+            }
+            $out .= $slice[$i];
+        }
+
+        return $out;
     }
 
     /**
