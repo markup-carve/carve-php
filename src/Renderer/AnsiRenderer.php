@@ -468,6 +468,8 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => $this->renderSymbol($node),
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
+                $node instanceof FootnoteRef && $node->isUnresolved()
+                => $this->stripControls('[^' . $node->getLabel() . ']'),
                 $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),

@@ -389,6 +389,10 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
+                // Unresolved: the reference never formed, so the literal source
+                // is escaped like any other text landing in Markdown.
+                $node instanceof FootnoteRef && $node->isUnresolved()
+                => $this->escapeText($this->stripControls('[^' . $node->getLabel() . ']')),
                 $node instanceof FootnoteRef => '[^' . $this->stripControls($node->getLabel()) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),

@@ -6,12 +6,14 @@ namespace MarkupCarve\Carve\Ast;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -81,7 +83,18 @@ class AstCodec
      *
      * @var array<string>
      */
-    private const BASE_PROPERTIES = ['parent', 'children', 'attributes', 'attributeOrder'];
+    private const BASE_PROPERTIES = [
+        'parent',
+        'children',
+        'attributes',
+        'attributeOrder',
+        // Derived state, not document content: whether a footnote reference
+        // found its definition. The reference engine computes it at render time
+        // from the definitions it already has, so publishing it would be a
+        // field the reference shape does not carry (PART 12 §3). Re-derived
+        // after decoding, in `resolveFootnoteRefs`.
+        'unresolved',
+    ];
 
     /**
      * @var array<string, class-string<\MarkupCarve\Carve\Node\Node>>|null
@@ -155,8 +168,40 @@ class AstCodec
         }
 
         $this->verifyNothingWasLost($data, $node);
+        self::resolveFootnoteRefs($node);
 
         return $node;
+    }
+
+    /**
+     * Mark footnote references whose label has no definition in the decoded tree.
+     *
+     * The wire deliberately carries no `unresolved` field - the reference shape
+     * has none, and PART 12 §3 forbids inventing one. It is derived state, and
+     * the definitions needed to derive it are right there in the tree, so a
+     * decoded document computes it the same way a parsed one is given it.
+     *
+     * Without this, a decoded unresolved reference rendered as a real footnote:
+     * a number, a backlink, and a link to a definition that does not exist.
+     */
+    private static function resolveFootnoteRefs(Document $document): void
+    {
+        $defined = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof FootnoteBlock) {
+                $defined[$child->getLabel()] = true;
+            }
+        }
+
+        $walk = static function (Node $node) use (&$walk, $defined): void {
+            if ($node instanceof FootnoteRef) {
+                $node->setUnresolved(!isset($defined[$node->getLabel()]));
+            }
+            foreach ($node->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+        $walk($document);
     }
 
     /**
