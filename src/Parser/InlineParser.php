@@ -489,9 +489,14 @@ class InlineParser
      * remaining text is emitted literally instead of recursing further. Far
      * deeper than any real document; mirrors the block-nesting cap.
      *
+     * Public: `AstCodec` factors this into its own decode-time node-nesting
+     * cap alongside `BlockParser::MAX_NESTING_DEPTH`, so a document nesting
+     * both block containers and inline constructs to their caps still decodes
+     * (carve-php#556).
+     *
      * @var int
      */
-    protected const MAX_INLINE_DEPTH = 100;
+    public const MAX_INLINE_DEPTH = 100;
 
     /**
      * Maximum `[`-nesting depth findBalancedBracketEnd will scan before bailing

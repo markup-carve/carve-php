@@ -6,6 +6,9 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -458,5 +461,104 @@ class AstCodecTest extends TestCase
         $this->assertSame('x', $extension['content'][0]['value']);
         $this->assertArrayNotHasKey('extensionType', $extension);
         $this->assertArrayNotHasKey('children', $extension);
+    }
+
+    /**
+     * carve-php#556: decodeJson had no nesting cap of its own, so a payload
+     * nested past this engine's parser/renderer cap was stopped by
+     * json_decode's default 512 *structural* levels instead of a codec
+     * error. A document nested to the parser's own cap (BlockParser::
+     * MAX_NESTING_DEPTH) is exactly what the parser and its own encoder
+     * produce every day, so it must decode without incident - this is the
+     * test that would have caught carve-rs#389, where a reader counting raw
+     * JSON structural depth instead of AST nodes rejected its own encoder's
+     * output.
+     */
+    public function testContainerNestingAtTheParsersOwnCapRoundTrips(): void
+    {
+        $source = str_repeat('> ', BlockParser::MAX_NESTING_DEPTH) . 'x';
+        $document = $this->converter->parse($source);
+
+        $decoded = $this->codec->decodeJson($this->codec->encodeJson($document));
+
+        $depth = 0;
+        $children = $decoded->getChildren();
+        while ($children !== [] && $children[0] instanceof BlockQuote) {
+            $depth++;
+            $children = $children[0]->getChildren();
+        }
+
+        $this->assertSame(BlockParser::MAX_NESTING_DEPTH, $depth);
+        $renderer = new CarveRenderer();
+        $this->assertSame($renderer->render($document), $renderer->render($decoded));
+    }
+
+    /**
+     * carve-php#556: a nested LIST spends one `parseBlocks()` recursion per
+     * level (same budget as blockquote nesting above) but produces TWO nodes
+     * per level - `list` wrapping `list_item` - so 200 nested levels encode
+     * to about 400 nodes, not 200. A first version of this fix priced the
+     * cap at one node per container level and rejected exactly this shape,
+     * even though it is what the parser's own list-nesting cap produces
+     * every day. This pins the corrected accounting.
+     */
+    public function testNestedListsAtTheParsersOwnCapRoundTrip(): void
+    {
+        $lines = [];
+        for ($i = 0; $i < BlockParser::MAX_NESTING_DEPTH; $i++) {
+            $lines[] = str_repeat('  ', $i) . '- item';
+        }
+        $document = $this->converter->parse(implode("\n", $lines));
+
+        $decoded = $this->codec->decodeJson($this->codec->encodeJson($document));
+
+        $renderer = new CarveRenderer();
+        $this->assertSame($renderer->render($document), $renderer->render($decoded));
+    }
+
+    /**
+     * carve-php#556: a payload nested well past this engine's own node cap
+     * must be refused with the codec's own RuntimeException, not left to
+     * json_decode's unrelated default or a stack overflow. Nested well past
+     * AstCodec::MAX_NODE_DEPTH's own worst-case container accounting (2
+     * nodes per BlockParser::MAX_NESTING_DEPTH level, to price a list-shaped
+     * tree, plus InlineParser::MAX_INLINE_DEPTH) so the failure is
+     * unambiguously the node-depth guard, not an edge-of-cap coincidence.
+     */
+    public function testInputNestedPastTheCapIsRejectedWithTheCodecsOwnException(): void
+    {
+        $node = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]];
+        // Just past AstCodec's own cap, and comfortably short of json_decode's
+        // own structural-depth budget - so it is unambiguously OUR node-depth
+        // guard that rejects this, not a JSON-level limit underneath it.
+        $depth = (BlockParser::MAX_NESTING_DEPTH * 2) + InlineParser::MAX_INLINE_DEPTH + 10;
+        for ($i = 0; $i < $depth; $i++) {
+            $node = ['type' => 'div', 'children' => [$node]];
+        }
+        $payload = ['type' => 'document', 'children' => [$node]];
+
+        // json_encode needs its own generous $depth here too - a node costs
+        // two JSON structural levels (its object, then its children array),
+        // and this payload is deliberately deeper than PHP's default 512.
+        // It is the decoder's cap under test here, not the encoder's.
+        $json = (string)json_encode($payload, 0, ($depth * 2) + 32);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('node cap');
+        $this->codec->decodeJson($json);
+    }
+
+    /**
+     * carve-php#556: the new cap must not reject ordinary, shallow input -
+     * it guards against pathological depth, not against decoding at all.
+     */
+    public function testAShallowDocumentStillDecodes(): void
+    {
+        $document = $this->converter->parse('# Title' . "\n\n" . 'a paragraph with *bold* text.');
+
+        $decoded = $this->codec->decodeJson($this->codec->encodeJson($document));
+
+        $renderer = new CarveRenderer();
+        $this->assertSame($renderer->render($document), $renderer->render($decoded));
     }
 }

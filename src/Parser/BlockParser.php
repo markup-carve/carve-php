@@ -79,9 +79,14 @@ class BlockParser
      * depth, container content is emitted as a literal paragraph instead of
      * recursing. Far above any real document; only adversarial input reaches it.
      *
+     * Public: `AstCodec` derives its own decode-time node-nesting cap from this
+     * value, so a document this parser can produce can also be decoded back
+     * (carve-php#556) - the constant has one home instead of being written
+     * twice and drifting.
+     *
      * @var int
      */
-    private const MAX_NESTING_DEPTH = 200;
+    public const MAX_NESTING_DEPTH = 200;
 
     private int $nestingDepth = 0;
 

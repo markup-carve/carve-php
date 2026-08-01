@@ -21,6 +21,8 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Profile;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -87,6 +89,54 @@ class AstCodec
      * @var int
      */
     public const VERSION = 2;
+
+    /**
+     * Decode-time cap on AST node-nesting depth (carve-php#556).
+     *
+     * `decodeJson`/`decode` used to have no cap of their own: a deep payload
+     * was stopped only by `json_decode`'s default 512 *structural* levels
+     * (roughly 255 nested containers, since each node costs two structural
+     * levels - its object, then its children array), surfacing as a bare
+     * `JsonException` rather than a codec error.
+     *
+     * `BlockParser::MAX_NESTING_DEPTH` counts recursions into `parseBlocks()`,
+     * not tree nodes, and most containers (blockquote, div) spend one
+     * recursion on one node - but a nested list or definition list spends one
+     * recursion PER LEVEL while producing TWO nodes per level (`list` wraps
+     * `list_item`, `definition_list` wraps `definition_description`; only the
+     * item/description's own content triggers the next `parseBlocks()` call).
+     * 200 levels of nested lists therefore encode to 400 nodes, not 200 - a
+     * first version of this cap counted the container budget once and
+     * rejected exactly that shape, which a real conversion of the parser's
+     * own output into an AST produces. `* 2` prices every level of the
+     * container budget at the worst-case (list-shaped) node cost so no
+     * container nesting the parser can produce is ever rejected.
+     *
+     * Past `MAX_INLINE_DEPTH`, inline openers degrade to literal text rather
+     * than recursing further, so the deepest tree this engine's own encoder
+     * can ever produce is bounded by: the document root, up to
+     * `MAX_NESTING_DEPTH` nested containers (at up to 2 nodes each), the leaf
+     * block their content bottoms out in, up to `MAX_INLINE_DEPTH` nested
+     * inline constructs inside it, and its final text leaf. The `+ 10` is
+     * slack for that root/leaf-block/leaf-text overhead rather than trimming
+     * it exactly, so a document at the parser's own maximum always decodes.
+     *
+     * This counts NODES on the decoded tree, not JSON structural levels -
+     * conflating the two is exactly the bug carve-rs#389 shipped: a reader
+     * that counts raw JSON depth rejects its own encoder's output, because
+     * the same tree costs roughly twice as many structural levels as nodes.
+     *
+     * @var int
+     */
+    private const MAX_NODE_DEPTH = (BlockParser::MAX_NESTING_DEPTH * 2) + InlineParser::MAX_INLINE_DEPTH + 10;
+
+    /**
+     * Current decode recursion depth (see MAX_NODE_DEPTH). Reset at the start
+     * of every `decode()` call.
+     *
+     * @var int
+     */
+    private int $decodeDepth = 0;
 
     /**
      * Fields the reference publishes even when they hold this engine's default.
@@ -293,7 +343,17 @@ class AstCodec
 
     public function encodeJson(Document $document, int $flags = 0): string
     {
-        return (string)json_encode($this->encode($document), $flags | JSON_THROW_ON_ERROR);
+        // json_encode's own default $depth (512 *structural* levels) is the
+        // same mismatched threshold decodeJson used to rely on: a node this
+        // engine's parser can legitimately produce - e.g. MAX_NESTING_DEPTH
+        // nested lists, at two nodes per level - already needs more
+        // structural depth than that to serialize at all (carve-php#556).
+        // Sized the same way decodeJson sizes its own budget, so the encoder
+        // never becomes the first thing to reject a tree its own decoder is
+        // built to accept.
+        $jsonDepth = (self::MAX_NODE_DEPTH * 2) + 10;
+
+        return (string)json_encode($this->encode($document), $flags | JSON_THROW_ON_ERROR, $jsonDepth);
     }
 
     /**
@@ -303,6 +363,11 @@ class AstCodec
      */
     public function decode(array $data): Document
     {
+        // Reset per call: a codec instance may decode more than one payload,
+        // and a prior call's depth always unwinds to 0 via decodeNode's
+        // try/finally, but resetting explicitly does not rely on that.
+        $this->decodeDepth = 0;
+
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
             throw new RuntimeException(sprintf(
@@ -612,8 +677,17 @@ class AstCodec
 
     public function decodeJson(string $json): Document
     {
+        // json_decode's own $depth guards its descent through the raw
+        // structure before a single AST node has been recognized to count
+        // against MAX_NODE_DEPTH below. A node costs roughly two structural
+        // levels here (its object, then its children/items/... array), so
+        // this is sized off MAX_NODE_DEPTH rather than left at the default
+        // 512 - which sits at a different, uncoordinated threshold and would
+        // surface as a bare JsonException instead of this codec's own error.
+        $jsonDepth = (self::MAX_NODE_DEPTH * 2) + 10;
+
         /** @var array<string, mixed> $data */
-        $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode($json, true, $jsonDepth, JSON_THROW_ON_ERROR);
 
         return $this->decode($data);
     }
@@ -1390,7 +1464,8 @@ class AstCodec
     /**
      * @param array<string, mixed> $data
      *
-     * @throws \RuntimeException When the node type is unknown.
+     * @throws \RuntimeException When the node type is unknown, or the payload
+     *  nests deeper than MAX_NODE_DEPTH.
      */
     private function decodeNode(array $data): Node
     {
@@ -1399,76 +1474,96 @@ class AstCodec
             throw new RuntimeException('Every node needs a string type');
         }
 
-        // Undo the wire shapes this codec writes, so a tree it produced decodes
-        // back to the tree it came from - which is what PART 12 §6's round trip
-        // asks for, and what the loss check verifies. Both were caught by that
-        // check rather than by review.
-        $data = self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))));
-
-        $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
-        if ($class === null) {
+        // MAX_NODE_DEPTH counts NODES on this path, not JSON structural
+        // levels (carve-php#556) - checked before doing any further work, so
+        // a payload built to exhaust the stack is refused here rather than
+        // recursing one more level to find out.
+        if ($this->decodeDepth >= self::MAX_NODE_DEPTH) {
             throw new RuntimeException(sprintf(
-                'Unknown node type: %s. Application node types must be registered with %s::register().',
-                $type,
-                self::class,
+                'AST payload nests %d levels deep, past the %d-node cap this codec enforces to match '
+                    . "this engine's own parser and renderer limits; refusing to decode further.",
+                $this->decodeDepth + 1,
+                self::MAX_NODE_DEPTH,
             ));
         }
 
-        $reflection = new ReflectionClass($class);
-        /** @var \MarkupCarve\Carve\Node\Node $node */
-        $node = $reflection->newInstanceWithoutConstructor();
+        $this->decodeDepth++;
+        try {
+            // Undo the wire shapes this codec writes, so a tree it produced
+            // decodes back to the tree it came from - which is what PART 12
+            // §6's round trip asks for, and what the loss check verifies.
+            // Both were caught by that check rather than by review.
+            $data = self::captionFromWire(
+                self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))),
+            );
 
-        foreach (self::stateProperties($reflection) as $property) {
-            $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
-            if (
-                $type === 'footnote'
-                && $property->getName() === 'label'
-                && !array_key_exists($name, $data)
-                && array_key_exists('id', $data)
-            ) {
-                // Compatibility path for stored trees written before PART 12 §7
-                // renamed footnote definitions from `id` to `label`.
-                $name = 'id';
+            $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
+            if ($class === null) {
+                throw new RuntimeException(sprintf(
+                    'Unknown node type: %s. Application node types must be registered with %s::register().',
+                    $type,
+                    self::class,
+                ));
             }
-            if (!array_key_exists($name, $data)) {
-                // Omission means "the default". The constructor was bypassed, so
-                // a typed property without a declared default would otherwise stay
-                // uninitialized and throw on first read - initialize it here, or
-                // reject the node when it has no sensible default to fall back on.
-                $this->initializeDefault($node, $property, $type);
 
-                continue;
+            $reflection = new ReflectionClass($class);
+            /** @var \MarkupCarve\Carve\Node\Node $node */
+            $node = $reflection->newInstanceWithoutConstructor();
+
+            foreach (self::stateProperties($reflection) as $property) {
+                $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
+                if (
+                    $type === 'footnote'
+                    && $property->getName() === 'label'
+                    && !array_key_exists($name, $data)
+                    && array_key_exists('id', $data)
+                ) {
+                    // Compatibility path for stored trees written before PART 12 §7
+                    // renamed footnote definitions from `id` to `label`.
+                    $name = 'id';
+                }
+                if (!array_key_exists($name, $data)) {
+                    // Omission means "the default". The constructor was bypassed, so
+                    // a typed property without a declared default would otherwise stay
+                    // uninitialized and throw on first read - initialize it here, or
+                    // reject the node when it has no sensible default to fall back on.
+                    $this->initializeDefault($node, $property, $type);
+
+                    continue;
+                }
+                $property->setValue($node, $this->decodeValue($data[$name], $property));
             }
-            $property->setValue($node, $this->decodeValue($data[$name], $property));
+
+            /** @var array<string, mixed> $wire */
+            $wire = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            [$attrs, $order] = self::attrsFromWire($wire);
+            if ($attrs !== []) {
+                $node->setAttributesWithOrder($attrs, $order);
+            }
+
+            $container = ReferenceShape::containerFor($type);
+            /** @var array<int, array<string, mixed>> $children */
+            $children = is_array($data[$container] ?? null) ? $data[$container] : [];
+            foreach ($children as $child) {
+                $node->appendChild($this->decodeNode($child));
+            }
+
+            $this->applyDerivedFields($node, $data);
+
+            // PART 12 §4. Handled here rather than through the reflection walk: the
+            // spec gives `pos` a defined shape, so it converts to the value object
+            // instead of being assigned raw. This engine cannot yet PRODUCE spans
+            // for every node, but it can carry one it is given.
+            if (is_array($data['pos'] ?? null)) {
+                /** @var array<string, mixed> $span */
+                $span = $data['pos'];
+                $node->setPos(SourceSpan::fromArray($span));
+            }
+
+            return $node;
+        } finally {
+            $this->decodeDepth--;
         }
-
-        /** @var array<string, mixed> $wire */
-        $wire = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
-        [$attrs, $order] = self::attrsFromWire($wire);
-        if ($attrs !== []) {
-            $node->setAttributesWithOrder($attrs, $order);
-        }
-
-        $container = ReferenceShape::containerFor($type);
-        /** @var array<int, array<string, mixed>> $children */
-        $children = is_array($data[$container] ?? null) ? $data[$container] : [];
-        foreach ($children as $child) {
-            $node->appendChild($this->decodeNode($child));
-        }
-
-        $this->applyDerivedFields($node, $data);
-
-        // PART 12 §4. Handled here rather than through the reflection walk: the
-        // spec gives `pos` a defined shape, so it converts to the value object
-        // instead of being assigned raw. This engine cannot yet PRODUCE spans
-        // for every node, but it can carry one it is given.
-        if (is_array($data['pos'] ?? null)) {
-            /** @var array<string, mixed> $span */
-            $span = $data['pos'];
-            $node->setPos(SourceSpan::fromArray($span));
-        }
-
-        return $node;
     }
 
     /**
