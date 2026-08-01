@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Node\Block\AbbreviationDef;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -296,6 +297,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
             $node instanceof Comment => $this->renderComment($node),
+            $node instanceof AbbreviationDef => '',
             $node instanceof Footnote => $this->renderFootnote($node),
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
             default => $this->renderBlocks($node->getChildren()),

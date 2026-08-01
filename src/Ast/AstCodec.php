@@ -6,16 +6,24 @@ namespace MarkupCarve\Carve\Ast;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
+use MarkupCarve\Carve\Node\Block\AbbreviationDef;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Profile;
@@ -137,6 +145,13 @@ class AstCodec
     ];
 
     /**
+     * Internal node classes that never appear as wire node types.
+     *
+     * @var array<string>
+     */
+    private const WIRE_EXCLUDED_TYPES = ['caption', 'raw_text'];
+
+    /**
      * Base-class state that is either structural (children) or not part of the
      * tree's identity (parent, and the attribute bookkeeping handled by attrs).
      *
@@ -224,6 +239,8 @@ class AstCodec
                 self::VERSION,
             ));
         }
+
+        $data = $this->canonicalizeStoredPayload($data);
 
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
@@ -411,6 +428,129 @@ class AstCodec
     }
 
     /**
+     * Adopt old stored payload spellings into the canonical PART 12 shape before
+     * decoding. These are compatibility reads, not alternate wire spellings.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private function canonicalizeStoredPayload(array $data): array
+    {
+        if (($data['type'] ?? null) === 'raw_text') {
+            $data['type'] = 'text';
+            if (array_key_exists('content', $data) && !array_key_exists('value', $data)) {
+                $data['value'] = $data['content'];
+            }
+            unset($data['content']);
+        }
+
+        if (($data['type'] ?? null) === 'figure' && is_array($data['children'] ?? null)) {
+            foreach ($data['children'] as $child) {
+                if (!is_array($child)) {
+                    continue;
+                }
+                if (($child['type'] ?? null) === 'caption') {
+                    $data['caption'] = is_array($child['children'] ?? null) ? $child['children'] : [];
+                } elseif (!array_key_exists('target', $data)) {
+                    $data['target'] = $child;
+                }
+            }
+            unset($data['children']);
+        }
+
+        if (is_array($data['attrs'] ?? null)) {
+            /** @var array<string, mixed> $attrs */
+            $attrs = $data['attrs'];
+            $canonicalKeys = ['id' => true, 'classes' => true, 'keyValues' => true, 'order' => true];
+            $hasOldAttrKey = array_key_exists('class', $attrs);
+            foreach ($attrs as $key => $_value) {
+                if (!isset($canonicalKeys[(string)$key])) {
+                    $hasOldAttrKey = true;
+
+                    break;
+                }
+            }
+            if ($hasOldAttrKey) {
+                $data['attrs'] = $this->canonicalizeFlatAttrs($attrs);
+            }
+        }
+
+        if (($data['type'] ?? null) === 'table_cell') {
+            if (($data['rowspan'] ?? null) === true && !array_key_exists('span', $data)) {
+                $data['span'] = 'rowspan';
+            } elseif (($data['colspan'] ?? null) === true && !array_key_exists('span', $data)) {
+                $data['span'] = 'colspan';
+            }
+            unset($data['rowspan'], $data['colspan']);
+        }
+
+        foreach (['children', 'items', 'rows', 'cells', 'inline', 'caption'] as $key) {
+            if (!is_array($data[$key] ?? null)) {
+                continue;
+            }
+            foreach ($data[$key] as $index => $child) {
+                if (is_array($child) && is_string($child['type'] ?? null)) {
+                    /** @var array<string, mixed> $childNode */
+                    $childNode = $child;
+                    $data[$key][$index] = $this->canonicalizeStoredPayload($childNode);
+                }
+            }
+        }
+        if (is_array($data['target'] ?? null) && is_string($data['target']['type'] ?? null)) {
+            /** @var array<string, mixed> $target */
+            $target = $data['target'];
+            $data['target'] = $this->canonicalizeStoredPayload($target);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     *
+     * @return array<string, mixed>
+     */
+    private function canonicalizeFlatAttrs(array $attrs): array
+    {
+        $canonical = [];
+        if (is_string($attrs['id'] ?? null)) {
+            $canonical['id'] = $attrs['id'];
+        }
+        if (is_string($attrs['class'] ?? null)) {
+            $classes = preg_split('/\s+/', trim($attrs['class'])) ?: [];
+            $classes = array_values(array_filter($classes, static fn (string $class): bool => $class !== ''));
+            if ($classes !== []) {
+                $canonical['classes'] = $classes;
+            }
+        }
+
+        $keyValues = [];
+        foreach ($attrs as $key => $value) {
+            if ($key === 'id' || $key === 'class' || $key === 'order') {
+                continue;
+            }
+            if (is_scalar($value) || $value === null) {
+                $keyValues[$key] = (string)$value;
+            }
+        }
+        if ($keyValues !== []) {
+            $canonical['keyValues'] = $keyValues;
+        }
+        if (is_array($attrs['order'] ?? null)) {
+            $order = [];
+            foreach ($attrs['order'] as $slot) {
+                if (is_scalar($slot) && (string)$slot !== '') {
+                    $order[] = (string)$slot;
+                }
+            }
+            $canonical['order'] = $order;
+        }
+
+        return $canonical;
+    }
+
+    /**
      * @param array<string, mixed> $input
      * @param array<string, mixed> $roundTripped
      * @param string $path
@@ -520,6 +660,9 @@ class AstCodec
     {
         $schema = [];
         foreach (self::classMap() as $type => $class) {
+            if (in_array($type, self::WIRE_EXCLUDED_TYPES, true)) {
+                continue;
+            }
             $reflection = new ReflectionClass($class);
             $fields = [];
             $required = [];
@@ -548,14 +691,29 @@ class AstCodec
      */
     private function encodeNode(Node $node): array
     {
+        if ($node instanceof RawText) {
+            $text = new Text($node->getContent());
+            $text->setPos($node->getPos());
+
+            return $this->encodeNode($text);
+        }
+
         // PART 12 §3 and profiles.md: an autolink and an admonition are their
         // OWN types, not a link/div carrying a flag. This engine models them as
         // the broader class, so the canonical name is what goes on the wire -
         // the same distinction Profile already draws for profile matching.
-        $type = Profile::canonicalTypeOf($node);
+        $type = match (true) {
+            $node instanceof Mention && $node->getCssClass() === 'tag' => 'tag',
+            $node instanceof Div && $node->isTyped() => 'admonition',
+            default => Profile::canonicalTypeOf($node),
+        };
         $encoded = ['type' => $type];
+        /** @var \ReflectionClass<\MarkupCarve\Carve\Node\Node> $reflection */
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
+            if ($node instanceof Table && $property->getName() === 'caption') {
+                continue;
+            }
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
             $default = self::defaultFor($reflection, $property);
 
@@ -592,7 +750,7 @@ class AstCodec
             $encoded[$field] = $this->encodeValue($value);
         }
 
-        $attributes = $node->getAttributes();
+        $attributes = $this->encodeAttrs($node);
         if ($attributes !== []) {
             $encoded['attrs'] = $attributes;
         }
@@ -612,12 +770,35 @@ class AstCodec
             $encoded['pos'] = $span->toArray();
         }
 
+        if ($node instanceof Figure) {
+            $this->encodeFigureChildren($node, $encoded);
+
+            return $encoded;
+        }
+
         $children = $node->getChildren();
         if ($type === 'autolink') {
             // The reference gives an autolink no children - `text` is the label,
             // and publishing both would be a second representation of the same
             // content. The decoder rebuilds the text node from it.
             $children = [];
+        }
+        if ($node instanceof Mention) {
+            // The reference publishes the semantic handle (`user`/`name`) only.
+            // The text child is this engine's rendering path.
+            $children = [];
+        }
+        if ($node instanceof Abbreviation) {
+            $children = [];
+        }
+        if ($node instanceof Document && $node->getAbbreviations() !== [] && !$this->hasAbbreviationDefChild($node)) {
+            $defs = [];
+            foreach ($node->getAbbreviations() as $abbr => $expansion) {
+                $defs[] = new AbbreviationDef($abbr, $expansion);
+            }
+            $children = $node->hasAbbreviationsBeforeBody()
+                ? array_merge($defs, $children)
+                : array_merge($children, $defs);
         }
         // An EMPTY container is still published when the reference publishes it
         // unconditionally: a table cell claimed by a neighbour's span marker has
@@ -626,6 +807,9 @@ class AstCodec
         $container = ReferenceShape::containerFor($type);
         if ($children === [] && in_array($type . '.' . $container, self::ALWAYS_PUBLISHED, true)) {
             $encoded[$container] = [];
+        }
+        if ($node instanceof TableRow) {
+            $children = $this->expandedTableRowCells($node);
         }
         if ($children !== []) {
             $encoded[$container] = array_map(
@@ -659,14 +843,25 @@ class AstCodec
             return ['text' => self::plainText($node)];
         }
 
-        if ($node instanceof Div && $node->isTyped()) {
+        if ($node instanceof Div && ($node->isTyped() || Profile::canonicalTypeOf($node) === 'admonition')) {
             // `::: warning` - the word is the admonition kind, which this engine
             // keeps as a class rather than a field of its own.
             return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
         }
 
         if ($node instanceof ListBlock) {
-            return ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
+            $ordered = $node->getListType() === ListBlock::TYPE_ORDERED;
+            $fields = ['ordered' => $ordered];
+            $marker = $node->getMarker();
+            $style = $node->getStyle();
+            if ($ordered && ($style ?? $marker) === ')') {
+                $fields['delim'] = ')';
+            }
+            if (!$ordered && $marker !== null && $marker !== '-') {
+                $fields['bulletChar'] = $marker;
+            }
+
+            return $fields;
         }
 
         if ($node instanceof ListItem) {
@@ -674,10 +869,200 @@ class AstCodec
         }
 
         if ($node instanceof TableCell) {
-            return ['header' => $node->isHeader()];
+            $fields = ['header' => $node->isHeader()];
+            if ($node->getSpanMarker() === '^') {
+                $fields['span'] = 'rowspan';
+            } elseif ($node->getSpanMarker() === '<') {
+                $fields['span'] = 'colspan';
+            }
+
+            return $fields;
+        }
+
+        if ($node instanceof Mention) {
+            $label = self::plainText($node);
+
+            return [$node->getCssClass() === 'tag' ? 'name' : 'user' => ltrim($label, '@#')];
+        }
+
+        if ($node instanceof Comment) {
+            return ['block' => $node->getFenceLength() !== null];
+        }
+
+        if ($node instanceof Table && $node->getCaption() !== null) {
+            return [
+
+                'caption' => array_map(
+                    fn (Node $child): array => $this->encodeNode($child),
+                    $node->getCaption()->getChildren(),
+                ),
+            ];
+        }
+
+        if ($node instanceof Abbreviation) {
+            return ['abbr' => self::plainText($node)];
         }
 
         return [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function encodeAttrs(Node $node): array
+    {
+        $attrs = $node->getAttributes();
+        if ($attrs === []) {
+            return [];
+        }
+
+        $encoded = [];
+        if (isset($attrs['id'])) {
+            $encoded['id'] = $attrs['id'];
+        }
+        if (isset($attrs['class'])) {
+            $classes = preg_split('/\s+/', trim($attrs['class'])) ?: [];
+            $classes = array_values(array_filter($classes, static fn (string $class): bool => $class !== ''));
+            if ($classes !== []) {
+                $encoded['classes'] = $classes;
+            }
+        }
+
+        $keyValues = [];
+        foreach ($attrs as $key => $value) {
+            if ($key === 'id' || $key === 'class') {
+                continue;
+            }
+            $keyValues[$key] = $value;
+        }
+        if ($keyValues !== []) {
+            $encoded['keyValues'] = $keyValues;
+        }
+
+        $order = $node->getAttributeOrder();
+        if ($order !== []) {
+            $encoded['order'] = array_map(
+                static fn (string $slot): string => $slot === 'class' ? '.class' : $slot,
+                $order,
+            );
+        }
+
+        return $encoded;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Figure $node
+     * @param array<string, mixed> $encoded
+     */
+    private function encodeFigureChildren(Figure $node, array &$encoded): void
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Caption) {
+                $encoded['caption'] = array_map(
+                    fn (Node $inline): array => $this->encodeNode($inline),
+                    $child->getChildren(),
+                );
+
+                continue;
+            }
+
+            $encoded['target'] = $this->encodeNode($child);
+        }
+
+        $encoded += ['target' => ['type' => 'paragraph', 'children' => []], 'caption' => []];
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    private function expandedTableRowCells(TableRow $row): array
+    {
+        $expanded = [];
+        foreach ($row->getChildren() as $child) {
+            if (!$child instanceof TableCell) {
+                $expanded[] = $child;
+
+                continue;
+            }
+
+            $expanded[] = $child;
+            for ($i = 1; $i < $child->getColspan(); $i++) {
+                $expanded[] = new TableCell($child->isHeader(), $child->getAlignment(), 1, 1, '<');
+            }
+        }
+
+        $parent = $row->getParent();
+        if (!$parent instanceof Table) {
+            return $expanded;
+        }
+
+        $rows = $parent->getChildren();
+        $rowIndex = array_search($row, $rows, true);
+        if (!is_int($rowIndex) || $rowIndex < 1) {
+            return $expanded;
+        }
+
+        $markers = [];
+        for ($previousIndex = 0; $previousIndex < $rowIndex; $previousIndex++) {
+            $col = 0;
+            foreach ($this->expandedTableRowCellsForRowspanScan($rows[$previousIndex] ?? null) as $cell) {
+                if (!$cell instanceof TableCell) {
+                    $col++;
+
+                    continue;
+                }
+                for ($span = 1; $span < $cell->getRowspan(); $span++) {
+                    if ($previousIndex + $span === $rowIndex) {
+                        $markers[$col] = true;
+                    }
+                }
+                $col++;
+            }
+        }
+
+        foreach (array_keys($markers) as $col) {
+            $expanded = $this->insertTableSpanMarker($expanded, (int)$col, '^');
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    private function expandedTableRowCellsForRowspanScan(?Node $row): array
+    {
+        if (!$row instanceof TableRow) {
+            return [];
+        }
+
+        $expanded = [];
+        foreach ($row->getChildren() as $child) {
+            $expanded[] = $child;
+            if (!$child instanceof TableCell) {
+                continue;
+            }
+            for ($i = 1; $i < $child->getColspan(); $i++) {
+                $expanded[] = new TableCell($child->isHeader(), $child->getAlignment(), 1, 1, '<');
+            }
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $cells
+     * @param string $marker
+     * @param int $column
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    private function insertTableSpanMarker(array $cells, int $column, string $marker): array
+    {
+        $markerCell = new TableCell(false, TableCell::ALIGN_DEFAULT, 1, 1, $marker);
+        array_splice($cells, $column, 0, [$markerCell]);
+
+        return $cells;
     }
 
     /**
@@ -731,6 +1116,21 @@ class AstCodec
                 'listType',
                 $data['ordered'] === true ? ListBlock::TYPE_ORDERED : $unordered,
             );
+            if ($data['ordered'] === true) {
+                $delim = $data['delim'] ?? $data['bulletChar'] ?? null;
+                if (is_string($delim) && $delim !== '') {
+                    self::writeProperty($node, 'marker', $delim);
+                }
+                $olType = $data['olType'] ?? null;
+                if (is_string($olType) && $olType !== '') {
+                    self::writeProperty($node, 'style', $olType);
+                }
+            } else {
+                $marker = $data['bulletChar'] ?? null;
+                if (is_string($marker) && $marker !== '') {
+                    self::writeProperty($node, 'marker', $marker);
+                }
+            }
 
             return;
         }
@@ -743,11 +1143,78 @@ class AstCodec
 
         if ($node instanceof TableCell && array_key_exists('header', $data)) {
             self::writeProperty($node, 'isHeader', $data['header'] === true);
+            $span = $data['span'] ?? null;
+            if ($span === 'rowspan') {
+                $node->setSpanMarker('^');
+            } elseif ($span === 'colspan') {
+                $node->setSpanMarker('<');
+            }
+
+            return;
+        }
+
+        if ($node instanceof Mention) {
+            $name = $data['name'] ?? $data['user'] ?? null;
+            $isTag = ($data['type'] ?? null) === 'tag' || array_key_exists('name', $data);
+            $label = ($isTag ? '#' : '@') . (is_string($name) ? $name : '');
+            self::writeProperty($node, 'cssClass', $isTag ? 'tag' : 'mention');
+            self::writeProperty($node, 'destination', '');
+            self::writeProperty($node, 'title', null);
+            self::writeProperty($node, 'referenceLabel', null);
+            self::writeProperty($node, 'isAutolink', false);
+            if ($node->getChildren() === []) {
+                $node->appendChild(new Text($label));
+            }
+
+            return;
+        }
+
+        if ($node instanceof Comment && array_key_exists('block', $data)) {
+            self::writeProperty(
+                $node,
+                'fenceLength',
+                $data['block'] === true ? $this->commentFenceLength($node->getContent()) : null,
+            );
+
+            return;
+        }
+
+        if ($node instanceof Abbreviation) {
+            $abbr = $data['abbr'] ?? null;
+            if ($node->getChildren() === [] && is_string($abbr)) {
+                $node->appendChild(new Text($abbr));
+            }
+
+            return;
+        }
+
+        if ($node instanceof Table) {
+            if (is_array($data['caption'] ?? null)) {
+                $caption = new Caption();
+                foreach ($data['caption'] as $child) {
+                    if (is_array($child) && is_string($child['type'] ?? null)) {
+                        /** @var array<string, mixed> $childNode */
+                        $childNode = $child;
+                        $caption->appendChild($this->decodeNode($childNode));
+                    }
+                }
+                $node->setCaption($caption);
+            }
+            $this->collapseTableSpanMarkers($node);
+
+            return;
+        }
+
+        if ($node instanceof Document) {
+            $this->adoptAbbreviationDefNodes($node);
 
             return;
         }
 
         if ($node instanceof Div) {
+            if ($node->getClassList() !== [] && !in_array('.class', $node->getAttributeOrder(), true)) {
+                self::writeProperty($node, 'typed', true);
+            }
             // The reference publishes a container's title as inline NODES, and
             // has no field for this engine's raw title string. Rather than
             // export an internal (PART 12 §3) or lose the title (§6), the raw
@@ -774,6 +1241,184 @@ class AstCodec
             }
             self::writeProperty($node, 'isHeader', $allHeaders);
         }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, mixed> $attrs
+     */
+    private function decodeAttrs(Node $node, array $attrs): void
+    {
+        $flat = [];
+        if (is_string($attrs['id'] ?? null)) {
+            $flat['id'] = $attrs['id'];
+        }
+        if (is_array($attrs['classes'] ?? null)) {
+            $classes = [];
+            foreach ($attrs['classes'] as $class) {
+                if (is_scalar($class) && (string)$class !== '') {
+                    $classes[] = (string)$class;
+                }
+            }
+            if ($classes !== []) {
+                $flat['class'] = implode(' ', $classes);
+            }
+        }
+        if (is_array($attrs['keyValues'] ?? null)) {
+            foreach ($attrs['keyValues'] as $key => $value) {
+                if (is_scalar($value) || $value === null) {
+                    $flat[(string)$key] = (string)$value;
+                }
+            }
+        }
+        if ($flat === [] && $attrs !== []) {
+            // Stored payload compatibility: the pre-PART-12 shape was a flat
+            // attribute map. This is accepted as stored data, not as a second
+            // canonical spelling.
+            foreach ($attrs as $key => $value) {
+                if (is_scalar($value) || $value === null) {
+                    $flat[(string)$key] = (string)$value;
+                }
+            }
+        }
+
+        $order = [];
+        if (is_array($attrs['order'] ?? null)) {
+            foreach ($attrs['order'] as $slot) {
+                if (is_scalar($slot) && (string)$slot !== '') {
+                    $order[] = (string)$slot;
+                }
+            }
+        }
+
+        if ($order !== []) {
+            $ordered = [];
+            if (array_key_exists('class', $flat) && !in_array('.class', $order, true) && !in_array('class', $order, true)) {
+                $ordered['class'] = $flat['class'];
+            }
+            foreach ($order as $slot) {
+                $key = match ($slot) {
+                    '#id' => 'id',
+                    '.class', 'class' => 'class',
+                    default => $slot,
+                };
+                if (array_key_exists($key, $flat)) {
+                    $ordered[$key] = $flat[$key];
+                }
+            }
+            foreach ($flat as $key => $value) {
+                if (!array_key_exists($key, $ordered)) {
+                    $ordered[$key] = $value;
+                }
+            }
+            $node->setAttributesWithOrder($ordered, $order);
+        } else {
+            $node->setAttributes($flat);
+        }
+    }
+
+    private function collapseTableSpanMarkers(Table $table): void
+    {
+        $origins = [];
+        foreach ($table->getChildren() as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+            $col = 0;
+            foreach ($row->getChildren() as $cell) {
+                if (!$cell instanceof TableCell) {
+                    $col++;
+
+                    continue;
+                }
+                if ($cell->getSpanMarker() === '^') {
+                    if (($origins[$col] ?? null) instanceof TableCell) {
+                        $origin = $origins[$col];
+                        $origin->setRowspan($origin->getRowspan() + 1);
+                        $row->removeChild($cell);
+                    }
+                    $col++;
+
+                    continue;
+                }
+                if ($cell->getSpanMarker() === '<') {
+                    $previous = $this->previousTableCell($row, $cell);
+                    if ($previous !== null) {
+                        $previous->setColspan($previous->getColspan() + 1);
+                        $row->removeChild($cell);
+                    }
+                    $col++;
+
+                    continue;
+                }
+
+                $origins[$col] = $cell;
+                $col += max(1, $cell->getColspan());
+            }
+        }
+    }
+
+    private function previousTableCell(TableRow $row, TableCell $cell): ?TableCell
+    {
+        $previous = null;
+        foreach ($row->getChildren() as $candidate) {
+            if ($candidate === $cell) {
+                return $previous;
+            }
+            if ($candidate instanceof TableCell) {
+                $previous = $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function adoptAbbreviationDefNodes(Document $document): void
+    {
+        $abbreviations = [];
+        $beforeBody = true;
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof AbbreviationDef) {
+                $abbreviations[$child->getAbbr()] = $child->getExpansion();
+
+                continue;
+            }
+            if ($abbreviations === []) {
+                $beforeBody = false;
+            }
+        }
+
+        if ($abbreviations !== []) {
+            $document->setAbbreviations($abbreviations);
+            $document->setAbbreviationsBeforeBody($beforeBody);
+        }
+    }
+
+    private function hasAbbreviationDefChild(Document $document): bool
+    {
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof AbbreviationDef) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function commentFenceLength(string $content): int
+    {
+        preg_match_all('/%+/', $content, $matches);
+        $longest = 0;
+        foreach ($matches[0] as $match) {
+            $longest = max($longest, strlen($match));
+        }
+
+        return max(3, $longest + 1);
+    }
+
+    private function shouldDecodeTextAsRawText(string $value): bool
+    {
+        return preg_match('/(?:^|\\s)\\[[^\\]\\n]+\\]:(?:\\t|\\S)|!?\\[[^\\]\\n]+\\]\\[[^\\]\\n]*\\]/u', $value) === 1;
     }
 
     /**
@@ -844,6 +1489,17 @@ class AstCodec
             throw new RuntimeException('Every node needs a string type');
         }
 
+        if ($type === 'text' && is_string($data['value'] ?? null) && $this->shouldDecodeTextAsRawText($data['value'])) {
+            $node = new RawText($data['value']);
+            if (is_array($data['pos'] ?? null)) {
+                /** @var array<string, mixed> $span */
+                $span = $data['pos'];
+                $node->setPos(SourceSpan::fromArray($span));
+            }
+
+            return $node;
+        }
+
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
             throw new RuntimeException(sprintf(
@@ -858,7 +1514,17 @@ class AstCodec
         $node = $reflection->newInstanceWithoutConstructor();
 
         foreach (self::stateProperties($reflection) as $property) {
-            $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
+            if ($node instanceof Table && $property->getName() === 'caption') {
+                $this->initializeDefault($node, $property, $type);
+
+                continue;
+            }
+            $name = ReferenceShape::fieldFor($type, $property->getName());
+            if ($name === null) {
+                $this->initializeDefault($node, $property, $type);
+
+                continue;
+            }
             if (
                 $type === 'footnote'
                 && $property->getName() === 'label'
@@ -881,15 +1547,22 @@ class AstCodec
             $property->setValue($node, $this->decodeValue($data[$name], $property));
         }
 
-        /** @var array<string, string> $attrs */
-        $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
-        foreach ($attrs as $key => $value) {
-            $node->setAttribute((string)$key, $value);
-        }
+        $this->decodeAttrs($node, is_array($data['attrs'] ?? null) ? $data['attrs'] : []);
 
         $container = ReferenceShape::containerFor($type);
         /** @var array<int, array<string, mixed>> $children */
         $children = is_array($data[$container] ?? null) ? $data[$container] : [];
+        if ($node instanceof Figure) {
+            $children = [];
+            if (is_array($data['target'] ?? null)) {
+                /** @var array<string, mixed> $target */
+                $target = $data['target'];
+                $children[] = $target;
+            }
+            if (is_array($data['caption'] ?? null)) {
+                $children[] = ['type' => 'caption', 'children' => $data['caption']];
+            }
+        }
         foreach ($children as $child) {
             $node->appendChild($this->decodeNode($child));
         }
@@ -923,6 +1596,22 @@ class AstCodec
      */
     private function initializeDefault(Node $node, ReflectionProperty $property, string $nodeType): void
     {
+        if ($node instanceof Mention && $property->getName() === 'cssClass') {
+            $property->setValue($node, $nodeType === 'tag' ? 'tag' : 'mention');
+
+            return;
+        }
+        if ($node instanceof Mention && in_array($property->getName(), ['destination', 'title', 'referenceLabel'], true)) {
+            $property->setValue($node, $property->getName() === 'destination' ? '' : null);
+
+            return;
+        }
+        if ($node instanceof Mention && $property->getName() === 'isAutolink') {
+            $property->setValue($node, false);
+
+            return;
+        }
+
         $default = self::defaultFor(new ReflectionClass($node), $property);
 
         if (!$default['has']) {

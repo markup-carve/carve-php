@@ -54,20 +54,19 @@ final class ReferenceShape
         'heading_ref' => ['targetId' => 'target'],
         'math' => ['content' => 'content', 'display' => 'display'],
         'symbol' => ['name' => 'name'],
-        'abbreviation' => ['title' => 'title'],
+        'abbreviation' => ['title' => 'expansion'],
+        'inline_extension' => ['extensionType' => 'name'],
         'strong' => ['boldItalic' => 'boldItalic'],
         'heading' => ['level' => 'level'],
-        'list' => ['start' => 'start', 'tight' => 'tight', 'marker' => 'bulletChar', 'style' => 'delim'],
+        'list' => ['start' => 'start', 'tight' => 'tight', 'style' => 'olType'],
         'table_cell' => [
             'alignment' => 'align',
-            'rowspan' => 'rowspan',
-            'colspan' => 'colspan',
             'spanMarker' => 'span',
         ],
         // The reference's `title` is an array of inline nodes, which is what
         // headerNodes holds; the raw header string is this engine's own.
         'div' => ['label' => 'label', 'headerNodes' => 'title'],
-        'smart_punctuation' => ['kind' => 'kind', 'glyph' => 'value'],
+        'smart_punctuation' => ['kind' => 'kind', 'content' => 'value', 'glyph' => 'glyph'],
         'thematic_break' => [],
         'document' => ['sourceLength' => 'srcByteLength'],
         // The reference shows an autolink's target twice - `href` is the
@@ -77,6 +76,8 @@ final class ReferenceShape
         // `kind` is the admonition word (`::: warning`), which this engine keeps
         // as a class; `title` is the quoted opener.
         'admonition' => ['headerNodes' => 'title'],
+        'mention' => [],
+        'tag' => [],
     ];
 
     /**
@@ -97,6 +98,7 @@ final class ReferenceShape
     public const TYPE_ALIASES = [
         'autolink' => 'link',
         'admonition' => 'div',
+        'tag' => 'mention',
     ];
 
     /**
@@ -113,6 +115,7 @@ final class ReferenceShape
         // `children` - it is the note's content, not nested structure
         // (carve#405).
         'inline_footnote' => 'inline',
+        'inline_extension' => 'content',
     ];
 
     /**
@@ -134,11 +137,11 @@ final class ReferenceShape
      */
     public const INTERNAL_ONLY = [
         // `ordered` carries this on the wire.
-        'list' => ['listType'],
+        'list' => ['listType', 'marker'],
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
         // `header` carries this; the row flag is recomputed from its cells.
-        'table_cell' => ['isHeader'],
+        'table_cell' => ['isHeader', 'rowspan', 'colspan'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
         'div' => ['typed', 'header'],
@@ -165,7 +168,10 @@ final class ReferenceShape
         // children rather than in a field, so their POSITION is structural
         // there; this engine keeps a field, a divergence recorded in
         // docs/ast-json.md rather than a reason to drop the content.
-        'document' => [],
+        'document' => ['abbreviations', 'abbreviationsBeforeBody'],
+        'mention' => ['cssClass', 'referenceLabel', 'isAutolink', 'destination', 'title'],
+        'tag' => ['cssClass', 'referenceLabel', 'isAutolink', 'destination', 'title'],
+        'comment' => ['fenceLength'],
     ];
 
     /**

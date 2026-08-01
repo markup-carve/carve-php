@@ -1,17 +1,20 @@
 {
     "abbreviation": {
         "fields": [
-            "title"
+            "expansion"
         ],
         "required": [
-            "title"
+            "expansion"
         ]
     },
-    "block_quote": {
-        "fields": [],
+    "abbreviation_def": {
+        "fields": [
+            "abbr",
+            "expansion"
+        ],
         "required": []
     },
-    "caption": {
+    "block_quote": {
         "fields": [],
         "required": []
     },
@@ -49,8 +52,7 @@
     },
     "comment": {
         "fields": [
-            "content",
-            "fenceLength"
+            "content"
         ],
         "required": []
     },
@@ -85,8 +87,6 @@
     },
     "document": {
         "fields": [
-            "abbreviations",
-            "abbreviationsBeforeBody",
             "srcByteLength"
         ],
         "required": []
@@ -157,10 +157,10 @@
     },
     "inline_extension": {
         "fields": [
-            "extensionType"
+            "name"
         ],
         "required": [
-            "extensionType"
+            "name"
         ]
     },
     "inline_footnote": {
@@ -187,8 +187,7 @@
         "fields": [
             "start",
             "tight",
-            "bulletChar",
-            "delim"
+            "olType"
         ],
         "required": []
     },
@@ -210,18 +209,8 @@
         "required": []
     },
     "mention": {
-        "fields": [
-            "cssClass",
-            "referenceLabel",
-            "isAutolink",
-            "destination",
-            "title"
-        ],
-        "required": [
-            "cssClass",
-            "destination",
-            "title"
-        ]
+        "fields": [],
+        "required": []
     },
     "paragraph": {
         "fields": [],
@@ -241,12 +230,6 @@
         ],
         "required": []
     },
-    "raw_text": {
-        "fields": [
-            "content"
-        ],
-        "required": []
-    },
     "section": {
         "fields": [],
         "required": []
@@ -254,8 +237,8 @@
     "smart_punctuation": {
         "fields": [
             "kind",
-            "content",
-            "value"
+            "value",
+            "glyph"
         ],
         "required": []
     },
@@ -307,8 +290,6 @@
     "table_cell": {
         "fields": [
             "align",
-            "rowspan",
-            "colspan",
             "span"
         ],
         "required": []

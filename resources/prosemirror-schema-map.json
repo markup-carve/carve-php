@@ -198,6 +198,7 @@
   },
   "unmapped": {
     "figure": "figure / caption blocks are not modeled",
+    "abbreviation_def": "abbreviation definitions are document metadata, not editor content",
     "caption": "figure / caption blocks are not modeled",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "citation_group": "citations are not modeled",

@@ -196,6 +196,111 @@ class AstCodecTest extends TestCase
         $this->assertArrayNotHasKey('typed', $div);
     }
 
+    public function testAttrsUseThePublishedStructuredShape(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("{#x .warn .big title=\"T\" disabled}\n- a\n"));
+        $attrs = $encoded['children'][0]['attrs'];
+
+        $this->assertSame('x', $attrs['id']);
+        $this->assertSame(['warn', 'big'], $attrs['classes']);
+        $this->assertSame(['title' => 'T', 'disabled' => ''], $attrs['keyValues']);
+        $this->assertSame(['#id', '.class', 'title', 'disabled'], $attrs['order']);
+        $this->assertArrayNotHasKey('class', $attrs);
+        $this->assertArrayNotHasKey('title', $attrs);
+    }
+
+    public function testFigurePublishesTargetAndInlineCaption(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("![alt](/i.png)\n\n^ Caption\n"));
+        $figure = $encoded['children'][0];
+
+        $this->assertSame('figure', $figure['type']);
+        $this->assertSame('image', $figure['target']['type']);
+        $this->assertSame('text', $figure['caption'][0]['type']);
+        $this->assertSame('Caption', $figure['caption'][0]['value']);
+        $this->assertArrayNotHasKey('children', $figure);
+        $this->assertNotSame('caption', $figure['caption'][0]['type']);
+    }
+
+    public function testTableCellsPublishSpanMarkersOnlyOnContinuationCells(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("| a | b |\n|---|---|\n| ^ | d |\n"));
+        $origin = $encoded['children'][0]['rows'][0]['cells'][0];
+        $continuation = $encoded['children'][0]['rows'][1]['cells'][0];
+
+        $this->assertArrayNotHasKey('rowspan', $origin);
+        $this->assertArrayNotHasKey('colspan', $origin);
+        $this->assertSame('rowspan', $continuation['span']);
+        $this->assertSame([], $continuation['children']);
+    }
+
+    public function testListMarkerFieldsDependOnListKindAndDefaults(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("1. a\n\n1) b\n\n- c\n\n* d\n"));
+
+        $this->assertArrayNotHasKey('bulletChar', $encoded['children'][0]);
+        $this->assertArrayNotHasKey('delim', $encoded['children'][0]);
+        $this->assertSame(')', $encoded['children'][1]['delim']);
+        $this->assertArrayNotHasKey('bulletChar', $encoded['children'][1]);
+        $this->assertArrayNotHasKey('bulletChar', $encoded['children'][2]);
+        $this->assertSame('*', $encoded['children'][3]['bulletChar']);
+    }
+
+    public function testMentionsAndTagsPublishOnlyTheirHandles(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("hi @bob #release\n"));
+        $mention = $encoded['children'][0]['children'][1];
+        $tag = $encoded['children'][0]['children'][3];
+
+        $this->assertSame('mention', $mention['type']);
+        $this->assertSame('bob', $mention['user']);
+        $this->assertSame('tag', $tag['type']);
+        $this->assertSame('release', $tag['name']);
+        $this->assertArrayNotHasKey('cssClass', $mention);
+        $this->assertArrayNotHasKey('destination', $mention);
+        $this->assertArrayNotHasKey('title', $mention);
+    }
+
+    public function testSmartPunctuationDoesNotPublishContentAlias(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("--- ...\n"));
+        $smart = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('smart_punctuation', $smart['type']);
+        $this->assertSame('em_dash', $smart['kind']);
+        $this->assertSame('---', $smart['value']);
+        $this->assertArrayNotHasKey('content', $smart);
+    }
+
+    public function testCommentsPublishBlockAndRawTextPublishesAsText(): void
+    {
+        $comments = $this->codec->encode($this->converter->parse("%% c\n\n%%%\nb\n%%%\n"));
+
+        $this->assertFalse($comments['children'][0]['block']);
+        $this->assertTrue($comments['children'][1]['block']);
+        $this->assertArrayNotHasKey('fenceLength', $comments['children'][1]);
+
+        $source = (string)file_get_contents(dirname(__DIR__, 3) . '/spec/tests/corpus/134-link-reference-definition-separator-must-be-a-space.crv');
+        $encoded = $this->codec->encode($this->converter->parse($source));
+        $json = json_encode($encoded, JSON_THROW_ON_ERROR);
+
+        $this->assertStringNotContainsString('"type":"raw_text"', $json);
+    }
+
+    public function testPublishedAstShapeSurvivesARoundTrip(): void
+    {
+        $source = "{#x .warn .big title=\"T\" disabled}\n1) a\n\n"
+            . "![alt](/i.png)\n\n^ Caption\n\n"
+            . "| a | b |\n|---|---|\n| ^ | d |\n\n"
+            . "hi @bob #tag --- ...\n\n"
+            . "%% c\n\n%%%\nb\n%%%\n";
+
+        $document = $this->converter->parse($source);
+        $decoded = $this->codec->decode($this->codec->encode($document));
+
+        $this->assertSame($this->converter->render($document), $this->converter->render($decoded));
+    }
+
     public function testAPayloadSpellingOutADefaultIsNotALoss(): void
     {
         // The encoder omits a field holding the node's own default, so a payload
