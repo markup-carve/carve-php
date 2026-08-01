@@ -363,6 +363,82 @@ class ProseMirrorBridgeTest extends TestCase
         $this->assertSame($source, CarveConverter::carve()->render($back));
     }
 
+    public function testABlockPositionImageIsWrappedForCarveSource(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+            ],
+        ];
+
+        $document = $this->converter->convert($pm);
+        $source = CarveConverter::carve()->render($document);
+        $html = (new CarveConverter())->render($document);
+
+        $this->assertStringContainsString('![Plan](/x.png "T")', $source);
+        $this->assertSame($html, (new CarveConverter())->convert($source));
+    }
+
+    public function testABlockPositionImageInsideABlockQuoteIsWrapped(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'blockquote',
+                    'content' => [
+                        ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("> ![Plan](/x.png \"T\")\n", $source);
+    }
+
+    public function testAdjacentBlockPositionInlinesShareOneParagraph(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan']],
+                ['type' => 'text', 'text' => ' Caption'],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("![Plan](/x.png) Caption\n", $source);
+    }
+
+    public function testAParagraphPositionImageIsUnchanged(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("![Plan](/x.png \"T\")\n", $source);
+    }
+
     public function testJsonHelpersAreSymmetric(): void
     {
         $document = (new CarveConverter())->parse("# A\n\n- one\n");

@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -90,11 +91,8 @@ class ProseMirrorToCarve
         }
 
         $carveDocument = new Document();
-        foreach ($this->childrenOf($document) as $child) {
-            $node = $this->buildBlock($child);
-            if ($node !== null) {
-                $carveDocument->appendChild($node);
-            }
+        foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
+            $carveDocument->appendChild($node);
         }
 
         return $carveDocument;
@@ -136,11 +134,8 @@ class ProseMirrorToCarve
         // The renderer hoists Carve sections into this wrapper; unwrap it.
         if ($name === 'carveSection') {
             $section = new Section();
-            foreach ($this->childrenOf($data) as $child) {
-                $built = $this->buildBlock($child);
-                if ($built !== null) {
-                    $section->appendChild($built);
-                }
+            foreach ($this->buildBlockPositionChildren($this->childrenOf($data)) as $built) {
+                $section->appendChild($built);
             }
 
             return $section;
@@ -175,11 +170,7 @@ class ProseMirrorToCarve
             return $node;
         }
 
-        foreach ($this->childrenOf($data) as $child) {
-            $built = $this->buildBlock($child);
-            if ($built === null) {
-                continue;
-            }
+        foreach ($this->buildBlockPositionChildren($this->childrenOf($data)) as $built) {
             if ($built instanceof Caption && $node instanceof Table) {
                 $node->setCaption($built);
 
@@ -206,6 +197,74 @@ class ProseMirrorToCarve
         }
 
         return $node;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $children
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function buildBlockPositionChildren(array $children): array
+    {
+        $builtChildren = [];
+        $inlineRun = [];
+
+        foreach ($children as $child) {
+            if ($this->isInlinePayload($child)) {
+                $builtNodes = $this->buildInlines($child);
+            } else {
+                $block = $this->buildBlock($child);
+                $builtNodes = $block === null ? [] : [$block];
+            }
+
+            foreach ($builtNodes as $built) {
+                if ($built instanceof InlineNode) {
+                    $inlineRun[] = $built;
+
+                    continue;
+                }
+
+                $this->flushBlockPositionInlines($builtChildren, $inlineRun);
+                $builtChildren[] = $built;
+            }
+        }
+        $this->flushBlockPositionInlines($builtChildren, $inlineRun);
+
+        return $builtChildren;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $builtChildren
+     * @param array<\MarkupCarve\Carve\Node\Inline\InlineNode> $inlineRun
+     */
+    protected function flushBlockPositionInlines(array &$builtChildren, array &$inlineRun): void
+    {
+        if ($inlineRun === []) {
+            return;
+        }
+
+        $paragraph = new Paragraph();
+        foreach ($this->mergeAdjacentMarks($inlineRun) as $inline) {
+            $paragraph->appendChild($inline);
+        }
+        $builtChildren[] = $paragraph;
+        $inlineRun = [];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    protected function isInlinePayload(array $data): bool
+    {
+        $name = $data['type'] ?? null;
+        if (!is_string($name)) {
+            return false;
+        }
+
+        $carveType = SchemaMap::carveTypeFor($name);
+        $class = $carveType !== null ? (self::CLASS_MAP[$carveType] ?? null) : null;
+
+        return is_string($class) && is_a($class, InlineNode::class, true);
     }
 
     /**
