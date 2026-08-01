@@ -2838,30 +2838,7 @@ class BlockParser
             if ($currentIndent === $baseIndent && trim($currentLine) === '+') {
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
-                    $i++; // consume the `+` marker line
-                    /** @var array<string> $attached */
-                    $attached = [];
-                    $attachedLineMap = [];
-                    while ($i < $count) {
-                        $line = $lines[$i];
-                        if (IndentationHelper::isBlankLine($line)) {
-                            break;
-                        }
-                        $lineIndent = IndentationHelper::getLeadingColumns($line);
-                        if ($lineIndent < $baseIndent) {
-                            break;
-                        }
-                        $trimmed = ltrim($line);
-                        if (
-                            $lineIndent === $baseIndent
-                            && ($this->listParser->parseListItemMarker($trimmed) !== null || $trimmed === '+')
-                        ) {
-                            break;
-                        }
-                        $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
-                        $attachedLineMap[] = $this->sourceLineFor($i);
-                        $i++;
-                    }
+                    [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
                     if ($attached !== []) {
                         $this->parseBlocks($lastItem, $attached, 0, $attachedLineMap);
                     }
@@ -3165,29 +3142,7 @@ class BlockParser
             // (`- + text` keeps `+ text` as literal content). This lets an item
             // start directly with a table, code block, quote or div at column 0.
             if (trim($itemContent) === '+') {
-                /** @var array<string> $attached */
-                $attached = [];
-                $attachedLineMap = [];
-                while ($i < $count) {
-                    $line = $lines[$i];
-                    if (IndentationHelper::isBlankLine($line)) {
-                        break;
-                    }
-                    $lineIndent = IndentationHelper::getLeadingColumns($line);
-                    if ($lineIndent < $baseIndent) {
-                        break;
-                    }
-                    $trimmed = ltrim($line);
-                    if (
-                        $lineIndent === $baseIndent
-                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $trimmed === '+')
-                    ) {
-                        break;
-                    }
-                    $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
-                    $attachedLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-                }
+                [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 if ($attached !== []) {
                     $this->parseBlocks($listItem, $attached, 0, $attachedLineMap);
                 }
@@ -3302,158 +3257,16 @@ class BlockParser
                 $trailingState['openParagraph'] = true;
             }
 
-            while ($i < $count) {
-                $nextLine = $lines[$i];
-
-                if (IndentationHelper::isBlankLine($nextLine)) {
-                    // A blank line inside an OPEN fenced code block (a fence
-                    // opened on the marker line, e.g. `- ``` `) is fence content,
-                    // not an item-content terminator. Collect it and keep going
-                    // until the fence closes, so interior blanks survive
-                    // (carve-php#404; matches carve-js / carve-rs). A blank does
-                    // not change the fence state.
-                    if ($trailingState['inFence']) {
-                        $itemLines[] = '';
-                        $itemLineMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-
-                    break;
-                }
-
-                $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
-                $nextTrimmed = ltrim($nextLine);
-
-                // A MARKER (or block opener) dedented BELOW the list's base
-                // column ends this list: the outer parser then starts a new
-                // sibling list at the dedented column (Rule B -- a list opens at
-                // ANY indentation, so distinct base columns are distinct lists),
-                // or the outer block. Without this a dedented marker would lazily
-                // fold into the current item (`  - a` / `  - b` / `- c` -> c
-                // stuck on b). Plain text dedented below the base still lazily
-                // continues the item (CommonMark lazy continuation), so only a
-                // marker/block breaks here. Matches carve-js.
-                // A dedented MARKER always ends this list (Rule B -- a new
-                // sibling list opens at the dedented column). A dedented block
-                // opener ends the item only when it sits at COLUMN 0, where it
-                // is a genuine document-level opener (`  - one` / `> q` -> the
-                // quote interrupts). A block opener dedented to a column BETWEEN
-                // 0 and the item's content column (`    1. y` / `  | x |`, the
-                // row at col 2) is a block opener at no recognized column, so
-                // under the content-column model (carve#295) it is lazy text --
-                // fall through to the lazy branch, which folds it into an open
-                // paragraph or ends the item if there is none. Keying the block
-                // break on col 0 (not just `< baseIndent`) is what stops
-                // `    1. y\n  | x |` from escaping the row to a document
-                // paragraph while still letting a col-0 opener interrupt.
-                if (
-                    $nextIndent < $baseIndent
-                    && (
-                        $this->listParser->parseListItemMarker($nextTrimmed) !== null
-                        || (
-                            $nextIndent === 0
-                            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
-                        )
-                    )
-                ) {
-                    break;
-                }
-
-                // Check if next line starts a new list item at same level (base indent)
-                if ($nextIndent === $baseIndent) {
-                    $nextInfo = $this->listParser->parseListItemMarker($nextTrimmed);
-                    if ($nextInfo !== null) {
-                        break;
-                    }
-                    // List-continuation marker: stop collecting lead text so the
-                    // main loop's `+` handler attaches the following block to this
-                    // item (instead of swallowing `+` as lazy continuation text).
-                    if ($nextTrimmed === '+') {
-                        break;
-                    }
-                    // A block opener at the base column ends the list ONLY when
-                    // the base column is 0 -- there it is a genuine document-level
-                    // opener that interrupts. When the marker is itself indented
-                    // (`  - one`, base column 2, content column 4), a block opener
-                    // at the base column is still BELOW the content column, so
-                    // under the content-column model (carve#295) it is lazy text
-                    // that folds into an open paragraph -- fall through to the lazy
-                    // branch rather than breaking. (A dedented MARKER above still
-                    // breaks; `+` still breaks.)
-                    if (
-                        $baseIndent === 0
-                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
-                    ) {
-                        break;
-                    }
-                }
-
-                // Content at content indent or more is continuation.
-                // Carve nests an indented list marker directly (no blank
-                // line required): "- a\n  - b" makes "- b" a child list.
-                // Break out so the outer loop collects it as nested content.
-                if ($nextIndent >= $contentIndent) {
-                    if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
-                        break;
-                    }
-                    // Properly indented continuation - include with original indentation relative to content
-                    $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
-                    $itemLines[] = $contentLine;
-                    $itemLineMap[] = $this->sourceLineFor($i);
-                    $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
-                } else {
-                    // Lazy continuation (not properly indented but not at base
-                    // level either). CommonMark lazy continuation only extends
-                    // an OPEN paragraph: if the item's trailing block is a
-                    // CLOSED fenced code block or a table there is no open
-                    // paragraph, so the dedented line ends the item and becomes
-                    // a top-level block. An UNTERMINATED fence (inFence still
-                    // open) is NOT a code block -- it is an inline-verbatim run
-                    // that is part of the paragraph, so the dedented line folds
-                    // in (matching the §10 closer-lookahead rule).
-                    if (
-                        !$trailingState['openParagraph']
-                        && !$trailingState['inFence']
-                        && !$trailingState['inDiv']
-                    ) {
-                        break;
-                    }
-                    // Content-column model (carve#295): a line BELOW the item's
-                    // content column, with no blank, lazily continues the item's
-                    // paragraph AS TEXT even when it looks like a block opener
-                    // (`> q`, `# h`, a fence, a bare marker). Fold it into the
-                    // open paragraph so parseBlocks does not re-recognize it as a
-                    // nested block. A bare append lets a `>`/`#` line interrupt
-                    // the paragraph, nesting a block one space under the marker -
-                    // the old djot-ish attach behavior this rule removes.
-                    $foldedAsText = false;
-                    if (
-                        $trailingState['openParagraph']
-                        && $itemLines !== []
-                        && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
-                    ) {
-                        $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
-                        $foldedAsText = true;
-                    } else {
-                        $itemLines[] = $nextTrimmed;
-                        $itemLineMap[] = $this->sourceLineFor($i);
-                    }
-                    $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
-                    // A folded line is lazy paragraph TEXT, not a real block, so
-                    // the item's paragraph stays open: a following lazy line -
-                    // e.g. a second table row below the content column - folds
-                    // too instead of splitting off as a document-level block
-                    // (§24 C3). inFence/inDiv are preserved so a genuine fence /
-                    // div body is still tracked (its opener line is structural,
-                    // not just text).
-                    if ($foldedAsText && !$trailingState['inFence'] && !$trailingState['inDiv']) {
-                        $trailingState['openParagraph'] = true;
-                    }
-                }
-                $i++;
-            }
+            [$i, $trailingState] = $this->collectPlainListItemContinuation(
+                $lines,
+                $i,
+                $count,
+                $baseIndent,
+                $contentIndent,
+                $itemLines,
+                $itemLineMap,
+                $trailingState,
+            );
 
             // For tight lists with continuation lines, check if content starts with
             // a block element. If so, parse as blocks; otherwise parse as plain text.
@@ -3477,6 +3290,164 @@ class BlockParser
         $parent->appendChild($list);
 
         return $i - $start;
+    }
+
+    /**
+     * Collect the flush-left block attached by a list continuation marker.
+     *
+     * @param array<string> $lines All lines being parsed.
+     * @param int $i Index of the first line after the `+` marker.
+     * @param int $count Total line count.
+     * @param int $baseIndent The list's base column.
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int, int>}
+     */
+    protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
+    {
+        $attached = [];
+        $attachedLineMap = [];
+
+        while ($i < $count) {
+            $line = $lines[$i];
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+            $lineIndent = IndentationHelper::getLeadingColumns($line);
+            if ($lineIndent < $baseIndent) {
+                break;
+            }
+            $trimmed = ltrim($line);
+            if (
+                $lineIndent === $baseIndent
+                && ($this->listParser->parseListItemMarker($trimmed) !== null || $trimmed === '+')
+            ) {
+                break;
+            }
+            $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+            $attachedLineMap[] = $this->sourceLineFor($i);
+            $i++;
+        }
+
+        return [$i, $attached, $attachedLineMap];
+    }
+
+    /**
+     * Collect continuation lines for a normal list item.
+     *
+     * @param array<string> $lines All lines being parsed.
+     * @param int $i Index of the first line after the marker line.
+     * @param int $count Total line count.
+     * @param int $baseIndent The list's base column.
+     * @param int $contentIndent The item's content column.
+     * @param array<string> $itemLines Collected item lines, appended in place.
+     * @param array<int, int> $itemLineMap Source-line map, appended in place.
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $trailingState
+     *
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}}
+     */
+    protected function collectPlainListItemContinuation(
+        array $lines,
+        int $i,
+        int $count,
+        int $baseIndent,
+        int $contentIndent,
+        array &$itemLines,
+        array &$itemLineMap,
+        array $trailingState,
+    ): array {
+        while ($i < $count) {
+            $nextLine = $lines[$i];
+
+            if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($trailingState['inFence']) {
+                    $itemLines[] = '';
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $i++;
+
+                    continue;
+                }
+
+                break;
+            }
+
+            $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
+            $nextTrimmed = ltrim($nextLine);
+
+            if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent)) {
+                break;
+            }
+
+            if ($this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent)) {
+                break;
+            }
+
+            if ($nextIndent >= $contentIndent) {
+                if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
+                    break;
+                }
+                $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $itemLines[] = $contentLine;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
+                $i++;
+
+                continue;
+            }
+
+            if (
+                !$trailingState['openParagraph']
+                && !$trailingState['inFence']
+                && !$trailingState['inDiv']
+            ) {
+                break;
+            }
+
+            $foldedAsText = false;
+            if (
+                $trailingState['openParagraph']
+                && $itemLines !== []
+                && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+            ) {
+                $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
+                $foldedAsText = true;
+            } else {
+                $itemLines[] = $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+            }
+            $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
+            if ($foldedAsText && !$trailingState['inFence'] && !$trailingState['inDiv']) {
+                $trailingState['openParagraph'] = true;
+            }
+            $i++;
+        }
+
+        return [$i, $trailingState];
+    }
+
+    protected function listContinuationEndsAtDedentedBlock(int $nextIndent, string $nextTrimmed, int $baseIndent): bool
+    {
+        return $nextIndent < $baseIndent
+            && (
+                $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                || (
+                    $nextIndent === 0
+                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                )
+            );
+    }
+
+    protected function listContinuationEndsAtBaseColumn(int $nextIndent, string $nextTrimmed, int $baseIndent): bool
+    {
+        if ($nextIndent !== $baseIndent) {
+            return false;
+        }
+
+        if ($this->listParser->parseListItemMarker($nextTrimmed) !== null || $nextTrimmed === '+') {
+            return true;
+        }
+
+        return $baseIndent === 0
+            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
     }
 
     /**
