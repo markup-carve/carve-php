@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
@@ -293,7 +294,15 @@ class AstCodec
 
     public function encodeJson(Document $document, int $flags = 0): string
     {
-        return (string)json_encode($this->encode($document), $flags | JSON_THROW_ON_ERROR);
+        // json_encode caps nesting at 512 levels too, and a document at the
+        // parser's own cap runs past that: a 200-deep list ladder is 805
+        // structural levels on the wire. Left at the default, this threw on a
+        // document the parser had just produced.
+        return (string)json_encode(
+            $this->encode($document),
+            $flags | JSON_THROW_ON_ERROR,
+            self::MAX_JSON_DEPTH,
+        );
     }
 
     /**
@@ -610,10 +619,52 @@ class AstCodec
         return false;
     }
 
+    /**
+     * The parser's own nesting cap, mirrored here only to explain the bound below.
+     *
+     * @var int
+     */
+    private const MAX_PARSER_NESTING_DEPTH = 200;
+
+    /**
+     * Deepest JSON nesting `decodeJson()` will read.
+     *
+     * The bound is on JSON STRUCTURAL levels, which is NOT the unit the parser
+     * caps: one AST level costs several structural levels on the wire - two for
+     * a div (its object plus its `children` array), four for a list, six for a
+     * table. Equating the two numbers is how carve-rs came to reject ASTs its
+     * own encoder had produced (carve-rs#389), so this number comes from
+     * measurement instead. At the parser's cap of 200 the deepest wire forms
+     * are 405 structural levels for a div ladder, 405 for blockquotes, 805 for a
+     * list ladder and 402 for a table under a deep chain; 1200 clears the worst
+     * of them by half again.
+     *
+     * Below this the reader used to inherit `json_decode()`'s default of 512,
+     * which stood in for a decision nobody had made and reported a payload past
+     * it as a raw JsonException.
+     *
+     * @var int
+     */
+    public const MAX_JSON_DEPTH = 1200;
+
     public function decodeJson(string $json): Document
     {
-        /** @var array<string, mixed> $data */
-        $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            /** @var array<string, mixed> $data */
+            $data = json_decode($json, true, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            if (str_contains($e->getMessage(), 'stack depth')) {
+                throw new RuntimeException(sprintf(
+                    'AST JSON nests deeper than %d levels. The parser caps nesting at %d AST '
+                        . 'levels, whose deepest wire form stays well inside this bound, so a '
+                        . 'payload past it was not produced by parsing a document.',
+                    self::MAX_JSON_DEPTH,
+                    self::MAX_PARSER_NESTING_DEPTH,
+                ), 0, $e);
+            }
+
+            throw $e;
+        }
 
         return $this->decode($data);
     }
