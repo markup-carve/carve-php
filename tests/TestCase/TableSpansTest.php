@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -485,6 +486,40 @@ DJOT;
 HTML;
 
         $this->assertSame($expected, trim($html));
+    }
+
+    /**
+     * The blocked `<` still occupies a real character on a real line - it
+     * merely could not merge left, because that column was already consumed
+     * by the `^` above it. carve-php used to hardcode every empty span cell's
+     * offset/length to null ("a filler cell ... has no source of its own"),
+     * which was true for a genuinely degenerate marker but not for this one:
+     * the resolved tree kept no position at all for it (carve-php#510, and
+     * PART 12 §4 forbids silently omitting one that is actually available).
+     */
+    public function testBlockedColspanMarkerCellCarriesAPosition(): void
+    {
+        $djot = <<<'DJOT'
+| A | B | C |
+|---|---|---|
+| x | y | z |
+| ^ | < | d |
+DJOT;
+
+        $converter = new CarveConverter(parser: new BlockParser(trackPositions: true));
+        $document = $converter->parse($djot);
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $secondRow = $table->getChildren()[2];
+        $blockedCell = $secondRow->getChildren()[0];
+        $this->assertInstanceOf(TableCell::class, $blockedCell);
+        $this->assertSame('<', $blockedCell->getSpanMarker());
+
+        $pos = $blockedCell->getPos();
+        $this->assertNotNull($pos, 'the blocked `<` marker occupies a real source slice');
+        // The extent covers the cell's whole raw slice, padding included -
+        // the same fallback the ordinary (non-empty) cell branch uses.
+        $this->assertSame(' < ', substr($djot, $pos->startOffset, $pos->endOffset - $pos->startOffset));
     }
 
     /**

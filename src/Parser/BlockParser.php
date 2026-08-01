@@ -4616,6 +4616,10 @@ class BlockParser
                         ?? TableCell::ALIGN_DEFAULT;
                     $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
                     $cell->setSpanMarker($cellData['spanMarker']);
+                    // The marker character still occupies a real slice of this
+                    // line (carve-php#510) - covered by cellExtentSpan the same
+                    // way the ordinary cell branch below covers its own cell.
+                    $cell->setPos($this->cellExtentSpan($baseLineForRow, $cellData));
                     $row->appendChild($cell);
                     $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
 
@@ -4816,11 +4820,16 @@ class BlockParser
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,
                 'spanMarker' => $spanMarkers[$col],
-                // A filler cell produced by a span marker has no source of its
-                // own, so it keeps no offset and takes no position.
-                'offset' => $isEmpty ? null : $cellData['offset'],
-                'rawLength' => $isEmpty ? null : $cellData['rawLength'],
-                'raw' => $isEmpty ? null : $cellData['raw'],
+                // A span marker (`<`/`^`) is still a real character the author
+                // wrote at a real column on this line, blocked or degenerate or
+                // not - only its CONTENT is suppressed (it is a marker, not
+                // text). The offset/length keep describing that slice, so the
+                // cell built from this entry can carry a position (carve-php#510);
+                // `verbatim` alone stays false, since an empty cell has no text
+                // to map inline attributes/spans against.
+                'offset' => $cellData['offset'],
+                'rawLength' => $cellData['rawLength'],
+                'raw' => $cellData['raw'],
                 'verbatim' => !$isEmpty && $cellData['verbatim'],
             ];
         }

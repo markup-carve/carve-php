@@ -20,7 +20,6 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
-use MarkupCarve\Carve\Profile;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -677,23 +676,46 @@ class AstCodec
     }
 
     /**
+     * The published wire type for a node.
+     *
+     * This is deliberately NOT {@see \MarkupCarve\Carve\Profile::canonicalTypeOf()}.
+     * That method answers the PROFILE question: which trust class filters this
+     * node, so it can fold a Tier-2 `::: sidebar` down to `div` while a Tier-1
+     * `::: warning` stays `admonition` (carve-php#507, #513). The wire asks a
+     * different question - PART 12 §3 and profiles.md both keep `admonition`
+     * and `tag` as their own AST types regardless of which trust class a
+     * profile assigns them, so a profile classification must not decide the
+     * type this publishes (carve-php#510).
+     *
+     * A div is an admonition on the wire whenever it was OPENED WITH A TYPE
+     * WORD ({@see \MarkupCarve\Carve\Node\Block\Div::isTyped()}), Tier-1
+     * callout or not - `::: sidebar` and `::: footnotes` publish `admonition`
+     * with a `kind` exactly like `::: warning` does. Only a bare `:::` (its
+     * classes, if any, coming from an attribute line) publishes as a plain
+     * `div`, matching carve-js's parser: the type word is what turns a fence
+     * into an `Admonition` node in the first place, never a class scan.
+     */
+    private static function wireTypeOf(Node $node): string
+    {
+        if ($node instanceof Link && $node->isAutolink()) {
+            return 'autolink';
+        }
+        if ($node instanceof Div && $node->isTyped()) {
+            return 'admonition';
+        }
+        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
+            return 'tag';
+        }
+
+        return $node->getType();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function encodeNode(Node $node): array
     {
-        // PART 12 §3 and profiles.md: an autolink and an admonition are their
-        // OWN types, not a link/div carrying a flag. This engine models them as
-        // the broader class, so the canonical name is what goes on the wire -
-        // the same distinction Profile already draws for profile matching.
-        $type = Profile::canonicalTypeOf($node);
-        // `canonicalTypeOf` answers the PROFILE question - `#tag` is classified
-        // as `mention` because the two are one trust class. The wire asks a
-        // different question: PART 12 §3 and profiles.md both keep `tag` as its
-        // own AST type, so a profile classification must not decide the type
-        // this publishes.
-        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
-            $type = 'tag';
-        }
+        $type = self::wireTypeOf($node);
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
@@ -944,8 +966,16 @@ class AstCodec
 
         if ($node instanceof Div && $node->isTyped()) {
             // `::: warning` - the word is the admonition kind, which this engine
-            // keeps as a class rather than a field of its own.
-            return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
+            // keeps as a class rather than a field of its own. It is
+            // specifically the FIRST class, not the whole joined class
+            // string: BlockParser::parseDivOpen() always calls addClass() for
+            // the opener's type word before any preceding `{.extra}` line's
+            // classes are merged in, so a typed div carrying additional
+            // classes (`{.wide}` above `::: sidebar`) must still publish
+            // `kind: "sidebar"`, not `"sidebar wide"` (carve-php#510) - the
+            // schema's `kind` is the single opener word, and the extra class
+            // already has its own home in `attrs.classes`.
+            return ['kind' => $node->getClassList()[0] ?? ''];
         }
 
         if ($node instanceof Mention) {
@@ -1026,8 +1056,24 @@ class AstCodec
             // `{.sidebar}` + `:::` instead of the `::: sidebar` the author wrote.
             self::writeProperty($node, 'typed', true);
             $kind = $data['kind'] ?? null;
+            // `attrs.classes` decodes BEFORE this runs, so a typed div
+            // carrying extra classes (`{.wide}` above `::: sidebar`) already
+            // has its full class list. `kind` must end up FIRST regardless of
+            // where (or whether) it already sits in that list: the encoder
+            // and the Carve renderer both read `getClassList()[0]` as the
+            // opener word, so a payload whose `attrs.classes` disagrees with
+            // `kind` on order (foreign/hand-written JSON, or a future
+            // producer) must not silently re-encode or reformat under the
+            // WRONG word (carve-php#510). Filtering it out of wherever it is,
+            // then prepending it, is idempotent for the common case too - a
+            // self-produced payload already has it first, so this is a no-op
+            // there.
             if (is_string($kind) && $kind !== '') {
-                $node->setAttribute('class', $kind);
+                $rest = array_values(array_filter(
+                    $node->getClassList(),
+                    static fn (string $class): bool => $class !== $kind,
+                ));
+                $node->setAttribute('class', trim($kind . ' ' . implode(' ', $rest)));
             }
             // Falls through to the Div branch below, which recomputes the raw
             // title string an admonition needs just as much as a plain div.

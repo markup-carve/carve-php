@@ -196,6 +196,89 @@ class AstCodecTest extends TestCase
         $this->assertArrayNotHasKey('typed', $div);
     }
 
+    public function testATier2NamedFenceIsStillAnAdmonitionOnTheWire(): void
+    {
+        // #513 taught Profile::canonicalTypeOf() that a non-Tier-1 named fence
+        // (`::: sidebar`) is a plain `div` for TRUST purposes - a profile
+        // denying `div` must still catch it, the way denying `admonition`
+        // does not widen to cover a Tier-2 container. The WIRE question is
+        // different (PART 12 §3, profiles.md): `::: sidebar` was still opened
+        // with a type word, so it publishes `admonition` + `kind` exactly
+        // like a Tier-1 `::: warning` does, matching carve-js/carve-rs
+        // (carve-php#510). A profile's trust classification must not decide
+        // the type this encoder publishes.
+        $encoded = $this->codec->encode($this->converter->parse("::: sidebar\nBody.\n:::"));
+        $div = $encoded['children'][0];
+
+        $this->assertSame('admonition', $div['type']);
+        $this->assertSame('sidebar', $div['kind']);
+    }
+
+    public function testABareFenceWithAnAttributeClassIsAPlainDivWithNoKind(): void
+    {
+        // Only the TYPE WORD makes a div an admonition on the wire - a class
+        // arriving via an attribute line above a bare `:::` does not, even
+        // when that class is one of the eight Tier-1 admonition names.
+        // `Profile::canonicalTypeOf()` classifies this as ADMONITION for
+        // trust purposes regardless (a bare fence with `{.warning}` still
+        // renders and filters as a callout), but the wire type tracks
+        // whether an `Admonition` node was actually parsed
+        // ({@see \MarkupCarve\Carve\Node\Block\Div::isTyped()}), matching
+        // carve-js's parser: only a matched type word builds an admonition
+        // node in the first place (carve-php#510).
+        $encoded = $this->codec->encode($this->converter->parse("{.warning}\n:::\nBody.\n:::"));
+        $div = $encoded['children'][0];
+
+        $this->assertSame('div', $div['type']);
+        $this->assertArrayNotHasKey('kind', $div);
+    }
+
+    public function testATypedFenceWithAnExtraAttributeClassPublishesOnlyTheOpenerWordAsKind(): void
+    {
+        // A preceding `{.wide}` attribute line adds a class to the typed div
+        // IN ADDITION to the opener word (BlockParser::parseDivOpen() always
+        // addClass()-es the opener word first, then merges the attribute
+        // line's classes after - so the class list is `[sidebar, wide]`).
+        // `kind` is the schema's single opener-word field, not the whole
+        // joined class string - publishing "sidebar wide" is neither a real
+        // opener word nor round-trippable, and both extra classes already
+        // have their own home in `attrs.classes` (carve-php#510).
+        $encoded = $this->codec->encode($this->converter->parse("{.wide}\n::: sidebar\nBody\n:::"));
+        $div = $encoded['children'][0];
+
+        $this->assertSame('admonition', $div['type']);
+        $this->assertSame('sidebar', $div['kind']);
+        $this->assertSame(['sidebar', 'wide'], $div['attrs']['classes']);
+
+        // And the round trip must not drop `wide`: `kind` decoding must not
+        // overwrite the fuller class list `attrs` already applied.
+        $decoded = $this->codec->decode($encoded);
+        $this->assertSame(['sidebar', 'wide'], $decoded->getChildren()[0]->getClassList());
+    }
+
+    public function testDecodingPutsTheKindFirstEvenWhenAttrsDisagreesOnOrder(): void
+    {
+        // A hand-written (or future producer's) payload could list `kind`
+        // and `attrs.classes` out of order - `classes` is not required to
+        // repeat `kind` first. The encoder and the Carve renderer both read
+        // `getClassList()[0]` as the opener word (carve-php#510), so decoding
+        // must not trust `attrs.classes`' order blindly: `kind` has to end up
+        // FIRST regardless of where it sits in the supplied class list.
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'admonition',
+                    'kind' => 'sidebar',
+                    'attrs' => ['classes' => ['wide', 'sidebar']],
+                    'children' => [],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['sidebar', 'wide'], $decoded->getChildren()[0]->getClassList());
+    }
+
     public function testAPayloadSpellingOutADefaultIsNotALoss(): void
     {
         // The encoder omits a field holding the node's own default, so a payload
