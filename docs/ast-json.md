@@ -53,7 +53,14 @@ A document:
 ```
 
 There is no version envelope: the shape is spec-defined (PART 12), and §3 forbids
-a field the reference does not have.
+a field the reference does not have. The published schema is available at
+<https://markup-carve.github.io/carve/ast-schema.json>.
+
+The document root carries exactly `type`, `children`, and `srcByteLength`.
+Document content stays in the tree: leading frontmatter is the first child when
+present, and footnote definitions are `footnote` block children of the document.
+Older payloads with root-level `frontmatter` or `footnoteDefs` are still accepted
+by the decoder for compatibility, but the encoder no longer publishes that form.
 
 Any node:
 
@@ -102,7 +109,7 @@ two in one table:
 | `link.destination` | `href` |
 | `image.source` | `src` |
 | `code_block.language` | `lang` |
-| `footnote.label` | `id` |
+| `footnote_ref.label` | `id` |
 | a list's `children` | `items` |
 | a table's / row's `children` | `rows` / `cells` |
 
