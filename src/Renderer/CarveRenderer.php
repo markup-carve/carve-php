@@ -995,15 +995,59 @@ class CarveRenderer implements RendererInterface
 
     protected function renderMention(Mention $node): string
     {
-        $label = $this->renderInlines($node->getChildren());
         if (($node->getDestination() ?? '') === '') {
             return $this->plainInlineText($node);
         }
-        if (str_starts_with($label, '#')) {
-            return '#' . $this->escapeName(substr($label, 1));
+
+        // The plain text, not the rendered inlines: a name is tested against
+        // what the author wrote, and `renderInlines()` has already escaped the
+        // dot in `john.doe` into `john\.doe`, which is not a name.
+        $label = $this->plainInlineText($node);
+        $sigil = str_starts_with($label, '#') ? '#' : '@';
+        $name = $sigil === '#' ? substr($label, 1) : ltrim($label, '@');
+
+        // A mention name carries no escape, so a label holding anything else
+        // has no spelling in this syntax. It degrades to the link form rather
+        // than to a name the author did not write: `@o'brien` would have to
+        // become `@obrien`, which is a DIFFERENT mention, silently.
+        if (!$this->isMentionName($name)) {
+            return $this->renderMentionAsLink($node);
         }
 
-        return '@' . $this->escapeName(ltrim($label, '@'));
+        return $sigil . $name;
+    }
+
+    /**
+     * Whether a label can be spelled as a mention or tag name.
+     *
+     * `mention_name = name_word, {'.', name_word}`, dots interior-only. The
+     * character set is the one {@see \MarkupCarve\Carve\Extension\MentionsExtension}
+     * actually accepts, which is ASCII: writing a name this engine's own parser
+     * would then read differently is the bug being fixed, not a fix. (The
+     * grammar's `letter` reads wider than that, but a writer has to target the
+     * reader that exists.)
+     */
+    protected function isMentionName(string $name): bool
+    {
+        return preg_match('/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/', $name) === 1;
+    }
+
+    /**
+     * The nearest construct that holds everything a mention does: the label,
+     * the destination and the class, rendering the same anchor.
+     */
+    protected function renderMentionAsLink(Mention $node): string
+    {
+        $link = new Link($node->getDestination() ?? '');
+        foreach ($node->getChildren() as $child) {
+            $link->appendChild($child);
+        }
+        $link->setAttributes($node->getAttributes());
+        if ($node->getCssClass() !== '') {
+            $link->addClass($node->getCssClass());
+        }
+
+        return $this->renderLink($link);
     }
 
     protected function renderMath(Math $node): string
