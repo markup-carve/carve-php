@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
@@ -15,6 +16,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -400,6 +402,13 @@ class ProseMirrorRenderer
         } elseif ($node instanceof Math) {
             $attrs['src'] = $node->getContent();
             $attrs['display'] = $node->isDisplay();
+        } elseif ($node instanceof FootnoteRef || $node instanceof Footnote) {
+            // The label is the note's identity: it binds a reference to its
+            // definition and distinguishes two references to the same note.
+            // Without it every footnote in the document is the same anonymous
+            // one. `carveFootnote` declares the attribute; only this side was
+            // leaving it unset.
+            $attrs['label'] = $node->getLabel();
         } elseif ($node instanceof Div) {
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {

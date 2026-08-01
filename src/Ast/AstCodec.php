@@ -544,6 +544,137 @@ class AstCodec
     }
 
     /**
+     * This engine's flat attribute map to the reference's structured block.
+     *
+     * The wire shape is `{id, classes[], keyValues{}, order[]}` with
+     * `additionalProperties: false`. This engine stores what the author wrote as
+     * a flat `name => value` map, so every attribute became a top-level key -
+     * `{"class": "note"}` where the schema wants `{"classes": ["note"]}`, and
+     * `title`, `style`, `onclick` and friends alongside it. The published schema
+     * rejects all of them.
+     *
+     * `order` is not reconstructed - it is already recorded, because the
+     * formatter needs the author's slot order to reproduce a source line.
+     *
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     *
+     * @return array<string, mixed>
+     */
+    private static function attrsToWire(array $attributes, array $order): array
+    {
+        $wire = [];
+        if (isset($attributes['id'])) {
+            $wire['id'] = $attributes['id'];
+        }
+        if (isset($attributes['class']) && $attributes['class'] !== '') {
+            // A class attribute holds a whitespace-separated list; the reference
+            // publishes it split, which is also how a consumer wants it.
+            $wire['classes'] = preg_split('/\s+/', trim($attributes['class'])) ?: [];
+        }
+
+        $keyValues = [];
+        foreach ($attributes as $name => $value) {
+            if ($name === 'id' || $name === 'class') {
+                continue;
+            }
+            $keyValues[(string)$name] = $value;
+        }
+        if ($keyValues !== []) {
+            $wire['keyValues'] = $keyValues;
+        }
+        if ($order !== []) {
+            $wire['order'] = $order;
+        }
+
+        return $wire;
+    }
+
+    /**
+     * The inverse: the reference's block back to this engine's flat map.
+     *
+     * Tolerant of the older flat form, because trees written before this change
+     * are stored: a key that is not one of the four structured ones is taken as
+     * an attribute under its own name, which is exactly what it used to mean.
+     *
+     * @param array<string, mixed> $wire
+     *
+     * @return array{0: array<string, string>, 1: list<string>}
+     */
+    private static function attrsFromWire(array $wire): array
+    {
+        $attrs = [];
+        $order = [];
+
+        if (is_string($wire['id'] ?? null)) {
+            $attrs['id'] = $wire['id'];
+        }
+        if (is_array($wire['classes'] ?? null)) {
+            $classes = array_filter($wire['classes'], 'is_string');
+            if ($classes !== []) {
+                $attrs['class'] = implode(' ', $classes);
+            }
+        }
+        if (is_array($wire['keyValues'] ?? null)) {
+            foreach ($wire['keyValues'] as $name => $value) {
+                if (is_string($value)) {
+                    $attrs[(string)$name] = $value;
+                }
+            }
+        }
+        if (is_array($wire['order'] ?? null)) {
+            $order = array_values(array_filter($wire['order'], 'is_string'));
+        }
+
+        foreach ($wire as $name => $value) {
+            if (in_array($name, ['id', 'classes', 'keyValues', 'order'], true)) {
+                continue;
+            }
+            if (is_string($value)) {
+                $attrs[(string)$name] = $value;
+            }
+        }
+
+        if ($order === []) {
+            foreach (array_keys($attrs) as $name) {
+                $order[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
+            }
+
+            return [$attrs, $order];
+        }
+
+        // Rebuild the map in the AUTHOR'S order, not the order this function
+        // happened to collect the slots in. The renderer emits attributes in
+        // storage order, so `{key=c .a #b}` came back as `{#b .a key=c}` and
+        // six corpus documents round-tripped to different HTML.
+        //
+        // An attribute the order does not name is STRUCTURAL rather than
+        // authored - an admonition's kind class is set by the parser, not
+        // written in a block - and the parser stores those FIRST. Appending
+        // them instead put `{title, class}` where `{class, title}` was, which
+        // is the one case that survived the first fix.
+        $named = [];
+        foreach ($order as $slot) {
+            $named[$slot === '#id' ? 'id' : ($slot === '.class' ? 'class' : $slot)] = true;
+        }
+
+        $ordered = [];
+        foreach ($attrs as $name => $value) {
+            if (!isset($named[$name])) {
+                $ordered[$name] = $value;
+            }
+        }
+        foreach ($order as $slot) {
+            $name = $slot === '#id' ? 'id' : ($slot === '.class' ? 'class' : $slot);
+            if (array_key_exists($name, $attrs)) {
+                $ordered[$name] = $attrs[$name];
+            }
+        }
+
+        return [$ordered, $order];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function encodeNode(Node $node): array
@@ -594,7 +725,7 @@ class AstCodec
 
         $attributes = $node->getAttributes();
         if ($attributes !== []) {
-            $encoded['attrs'] = $attributes;
+            $encoded['attrs'] = self::attrsToWire($attributes, $node->getAttributeOrder());
         }
 
         foreach ($this->derivedFields($node) as $field => $derived) {
@@ -632,6 +763,88 @@ class AstCodec
                 fn (Node $child): array => $this->encodeNode($child),
                 $children,
             );
+        }
+
+        return self::figureShape(self::listMarkerShape($encoded));
+    }
+
+    /**
+     * An ordered list's marker is its DELIM, not its bullet character.
+     *
+     * This engine keeps one `marker` field holding whichever the author wrote,
+     * and it was published as `bulletChar` for both kinds - so `1. a` came out
+     * as `bulletChar: "."`, a value the schema's `["-", "*"]` does not allow,
+     * while `delim` (`[".", ")"]`) went unset. A consumer reading `delim` to
+     * reproduce an ordered list got nothing.
+     *
+     * Both are AUTHOR-CHOICE fields under PART 11 §6, and §11 makes them
+     * semantic: a sibling item with a different delimiter starts a NEW list.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function listMarkerShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'list' || !array_key_exists('bulletChar', $encoded)) {
+            return $encoded;
+        }
+        if (($encoded['ordered'] ?? false) !== true) {
+            return $encoded;
+        }
+
+        $marker = $encoded['bulletChar'];
+        unset($encoded['bulletChar']);
+        $encoded['delim'] = $marker;
+
+        return $encoded;
+    }
+
+    /**
+     * Publish a figure as the reference does: a `target` and a `caption`.
+     *
+     * This engine models a figure as CHILDREN - the thing being captioned,
+     * followed by a `caption` block - so the wire carried a `children` array
+     * where the reference has two named fields, and a `caption` node type the
+     * reference has none of. PART 12 §1: an implementation whose internals
+     * differ MAPS on the way out.
+     *
+     * The tree is untouched, exactly as with the root fields.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function figureShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'figure' || !is_array($encoded['children'] ?? null)) {
+            return $encoded;
+        }
+
+        $target = null;
+        $caption = null;
+        foreach ($encoded['children'] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            if (($child['type'] ?? null) === 'caption') {
+                // The reference's `caption` is the inline content itself, not a
+                // node wrapping it.
+                $caption = $child['children'] ?? [];
+
+                continue;
+            }
+            $target ??= $child;
+        }
+
+        if ($target === null) {
+            return $encoded;
+        }
+
+        unset($encoded['children']);
+        $encoded['target'] = $target;
+        if ($caption !== null) {
+            $encoded['caption'] = $caption;
         }
 
         return $encoded;
@@ -833,6 +1046,60 @@ class AstCodec
     }
 
     /**
+     * `delim` back to the single `marker` field this engine keeps.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function listMarkerFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) === 'list' && array_key_exists('delim', $data)) {
+            // `delim` is this engine's `marker`, which the encoder publishes
+            // under whichever name the list kind calls for.
+            //
+            //
+            // A payload written before this codec separated the two carries the
+            // DIALECT here (`a`, `i`), and decodes as a marker. Reinterpreting
+            // it by value was tried and rejected: the loss check compares the
+            // payload against a re-encode, so a `delim` that comes back as
+            // `olType` reads as a dropped field and the whole document fails to
+            // decode. Silently mis-reading one field beats refusing the
+            // document, and that field was never readable by another engine
+            // anyway - `a` is not a value `delim` is allowed to hold.
+            $data['bulletChar'] = $data['delim'];
+            unset($data['delim']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * `target` and `caption` back to the children this engine models a figure
+     * with: the thing being captioned, then a `caption` block wrapping the
+     * caption's inline content.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function figureFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) !== 'figure' || !is_array($data['target'] ?? null)) {
+            return $data;
+        }
+
+        $children = [$data['target']];
+        if (is_array($data['caption'] ?? null)) {
+            $children[] = ['type' => 'caption', 'children' => $data['caption']];
+        }
+        unset($data['target'], $data['caption']);
+        $data['children'] = $children;
+
+        return $data;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @throws \RuntimeException When the node type is unknown.
@@ -843,6 +1110,12 @@ class AstCodec
         if (!is_string($type)) {
             throw new RuntimeException('Every node needs a string type');
         }
+
+        // Undo the wire shapes this codec writes, so a tree it produced decodes
+        // back to the tree it came from - which is what PART 12 §6's round trip
+        // asks for, and what the loss check verifies. Both were caught by that
+        // check rather than by review.
+        $data = self::figureFromWire(self::listMarkerFromWire($data));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
@@ -881,10 +1154,11 @@ class AstCodec
             $property->setValue($node, $this->decodeValue($data[$name], $property));
         }
 
-        /** @var array<string, string> $attrs */
-        $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
-        foreach ($attrs as $key => $value) {
-            $node->setAttribute((string)$key, $value);
+        /** @var array<string, mixed> $wire */
+        $wire = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+        [$attrs, $order] = self::attrsFromWire($wire);
+        if ($attrs !== []) {
+            $node->setAttributesWithOrder($attrs, $order);
         }
 
         $container = ReferenceShape::containerFor($type);

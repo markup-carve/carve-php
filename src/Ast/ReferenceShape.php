@@ -57,7 +57,11 @@ final class ReferenceShape
         'abbreviation' => ['title' => 'title'],
         'strong' => ['boldItalic' => 'boldItalic'],
         'heading' => ['level' => 'level'],
-        'list' => ['start' => 'start', 'tight' => 'tight', 'marker' => 'bulletChar', 'style' => 'delim'],
+        // `style` holds the DIALECT (`a`, `A`, `i`, `I`), which the reference
+        // calls `olType`; its `delim` is the delimiter CHARACTER, which this
+        // engine keeps in `marker`. Publishing style as `delim` put a dialect
+        // where a `.` or `)` belongs and left the real delimiter unnamed.
+        'list' => ['start' => 'start', 'tight' => 'tight', 'marker' => 'bulletChar', 'style' => 'olType'],
         'table_cell' => [
             'alignment' => 'align',
             'rowspan' => 'rowspan',

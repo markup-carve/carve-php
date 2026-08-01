@@ -188,7 +188,7 @@
             "start",
             "tight",
             "bulletChar",
-            "delim"
+            "olType"
         ],
         "required": []
     },

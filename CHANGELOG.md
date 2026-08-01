@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A footnote keeps its label across the ProseMirror bridge.** Neither
+  `carveFootnote` nor `carveFootnoteDefinition` carried the label, so every
+  reference and definition reached the editor anonymous: a document with three
+  footnotes came back as `See[^], again[^] and[^].` with definitions to match,
+  and two references to the same note became indistinguishable from two
+  references to different ones.
+
+  The editor node has always declared the attribute - only this side left it
+  unset. It is now emitted and read back, so a document with footnotes round
+  trips byte-identically instead of losing every binding.
+
 - **The canonical writer stops emitting a PHP 8.5 deprecation.**
   `canonicalizeAst()` called `ReflectionProperty::setAccessible(true)` before
   reading each property. That method has done nothing since PHP 8.1 - reflection
