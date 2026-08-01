@@ -177,6 +177,140 @@ class ProseMirrorBridgeTest extends TestCase
         $this->assertSame($source, CarveConverter::carve()->render($back));
     }
 
+    /**
+     * A type can map cleanly and still lose something: the node survives, one
+     * of its fields does not. Those losses appeared in neither report, so a
+     * caller storing documents had no way to find out.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('unrepresentableStateProvider')]
+    public function testStateTheEditorCannotHoldIsReported(string $source, string $expected): void
+    {
+        $this->renderer->render((new CarveConverter())->parse($source));
+
+        $this->assertArrayHasKey($expected, $this->renderer->degradedTypes());
+        $this->assertNotSame('', $this->renderer->degradedTypes()[$expected]);
+    }
+
+    public static function unrepresentableStateProvider(): array
+    {
+        return [
+            // An autolink is written differently from a link, so a formatter
+            // has to know which one the author used.
+            'autolink' => ["Visit <https://example.com>.\n", 'autolink'],
+            // A mark needs text to attach to; an empty label has none, so the
+            // link is not represented at all.
+            'empty link label' => ["[](https://example.com)\n", 'link'],
+            'inline code attributes' => ["`code`{.cls}\n", 'code'],
+            'alphabetic list' => ["a. apple\nb. pear\n", 'list'],
+            'parenthesis delimiter' => ["1) one\n", 'list'],
+            'asterisk bullet' => ["* a\n", 'list'],
+        ];
+    }
+
+    /**
+     * The report has to stay quiet for what the model DOES hold, or it is
+     * noise rather than a signal.
+     */
+    public function testRepresentableStateIsNotReported(): void
+    {
+        $this->renderer->render((new CarveConverter())->parse("- a\n\n1. b\n\n[x](u) and `c`\n"));
+
+        $this->assertSame([], $this->renderer->degradedTypes());
+        $this->assertSame([], $this->renderer->droppedTypes());
+    }
+
+    /**
+     * A container's quoted title is content, not spelling. It was dropped
+     * outright, because `carveDiv` never carried it - and a bare fence cannot
+     * express one even if it had.
+     */
+    public function testATypedDivKeepsItsOpenerAndTitle(): void
+    {
+        $source = "::: tip \"Pro Tip\"\nbody\n:::\n";
+
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+        $this->assertSame('tip', $pm['content'][0]['attrs']['class']);
+        $this->assertSame('Pro Tip', $pm['content'][0]['attrs']['title']);
+
+        $back = $this->converter->convert($pm);
+        $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
+    /**
+     * An empty title is not a missing one: `::: note ""` suppresses the
+     * default heading, so the distinction has to survive.
+     */
+    public function testAnEmptyContainerTitleIsNotTheSameAsNone(): void
+    {
+        $source = "::: note \"\"\nbody\n:::\n";
+
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+        $this->assertSame('', $pm['content'][0]['attrs']['title']);
+
+        $back = $this->converter->convert($pm);
+        $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
+    /**
+     * The editor model has no room for "was this opened with a type word", so
+     * a single-class div comes back as the typed opener - the spelling
+     * carve-grammars' own serializer writes for the same node. A div carrying
+     * more than one class cannot be spelled that way and keeps the attribute
+     * block.
+     */
+    public function testASingleClassDivNormalizesToTheTypedOpener(): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse("{.custom}\n:::\nbody\n:::\n"));
+        $this->assertSame(
+            "::: custom\nbody\n:::\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
+
+        $multi = "{.a .b}\n:::\nbody\n:::\n";
+        $pm = $this->renderer->render((new CarveConverter())->parse($multi));
+        $this->assertSame($multi, CarveConverter::carve()->render($this->converter->convert($pm)));
+    }
+
+    /**
+     * An abbreviation without its expansion is just a word: the definition
+     * lives nowhere else in the editor model, so dropping the title lost it.
+     */
+    public function testAnAbbreviationKeepsItsExpansion(): void
+    {
+        $source = "*[HTML]: HyperText Markup Language\n\nThe HTML spec.\n";
+        $document = (new CarveConverter())->parse($source);
+
+        $pm = $this->renderer->render($document);
+        $marks = $pm['content'][0]['content'][1]['marks'];
+
+        $this->assertSame('carveAbbreviation', $marks[0]['type']);
+        $this->assertSame('HyperText Markup Language', $marks[0]['attrs']['title']);
+
+        $back = $this->converter->convert($pm);
+        $this->assertStringContainsString(
+            'title="HyperText Markup Language"',
+            (new CarveConverter())->render($back),
+        );
+    }
+
+    /**
+     * A semantic span without its name is not valid Carve - `:kbd[x]` came
+     * back as `:[x]`. The schema's `carveSource` exists for exactly this.
+     */
+    public function testASemanticSpanKeepsItsName(): void
+    {
+        $source = "Press :kbd[Ctrl+C] now.\n";
+
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+        $this->assertSame(':kbd', $pm['content'][0]['content'][1]['attrs']['carveSource']);
+
+        $back = $this->converter->convert($pm);
+        $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
     public function testJsonHelpersAreSymmetric(): void
     {
         $document = (new CarveConverter())->parse("# A\n\n- one\n");

@@ -29,9 +29,16 @@ class ProseMirrorCorpusTest extends TestCase
     /**
      * Documents the bridge carries with no loss at all. Raise only with a reason.
      *
+     * Fell from 336 to 329 when the renderer began reporting state the editor
+     * model cannot hold - an autolink, an alphabetic list, attributes on inline
+     * code. Those seven documents did not start round-tripping worse; they
+     * stopped being counted as intact while quietly losing their authored form.
+     * A count that only moves when the measurement is honest is the point of
+     * the ratchet, so this is a correction, not a regression.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 336;
+    private const MINIMUM_LOSSLESS = 329;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug

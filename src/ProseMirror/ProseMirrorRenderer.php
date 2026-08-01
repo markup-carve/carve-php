@@ -13,11 +13,13 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -116,6 +118,7 @@ class ProseMirrorRenderer
     protected function renderBlock(Node $node): ?array
     {
         $type = $node->getType();
+        $this->noteUnrepresentableState($node);
 
         // A section is a rendering wrapper, not editor content: hoist its
         // children so the heading and body land at document level.
@@ -184,6 +187,7 @@ class ProseMirrorRenderer
         $out = [];
         foreach ($nodes as $node) {
             $type = $node->getType();
+            $this->noteUnrepresentableState($node);
 
             if ($node instanceof Text) {
                 $text = $node->getContent();
@@ -409,10 +413,27 @@ class ProseMirrorRenderer
             // one. `carveFootnote` declares the attribute; only this side was
             // leaving it unset.
             $attrs['label'] = $node->getLabel();
+        } elseif ($node instanceof Abbreviation) {
+            // The expansion is the whole point of an abbreviation; without it
+            // the mark says only "this was one" and the definition is gone.
+            $attrs['title'] = $node->getTitle();
+        } elseif ($node instanceof InlineExtension) {
+            // `carveSource` is the schema's lossless escape hatch: the exact
+            // directive the author wrote. Without it a `:kbd[x]` comes back as
+            // `:[x]`, which is not valid Carve at all.
+            $attrs['carveSource'] = ':' . $node->getExtensionType();
         } elseif ($node instanceof Div) {
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {
                 $attrs['label'] = $label;
+            }
+            // An empty title is meaningful - `::: note ""` suppresses the
+            // default heading - so only a missing one is left unset. Dropping
+            // it lost the container's heading outright, which is content, not
+            // spelling.
+            $header = $node->getHeader();
+            if ($header !== null) {
+                $attrs['title'] = $header;
             }
         }
 
@@ -421,6 +442,45 @@ class ProseMirrorRenderer
         }
 
         return $attrs;
+    }
+
+    /**
+     * Records state the editor model has no place for.
+     *
+     * A type can map cleanly and still lose something: the NODE survives, one
+     * of its fields does not. Those losses were invisible - the type never
+     * appeared in either report, because nothing was dropped or degraded to
+     * text - so a caller storing documents had no way to find out. Each entry
+     * names the field rather than the type alone.
+     */
+    protected function noteUnrepresentableState(Node $node): void
+    {
+        if ($node instanceof Link && !$node instanceof Mention) {
+            if ($node->isAutolink()) {
+                $this->degraded['autolink'] = 'an autolink is a plain link mark in the editor model, '
+                    . 'so it comes back written as [text](url)';
+            }
+            if ($node->getChildren() === []) {
+                // A mark needs text to attach to. An empty label has none, so
+                // the link does not merely change shape - it disappears.
+                $this->degraded['link'] = 'a link with an empty label has no text to carry the mark, '
+                    . 'so it is not represented at all';
+            }
+        }
+
+        if ($node instanceof Code && $node->getAttributes() !== []) {
+            $this->degraded['code'] = 'inline code is a mark; its attributes have nowhere to live';
+        }
+
+        if ($node instanceof ListBlock) {
+            if ($node->getStyle() !== null) {
+                $this->degraded['list'] = 'an alphabetic or roman list style is not in the editor model, '
+                    . 'so the list comes back numbered';
+            } elseif ($node->getMarker() !== null && !in_array($node->getMarker(), ['-', '.'], true)) {
+                $this->degraded['list'] = 'a list marker character is not in the editor model, '
+                    . 'so the canonical one comes back';
+            }
+        }
     }
 
     protected function isInlineContainer(Node $node): bool
