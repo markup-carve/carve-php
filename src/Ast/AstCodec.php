@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Profile;
@@ -684,6 +685,14 @@ class AstCodec
         // the broader class, so the canonical name is what goes on the wire -
         // the same distinction Profile already draws for profile matching.
         $type = Profile::canonicalTypeOf($node);
+        // `canonicalTypeOf` answers the PROFILE question - `#tag` is classified
+        // as `mention` because the two are one trust class. The wire asks a
+        // different question: PART 12 §3 and profiles.md both keep `tag` as its
+        // own AST type, so a profile classification must not decide the type
+        // this publishes.
+        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
+            $type = 'tag';
+        }
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
@@ -744,6 +753,12 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($node instanceof Mention) {
+            // `user` / `name` carry the content; the Text child holds the same
+            // thing with its sigil, and publishing both would be two
+            // representations of one string. The decoder rebuilds it.
+            $children = [];
+        }
         if ($type === 'autolink') {
             // The reference gives an autolink no children - `text` is the label,
             // and publishing both would be a second representation of the same
@@ -765,7 +780,7 @@ class AstCodec
             );
         }
 
-        return self::figureShape(self::listMarkerShape($encoded));
+        return self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded))));
     }
 
     /**
@@ -796,6 +811,60 @@ class AstCodec
         $marker = $encoded['bulletChar'];
         unset($encoded['bulletChar']);
         $encoded['delim'] = $marker;
+
+        return $encoded;
+    }
+
+    /**
+     * A span marker is `rowspan` or `colspan` on the wire, not `^` or `<`.
+     *
+     * This engine keeps the MARKER the author typed, which is the right thing
+     * to keep - a formatter reproduces the character - and the wrong thing to
+     * publish: the schema's enum is `["rowspan", "colspan"]`, and `<` means
+     * nothing to a consumer that did not parse Carve.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function spanShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'table_cell' || !isset($encoded['span'])) {
+            return $encoded;
+        }
+
+        $named = match ($encoded['span']) {
+            '^' => 'rowspan',
+            '<' => 'colspan',
+            default => null,
+        };
+        if ($named === null) {
+            return $encoded;
+        }
+        $encoded['span'] = $named;
+
+        return $encoded;
+    }
+
+    /**
+     * A table's caption is the inline content, not a node wrapping it.
+     *
+     * Same mapping the figure already gets, and the same reason: this engine
+     * models a caption as a block node, and the reference has no such type -
+     * `caption` is an array of inline nodes wherever it appears.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function captionShape(array $encoded): array
+    {
+        $caption = $encoded['caption'] ?? null;
+        if (!is_array($caption) || ($caption['type'] ?? null) !== 'caption') {
+            return $encoded;
+        }
+
+        $encoded['caption'] = $caption['children'] ?? [];
 
         return $encoded;
     }
@@ -878,6 +947,17 @@ class AstCodec
             return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
         }
 
+        if ($node instanceof Mention) {
+            // The reference publishes the NAME, not the rendered label: a
+            // mention is `{type, user}` and a tag `{type: "tag", name}`. This
+            // engine models both as a Link subclass whose Text child holds the
+            // literal `@user` / `#tag`, and whose css class says which.
+            $label = self::plainText($node);
+            $isTag = $node->getCssClass() === 'tag';
+
+            return [$isTag ? 'name' : 'user' => ltrim($label, $isTag ? '#' : '@')];
+        }
+
         if ($node instanceof ListBlock) {
             return ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
         }
@@ -904,6 +984,18 @@ class AstCodec
             if ($node->getChildren() === []) {
                 $text = $data['text'] ?? null;
                 $node->appendChild(new Text(is_string($text) ? $text : (string)$node->getDestination()));
+            }
+
+            return;
+        }
+
+        if ($node instanceof Mention) {
+            $isTag = ($data['type'] ?? null) === 'tag';
+            $name = $data[$isTag ? 'name' : 'user'] ?? null;
+            self::writeProperty($node, 'cssClass', $isTag ? 'tag' : 'mention');
+            self::writeProperty($node, 'destination', '');
+            if (is_string($name) && $node->getChildren() === []) {
+                $node->appendChild(new Text(($isTag ? '#' : '@') . $name));
             }
 
             return;
@@ -1075,6 +1167,43 @@ class AstCodec
     }
 
     /**
+     * `rowspan` / `colspan` back to the marker this engine keeps.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function spanFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) === 'table_cell' && isset($data['span'])) {
+            $data['span'] = match ($data['span']) {
+                'rowspan' => '^',
+                'colspan' => '<',
+                default => $data['span'],
+            };
+        }
+
+        return $data;
+    }
+
+    /**
+     * A caption array back to the block node this engine models it with.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function captionFromWire(array $data): array
+    {
+        $caption = $data['caption'] ?? null;
+        if (($data['type'] ?? null) === 'table' && is_array($caption) && !isset($caption['type'])) {
+            $data['caption'] = ['type' => 'caption', 'children' => $caption];
+        }
+
+        return $data;
+    }
+
+    /**
      * `target` and `caption` back to the children this engine models a figure
      * with: the thing being captioned, then a `caption` block wrapping the
      * caption's inline content.
@@ -1115,7 +1244,7 @@ class AstCodec
         // back to the tree it came from - which is what PART 12 §6's round trip
         // asks for, and what the loss check verifies. Both were caught by that
         // check rather than by review.
-        $data = self::figureFromWire(self::listMarkerFromWire($data));
+        $data = self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
@@ -1200,6 +1329,15 @@ class AstCodec
         $default = self::defaultFor(new ReflectionClass($node), $property);
 
         if (!$default['has']) {
+            // A field this codec never PUBLISHES cannot be required on input.
+            // `mention` keeps a css class, a destination and a title internally
+            // and puts none of them on the wire, so demanding them of a payload
+            // asks for something no conformant producer can send. Whatever sets
+            // them - a derived field, or the constructor - has already run.
+            if (ReferenceShape::fieldFor($nodeType, $property->getName()) === null) {
+                return;
+            }
+
             throw new RuntimeException(sprintf(
                 'Node "%s" is missing the required field "%s"',
                 $nodeType,
