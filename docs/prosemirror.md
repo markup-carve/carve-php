@@ -124,3 +124,12 @@ to know the name, so a genuinely new editor node belongs in carve-grammars first
   so it travels as a leading `carveCaption` node.
 - **Lists.** Looseness is content, not styling: without carrying `tight`, a loose
   list comes back tight and its items lose their paragraphs.
+- **Mention labels.** Tiptap's mention extension stores a display name, and a
+  mention name is ASCII with interior dots and nothing else - so a label an
+  editor produced (`Mark Scherer`, `o'brien`) is written as the link form,
+  `[Mark Scherer](/u/42){.mention}`, which keeps the label, the href and the
+  class. Attributes and markup inside the label take the same route, for the same
+  reason. It reads back as a **link carrying `class="mention"`**, not as a
+  `carveMention` node, and nothing is reported dropped or degraded: an editor
+  that builds its mentions from a node type needs a parse rule on the class,
+  while one that styles by class already matches.

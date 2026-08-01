@@ -1004,13 +1004,21 @@ class CarveRenderer implements RendererInterface
         // dot in `john.doe` into `john\.doe`, which is not a name.
         $label = $this->plainInlineText($node);
         $sigil = str_starts_with($label, '#') ? '#' : '@';
-        $name = $sigil === '#' ? substr($label, 1) : ltrim($label, '@');
+        // ONE sigil, not a run of them: `ltrim($label, '@')` read `@@user` as
+        // the name `user` and wrote back one `@` fewer than it was handed.
+        $name = str_starts_with($label, $sigil) ? substr($label, 1) : $label;
 
         // A mention name carries no escape, so a label holding anything else
         // has no spelling in this syntax. It degrades to the link form rather
         // than to a name the author did not write: `@o'brien` would have to
         // become `@obrien`, which is a DIFFERENT mention, silently.
-        if (!$this->isMentionName($name)) {
+        //
+        // An attribute and nested markup have no spelling either, and were
+        // dropped rather than deleted: a trailing `{.x}` after a mention stays
+        // literal text (the parser leaves it outside the node), and `@*user*` is
+        // not a mention at all, so a mention carrying either one lost it with a
+        // perfectly valid name to point at.
+        if (!$this->isMentionName($name) || $node->getAttributes() !== [] || !$this->isFlatText($node)) {
             return $this->renderMentionAsLink($node);
         }
 
@@ -1033,16 +1041,31 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
+     * Is the node's content a plain run of text, with no markup inside it?
+     */
+    protected function isFlatText(Mention $node): bool
+    {
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Text && !$child instanceof EscapedText) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * The nearest construct that holds everything a mention does: the label,
      * the destination and the class, rendering the same anchor.
+     *
+     * A CLONE, not a fresh node the children are appended to: `appendChild()`
+     * reparents, so building the link that way left every child of the mention
+     * pointing at a throwaway parent once the document had been written. The
+     * renderer is handed a tree it does not own.
      */
     protected function renderMentionAsLink(Mention $node): string
     {
-        $link = new Link($node->getDestination() ?? '');
-        foreach ($node->getChildren() as $child) {
-            $link->appendChild($child);
-        }
-        $link->setAttributes($node->getAttributes());
+        $link = clone $node;
         if ($node->getCssClass() !== '') {
             $link->addClass($node->getCssClass());
         }
