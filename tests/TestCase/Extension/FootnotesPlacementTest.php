@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -72,6 +73,28 @@ class FootnotesPlacementTest extends TestCase
         $this->assertLessThan(
             (int)strpos($out, 'role="doc-endnotes"'),
             (int)strpos($out, 'Notes below:'),
+        );
+    }
+
+    /**
+     * A `::: footnotes` placement directive is a childless-by-design carrier,
+     * not an empty container: a profile that denies nothing must not prune it
+     * and fall back to the default end-of-document placement (carve-php #505).
+     */
+    public function testKeepsThePlacementUnderAProfileThatDeniesNothing(): void
+    {
+        $source = "Intro[^a] and[^b].\n\n::: footnotes\n:::\n\n## After\n\nMore text.\n\n"
+            . "[^a]: first note\n\n[^b]: second note\n";
+
+        $unfiltered = $this->html($source);
+
+        $filtered = new CarveConverter();
+        $filtered->setProfile(Profile::full());
+
+        $this->assertSame(
+            $unfiltered,
+            $filtered->convert($source),
+            'a profile that denies nothing relocated the footnotes placement anyway',
         );
     }
 }

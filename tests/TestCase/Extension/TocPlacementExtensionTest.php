@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\TocPlacementExtension;
+use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
 
 class TocPlacementExtensionTest extends TestCase
@@ -132,5 +133,27 @@ class TocPlacementExtensionTest extends TestCase
         $src = $blocks . $doc;
         $out = $this->html($src);
         $this->assertLessThan((int)(max(1000000, 8 * strlen($src)) * 1.3), strlen($out));
+    }
+
+    /**
+     * A `::: toc` placement directive is a childless-by-design carrier, not an
+     * empty container: a profile that denies nothing must not prune it before
+     * the extension ever gets a chance to render the nav (carve-php #505).
+     */
+    public function testKeepsThePlacementUnderAProfileThatDeniesNothing(): void
+    {
+        $source = "::: toc\n:::\n\n# Intro\n\n## Setup\n";
+
+        $unfiltered = $this->html($source);
+
+        $filtered = new CarveConverter();
+        $filtered->addExtension(new TocPlacementExtension());
+        $filtered->setProfile(Profile::full());
+
+        $this->assertSame(
+            $unfiltered,
+            $filtered->convert($source),
+            'a profile that denies nothing dropped the toc placement anyway',
+        );
     }
 }

@@ -56,14 +56,10 @@ class ProfileVocabularyTest extends TestCase
      * Corpus documents a full profile still changes, which it should not.
      *
      * A ratchet, not an allowance. The vocabulary entries are gone - a profile
-     * that denies nothing now denies nothing. What remains has two other
-     * causes, and the list may shrink but must never grow.
+     * that denies nothing now denies nothing. What remains has one
+     * cause, and the list may shrink but must never grow.
      *
-     * `120-footnotes-placement` is the first: a `::: footnotes` placement
-     * directive is lost under any configured profile, so the notes relocate to
-     * the end of the document instead of rendering where the directive sits.
-     *
-     * The other six are all `cleanupEmptyContainers` / `isEmptyContainer`
+     * All six are `cleanupEmptyContainers` / `isEmptyContainer`
      * (Filter/ProfileFilter.php) pruning a container the unfiltered render
      * emits. The container differs, which is why this is not a one-shape bug:
      * a genuinely empty `<blockquote>` in `16-reference-link-3` and
@@ -85,7 +81,6 @@ class ProfileVocabularyTest extends TestCase
         '114-fence-opener-with-a-nested-list-body-inside-a-list-item-7.crv',
         '115-footnote-definition-inside-a-container-is-collected-2.crv',
         '115-footnote-definition-inside-a-container-is-collected.crv',
-        '120-footnotes-placement.crv',
         '16-reference-link-3.crv',
         '16-reference-link-4.crv',
         '83-blockquote-lazy-continuation-stops-at-a-fenced-block-3.crv',

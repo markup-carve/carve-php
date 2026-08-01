@@ -17,7 +17,8 @@ namespace MarkupCarve\Carve\Ast;
  * Three kinds of difference appear:
  *
  * - **Renames.** `content` is `value` on text and code, `destination` is `href`,
- *   `source` is `src`, `language` is `lang`, a footnote's `label` is `id`.
+ *   `source` is `src`, `language` is `lang`, an inline footnote reference's
+ *   `label` is `id`.
  * - **Container names.** The reference calls a list's children `items`, a
  *   table's `rows`, a row's `cells`. Only the key differs; the contents do not.
  * - **Derived state.** `ordered` is a boolean where this engine keeps a
@@ -46,11 +47,9 @@ final class ReferenceShape
         'code_block' => ['content' => 'content', 'language' => 'lang'],
         'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref'],
         'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref'],
-        'footnote' => ['label' => 'id'],
         // The INLINE reference, which the reference calls `footnote_ref` and
-        // keys by `id`. The entry above is the block definition; without this
-        // one the rename never applied and the wire carried `label`
-        // (carve#405).
+        // keys by `id`. The block definition is a different type and publishes
+        // `label` in PART 12 §7.
         'footnote_ref' => ['label' => 'id'],
         'heading_ref' => ['targetId' => 'target'],
         'math' => ['content' => 'content', 'display' => 'display'],

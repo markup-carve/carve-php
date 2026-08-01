@@ -51,6 +51,13 @@ use SplFileInfo;
  * - `attrs` and `children` are omitted when empty, keeping small documents small.
  * - Everything else is the node's declared state, keyed by property name.
  *
+ * Historical note: the encoder used to lift `frontmatter` and footnote
+ * definitions out of `children` onto document-level fields. That matched the
+ * old PART 12 §2 root form, but PART 12 §7 replaced it: the root now carries
+ * exactly `type`, `children`, and `srcByteLength`, with frontmatter and
+ * footnote definitions published as block nodes in the tree. The decoder still
+ * adopts the old root fields so stored payloads remain readable.
+ *
  * Field names are derived by reflection over properties declared on the node
  * class itself (the base class bookkeeping - parent, children, attributes,
  * attributeOrder - is excluded). That means a new node type is encodable the day
@@ -192,75 +199,7 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
-        return self::liftRootFields($this->encodeNode($document));
-    }
-
-    /**
-     * Move frontmatter and footnote definitions from `children` onto the root.
-     *
-     * PART 12 section 2 fixes the root's fields and puts both there. This engine
-     * models them as block nodes, which is a defensible internal choice and the
-     * wrong thing to publish: `children` is an ORDER, and neither of these has a
-     * position in the document's flow. A footnote definition renders where the
-     * REFERENCE to it appears, not where it was written, and frontmatter renders
-     * nowhere at all - so a consumer walking `children` to render had to know to
-     * skip two of the types it found there (carve#411).
-     *
-     * The tree itself is untouched. This is the map-on-the-way-out that PART 12
-     * section 1 asks for, not a change to how the parser models a document -
-     * and `decode()` already adopted the reference's form for footnote
-     * definitions, so the two directions now agree.
-     *
-     * @param array<string, mixed> $encoded
-     *
-     * @return array<string, mixed>
-     */
-    private static function liftRootFields(array $encoded): array
-    {
-        $children = $encoded['children'] ?? null;
-        if (!is_array($children)) {
-            return $encoded;
-        }
-
-        $kept = [];
-        $defs = [];
-        $frontmatter = null;
-        foreach ($children as $child) {
-            if (!is_array($child)) {
-                $kept[] = $child;
-
-                continue;
-            }
-            $type = $child['type'] ?? null;
-            $label = $child['id'] ?? null;
-            if ($type === 'footnote' && is_scalar($label)) {
-                $defs[(string)$label] = $child['children'] ?? [];
-
-                continue;
-            }
-            if ($type === 'frontmatter') {
-                $frontmatter = [
-                    'format' => $child['format'] ?? 'yaml',
-                    'content' => $child['content'] ?? '',
-                ];
-
-                continue;
-            }
-            $kept[] = $child;
-        }
-
-        $encoded['children'] = $kept;
-        // Carried EXACTLY when the document has them (PART 12 section 2). An
-        // empty object would say "this document has frontmatter, and it is
-        // empty", which is a different claim.
-        if ($frontmatter !== null) {
-            $encoded['frontmatter'] = $frontmatter;
-        }
-        if ($defs !== []) {
-            $encoded['footnoteDefs'] = $defs;
-        }
-
-        return $encoded;
+        return $this->encodeNode($document);
     }
 
     public function encodeJson(Document $document, int $flags = 0): string
@@ -291,22 +230,20 @@ class AstCodec
             throw new RuntimeException('The payload root must be a document node');
         }
 
-        // carve-js keeps footnote DEFINITIONS in a root-level `footnoteDefs`
-        // map rather than as block nodes in `children`, so a tree it produced
-        // could not be read here at all: the map is a field this decoder does
-        // not build, and the loss check refused the payload outright.
-        //
-        // Which representation is canonical is an open spec question
-        // (carve#408) - `footnote` IS a block type in the vocabulary, which
-        // argues for nodes, while a definition's POSITION carries no meaning,
-        // which argues for a map. Accepting the map converts it to the nodes
-        // this engine uses, so the exchange PART 12 exists for works while that
-        // is settled, without either engine changing what it emits.
-        // Same shape as the footnote-definition adoption below: the root form is
-        // what PART 12 section 2 fixes, and this engine models it as a block, so
-        // the decoder converts on the way in. Without it the loss check refuses
-        // its own encoder's output - which is how this was caught.
+        // Compatibility with trees written before PART 12 §7 replaced the old
+        // §2 root fields: stored payloads may still carry frontmatter and
+        // footnote definitions on the document root. Adopt them into the tree
+        // form; do not treat these as a second canonical spelling.
         if ($this->adoptFrontmatter($data, $node)) {
+            $frontmatter = is_array($data['frontmatter'] ?? null) ? $data['frontmatter'] : [];
+            if (!is_array($data['children'] ?? null)) {
+                $data['children'] = [];
+            }
+            array_unshift($data['children'], [
+                'type' => 'frontmatter',
+                'format' => is_string($frontmatter['format'] ?? null) ? $frontmatter['format'] : 'yaml',
+                'content' => is_string($frontmatter['content'] ?? null) ? $frontmatter['content'] : '',
+            ]);
             unset($data['frontmatter']);
         }
 
@@ -377,7 +314,8 @@ class AstCodec
      */
 
     /**
-     * Rebuild the frontmatter block from the root field the wire carries.
+     * Rebuild the frontmatter block from the root field old stored payloads
+     * carried.
      *
      * @param array<string, mixed> $data
      * @param \MarkupCarve\Carve\Node\Document $document
@@ -405,7 +343,8 @@ class AstCodec
     }
 
     /**
-     * Turn a root-level `footnoteDefs` map into the block nodes this engine uses.
+     * Turn an old root-level `footnoteDefs` map into the block nodes this
+     * engine uses.
      *
      * Appended at the end, which is where they render from regardless of where
      * they were written - a definition's position is not content.
@@ -459,11 +398,7 @@ class AstCodec
     private function verifyNothingWasLost(array $input, Document $document): void
     {
         $lost = [];
-        // Compare against what this codec would PUBLISH, not against the raw
-        // node encoding: the root form lifts frontmatter and footnote
-        // definitions out of `children` (PART 12 section 2), so an unlifted
-        // re-encode shifts every child index and reports the shift as loss.
-        $this->compareNode($input, self::liftRootFields($this->encodeNode($document)), '', $lost);
+        $this->compareNode($input, $this->encodeNode($document), '', $lost);
 
         if ($lost !== []) {
             throw new RuntimeException(sprintf(
@@ -489,6 +424,12 @@ class AstCodec
         foreach ($input as $key => $value) {
             if ($key === 'ast' || $key === 'pos') {
                 // Envelope, and a field this engine cannot yet produce (§4).
+                continue;
+            }
+            if ($type === 'footnote' && $key === 'id' && ($roundTripped['label'] ?? null) === $value) {
+                // Compatibility path for stored trees written before PART 12 §7:
+                // `id` was consumed as the definition label and is not a second
+                // published spelling.
                 continue;
             }
 
@@ -918,6 +859,16 @@ class AstCodec
 
         foreach (self::stateProperties($reflection) as $property) {
             $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
+            if (
+                $type === 'footnote'
+                && $property->getName() === 'label'
+                && !array_key_exists($name, $data)
+                && array_key_exists('id', $data)
+            ) {
+                // Compatibility path for stored trees written before PART 12 §7
+                // renamed footnote definitions from `id` to `label`.
+                $name = 'id';
+            }
             if (!array_key_exists($name, $data)) {
                 // Omission means "the default". The constructor was bypassed, so
                 // a typed property without a declared default would otherwise stay

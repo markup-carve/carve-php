@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
@@ -343,7 +344,16 @@ class ProfileFilter
             // Structural elements that must be preserved even when empty:
             // - ThematicBreak: valid self-closing element (renders as <hr>)
             // - TableCell: maintains table column structure
-            if ($node instanceof ThematicBreak || $node instanceof TableCell) {
+            // - Div placement carrier (`::: footnotes` / `::: toc`): childless
+            //   BY DESIGN, not emptied by filtering. It marks WHERE the renderer
+            //   relocates content (the endnotes section, the heading nav), so
+            //   pruning it as "empty" silently moves that content back to its
+            //   un-relocated default position instead of leaving it in place.
+            if (
+                $node instanceof ThematicBreak
+                || $node instanceof TableCell
+                || ($node instanceof Div && $node->isPlacementCarrier())
+            ) {
                 return false;
             }
 
