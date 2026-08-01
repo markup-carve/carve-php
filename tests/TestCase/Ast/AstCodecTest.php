@@ -459,4 +459,63 @@ class AstCodecTest extends TestCase
         $this->assertArrayNotHasKey('extensionType', $extension);
         $this->assertArrayNotHasKey('children', $extension);
     }
+
+    /**
+     * Everything the parser can produce has to survive encode then decode. The
+     * reader used to inherit json_decode()'s default depth of 512, a number
+     * nobody chose for this format; equating an ingest bound with the parser's
+     * own cap is how carve-rs came to reject its own encoder's output
+     * (carve-rs#389), so the shapes that cost the most structural levels per
+     * AST level are pinned here.
+     *
+     * @param string $shape
+     */
+    #[DataProvider('parserCapShapeProvider')]
+    public function testDecodeJsonAcceptsEverythingTheParserCanProduce(string $shape): void
+    {
+        $json = $this->codec->encodeJson($this->converter->parse($shape));
+        $decoded = $this->codec->decodeJson($json);
+
+        $this->assertSame($json, $this->codec->encodeJson($decoded));
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public static function parserCapShapeProvider(): array
+    {
+        $cap = 200;
+
+        $divLadder = '';
+        for ($i = 0; $i < $cap; $i++) {
+            $divLadder .= str_repeat(':', $cap + 2 - $i) . "\n";
+        }
+        $divLadder .= "x\n";
+        for ($i = $cap - 1; $i >= 0; $i--) {
+            $divLadder .= str_repeat(':', $cap + 2 - $i) . "\n";
+        }
+
+        $list = '';
+        for ($i = 0; $i < $cap; $i++) {
+            $list .= str_repeat(' ', $i * 2) . "- item\n";
+        }
+
+        return [
+            'div ladder' => [$divLadder],
+            'blockquotes' => [str_repeat('> ', $cap) . "x\n"],
+            'nested list' => [$list],
+            'table under blockquotes' => [str_repeat('> ', $cap) . "\n| =a | =b |\n| 1 | 2 |\n"],
+        ];
+    }
+
+    public function testDecodeJsonRefusesAPayloadNoParseCouldHaveProduced(): void
+    {
+        $depth = AstCodec::MAX_JSON_DEPTH + 50;
+        $json = '{"type":"document","srcByteLength":0,"children":'
+            . str_repeat('[', $depth) . str_repeat(']', $depth) . '}';
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/nests deeper than 1200 levels/');
+        $this->codec->decodeJson($json);
+    }
 }
