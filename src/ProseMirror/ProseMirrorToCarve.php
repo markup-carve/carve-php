@@ -739,6 +739,16 @@ class ProseMirrorToCarve
             $itemAttrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
             $checked = self::asBool($itemAttrs['checked'] ?? false);
             $this->setState($node, 'taskMarker', $checked ? 'x' : ' ');
+        } elseif ($node instanceof Mention && $proseMirrorName === 'mention') {
+            // The stock spelling brings the stock shape: tiptap's mention is an
+            // atom with `id`/`label` attrs and no css class, where CarveKit's
+            // node carries a class and its text as a child. Only the class can
+            // be settled here (the label needs the attrs pass); without it the
+            // node renders `class=""` and reads as a link, not a mention.
+            $stock = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            if (!array_key_exists('cssClass', $stock)) {
+                $this->setState($node, 'cssClass', 'mention');
+            }
         } elseif ($node instanceof TableCell && $proseMirrorName === 'tableHeader') {
             $this->setState($node, 'isHeader', true);
         } elseif ($node instanceof Div) {
@@ -795,6 +805,20 @@ class ProseMirrorToCarve
                 ),
                 ($node instanceof FootnoteRef || $node instanceof Footnote) && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
+                // A mention's visible name is a child Text node here, but
+                // tiptap/extension-mention is an atom that keeps it in `label`
+                // (`id` when unlabelled). Left as an attribute it becomes a
+                // stray `label="Alice"` and the mention renders with nothing to
+                // show - so it drops out of Carve source entirely. CarveKit's
+                // own carveMention never sends `label`, so consuming it cannot
+                // collide. The sigil is tiptap's default `@`; an editor
+                // configured for `#` registers its own factory.
+                $node instanceof Mention && $key === 'label' && !self::hasContent($data) => $this->addMentionLabel(
+                    $node,
+                    self::asString($value),
+                ),
+                $node instanceof Mention && $key === 'id' && !self::hasContent($data)
+                    && !array_key_exists('label', $attrs) => $this->addMentionLabel($node, self::asString($value)),
                 ($node instanceof Image || $node instanceof Link) && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 // Editor bookkeeping that has no Carve meaning.
                 in_array($key, ['checked', 'languageRaw'], true) => true,
@@ -861,6 +885,34 @@ class ProseMirrorToCarve
      * Node state lives in protected properties with no setters for most classes,
      * so it is written by reflection - the same mechanism AstCodec decodes with.
      */
+
+    /**
+     * Whether the payload carries children of its own, so a label attribute
+     * would duplicate text that is already there rather than supply missing
+     * text. A stock mention is an atom and never does; a hand-built payload
+     * with both should keep what it spelled out.
+     *
+     * @param array<string, mixed> $data
+     */
+    protected static function hasContent(array $data): bool
+    {
+        return is_array($data['content'] ?? null) && $data['content'] !== [];
+    }
+
+    /**
+     * The visible name as the child Text node a Mention carries it in.
+     */
+    protected function addMentionLabel(Mention $node, string $label): bool
+    {
+        if ($label === '') {
+            return false;
+        }
+
+        $node->appendChild(new Text(str_starts_with($label, '@') ? $label : '@' . $label));
+
+        return true;
+    }
+
     protected function setState(Node $node, string $property, mixed $value): bool
     {
         $reflection = new ReflectionClass($node);

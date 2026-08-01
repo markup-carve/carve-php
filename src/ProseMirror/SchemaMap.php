@@ -22,7 +22,7 @@ use RuntimeException;
 final class SchemaMap
 {
     /**
-     * @var array{types: array<string, array{kind: string, pm: string|array<string>, notes?: string}>, unmapped: array<string, string>}|null
+     * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>}|null
      */
     private static ?array $data = null;
 
@@ -76,11 +76,19 @@ final class SchemaMap
     /**
      * The Carve type a ProseMirror name maps back to, or null when the name is
      * not part of the published vocabulary.
+     *
+     * This reads `accepts` as well as `pm`, and it is the only method that
+     * does. The two fields are not interchangeable: `pm` is what CarveKit
+     * registers and therefore what this engine may emit, while `accepts` names
+     * a stock Tiptap extension spelling for a concept Carve already models
+     * (`mention` for tiptap/extension-mention). Widening the outbound side too
+     * would make the engine emit a name the editor's schema never defined.
      */
     public static function carveTypeFor(string $proseMirrorName): ?string
     {
         foreach (self::data()['types'] as $carveType => $entry) {
             $names = is_array($entry['pm']) ? $entry['pm'] : [$entry['pm']];
+            $names = array_merge($names, $entry['accepts'] ?? []);
             if (in_array($proseMirrorName, $names, true)) {
                 return $carveType;
             }
@@ -108,7 +116,7 @@ final class SchemaMap
     /**
      * @throws \RuntimeException
      *
-     * @return array{types: array<string, array{kind: string, pm: string|array<string>, notes?: string}>, unmapped: array<string, string>}
+     * @return array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>}
      */
     private static function data(): array
     {
@@ -122,7 +130,7 @@ final class SchemaMap
             throw new RuntimeException(sprintf('Cannot read the ProseMirror schema map at %s', $path));
         }
 
-        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, notes?: string}>, unmapped: array<string, string>} $data */
+        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>} $data */
         $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         self::$data = $data;
 

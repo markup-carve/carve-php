@@ -1,11 +1,11 @@
 {
+  "version": 1,
+  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "1ba9e30f9c4f8277a079040f27c3f6d5b892d265",
+    "commit": "32cdfa42e0ff7a46088082b125345bcc2526aaf6",
     "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
   },
-  "version": 1,
-  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores.",
   "carveSpecVocabulary": "spec/docs/profiles.md",
   "proseMirrorSchema": "tiptap/carve-kit.js (CarveKit)",
   "types": {
@@ -125,7 +125,10 @@
         "carveMention",
         "carveTag"
       ],
-      "notes": "carveTag for the `#tag` flavor"
+      "accepts": [
+        "mention"
+      ],
+      "notes": "carveTag for the `#tag` flavor. `accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully."
     },
     "inline_extension": {
       "kind": "node",
@@ -180,7 +183,7 @@
     "span": {
       "kind": "mark",
       "pm": "carveSpan",
-      "notes": "carries id, class and extra attributes"
+      "notes": "carries id, class and extra attributes. Stock tiptap/extension-text-style emits `textStyle`, deliberately NOT accepted: it is a carrier mark for color/fontFamily/fontSize, so mapping it here would put presentational attributes into a Carve document. An application that wants that registers `textStyle` itself."
     },
     "abbreviation": {
       "kind": "mark",

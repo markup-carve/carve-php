@@ -692,6 +692,94 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
+     * A payload from a plain Tiptap editor uses `mention`, the name
+     * tiptap/extension-mention emits, with the shape that extension emits: an
+     * atom carrying `id` and `label`, no css class and no text child. Accepting
+     * only the name would resolve the node and then lose the visible name - the
+     * mention dropped out of the source altogether.
+     *
+     * The `id` reaches the AST and the HTML as an attribute but not the Carve
+     * source: `[@alice]{#x}` parses as a span *around* a mention, so a Mention
+     * has no attribute slot of its own to serialize into. That is pre-existing
+     * and tracked separately (carve-php#567); it is asserted here as what the
+     * bridge does today rather than left to be discovered.
+     */
+    #[DataProvider('stockMentionProvider')]
+    public function testAStockTiptapMentionConvertsWithoutRegistration(array $attrs, string $expected): void
+    {
+        $document = $this->converter->convert([
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'ping '],
+                        ['type' => 'mention', 'attrs' => $attrs],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame($expected, CarveConverter::carve()->render($document));
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, string}>
+     */
+    public static function stockMentionProvider(): array
+    {
+        return [
+            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping @Alice\n"],
+            // Tiptap renders the id when nothing labelled it, so the id is the
+            // name rather than a second attribute beside an empty mention.
+            'an unlabelled mention falls back to the id' => [['id' => 'alice'], "ping @alice\n"],
+        ];
+    }
+
+    /**
+     * A payload that spells the text out keeps what it spelled: the label is
+     * only a substitute for a missing child, never a second copy of one.
+     */
+    public function testALabelDoesNotDuplicateAnExplicitTextChild(): void
+    {
+        $document = $this->converter->convert([
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        [
+                            'type' => 'mention',
+                            'attrs' => ['label' => 'Alice'],
+                            'content' => [['type' => 'text', 'text' => '@alice']],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        // `label` stays an attribute here rather than becoming text, which is
+        // the point: one visible name, not two. A Mention cannot serialize an
+        // attribute (carve-php#567), so the source shows the child alone.
+        $this->assertSame("@alice\n", CarveConverter::carve()->render($document));
+    }
+
+    /**
+     * The alias is inbound only. Carve still serializes to `carveMention`, the
+     * name CarveKit registers - accepting a second spelling on the way in must
+     * not make the engine emit one the editor's own schema does not define.
+     */
+    public function testAMentionStillSerializesUnderTheCarveKitName(): void
+    {
+        $document = (new CarveConverter())->parse('ping [@alice]{.user}');
+
+        $this->assertSame(
+            'carveMention',
+            $this->renderer->render($document)['content'][0]['content'][1]['type'],
+        );
+    }
+
+    /**
      * The hook is a door, not a hole: a name nobody registered still throws,
      * so a typo cannot become a silent skip.
      */
