@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A footnote keeps its label across the ProseMirror bridge.** Neither
+  `carveFootnote` nor `carveFootnoteDefinition` carried the label, so every
+  reference and definition reached the editor anonymous: a document with three
+  footnotes came back as `See[^], again[^] and[^].` with definitions to match,
+  and two references to the same note became indistinguishable from two
+  references to different ones.
+
+  The editor node has always declared the attribute - only this side left it
+  unset. It is now emitted and read back, so a document with footnotes round
+  trips byte-identically instead of losing every binding.
+
 - **A profile that denies nothing now changes nothing, across every corpus
   document.** `ProfileFilter` ran `cleanupEmptyContainers()` as a blanket pass
   over the whole tree, so it pruned containers that were already empty in the
