@@ -676,6 +676,7 @@ class CarveRenderer implements RendererInterface
                 $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
             }
         }
+
         return $widest;
     }
 
