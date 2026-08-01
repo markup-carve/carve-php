@@ -211,6 +211,15 @@ class ProseMirrorRenderer
         foreach ($tableRows as $index => $row) {
             $this->noteUnrepresentableState($row);
             $rowOut = ['type' => 'tableRow'];
+            // A row's own attributes. `renderTableRows` builds the row node
+            // directly rather than going through the generic block path, which
+            // is what attaches `attrs` everywhere else - so `{.head}` on a row
+            // was dropped across a round trip (carve-php#557 introduced this,
+            // carve-php#519 measured it).
+            $rowAttrs = $this->attributesFor($row);
+            if ($rowAttrs !== []) {
+                $rowOut['attrs'] = $rowAttrs;
+            }
             $cells = [];
             foreach ($grid[$index] as $entry) {
                 $this->noteUnrepresentableState($entry['cell']);
