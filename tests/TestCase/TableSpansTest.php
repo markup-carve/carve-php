@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -44,16 +45,22 @@ DJOT;
         $rows = $table->getChildren();
         $this->assertCount(2, $rows);
 
-        // Header row should have one cell with colspan=2
+        // Header row keeps a cell for EVERY column - the `<` marker is a
+        // placeholder of its own now, not absorbed into "A" (carve-php#527:
+        // carve-js parity, uniform row width).
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
-        $this->assertCount(1, $headerCells);
+        $this->assertCount(2, $headerCells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
         $this->assertSame(2, $headerCell->getColspan());
         $this->assertSame(1, $headerCell->getRowspan());
+
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $placeholder */
+        $placeholder = $headerCells[1];
+        $this->assertSame('<', $placeholder->getSpanMarker());
     }
 
     public function testMultipleColspan(): void
@@ -73,7 +80,8 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
-        $this->assertCount(1, $headerCells);
+        // "A" plus its two `<` placeholders - one cell per column.
+        $this->assertCount(3, $headerCells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell */
         $headerCell = $headerCells[0];
@@ -97,7 +105,8 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
-        $this->assertCount(3, $headerCells);
+        // A, B, B's `<` placeholder, C - one cell per column.
+        $this->assertCount(4, $headerCells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell1 */
         $cell1 = $headerCells[0];
@@ -107,8 +116,12 @@ DJOT;
         $cell2 = $headerCells[1];
         $this->assertSame(2, $cell2->getColspan());
 
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $placeholder */
+        $placeholder = $headerCells[2];
+        $this->assertSame('<', $placeholder->getSpanMarker());
+
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell3 */
-        $cell3 = $headerCells[2];
+        $cell3 = $headerCells[3];
         $this->assertSame(1, $cell3->getColspan());
     }
 
@@ -138,11 +151,13 @@ DJOT;
         $cell1 = $cells1[0];
         $this->assertSame(2, $cell1->getRowspan());
 
-        // Second data row should have only one cell (the ^ is not rendered)
+        // Second data row keeps a placeholder cell for the `^` marker (carve-js
+        // parity, uniform row width) alongside the real "3" cell.
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $cells2 = $dataRow2->getChildren();
-        $this->assertCount(1, $cells2);
+        $this->assertCount(2, $cells2);
+        $this->assertSame('^', $cells2[0]->getSpanMarker());
     }
 
     public function testMultipleRowspan(): void
@@ -187,11 +202,12 @@ DJOT;
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
 
-        // Header row: "A" with colspan=2, "B" with colspan=1
+        // Header row: "A" with colspan=2, its `<` placeholder, then "B" -
+        // one cell per column.
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
-        $this->assertCount(2, $headerCells);
+        $this->assertCount(3, $headerCells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $headerCell1 */
         $headerCell1 = $headerCells[0];
@@ -363,14 +379,15 @@ DJOT;
         $categoryCell = $cells1[0];
         $this->assertSame(3, $categoryCell->getRowspan());
 
-        // Rows 2 and 3 should have only 2 cells (^ marker not rendered)
+        // Rows 2 and 3 keep a placeholder cell for the `^` marker alongside
+        // their two real cells (carve-js parity, uniform row width).
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
-        $this->assertCount(2, $dataRow2->getChildren());
+        $this->assertCount(3, $dataRow2->getChildren());
 
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow3 */
         $dataRow3 = $rows[3];
-        $this->assertCount(2, $dataRow3->getChildren());
+        $this->assertCount(3, $dataRow3->getChildren());
 
         // Row 4 should have all 3 cells
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow4 */
@@ -395,11 +412,16 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow */
         $dataRow = $rows[1];
         $cells = $dataRow->getChildren();
-        $this->assertCount(2, $cells);
+        // "1", "2", and "2"'s `<` placeholder - one cell per column.
+        $this->assertCount(3, $cells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $cell2 */
         $cell2 = $cells[1];
         $this->assertSame(2, $cell2->getColspan());
+
+        /** @var \MarkupCarve\Carve\Node\Block\TableCell $placeholder */
+        $placeholder = $cells[2];
+        $this->assertSame('<', $placeholder->getSpanMarker());
     }
 
     public function testEscapedMarkers(): void
@@ -694,15 +716,18 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $headerRow */
         $headerRow = $rows[0];
         $headerCells = $headerRow->getChildren();
-        $this->assertCount(2, $headerCells);
+        // A, A's `<` placeholder, B, B's `<` placeholder - one cell per column.
+        $this->assertCount(4, $headerCells);
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $cellA */
         $cellA = $headerCells[0];
         $this->assertSame(2, $cellA->getColspan());
+        $this->assertSame('<', $headerCells[1]->getSpanMarker());
 
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $cellB */
-        $cellB = $headerCells[1];
+        $cellB = $headerCells[2];
         $this->assertSame(2, $cellB->getColspan());
+        $this->assertSame('<', $headerCells[3]->getSpanMarker());
     }
 
     public function testRowspanAcrossMultipleColumns(): void
@@ -734,10 +759,14 @@ DJOT;
         $cell2 = $cells[1];
         $this->assertSame(2, $cell2->getRowspan());
 
-        // Second data row should be empty (both cells are rowspan markers)
+        // Second data row keeps both placeholder cells (both markers extend a
+        // rowspan; carve-js parity, uniform row width).
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
-        $this->assertCount(0, $dataRow2->getChildren());
+        $placeholderCells = $dataRow2->getChildren();
+        $this->assertCount(2, $placeholderCells);
+        $this->assertSame('^', $placeholderCells[0]->getSpanMarker());
+        $this->assertSame('^', $placeholderCells[1]->getSpanMarker());
     }
 
     public function testLiteralLessThanInCell(): void
@@ -870,7 +899,8 @@ DJOT;
         $this->assertStringContainsString('rowspan="2"', $html);
         $this->assertStringContainsString('colspan="2"', $html);
 
-        // Row L2 should only have L2 label, no other cells
+        // Row L2 keeps its "L2" label plus a placeholder cell for each `^`
+        // marker (carve-js parity, uniform row width).
         /** @var \MarkupCarve\Carve\Node\Block\Table $table */
         $table = $doc->getChildren()[0];
         $rows = $table->getChildren();
@@ -878,7 +908,7 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableRow $dataRow2 */
         $dataRow2 = $rows[2];
         $cells = $dataRow2->getChildren();
-        $this->assertCount(1, $cells); // Only "L2" cell
+        $this->assertCount(3, $cells);
     }
 
     /**
@@ -908,5 +938,169 @@ DJOT;
         /** @var \MarkupCarve\Carve\Node\Block\TableCell $originCell */
         $originCell = $originRow->getChildren()[0];
         $this->assertSame($rows + 1, $originCell->getRowspan());
+    }
+
+    /**
+     * carve-php#527: carve-js keeps a placeholder cell for every span marker
+     * instead of merging it into the origin as a count, so a consumer walking
+     * `rows[i].cells` gets the same length for every row. Every row of this
+     * 3-column table has 3 cells, the two markers in the last row carry `span`
+     * on the wire, and no cell - marker or origin - carries a `rowspan`/
+     * `colspan` count (the schema's `additionalProperties: false` rejects
+     * one).
+     */
+    public function testEveryRowHasAUniformCellCountAndNoCellCarriesACountOnTheWire(): void
+    {
+        $djot = <<<'DJOT'
+| A | B | C |
+|---|---|---|
+| x | y | z |
+| ^ | < | d |
+DJOT;
+
+        $doc = $this->converter->parse($djot);
+
+        /** @var \MarkupCarve\Carve\Node\Block\Table $table */
+        $table = $doc->getChildren()[0];
+        foreach ($table->getChildren() as $row) {
+            $this->assertCount(3, $row->getChildren(), 'every row has one cell per grid column');
+        }
+
+        $encoded = (new AstCodec())->encode($doc);
+        $spanRow = $encoded['children'][0]['rows'][2]['cells'];
+        $this->assertCount(3, $spanRow);
+        $this->assertSame('rowspan', $spanRow[0]['span']);
+        $this->assertSame('colspan', $spanRow[1]['span']);
+        $this->assertArrayNotHasKey('span', $spanRow[2]);
+
+        foreach ($encoded['children'][0]['rows'] as $encodedRow) {
+            foreach ($encodedRow['cells'] as $cell) {
+                $this->assertArrayNotHasKey('rowspan', $cell);
+                $this->assertArrayNotHasKey('colspan', $cell);
+            }
+        }
+    }
+
+    /**
+     * A rowspan reaching three rows down renders identical HTML whether the
+     * origin's count is read directly or - as carve-php#527 now requires -
+     * resolved fresh from the placeholder cells in rows 2 and 3.
+     */
+    public function testRowspanSpanningThreeRowsRendersTheSameHtml(): void
+    {
+        $djot = <<<'DJOT'
+| A | B |
+|---|---|
+| 1 | 2 |
+| ^ | 3 |
+| ^ | 4 |
+DJOT;
+
+        $html = $this->converter->convert($djot);
+
+        $expected = <<<'HTML'
+<table>
+  <thead><tr><th>A</th><th>B</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="3">1</td><td>2</td></tr>
+    <tr><td>3</td></tr>
+    <tr><td>4</td></tr>
+  </tbody>
+</table>
+HTML;
+
+        $this->assertSame($expected, trim($html));
+    }
+
+    /**
+     * `bin/carve --json` output for a spanned table validates against the
+     * published schema (`resources/ast-schema.json` in the spec repo) -
+     * carve-php#527's actual acceptance criterion. Runs only when that sibling
+     * checkout and a JSON Schema validator are available, since neither is a
+     * dependency of this package; it is a real, non-fragile check on a
+     * machine that has both; a bare structural check for the schema's
+     * `additionalProperties: false` on `table_cell` (no rowspan/colspan,
+     * `span` limited to "rowspan"/"colspan") still runs unconditionally above.
+     */
+    public function testJsonOutputValidatesAgainstThePublishedSchema(): void
+    {
+        // The repo root, however this checkout got here: a normal clone
+        // (`.../carve-php`, sibling to `.../carve`) or a worktree under
+        // `/tmp` for isolated work, which is not a sibling of anything -
+        // hence the second, well-known-path fallback.
+        $repoRoot = dirname(__DIR__, 2);
+        $candidates = [
+            dirname($repoRoot) . '/carve/resources/ast-schema.json',
+            '/media/mark/data/work/git/carve/resources/ast-schema.json',
+        ];
+        $schemaPath = null;
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                $schemaPath = $candidate;
+
+                break;
+            }
+        }
+        if ($schemaPath === null) {
+            $this->markTestSkipped('the carve spec repo checkout is not available at ' . implode(' or ', $candidates));
+        }
+
+        $binCarve = $repoRoot . '/bin/carve';
+        $source = "| A | B | C |\n|---|---|---|\n| x | y | z |\n| ^ | < | d |\n";
+        $sourcePath = tempnam(sys_get_temp_dir(), 'carve527-');
+        $this->assertNotFalse($sourcePath);
+        file_put_contents($sourcePath, $source);
+        $pythonScriptPath = null;
+
+        try {
+            $json = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($binCarve) . ' --json ' . escapeshellarg($sourcePath));
+            $this->assertIsString($json, 'bin/carve --json produced no output');
+
+            $pythonScript = <<<'PY'
+import json, sys
+try:
+    import jsonschema
+except ImportError:
+    print("SKIP: jsonschema not installed")
+    sys.exit(0)
+schema = json.load(open(sys.argv[1]))
+doc = json.loads(sys.stdin.read())
+try:
+    jsonschema.validate(instance=doc, schema=schema)
+    print("VALID")
+except jsonschema.ValidationError as e:
+    print("INVALID: " + e.message)
+PY;
+            $pythonScriptPath = tempnam(sys_get_temp_dir(), 'carve527-validate-');
+            $this->assertNotFalse($pythonScriptPath);
+            file_put_contents($pythonScriptPath, $pythonScript);
+
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $process = proc_open(
+                ['python3', $pythonScriptPath, $schemaPath],
+                $descriptors,
+                $pipes,
+            );
+            if (!is_resource($process)) {
+                $this->markTestSkipped('python3 is not available to validate the schema');
+            }
+
+            fwrite($pipes[0], $json);
+            fclose($pipes[0]);
+            $result = trim((string)stream_get_contents($pipes[1]));
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($process);
+
+            if (str_starts_with($result, 'SKIP')) {
+                $this->markTestSkipped($result);
+            }
+            $this->assertSame('VALID', $result);
+        } finally {
+            unlink($sourcePath);
+            if ($pythonScriptPath !== null) {
+                unlink($pythonScriptPath);
+            }
+        }
     }
 }

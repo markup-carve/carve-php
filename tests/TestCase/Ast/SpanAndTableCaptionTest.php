@@ -50,13 +50,12 @@ class SpanAndTableCaptionTest extends TestCase
             }
         }
 
-        // Only ONE span survives, and that is the model gap this change does NOT
-        // close: the `^` was merged into the origin cell as `rowspan: 2` and its
-        // placeholder dropped, where carve-js keeps a placeholder carrying
-        // `span: "rowspan"`. So this row has two cells here and three there.
-        // Mapping one to the other changes how many cells a row has, which is a
-        // decision about the tree rather than an encoder concern.
-        $this->assertSame(['colspan'], $spans);
+        // BOTH markers survive as their own placeholder cell now (carve#527):
+        // the parser keeps a real `table_cell` for a `^` continuation instead
+        // of merging it into the origin as a `rowspan` count and dropping its
+        // placeholder - carve-js parity, so this row has three cells here too,
+        // matching the reference.
+        $this->assertSame(['rowspan', 'colspan'], $spans);
     }
 
     public function testARowspanMarkerIsNamedToo(): void

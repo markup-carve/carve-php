@@ -72,8 +72,6 @@ final class ReferenceShape
         'list' => ['start' => 'start', 'tight' => 'tight', 'marker' => 'bulletChar', 'style' => 'olType'],
         'table_cell' => [
             'alignment' => 'align',
-            'rowspan' => 'rowspan',
-            'colspan' => 'colspan',
             'spanMarker' => 'span',
         ],
         // The reference's `title` is an array of inline nodes, which is what
@@ -170,7 +168,18 @@ final class ReferenceShape
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
         // `header` carries this; the row flag is recomputed from its cells.
-        'table_cell' => ['isHeader'],
+        // `rowspan`/`colspan` are internal bookkeeping this engine still keeps
+        // for its own writer, the ProseMirror bridge, and layout renderers
+        // that flatten a table into logical columns - none of it is the
+        // reference's shape. carve-php#527: the reference records a span as a
+        // real placeholder `table_cell` (`span: "rowspan"`/`"colspan"`), not a
+        // count on the origin, and `additionalProperties: false` rejects the
+        // count outright. The count is recomputable from the tree (every
+        // renderer that needs an ACCURATE one - HTML, Carve, ANSI/plain/
+        // Markdown - already resolves it fresh from the placeholders via
+        // TableSpanGrid rather than trusting this field), so dropping it from
+        // the wire loses nothing a consumer could read from it anyway.
+        'table_cell' => ['isHeader', 'rowspan', 'colspan'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
         'div' => ['typed', 'header'],

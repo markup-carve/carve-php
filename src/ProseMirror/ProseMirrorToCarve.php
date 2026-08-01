@@ -268,7 +268,105 @@ class ProseMirrorToCarve
             }
         }
 
+        if ($node instanceof Table) {
+            // ProseMirror's table is a MERGED-cell model: a spanning cell
+            // carries its own `colspan`/`rowspan` and the columns it covers
+            // simply have no cell there. Carve's is a placeholder model
+            // (carve-php#527, carve-js parity): every column keeps a cell,
+            // `^`/`<` markers included, so every row has the same width. This
+            // rebuilds that shape from the merged one, the same way
+            // HtmlToCarve turns an HTML `colspan`/`rowspan` into `<`/`^`
+            // continuation markers - just at the node level instead of
+            // through Carve source text.
+            $this->normalizeTableSpans($node);
+        }
+
         return $node;
+    }
+
+    /**
+     * Splice `^`/`<` placeholder cells into a ProseMirror-imported table's
+     * rows so every row ends up with one cell per grid column, matching this
+     * engine's own parser output (carve-php#527). Mirrors
+     * `HtmlToCarve::processTable`'s rowspan-map walk, but builds `TableCell`
+     * nodes directly instead of Carve source text.
+     */
+    protected function normalizeTableSpans(Table $table): void
+    {
+        /** @var array<int, int> $rowspanMap */
+        $rowspanMap = [];
+
+        foreach ($table->getChildren() as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+
+            $originalCells = [];
+            foreach ($row->getChildren() as $child) {
+                if ($child instanceof TableCell) {
+                    $originalCells[] = $child;
+                }
+            }
+
+            $isHeaderRow = $row->isHeader();
+            $newCells = [];
+            $logicalCol = 0;
+
+            foreach ($originalCells as $cell) {
+                while (($rowspanMap[$logicalCol] ?? 0) > 0) {
+                    $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
+                    $rowspanMap[$logicalCol]--;
+                    if ($rowspanMap[$logicalCol] === 0) {
+                        unset($rowspanMap[$logicalCol]);
+                    }
+                    $logicalCol++;
+                }
+
+                $colspan = max(1, $cell->getColspan());
+                $rowspan = max(1, $cell->getRowspan());
+                $newCells[] = $cell;
+                if ($rowspan > 1) {
+                    $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
+                }
+                $logicalCol++;
+
+                for ($cs = 1; $cs < $colspan; $cs++) {
+                    $newCells[] = $this->spanPlaceholder($isHeaderRow, '<');
+                    $logicalCol++;
+                }
+            }
+
+            // Trailing rowspan continuations for a row where the last real
+            // cell does not reach the table's full width.
+            while (($rowspanMap[$logicalCol] ?? 0) > 0) {
+                $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
+                $rowspanMap[$logicalCol]--;
+                if ($rowspanMap[$logicalCol] === 0) {
+                    unset($rowspanMap[$logicalCol]);
+                }
+                $logicalCol++;
+            }
+
+            if (count($newCells) === count($originalCells)) {
+                // No span in this row; nothing to splice.
+                continue;
+            }
+
+            foreach ($row->getChildren() as $existing) {
+                $row->removeChild($existing);
+            }
+            foreach ($newCells as $newCell) {
+                $row->appendChild($newCell);
+            }
+        }
+    }
+
+    protected function spanPlaceholder(bool $isHeader, string $marker): TableCell
+    {
+        $cell = new TableCell($isHeader);
+        $cell->setSpanMarker($marker);
+
+        return $cell;
     }
 
     /**

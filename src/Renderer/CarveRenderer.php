@@ -653,13 +653,16 @@ class CarveRenderer implements RendererInterface
     {
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
+        // Every row already carries one cell per grid column, including a
+        // placeholder for each `^`/`<` span marker (carve-php#527), so the
+        // column count and each row's own cells are read directly - no more
+        // reconstructing covered columns from a colspan/rowspan count.
         $columns = 0;
         foreach ($tableRows as $row) {
-            $width = 0;
-            foreach ($row->getChildren() as $cell) {
-                $width += $cell instanceof TableCell ? max(1, $cell->getColspan()) : 1;
-            }
-            $columns = max($columns, $width);
+            $columns = max($columns, count(array_filter(
+                $row->getChildren(),
+                static fn (Node $child): bool => $child instanceof TableCell,
+            )));
         }
         // Tables prefer the NATIVE header form: an `=` on each header cell plus
         // the per-cell alignment markers. The GFM delimiter row is an accepted
@@ -693,11 +696,7 @@ class CarveRenderer implements RendererInterface
         if ($headerRow) {
             $headerColumn = 0;
             foreach ($tableRows[0]->getChildren() as $cell) {
-                if (!$cell instanceof TableCell) {
-                    continue;
-                }
-                $width = max(1, $cell->getColspan());
-                for ($i = 0; $i < $width; $i++) {
+                if ($cell instanceof TableCell) {
                     $headerAligns[$headerColumn++] = $cell->getAlignment();
                 }
             }
@@ -715,23 +714,11 @@ class CarveRenderer implements RendererInterface
                 }
             }
         }
-        $rowspans = array_fill(0, $columns, 0);
         foreach ($tableRows as $rowIndex => $row) {
             $cells = [];
-            $rowCells = $row->getChildren();
-            $sourceIndex = 0;
-            for ($column = 0; $column < $columns; $column++) {
-                if (($rowspans[$column] ?? 0) > 0) {
-                    $cells[] = ['text' => '^', 'tight' => true];
-                    $rowspans[$column]--;
-
-                    continue;
-                }
-                $cell = $rowCells[$sourceIndex] ?? null;
-                $sourceIndex++;
+            $column = 0;
+            foreach ($row->getChildren() as $cell) {
                 if (!$cell instanceof TableCell) {
-                    $cells[] = ['text' => '', 'tight' => false];
-
                     continue;
                 }
                 // In the delimiter form the promoted row is written as ordinary
@@ -741,20 +728,15 @@ class CarveRenderer implements RendererInterface
                     && $rowIndex > 0
                     && ($headerAligns[$column] ?? null) === $cell->getAlignment();
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
-                if ($cell->getRowspan() > 1) {
-                    $rowspans[$column] = $cell->getRowspan() - 1;
-                }
-                for ($span = 1; $span < $cell->getColspan() && $column + 1 < $columns; $span++) {
-                    $column++;
-                    if (($rowspans[$column] ?? 0) > 0) {
-                        $cells[] = ['text' => '^', 'tight' => true];
-                        $rowspans[$column]--;
-                        $span--;
-
-                        continue;
-                    }
-                    $cells[] = ['text' => '<', 'tight' => true];
-                }
+                $column++;
+            }
+            // Pad a row that genuinely has fewer cells than the widest row (an
+            // AST built by hand rather than parsed) with blank cells, matching
+            // the previous fallback for a missing source cell.
+            $cellCount = count($cells);
+            while ($cellCount < $columns) {
+                $cells[] = ['text' => '', 'tight' => false];
+                $cellCount++;
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
         }
