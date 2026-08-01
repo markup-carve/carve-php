@@ -285,6 +285,11 @@ class AstCodecTest extends TestCase
      * the same `<aside>` while losing its title entirely. Carve output is the
      * stricter surface because it has to reproduce what the AUTHOR wrote, which
      * is exactly what PART 12 §6 is about.
+     *
+     * The four exceptions are the ones §5 states outright, listed by name so
+     * that a NEW loss fails here and so does one of these being FIXED - a
+     * subset check would let the first through as soon as the list had an
+     * entry.
      */
     public function testEveryCorpusDocumentSurvivesARoundTrip(): void
     {
@@ -315,10 +320,113 @@ class AstCodecTest extends TestCase
         }
 
         $this->assertSame([], $htmlFailures, sprintf('%d corpus documents lost HTML', count($htmlFailures)));
+        sort($carveFailures);
         $this->assertSame(
-            [],
+            self::AUTHORED_FORM_NOT_ON_THE_WIRE,
             $carveFailures,
             sprintf('%d corpus documents lost authored form: %s', count($carveFailures), implode(', ', array_slice($carveFailures, 0, 8))),
+        );
+    }
+
+    /**
+     * The documents a JSON round trip does not return to their authored form,
+     * and the only ones.
+     *
+     * Every one holds an unresolved reference - `[a][]` - which this engine
+     * keeps as a `raw_text` node so its writer reproduces the brackets the
+     * parser declined to interpret. PART 12 §5 excludes that node from the
+     * wire, so it publishes as `text` and comes back as one, and a text node's
+     * brackets are metacharacters that the writer escapes: `\[a\]\[\]`.
+     *
+     * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
+     * than a decoded payload. What is lost is authored form AFTER a trip
+     * through the JSON, which is the cost §5 accepted. Reconstructing the node
+     * on decode - "a text node that looks like reference source" - would trade
+     * this stated loss for a silent one.
+     *
+     * @var array<string>
+     */
+    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
+        '134-link-reference-definition-separator-must-be-a-space.crv',
+        '157-indented-reference-and-footnote-definitions-stay-literal.crv',
+        '18-unresolved-reference-link.crv',
+        '76-reference-labels-are-case-sensitive.crv',
+    ];
+
+    /**
+     * `raw_text` is this engine's node and no other engine has it.
+     *
+     * For `see [a][] here` both carve-js and carve-rs publish three text nodes,
+     * verified on their mains; this engine published a `raw_text` in the middle,
+     * which the schema rejects and the profile vocabulary does not name - so the
+     * conformance gate reported a node type nothing accounts for.
+     */
+    public function testAnUnresolvedReferencePublishesAsTextLikeTheReference(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('see [a][] here'));
+        $inlines = $encoded['children'][0]['children'];
+
+        $this->assertSame(['text', 'text', 'text'], array_column($inlines, 'type'));
+        // The content is the source the parser declined, not an escaped form of
+        // it: escaping belongs to the writer, not to the wire.
+        $this->assertSame('[a][]', $inlines[1]['value']);
+        $this->assertArrayNotHasKey('content', $inlines[1], 'a text node publishes `value`');
+    }
+
+    /**
+     * The mapping is on the way OUT only (PART 12 §1).
+     *
+     * The live tree keeps `raw_text`, so formatting a parsed document still
+     * reproduces the brackets. This is the half that would break silently if
+     * the node were dropped at parse time instead of at encode time, and it is
+     * why `fmt` is not affected by any of this.
+     */
+    public function testFormattingAParsedDocumentStillReproducesDeclinedMarkup(): void
+    {
+        $source = "see [a][] here\n";
+
+        $this->assertSame($source, (new CarveRenderer())->render($this->converter->parse($source)));
+    }
+
+    /**
+     * Reading one back still works, because this engine wrote them.
+     *
+     * §5 governs what is PUBLISHED. A payload that names the node was produced
+     * by an earlier version of this codec, and a stored document cannot be
+     * recalled - rejecting it, or silently turning it into something else,
+     * would make the fix a data-loss event for anyone who serialized before it.
+     */
+    public function testAStoredPayloadNamingTheInternalNodeStillDecodes(): void
+    {
+        $stored = [
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'raw_text', 'content' => '[a][]']],
+                ],
+            ],
+        ];
+
+        $decoded = $this->codec->decode($stored);
+
+        $paragraph = $decoded->getChildren()[0];
+        $this->assertSame('raw_text', $paragraph->getChildren()[0]->getType());
+        // And it writes back as the source it holds, which is the whole reason
+        // the node exists.
+        $this->assertSame("[a][]\n", (new CarveRenderer())->render($decoded));
+    }
+
+    public function testAnUnresolvedReferenceKeepsItsHtmlThroughARoundTrip(): void
+    {
+        $document = $this->converter->parse('see [a][] here');
+        $decoded = $this->codec->decode($this->codec->encode($this->converter->parse('see [a][] here')));
+
+        // HTML is the surface a consumer of the wire actually renders, and it is
+        // unchanged - the brackets are literal text either way.
+        $this->assertSame(
+            $this->converter->render($document),
+            (new CarveConverter())->render($decoded),
         );
     }
 

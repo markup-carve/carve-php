@@ -71,6 +71,26 @@ class AstCodecSchemaTest extends TestCase
         (new AstCodec())->decode(['type' => 'document', 'children' => [['type' => $type]]]);
     }
 
+    /**
+     * A formatter-internal node is not in the published schema either.
+     *
+     * The class map is built by reflection, so an internal node class is
+     * advertised by default - which is how `raw_text` stayed in this schema
+     * after the encoder stopped emitting it: a consumer validating against
+     * `AstCodec::schema()` was still told about a type the encoder cannot
+     * produce and the spec's own schema rejects (PART 12 §5).
+     */
+    public function testAFormatterInternalTypeIsNotAdvertised(): void
+    {
+        $schema = AstCodec::schema();
+
+        foreach (AstCodec::NOT_ON_THE_WIRE as $type) {
+            $this->assertArrayNotHasKey($type, $schema);
+        }
+        // The list is not empty, or this test would pass by describing nothing.
+        $this->assertNotSame([], AstCodec::NOT_ON_THE_WIRE);
+    }
+
     public function testAFalseValueThatIsNotTheDefaultSurvives(): void
     {
         // A loose list is tight = false against a default of true. Omitting every

@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Profile;
@@ -88,6 +89,28 @@ class AstCodec
      * @var int
      */
     public const VERSION = 2;
+
+    /**
+     * Node types this engine has and the wire does not (PART 12 §5).
+     *
+     * The class map is built by reflection, so a node class is publishable the
+     * day it is added - which is what keeps the codec complete, and what makes
+     * an internal one leak by default. `raw_text` is the case §5 names: markup
+     * the parser declined, kept so the writer can reproduce it verbatim.
+     *
+     * Encoding maps it to `text` (see `encodeNode`); this list keeps it out of
+     * the PUBLISHED schema as well, so a consumer validating against
+     * {@see self::schema()} is not told about a type the encoder cannot produce
+     * and the spec's own schema rejects.
+     *
+     * DECODING still accepts it. This engine emitted `raw_text` payloads until
+     * now, a stored document cannot be recalled, and reading one back as the
+     * node it names loses nothing - it is only the publishing side that §5
+     * governs.
+     *
+     * @var array<string>
+     */
+    public const NOT_ON_THE_WIRE = ['raw_text'];
 
     /**
      * Fields the reference publishes even when they hold this engine's default.
@@ -554,6 +577,17 @@ class AstCodec
                 continue;
             }
 
+            if ($key !== 'children' && in_array($type, self::NOT_ON_THE_WIRE, true)) {
+                // A payload naming a node the wire does not have was written by
+                // an earlier version of this codec. It still DECODES - a stored
+                // document cannot be recalled - but re-encoding publishes it
+                // under its mapped type, so its own fields have no counterpart
+                // by design. That is §5's stated outcome, not a lost field, and
+                // reporting it would make the check cry wolf on the one case it
+                // is documented to allow. Children are still compared.
+                continue;
+            }
+
             if (!array_key_exists($key, $roundTripped)) {
                 // The encoder omits a field holding the node's own default, so a
                 // payload that spells one out explicitly - `children: []` on an
@@ -683,6 +717,9 @@ class AstCodec
     {
         $schema = [];
         foreach (self::classMap() as $type => $class) {
+            if (in_array($type, self::NOT_ON_THE_WIRE, true)) {
+                continue;
+            }
             $reflection = new ReflectionClass($class);
             $fields = [];
             $required = [];
@@ -865,6 +902,26 @@ class AstCodec
             // built-in list: "an admonition is its own type rather than a div
             // carrying a class", so a profile denying callouts can say so.
             $type = 'admonition';
+        }
+        if ($node instanceof RawText) {
+            // PART 12 §5: a formatter-internal node is not serialized. This one
+            // holds markup the parser DECLINED - the `[a][]` of an unresolved
+            // reference - which this engine keeps so its writer can reproduce
+            // the source verbatim instead of escaping brackets it never
+            // interpreted. The reference has no such node: carve-js and carve-rs
+            // both publish `["text", "text", "text"]` for `see [a][] here`.
+            //
+            // So it publishes as `text`, which §1 already licenses - "an
+            // implementation whose internals differ MAPS on the way out; it does
+            // not export its internals" - and the mapping is one-way on purpose.
+            // The live tree still holds `RawText`, so `fmt` is unaffected: it
+            // reads the tree it was handed, not a decoded payload. What a
+            // consumer loses is the authored form AFTER a round trip through the
+            // JSON, `[a][]` coming back as `\[a\]\[\]`, which is the cost §5
+            // accepted when it excluded these nodes. The alternative - guessing
+            // on decode which text nodes were declined markup - trades a stated
+            // loss for a silent one (carve-php#531).
+            $type = 'text';
         }
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
