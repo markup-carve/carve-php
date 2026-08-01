@@ -744,6 +744,52 @@ class AstCodec
     }
 
     /**
+     * Drop the opener word from a typed div's `class` attribute.
+     *
+     * @param array<string, string> $attributes
+     *
+     * @return array<string, string>
+     */
+    private static function withoutOpenerClass(array $attributes, ?string $kind): array
+    {
+        if ($kind === null || !isset($attributes['class'])) {
+            return $attributes;
+        }
+
+        $classes = preg_split('/\s+/', trim($attributes['class'])) ?: [];
+        $first = array_search($kind, $classes, true);
+        if ($first !== false) {
+            unset($classes[$first]);
+        }
+
+        if ($classes === []) {
+            unset($attributes['class']);
+
+            return $attributes;
+        }
+
+        $attributes['class'] = implode(' ', $classes);
+
+        return $attributes;
+    }
+
+    /**
+     * The opener type word of a typed div (`::: note` -> `note`).
+     *
+     * Stored as the FIRST class: the parser puts the structural class it derived
+     * from the opener ahead of anything an attribute line contributes. Not
+     * `Div::admonitionKind()`, which answers the narrower Tier-1 question - a
+     * `::: sidebar` has an opener word but is not a callout, and the wire
+     * publishes its kind all the same.
+     */
+    private static function openerKind(Div $node): ?string
+    {
+        $classes = preg_split('/\s+/', trim((string)($node->getAttributes()['class'] ?? ''))) ?: [];
+
+        return ($classes[0] ?? '') === '' ? null : $classes[0];
+    }
+
+    /**
      * This engine's flat attribute map to the reference's structured block.
      *
      * The wire shape is `{id, classes[], keyValues{}, order[]}` with
@@ -963,6 +1009,15 @@ class AstCodec
         }
 
         $attributes = $node->getAttributes();
+        if ($node instanceof Div && $node->isTyped()) {
+            // The opener word is published as `kind` and is NOT an attribute the
+            // author wrote in a block, so it must not appear in `attrs.classes`
+            // as well - carve-js and carve-rs both leave `classes` to what the
+            // attribute line contributed (carve-php#552). Dropping the whole
+            // `class` attribute when the opener was its only class keeps an
+            // empty `classes: []` off the wire.
+            $attributes = self::withoutOpenerClass($attributes, self::openerKind($node));
+        }
         if ($attributes !== []) {
             $encoded['attrs'] = self::attrsToWire($attributes, $node->getAttributeOrder());
         }
@@ -1181,7 +1236,14 @@ class AstCodec
         if ($node instanceof Div && $node->isTyped()) {
             // `::: warning` - the word is the admonition kind, which this engine
             // keeps as a class rather than a field of its own.
-            return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
+            //
+            // The FIRST class, not the whole attribute. The parser stores the
+            // opener word first and an attribute line appends after it, so
+            // `{.x}` above a `::: note` published `kind: "note x"` - a string
+            // that is not a kind and matches nothing a consumer can look up
+            // (carve-php#552). carve-js and carve-rs publish `kind: "note"`
+            // with the extra class left in `attrs.classes`.
+            return ['kind' => self::openerKind($node) ?? ''];
         }
 
         if ($node instanceof Abbreviation) {
@@ -1552,6 +1614,19 @@ class AstCodec
 
         /** @var array<string, mixed> $wire */
         $wire = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+        // A typed div's opener word is published as `kind` rather than as a
+        // class, so put it back BEFORE the attributes are built: attrsFromWire
+        // places `class` ahead of the key/values, which is the order the parser
+        // stores and the renderer emits. Re-adding it afterwards put `title`
+        // first and round-tripped `42-admonitions-5` to different HTML
+        // (carve-php#552).
+        if ($node instanceof Div && is_string($data['kind'] ?? null) && $data['kind'] !== '') {
+            $classes = is_array($wire['classes'] ?? null)
+                ? array_values(array_filter($wire['classes'], 'is_string'))
+                : [];
+            array_unshift($classes, $data['kind']);
+            $wire['classes'] = $classes;
+        }
         [$attrs, $order] = self::attrsFromWire($wire);
         if ($attrs !== []) {
             $node->setAttributesWithOrder($attrs, $order);
