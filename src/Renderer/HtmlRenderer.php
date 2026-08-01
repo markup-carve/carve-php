@@ -1424,48 +1424,58 @@ class HtmlRenderer implements RendererInterface
             $lines[] = '  <caption>' . rtrim($this->renderChildren($caption)) . '</caption>';
         }
 
-        // Leading consecutive header rows form <thead>; the rest <tbody>.
-        $rows = [];
+        // Every row has a grid entry for every column, including a placeholder
+        // for each `^`/`<` span marker (carve-php#527). Resolve which entries a
+        // span actually claims (`skip`) and the rowspan/colspan the surviving
+        // cell reports, rather than reading a count off the cell itself - a
+        // consumed placeholder renders no element at all, matching carve-js.
+        $grid = TableSpanGrid::resolve($node);
+
+        // Leading consecutive header rows form <thead>; the rest <tbody> -
+        // unaffected by span resolution, a row's own header-ness (§ carve-js
+        // parity: every cell in it is a header cell, degraded placeholders
+        // included) is unchanged by which cells a span later claims.
+        $tableRows = [];
         foreach ($node->getChildren() as $child) {
             if ($child instanceof TableRow) {
-                $rows[] = $child;
+                $tableRows[] = $child;
             }
         }
-        $headerRows = [];
-        $bodyRows = [];
+        $headerRowCount = 0;
         $inHeader = true;
-        foreach ($rows as $row) {
+        foreach ($tableRows as $row) {
             if ($inHeader && $row->isHeader()) {
-                $headerRows[] = $row;
+                $headerRowCount++;
             } else {
                 $inHeader = false;
-                $bodyRows[] = $row;
             }
         }
 
-        $renderRow = function (TableRow $row): string {
+        $renderRow = function (TableRow $row, array $gridRow): string {
             $cells = '';
-            foreach ($row->getChildren() as $cell) {
-                if ($cell instanceof TableCell) {
-                    $cells .= rtrim($this->renderTableCell($cell), "\n");
+            foreach ($gridRow as $entry) {
+                if ($entry['skip']) {
+                    continue;
                 }
+                $cells .= rtrim($this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan']), "\n");
             }
 
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
         };
 
-        if ($headerRows !== []) {
+        if ($headerRowCount > 0) {
             $thead = '';
-            foreach ($headerRows as $row) {
-                $thead .= $renderRow($row);
+            for ($i = 0; $i < $headerRowCount; $i++) {
+                $thead .= $renderRow($tableRows[$i], $grid[$i]);
             }
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
 
-        if ($bodyRows !== []) {
+        $tableRowCount = count($tableRows);
+        if ($headerRowCount < $tableRowCount) {
             $tbody = '';
-            foreach ($bodyRows as $row) {
-                $tbody .= '    ' . $renderRow($row) . "\n";
+            for ($i = $headerRowCount; $i < $tableRowCount; $i++) {
+                $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
             }
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
         }
@@ -1480,17 +1490,31 @@ class HtmlRenderer implements RendererInterface
         return '<tr' . $attrs . ">\n" . $this->renderChildren($node) . "</tr>\n";
     }
 
+    /**
+     * Fallback for a `TableCell` rendered outside of `renderTable`'s own grid
+     * walk (the generic node dispatch table). A cell reached this way did not
+     * come through span resolution, so its own colspan/rowspan is read as-is.
+     */
     protected function renderTableCell(TableCell $node): string
+    {
+        return $this->renderResolvedTableCell($node, $node->getRowspan(), $node->getColspan());
+    }
+
+    /**
+     * Render a single `<th>`/`<td>` with an EXPLICIT rowspan/colspan, resolved
+     * by `TableSpanGrid` rather than read off the cell - a cell's own stored
+     * rowspan/colspan is internal bookkeeping for other consumers (carve#527)
+     * and is not what this renderer emits.
+     */
+    protected function renderResolvedTableCell(TableCell $node, int $rowspan, int $colspan): string
     {
         $tag = $node->isHeader() ? 'th' : 'td';
         $attrs = $this->getRenderableAttributes($node);
 
-        $rowspan = $node->getRowspan();
         if ($rowspan > 1) {
             $attrs['rowspan'] = (string)$rowspan;
         }
 
-        $colspan = $node->getColspan();
         if ($colspan > 1) {
             $attrs['colspan'] = (string)$colspan;
         }

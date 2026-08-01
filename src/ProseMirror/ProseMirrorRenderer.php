@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
@@ -30,6 +31,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\TableSpanGrid;
 
 /**
  * Renders a Carve AST as a ProseMirror (Tiptap) document.
@@ -149,7 +151,7 @@ class ProseMirrorRenderer
             if ($caption !== null) {
                 $out['content'] = [
                     ['type' => 'carveCaption', 'content' => $this->renderInlines($caption->getChildren(), [])],
-                    ...$this->renderBlocks($node->getChildren()),
+                    ...$this->renderTableRows($node),
                 ];
 
                 return $out;
@@ -161,12 +163,89 @@ class ProseMirrorRenderer
             // emitted as the single text child ProseMirror expects.
             $code = $node->getContent();
             $content = $code === '' ? [] : [['type' => 'text', 'text' => $code]];
+        } elseif ($node instanceof Table) {
+            $content = $this->renderTableRows($node);
         } else {
             $content = $this->isInlineContainer($node)
                 ? $this->renderInlines($node->getChildren(), [])
                 : $this->renderBlocks($node->getChildren());
         }
 
+        if ($content !== []) {
+            $out['content'] = $content;
+        }
+
+        return $out;
+    }
+
+    /**
+     * A table's rows, with a cell for every column the ProseMirror editor
+     * model actually wants - one per NON-consumed grid entry, carrying the
+     * rowspan/colspan a span marker resolves to.
+     *
+     * carve-php#527: this engine's own tree keeps a real, empty `table_cell`
+     * for every `^`/`<` marker (carve-js parity, uniform row width), but
+     * ProseMirror's table is the OTHER shape - a merged cell with its own
+     * `colspan`/`rowspan`, and no node at all for the columns it covers.
+     * Walking `TableRow::getChildren()` node-for-node would therefore emit an
+     * extra `tableCell` for every placeholder, corrupting the editor's grid
+     * exactly the way it would corrupt HTML (`renderTable` in HtmlRenderer)
+     * or the Carve/ANSI/Markdown output (`TableSpanGrid` / `TableLayout`) -
+     * so this resolves the same grid those do and skips a consumed entry
+     * entirely rather than rendering it.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function renderTableRows(Table $node): array
+    {
+        $grid = TableSpanGrid::resolve($node);
+
+        $tableRows = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof TableRow) {
+                $tableRows[] = $child;
+            }
+        }
+
+        $rows = [];
+        foreach ($tableRows as $index => $row) {
+            $this->noteUnrepresentableState($row);
+            $rowOut = ['type' => 'tableRow'];
+            $cells = [];
+            foreach ($grid[$index] as $entry) {
+                $this->noteUnrepresentableState($entry['cell']);
+                if ($entry['skip']) {
+                    continue;
+                }
+                $cells[] = $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan']);
+            }
+            if ($cells !== []) {
+                $rowOut['content'] = $cells;
+            }
+            $rows[] = $rowOut;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A single `tableCell`/`tableHeader` node with an EXPLICIT rowspan/colspan
+     * resolved by `TableSpanGrid`, rather than the cell's own stored value -
+     * see `renderTableRows`.
+     *
+     * @return array<string, mixed>
+     */
+    protected function renderResolvedTableCell(TableCell $cell, int $rowspan, int $colspan): array
+    {
+        $out = ['type' => $cell->isHeader() ? 'tableHeader' : 'tableCell'];
+        $attrs = $this->attributesFor($cell);
+        $attrs['colspan'] = $colspan;
+        $attrs['rowspan'] = $rowspan;
+        $out['attrs'] = $attrs;
+
+        $content = $this->isInlineContainer($cell)
+            ? $this->renderInlines($cell->getChildren(), [])
+            : $this->renderBlocks($cell->getChildren());
         if ($content !== []) {
             $out['content'] = $content;
         }

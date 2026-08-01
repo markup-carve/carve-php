@@ -199,8 +199,16 @@ class SourcePositionTest extends TestCase
             }
         }
 
+        // carve-php#527 dropped this floor from 0.997: the parser now keeps a
+        // real (empty) `table_cell` for every `^`/`<` span marker instead of
+        // absorbing it into the origin as a rowspan/colspan count (carve-js
+        // parity - a consumer walking `rows[i].cells` gets the same length for
+        // every row). A span marker's placeholder declines a position, same as
+        // it always did as a degenerate marker - there are just more of them
+        // now that a CONSUMED marker keeps its own cell too, so the corpus's
+        // unplaced-node count rose without any placement logic regressing.
         $this->assertGreaterThan(
-            0.997,
+            0.993,
             $placed / $total,
             sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
         );
