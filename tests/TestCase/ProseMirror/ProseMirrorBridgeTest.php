@@ -153,6 +153,30 @@ class ProseMirrorBridgeTest extends TestCase
         $this->converter->convert(['type' => 'paragraph']);
     }
 
+    /**
+     * The label is the note's identity: it binds a reference to its definition
+     * and tells two references to the same note apart. The bridge left the
+     * attribute unset, so every footnote in a document came back as the same
+     * anonymous `[^]` - including, in this case, three of them.
+     */
+    public function testAFootnoteKeepsItsLabel(): void
+    {
+        $source = "See[^a], again[^a] and[^b].\n\n[^a]: first\n\n[^b]: second\n";
+        $document = (new CarveConverter())->parse($source);
+
+        $pm = $this->renderer->render($document);
+        $refs = array_values(array_filter(
+            $pm['content'][0]['content'],
+            static fn (array $inline): bool => $inline['type'] === 'carveFootnote',
+        ));
+
+        $this->assertCount(3, $refs);
+        $this->assertSame(['a', 'a', 'b'], array_column(array_column($refs, 'attrs'), 'label'));
+
+        $back = $this->converter->convert($pm);
+        $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
     public function testJsonHelpersAreSymmetric(): void
     {
         $document = (new CarveConverter())->parse("# A\n\n- one\n");
