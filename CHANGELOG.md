@@ -29,6 +29,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The source-first corpus sweep did not catch any of this because Carve's own
   parser cannot construct the ProseMirror-only paragraph-wrapped cell shape.
 
+- **Block-position inline nodes from ProseMirror no longer disappear from
+  Carve source.** Tiptap's image extension puts images at document level, and a
+  custom editor can do the same with any inline node. The bridge accepted that
+  shape directly, leaving an inline as a child of a block container - a tree the
+  Carve parser cannot produce. HTML still rendered it, but the canonical source
+  writer has no block form for a bare inline, so the content came back empty
+  with no dropped or degraded type reported.
+
+  ProseMirror input now wraps each adjacent run of block-position inlines in one
+  paragraph before appending it to a document, block quote, list item, or other
+  block container. Source-first corpus sweeps could not construct this editor
+  shape, which is why it went unnoticed.
+
 - **Frontmatter is no longer claimed after a leading blank line.** The parser
   matched on "first block of `Document`", but a blank line yields no child node,
   so `\n---\n\n---\n` was read as an empty frontmatter fence and the whole

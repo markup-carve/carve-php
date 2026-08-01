@@ -466,6 +466,51 @@ class ProseMirrorBridgeTest extends TestCase
         $this->converter->convert(['type' => 'doc', 'content' => [['type' => 'someAppNode']]]);
     }
 
+    /**
+     * A child with no usable type reaches the block builder rather than being
+     * mistaken for an inline: the inline check answers "not inline" for a
+     * payload it cannot classify, so the diagnostic comes from the one place
+     * that owns it instead of the node being silently wrapped in a paragraph.
+     */
+    public function testABlockChildWithoutAStringTypeIsRejected(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('needs a string type');
+
+        $this->converter->convert(['type' => 'doc', 'content' => [['attrs' => ['x' => 1]]]]);
+    }
+
+    /**
+     * The cell path decides block-versus-inline by building the node, so it
+     * rejects an untyped payload rather than reading `$data['type']` as an
+     * empty name and lifting nothing.
+     */
+    public function testATableCellChildWithoutAStringTypeIsRejected(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('needs a string type');
+
+        $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                ['type' => 'tableCell', 'content' => [['attrs' => ['x' => 1]]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
     public function testANonDocRootIsRejected(): void
     {
         $this->expectException(RuntimeException::class);
@@ -695,6 +740,82 @@ class ProseMirrorBridgeTest extends TestCase
 
         $back = $this->converter->convert($pm);
         $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
+    public function testABlockPositionImageIsWrappedForCarveSource(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+            ],
+        ];
+
+        $document = $this->converter->convert($pm);
+        $source = CarveConverter::carve()->render($document);
+        $html = (new CarveConverter())->render($document);
+
+        $this->assertStringContainsString('![Plan](/x.png "T")', $source);
+        $this->assertSame($html, (new CarveConverter())->convert($source));
+    }
+
+    public function testABlockPositionImageInsideABlockQuoteIsWrapped(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'blockquote',
+                    'content' => [
+                        ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("> ![Plan](/x.png \"T\")\n", $source);
+    }
+
+    public function testAdjacentBlockPositionInlinesShareOneParagraph(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan']],
+                ['type' => 'text', 'text' => ' Caption'],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("![Plan](/x.png) Caption\n", $source);
+    }
+
+    public function testAParagraphPositionImageIsUnchanged(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'image', 'attrs' => ['src' => '/x.png', 'alt' => 'Plan', 'title' => 'T']],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("![Plan](/x.png \"T\")\n", $source);
     }
 
     public function testJsonHelpersAreSymmetric(): void
