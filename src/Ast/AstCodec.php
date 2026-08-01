@@ -544,6 +544,137 @@ class AstCodec
     }
 
     /**
+     * This engine's flat attribute map to the reference's structured block.
+     *
+     * The wire shape is `{id, classes[], keyValues{}, order[]}` with
+     * `additionalProperties: false`. This engine stores what the author wrote as
+     * a flat `name => value` map, so every attribute became a top-level key -
+     * `{"class": "note"}` where the schema wants `{"classes": ["note"]}`, and
+     * `title`, `style`, `onclick` and friends alongside it. The published schema
+     * rejects all of them.
+     *
+     * `order` is not reconstructed - it is already recorded, because the
+     * formatter needs the author's slot order to reproduce a source line.
+     *
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     *
+     * @return array<string, mixed>
+     */
+    private static function attrsToWire(array $attributes, array $order): array
+    {
+        $wire = [];
+        if (isset($attributes['id'])) {
+            $wire['id'] = $attributes['id'];
+        }
+        if (isset($attributes['class']) && $attributes['class'] !== '') {
+            // A class attribute holds a whitespace-separated list; the reference
+            // publishes it split, which is also how a consumer wants it.
+            $wire['classes'] = preg_split('/\s+/', trim($attributes['class'])) ?: [];
+        }
+
+        $keyValues = [];
+        foreach ($attributes as $name => $value) {
+            if ($name === 'id' || $name === 'class') {
+                continue;
+            }
+            $keyValues[(string)$name] = $value;
+        }
+        if ($keyValues !== []) {
+            $wire['keyValues'] = $keyValues;
+        }
+        if ($order !== []) {
+            $wire['order'] = $order;
+        }
+
+        return $wire;
+    }
+
+    /**
+     * The inverse: the reference's block back to this engine's flat map.
+     *
+     * Tolerant of the older flat form, because trees written before this change
+     * are stored: a key that is not one of the four structured ones is taken as
+     * an attribute under its own name, which is exactly what it used to mean.
+     *
+     * @param array<string, mixed> $wire
+     *
+     * @return array{0: array<string, string>, 1: list<string>}
+     */
+    private static function attrsFromWire(array $wire): array
+    {
+        $attrs = [];
+        $order = [];
+
+        if (is_string($wire['id'] ?? null)) {
+            $attrs['id'] = $wire['id'];
+        }
+        if (is_array($wire['classes'] ?? null)) {
+            $classes = array_filter($wire['classes'], 'is_string');
+            if ($classes !== []) {
+                $attrs['class'] = implode(' ', $classes);
+            }
+        }
+        if (is_array($wire['keyValues'] ?? null)) {
+            foreach ($wire['keyValues'] as $name => $value) {
+                if (is_string($value)) {
+                    $attrs[(string)$name] = $value;
+                }
+            }
+        }
+        if (is_array($wire['order'] ?? null)) {
+            $order = array_values(array_filter($wire['order'], 'is_string'));
+        }
+
+        foreach ($wire as $name => $value) {
+            if (in_array($name, ['id', 'classes', 'keyValues', 'order'], true)) {
+                continue;
+            }
+            if (is_string($value)) {
+                $attrs[(string)$name] = $value;
+            }
+        }
+
+        if ($order === []) {
+            foreach (array_keys($attrs) as $name) {
+                $order[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
+            }
+
+            return [$attrs, $order];
+        }
+
+        // Rebuild the map in the AUTHOR'S order, not the order this function
+        // happened to collect the slots in. The renderer emits attributes in
+        // storage order, so `{key=c .a #b}` came back as `{#b .a key=c}` and
+        // six corpus documents round-tripped to different HTML.
+        //
+        // An attribute the order does not name is STRUCTURAL rather than
+        // authored - an admonition's kind class is set by the parser, not
+        // written in a block - and the parser stores those FIRST. Appending
+        // them instead put `{title, class}` where `{class, title}` was, which
+        // is the one case that survived the first fix.
+        $named = [];
+        foreach ($order as $slot) {
+            $named[$slot === '#id' ? 'id' : ($slot === '.class' ? 'class' : $slot)] = true;
+        }
+
+        $ordered = [];
+        foreach ($attrs as $name => $value) {
+            if (!isset($named[$name])) {
+                $ordered[$name] = $value;
+            }
+        }
+        foreach ($order as $slot) {
+            $name = $slot === '#id' ? 'id' : ($slot === '.class' ? 'class' : $slot);
+            if (array_key_exists($name, $attrs)) {
+                $ordered[$name] = $attrs[$name];
+            }
+        }
+
+        return [$ordered, $order];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function encodeNode(Node $node): array
@@ -594,7 +725,7 @@ class AstCodec
 
         $attributes = $node->getAttributes();
         if ($attributes !== []) {
-            $encoded['attrs'] = $attributes;
+            $encoded['attrs'] = self::attrsToWire($attributes, $node->getAttributeOrder());
         }
 
         foreach ($this->derivedFields($node) as $field => $derived) {
@@ -881,10 +1012,11 @@ class AstCodec
             $property->setValue($node, $this->decodeValue($data[$name], $property));
         }
 
-        /** @var array<string, string> $attrs */
-        $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
-        foreach ($attrs as $key => $value) {
-            $node->setAttribute((string)$key, $value);
+        /** @var array<string, mixed> $wire */
+        $wire = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+        [$attrs, $order] = self::attrsFromWire($wire);
+        if ($attrs !== []) {
+            $node->setAttributesWithOrder($attrs, $order);
         }
 
         $container = ReferenceShape::containerFor($type);
