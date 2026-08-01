@@ -740,90 +740,7 @@ class InlineParser
 
             $nextChar = $text[$pos + 1] ?? '';
 
-            // A backslash at the very end of the content (no following character)
-            // is a hard break, mirroring the `\`-before-newline rule at end of
-            // input (`para\` at EOF -> `<br>`), matching djot and the cheatsheet.
-            if ($char === '\\' && $pos + 1 >= $length) {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $hardBreak = new HardBreak();
-                $this->placeAt($hardBreak, $pos, $pos + 1);
-                $parent->appendChild($hardBreak);
-                $pos++;
-
-                continue;
-            }
-
-            // Check for escape sequences
-            if ($char === '\\' && $pos + 1 < $length) {
-                $escaped = $text[$pos + 1];
-                if ($escaped === "\n") {
-                    // Hard break
-                    $this->flushText($parent, $textBuffer);
-                    $textBuffer = '';
-                    $hardBreak = new HardBreak();
-                    $this->placeAt($hardBreak, $pos, $pos + 2);
-                    $parent->appendChild($hardBreak);
-                    $pos += 2;
-
-                    continue;
-                }
-                // Check for hard break: \TAB or \ followed by optional whitespace then newline
-                if ($escaped === "\t" || $escaped === ' ') {
-                    // Look ahead for end of line (optional trailing whitespace then newline)
-                    $lookAhead = $pos + 2;
-                    while ($lookAhead < $length && ($text[$lookAhead] === ' ' || $text[$lookAhead] === "\t")) {
-                        $lookAhead++;
-                    }
-                    if ($lookAhead < $length && $text[$lookAhead] === "\n") {
-                        // This is a hard break - strip trailing whitespace from text buffer
-                        $textBuffer = rtrim($textBuffer, " \t");
-                        $this->flushText($parent, $textBuffer);
-                        $textBuffer = '';
-                        $hardBreak = new HardBreak();
-                        $this->placeAt($hardBreak, $pos, $lookAhead + 1);
-                        $parent->appendChild($hardBreak);
-                        $pos = $lookAhead + 1;
-
-                        continue;
-                    }
-                    // Not at end of line: `\ ` is Carve's explicit NBSP form.
-                    // Backslash-tab is not an escape; only ASCII punctuation escapes.
-                    if ($escaped === ' ') {
-                        // Non-breaking space - use placeholder that renderer converts to &nbsp;
-                        // We use U+E000 (private use area) to distinguish from literal NBSP
-                        // Two source bytes (`\ `) become one sentinel.
-                        $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 2);
-                        $textBuffer .= "\u{E000}";
-                        $pos += 2;
-
-                        continue;
-                    }
-                }
-                if (strpos('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~', $escaped) !== false) {
-                    // Create EscapedText node for round-trip support
-                    $this->flushText($parent, $textBuffer);
-                    $textBuffer = '';
-                    // Two bytes of source (`\*`), one of output - the reason
-                    // placement here is by extent rather than by text.
-                    $escapedNode = new EscapedText($escaped);
-                    $this->placeAt($escapedNode, $pos, $pos + 2);
-                    $parent->appendChild($escapedNode);
-                    $pos += 2;
-
-                    continue;
-                }
-            }
-
-            // Soft break (newline)
-            if ($char === "\n") {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $softBreak = new SoftBreak();
-                $this->placeAt($softBreak, $pos, $pos + 1);
-                $parent->appendChild($softBreak);
-                $pos++;
-
+            if ($this->parseEscapedOrLineBreak($parent, $text, $pos, $length, $textBuffer)) {
                 continue;
             }
 
@@ -1173,93 +1090,7 @@ class InlineParser
                 }
             }
 
-            // Smart quotes
-            if ($char === '"' || $char === "'") {
-                // The opening/closing decision keys off the PREVIOUS rendered
-                // character (mirrors carve-js, which inspects the output
-                // buffer): a `'`/`"` right after a converted `“`/`‘` opens. So
-                // pass the last char already emitted into $textBuffer. When the
-                // buffer was flushed by a prior inline node (code, emphasis,
-                // link, or a soft/hard line break), the quote is word-adjacent
-                // -> CLOSING context. carve-js treats any flushed-buffer state
-                // with prior output as `'x'` (closing), so a quote after a
-                // wrapped line stays closing (`a"b\n""` -> `a”b\n””`). A truly
-                // empty run with no prior children is start-of-content.
-                $prevConverted = $this->previousConvertedChar($parent, $textBuffer);
-                $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
-
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $quote = new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote);
-                $this->placeAt($quote, $pos, $pos + 1);
-                $parent->appendChild($quote);
-                $pos++;
-
-                continue;
-            }
-
-            // Smart dashes. The run decomposes into one or more glyphs (the
-            // em/en ladder), and each glyph consumes a fixed number of source
-            // hyphens - 3 for an em dash, 2 for an en dash - so the run
-            // partitions cleanly into one node per glyph, each carrying the
-            // hyphens it came from.
-            if ($char === '-' && $nextChar === '-') {
-                $result = $this->parseSmartDash($text, $pos);
-                $glyphs = $result['text'];
-
-                // A lone hyphen is not a substitution; it stays literal text.
-                if ($glyphs === '-') {
-                    $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
-                    $textBuffer .= '-';
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-
-                $sourcePos = $pos;
-                foreach (preg_split('//u', $glyphs, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $glyph) {
-                    $kind = $glyph === "\u{2014}" ? 'em_dash' : 'en_dash';
-                    $width = $kind === 'em_dash' ? 3 : 2;
-                    $dash = new SmartPunctuation($kind, substr($text, $sourcePos, $width));
-                    $this->placeAt($dash, $sourcePos, $sourcePos + $width);
-                    $parent->appendChild($dash);
-                    $sourcePos += $width;
-                }
-
-                $pos = $result['pos'];
-
-                continue;
-            }
-
-            // Ellipsis. Emitted as a node carrying the source run rather than
-            // substituted into the text buffer, so the Carve renderer can
-            // reproduce `...` instead of normalizing it to the glyph.
-            if ($char === '.' && substr($text, $pos, 3) === '...') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $ellipsis = new SmartPunctuation('ellipsis', '...');
-                $this->placeAt($ellipsis, $pos, $pos + 3);
-                $parent->appendChild($ellipsis);
-                $pos += 3;
-
-                continue;
-            }
-
-            // Smart symbols: arrows, comparison operators, (c)/(r)/(tm).
-            // Runs after the escape check, so `\->` etc. are already absorbed.
-            $symbol = $this->parseSmartSymbol($text, $pos);
-            if ($symbol !== null) {
-                $source = substr($text, $pos, $symbol[1]);
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $symbolNode = new SmartPunctuation($this->smartSymbolKind($source), $source);
-                $this->placeAt($symbolNode, $pos, $pos + $symbol[1]);
-                $parent->appendChild($symbolNode);
-                $pos += $symbol[1];
-
+            if ($this->parseSmartTypographyAt($parent, $text, $pos, $textBuffer)) {
                 continue;
             }
 
@@ -1282,6 +1113,165 @@ class InlineParser
 
         $this->flushText($parent, $textBuffer);
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
+    }
+
+    protected function parseEscapedOrLineBreak(
+        Node $parent,
+        string $text,
+        int &$pos,
+        int $length,
+        string &$textBuffer,
+    ): bool {
+        $char = $text[$pos];
+        if ($char === '\\' && $pos + 1 >= $length) {
+            $this->appendHardBreak($parent, $textBuffer, $pos, $pos + 1);
+            $pos++;
+
+            return true;
+        }
+
+        if ($char === '\\' && $pos + 1 < $length) {
+            $escaped = $text[$pos + 1];
+            if ($escaped === "\n") {
+                $this->appendHardBreak($parent, $textBuffer, $pos, $pos + 2);
+                $pos += 2;
+
+                return true;
+            }
+            if ($escaped === "\t" || $escaped === ' ') {
+                $lookAhead = $pos + 2;
+                while ($lookAhead < $length && ($text[$lookAhead] === ' ' || $text[$lookAhead] === "\t")) {
+                    $lookAhead++;
+                }
+                if ($lookAhead < $length && $text[$lookAhead] === "\n") {
+                    $textBuffer = rtrim($textBuffer, " \t");
+                    $this->appendHardBreak($parent, $textBuffer, $pos, $lookAhead + 1);
+                    $pos = $lookAhead + 1;
+
+                    return true;
+                }
+                if ($escaped === ' ') {
+                    $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 2);
+                    $textBuffer .= "\u{E000}";
+                    $pos += 2;
+
+                    return true;
+                }
+            }
+            if (strpos('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~', $escaped) !== false) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $escapedNode = new EscapedText($escaped);
+                $this->placeAt($escapedNode, $pos, $pos + 2);
+                $parent->appendChild($escapedNode);
+                $pos += 2;
+
+                return true;
+            }
+        }
+
+        if ($char === "\n") {
+            $this->flushText($parent, $textBuffer);
+            $textBuffer = '';
+            $softBreak = new SoftBreak();
+            $this->placeAt($softBreak, $pos, $pos + 1);
+            $parent->appendChild($softBreak);
+            $pos++;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function appendHardBreak(Node $parent, string &$textBuffer, int $start, int $end): void
+    {
+        $this->flushText($parent, $textBuffer);
+        $textBuffer = '';
+        $hardBreak = new HardBreak();
+        $this->placeAt($hardBreak, $start, $end);
+        $parent->appendChild($hardBreak);
+    }
+
+    protected function parseSmartTypographyAt(Node $parent, string $text, int &$pos, string &$textBuffer): bool
+    {
+        $char = $text[$pos];
+        $nextChar = $text[$pos + 1] ?? '';
+
+        if ($char === '"' || $char === "'") {
+            $prevConverted = $this->previousConvertedChar($parent, $textBuffer);
+            $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
+
+            $this->flushText($parent, $textBuffer);
+            $textBuffer = '';
+            $quote = new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote);
+            $this->placeAt($quote, $pos, $pos + 1);
+            $parent->appendChild($quote);
+            $pos++;
+
+            return true;
+        }
+
+        if ($char === '-' && $nextChar === '-') {
+            return $this->parseSmartDashAt($parent, $text, $pos, $textBuffer);
+        }
+
+        if ($char === '.' && substr($text, $pos, 3) === '...') {
+            $this->flushText($parent, $textBuffer);
+            $textBuffer = '';
+            $ellipsis = new SmartPunctuation('ellipsis', '...');
+            $this->placeAt($ellipsis, $pos, $pos + 3);
+            $parent->appendChild($ellipsis);
+            $pos += 3;
+
+            return true;
+        }
+
+        $symbol = $this->parseSmartSymbol($text, $pos);
+        if ($symbol === null) {
+            return false;
+        }
+
+        $source = substr($text, $pos, $symbol[1]);
+        $this->flushText($parent, $textBuffer);
+        $textBuffer = '';
+        $symbolNode = new SmartPunctuation($this->smartSymbolKind($source), $source);
+        $this->placeAt($symbolNode, $pos, $pos + $symbol[1]);
+        $parent->appendChild($symbolNode);
+        $pos += $symbol[1];
+
+        return true;
+    }
+
+    protected function parseSmartDashAt(Node $parent, string $text, int &$pos, string &$textBuffer): bool
+    {
+        $result = $this->parseSmartDash($text, $pos);
+        $glyphs = $result['text'];
+
+        if ($glyphs === '-') {
+            $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
+            $textBuffer .= '-';
+            $pos = $result['pos'];
+
+            return true;
+        }
+
+        $this->flushText($parent, $textBuffer);
+        $textBuffer = '';
+
+        $sourcePos = $pos;
+        foreach (preg_split('//u', $glyphs, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $glyph) {
+            $kind = $glyph === "\u{2014}" ? 'em_dash' : 'en_dash';
+            $width = $kind === 'em_dash' ? 3 : 2;
+            $dash = new SmartPunctuation($kind, substr($text, $sourcePos, $width));
+            $this->placeAt($dash, $sourcePos, $sourcePos + $width);
+            $parent->appendChild($dash);
+            $sourcePos += $width;
+        }
+
+        $pos = $result['pos'];
+
+        return true;
     }
 
     protected function isCaptionNumberPlaceholder(string $text, int $pos): bool
