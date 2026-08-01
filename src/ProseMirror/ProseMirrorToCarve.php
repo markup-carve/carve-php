@@ -433,6 +433,13 @@ class ProseMirrorToCarve
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
+                $node instanceof Div && $key === 'title' => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof Abbreviation && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
+                $node instanceof InlineExtension && $key === 'carveSource' => $this->setState(
+                    $node,
+                    'extensionType',
+                    ltrim(self::asString($value), ':'),
+                ),
                 ($node instanceof FootnoteRef || $node instanceof Footnote) && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
                 ($node instanceof Image || $node instanceof Link) && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
@@ -449,6 +456,17 @@ class ProseMirrorToCarve
             if (is_scalar($value)) {
                 $node->setAttribute((string)$key, self::asString($value));
             }
+        }
+
+        // A `carveDiv` carries a class, not a spelling: the editor model has
+        // no room for "was this opened with a type word". Mark it typed on the
+        // same condition the parser uses, which is what carve-grammars' own
+        // serializer does with the same node - it writes `::: <class>`. Without
+        // this the container comes back as an attribute block plus a bare
+        // fence, and a bare fence cannot carry a title, so `::: tip "Pro Tip"`
+        // lost its heading outright.
+        if ($node instanceof Div && count($node->getClassList()) === 1) {
+            $this->setState($node, 'typed', true);
         }
     }
 

@@ -101,6 +101,11 @@ final class ReferenceShape
     public const TYPE_ALIASES = [
         'autolink' => 'link',
         'admonition' => 'div',
+        // `#tag` is its own AST type in the reference, and this engine models it
+        // as a Mention carrying a `tag` css class. A profile still classifies
+        // both as `mention` - that is a TRUST CLASS, not the node's identity
+        // (profiles.md).
+        'tag' => 'mention',
     ];
 
     /**
@@ -137,6 +142,14 @@ final class ReferenceShape
      * @var array<string, array<string>>
      */
     public const INTERNAL_ONLY = [
+        // `user` / `name` carry the mention, and the css class says which of the
+        // two it is. The destination is always empty (nothing links anywhere)
+        // and the title never set, so both would publish noise the schema
+        // rejects outright.
+        'mention' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink'],
+        // `tag` is the same node class, so it hides the same internals - the
+        // lookup is keyed by the WIRE type, and a tag publishes as `tag`.
+        'tag' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink'],
         // `ordered` carries this on the wire.
         'list' => ['listType'],
         // `checked` carries this; a non-task item simply has no `checked`.

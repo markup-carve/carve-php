@@ -27,6 +27,29 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   result. Those seven documents did not start round-tripping worse; they stopped
   being counted as intact while quietly losing their authored form.
 
+- **The ProseMirror bridge carries four fields the editor schema already
+  declared.** Each was left unset on this side, so the value had nowhere to
+  live in the editor model and vanished on the way back:
+
+  - **A container's title.** `::: tip "Pro Tip"` came back as `{.tip}` plus a
+    bare fence, with the heading gone - content, not spelling. An empty title
+    is kept distinct from a missing one, since `::: note ""` suppresses the
+    default heading.
+  - **A container's typed opener.** `carveDiv` carries a class, not a
+    spelling, so a div is now marked typed on the same condition the parser
+    uses - which is what carve-grammars' own serializer does with the same
+    node. A div authored as `{.custom}` with a single class therefore
+    normalizes to `::: custom`; one carrying several classes cannot be spelled
+    that way and keeps the attribute block.
+  - **An abbreviation's expansion.** The `carveAbbreviation` mark had no
+    `title`, so `*[HTML]: HyperText Markup Language` was lost and every
+    expansion in the document stopped working.
+  - **A semantic span's name.** `:kbd[x]` came back as `:[x]`, which is not
+    valid Carve. The schema's `carveSource` exists for exactly this.
+
+  Across the spec example corpus this takes round-trip losses the fidelity
+  report does not declare from 55 documents to 32.
+
 - **A footnote keeps its label across the ProseMirror bridge.** Neither
   `carveFootnote` nor `carveFootnoteDefinition` carried the label, so every
   reference and definition reached the editor anonymous: a document with three
@@ -37,6 +60,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The editor node has always declared the attribute - only this side left it
   unset. It is now emitted and read back, so a document with footnotes round
   trips byte-identically instead of losing every binding.
+
+- **The canonical writer stops emitting a PHP 8.5 deprecation.**
+  `canonicalizeAst()` called `ReflectionProperty::setAccessible(true)` before
+  reading each property. That method has done nothing since PHP 8.1 - reflection
+  reads non-public properties without it - and PHP 8.5 deprecates the call
+  itself, so every `CarveRenderer` render raised a deprecation on 8.5 while the
+  package's own floor is 8.2. The call is removed rather than guarded: there is
+  no supported version where it has an effect.
+
+- **The CLI documentation stops describing source positions as missing.**
+  The README said carve-php's nodes carry none and that `--json` writes a note
+  to stderr saying so. Both stopped being true when `--json` began publishing
+  positions; the note is gone and the output is PART 12 §4 conformant.
 
 - **A profile that denies nothing now changes nothing, across every corpus
   document.** `ProfileFilter` ran `cleanupEmptyContainers()` as a blanket pass

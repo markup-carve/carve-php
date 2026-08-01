@@ -13,11 +13,13 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -411,10 +413,27 @@ class ProseMirrorRenderer
             // one. `carveFootnote` declares the attribute; only this side was
             // leaving it unset.
             $attrs['label'] = $node->getLabel();
+        } elseif ($node instanceof Abbreviation) {
+            // The expansion is the whole point of an abbreviation; without it
+            // the mark says only "this was one" and the definition is gone.
+            $attrs['title'] = $node->getTitle();
+        } elseif ($node instanceof InlineExtension) {
+            // `carveSource` is the schema's lossless escape hatch: the exact
+            // directive the author wrote. Without it a `:kbd[x]` comes back as
+            // `:[x]`, which is not valid Carve at all.
+            $attrs['carveSource'] = ':' . $node->getExtensionType();
         } elseif ($node instanceof Div) {
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {
                 $attrs['label'] = $label;
+            }
+            // An empty title is meaningful - `::: note ""` suppresses the
+            // default heading - so only a missing one is left unset. Dropping
+            // it lost the container's heading outright, which is content, not
+            // spelling.
+            $header = $node->getHeader();
+            if ($header !== null) {
+                $attrs['title'] = $header;
             }
         }
 
