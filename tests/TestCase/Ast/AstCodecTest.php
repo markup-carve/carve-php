@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
+use JsonException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -614,6 +615,14 @@ class AstCodecTest extends TestCase
             'nested list' => [$list],
             'table under blockquotes' => [str_repeat('> ', $cap) . "\n| =a | =b |\n| 1 | 2 |\n"],
         ];
+    }
+
+    public function testDecodeJsonPassesAnOrdinaryJsonErrorThrough(): void
+    {
+        // Only the depth failure is reinterpreted; a syntax error is still the
+        // JSON parser's to report, and rewrapping it would hide what is wrong.
+        $this->expectException(JsonException::class);
+        $this->codec->decodeJson('{"type":"document",');
     }
 
     public function testDecodeJsonRefusesAPayloadNoParseCouldHaveProduced(): void
