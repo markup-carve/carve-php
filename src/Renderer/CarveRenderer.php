@@ -680,35 +680,18 @@ class CarveRenderer implements RendererInterface
         }
 
         $widest = 0;
-        foreach ($this->containerBearingChildren($node) as $child) {
+        foreach ($node->getChildren() as $child) {
+            // Only a DIRECTLY nested container collides with this fence. One
+            // inside a blockquote, a list item or a definition body writes its
+            // fence lines with that host's prefix or indent, and an indented or
+            // quoted bare fence cannot close an ancestor fence.
             if ($child instanceof Div || $child instanceof LineBlock) {
                 $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
-            } else {
-                $widest = max($widest, $this->widestDescendantColonFence($child, $budget));
             }
         }
         $this->descendantColonFenceWidths[$key][$budget] = $widest;
 
         return $widest;
-    }
-
-    /**
-     * @return array<\MarkupCarve\Carve\Node\Node>
-     */
-    protected function containerBearingChildren(Node $node): array
-    {
-        if ($node instanceof Table || $node instanceof TableRow || $node instanceof TableCell) {
-            // Table cells hold inline content, so no container can hide there.
-            return [];
-        }
-        if ($node instanceof DefinitionList) {
-            return array_values(array_filter(
-                $node->getChildren(),
-                static fn (Node $child): bool => $child instanceof DefinitionDescription,
-            ));
-        }
-
-        return $node->getChildren();
     }
 
     protected function renderDefinitionList(DefinitionList $node): string

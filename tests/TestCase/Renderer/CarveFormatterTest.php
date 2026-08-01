@@ -294,6 +294,38 @@ class CarveFormatterTest extends TestCase
     }
 
     /**
+     * A container inside a blockquote, a list item or a definition body writes
+     * its fence lines with that host's prefix or indent, so they cannot close
+     * an ancestor fence. Widening for them would only make the source noisier.
+     */
+    #[DataProvider('prefixedContainerHostProvider')]
+    public function testFenceIsNotWidenedForAContainerBehindAPrefix(string $source): void
+    {
+        $formatted = CarveConverter::toCarve($source);
+        $converter = new CarveConverter();
+
+        $this->assertSame(
+            $this->normalizeHtml($converter->convert($source)),
+            $this->normalizeHtml($converter->convert($formatted)),
+        );
+        $this->assertStringStartsWith('::: outer', $formatted);
+        $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public static function prefixedContainerHostProvider(): array
+    {
+        return [
+            'list item' => ["::: outer\n\n- item\n\n  ::: inner\n  x\n  :::\n\n:::\n"],
+            'blockquote' => ["::: outer\n\n> ::: inner\n> x\n> :::\n\n:::\n"],
+            'definition body' => ["::: outer\n\n:: term\n:  ::: inner\n   x\n   :::\n\n:::\n"],
+            'table sibling' => ["::: outer\n\n| =a | =b |\n| 1 | 2 |\n\n:::\n"],
+        ];
+    }
+
+    /**
      * An AST built through the API can nest far past the depth the parser
      * allows. renderBlock emits nothing past MAX_RENDER_DEPTH, so a fence sized
      * from those levels would be sized for output that never appears.
