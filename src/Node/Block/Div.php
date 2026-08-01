@@ -100,4 +100,22 @@ class Div extends BlockNode
     {
         $this->typed = $typed;
     }
+
+    /**
+     * Whether this div is a placement-directive carrier: `::: footnotes`
+     * (relocates the endnotes section, {@see \MarkupCarve\Carve\Renderer\HtmlRenderer::renderDiv()})
+     * or `::: toc` (relocates the table of contents,
+     * {@see \MarkupCarve\Carve\Extension\TocPlacementExtension::register()}).
+     *
+     * Both are childless BY DESIGN - the directive marks a position, not
+     * content - so this predicate lets other passes (e.g. the profile filter's
+     * empty-container cleanup) recognize a carrier and leave it alone instead
+     * of pruning it as structurally empty. Mirrors the class checks the
+     * renderer and the TOC extension already perform; keep this in sync with
+     * both if either changes.
+     */
+    public function isPlacementCarrier(): bool
+    {
+        return $this->hasClass('footnotes') || $this->hasClass('toc');
+    }
 }
