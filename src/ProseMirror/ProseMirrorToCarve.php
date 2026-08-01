@@ -433,6 +433,7 @@ class ProseMirrorToCarve
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
+                ($node instanceof FootnoteRef || $node instanceof Footnote) && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
                 ($node instanceof Image || $node instanceof Link) && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 // Editor bookkeeping that has no Carve meaning.
