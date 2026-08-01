@@ -426,4 +426,132 @@ class AstCodecTest extends TestCase
             sprintf('%d corpus documents lost authored form: %s', count($carveFailures), implode(', ', array_slice($carveFailures, 0, 8))),
         );
     }
+
+    /**
+     * Payloads written by the OLD encoder are stored where nobody can recall
+     * them, so decoding has to keep reading them. Each case below is a shape
+     * this engine published before it matched PART 12 - and each is a path with
+     * no other test, which is how the compatibility read would rot silently
+     * while the encoder tests stayed green.
+     */
+    public function testDecodesTheOldFlatAttrsMap(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'attrs' => ['id' => 'x', 'class' => 'warn  big', 'title' => 'T', 'order' => ['#id', '.class', 'title']],
+                    'children' => [['type' => 'text', 'value' => 'a']],
+                ],
+            ],
+        ]);
+
+        $attrs = $this->codec->encode($decoded)['children'][0]['attrs'];
+        $this->assertSame('x', $attrs['id']);
+        $this->assertSame(['warn', 'big'], $attrs['classes']);
+        $this->assertSame(['title' => 'T'], $attrs['keyValues']);
+        $this->assertArrayNotHasKey('class', $attrs);
+    }
+
+    public function testDecodesTheOldFigureChildrenShape(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'figure',
+                    'children' => [
+                        ['type' => 'image', 'src' => '/i.png', 'alt' => 'alt'],
+                        ['type' => 'caption', 'children' => [['type' => 'text', 'value' => 'Cap']]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $figure = $this->codec->encode($decoded)['children'][0];
+        $this->assertSame('image', $figure['target']['type']);
+        $this->assertSame('Cap', $figure['caption'][0]['value']);
+        $this->assertArrayNotHasKey('children', $figure);
+    }
+
+    public function testDecodesTheOldBooleanCellSpans(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'table',
+                    'rows' => [
+                        [
+                            'type' => 'table_row',
+                            'cells' => [
+                                ['type' => 'table_cell', 'header' => false, 'children' => [['type' => 'text', 'value' => 'a']]],
+                            ],
+                        ],
+                        [
+                            'type' => 'table_row',
+                            'cells' => [
+                                ['type' => 'table_cell', 'header' => false, 'rowspan' => true, 'children' => []],
+                                ['type' => 'table_cell', 'header' => false, 'colspan' => true, 'children' => []],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $rows = $this->codec->encode($decoded)['children'][0]['rows'];
+        $cells = $rows[1]['cells'];
+        $this->assertSame('rowspan', $cells[0]['span']);
+        $this->assertArrayNotHasKey('rowspan', $cells[0]);
+        // Both markers, because a decode path that handled one and not the
+        // other would look identical from the row that only spans down.
+        $this->assertSame('colspan', $cells[1]['span']);
+        $this->assertArrayNotHasKey('colspan', $cells[1]);
+    }
+
+    public function testDecodesARawTextNodeAsText(): void
+    {
+        // PART 12 §5 excludes the formatter-internal `raw_text` from the wire,
+        // and this engine used to publish it. A stored payload carrying one
+        // still has to render.
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'raw_text', 'content' => 'kept']]],
+            ],
+        ]);
+
+        $inline = $this->codec->encode($decoded)['children'][0]['children'][0];
+        $this->assertSame('text', $inline['type']);
+        $this->assertSame('kept', $inline['value']);
+    }
+
+    public function testAnOldPayloadReEncodesInTheCurrentShape(): void
+    {
+        // The whole point of the compatibility reads: a document stored under
+        // the old shape comes back out under the new one, rather than being
+        // preserved as it was found.
+        $old = [
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'attrs' => ['class' => 'note'],
+                    'children' => [['type' => 'raw_text', 'content' => 'x']],
+                ],
+            ],
+        ];
+
+        $encoded = $this->codec->encode($this->codec->decode($old));
+
+        $this->assertSame(['note'], $encoded['children'][0]['attrs']['classes']);
+        $this->assertSame('text', $encoded['children'][0]['children'][0]['type']);
+    }
 }
