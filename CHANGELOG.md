@@ -54,6 +54,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `@J` followed by literal text, so emitting it would have replaced one silent
   corruption with another. The `#tag` branch shares the path and the fix.
 
+  Three neighbours of the same defect, found while covering it:
+
+  - **An attribute on a mention is carried rather than dropped.** A trailing
+    `{.x}` after a mention stays literal text - the parser leaves it outside the
+    node - so `@name` cannot hold attributes however spellable the name is, and
+    `@user{#x}` was written as `@user`. It takes the link form too.
+  - **Nested markup in a label is carried rather than flattened.** `@*user*` is
+    not a mention, so a mention whose label holds emphasis was written as
+    `@user`, dropping it.
+  - **A doubled sigil is no longer eaten.** The sigil was stripped with `ltrim`,
+    which removes a run of them, so `@@user` was written back as `@user`.
+
+  The fallback link is now a CLONE of the mention. Building it by appending the
+  mention's children reparented them, leaving every label child of every written
+  mention pointing at a throwaway node - invisible in the output, so only the
+  tree shows it.
+
 - **The ProseMirror bridge reports an attribute it cannot carry.**
   `applyAttributes()` passed unconsumed attributes through with an
   `is_scalar()` check and no `else`, so a non-scalar value fell off the end of

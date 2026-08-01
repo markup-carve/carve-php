@@ -7,7 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -114,5 +120,124 @@ class CarveWriterMentionTest extends TestCase
     public function testAMentionWithoutADestinationStaysPlainText(): void
     {
         $this->assertSame("o'brien", $this->mention("o'brien", ''));
+    }
+
+    /**
+     * The label as TYPED, read back off a parsed tree.
+     *
+     * Escapes come back as `EscapedText` and typography as a node carrying both
+     * halves, so taking the source run rather than the glyph is what makes this
+     * a comparison against the input instead of against a presentation choice
+     * made in between.
+     */
+    private function typedText(Node $node): string
+    {
+        $out = '';
+        foreach ($node->getChildren() as $child) {
+            $out .= match (true) {
+                $child instanceof Text, $child instanceof EscapedText => $child->getContent(),
+                $child instanceof SmartPunctuation => $child->getContent(),
+                default => $this->typedText($child),
+            };
+        }
+
+        return $out;
+    }
+
+    private function firstLink(Node $node): ?Link
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Link) {
+                return $child;
+            }
+            $found = $this->firstLink($child);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    private function write(Node $inline): string
+    {
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild($inline);
+        $document->appendChild($paragraph);
+
+        return trim(CarveConverter::carve()->render($document));
+    }
+
+    /**
+     * A trailing `{.x}` after a mention stays literal text - the parser leaves
+     * it outside the node - so a mention carrying attributes has no short form
+     * either, however spellable its name is. They were dropped, not deleted,
+     * which is why the name test alone did not catch it.
+     */
+    public function testAnAttributeIsCarriedRatherThanDropped(): void
+    {
+        $mention = new Mention('mention', '/u/1', '@user');
+        $mention->setAttribute('id', 'x');
+
+        $written = $this->write($mention);
+
+        $link = $this->firstLink((new CarveConverter())->parse($written));
+        $this->assertNotNull($link, "no link parsed back out of: $written");
+        $this->assertSame('x', $link->getAttribute('id'));
+        $this->assertSame('mention', $link->getAttribute('class'));
+        $this->assertSame('@user', $this->typedText($link));
+    }
+
+    /**
+     * `@*user*` is not a mention, so a mention whose label carries markup has no
+     * short form: writing `@user` dropped the emphasis and reported nothing.
+     */
+    public function testNestedMarkupIsCarriedRatherThanFlattened(): void
+    {
+        $mention = new Mention('mention', '/u/1', '');
+        $mention->removeChild($mention->getChildren()[0]);
+        $strong = new Strong();
+        $strong->appendChild(new Text('user'));
+        $mention->appendChild($strong);
+
+        $written = $this->write($mention);
+
+        $this->assertStringContainsString('*user*', $written);
+        $link = $this->firstLink((new CarveConverter())->parse($written));
+        $this->assertNotNull($link, "no link parsed back out of: $written");
+        $this->assertSame('/u/1', $link->getDestination());
+        $this->assertInstanceOf(Strong::class, $link->getChildren()[0] ?? null);
+    }
+
+    /**
+     * One sigil, not a run of them: `ltrim($label, '@')` read `@@user` as the
+     * name `user`, writing back one fewer than it was handed.
+     */
+    public function testADoubledSigilIsNotEaten(): void
+    {
+        $written = $this->write(new Mention('mention', '/u/1', '@@user'));
+
+        $link = $this->firstLink((new CarveConverter())->parse($written));
+        $this->assertNotNull($link, "no link parsed back out of: $written");
+        $this->assertSame('@@user', $this->typedText($link));
+    }
+
+    /**
+     * The renderer is handed a tree it does not own.
+     *
+     * Building the fallback link by appending the mention's children REPARENTS
+     * them, so writing a document left every label child pointing at a throwaway
+     * node. Nothing in the output changes, which is why only the tree can show
+     * it.
+     */
+    public function testWritingDoesNotReparentTheLabel(): void
+    {
+        $mention = new Mention('mention', '/u/1', "o'brien");
+        $child = $mention->getChildren()[0];
+
+        $this->write($mention);
+
+        $this->assertSame($mention, $child->getParent());
     }
 }
