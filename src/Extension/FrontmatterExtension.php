@@ -115,9 +115,20 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
         $parser->addBlockPattern(
             '/^---[ \t]*(\w*)\s*$/',
             function (array $lines, int $start, $parent, $blockParser) {
-                // Only match at document start (first block of Document)
+                // Only match at document start. "First block of Document" is
+                // not enough: a leading blank line yields no child node, so a
+                // blank-prefixed `---` pair was still claimed and swallowed the
+                // whole document (it rendered to an empty string). grammar.ebnf
+                // pins `document = [frontmatter], {block}, EOF`, so nothing may
+                // precede the opener except the block-attribute line this
+                // engine already attaches to the frontmatter node.
                 if (!($parent instanceof Document) || $parent->hasChildren()) {
                     return null;
+                }
+                for ($before = 0; $before < $start; $before++) {
+                    if (!preg_match('/^\{.*\}$/', trim($lines[$before]))) {
+                        return null;
+                    }
                 }
 
                 if (!preg_match('/^---[ \t]*(\w*)\s*$/', $lines[$start], $matches)) {

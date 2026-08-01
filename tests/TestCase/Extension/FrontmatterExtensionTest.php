@@ -641,4 +641,43 @@ DJOT;
         $this->assertSame('toml', $ext->getFormat());
         $this->assertStringContainsString('title = "My Document"', $ext->getContent());
     }
+
+    public function testIsNotClaimedAfterALeadingBlankLine(): void
+    {
+        // grammar.ebnf: `document = [frontmatter], {block}, EOF` - frontmatter
+        // is the FIRST production, so it must begin at the very first line. A
+        // leading blank means the document already opened with a block, and the
+        // `---` pair below is two thematic breaks. Matching only "first child
+        // of Document" let a blank-prefixed pair swallow the whole document.
+        $converter = new CarveConverter();
+        $converter->addExtension(new FrontmatterExtension());
+
+        $this->assertSame("<hr>\n<hr>\n", $converter->convert("\n---\n\n---\n"));
+        $this->assertSame("<hr>\n<hr>\n", $converter->convert("\n---\n---\n"));
+    }
+
+    public function testIsNotClaimedAfterALeadingBlankEvenWithRealMetadata(): void
+    {
+        $ext = new FrontmatterExtension();
+        $converter = new CarveConverter();
+        $converter->addExtension($ext);
+
+        $html = $converter->convert("\n---\ntitle: X\n---\n\nBody\n");
+
+        $this->assertFalse($ext->hasFrontmatter());
+        $this->assertStringContainsString('title: X', $html);
+    }
+
+    public function testIsStillClaimedOnTheVeryFirstLine(): void
+    {
+        $ext = new FrontmatterExtension();
+        $converter = new CarveConverter();
+        $converter->addExtension($ext);
+
+        $html = $converter->convert("---\ntitle: X\n---\n\nBody\n");
+
+        $this->assertTrue($ext->hasFrontmatter());
+        $this->assertStringNotContainsString('title: X', $html);
+        $this->assertSame("<p>Body</p>\n", $html);
+    }
 }
