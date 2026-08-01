@@ -49,8 +49,7 @@
     },
     "comment": {
         "fields": [
-            "content",
-            "fenceLength"
+            "content"
         ],
         "required": []
     },
@@ -244,8 +243,8 @@
     "smart_punctuation": {
         "fields": [
             "kind",
-            "content",
-            "value"
+            "value",
+            "glyph"
         ],
         "required": []
     },

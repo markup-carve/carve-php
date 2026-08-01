@@ -321,4 +321,64 @@ class AstCodecTest extends TestCase
             sprintf('%d corpus documents lost authored form: %s', count($carveFailures), implode(', ', array_slice($carveFailures, 0, 8))),
         );
     }
+
+    public function testSmartPunctuationPublishesTheAuthorsSourceRun(): void
+    {
+        // `value` is what the AUTHOR wrote, `glyph` what the parser resolved -
+        // and a `glyph` only exists where the resolution is locale-dependent
+        // (quotes). Publishing the glyph AS `value` gave an ellipsis, which has
+        // no glyph, a null value, and leaked the source run beside it under this
+        // engine's own field name.
+        $encoded = $this->codec->encode($this->converter->parse('a ... b'));
+        $node = $encoded['children'][0]['children'][1];
+
+        $this->assertSame('smart_punctuation', $node['type']);
+        $this->assertSame('ellipsis', $node['kind']);
+        $this->assertSame('...', $node['value']);
+        $this->assertArrayNotHasKey('content', $node);
+    }
+
+    public function testSmartQuotesStillPublishTheResolvedGlyph(): void
+    {
+        // The mirror: a kind whose glyph IS locale-dependent keeps both halves,
+        // so a test that only looked at the ellipsis could not tell "glyph is
+        // gone" from "glyph is absent here".
+        $encoded = $this->codec->encode($this->converter->parse('say "hi"'));
+        $quotes = [];
+        array_walk_recursive($encoded, static function ($value, $key) use (&$quotes): void {
+            if ($key === 'glyph') {
+                $quotes[] = $value;
+            }
+        });
+
+        $this->assertNotSame([], $quotes, 'a smart quote must publish its resolved glyph');
+    }
+
+    public function testACommentSaysWhichFormTheAuthorWrote(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse("%%% b\n%%%\n\nx %% inline %% y\n"));
+        $block = $encoded['children'][0];
+        $inline = $encoded['children'][1]['children'][1];
+
+        $this->assertSame('comment', $block['type']);
+        $this->assertTrue($block['block']);
+        $this->assertArrayNotHasKey('fenceLength', $block, 'fence width is a writer concern');
+        $this->assertSame('comment', $inline['type']);
+        $this->assertFalse($inline['block']);
+    }
+
+    public function testADecodedBlockCommentStaysABlockComment(): void
+    {
+        // The wire carries WHICH FORM, not the fence width, so decoding has to
+        // restore blockness - and the writer has to widen the fence past any run
+        // of `%` in the content, which is what a nested comment fence needs.
+        $source = "%%%%\n%%% nested\n%%%%\n";
+        $decoded = $this->codec->decode($this->codec->encode($this->converter->parse($source)));
+        $rendered = (new CarveRenderer())->render($decoded);
+
+        $this->assertSame(
+            $this->converter->parse($source)->getChildren()[0]->getContent(),
+            $this->converter->parse($rendered)->getChildren()[0]->getContent(),
+        );
+    }
 }

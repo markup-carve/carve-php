@@ -823,20 +823,23 @@ class CarveRenderer implements RendererInterface
     protected function renderComment(Comment $node): string
     {
         $content = $node->getContent();
-        if ($node->getFenceLength() !== null) {
-            $fence = str_repeat('%', max(3, $node->getFenceLength()));
-
-            return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
-        }
-        if (!str_contains($content, "\n")) {
+        $recorded = $node->getFenceLength();
+        if ($recorded === null && !str_contains($content, "\n")) {
             return '%% ' . $content;
         }
+
+        // A fence must be WIDER than any run of `%` inside it, whatever width
+        // the author used - a nested `%%%` inside a `%%%` block closes it early.
+        // The recorded width is a floor, not the answer, so it is widened here
+        // rather than trusted: a document decoded from a serialized AST carries
+        // no width at all (PART 12 §3 - the wire says `block`, which is what a
+        // consumer asks; the width is a writer's concern).
         preg_match_all('/%+/', $content, $matches);
         $longest = 0;
         foreach ($matches[0] as $match) {
             $longest = max($longest, strlen($match));
         }
-        $fence = str_repeat('%', max(3, $longest + 1));
+        $fence = str_repeat('%', max(3, $recorded ?? 0, $longest + 1));
 
         return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
