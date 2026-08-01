@@ -9,6 +9,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ProseMirror bridge reports state the editor model cannot hold.** A type
+  can map cleanly and still lose something: the NODE survives, one of its fields
+  does not. Those losses appeared in neither `droppedTypes()` nor
+  `degradedTypes()` - nothing was dropped, and nothing degraded to text - so a
+  caller storing documents had no way to find out. Now reported:
+
+  - `autolink` - `<https://example.com>` is a plain link mark in the editor
+    model, so it comes back written as `[text](url)`.
+  - `link` - a link with an empty label has no text to carry the mark, so it is
+    not represented at all.
+  - `code` - inline code is a mark; its attributes have nowhere to live.
+  - `list` - an alphabetic or roman style comes back numbered, and a marker
+    character (`*`, `)`) comes back canonical.
+
+  `MINIMUM_LOSSLESS` in `ProseMirrorCorpusTest` falls from 336 to 329 as a
+  result. Those seven documents did not start round-tripping worse; they stopped
+  being counted as intact while quietly losing their authored form.
+
 - **A footnote keeps its label across the ProseMirror bridge.** Neither
   `carveFootnote` nor `carveFootnoteDefinition` carried the label, so every
   reference and definition reached the editor anonymous: a document with three

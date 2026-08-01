@@ -116,6 +116,7 @@ class ProseMirrorRenderer
     protected function renderBlock(Node $node): ?array
     {
         $type = $node->getType();
+        $this->noteUnrepresentableState($node);
 
         // A section is a rendering wrapper, not editor content: hoist its
         // children so the heading and body land at document level.
@@ -184,6 +185,7 @@ class ProseMirrorRenderer
         $out = [];
         foreach ($nodes as $node) {
             $type = $node->getType();
+            $this->noteUnrepresentableState($node);
 
             if ($node instanceof Text) {
                 $text = $node->getContent();
@@ -421,6 +423,45 @@ class ProseMirrorRenderer
         }
 
         return $attrs;
+    }
+
+    /**
+     * Records state the editor model has no place for.
+     *
+     * A type can map cleanly and still lose something: the NODE survives, one
+     * of its fields does not. Those losses were invisible - the type never
+     * appeared in either report, because nothing was dropped or degraded to
+     * text - so a caller storing documents had no way to find out. Each entry
+     * names the field rather than the type alone.
+     */
+    protected function noteUnrepresentableState(Node $node): void
+    {
+        if ($node instanceof Link && !$node instanceof Mention) {
+            if ($node->isAutolink()) {
+                $this->degraded['autolink'] = 'an autolink is a plain link mark in the editor model, '
+                    . 'so it comes back written as [text](url)';
+            }
+            if ($node->getChildren() === []) {
+                // A mark needs text to attach to. An empty label has none, so
+                // the link does not merely change shape - it disappears.
+                $this->degraded['link'] = 'a link with an empty label has no text to carry the mark, '
+                    . 'so it is not represented at all';
+            }
+        }
+
+        if ($node instanceof Code && $node->getAttributes() !== []) {
+            $this->degraded['code'] = 'inline code is a mark; its attributes have nowhere to live';
+        }
+
+        if ($node instanceof ListBlock) {
+            if ($node->getStyle() !== null) {
+                $this->degraded['list'] = 'an alphabetic or roman list style is not in the editor model, '
+                    . 'so the list comes back numbered';
+            } elseif ($node->getMarker() !== null && !in_array($node->getMarker(), ['-', '.'], true)) {
+                $this->degraded['list'] = 'a list marker character is not in the editor model, '
+                    . 'so the canonical one comes back';
+            }
+        }
     }
 
     protected function isInlineContainer(Node $node): bool
