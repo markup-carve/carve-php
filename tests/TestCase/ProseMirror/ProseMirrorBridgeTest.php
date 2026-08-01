@@ -475,6 +475,19 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
+     * Lifting a cell's content has to decide block from inline per child, so it
+     * reads each child's name. A typeless child is rejected there for the same
+     * reason it is everywhere else - guessing is worse than refusing.
+     */
+    public function testATypelessTableCellChildIsRejected(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('needs a string type');
+
+        $this->converter->convert($this->tableWithOneCell([['content' => []]]));
+    }
+
+    /**
      * The label is the note's identity: it binds a reference to its definition
      * and tells two references to the same note apart. The bridge left the
      * attribute unset, so every footnote in a document came back as the same
