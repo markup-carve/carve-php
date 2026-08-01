@@ -755,7 +755,13 @@ class AstCodec
             return;
         }
 
-        if ($node instanceof Div && ($data['type'] ?? null) === 'admonition') {
+        if ($node instanceof Div && array_key_exists('kind', $data)) {
+            // `kind` is the OPENER TYPE WORD, not an admonition marker: a
+            // Tier-2 container (`::: sidebar`) carries one too, and it is the
+            // only thing distinguishing it from a bare `:::` fence whose class
+            // came from an attribute line. Keying this on `type === admonition`
+            // dropped `typed` for every Tier-2 div, so `carve fmt` reproduced
+            // `{.sidebar}` + `:::` instead of the `::: sidebar` the author wrote.
             self::writeProperty($node, 'typed', true);
             $kind = $data['kind'] ?? null;
             if (is_string($kind) && $kind !== '') {
