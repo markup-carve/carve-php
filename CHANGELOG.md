@@ -9,6 +9,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Frontmatter is no longer claimed after a leading blank line.** The parser
+  matched on "first block of `Document`", but a blank line yields no child node,
+  so `\n---\n\n---\n` was read as an empty frontmatter fence and the whole
+  document rendered to an empty string. `grammar.ebnf` pins
+  `document = [frontmatter], {block}, EOF`, so nothing may precede the opener
+  except the block-attribute line this engine already attaches to the node.
+  carve-js renders the same input as two thematic breaks.
+
+- **`MarkdownToCarve` preserves leading frontmatter instead of destroying it.**
+  The converter had no frontmatter rule, so the opening `---` was migrated as a
+  thematic break and the closing one as a setext underline: a page opening with
+  `title:` / `description:` came back as a rule, a paragraph, and an `##`
+  heading, with the metadata gone. Frontmatter now passes through byte-for-byte
+  and only the body is converted. The fence is recognized with the parser's own
+  open/close rules, including the format label (`---toml`, `--- toml`), and must
+  enclose at least one non-blank line.
+
+- **A rule line is no longer consumed as setext heading text on migration.**
+  `MarkdownToCarve` turned `---\n---` into `## ---`, which then rendered as an
+  `<h2>` whose title smart typography collapsed to an em dash. CommonMark reads
+  `***\n---` as two thematic breaks, not a heading, and carve-js has pinned that
+  since its own migrator landed.
+
+- **A migrated document opening with a rule no longer vanishes.**
+  `MarkdownToCarve` emitted `---\n\n---` unguarded, which Carve reads as an
+  empty frontmatter fence. A leading blank now keeps line 0 off `---` so every
+  rule stays a rule, matching carve-js.
+
 - **The ProseMirror bridge reports state the editor model cannot hold.** A type
   can map cleanly and still lose something: the NODE survives, one of its fields
   does not. Those losses appeared in neither `droppedTypes()` nor

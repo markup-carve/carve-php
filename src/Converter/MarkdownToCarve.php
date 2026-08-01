@@ -51,7 +51,14 @@ class MarkdownToCarve
         // meaningful Markdown content.
         $markdown = str_replace("\x00", '', $markdown);
 
-        $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
+        $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
+        // Frontmatter is opaque metadata in Markdown and in Carve alike - both
+        // strip it before block parsing - so it survives verbatim and only the
+        // body is transformed. Run through the line loop it would be destroyed:
+        // the opening `---` becomes a thematic break and the closing one a
+        // setext underline, turning `description: y` into an `##` heading.
+        $frontmatter = $this->splitFrontmatter($allLines);
+        $lines = array_slice($allLines, count($frontmatter));
         $result = [];
         $inCodeBlock = false;
         $fenceChar = '';
@@ -220,6 +227,11 @@ class MarkdownToCarve
                 !$isHeading
                 && !$isBlockquote
                 && !$isList
+                // A line that is ITSELF a Markdown thematic break (`***`,
+                // `---`, `- - -`) is a rule, not setext heading text.
+                // CommonMark reads `***\n---` as two thematic breaks, not an
+                // h2 titled `***`.
+                && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $line)
                 && (preg_match('/^=+$/', $underline) || preg_match('/^-+$/', $underline))
             ) {
                 if ($prevLineType !== 'blank' && $prevLineType !== 'heading') {
@@ -302,9 +314,80 @@ class MarkdownToCarve
             }
         }
 
-        $carve = preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+        // Frontmatter-collision guard: Carve reads a line-0 `---` as a
+        // frontmatter OPEN fence and, with a later closer, swallows everything
+        // between as opaque metadata. A body that opens with a rule and holds
+        // another bare `---` would vanish entirely. A leading blank keeps line
+        // 0 off `---` so every rule stays a rule. Real frontmatter already
+        // occupies line 0, so the guard is skipped there - it would only inject
+        // a stray blank after the closing fence.
+        if ($frontmatter === [] && ($result[0] ?? null) === '---') {
+            foreach (array_slice($result, 1) as $bodyLine) {
+                // $result is inferred as string|null (preg_replace can return
+                // null upstream); implode() coerces the same way at the end.
+                if (preg_match('/^---\s*$/', (string)$bodyLine)) {
+                    array_unshift($result, '');
 
-        return $this->applyHeadingIdPreservation($carve, $markdown);
+                    break;
+                }
+            }
+        }
+
+        $carve = preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+        $carve = $this->applyHeadingIdPreservation($carve, $markdown);
+
+        if ($frontmatter === []) {
+            return $carve;
+        }
+
+        $prefix = implode("\n", $frontmatter);
+
+        return $carve === '' ? $prefix : $prefix . "\n" . $carve;
+    }
+
+    /**
+     * Split leading frontmatter off a document, returning its lines (fences
+     * included) or an empty array when there is none.
+     *
+     * The open/close tests mirror the parser's own frontmatter rules, so a
+     * document Carve reads as having frontmatter is migrated as having
+     * frontmatter - including the format label in both spellings the parser
+     * accepts (`---toml` and `--- toml`).
+     *
+     * The fence must enclose at least one non-blank line. An empty pair
+     * (`---\n---`, `---\n\n---`) carries no metadata, so the CommonMark reading
+     * - two thematic breaks - is the meaning-preserving one, and it stays on
+     * the thematic-break path guarded at the end of convert().
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<int, string>
+     */
+    protected function splitFrontmatter(array $lines): array
+    {
+        $count = count($lines);
+        if ($count < 2 || !preg_match('/^---[ \t]*(\w*)\s*$/', $lines[0])) {
+            return [];
+        }
+
+        for ($i = 1; $i < $count; $i++) {
+            if (!preg_match('/^---\s*$/', $lines[$i])) {
+                continue;
+            }
+
+            $hasContent = false;
+            foreach (array_slice($lines, 1, $i - 1) as $line) {
+                if (trim($line) !== '') {
+                    $hasContent = true;
+
+                    break;
+                }
+            }
+
+            return $hasContent ? array_slice($lines, 0, $i + 1) : [];
+        }
+
+        return [];
     }
 
     /**
