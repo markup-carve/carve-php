@@ -7,6 +7,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The canonical writer stops inventing a mention name.** `escapeName()` was
+  named escape and DELETED: every character outside `[\w.-]` was dropped, so a
+  mention labelled `o'brien` was written as `@obrien` and `Mark Scherer` as
+  `@MarkScherer` - a different mention, pointing at a different user, with
+  nothing in `droppedTypes()` or `degradedTypes()` to say so.
+
+  A mention name is `name_word ('.' name_word)*` and carries no escape, so a
+  label holding anything else has no spelling in that syntax. It now degrades
+  to the link form - `[o'brien](/u/1){.mention}` - which keeps the label, the
+  destination and the class, and renders the same anchor. A label that IS a
+  valid name is written as `@name` exactly as before.
+
+  The name test uses the character set the parser accepts, which is ASCII, not
+  the wider `\w` the old code matched on: `@Jörg` would have been re-read as
+  `@J` followed by literal text, so emitting it would have replaced one silent
+  corruption with another. The `#tag` branch shares the path and the fix.
+
 ### Added
 
 - **`setSectionWrapping(false)` renders headings without the `<section>`
