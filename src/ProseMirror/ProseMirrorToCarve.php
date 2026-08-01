@@ -79,6 +79,11 @@ class ProseMirrorToCarve
     ];
 
     /**
+     * @var array<string, string> attribute name => why it could not be carried
+     */
+    protected array $droppedAttributes = [];
+
+    /**
      * @param array<string, mixed> $document
      *
      * @throws \RuntimeException When the payload is not a ProseMirror document.
@@ -90,12 +95,28 @@ class ProseMirrorToCarve
             throw new RuntimeException('The payload root must be a ProseMirror doc node');
         }
 
+        $this->droppedAttributes = [];
+
         $carveDocument = new Document();
         foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
             $carveDocument->appendChild($node);
         }
 
         return $carveDocument;
+    }
+
+    /**
+     * Attributes the last conversion could not carry, as name => reason.
+     *
+     * Empty means every attribute in the payload reached the tree. The mirror
+     * of `ProseMirrorRenderer::droppedTypes()` for the other direction: an
+     * application storing documents should assert on this rather than trust it.
+     *
+     * @return array<string, string>
+     */
+    public function droppedAttributes(): array
+    {
+        return $this->droppedAttributes;
     }
 
     public function convertJson(string $json): Document
@@ -637,6 +658,25 @@ class ProseMirrorToCarve
             }
             if (is_scalar($value)) {
                 $node->setAttribute((string)$key, self::asString($value));
+
+                continue;
+            }
+            // A Carve attribute value is a string, so a non-scalar has no form
+            // here. `null` is the editor's way of saying "unset", so it carries
+            // nothing to lose; anything else does, and used to fall off the end
+            // of this loop without a word. Tiptap's resizable table stores
+            // `colwidth` as an array, which is the case with a real producer
+            // behind it.
+            //
+            // Reported rather than encoded: a joined string would come back as
+            // a string and not an array, and a JSON-encoded one would put an
+            // unauthorable value in source. Which of those is right is a design
+            // question (carve-php#541); being silent is not.
+            if ($value !== null) {
+                $this->droppedAttributes[(string)$key] = sprintf(
+                    'a Carve attribute holds a string, and this value is of type %s',
+                    get_debug_type($value),
+                );
             }
         }
 

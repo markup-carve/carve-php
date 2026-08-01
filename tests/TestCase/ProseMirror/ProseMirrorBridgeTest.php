@@ -511,6 +511,109 @@ class ProseMirrorBridgeTest extends TestCase
         ]);
     }
 
+    /**
+     * A Carve attribute holds a string, so a non-scalar value has no form here
+     * and used to fall off the end of the passthrough loop without a word.
+     * Tiptap's resizable table stores `colwidth` as an array, which is the case
+     * with a real producer behind it (carve-php#541).
+     */
+    public function testANonScalarAttributeIsReportedRatherThanDiscarded(): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => [220],
+        ]));
+
+        $this->assertArrayHasKey('colwidth', $this->converter->droppedAttributes());
+        $this->assertNotSame('', $this->converter->droppedAttributes()['colwidth']);
+    }
+
+    /**
+     * `null` is how the editor spells "unset", so it carries nothing to lose
+     * and reporting it would be noise. A scalar reaches the tree as before.
+     *
+     * @param mixed $value
+     */
+    #[DataProvider('carriedAttributeProvider')]
+    public function testACarriedAttributeIsNotReported(mixed $value): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => $value,
+        ]));
+
+        $this->assertSame([], $this->converter->droppedAttributes());
+    }
+
+    public static function carriedAttributeProvider(): array
+    {
+        return [
+            'unset' => [null],
+            'int' => [220],
+            'string' => ['220'],
+            'bool' => [true],
+        ];
+    }
+
+    /**
+     * The report describes the LAST conversion, so a clean document after a
+     * lossy one does not inherit its findings.
+     */
+    public function testTheReportIsResetPerConversion(): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => [220],
+        ]));
+        $this->assertNotSame([], $this->converter->droppedAttributes());
+
+        $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'clean']]],
+            ],
+        ]);
+        $this->assertSame([], $this->converter->droppedAttributes());
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     *
+     * @return array<string, mixed>
+     */
+    private function cellWithAttributes(array $attrs): array
+    {
+        return [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+                                    'type' => 'tableCell',
+                                    'attrs' => $attrs,
+                                    'content' => [
+                                        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'A']]],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
     public function testANonDocRootIsRejected(): void
     {
         $this->expectException(RuntimeException::class);

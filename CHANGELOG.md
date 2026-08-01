@@ -7,6 +7,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The ProseMirror bridge reports an attribute it cannot carry.**
+  `applyAttributes()` passed unconsumed attributes through with an
+  `is_scalar()` check and no `else`, so a non-scalar value fell off the end of
+  the loop and was discarded without a word. The case with a real producer
+  behind it is `colwidth`: Tiptap's table extension stores column widths as an
+  array, so `Table.configure({ resizable: true })` plus one drag puts one in
+  the stored document.
+
+  `ProseMirrorToCarve::droppedAttributes()` now names each one and why, the
+  mirror of `ProseMirrorRenderer::droppedTypes()` for the other direction. A
+  `null` is not reported - that is how the editor spells "unset", so it carries
+  nothing to lose.
+
+  Reported rather than encoded, deliberately: a joined string would come back
+  as a string and not an array, and a JSON-encoded one would put an
+  unauthorable value in source. Which of those is right is still open
+  (carve-php#541); being silent was not.
+
 ### Added
 
 - **`setSectionWrapping(false)` renders headings without the `<section>`
