@@ -1232,7 +1232,7 @@ class HtmlRenderer implements RendererInterface
         // end. A document without this block is byte-identical to before. Not
         // emitted while rendering footnote bodies (a nested `::: footnotes`
         // there renders as an ordinary div).
-        if (in_array('footnotes', $classes, true) && !$this->renderingFootnoteSection) {
+        if ($node->hasClass('footnotes') && !$this->renderingFootnoteSection) {
             // Preserve any blocks authored inside the placeholder before the
             // relocated endnotes (matching carve-js), then the sentinel.
             $body = rtrim($this->renderChildren($node), "\n");
