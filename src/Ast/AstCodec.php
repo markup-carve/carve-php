@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Profile;
@@ -684,6 +685,14 @@ class AstCodec
         // the broader class, so the canonical name is what goes on the wire -
         // the same distinction Profile already draws for profile matching.
         $type = Profile::canonicalTypeOf($node);
+        // `canonicalTypeOf` answers the PROFILE question - `#tag` is classified
+        // as `mention` because the two are one trust class. The wire asks a
+        // different question: PART 12 §3 and profiles.md both keep `tag` as its
+        // own AST type, so a profile classification must not decide the type
+        // this publishes.
+        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
+            $type = 'tag';
+        }
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
@@ -744,6 +753,12 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($node instanceof Mention) {
+            // `user` / `name` carry the content; the Text child holds the same
+            // thing with its sigil, and publishing both would be two
+            // representations of one string. The decoder rebuilds it.
+            $children = [];
+        }
         if ($type === 'autolink') {
             // The reference gives an autolink no children - `text` is the label,
             // and publishing both would be a second representation of the same
@@ -878,6 +893,17 @@ class AstCodec
             return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
         }
 
+        if ($node instanceof Mention) {
+            // The reference publishes the NAME, not the rendered label: a
+            // mention is `{type, user}` and a tag `{type: "tag", name}`. This
+            // engine models both as a Link subclass whose Text child holds the
+            // literal `@user` / `#tag`, and whose css class says which.
+            $label = self::plainText($node);
+            $isTag = $node->getCssClass() === 'tag';
+
+            return [$isTag ? 'name' : 'user' => ltrim($label, $isTag ? '#' : '@')];
+        }
+
         if ($node instanceof ListBlock) {
             return ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
         }
@@ -904,6 +930,18 @@ class AstCodec
             if ($node->getChildren() === []) {
                 $text = $data['text'] ?? null;
                 $node->appendChild(new Text(is_string($text) ? $text : (string)$node->getDestination()));
+            }
+
+            return;
+        }
+
+        if ($node instanceof Mention) {
+            $isTag = ($data['type'] ?? null) === 'tag';
+            $name = $data[$isTag ? 'name' : 'user'] ?? null;
+            self::writeProperty($node, 'cssClass', $isTag ? 'tag' : 'mention');
+            self::writeProperty($node, 'destination', '');
+            if (is_string($name) && $node->getChildren() === []) {
+                $node->appendChild(new Text(($isTag ? '#' : '@') . $name));
             }
 
             return;
@@ -1200,6 +1238,15 @@ class AstCodec
         $default = self::defaultFor(new ReflectionClass($node), $property);
 
         if (!$default['has']) {
+            // A field this codec never PUBLISHES cannot be required on input.
+            // `mention` keeps a css class, a destination and a title internally
+            // and puts none of them on the wire, so demanding them of a payload
+            // asks for something no conformant producer can send. Whatever sets
+            // them - a derived field, or the constructor - has already run.
+            if (ReferenceShape::fieldFor($nodeType, $property->getName()) === null) {
+                return;
+            }
+
             throw new RuntimeException(sprintf(
                 'Node "%s" is missing the required field "%s"',
                 $nodeType,

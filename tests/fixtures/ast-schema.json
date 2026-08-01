@@ -210,18 +210,8 @@
         "required": []
     },
     "mention": {
-        "fields": [
-            "cssClass",
-            "referenceLabel",
-            "isAutolink",
-            "destination",
-            "title"
-        ],
-        "required": [
-            "cssClass",
-            "destination",
-            "title"
-        ]
+        "fields": [],
+        "required": []
     },
     "paragraph": {
         "fields": [],
