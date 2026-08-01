@@ -9,19 +9,9 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PART 12 section 2 fixes the document root's fields: `type`, `children` and
- * `srcByteLength` always, `frontmatter` and `footnoteDefs` exactly when the
- * document has them, and nothing else.
- *
- * This engine models both as BLOCK NODES, which is a reasonable internal choice
- * and the wrong thing to publish. `children` is an ORDER, and neither has a
- * position in the document's flow: a footnote definition renders where the
- * reference to it appears, not where it was written, and frontmatter renders
- * nowhere at all. A consumer walking `children` to render therefore had to know
- * to skip two of the types it found there (carve#411).
- *
- * The tree is untouched - this is the map-on-the-way-out PART 12 section 1 asks
- * for.
+ * PART 12 §7 fixes the document root's fields: exactly `type`, `children`, and
+ * `srcByteLength`. Frontmatter and footnote definitions are block nodes in the
+ * tree, while older stored payloads with root fields remain readable.
  */
 class RootFieldsTest extends TestCase
 {
@@ -40,90 +30,106 @@ class RootFieldsTest extends TestCase
         return $this->codec->encode((new CarveConverter())->parse($source));
     }
 
-    public function testFrontmatterIsPublishedOnTheRootNotInChildren(): void
-    {
-        $encoded = $this->encode("---\ntitle: x\n---\n\nbody\n");
-
-        $this->assertSame(
-            ['format' => 'yaml', 'content' => 'title: x'],
-            $encoded['frontmatter'],
-        );
-        $this->assertSame(
-            ['paragraph'],
-            array_column($encoded['children'], 'type'),
-            'the frontmatter block must not also appear in the order of the document',
-        );
-    }
-
-    public function testATypedBlockKeepsItsFormat(): void
-    {
-        $encoded = $this->encode("---json\n{\"title\": \"x\"}\n---\n\nbody\n");
-
-        $this->assertSame('json', $encoded['frontmatter']['format']);
-        $this->assertSame('{"title": "x"}', $encoded['frontmatter']['content']);
-    }
-
-    public function testFootnoteDefinitionsArePublishedOnTheRootKeyedByLabel(): void
-    {
-        $encoded = $this->encode("a[^r]\n\n[^r]: the note\n");
-
-        $this->assertArrayHasKey('footnoteDefs', $encoded);
-        $this->assertSame(['r'], array_keys($encoded['footnoteDefs']));
-        $this->assertSame(
-            ['paragraph'],
-            array_column($encoded['children'], 'type'),
-            'a definition renders where its reference is, so it has no place in the order',
-        );
-    }
-
-    public function testARootFieldIsAbsentWhenTheDocumentDoesNotHaveIt(): void
-    {
-        $encoded = $this->encode("just a paragraph\n");
-
-        $this->assertArrayNotHasKey('frontmatter', $encoded);
-        $this->assertArrayNotHasKey('footnoteDefs', $encoded);
-    }
-
-    public function testTheRootCarriesNothingElse(): void
+    public function testTheRootCarriesOnlyTheThreeDocumentFields(): void
     {
         $keys = array_keys($this->encode("---\na: b\n---\n\nx[^r]\n\n[^r]: n\n"));
         sort($keys);
 
         $this->assertSame(
-            ['children', 'footnoteDefs', 'frontmatter', 'srcByteLength', 'type'],
+            ['children', 'srcByteLength', 'type'],
             $keys,
         );
     }
 
-    public function testBothSurviveARoundTrip(): void
+    public function testFrontmatterIsTheFirstChildAndKeepsItsRawContent(): void
     {
-        // The decoder has to put them back, or the codec loses on its own
-        // output - which is what the loss check caught while this was built.
-        $source = "---json\n{\"a\": 1}\n---\n\nx[^r]\n\n[^r]: n\n";
-        $decoded = $this->codec->decode($this->encode($source));
+        $encoded = $this->encode("---json\n{\"title\": \"x\"}\n---\n\nbody\n");
 
-        $reencoded = $this->codec->encode($decoded);
-        $this->assertSame($this->encode($source), $reencoded);
+        $this->assertSame('frontmatter', $encoded['children'][0]['type']);
+        $this->assertSame('json', $encoded['children'][0]['format']);
+        $this->assertSame('{"title": "x"}', $encoded['children'][0]['content']);
+    }
 
-        $converter = new CarveConverter();
+    public function testFootnoteDefinitionsAreDocumentChildrenCarryingLabel(): void
+    {
+        $encoded = $this->encode("a[^r]\n\n[^r]: the note\n");
+        $footnote = $encoded['children'][1];
+
+        $this->assertSame('footnote', $footnote['type']);
+        $this->assertSame('r', $footnote['label']);
+        $this->assertArrayNotHasKey('id', $footnote);
+    }
+
+    public function testFootnoteAuthoredInsideBlockquoteIsStillADocumentChild(): void
+    {
+        $encoded = $this->encode("> quoted[^b]\n> [^b]: note\n");
+
+        $this->assertSame(['block_quote', 'footnote'], array_column($encoded['children'], 'type'));
+        $this->assertSame('b', $encoded['children'][1]['label']);
+    }
+
+    public function testOldRootFrontmatterAndFootnoteDefsStillDecode(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'x'],
+                        ['type' => 'footnote_ref', 'id' => 'r'],
+                    ],
+                ],
+            ],
+            'frontmatter' => ['format' => 'yaml', 'content' => 'title: x'],
+            'footnoteDefs' => [
+                'r' => [
+                    ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'note']]],
+                ],
+            ],
+            'srcByteLength' => 0,
+        ]);
+
         $this->assertSame(
-            $converter->render($converter->parse($source)),
-            $converter->render($decoded),
-            'a decoded document must render identically to the parsed one',
+            ['frontmatter', 'paragraph', 'footnote'],
+            array_map(static fn (object $child): string => $child->getType(), $decoded->getChildren()),
         );
     }
 
-    public function testTheParserStillModelsThemAsBlocks(): void
+    public function testOldFootnoteIdFieldStillDecodes(): void
     {
-        // The wire form is a mapping, not a change to the tree. Asserted so a
-        // later refactor cannot quietly turn the publishing rule into a parser
-        // change.
-        $document = (new CarveConverter())->parse("---\na: b\n---\n\nx\n");
-        $types = array_map(
-            static fn (object $child): string => $child->getType(),
-            $document->getChildren(),
-        );
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'footnote',
+                    'id' => 'stored',
+                    'children' => [
+                        ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'note']]],
+                    ],
+                ],
+            ],
+            'srcByteLength' => 0,
+        ]);
 
-        $this->assertContains('frontmatter', $types);
+        $encoded = $this->codec->encode($decoded);
+        $this->assertSame('stored', $encoded['children'][0]['label']);
+        $this->assertArrayNotHasKey('id', $encoded['children'][0]);
+    }
+
+    public function testBothSurviveEncodeDecodeRoundTrip(): void
+    {
+        $source = "---json\n{\"a\": 1}\n---\n\nx[^r]\n\n[^r]: n\n";
+        $document = (new CarveConverter())->parse($source);
+        $decoded = $this->codec->decode($this->codec->encode($document));
+
+        $this->assertEquals($document, $decoded);
+
+        $converter = new CarveConverter();
+        $this->assertSame(
+            $converter->render($document),
+            $converter->render($decoded),
+            'a decoded document must render identically to the parsed one',
+        );
     }
 }

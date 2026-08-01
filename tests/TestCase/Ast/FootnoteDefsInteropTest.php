@@ -9,14 +9,10 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve-js keeps footnote DEFINITIONS in a root-level `footnoteDefs` map rather
- * than as block nodes in `children`. This decoder builds nodes, so the map was
- * a field it did not produce and the loss check refused the payload outright -
- * meaning any carve-js document containing a footnote could not be read here at
- * all, which is exactly the exchange PART 12 exists for (carve#408).
- *
- * Which representation is canonical is still open; this only makes the exchange
- * work either way.
+ * Older carve-js and carve-php payloads kept footnote DEFINITIONS in a
+ * root-level `footnoteDefs` map rather than as block nodes in `children`. The
+ * canonical PART 12 §7 shape is now the tree form, but stored root-form payloads
+ * still have to decode.
  */
 class FootnoteDefsInteropTest extends TestCase
 {
