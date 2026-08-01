@@ -105,11 +105,6 @@ class CarveRenderer implements RendererInterface
      */
     protected array $colonFenceWidths = [];
 
-    /**
-     * @var array<int, array<int, int>>
-     */
-    protected array $descendantColonFenceWidths = [];
-
     public function render(Document $document): string
     {
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
@@ -125,16 +120,13 @@ class CarveRenderer implements RendererInterface
     {
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceWidths = $this->colonFenceWidths;
-        $previousDescendantColonFenceWidths = $this->descendantColonFenceWidths;
         $this->escapeMode = $escapeMode;
         $this->colonFenceWidths = [];
-        $this->descendantColonFenceWidths = [];
         try {
             return $this->renderDocumentParts($document);
         } finally {
             $this->escapeMode = $previousEscapeMode;
             $this->colonFenceWidths = $previousColonFenceWidths;
-            $this->descendantColonFenceWidths = $previousDescendantColonFenceWidths;
         }
     }
 
@@ -674,11 +666,6 @@ class CarveRenderer implements RendererInterface
 
     protected function widestDescendantColonFence(Node $node, int $budget): int
     {
-        $key = spl_object_id($node);
-        if (isset($this->descendantColonFenceWidths[$key][$budget])) {
-            return $this->descendantColonFenceWidths[$key][$budget];
-        }
-
         $widest = 0;
         foreach ($node->getChildren() as $child) {
             // Only a DIRECTLY nested container collides with this fence. One
@@ -689,8 +676,6 @@ class CarveRenderer implements RendererInterface
                 $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
             }
         }
-        $this->descendantColonFenceWidths[$key][$budget] = $widest;
-
         return $widest;
     }
 
