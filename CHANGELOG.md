@@ -7,6 +7,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Frontmatter is no longer claimed after a block-attribute line.** `grammar.ebnf`
+  pins `document = [frontmatter], {block}, EOF`: frontmatter is the document's
+  first production, so nothing may precede the opener. A block-attribute line is
+  a block, so once one appears the `---` fence beneath it is ordinary content.
+
+  This engine previously accepted `{.meta}` above a fence and attached the
+  attributes to the frontmatter node, which no other implementation does.
+  carve-js, the reference engine, renders
+
+  ```
+  {.meta}
+  ---yaml
+  title: Test
+  ---
+
+  Content.
+  ```
+
+  as a classed paragraph, a thematic break, and a paragraph; carve-php swallowed
+  the fence as metadata and emitted only `<p>Content.</p>`. Both engines now
+  produce the same HTML.
+
+  **This is a behavior change.** A document relying on attributes attached to
+  frontmatter loses them, and its fence becomes visible content. Frontmatter at
+  the very first line is unaffected.
+
 ### Fixed
 
 - **A ProseMirror table cell keeps the text inside its required paragraph.**

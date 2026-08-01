@@ -338,8 +338,13 @@ DJOT;
         $this->assertSame('frontmatter', $frontmatter->getType());
     }
 
-    public function testFrontmatterWithBlockAttributes(): void
+    public function testIsNotClaimedAfterABlockAttributeLine(): void
     {
+        // grammar.ebnf: `document = [frontmatter], {block}, EOF`. Frontmatter is
+        // the FIRST production, so nothing may precede the opener - a
+        // block-attribute line is a block, and once one appears the `---` fence
+        // below it is ordinary content. carve-js, the reference engine, renders
+        // this input the same way.
         $ext = new FrontmatterExtension();
         $converter = new CarveConverter();
         $converter->addExtension($ext);
@@ -353,16 +358,14 @@ title: Test
 Content.
 DJOT;
 
-        $converter->convert($djot);
+        $html = $converter->convert($djot);
 
-        $this->assertTrue($ext->hasFrontmatter());
-        $this->assertSame('yaml', $ext->getFormat());
-
-        $frontmatter = $ext->getFrontmatter();
-        $this->assertSame('meta', $frontmatter->getAttribute('class'));
+        $this->assertFalse($ext->hasFrontmatter());
+        $this->assertStringContainsString('title: Test', $html);
+        $this->assertStringContainsString('Content.', $html);
     }
 
-    public function testFrontmatterWithMultipleBlockAttributes(): void
+    public function testIsNotClaimedAfterAMultiAttributeBlockLine(): void
     {
         $ext = new FrontmatterExtension();
         $converter = new CarveConverter();
@@ -377,15 +380,10 @@ import flight
 Content.
 DJOT;
 
-        $converter->convert($djot);
+        $html = $converter->convert($djot);
 
-        $this->assertTrue($ext->hasFrontmatter());
-        $this->assertSame('python', $ext->getFormat());
-        $this->assertStringContainsString('import flight', $ext->getContent());
-
-        $frontmatter = $ext->getFrontmatter();
-        $this->assertSame('myproject', $frontmatter->getAttribute('kernel'));
-        $this->assertSame('cell-1', $frontmatter->getAttribute('id'));
+        $this->assertFalse($ext->hasFrontmatter());
+        $this->assertStringContainsString('import flight', $html);
     }
 
     public function testCommentEscapingInRenderAsComment(): void
