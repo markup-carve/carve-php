@@ -437,7 +437,16 @@ class ProseMirrorRenderer
             }
         }
 
+        // Author attributes fill in around the structural ones; they never
+        // replace them. A link's destination comes from the link syntax, and an
+        // authored `{href=...}` is a plain attribute the HTML target already
+        // refuses to promote - so letting it win here would hand the editor a
+        // destination the document does not have, and writing that model back
+        // out would make it the real one.
         foreach ($node->getAttributes() as $key => $value) {
+            if (array_key_exists($key, $attrs)) {
+                continue;
+            }
             $attrs[$key] = $value;
         }
 
