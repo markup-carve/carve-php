@@ -39,6 +39,18 @@ class SectionWrappingTest extends TestCase
         return trim((new CarveConverter())->convert($source));
     }
 
+    public function testTheFlagIsOnByDefaultAndReadsBackWhatWasSet(): void
+    {
+        $renderer = new HtmlRenderer();
+        $this->assertTrue($renderer->isSectionWrapping());
+
+        $this->assertSame($renderer, $renderer->setSectionWrapping(false));
+        $this->assertFalse($renderer->isSectionWrapping());
+
+        $renderer->setSectionWrapping(true);
+        $this->assertTrue($renderer->isSectionWrapping());
+    }
+
     public function testWrapsByDefault(): void
     {
         $this->assertSame(
