@@ -37,6 +37,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unresolved reference publishes as `text`, not as `raw_text`**
+  (markup-carve/carve-php#531, PART 12 §5). `raw_text` holds markup the parser
+  DECLINED - the `[a][]` of an unresolved reference - which the Carve writer
+  needs so it can reproduce the source verbatim instead of escaping brackets it
+  never interpreted. §5 excludes such a node from the wire, the published schema
+  has no entry for it, and both other engines emit three text nodes for
+  `see [a][] here`. This engine published a fourth type nothing accounted for.
+
+  The mapping is on the way OUT only, which is what §1 licenses. The live tree
+  still holds the node, so `fmt` is unchanged and every corpus document still
+  formats to its authored bytes. What is lost is the authored form AFTER a round
+  trip through the JSON: `[a][]` comes back as `\[a\]\[\]` for four corpus
+  documents, named in the round-trip gate so a new loss and a fixed one both
+  fail it. HTML is unchanged everywhere.
+
+  `AstCodec::schema()` no longer advertises the type either. It is built by
+  reflection over the node classes, so an internal one was published by default;
+  `AstCodec::NOT_ON_THE_WIRE` now names the exception in one place. Decoding
+  still accepts a payload that carries the node - this engine wrote such
+  payloads and a stored document cannot be recalled - so `AstCodec::VERSION` is
+  unchanged.
+
+  With this and markup-carve/carve-php#557, no conformance finding against the
+  published schema remains for this engine over the whole corpus. The 26 that
+  are left are all missing positions (PART 12 §4).
+
 - **The canonical writer stops inventing a mention name.** `escapeName()` was
   named escape and DELETED: every character outside `[\w.-]` was dropped, so a
   mention labelled `o'brien` was written as `@obrien` and `Mark Scherer` as

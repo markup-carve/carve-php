@@ -230,12 +230,6 @@
         ],
         "required": []
     },
-    "raw_text": {
-        "fields": [
-            "content"
-        ],
-        "required": []
-    },
     "section": {
         "fields": [],
         "required": []
