@@ -490,13 +490,25 @@ class ProseMirrorBridgeTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('needs a string type');
 
-        $this->converter->convert(['type' => 'doc', 'content' => [
-            ['type' => 'table', 'content' => [
-                ['type' => 'tableRow', 'content' => [
-                    ['type' => 'tableCell', 'content' => [['attrs' => ['x' => 1]]]],
-                ]],
-            ]],
-        ]]);
+        $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                ['type' => 'tableCell', 'content' => [['attrs' => ['x' => 1]]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 
     public function testANonDocRootIsRejected(): void
