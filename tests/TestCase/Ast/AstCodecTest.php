@@ -398,9 +398,17 @@ class AstCodecTest extends TestCase
      */
     public function testAStoredPayloadNamingTheInternalNodeStillDecodes(): void
     {
-        $decoded = $this->codec->decode(['type' => 'document', 'children' => [
-            ['type' => 'paragraph', 'children' => [['type' => 'raw_text', 'content' => '[a][]']]],
-        ]]);
+        $stored = [
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'raw_text', 'content' => '[a][]']],
+                ],
+            ],
+        ];
+
+        $decoded = $this->codec->decode($stored);
 
         $paragraph = $decoded->getChildren()[0];
         $this->assertSame('raw_text', $paragraph->getChildren()[0]->getType());
