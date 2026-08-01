@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
 
@@ -36,9 +37,39 @@ class ProfileSubtypeTest extends TestCase
      */
     protected const ADMONITION = "::: note\ncallout\n:::\n";
 
+    /**
+     * A named div whose type word is NOT one of the Tier-1 callout kinds
+     * (grammar PART 9 §12). `isTyped()` is true here exactly as it is for
+     * `::: note`, which is why `isTyped()` alone cannot be the classification
+     * predicate (carve#507): this must classify as `div`, not `admonition`.
+     *
+     * @var string
+     */
+    protected const NAMED_CONTAINER = "::: sidebar\ncontent\n:::\n";
+
     protected function html(string $source, Profile $profile): string
     {
         return (new CarveConverter(profile: $profile))->convert($source);
+    }
+
+    /**
+     * The canonical types (per {@see Profile::canonicalTypeOf()}) of every
+     * node the source produces, in document order.
+     *
+     * @return list<string>
+     */
+    protected function canonicalTypesOf(string $source): array
+    {
+        $found = [];
+        $walk = function (Node $node) use (&$walk, &$found): void {
+            $found[] = Profile::canonicalTypeOf($node);
+            foreach ($node->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+        $walk((new CarveConverter())->parse($source));
+
+        return $found;
     }
 
     public function testDeniesAnAutolinkWhenTheProfileNamesIt(): void
@@ -84,5 +115,47 @@ class ProfileSubtypeTest extends TestCase
     {
         $out = $this->html(self::AUTOLINK, Profile::full()->allowInline(['text', 'link']));
         $this->assertStringContainsString('<a ', $out);
+    }
+
+    /**
+     * carve#507: a named div that is NOT a Tier-1 callout kind must classify
+     * as `div`, not `admonition` - `isTyped()` alone (true for `::: sidebar`
+     * just as it is for `::: note`) is not the right predicate.
+     */
+    public function testANamedContainerWithoutACalloutClassClassifiesAsDivNotAdmonition(): void
+    {
+        $types = $this->canonicalTypesOf(self::NAMED_CONTAINER);
+        $this->assertContains('div', $types);
+        $this->assertNotContains('admonition', $types);
+    }
+
+    public function testANamedCalloutClassifiesAsAdmonition(): void
+    {
+        $this->assertContains('admonition', $this->canonicalTypesOf(self::ADMONITION));
+    }
+
+    /**
+     * `{.warning}` attached above the opener adds a Tier-1 class to a div that
+     * is ALSO named for something else (`sidebar`). It renders as
+     * `<aside class="admonition warning sidebar">`, so it must classify as
+     * `admonition` too - classification has to agree with what actually
+     * renders, not merely with the opener's own type word.
+     */
+    public function testAnAttributeLineCalloutClassMakesANamedContainerClassifyAsAdmonition(): void
+    {
+        $source = "{.warning}\n" . self::NAMED_CONTAINER;
+        $this->assertContains('admonition', $this->canonicalTypesOf($source));
+    }
+
+    public function testDenyingAdmonitionNoLongerStripsAPlainNamedContainer(): void
+    {
+        $out = $this->html(self::NAMED_CONTAINER, Profile::full()->denyBlock(['admonition']));
+        $this->assertStringContainsString('<div class="sidebar">', $out);
+    }
+
+    public function testDenyingDivStillStripsAPlainNamedContainer(): void
+    {
+        $out = $this->html(self::NAMED_CONTAINER, Profile::full()->denyBlock(['div']));
+        $this->assertStringNotContainsString('<div class="sidebar">', $out);
     }
 }

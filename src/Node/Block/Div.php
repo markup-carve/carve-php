@@ -12,6 +12,18 @@ use MarkupCarve\Carve\Node\Inline\Text;
 class Div extends BlockNode
 {
     /**
+     * The eight canonical admonition types (grammar PART 9 §12, Tier 1). A div
+     * carrying any of these classes renders as a semantic
+     * `<aside class="admonition {type}">`; any other div is Tier-2 generic
+     * `<div class="{type}">`. Shared with {@see \MarkupCarve\Carve\Renderer\HtmlRenderer}
+     * so rendering and profile classification read the same list rather than
+     * two copies kept in sync by hand.
+     *
+     * @var list<string>
+     */
+    public const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
+
+    /**
      * Grouping label from the opener `[label]` (grammar PART 9 §12). Structured
      * metadata: NOT rendered by core, consumed by a group extension (e.g. tabs)
      * as the tab name. Mirrors {@see \MarkupCarve\Carve\Node\Block\CodeBlock::getLabel()}.
@@ -99,6 +111,33 @@ class Div extends BlockNode
     public function setTyped(bool $typed): void
     {
         $this->typed = $typed;
+    }
+
+    /**
+     * The Tier-1 admonition kind this div renders as, or null when it is a
+     * plain (Tier-2) container. Mirrors the class-list scan in
+     * {@see \MarkupCarve\Carve\Renderer\HtmlRenderer::renderDiv()} (there
+     * expressed as `array_intersect($classes, self::ADMONITION_TYPES)`): a div
+     * is an admonition because it CARRIES a Tier-1 class, not merely because
+     * it was opened with a type word (`::: sidebar` is typed but not a
+     * callout).
+     *
+     * When more than one Tier-1 class is present (e.g. `{.warning}` attached
+     * above a `::: note` opener), the first one in class-list order is
+     * returned. The renderer keeps the FULL intersection (every Tier-1 class
+     * ends up on the rendered `class` attribute); classification only needs to
+     * know THAT the div is an admonition, so a single representative value is
+     * enough here.
+     */
+    public function admonitionKind(): ?string
+    {
+        foreach ($this->getClassList() as $class) {
+            if (in_array($class, self::ADMONITION_TYPES, true)) {
+                return $class;
+            }
+        }
+
+        return null;
     }
 
     /**

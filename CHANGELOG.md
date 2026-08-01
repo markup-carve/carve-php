@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A profile classifies a div as an admonition because it carries a Tier-1
+  class, not because it was opened with a type word.** `::: sidebar` is a
+  generic container and now classifies as `div`; `::: note` still classifies as
+  `admonition`. The predicate is the one the renderer already used, so
+  classification and rendering agree by construction instead of being two rules
+  kept in sync by hand - no rendered output changes.
+
+  **Migration:** `denyBlock(['admonition'])` previously stripped *every* named
+  div and now strips only Tier-1 callouts (`note`, `tip`, `warning`, `danger`,
+  `info`, `success`, `example`, `quote`). To preserve the old behavior exactly,
+  deny both `admonition` and `div`. `denyBlock(['div'])` still catches callouts
+  through the supertype rule.
+
 - **`carve --json` publishes source positions, so the AST output is PART 12 §4
   conformant.** The machinery landed first and nothing turned it on:
   `trackPositions` defaults to false and no caller passed true, so the code to

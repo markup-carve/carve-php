@@ -489,13 +489,24 @@ class Profile
      * the broader name and a profile naming the narrower one matched nothing.
      * That was silent: a host could deny autolinks, get no error and no
      * violation, and still emit them (carve#362).
+     *
+     * A div is an admonition when it CARRIES a Tier-1 canonical class
+     * ({@see \MarkupCarve\Carve\Node\Block\Div::admonitionKind()}), not merely
+     * because it was opened with a type word: `::: sidebar` is typed
+     * ({@see \MarkupCarve\Carve\Node\Block\Div::isTyped()}) but is not a
+     * callout, and `{.warning}` attached above a bare `:::` is untyped but
+     * renders as one. This predicate mirrors
+     * {@see \MarkupCarve\Carve\Renderer\HtmlRenderer::renderDiv()}'s own
+     * `array_intersect($classes, Div::ADMONITION_TYPES)` exactly, so
+     * classification and rendering agree by construction rather than by two
+     * rules kept in sync by hand (carve#507).
      */
     public static function canonicalTypeOf(Node $node): string
     {
         if ($node instanceof Link && $node->isAutolink()) {
             return NodeType::AUTOLINK;
         }
-        if ($node instanceof Div && $node->isTyped()) {
+        if ($node instanceof Div && $node->admonitionKind() !== null) {
             return NodeType::ADMONITION;
         }
 

@@ -1195,15 +1195,6 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * The eight canonical admonition types (grammar PART 9 §12, Tier 1).
-     * These render as a semantic <aside class="admonition {type}">; any
-     * other type is a Tier-2 generic <div class="{type}">.
-     *
-     * @var list<string>
-     */
-    protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
-
-    /**
      * Private sentinel emitted for a `::: footnotes` placement block; render()
      * swaps it for the endnotes section (relocated from the document end) or, in
      * a document with no footnotes, for a graceful empty placeholder. Uses a
@@ -1227,6 +1218,14 @@ class HtmlRenderer implements RendererInterface
         $classes = is_string($class) && $class !== ''
             ? preg_split('/\s+/', trim($class)) ?: []
             : [];
+        // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
+        // PART 9 §12, Tier 1) so this render decision and
+        // Profile::canonicalTypeOf() read the same list instead of two copies
+        // kept in sync by hand. Full class-list intersection (not
+        // Div::admonitionKind(), which reports only the first match) is kept
+        // here because more than one Tier-1 class can be present at once (e.g.
+        // an attribute line adding `.warning` above a `::: note` opener), and
+        // all of them are rendered onto the `class` attribute below.
         // `::: footnotes` placement directive: emit a sentinel that render()
         // replaces with the endnotes section, relocating it from the document
         // end. A document without this block is byte-identical to before. Not
@@ -1239,7 +1238,7 @@ class HtmlRenderer implements RendererInterface
 
             return ($body !== '' ? $body . "\n" : '') . self::FOOTNOTES_PLACEMENT_SENTINEL;
         }
-        $types = array_values(array_intersect($classes, self::ADMONITION_TYPES));
+        $types = array_values(array_intersect($classes, Div::ADMONITION_TYPES));
 
         // A quoted opener header (PART 9 §12) renders as
         // <p class="admonition-title">. A `title` attribute remains a normal
@@ -1270,7 +1269,7 @@ class HtmlRenderer implements RendererInterface
             $others = array_values(array_filter(
                 $classes,
                 static fn (string $c): bool => $c !== 'admonition'
-                    && !in_array($c, self::ADMONITION_TYPES, true),
+                    && !in_array($c, Div::ADMONITION_TYPES, true),
             ));
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
