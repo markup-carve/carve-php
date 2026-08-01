@@ -9,6 +9,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An authored attribute no longer becomes a link's destination in the
+  ProseMirror bridge.** Attributes were merged over the structural ones rather
+  than around them, so `[safe](https://example.com){href=javascript:steal}`
+  reached the editor as a link whose `href` was the authored attribute, not the
+  destination the document has. Writing that model back out produced
+  `[safe](javascript:steal)` - the round trip rewrote the destination.
+
+  The HTML target has always refused that promotion (it renders
+  `href="https://example.com"` and drops the shadowed attribute), so the bridge
+  was the one place where an attribute could displace the syntax that owns the
+  value. carve-php itself never emitted a live `javascript:` href - the URL
+  policy blanks it on the way out - but a consumer rendering the editor model
+  directly gets whatever the mark carries.
+
+  Structural values now win for every node that has them (`href`, `src`,
+  `title`, `alt`, `colspan`, `rowspan`, `alignment`, `display`, `label`), and a
+  shadowed author attribute is dropped exactly as the HTML target drops it.
+  Attributes that collide with nothing still reach the editor, so an
+  application node keeps its own.
+
 - **A profile that denies nothing now changes nothing, across every corpus
   document.** `ProfileFilter` ran `cleanupEmptyContainers()` as a blanket pass
   over the whole tree, so it pruned containers that were already empty in the

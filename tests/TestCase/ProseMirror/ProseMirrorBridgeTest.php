@@ -153,6 +153,58 @@ class ProseMirrorBridgeTest extends TestCase
         $this->converter->convert(['type' => 'paragraph']);
     }
 
+    /**
+     * An authored `{href=...}` is a plain attribute, not the link's
+     * destination. The HTML target already refuses to promote it; the bridge
+     * used to, so the editor model carried a destination the document does not
+     * have - and writing that model back out made it the real one.
+     */
+    public function testAnAuthoredAttributeDoesNotBecomeTheLinkDestination(): void
+    {
+        $source = '[safe](https://example.com){href=javascript:steal}';
+        $document = (new CarveConverter())->parse($source);
+
+        $pm = $this->renderer->render($document);
+        $link = $pm['content'][0]['content'][0]['marks'][0];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertSame('https://example.com', $link['attrs']['href']);
+
+        $back = $this->converter->convert($pm);
+        $this->assertStringContainsString(
+            '[safe](https://example.com)',
+            CarveConverter::carve()->render($back),
+        );
+    }
+
+    /**
+     * The same precedence, on the other node that carries a URL.
+     */
+    public function testAnAuthoredAttributeDoesNotBecomeTheImageSource(): void
+    {
+        $document = (new CarveConverter())->parse('![alt](real.png){src=evil.png}');
+
+        $pm = $this->renderer->render($document);
+        $image = $pm['content'][0]['content'][0];
+
+        $this->assertSame('real.png', $image['attrs']['src']);
+    }
+
+    /**
+     * Only colliding keys are held back - everything else still reaches the
+     * editor, or an application node's own attributes would vanish.
+     */
+    public function testANonCollidingAuthoredAttributeStillReachesTheEditor(): void
+    {
+        $document = (new CarveConverter())->parse('[a](u){data-role=cta}');
+
+        $pm = $this->renderer->render($document);
+        $link = $pm['content'][0]['content'][0]['marks'][0];
+
+        $this->assertSame('u', $link['attrs']['href']);
+        $this->assertSame('cta', $link['attrs']['data-role']);
+    }
+
     public function testJsonHelpersAreSymmetric(): void
     {
         $document = (new CarveConverter())->parse("# A\n\n- one\n");
