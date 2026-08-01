@@ -7,7 +7,35 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`setSectionWrapping(false)` renders headings without the `<section>`
+  wrapper** (markup-carve/carve#427, spec PART 9 §13). The id goes back on the
+  `<h*>` alongside its other attributes, and the blocks that would have been
+  section children stay as siblings. On by default, so existing output is
+  unchanged.
+
+  The wrapper is the one output change that breaks a site whose source migrated
+  cleanly: CSS and JS assuming rendered blocks are direct children of the
+  content container stop matching once a `<section>` sits in between.
+
+  Implemented by routing the heading through the path a heading inside a
+  container already uses, rather than writing a second renderer. The endnotes
+  `<section role="doc-endnotes">` is a different construct and is unaffected.
+
 ### Fixed
+
+- **An auto-generated heading id no longer displaces an id the author wrote**
+  (spec PART 10 §1). On an unwrapped heading this engine put the id last in
+  every case, so `{#x a=b}` rendered `<h1 a="b" id="x">` instead of keeping the
+  author's order. Authored attributes now keep their source order and only a
+  generated id joins at the end.
+
+  All three engines disagreed here and none could be wrong: carve-js appended a
+  generated id but left an authored one in place, this engine put the id last in
+  both cases, carve-rs put it first in both. The combination was reachable only
+  through a heading inside a container, and no corpus case gave such a heading
+  attributes, so each answer stayed green. carve-js is canonical.
 
 - **A ProseMirror table cell keeps the text inside its required paragraph.**
   Tiptap stores every table cell as block content, usually a paragraph, but the

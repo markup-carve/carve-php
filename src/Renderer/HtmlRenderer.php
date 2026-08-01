@@ -102,6 +102,12 @@ class HtmlRenderer implements RendererInterface
     protected bool $roundTripMode = false;
 
     /**
+     * Wrap top-level headings in `<section>` (PART 9 §13). On by default,
+     * which is what the conformance corpus pins. See setSectionWrapping().
+     */
+    protected bool $sectionWrapping = true;
+
+    /**
      * Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC.
      */
     protected string $renderMode = RenderMode::INTERACTIVE;
@@ -317,6 +323,40 @@ class HtmlRenderer implements RendererInterface
     public function isRoundTripMode(): bool
     {
         return $this->roundTripMode;
+    }
+
+    /**
+     * Wrap top-level headings in `<section>` (PART 9 §13). Enabled by default.
+     *
+     * When disabled, no `<section>` is emitted: the id goes back on the `<h*>`
+     * alongside its other attributes, and the blocks that would have been the
+     * section's children stay as siblings, losing the indentation they carried
+     * as container children.
+     *
+     * The wrapper is the one output change that breaks a site whose source
+     * migrated cleanly, because CSS and JS that assume rendered blocks are
+     * direct children of the content container stop matching once a
+     * `<section>` sits in between.
+     *
+     * Nothing else changes: ids, collision dedup, `</#id>` cross-references,
+     * implicit `[Heading][]` references and heading numbering all resolve
+     * against the slug rather than the element carrying it. The endnotes
+     * `<section role="doc-endnotes">` is a different construct and is still
+     * emitted.
+     */
+    public function setSectionWrapping(bool $enabled): self
+    {
+        $this->sectionWrapping = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Check whether top-level headings are wrapped in `<section>`
+     */
+    public function isSectionWrapping(): bool
+    {
+        return $this->sectionWrapping;
     }
 
     /**
@@ -626,6 +666,18 @@ class HtmlRenderer implements RendererInterface
                 continue;
             }
 
+            // With wrapping off there is no section to collect a range for:
+            // the heading renders through the same path a heading inside a
+            // container already uses (id on the <h*>), and the blocks that
+            // would have been its children are emitted as plain siblings by
+            // the loop itself.
+            if (!$this->sectionWrapping) {
+                $html .= $this->renderNode($node);
+                $i++;
+
+                continue;
+            }
+
             $level = $node->getLevel();
             // Collect the nodes belonging to this section: everything up
             // to (but not including) the next heading at the same or a
@@ -851,12 +903,18 @@ class HtmlRenderer implements RendererInterface
         $level = $node->getLevel();
 
         // Carve headings are flat: no <section> wrapper, the id sits on
-        // the heading. Attribute order is the node's own attributes
-        // (e.g. class) followed by id — matching the corpus. The id is
-        // rendered via escapeHeadingId so a literal NBSP stays a raw byte
-        // (decision F-id), unlike the generic escapeAttribute path.
-        $attrs = $this->getRenderableAttributes($node, ['id']);
-        $idAttr = ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
+        // the heading. Attribute order follows PART 10 §1: the author's
+        // own attributes keep their source order and a GENERATED one -
+        // here the auto slug - joins at the end. An id the author WROTE
+        // is not generated, so it stays where they put it rather than
+        // being moved to the end. The id is rendered via escapeHeadingId
+        // so a literal NBSP stays a raw byte (decision F-id), unlike the
+        // generic escapeAttribute path.
+        $authoredId = $node->hasAttribute('id');
+        $attrs = $this->getRenderableAttributes($node, $authoredId ? [] : ['id']);
+        $idAttr = $authoredId
+            ? ''
+            : ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
 
         $explicitIdAttr = '';
         if ($this->roundTripMode && $node->hasAttribute('id')) {
