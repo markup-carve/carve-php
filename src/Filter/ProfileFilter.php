@@ -56,6 +56,19 @@ class ProfileFilter
      */
     protected array $violations = [];
 
+    /**
+     * Parents this filter actually removed a child from, keyed by object id.
+     *
+     * Empty-container cleanup is scoped to these. A blanket pass over the whole
+     * document also removed containers that were empty in the SOURCE, so a
+     * profile denying nothing still changed the output - and an empty container
+     * is not always meaningless. `::: footnotes` is empty BY DEFINITION: its
+     * emptiness is the syntax for "put the endnotes here" (carve-php#505).
+     *
+     * @var array<int, \MarkupCarve\Carve\Node\Node>
+     */
+    protected array $emptied = [];
+
     protected ?string $baseHost = null;
 
     /**
@@ -72,6 +85,7 @@ class ProfileFilter
     public function filter(Document $doc, Profile $profile): Document
     {
         $this->violations = [];
+        $this->emptied = [];
         $this->filterChildren($doc, $profile, 0);
         $this->cleanupEmptyContainers($doc, 0);
 
@@ -207,6 +221,7 @@ class ProfileFilter
 
     protected function stripNode(Node $node, Node $parent): void
     {
+        $this->emptied[spl_object_id($parent)] = $parent;
         $parent->removeChild($node);
     }
 
@@ -216,6 +231,7 @@ class ProfileFilter
         // its body into the output (and, being a block node, wrap it in a
         // stray paragraph), so always drop it regardless of the action.
         if ($node instanceof Comment) {
+            $this->emptied[spl_object_id($parent)] = $parent;
             $parent->removeChild($node);
 
             return;
@@ -230,6 +246,7 @@ class ProfileFilter
             // visible content, and substitute a marker deliberately ugly enough
             // that it cannot pass for intended output.
             if ($this->rendersNothing($node)) {
+                $this->emptied[spl_object_id($parent)] = $parent;
                 $parent->removeChild($node);
 
                 return;
@@ -309,9 +326,19 @@ class ProfileFilter
             // Recursively clean up children first
             $this->cleanupEmptyContainers($child, $depth + 1);
 
+            // Only prune what THIS filter emptied. A container that arrived
+            // empty is the author's, and reproducing it is what makes a profile
+            // that denies nothing an identity (carve-php#506).
+            if (!isset($this->emptied[spl_object_id($child)])) {
+                continue;
+            }
+
             // Check if this node is now empty and should be removed
             if ($this->isEmptyContainer($child, $depth + 1)) {
                 $parent->removeChild($child);
+                // Its own parent has now lost a child too, so an emptied
+                // wrapper cascades up exactly as the blanket pass did.
+                $this->emptied[spl_object_id($parent)] = $parent;
             }
         }
     }
@@ -344,11 +371,16 @@ class ProfileFilter
             // Structural elements that must be preserved even when empty:
             // - ThematicBreak: valid self-closing element (renders as <hr>)
             // - TableCell: maintains table column structure
-            // - Div placement carrier (`::: footnotes` / `::: toc`): childless
-            //   BY DESIGN, not emptied by filtering. It marks WHERE the renderer
-            //   relocates content (the endnotes section, the heading nav), so
-            //   pruning it as "empty" silently moves that content back to its
-            //   un-relocated default position instead of leaving it in place.
+            // - Div placement carrier (`::: footnotes` / `::: toc`): marks
+            //   WHERE the renderer relocates content (the endnotes section, the
+            //   heading nav), so pruning it as "empty" silently moves that
+            //   content back to its un-relocated default position.
+            //   Still load-bearing after cleanup was scoped to emptied parents,
+            //   and the two cover DIFFERENT cases: a CHILDLESS carrier is never
+            //   marked, so the scoping alone protects it, but one whose body the
+            //   filter strips IS marked and reaches here. Removing this arm
+            //   loses the placement for exactly that document (pinned in
+            //   Filter/EmptyContainerCleanupTest).
             if (
                 $node instanceof ThematicBreak
                 || $node instanceof TableCell

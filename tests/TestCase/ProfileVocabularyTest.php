@@ -55,36 +55,29 @@ class ProfileVocabularyTest extends TestCase
     /**
      * Corpus documents a full profile still changes, which it should not.
      *
-     * A ratchet, not an allowance. The vocabulary entries are gone - a profile
-     * that denies nothing now denies nothing. What remains has one
-     * cause, and the list may shrink but must never grow.
+     * A ratchet, not an allowance. It is EMPTY, and a full profile is now a
+     * true identity across every corpus document.
      *
-     * All six are `cleanupEmptyContainers` / `isEmptyContainer`
-     * (Filter/ProfileFilter.php) pruning a container the unfiltered render
-     * emits. The container differs, which is why this is not a one-shape bug:
-     * a genuinely empty `<blockquote>` in `16-reference-link-3` and
-     * `115-...-is-collected`; an `<aside>` or a `<ul><li>` in
-     * `16-reference-link-4`, `115-...-is-collected-2` and
-     * `114-fence-opener-...` (which loses its whole rendered output); and in
-     * `83-blockquote-lazy-continuation-...` a blockquote that is NOT visually
-     * empty, wrapping a `CodeBlock` whose content is `''` - treated as an
-     * empty leaf, cascading up to prune the blockquote.
+     * Getting here took three passes. The vocabulary entries went first (a
+     * profile that denies nothing now denies nothing). Then the `::: footnotes`
+     * placement directive, which a structural exemption kept from being pruned.
      *
-     * Whether the pruning is a defect or an improvement is undecided: removing
-     * genuinely empty markup may well be the better output. It is pinned here
-     * because a full profile must not change output at all, not because the
-     * new output is known to be wrong.
+     * The last was `cleanupEmptyContainers` itself, which ran as a blanket pass
+     * over the whole tree and so pruned containers that were already empty in
+     * the SOURCE, not only ones the filter emptied. That is the general form of
+     * the placement-directive bug: `::: footnotes` is empty BY DEFINITION - its
+     * emptiness is the syntax - so it could never survive a pass that treats
+     * empty as meaningless, and neither could the other six. Cleanup is now
+     * scoped to the parents the filter actually removed a child from, which
+     * also matches carve-js: it prunes an emptied blockquote to nothing and
+     * leaves an already-empty container alone.
+     *
+     * The list may shrink but must never grow. An entry appearing here means a
+     * profile that denies nothing started changing output again.
      *
      * @var array<string>
      */
-    private const KNOWN_LOSSY_UNDER_A_FULL_PROFILE = [
-        '114-fence-opener-with-a-nested-list-body-inside-a-list-item-7.crv',
-        '115-footnote-definition-inside-a-container-is-collected-2.crv',
-        '115-footnote-definition-inside-a-container-is-collected.crv',
-        '16-reference-link-3.crv',
-        '16-reference-link-4.crv',
-        '83-blockquote-lazy-continuation-stops-at-a-fenced-block-3.crv',
-    ];
+    private const KNOWN_LOSSY_UNDER_A_FULL_PROFILE = [];
 
     public function testAFullProfileChangesNothingAcrossTheCorpus(): void
     {
