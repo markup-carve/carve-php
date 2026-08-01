@@ -9,6 +9,29 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ProseMirror bridge carries four fields the editor schema already
+  declared.** Each was left unset on this side, so the value had nowhere to
+  live in the editor model and vanished on the way back:
+
+  - **A container's title.** `::: tip "Pro Tip"` came back as `{.tip}` plus a
+    bare fence, with the heading gone - content, not spelling. An empty title
+    is kept distinct from a missing one, since `::: note ""` suppresses the
+    default heading.
+  - **A container's typed opener.** `carveDiv` carries a class, not a
+    spelling, so a div is now marked typed on the same condition the parser
+    uses - which is what carve-grammars' own serializer does with the same
+    node. A div authored as `{.custom}` with a single class therefore
+    normalizes to `::: custom`; one carrying several classes cannot be spelled
+    that way and keeps the attribute block.
+  - **An abbreviation's expansion.** The `carveAbbreviation` mark had no
+    `title`, so `*[HTML]: HyperText Markup Language` was lost and every
+    expansion in the document stopped working.
+  - **A semantic span's name.** `:kbd[x]` came back as `:[x]`, which is not
+    valid Carve. The schema's `carveSource` exists for exactly this.
+
+  Across the spec example corpus this takes round-trip losses the fidelity
+  report does not declare from 55 documents to 32.
+
 - **A footnote keeps its label across the ProseMirror bridge.** Neither
   `carveFootnote` nor `carveFootnoteDefinition` carried the label, so every
   reference and definition reached the editor anonymous: a document with three
