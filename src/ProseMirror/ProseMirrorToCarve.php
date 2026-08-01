@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use Closure;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -84,6 +85,11 @@ class ProseMirrorToCarve
     protected array $droppedAttributes = [];
 
     /**
+     * @var array<string, \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node>
+     */
+    protected array $factories = [];
+
+    /**
      * @param array<string, mixed> $document
      *
      * @throws \RuntimeException When the payload is not a ProseMirror document.
@@ -103,6 +109,43 @@ class ProseMirrorToCarve
         }
 
         return $carveDocument;
+    }
+
+    /**
+     * Teach this converter one ProseMirror name its editor emits.
+     *
+     * The published map is CarveKit's vocabulary, so a name outside it is
+     * rejected - which is right for a typo and wrong for an application's own
+     * node, whose name cannot go upstream because nobody else has it. Every
+     * other surface in this package already takes a downstream extension; this
+     * is the same door for the bridge.
+     *
+     * The factory returns the node SHELL, exactly where `instantiate()` sits:
+     * attributes and children are then applied by the normal path, so an app
+     * gets `data-*` passthrough and nested content without reimplementing them.
+     * A node answering `InlineNode` is treated as inline, so both kinds work.
+     *
+     * ~~~ php
+     * $converter->register('placeholderToken', function (array $data): Node {
+     *     $span = new Span();
+     *     $span->addClass('placeholder');
+     *
+     *     return $span;
+     * });
+     * ~~~
+     *
+     * Anything unregistered still throws, so nothing becomes silent.
+     *
+     * @param string $proseMirrorName
+     * @param \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node $factory
+     *
+     * @return $this
+     */
+    public function register(string $proseMirrorName, Closure $factory)
+    {
+        $this->factories[$proseMirrorName] = $factory;
+
+        return $this;
     }
 
     /**
@@ -570,12 +613,21 @@ class ProseMirrorToCarve
      */
     protected function instantiate(string $proseMirrorName, array $data): Node
     {
+        // A registration wins over the map, so an application can also override
+        // a stock name its editor spells differently.
+        $factory = $this->factories[$proseMirrorName] ?? null;
+        if ($factory !== null) {
+            return $factory($data);
+        }
+
         $carveType = SchemaMap::carveTypeFor($proseMirrorName);
         if ($carveType === null) {
             throw new RuntimeException(sprintf(
-                'ProseMirror node "%s" is not in the schema map; add it upstream in carve-grammars '
-                    . 'rather than restating the mapping here',
+                'ProseMirror node "%s" is not in the schema map. Add it upstream in carve-grammars '
+                    . 'if it is a name every editor shares, or register it on this converter with '
+                    . '%s::register() if it is your application\'s own.',
                 $proseMirrorName,
+                self::class,
             ));
         }
 

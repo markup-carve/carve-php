@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -612,6 +615,106 @@ class ProseMirrorBridgeTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    /**
+     * An application's own editor node cannot go upstream - nobody else has
+     * `placeholderToken` - so "in the published map" and "throw" left it no
+     * route at all. Registration is the third state (carve-php#542).
+     */
+    public function testARegisteredInlineNodeConverts(): void
+    {
+        $this->converter->register('placeholderToken', static function (array $data): Node {
+            $span = new Span();
+            $span->addClass('placeholder');
+
+            return $span;
+        });
+
+        $document = $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Hello '],
+                        [
+                            'type' => 'placeholderToken',
+                            'attrs' => ['data-key' => 'customer.name'],
+                            'content' => [['type' => 'text', 'text' => '{{name}}']],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        // The factory returns the shell; attributes and children come from the
+        // normal path, which is what makes the hook worth having.
+        $this->assertSame(
+            "Hello [{{name}}]{.placeholder data-key=customer.name}\n",
+            CarveConverter::carve()->render($document),
+        );
+        $this->assertStringContainsString(
+            '<span class="placeholder" data-key="customer.name">{{name}}</span>',
+            (new CarveConverter())->render($document),
+        );
+    }
+
+    public function testARegisteredBlockNodeConvertsWithItsChildren(): void
+    {
+        $this->converter->register('dataBlock', static function (array $data): Node {
+            $div = new Div();
+            $div->addClass('data-block');
+
+            return $div;
+        });
+
+        $document = $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'dataBlock',
+                    'attrs' => ['data-id' => '7'],
+                    'content' => [
+                        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Body']]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(
+            "{data-id=7}\n::: data-block\nBody\n:::\n",
+            CarveConverter::carve()->render($document),
+        );
+    }
+
+    /**
+     * The hook is a door, not a hole: a name nobody registered still throws,
+     * so a typo cannot become a silent skip.
+     */
+    public function testAnUnregisteredNameStillThrows(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('not in the schema map');
+
+        $this->converter->convert(['type' => 'doc', 'content' => [['type' => 'someAppNode']]]);
+    }
+
+    /**
+     * Registration is per converter instance, so one application's vocabulary
+     * cannot leak into another's - the reason this is not static state.
+     */
+    public function testRegistrationDoesNotLeakBetweenConverters(): void
+    {
+        $this->converter->register('dataBlock', static fn (array $data): Node => new Div());
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('not in the schema map');
+
+        (new ProseMirrorToCarve())->convert(['type' => 'doc', 'content' => [['type' => 'dataBlock']]]);
     }
 
     public function testANonDocRootIsRejected(): void

@@ -7,6 +7,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`ProseMirrorToCarve::register()`**, so an application's own editor nodes
+  convert. The published map is CarveKit's vocabulary, and a name outside it
+  was rejected - right for a typo, and wrong for a node like
+  `placeholderToken`, whose name cannot go upstream because nobody else has it.
+  "In the map" and "throw" were the only two states; this is the third, the
+  same door `AstCodec::register()` and `CarveConverter::addExtension()` already
+  open on the other surfaces.
+
+  ~~~ php
+  $converter->register('placeholderToken', function (array $data): Node {
+      $span = new Span();
+      $span->addClass('placeholder');
+
+      return $span;
+  });
+  ~~~
+
+  The factory returns the node SHELL, exactly where `instantiate()` sits, so
+  attributes and children come from the normal path - an application gets
+  `data-*` passthrough and nested content without reimplementing either. A node
+  answering `InlineNode` is treated as inline, so both kinds work.
+
+  Registration is per converter INSTANCE rather than static: two converters in
+  one process do not share a vocabulary, and a test cannot leak into the next.
+  An unregistered name still throws, so nothing becomes silent.
+
 ### Fixed
 
 - **The ProseMirror bridge reports an attribute it cannot carry.**
