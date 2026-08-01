@@ -99,6 +99,327 @@ class ProseMirrorBridgeTest extends TestCase
         ];
     }
 
+    public function testAProseMirrorTableCellParagraphRendersToCarveSource(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+
+                                    'type' => 'tableHeader',
+                                    'attrs' => [
+                                        'colspan' => 1,
+                                        'rowspan' => 1,
+                                        'colwidth' => null,
+                                    ],
+                                    'content' => [
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'content' => [
+                                                ['type' => 'text', 'text' => 'Kopf A'],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+
+                                    'type' => 'tableCell',
+                                    'attrs' => [
+                                        'colspan' => 1,
+                                        'rowspan' => 1,
+                                        'colwidth' => null,
+                                    ],
+                                    'content' => [
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'content' => [
+                                                ['type' => 'text', 'text' => 'A1'],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $document = $this->converter->convert($pm);
+        $source = CarveConverter::carve()->render($document);
+        $html = (new CarveConverter())->render($document);
+        $roundTripped = (new CarveConverter())->parse($source);
+
+        $this->assertSame("|=Kopf A|\n| A1 |\n", $source);
+        $this->assertSame($html, (new CarveConverter())->render($roundTripped));
+    }
+
+    public function testAProseMirrorTableCellParagraphKeepsMarksWhenLifted(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+
+                                    'type' => 'tableCell',
+                                    'attrs' => [
+                                        'colspan' => 1,
+                                        'rowspan' => 1,
+                                        'colwidth' => null,
+                                    ],
+                                    'content' => [
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'content' => [
+                                                [
+
+                                                    'type' => 'text',
+                                                    'text' => 'marked',
+                                                    'marks' => [
+                                                        ['type' => 'bold'],
+                                                        ['type' => 'link', 'attrs' => ['href' => 'https://example.com', 'title' => 'Title']],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| *[marked](https://example.com \"Title\")* |\n", $source);
+    }
+
+    public function testAProseMirrorTableCellWithTwoParagraphsIsSpaceJoined(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+
+                                    'type' => 'tableCell',
+                                    'attrs' => [
+                                        'colspan' => 1,
+                                        'rowspan' => 1,
+                                        'colwidth' => null,
+                                    ],
+                                    'content' => [
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'content' => [
+                                                ['type' => 'text', 'text' => 'first'],
+                                            ],
+                                        ],
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'content' => [
+                                                ['type' => 'text', 'text' => 'second'],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| first second |\n", $source);
+    }
+
+    public function testAProseMirrorTableCellWithBareInlinesIsUnchanged(): void
+    {
+        $pm = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+
+                                    'type' => 'tableCell',
+                                    'attrs' => [
+                                        'colspan' => 1,
+                                        'rowspan' => 1,
+                                        'colwidth' => null,
+                                    ],
+                                    'content' => [
+                                        ['type' => 'text', 'text' => 'bare '],
+                                        ['type' => 'text', 'text' => 'cell', 'marks' => [['type' => 'bold']]],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| bare *cell* |\n", $source);
+    }
+
+    /**
+     * A shift-enter in a cell is ordinary Tiptap. Lifted as a hard break it
+     * would be written as a backslash line break, which ends the Carve table
+     * row: the source reparses as a paragraph and the table is gone.
+     */
+    public function testAProseMirrorTableCellHardBreakDegradesToASpace(): void
+    {
+        $pm = $this->tableWithOneCell([
+            [
+
+                'type' => 'paragraph',
+                'content' => [
+                    ['type' => 'text', 'text' => 'first'],
+                    ['type' => 'hardBreak'],
+                    ['type' => 'text', 'text' => 'second'],
+                ],
+            ],
+        ]);
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| first second |\n", $source);
+        $this->assertStringContainsString('<table>', (new CarveConverter())->convert($source));
+    }
+
+    public function testAProseMirrorTableCellHardBreakInsideAMarkDegradesToASpace(): void
+    {
+        $pm = $this->tableWithOneCell([
+            [
+
+                'type' => 'paragraph',
+                'content' => [
+                    ['type' => 'text', 'text' => 'first', 'marks' => [['type' => 'bold']]],
+                    ['type' => 'hardBreak', 'marks' => [['type' => 'bold']]],
+                    ['type' => 'text', 'text' => 'second', 'marks' => [['type' => 'bold']]],
+                ],
+            ],
+        ]);
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| *first second* |\n", $source);
+        $this->assertStringContainsString('<table>', (new CarveConverter())->convert($source));
+    }
+
+    public function testAProseMirrorTableCellListKeepsItsWordBoundaries(): void
+    {
+        $pm = $this->tableWithOneCell([
+            [
+
+                'type' => 'bulletList',
+                'content' => [
+                    [
+
+                        'type' => 'listItem',
+                        'content' => [
+                            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'one']]],
+                        ],
+                    ],
+                    [
+
+                        'type' => 'listItem',
+                        'content' => [
+                            ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'two']]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $source = CarveConverter::carve()->render($this->converter->convert($pm));
+
+        $this->assertSame("| one two |\n", $source);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $content
+     *
+     * @return array<string, mixed>
+     */
+    protected function tableWithOneCell(array $content): array
+    {
+        return [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+                                    'type' => 'tableCell',
+                                    'attrs' => ['colspan' => 1, 'rowspan' => 1, 'colwidth' => null],
+                                    'content' => $content,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
     public function testAnApplicationsOwnBlockSurvivesThroughAttributes(): void
     {
         // The case an app cares about: a container carrying data-* keys is what

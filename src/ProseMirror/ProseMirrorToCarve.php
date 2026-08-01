@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -160,7 +161,15 @@ class ProseMirrorToCarve
             return $node;
         }
 
-        $inline = in_array($node->getType(), ['paragraph', 'heading', 'table_cell', 'definition_term', 'caption'], true);
+        if ($node instanceof TableCell) {
+            foreach ($this->buildTableCellInlines($data) as $built) {
+                $node->appendChild($built);
+            }
+
+            return $node;
+        }
+
+        $inline = in_array($node->getType(), ['paragraph', 'heading', 'definition_term', 'caption'], true);
         if ($inline) {
             $inlines = [];
             foreach ($this->childrenOf($data) as $child) {
@@ -206,6 +215,112 @@ class ProseMirrorToCarve
         }
 
         return $node;
+    }
+
+    /**
+     * Build a table cell's direct inline children.
+     *
+     * ProseMirror table cells require block content, usually a single
+     * paragraph. Carve table cell source is inline-only, so block children have
+     * their inlines lifted directly into the cell.
+     *
+     * A Carve table row is one line, so nothing that would end that line has a
+     * form inside a cell. Two deliberate degradations follow, both to a single
+     * space, at every depth of the lifted subtree:
+     *
+     * - a block boundary, so a cell holding two paragraphs or a list keeps its
+     *   word boundaries instead of running the text together;
+     * - a hard break, which would otherwise be written as a backslash line
+     *   break and terminate the table at that point, turning the whole row back
+     *   into a paragraph on reparse.
+     *
+     * Both keep the cell content instead of losing it entirely.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function buildTableCellInlines(array $data): array
+    {
+        return $this->mergeAdjacentMarks($this->liftBlockInlines($data));
+    }
+
+    /**
+     * Lift a cell subtree's inline content, joining sibling blocks with a space.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function liftBlockInlines(array $data): array
+    {
+        $inlines = [];
+        foreach ($this->childrenOf($data) as $child) {
+            if ($this->isProseMirrorBlock($child)) {
+                $lifted = $this->liftBlockInlines($child);
+                if ($lifted !== [] && $inlines !== []) {
+                    $inlines[] = new Text(' ');
+                }
+                foreach ($lifted as $built) {
+                    $inlines[] = $built;
+                }
+
+                continue;
+            }
+
+            foreach ($this->buildInlines($child) as $built) {
+                $inlines[] = $this->replaceHardBreaks($built);
+            }
+        }
+
+        return $inlines;
+    }
+
+    /**
+     * Swap every hard break in a lifted inline tree for a space.
+     *
+     * A break can be nested inside a mark (bold text carrying a shift-enter), so
+     * the whole subtree is walked rather than only its top level.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     *
+     * @return \MarkupCarve\Carve\Node\Node
+     */
+    protected function replaceHardBreaks(Node $node): Node
+    {
+        if ($node instanceof HardBreak) {
+            return new Text(' ');
+        }
+
+        $children = $node->getChildren();
+        if ($children === []) {
+            return $node;
+        }
+
+        $replaced = [];
+        foreach ($children as $child) {
+            $replaced[] = $this->replaceHardBreaks($child);
+        }
+        $this->replaceChildren($node, $replaced);
+
+        return $node;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws \RuntimeException
+     */
+    protected function isProseMirrorBlock(array $data): bool
+    {
+        $name = $data['type'] ?? null;
+        if (!is_string($name)) {
+            throw new RuntimeException('Every ProseMirror node needs a string type');
+        }
+
+        $node = $this->instantiate($name, $data);
+
+        return !($node instanceof InlineNode);
     }
 
     /**
