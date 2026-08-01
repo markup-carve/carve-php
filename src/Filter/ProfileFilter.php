@@ -371,11 +371,16 @@ class ProfileFilter
             // Structural elements that must be preserved even when empty:
             // - ThematicBreak: valid self-closing element (renders as <hr>)
             // - TableCell: maintains table column structure
-            // - Div placement carrier (`::: footnotes` / `::: toc`): childless
-            //   BY DESIGN, not emptied by filtering. It marks WHERE the renderer
-            //   relocates content (the endnotes section, the heading nav), so
-            //   pruning it as "empty" silently moves that content back to its
-            //   un-relocated default position instead of leaving it in place.
+            // - Div placement carrier (`::: footnotes` / `::: toc`): marks
+            //   WHERE the renderer relocates content (the endnotes section, the
+            //   heading nav), so pruning it as "empty" silently moves that
+            //   content back to its un-relocated default position.
+            //   Still load-bearing after cleanup was scoped to emptied parents,
+            //   and the two cover DIFFERENT cases: a CHILDLESS carrier is never
+            //   marked, so the scoping alone protects it, but one whose body the
+            //   filter strips IS marked and reaches here. Removing this arm
+            //   loses the placement for exactly that document (pinned in
+            //   Filter/EmptyContainerCleanupTest).
             if (
                 $node instanceof ThematicBreak
                 || $node instanceof TableCell
