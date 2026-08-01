@@ -52,7 +52,13 @@ class AttrsShapeTest extends TestCase
 
     public function testAClassBecomesTheClassesArray(): void
     {
-        $this->assertSame(['classes' => ['note']], $this->attrsIn("::: note\nbody\n:::\n")[0]);
+        // An AUTHORED class. `::: note` was the original sample and is the wrong
+        // one: the `note` class is STRUCTURAL - the parser derives it from the
+        // opener word - and it is published as `kind` rather than as a class, so
+        // that document has no `classes` at all (carve-php#552, matching
+        // carve-js and carve-rs). The property under test is that a class the
+        // author wrote becomes the array, which needs a class the author wrote.
+        $this->assertSame(['classes' => ['note'], 'order' => ['.class']], $this->attrsIn("{.note}\nParagraph.\n")[0]);
     }
 
     public function testSeveralClassesAreSplit(): void
