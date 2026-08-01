@@ -178,6 +178,51 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
+     * A type can map cleanly and still lose something: the node survives, one
+     * of its fields does not. Those losses appeared in neither report, so a
+     * caller storing documents had no way to find out.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('unrepresentableStateProvider')]
+    public function testStateTheEditorCannotHoldIsReported(string $source, string $expected): void
+    {
+        $this->renderer->render((new CarveConverter())->parse($source));
+
+        $this->assertArrayHasKey($expected, $this->renderer->degradedTypes());
+        $this->assertNotSame('', $this->renderer->degradedTypes()[$expected]);
+    }
+
+    public static function unrepresentableStateProvider(): array
+    {
+        return [
+            // An autolink is written differently from a link, so a formatter
+            // has to know which one the author used.
+            'autolink' => ["Visit <https://example.com>.\n", 'autolink'],
+            // A mark needs text to attach to; an empty label has none, so the
+            // link is not represented at all.
+            'empty link label' => ["[](https://example.com)\n", 'link'],
+            'inline code attributes' => ["`code`{.cls}\n", 'code'],
+            'alphabetic list' => ["a. apple\nb. pear\n", 'list'],
+            'parenthesis delimiter' => ["1) one\n", 'list'],
+            'asterisk bullet' => ["* a\n", 'list'],
+        ];
+    }
+
+    /**
+     * The report has to stay quiet for what the model DOES hold, or it is
+     * noise rather than a signal.
+     */
+    public function testRepresentableStateIsNotReported(): void
+    {
+        $this->renderer->render((new CarveConverter())->parse("- a\n\n1. b\n\n[x](u) and `c`\n"));
+
+        $this->assertSame([], $this->renderer->degradedTypes());
+        $this->assertSame([], $this->renderer->droppedTypes());
+    }
+
+    /**
      * A container's quoted title is content, not spelling. It was dropped
      * outright, because `carveDiv` never carried it - and a bare fence cannot
      * express one even if it had.
