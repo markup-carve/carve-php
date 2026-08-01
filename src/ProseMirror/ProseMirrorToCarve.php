@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use Closure;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -79,6 +80,16 @@ class ProseMirrorToCarve
     ];
 
     /**
+     * @var array<string, string> attribute name => why it could not be carried
+     */
+    protected array $droppedAttributes = [];
+
+    /**
+     * @var array<string, \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node>
+     */
+    protected array $factories = [];
+
+    /**
      * @param array<string, mixed> $document
      *
      * @throws \RuntimeException When the payload is not a ProseMirror document.
@@ -90,12 +101,65 @@ class ProseMirrorToCarve
             throw new RuntimeException('The payload root must be a ProseMirror doc node');
         }
 
+        $this->droppedAttributes = [];
+
         $carveDocument = new Document();
         foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
             $carveDocument->appendChild($node);
         }
 
         return $carveDocument;
+    }
+
+    /**
+     * Teach this converter one ProseMirror name its editor emits.
+     *
+     * The published map is CarveKit's vocabulary, so a name outside it is
+     * rejected - which is right for a typo and wrong for an application's own
+     * node, whose name cannot go upstream because nobody else has it. Every
+     * other surface in this package already takes a downstream extension; this
+     * is the same door for the bridge.
+     *
+     * The factory returns the node SHELL, exactly where `instantiate()` sits:
+     * attributes and children are then applied by the normal path, so an app
+     * gets `data-*` passthrough and nested content without reimplementing them.
+     * A node answering `InlineNode` is treated as inline, so both kinds work.
+     *
+     * ~~~ php
+     * $converter->register('placeholderToken', function (array $data): Node {
+     *     $span = new Span();
+     *     $span->addClass('placeholder');
+     *
+     *     return $span;
+     * });
+     * ~~~
+     *
+     * Anything unregistered still throws, so nothing becomes silent.
+     *
+     * @param string $proseMirrorName
+     * @param \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node $factory
+     *
+     * @return $this
+     */
+    public function register(string $proseMirrorName, Closure $factory)
+    {
+        $this->factories[$proseMirrorName] = $factory;
+
+        return $this;
+    }
+
+    /**
+     * Attributes the last conversion could not carry, as name => reason.
+     *
+     * Empty means every attribute in the payload reached the tree. The mirror
+     * of `ProseMirrorRenderer::droppedTypes()` for the other direction: an
+     * application storing documents should assert on this rather than trust it.
+     *
+     * @return array<string, string>
+     */
+    public function droppedAttributes(): array
+    {
+        return $this->droppedAttributes;
     }
 
     public function convertJson(string $json): Document
@@ -549,12 +613,21 @@ class ProseMirrorToCarve
      */
     protected function instantiate(string $proseMirrorName, array $data): Node
     {
+        // A registration wins over the map, so an application can also override
+        // a stock name its editor spells differently.
+        $factory = $this->factories[$proseMirrorName] ?? null;
+        if ($factory !== null) {
+            return $factory($data);
+        }
+
         $carveType = SchemaMap::carveTypeFor($proseMirrorName);
         if ($carveType === null) {
             throw new RuntimeException(sprintf(
-                'ProseMirror node "%s" is not in the schema map; add it upstream in carve-grammars '
-                    . 'rather than restating the mapping here',
+                'ProseMirror node "%s" is not in the schema map. Add it upstream in carve-grammars '
+                    . 'if it is a name every editor shares, or register it on this converter with '
+                    . '%s::register() if it is your application\'s own.',
                 $proseMirrorName,
+                self::class,
             ));
         }
 
@@ -637,6 +710,25 @@ class ProseMirrorToCarve
             }
             if (is_scalar($value)) {
                 $node->setAttribute((string)$key, self::asString($value));
+
+                continue;
+            }
+            // A Carve attribute value is a string, so a non-scalar has no form
+            // here. `null` is the editor's way of saying "unset", so it carries
+            // nothing to lose; anything else does, and used to fall off the end
+            // of this loop without a word. Tiptap's resizable table stores
+            // `colwidth` as an array, which is the case with a real producer
+            // behind it.
+            //
+            // Reported rather than encoded: a joined string would come back as
+            // a string and not an array, and a JSON-encoded one would put an
+            // unauthorable value in source. Which of those is right is a design
+            // question (carve-php#541); being silent is not.
+            if ($value !== null) {
+                $this->droppedAttributes[(string)$key] = sprintf(
+                    'a Carve attribute holds a string, and this value is of type %s',
+                    get_debug_type($value),
+                );
             }
         }
 

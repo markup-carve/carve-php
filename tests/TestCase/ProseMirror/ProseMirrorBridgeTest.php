@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -509,6 +512,209 @@ class ProseMirrorBridgeTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    /**
+     * A Carve attribute holds a string, so a non-scalar value has no form here
+     * and used to fall off the end of the passthrough loop without a word.
+     * Tiptap's resizable table stores `colwidth` as an array, which is the case
+     * with a real producer behind it (carve-php#541).
+     */
+    public function testANonScalarAttributeIsReportedRatherThanDiscarded(): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => [220],
+        ]));
+
+        $this->assertArrayHasKey('colwidth', $this->converter->droppedAttributes());
+        $this->assertNotSame('', $this->converter->droppedAttributes()['colwidth']);
+    }
+
+    /**
+     * `null` is how the editor spells "unset", so it carries nothing to lose
+     * and reporting it would be noise. A scalar reaches the tree as before.
+     *
+     * @param mixed $value
+     */
+    #[DataProvider('carriedAttributeProvider')]
+    public function testACarriedAttributeIsNotReported(mixed $value): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => $value,
+        ]));
+
+        $this->assertSame([], $this->converter->droppedAttributes());
+    }
+
+    public static function carriedAttributeProvider(): array
+    {
+        return [
+            'unset' => [null],
+            'int' => [220],
+            'string' => ['220'],
+            'bool' => [true],
+        ];
+    }
+
+    /**
+     * The report describes the LAST conversion, so a clean document after a
+     * lossy one does not inherit its findings.
+     */
+    public function testTheReportIsResetPerConversion(): void
+    {
+        $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => [220],
+        ]));
+        $this->assertNotSame([], $this->converter->droppedAttributes());
+
+        $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'clean']]],
+            ],
+        ]);
+        $this->assertSame([], $this->converter->droppedAttributes());
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     *
+     * @return array<string, mixed>
+     */
+    private function cellWithAttributes(array $attrs): array
+    {
+        return [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'table',
+                    'content' => [
+                        [
+
+                            'type' => 'tableRow',
+                            'content' => [
+                                [
+                                    'type' => 'tableCell',
+                                    'attrs' => $attrs,
+                                    'content' => [
+                                        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'A']]],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * An application's own editor node cannot go upstream - nobody else has
+     * `placeholderToken` - so "in the published map" and "throw" left it no
+     * route at all. Registration is the third state (carve-php#542).
+     */
+    public function testARegisteredInlineNodeConverts(): void
+    {
+        $this->converter->register('placeholderToken', static function (array $data): Node {
+            $span = new Span();
+            $span->addClass('placeholder');
+
+            return $span;
+        });
+
+        $document = $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Hello '],
+                        [
+                            'type' => 'placeholderToken',
+                            'attrs' => ['data-key' => 'customer.name'],
+                            'content' => [['type' => 'text', 'text' => '{{name}}']],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        // The factory returns the shell; attributes and children come from the
+        // normal path, which is what makes the hook worth having.
+        $this->assertSame(
+            "Hello [{{name}}]{.placeholder data-key=customer.name}\n",
+            CarveConverter::carve()->render($document),
+        );
+        $this->assertStringContainsString(
+            '<span class="placeholder" data-key="customer.name">{{name}}</span>',
+            (new CarveConverter())->render($document),
+        );
+    }
+
+    public function testARegisteredBlockNodeConvertsWithItsChildren(): void
+    {
+        $this->converter->register('dataBlock', static function (array $data): Node {
+            $div = new Div();
+            $div->addClass('data-block');
+
+            return $div;
+        });
+
+        $document = $this->converter->convert([
+
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'dataBlock',
+                    'attrs' => ['data-id' => '7'],
+                    'content' => [
+                        ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Body']]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(
+            "{data-id=7}\n::: data-block\nBody\n:::\n",
+            CarveConverter::carve()->render($document),
+        );
+    }
+
+    /**
+     * The hook is a door, not a hole: a name nobody registered still throws,
+     * so a typo cannot become a silent skip.
+     */
+    public function testAnUnregisteredNameStillThrows(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('not in the schema map');
+
+        $this->converter->convert(['type' => 'doc', 'content' => [['type' => 'someAppNode']]]);
+    }
+
+    /**
+     * Registration is per converter instance, so one application's vocabulary
+     * cannot leak into another's - the reason this is not static state.
+     */
+    public function testRegistrationDoesNotLeakBetweenConverters(): void
+    {
+        $this->converter->register('dataBlock', static fn (array $data): Node => new Div());
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('not in the schema map');
+
+        (new ProseMirrorToCarve())->convert(['type' => 'doc', 'content' => [['type' => 'dataBlock']]]);
     }
 
     public function testANonDocRootIsRejected(): void

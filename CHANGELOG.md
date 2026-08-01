@@ -7,6 +7,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`ProseMirrorToCarve::register()`**, so an application's own editor nodes
+  convert. The published map is CarveKit's vocabulary, and a name outside it
+  was rejected - right for a typo, and wrong for a node like
+  `placeholderToken`, whose name cannot go upstream because nobody else has it.
+  "In the map" and "throw" were the only two states; this is the third, the
+  same door `AstCodec::register()` and `CarveConverter::addExtension()` already
+  open on the other surfaces.
+
+  ~~~ php
+  $converter->register('placeholderToken', function (array $data): Node {
+      $span = new Span();
+      $span->addClass('placeholder');
+
+      return $span;
+  });
+  ~~~
+
+  The factory returns the node SHELL, exactly where `instantiate()` sits, so
+  attributes and children come from the normal path - an application gets
+  `data-*` passthrough and nested content without reimplementing either. A node
+  answering `InlineNode` is treated as inline, so both kinds work.
+
+  Registration is per converter INSTANCE rather than static: two converters in
+  one process do not share a vocabulary, and a test cannot leak into the next.
+  An unregistered name still throws, so nothing becomes silent.
+
 ### Fixed
 
 - **The canonical writer stops inventing a mention name.** `escapeName()` was
@@ -25,6 +53,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the wider `\w` the old code matched on: `@Jörg` would have been re-read as
   `@J` followed by literal text, so emitting it would have replaced one silent
   corruption with another. The `#tag` branch shares the path and the fix.
+
+- **The ProseMirror bridge reports an attribute it cannot carry.**
+  `applyAttributes()` passed unconsumed attributes through with an
+  `is_scalar()` check and no `else`, so a non-scalar value fell off the end of
+  the loop and was discarded without a word. The case with a real producer
+  behind it is `colwidth`: Tiptap's table extension stores column widths as an
+  array, so `Table.configure({ resizable: true })` plus one drag puts one in
+  the stored document.
+
+  `ProseMirrorToCarve::droppedAttributes()` now names each one and why, the
+  mirror of `ProseMirrorRenderer::droppedTypes()` for the other direction. A
+  `null` is not reported - that is how the editor spells "unset", so it carries
+  nothing to lose.
+
+  Reported rather than encoded, deliberately: a joined string would come back
+  as a string and not an array, and a JSON-encoded one would put an
+  unauthorable value in source. Which of those is right is still open
+  (carve-php#541); being silent was not.
 
 ### Added
 
