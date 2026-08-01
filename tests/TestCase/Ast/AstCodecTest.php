@@ -381,4 +381,82 @@ class AstCodecTest extends TestCase
             $this->converter->parse($rendered)->getChildren()[0]->getContent(),
         );
     }
+
+    public function testTheRootCarriesNoAbbreviationFields(): void
+    {
+        // PART 12 §7 fixes the root at three fields. This engine kept the
+        // `abbr => expansion` map and a placement flag there, so a consumer
+        // walking the root found two fields the shape does not describe - and
+        // the definitions, which ARE authored content, were nowhere in the tree.
+        $encoded = $this->codec->encode($this->converter->parse("The HTML spec.\n\n*[HTML]: HyperText Markup Language\n"));
+
+        $this->assertSame(['type', 'srcByteLength', 'children'], array_keys($encoded));
+        $this->assertSame(
+            ['paragraph', 'abbreviation_def'],
+            array_column($encoded['children'], 'type'),
+        );
+        $this->assertSame('HTML', $encoded['children'][1]['abbr']);
+        $this->assertSame('HyperText Markup Language', $encoded['children'][1]['expansion']);
+    }
+
+    public function testDefinitionsPublishedBeforeTheBodyWhenThatIsWhereTheyWere(): void
+    {
+        // The flag does not need a field: it says WHERE the definitions were,
+        // and the nodes are now somewhere. Placement carries it.
+        $encoded = $this->codec->encode($this->converter->parse("*[HTML]: HyperText\n\nThe HTML spec.\n"));
+
+        $this->assertSame(
+            ['abbreviation_def', 'paragraph'],
+            array_column($encoded['children'], 'type'),
+        );
+    }
+
+    public function testAbbreviationPlacementSurvivesARoundTrip(): void
+    {
+        // Which is the point of deriving the flag rather than publishing it: a
+        // decoded document has to write the definition line back where the
+        // author put it.
+        $renderer = new CarveRenderer();
+        foreach (["*[HTML]: HyperText\n\nThe HTML spec.\n", "The HTML spec.\n\n*[HTML]: HyperText\n"] as $source) {
+            $document = $this->converter->parse($source);
+            $decoded = $this->codec->decode($this->codec->encode($document));
+
+            $this->assertSame(
+                $renderer->render($document),
+                $renderer->render($decoded),
+                'the definitions must come back where they were written',
+            );
+        }
+    }
+
+    public function testAnOldRootAbbreviationsMapStillDecodes(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]],
+            ],
+            'abbreviations' => ['HTML' => 'HyperText'],
+            'abbreviationsBeforeBody' => true,
+        ]);
+
+        $this->assertSame(['HTML' => 'HyperText'], $decoded->getAbbreviations());
+        $this->assertTrue($decoded->hasAbbreviationsBeforeBody());
+    }
+
+    public function testAnInlineExtensionUsesTheReferenceFieldNames(): void
+    {
+        // `extensionType` and ordinary `children` are this engine's spelling;
+        // the reference publishes `name` and `content`, and PART 12 §3 forbids
+        // a synonym.
+        $encoded = $this->codec->encode($this->converter->parse('a :ext[x] b'));
+        $extension = $encoded['children'][0]['children'][1];
+
+        $this->assertSame('inline_extension', $extension['type']);
+        $this->assertSame('ext', $extension['name']);
+        $this->assertSame('x', $extension['content'][0]['value']);
+        $this->assertArrayNotHasKey('extensionType', $extension);
+        $this->assertArrayNotHasKey('children', $extension);
+    }
 }

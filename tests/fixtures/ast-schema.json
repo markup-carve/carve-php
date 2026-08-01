@@ -1,10 +1,10 @@
 {
     "abbreviation": {
         "fields": [
-            "title"
+            "expansion"
         ],
         "required": [
-            "title"
+            "expansion"
         ]
     },
     "block_quote": {
@@ -156,10 +156,10 @@
     },
     "inline_extension": {
         "fields": [
-            "extensionType"
+            "name"
         ],
         "required": [
-            "extensionType"
+            "name"
         ]
     },
     "inline_footnote": {

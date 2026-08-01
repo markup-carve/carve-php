@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
@@ -201,7 +202,93 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
-        return $this->encodeNode($document);
+        return self::publishAbbreviationDefs($this->encodeNode($document));
+    }
+
+    /**
+     * Move abbreviation definitions off the ROOT and into the tree.
+     *
+     * PART 12 §7 fixes the root at `type`, `children` and `srcByteLength`, and
+     * this engine kept two more fields there: the `abbr => expansion` map and a
+     * flag recording whether the definitions preceded the body. Both are
+     * authored content - dropping them would lose every `*[ABBR]: ...` line -
+     * so they move into `abbreviation_def` block nodes, which is where the
+     * reference publishes them.
+     *
+     * The flag does not need a field of its own: it says WHERE the definitions
+     * were, and the nodes are now somewhere. Publishing them first or last says
+     * the same thing, and `decode` reads it back off the placement - the same
+     * trick `comment.block` uses for a fence width.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function publishAbbreviationDefs(array $encoded): array
+    {
+        $abbreviations = $encoded['abbreviations'] ?? null;
+        $beforeBody = ($encoded['abbreviationsBeforeBody'] ?? false) === true;
+        unset($encoded['abbreviations'], $encoded['abbreviationsBeforeBody']);
+        if (!is_array($abbreviations) || $abbreviations === []) {
+            return $encoded;
+        }
+
+        $defs = [];
+        foreach ($abbreviations as $abbr => $expansion) {
+            $defs[] = [
+                'type' => 'abbreviation_def',
+                'abbr' => (string)$abbr,
+                'expansion' => is_scalar($expansion) ? (string)$expansion : '',
+            ];
+        }
+
+        $children = is_array($encoded['children'] ?? null) ? $encoded['children'] : [];
+        $encoded['children'] = $beforeBody
+            ? array_merge($defs, $children)
+            : array_merge($children, $defs);
+
+        return $encoded;
+    }
+
+    /**
+     * The inverse: `abbreviation_def` children back onto the document.
+     *
+     * `abbreviationsBeforeBody` is DERIVED from where they sat - before any
+     * other block, or after - rather than read from a field the reference shape
+     * does not have (§3).
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: bool}
+     */
+    private static function liftAbbreviationDefs(array $data): array
+    {
+        $children = is_array($data['children'] ?? null) ? $data['children'] : [];
+        $kept = [];
+        $abbreviations = [];
+        $seenContent = false;
+        $beforeBody = true;
+
+        foreach ($children as $child) {
+            if (is_array($child) && ($child['type'] ?? null) === 'abbreviation_def') {
+                $abbr = $child['abbr'] ?? null;
+                if (is_scalar($abbr)) {
+                    $expansion = $child['expansion'] ?? '';
+                    $abbreviations[(string)$abbr] = is_scalar($expansion) ? (string)$expansion : '';
+                    if ($seenContent) {
+                        $beforeBody = false;
+                    }
+                }
+
+                continue;
+            }
+            $seenContent = true;
+            $kept[] = $child;
+        }
+
+        $data['children'] = $kept;
+
+        return [$data, $abbreviations, $abbreviations !== [] && $beforeBody];
     }
 
     public function encodeJson(Document $document, int $flags = 0): string
@@ -227,10 +314,33 @@ class AstCodec
             ));
         }
 
+        // Taken out BEFORE the walk: `abbreviation_def` is a wire node this
+        // engine has no class for - it keeps definitions on the document - so
+        // decoding one as a block would fail on a payload it wrote itself.
+        [$data, $abbreviations, $beforeBody] = self::liftAbbreviationDefs($data);
+
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
             throw new RuntimeException('The payload root must be a document node');
         }
+
+        if ($abbreviations !== []) {
+            $node->setAbbreviations($abbreviations);
+            $node->setAbbreviationsBeforeBody($beforeBody);
+        }
+
+        // A root-level map is what this engine published before §7; stored
+        // payloads carry it, and it is not a second canonical spelling.
+        $storedAbbreviations = $data['abbreviations'] ?? null;
+        if ($abbreviations === [] && is_array($storedAbbreviations) && $storedAbbreviations !== []) {
+            $map = [];
+            foreach ($storedAbbreviations as $abbr => $expansion) {
+                $map[(string)$abbr] = is_scalar($expansion) ? (string)$expansion : '';
+            }
+            $node->setAbbreviations($map);
+            $node->setAbbreviationsBeforeBody(($data['abbreviationsBeforeBody'] ?? false) === true);
+        }
+        unset($data['abbreviations'], $data['abbreviationsBeforeBody']);
 
         // Compatibility with trees written before PART 12 §7 replaced the old
         // §2 root fields: stored payloads may still carry frontmatter and
@@ -694,6 +804,17 @@ class AstCodec
         if ($node instanceof Mention && $node->getCssClass() === 'tag') {
             $type = 'tag';
         }
+        if ($node instanceof Div && $node->isTyped() && $type === 'div') {
+            // A TYPED container is an admonition on the wire, whatever word the
+            // author used. `Profile::canonicalTypeOf` answers the profile
+            // question and only knows the Tier-1 kinds, so `::: footnotes` and
+            // `::: sidebar` came out as a `div` carrying a `kind` the shape has
+            // no field for - while the reference publishes both as an
+            // `admonition`. profiles.md draws the line at TYPED, not at the
+            // built-in list: "an admonition is its own type rather than a div
+            // carrying a class", so a profile denying callouts can say so.
+            $type = 'admonition';
+        }
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
         foreach (self::stateProperties($reflection) as $property) {
@@ -754,6 +875,13 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($node instanceof Abbreviation) {
+            // `abbr` carries the abbreviation and `expansion` what it stands
+            // for; the Text child holds the abbreviation again, and publishing
+            // both would be two representations of one string - the same rule
+            // a mention already follows. The decoder rebuilds it.
+            $children = [];
+        }
         if ($node instanceof Mention) {
             // `user` / `name` carry the content; the Text child holds the same
             // thing with its sigil, and publishing both would be two
@@ -948,6 +1076,14 @@ class AstCodec
             return ['kind' => (string)($node->getAttributes()['class'] ?? '')];
         }
 
+        if ($node instanceof Abbreviation) {
+            // The reference publishes what the DOCUMENT says: the abbreviation
+            // and its expansion. This engine keeps the expansion as the
+            // `<abbr title=...>` attribute and the abbreviation as a text
+            // child, which is how it RENDERS one.
+            return ['abbr' => self::plainText($node)];
+        }
+
         if ($node instanceof Mention) {
             // The reference publishes the NAME, not the rendered label: a
             // mention is `{type, user}` and a tag `{type: "tag", name}`. This
@@ -988,6 +1124,13 @@ class AstCodec
      */
     private function applyDerivedFields(Node $node, array $data): void
     {
+        if ($node instanceof Abbreviation && $node->getChildren() === []) {
+            $abbr = $data['abbr'] ?? null;
+            if (is_string($abbr) && $abbr !== '') {
+                $node->appendChild(new Text($abbr));
+            }
+        }
+
         if ($node instanceof Comment && ($data['block'] ?? null) === true) {
             // The wire says WHICH FORM the author wrote, not how wide the fence
             // was. Restoring a floor is enough: the Carve writer widens a fence

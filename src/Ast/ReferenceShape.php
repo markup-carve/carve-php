@@ -54,7 +54,15 @@ final class ReferenceShape
         'heading_ref' => ['targetId' => 'target'],
         'math' => ['content' => 'content', 'display' => 'display'],
         'symbol' => ['name' => 'name'],
-        'abbreviation' => ['title' => 'title'],
+        // The reference calls an inline extension's name `name` and its body
+        // `content` (the CONTAINERS entry below), where this engine keeps
+        // `extensionType` and ordinary children.
+        'inline_extension' => ['extensionType' => 'name'],
+        // The reference publishes what the DOCUMENT says - the abbreviation and
+        // what it expands to - not how this engine renders it. `title` is the
+        // `<abbr title=...>` attribute; `abbr` is derived from the text child,
+        // which the wire then does not repeat.
+        'abbreviation' => ['title' => 'expansion'],
         'strong' => ['boldItalic' => 'boldItalic'],
         'heading' => ['level' => 'level'],
         // `style` holds the DIALECT (`a`, `A`, `i`, `I`), which the reference
@@ -128,6 +136,7 @@ final class ReferenceShape
         // `children` - it is the note's content, not nested structure
         // (carve#405).
         'inline_footnote' => 'inline',
+        'inline_extension' => 'content',
     ];
 
     /**
