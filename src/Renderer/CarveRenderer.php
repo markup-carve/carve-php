@@ -98,6 +98,18 @@ class CarveRenderer implements RendererInterface
 
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
+    /**
+     * Memo keyed by object id, then by the depth budget the node renders with.
+     *
+     * @var array<int, array<int, int>>
+     */
+    protected array $colonFenceWidths = [];
+
+    /**
+     * @var array<int, array<int, int>>
+     */
+    protected array $descendantColonFenceWidths = [];
+
     public function render(Document $document): string
     {
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
@@ -112,11 +124,17 @@ class CarveRenderer implements RendererInterface
     protected function renderWithEscapeMode(Document $document, string $escapeMode): string
     {
         $previousEscapeMode = $this->escapeMode;
+        $previousColonFenceWidths = $this->colonFenceWidths;
+        $previousDescendantColonFenceWidths = $this->descendantColonFenceWidths;
         $this->escapeMode = $escapeMode;
+        $this->colonFenceWidths = [];
+        $this->descendantColonFenceWidths = [];
         try {
             return $this->renderDocumentParts($document);
         } finally {
             $this->escapeMode = $previousEscapeMode;
+            $this->colonFenceWidths = $previousColonFenceWidths;
+            $this->descendantColonFenceWidths = $previousDescendantColonFenceWidths;
         }
     }
 
@@ -476,7 +494,7 @@ class CarveRenderer implements RendererInterface
     {
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $body = $this->renderBlocks($node->getChildren());
-        $fence = $this->colonFenceFor($node->getChildren());
+        $fence = $this->colonFenceFor($node);
 
         return $fence . $label . "\n" . $body . "\n" . $fence;
     }
@@ -498,7 +516,7 @@ class CarveRenderer implements RendererInterface
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $body = $this->renderBlocks($node->getChildren());
-        $fence = $this->colonFenceFor($node->getChildren());
+        $fence = $this->colonFenceFor($node);
 
         return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
     }
@@ -510,7 +528,7 @@ class CarveRenderer implements RendererInterface
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $body = $this->renderBlocks($node->getChildren());
-        $fence = $this->colonFenceFor($node->getChildren());
+        $fence = $this->colonFenceFor($node);
 
         return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
     }
@@ -614,21 +632,83 @@ class CarveRenderer implements RendererInterface
         // Emitting a bare `:::` and tagging the node with a `line-block` class
         // instead re-parsed as an ordinary div, so the node type changed across
         // a format round trip and `parse(fmt(x)) == parse(x)` did not hold.
-        return "::: |\n" . $body . "\n:::";
+        $fence = $this->colonFenceFor($node);
+
+        return $fence . " |\n" . $body . "\n" . $fence;
     }
 
     /**
-     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     * A colon fence closes on a bare fence of equal-or-greater length, so a
+     * container fence must be longer than every container fence below it, not
+     * just the ones among its direct children. Otherwise the middle container
+     * in a three-level nest re-parses as paragraph text across a fmt pass.
      */
-    protected function colonFenceFor(array $children): string
+    protected function colonFenceFor(Node $node): string
     {
-        foreach ($children as $child) {
-            if ($child instanceof Div || $child instanceof LineBlock) {
-                return '::::';
-            }
+        // Only the levels this pass will actually render may widen the fence:
+        // past MAX_RENDER_DEPTH renderBlock emits nothing, so counting deeper
+        // containers would size a fence for output that does not exist. An AST
+        // built through the API can nest far past the cap the parser enforces.
+        $budget = max(0, self::MAX_RENDER_DEPTH - $this->blockDepth);
+
+        return str_repeat(':', $this->colonFenceWidth($node, $budget));
+    }
+
+    protected function colonFenceWidth(Node $node, int $budget): int
+    {
+        if ($budget <= 0) {
+            return 3;
         }
 
-        return ':::';
+        $key = spl_object_id($node);
+        if (isset($this->colonFenceWidths[$key][$budget])) {
+            return $this->colonFenceWidths[$key][$budget];
+        }
+
+        $widest = $this->widestDescendantColonFence($node, $budget);
+        $width = $widest === 0 ? 3 : $widest + 1;
+        $this->colonFenceWidths[$key][$budget] = $width;
+
+        return $width;
+    }
+
+    protected function widestDescendantColonFence(Node $node, int $budget): int
+    {
+        $key = spl_object_id($node);
+        if (isset($this->descendantColonFenceWidths[$key][$budget])) {
+            return $this->descendantColonFenceWidths[$key][$budget];
+        }
+
+        $widest = 0;
+        foreach ($this->containerBearingChildren($node) as $child) {
+            if ($child instanceof Div || $child instanceof LineBlock) {
+                $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
+            } else {
+                $widest = max($widest, $this->widestDescendantColonFence($child, $budget));
+            }
+        }
+        $this->descendantColonFenceWidths[$key][$budget] = $widest;
+
+        return $widest;
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function containerBearingChildren(Node $node): array
+    {
+        if ($node instanceof Table || $node instanceof TableRow || $node instanceof TableCell) {
+            // Table cells hold inline content, so no container can hide there.
+            return [];
+        }
+        if ($node instanceof DefinitionList) {
+            return array_values(array_filter(
+                $node->getChildren(),
+                static fn (Node $child): bool => $child instanceof DefinitionDescription,
+            ));
+        }
+
+        return $node->getChildren();
     }
 
     protected function renderDefinitionList(DefinitionList $node): string

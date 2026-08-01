@@ -5,14 +5,23 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use function basename;
+use function explode;
 use function file_get_contents;
 use function glob;
 use function preg_replace;
+use function strlen;
+use function trim;
 
 #[Group('corpus')]
 class CarveFormatterTest extends TestCase
@@ -254,6 +263,101 @@ class CarveFormatterTest extends TestCase
                 $converter->convert($f1),
             );
         }
+    }
+
+    public function testNestedColonFencesUseWholeSubtreeWidth(): void
+    {
+        $source = "::::: a\n\n:::: b\n\n::: c\nX\n:::\n\n::::\n\n:::::\n";
+        $formatted = CarveConverter::toCarve($source);
+        $converter = new CarveConverter();
+
+        $this->assertSame(
+            $this->normalizeHtml($converter->convert($source)),
+            $this->normalizeHtml($converter->convert($formatted)),
+        );
+        $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
+    public function testMixedContainerKindsUseWholeSubtreeWidth(): void
+    {
+        // The div's class rides a PRECEDING attribute line: an opener carrying
+        // inline `{...}` is a paragraph, which would leave two real levels.
+        $source = ":::::: note\n\n{.wrap}\n:::::\n\n:::: |\na\nb\n::::\n\n:::::\n\n::::::\n";
+        $formatted = CarveConverter::toCarve($source);
+        $converter = new CarveConverter();
+
+        $this->assertSame(
+            $this->normalizeHtml($converter->convert($source)),
+            $this->normalizeHtml($converter->convert($formatted)),
+        );
+        $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
+    /**
+     * An AST built through the API can nest far past the depth the parser
+     * allows. renderBlock emits nothing past MAX_RENDER_DEPTH, so a fence sized
+     * from those levels would be sized for output that never appears.
+     */
+    public function testFenceIgnoresContainersPastTheRenderCap(): void
+    {
+        $node = new Paragraph();
+        for ($level = 0; $level < 1000; $level++) {
+            $div = new Div();
+            $div->appendChild($node);
+            $node = $div;
+        }
+        $document = new Document();
+        $document->appendChild($node);
+
+        $formatted = (new CarveRenderer())->render($document);
+
+        $widest = 0;
+        foreach (explode("\n", $formatted) as $line) {
+            if ($line !== '' && trim($line, ':') === '') {
+                $widest = max($widest, strlen($line));
+            }
+        }
+        $this->assertLessThanOrEqual(202, $widest);
+    }
+
+    public function testDeepContainerLadderKeepsDepthAfterFormatting(): void
+    {
+        $source = '';
+        for ($width = 42; $width >= 3; $width--) {
+            $source .= str_repeat(':', $width) . ' level-' . $width . "\n\n";
+        }
+        $source .= "leaf\n";
+        for ($width = 3; $width <= 42; $width++) {
+            $source .= "\n" . str_repeat(':', $width) . "\n";
+        }
+
+        $converter = new CarveConverter();
+        $formatted = CarveConverter::toCarve($source);
+
+        $this->assertSame(40, $this->containerDepth($converter->parse($source)->getChildren()));
+        $this->assertSame(40, $this->containerDepth($converter->parse($formatted)->getChildren()));
+        $this->assertSame(
+            $this->normalizeHtml($converter->convert($source)),
+            $this->normalizeHtml($converter->convert($formatted)),
+        );
+        $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function containerDepth(array $nodes): int
+    {
+        $depth = 0;
+        foreach ($nodes as $node) {
+            if (!$node instanceof Node) {
+                continue;
+            }
+            $childDepth = $this->containerDepth($node->getChildren());
+            $depth = max($depth, ($node instanceof Div || $node instanceof LineBlock ? 1 : 0) + $childDepth);
+        }
+
+        return $depth;
     }
 
     protected function normalizeHtml(string $html): string
