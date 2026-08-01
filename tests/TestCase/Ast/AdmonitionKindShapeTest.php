@@ -36,6 +36,8 @@ class AdmonitionKindShapeTest extends TestCase
     }
 
     /**
+     * @param string $source
+     * @param string $expectedKind
      * @param list<string>|null $expectedClasses
      */
     #[DataProvider('shapeProvider')]

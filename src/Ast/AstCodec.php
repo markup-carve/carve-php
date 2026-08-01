@@ -747,6 +747,7 @@ class AstCodec
      * Drop the opener word from a typed div's `class` attribute.
      *
      * @param array<string, string> $attributes
+     * @param string|null $kind
      *
      * @return array<string, string>
      */
