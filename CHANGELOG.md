@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer stops emitting a PHP 8.5 deprecation.**
+  `canonicalizeAst()` called `ReflectionProperty::setAccessible(true)` before
+  reading each property. That method has done nothing since PHP 8.1 - reflection
+  reads non-public properties without it - and PHP 8.5 deprecates the call
+  itself, so every `CarveRenderer` render raised a deprecation on 8.5 while the
+  package's own floor is 8.2. The call is removed rather than guarded: there is
+  no supported version where it has an effect.
+
+- **The CLI documentation stops describing source positions as missing.**
+  The README said carve-php's nodes carry none and that `--json` writes a note
+  to stderr saying so. Both stopped being true when `--json` began publishing
+  positions; the note is gone and the output is PART 12 §4 conformant.
+
 - **A profile that denies nothing now changes nothing, across every corpus
   document.** `ProfileFilter` ran `cleanupEmptyContainers()` as a blanket pass
   over the whole tree, so it pruned containers that were already empty in the

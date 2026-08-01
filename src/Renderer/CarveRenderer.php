@@ -185,7 +185,6 @@ class CarveRenderer implements RendererInterface
                 if ($name === 'parent' || $name === 'sourceLength') {
                     continue;
                 }
-                $property->setAccessible(true);
                 $out[$name] = $this->canonicalizeAst($property->getValue($value));
             }
             ksort($out);

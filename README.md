@@ -161,8 +161,9 @@ the format. `--json` (`--ast`) emits the parsed AST instead of rendering it, and
 produced by one tool and rendered by another. The field names are the ones PART 12
 of the spec pins, so a tree from another engine reads correctly - and one this
 decoder cannot fully understand is rejected rather than silently decoded into the
-wrong document. Source positions are the remaining gap: carve-php's nodes carry
-none, so `--json` writes a note to stderr saying so rather than inventing them.
+wrong document. `--json` asks the parser to track source positions and publishes
+them (PART 12 §4); the other formats do not, since tracking costs work on every
+parse and only this one publishes the result.
 See [`docs/ast-json.md`](docs/ast-json.md). `--stamp-info` and `--stamp-check`
 report a document's provenance marker (see below). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
