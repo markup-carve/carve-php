@@ -105,11 +105,6 @@ class CarveRenderer implements RendererInterface
      */
     protected array $colonFenceWidths = [];
 
-    /**
-     * @var array<int, array<int, int>>
-     */
-    protected array $descendantColonFenceWidths = [];
-
     public function render(Document $document): string
     {
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
@@ -125,16 +120,13 @@ class CarveRenderer implements RendererInterface
     {
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceWidths = $this->colonFenceWidths;
-        $previousDescendantColonFenceWidths = $this->descendantColonFenceWidths;
         $this->escapeMode = $escapeMode;
         $this->colonFenceWidths = [];
-        $this->descendantColonFenceWidths = [];
         try {
             return $this->renderDocumentParts($document);
         } finally {
             $this->escapeMode = $previousEscapeMode;
             $this->colonFenceWidths = $previousColonFenceWidths;
-            $this->descendantColonFenceWidths = $previousDescendantColonFenceWidths;
         }
     }
 
@@ -674,41 +666,18 @@ class CarveRenderer implements RendererInterface
 
     protected function widestDescendantColonFence(Node $node, int $budget): int
     {
-        $key = spl_object_id($node);
-        if (isset($this->descendantColonFenceWidths[$key][$budget])) {
-            return $this->descendantColonFenceWidths[$key][$budget];
-        }
-
         $widest = 0;
-        foreach ($this->containerBearingChildren($node) as $child) {
+        foreach ($node->getChildren() as $child) {
+            // Only a DIRECTLY nested container collides with this fence. One
+            // inside a blockquote, a list item or a definition body writes its
+            // fence lines with that host's prefix or indent, and an indented or
+            // quoted bare fence cannot close an ancestor fence.
             if ($child instanceof Div || $child instanceof LineBlock) {
                 $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
-            } else {
-                $widest = max($widest, $this->widestDescendantColonFence($child, $budget));
             }
         }
-        $this->descendantColonFenceWidths[$key][$budget] = $widest;
 
         return $widest;
-    }
-
-    /**
-     * @return array<\MarkupCarve\Carve\Node\Node>
-     */
-    protected function containerBearingChildren(Node $node): array
-    {
-        if ($node instanceof Table || $node instanceof TableRow || $node instanceof TableCell) {
-            // Table cells hold inline content, so no container can hide there.
-            return [];
-        }
-        if ($node instanceof DefinitionList) {
-            return array_values(array_filter(
-                $node->getChildren(),
-                static fn (Node $child): bool => $child instanceof DefinitionDescription,
-            ));
-        }
-
-        return $node->getChildren();
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
