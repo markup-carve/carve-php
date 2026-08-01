@@ -9,6 +9,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A profile that denies nothing now changes nothing, across every corpus
+  document.** `ProfileFilter` ran `cleanupEmptyContainers()` as a blanket pass
+  over the whole tree, so it pruned containers that were already empty in the
+  SOURCE and not only ones the filter had emptied. Six documents rendered
+  differently under `Profile::full()`, and the pruned container differed in each
+  - an empty `<blockquote>`, an `<aside>`, a `<ul><li>`, and in one case the
+  entire rendered output.
+
+  Cleanup is now scoped to the parents the filter actually removed a child from,
+  cascading upward exactly as before. A genuinely emptied container is still
+  pruned, which matches carve-js: it renders an emptied blockquote as `""` and
+  leaves an already-empty container alone.
+
+  This is the general form of the `::: footnotes` bug a structural exemption
+  fixed separately: that directive's body is empty BY DEFINITION - its emptiness
+  is the syntax for "put the endnotes here" - so it could never survive a pass
+  that treats empty as meaningless, and neither could the other six.
+
+  `KNOWN_LOSSY_UNDER_A_FULL_PROFILE` in `ProfileVocabularyTest` is now EMPTY.
+
 - **A profile classifies a div as an admonition because it carries a Tier-1
   class, not because it was opened with a type word.** `::: sidebar` is a
   generic container and now classifies as `div`; `::: note` still classifies as
