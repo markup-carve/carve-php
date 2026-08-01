@@ -71,7 +71,13 @@ final class ReferenceShape
         // The reference's `title` is an array of inline nodes, which is what
         // headerNodes holds; the raw header string is this engine's own.
         'div' => ['label' => 'label', 'headerNodes' => 'title'],
-        'smart_punctuation' => ['kind' => 'kind', 'glyph' => 'value'],
+        // `value` is the AUTHOR'S SOURCE RUN (`...`, `->`), which this engine
+        // keeps in `content`; `glyph` is the resolved character and is present
+        // only where the parser fixed one (quotes are locale-dependent). The
+        // map used to publish the GLYPH as `value`, so an ellipsis - which has
+        // no glyph of its own - came back as `"value": null` and the source run
+        // leaked under its internal name beside it.
+        'smart_punctuation' => ['kind' => 'kind', 'content' => 'value', 'glyph' => 'glyph'],
         'thematic_break' => [],
         'document' => ['sourceLength' => 'srcByteLength'],
         // The reference shows an autolink's target twice - `href` is the
@@ -174,6 +180,10 @@ final class ReferenceShape
         'code_block' => [],
         'link' => ['isAutolink'],
         'thematic_break' => ['char'],
+        // Fence WIDTH is a writer's concern, recomputed when formatting; the
+        // wire carries `block`, which is the question a consumer asks (derived
+        // in AstCodec).
+        'comment' => ['fenceLength'],
         'table' => ['separatorWidths'],
         // `document` lists nothing. `abbreviations` and the flag recording
         // whether they preceded the body are authored content - dropping them

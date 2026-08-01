@@ -9,6 +9,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A ProseMirror table cell keeps the text inside its required paragraph.**
+  Tiptap stores every table cell as block content, usually a paragraph, but the
+  Carve source form for a table row can only hold inline cell content. The
+  bridge built `TableCell > Paragraph > Text`, which still rendered as HTML but
+  serialized as an empty Carve cell because the Carve renderer only writes a
+  cell's inline children.
+
+  The converter now lifts inline content out of ProseMirror cell blocks before
+  rendering back to Carve source, and marks travel with it.
+
+  A Carve table row is one line, so two things inside a cell have no form and
+  both degrade to a single space, at every depth of the lifted subtree: a block
+  boundary, so a cell holding two paragraphs or a list keeps its word boundaries
+  rather than running the text together; and a hard break, which is an ordinary
+  shift-enter in any editor and would otherwise be written as a backslash line
+  break, ending the row so the whole table reparsed as a paragraph.
+
+  The source-first corpus sweep did not catch any of this because Carve's own
+  parser cannot construct the ProseMirror-only paragraph-wrapped cell shape.
+
 - **Block-position inline nodes from ProseMirror no longer disappear from
   Carve source.** Tiptap's image extension puts images at document level, and a
   custom editor can do the same with any inline node. The bridge accepted that

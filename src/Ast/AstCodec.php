@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Ast;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
@@ -970,6 +971,14 @@ class AstCodec
             return ['header' => $node->isHeader()];
         }
 
+        if ($node instanceof Comment) {
+            // Which form the author wrote: the fenced `%%%` block, or an inline
+            // `%%`. This engine records it as the fence WIDTH, which is a
+            // writer's concern and not on the wire; the reference publishes the
+            // question a consumer actually asks.
+            return ['block' => $node->getFenceLength() !== null];
+        }
+
         return [];
     }
 
@@ -979,6 +988,13 @@ class AstCodec
      */
     private function applyDerivedFields(Node $node, array $data): void
     {
+        if ($node instanceof Comment && ($data['block'] ?? null) === true) {
+            // The wire says WHICH FORM the author wrote, not how wide the fence
+            // was. Restoring a floor is enough: the Carve writer widens a fence
+            // past any run of `%` in the content anyway, because it has to.
+            self::writeProperty($node, 'fenceLength', 3);
+        }
+
         if ($node instanceof Link && ($data['type'] ?? null) === 'autolink') {
             self::writeProperty($node, 'isAutolink', true);
             if ($node->getChildren() === []) {
