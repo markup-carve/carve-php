@@ -634,6 +634,88 @@ class AstCodec
             );
         }
 
+        return self::figureShape(self::listMarkerShape($encoded));
+    }
+
+    /**
+     * An ordered list's marker is its DELIM, not its bullet character.
+     *
+     * This engine keeps one `marker` field holding whichever the author wrote,
+     * and it was published as `bulletChar` for both kinds - so `1. a` came out
+     * as `bulletChar: "."`, a value the schema's `["-", "*"]` does not allow,
+     * while `delim` (`[".", ")"]`) went unset. A consumer reading `delim` to
+     * reproduce an ordered list got nothing.
+     *
+     * Both are AUTHOR-CHOICE fields under PART 11 §6, and §11 makes them
+     * semantic: a sibling item with a different delimiter starts a NEW list.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function listMarkerShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'list' || !array_key_exists('bulletChar', $encoded)) {
+            return $encoded;
+        }
+        if (($encoded['ordered'] ?? false) !== true) {
+            return $encoded;
+        }
+
+        $marker = $encoded['bulletChar'];
+        unset($encoded['bulletChar']);
+        $encoded['delim'] = $marker;
+
+        return $encoded;
+    }
+
+    /**
+     * Publish a figure as the reference does: a `target` and a `caption`.
+     *
+     * This engine models a figure as CHILDREN - the thing being captioned,
+     * followed by a `caption` block - so the wire carried a `children` array
+     * where the reference has two named fields, and a `caption` node type the
+     * reference has none of. PART 12 §1: an implementation whose internals
+     * differ MAPS on the way out.
+     *
+     * The tree is untouched, exactly as with the root fields.
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function figureShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'figure' || !is_array($encoded['children'] ?? null)) {
+            return $encoded;
+        }
+
+        $target = null;
+        $caption = null;
+        foreach ($encoded['children'] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            if (($child['type'] ?? null) === 'caption') {
+                // The reference's `caption` is the inline content itself, not a
+                // node wrapping it.
+                $caption = $child['children'] ?? [];
+
+                continue;
+            }
+            $target ??= $child;
+        }
+
+        if ($target === null) {
+            return $encoded;
+        }
+
+        unset($encoded['children']);
+        $encoded['target'] = $target;
+        if ($caption !== null) {
+            $encoded['caption'] = $caption;
+        }
+
         return $encoded;
     }
 
@@ -833,6 +915,60 @@ class AstCodec
     }
 
     /**
+     * `delim` back to the single `marker` field this engine keeps.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function listMarkerFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) === 'list' && array_key_exists('delim', $data)) {
+            // `delim` is this engine's `marker`, which the encoder publishes
+            // under whichever name the list kind calls for.
+            //
+            //
+            // A payload written before this codec separated the two carries the
+            // DIALECT here (`a`, `i`), and decodes as a marker. Reinterpreting
+            // it by value was tried and rejected: the loss check compares the
+            // payload against a re-encode, so a `delim` that comes back as
+            // `olType` reads as a dropped field and the whole document fails to
+            // decode. Silently mis-reading one field beats refusing the
+            // document, and that field was never readable by another engine
+            // anyway - `a` is not a value `delim` is allowed to hold.
+            $data['bulletChar'] = $data['delim'];
+            unset($data['delim']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * `target` and `caption` back to the children this engine models a figure
+     * with: the thing being captioned, then a `caption` block wrapping the
+     * caption's inline content.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function figureFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) !== 'figure' || !is_array($data['target'] ?? null)) {
+            return $data;
+        }
+
+        $children = [$data['target']];
+        if (is_array($data['caption'] ?? null)) {
+            $children[] = ['type' => 'caption', 'children' => $data['caption']];
+        }
+        unset($data['target'], $data['caption']);
+        $data['children'] = $children;
+
+        return $data;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @throws \RuntimeException When the node type is unknown.
@@ -843,6 +979,12 @@ class AstCodec
         if (!is_string($type)) {
             throw new RuntimeException('Every node needs a string type');
         }
+
+        // Undo the wire shapes this codec writes, so a tree it produced decodes
+        // back to the tree it came from - which is what PART 12 §6's round trip
+        // asks for, and what the loss check verifies. Both were caught by that
+        // check rather than by review.
+        $data = self::figureFromWire(self::listMarkerFromWire($data));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
