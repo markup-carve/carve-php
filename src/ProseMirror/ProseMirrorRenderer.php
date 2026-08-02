@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -28,6 +29,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -492,6 +494,27 @@ class ProseMirrorRenderer
             if ($language !== '') {
                 $attrs['language'] = $language;
             }
+            // The fence's own metadata, kept apart from the author attribute
+            // map (carve-php#519). Both were being lost or duplicated because
+            // the two share a name:
+            //
+            //   ``` php [NPM]        the label vanished - nothing carried it
+            //   ``` php "src/x.php"  came back with a `{title=src/x.php}`
+            //                        attribute line ADDED above the fence,
+            //                        because the structural title reached the
+            //                        editor as a plain `title` attribute and
+            //                        the writer then emitted it in both places
+            //
+            // Same shape as carveTyped / carveAttrs on a div: the payload has
+            // to say which values are the construct's own.
+            $header = $node->getHeader();
+            if ($header !== null) {
+                $attrs['carveFenceTitle'] = $header;
+            }
+            $fenceLabel = $node->getLabel();
+            if ($fenceLabel !== null && $fenceLabel !== '') {
+                $attrs['carveFenceLabel'] = $fenceLabel;
+            }
         } elseif ($node instanceof ListBlock) {
             if ($node->getListType() === 'ordered') {
                 $attrs['start'] = $node->getStart();
@@ -598,6 +621,33 @@ class ProseMirrorRenderer
                 // the link does not merely change shape - it disappears.
                 $this->degraded['link'] = 'a link with an empty label has no text to carry the mark, '
                     . 'so it is not represented at all';
+            }
+            if (array_key_exists('href', $node->getAttributes())) {
+                // Deliberately NOT carried: an authored `{href=...}` must never
+                // reach the editor as a destination, because writing that model
+                // back out would make it the document's real one - which is how
+                // carve-php#516 rewrote a destination to an attacker-supplied
+                // value. Dropping it is the safe choice, but it was a SILENT
+                // one, so a caller storing documents could not tell the
+                // attribute had gone (carve-php#519).
+                $this->degraded['link'] = 'an authored href attribute is not carried, because promoting it '
+                    . 'would change the link destination; it is dropped rather than round-tripped';
+            }
+        }
+
+        if ($node instanceof Emphasis || $node instanceof Strong) {
+            // `/*x*/` and `*/x/*` are the same tree; the editor model keeps
+            // marks as a set, not an order, so the writer picks one spelling
+            // and the author's is not recoverable. Rendering is unaffected -
+            // which is why this needs declaring rather than fixing: it is
+            // invisible in HTML and visible in the source (carve-php#519).
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof Emphasis || $child instanceof Strong) {
+                    $this->degraded['emphasis'] = 'nested emphasis and strong are an unordered mark set in '
+                        . 'the editor model, so the authored delimiter order is not preserved';
+
+                    break;
+                }
             }
         }
 

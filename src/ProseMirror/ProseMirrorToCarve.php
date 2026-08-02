@@ -823,6 +823,27 @@ class ProseMirrorToCarve
             $consumed[$key] = match (true) {
                 $node instanceof Heading && $key === 'level' => $this->setState($node, 'level', self::asInt($value)),
                 $node instanceof CodeBlock && $key === 'language' => $this->setState($node, 'language', self::asString($value)),
+                // The fence's own metadata, consumed here so it is restored to
+                // the construct instead of being left in the author attribute
+                // map (carve-php#519). A code block's structural title used to
+                // arrive as a plain `title` attribute, which came back as BOTH
+                // the fence's quoted title and an added `{title=...}` line
+                // above it; its `[label]` had nothing carrying it at all.
+                $node instanceof CodeBlock && $key === 'carveFenceTitle' => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof CodeBlock && $key === 'carveFenceLabel' => $this->setState($node, 'label', self::asString($value)),
+                // Only when carveFenceTitle is ABSENT. A payload predating it
+                // put the fence's title in `title`, so that is the best guess
+                // available; but when both are present the `title` is the
+                // AUTHOR's, from an attribute line, and it must stay an
+                // attribute rather than overwrite the fence header - which is
+                // its own document, not a spelling:
+                //
+                //   {title="from the attribute line"}
+                //   ``` php "from the header"
+                //
+                // has two titles on purpose.
+                $node instanceof CodeBlock && $key === 'title'
+                    && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
                 $node instanceof ListBlock && $key === 'start' => $this->setState($node, 'start', self::asInt($value)),
                 $node instanceof ListBlock && $key === 'tight' => $this->setState($node, 'tight', self::asBool($value)),
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
