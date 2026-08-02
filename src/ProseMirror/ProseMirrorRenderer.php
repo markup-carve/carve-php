@@ -72,6 +72,21 @@ class ProseMirrorRenderer
         $this->dropped = [];
         $this->degraded = [];
 
+        // Abbreviation definitions live on the DOCUMENT, not in the tree - this
+        // engine collects `*[ABBR]: ...` lines into a map and expands them at
+        // render time - so walking `getChildren()` cannot reach them and they
+        // were dropped in silence. Every expansion in the document stops
+        // working, and the report said nothing (carve-php#519).
+        //
+        // Reported rather than carried: holding them would need an attribute on
+        // the doc node that the editor's schema defines, and this side must not
+        // emit a name CarveKit never registered. Naming the loss is what a
+        // caller storing documents can act on.
+        if ($document->getAbbreviations() !== []) {
+            $this->dropped['abbreviation_def'] = 'an abbreviation definition is a document-level map here, '
+                . 'not a node in the tree, and the editor model has nowhere to put it';
+        }
+
         return [
             'type' => 'doc',
             'content' => $this->renderBlocks($document->getChildren()),
