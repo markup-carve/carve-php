@@ -1033,9 +1033,45 @@ class BlockParser
         $headingIdTracker->setLowercase($this->headingIdLowercase);
         $pendingId = null;
         $count = count($lines);
+        $listContentColumns = [];
+        $fenceChar = null;
+        $fenceLength = 0;
 
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            $scan = $this->headingReferenceScanLine($line, $listContentColumns);
+            $contentLine = $scan['content'];
+
+            if ($fenceChar !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($contentLine, $fenceChar, $fenceLength)) {
+                    $fenceChar = null;
+                    $fenceLength = 0;
+                }
+
+                continue;
+            }
+
+            $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($contentLine);
+            if ($rawFenceInfo !== null) {
+                $fenceChar = $rawFenceInfo['fence'][0];
+                $fenceLength = $rawFenceInfo['length'];
+
+                continue;
+            }
+
+            $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($contentLine);
+            if ($codeFenceInfo !== null) {
+                $fenceChar = $codeFenceInfo['char'];
+                $fenceLength = $codeFenceInfo['length'];
+
+                continue;
+            }
+
+            if ($scan['quoted']) {
+                $pendingId = null;
+
+                continue;
+            }
 
             // Check for an explicit id on a block-attribute line before the
             // heading -- bare ({#custom-id}) or part of a fuller list
@@ -1063,7 +1099,7 @@ class BlockParser
             // The marker MUST start at column 0 (no leading indent): an indented `#`-line is a
             // paragraph, matching carve-js / carve-rs and the spec grammar (heading_first_line =
             // heading_marker, space, ...).
-            if (($line[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+            if (($contentLine[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $contentLine, $matches)) {
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
@@ -1076,31 +1112,43 @@ class BlockParser
                 // EQUALS the open level; a different count (more OR fewer) ends
                 // the heading and starts a new one.
                 $j = $i + 1;
+                $continuationListContentColumns = $listContentColumns;
                 while ($j < $count) {
                     $nextLine = $lines[$j];
-                    if (trim($nextLine) === '') {
+                    $nextScan = $this->headingReferenceScanLine($nextLine, $continuationListContentColumns);
+                    $nextContentLine = $nextScan['content'];
+                    if ($nextScan['quoted'] || $nextScan['openedList']) {
                         break;
                     }
-                    if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
+                    if (trim($nextContentLine) === '') {
+                        break;
+                    }
+                    if (
+                        $this->fencedBlockParser->parseRawBlockOpener($nextContentLine) !== null
+                        || $this->fencedBlockParser->parseCodeFenceOpener($nextContentLine) !== null
+                    ) {
+                        break;
+                    }
+                    if (preg_match('/^#{' . $level . '} +(.+)$/', $nextContentLine, $contMatch)) {
                         $headingParts[] = [$j, trim($contMatch[1])];
                         $headingText .= ' ' . trim($contMatch[1]);
                         $j++;
 
                         continue;
                     }
-                    if (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
+                    if (preg_match('/^#{' . $level . '}[ ]*$/', $nextContentLine)) {
                         // Bare same-level marker continues, contributes nothing
                         // (mirrors tryParseHeading so the id agrees at render).
                         $j++;
 
                         continue;
                     }
-                    if (preg_match('/^#{1,6}/', $nextLine)) {
+                    if (preg_match('/^#{1,6}/', $nextContentLine)) {
                         break;
                     }
-                    if (!$this->startsNewBlock($nextLine)) {
-                        $headingParts[] = [$j, trim($nextLine)];
-                        $headingText .= ' ' . trim($nextLine);
+                    if (!$this->startsNewBlock($nextContentLine)) {
+                        $headingParts[] = [$j, trim($nextContentLine)];
+                        $headingText .= ' ' . trim($nextContentLine);
                         $j++;
                     } else {
                         break;
@@ -1163,11 +1211,74 @@ class BlockParser
                 $this->registerHeadingReference($label, $reference);
             } else {
                 // Non-heading, non-attribute line - clear pending ID
-                if (!IndentationHelper::isBlankLine($line)) {
+                if (!IndentationHelper::isBlankLine($contentLine)) {
                     $pendingId = null;
                 }
             }
         }
+    }
+
+    /**
+     * Present a raw top-level line as implicit heading-reference extraction
+     * should see it after list containers expose their content. Blockquote
+     * ancestry is returned separately so quoted headings are deliberately
+     * skipped in either container order.
+     *
+     * @param string $line
+     * @param list<int> $listContentColumns
+     *
+     * @return array{content: string, quoted: bool, openedList: bool}
+     */
+    protected function headingReferenceScanLine(string $line, array &$listContentColumns): array
+    {
+        if (!IndentationHelper::isBlankLine($line)) {
+            $leadingColumns = IndentationHelper::getLeadingColumns($line);
+            while ($listContentColumns !== [] && $leadingColumns < $listContentColumns[array_key_last($listContentColumns)]) {
+                array_pop($listContentColumns);
+            }
+        }
+
+        $baseColumn = $listContentColumns === []
+            ? 0
+            : $listContentColumns[array_key_last($listContentColumns)];
+        $content = $baseColumn === 0 ? $line : IndentationHelper::stripLeadingColumns($line, $baseColumn);
+        $quoted = false;
+        $openedList = false;
+
+        while ($content !== '') {
+            $stripped = ltrim($content, " \t");
+            $leadingColumns = IndentationHelper::getLeadingColumns($content);
+
+            if (preg_match('/^> ?(.*)$/', $stripped, $quoteMatch) === 1) {
+                $quoted = true;
+                $content = $quoteMatch[1];
+
+                continue;
+            }
+
+            $itemInfo = $this->listParser->parseListItemMarker($stripped);
+            if ($itemInfo === null) {
+                break;
+            }
+
+            $openedList = true;
+            /** @var string $itemContent */
+            $itemContent = $itemInfo['content'];
+            // Two, not the marker's measured width, because that is the
+            // content column THIS parser uses for a bullet: `-   item` puts its
+            // body at column 2 here, and `    # Wide` under it is literal text,
+            // not a heading. Measuring the marker would index a heading the
+            // renderer never emits, and the reference would resolve to an id
+            // nothing carries - a dangling href is worse than declining.
+            $markerWidth = $itemInfo['type'] === ListBlock::TYPE_ORDERED
+                ? strlen($stripped) - strlen($itemContent)
+                : 2;
+            $baseColumn += $leadingColumns + $markerWidth;
+            $listContentColumns[] = $baseColumn;
+            $content = $itemContent;
+        }
+
+        return ['content' => $content, 'quoted' => $quoted, 'openedList' => $openedList];
     }
 
     /**
