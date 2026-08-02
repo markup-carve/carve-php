@@ -5600,68 +5600,35 @@ class BlockParser
     }
 
     /**
+     * A cell rebuilt from `+` continuation rows is ONE text node with NO span,
+     * which is what carve-js emits (carve-php#612).
+     *
+     * carve-php#608 gave it a span by splitting the cell into one node per
+     * source chunk. Every one of those spans was correct, and the tree was
+     * still wrong: PART 12 says a consumer written against one implementation
+     * must be able to read another's output, and this engine alone emitted
+     * three nodes where the reference emits one. Span-correctness testing
+     * cannot see that - three healthy spans read exactly like one.
+     *
+     * The obvious repair, one node spanning first chunk to last, is also wrong
+     * here: that region contains the `+ |` markers the value does not, and
+     * this repo already requires a text span to slice back to its value
+     * (SourcePositionTest::testNoCorpusDocumentGetsAWrongTextSpan). Relaxing
+     * that rule to fit this case would trade a real invariant for two nodes'
+     * worth of coverage.
+     *
+     * So the content is genuinely not a contiguous slice and the node is left
+     * unplaced, exactly as in carve-js. Inline nodes that DO land on an
+     * authored chunk still get positions through rebuiltCellSourceMap; only
+     * the all-plain rebuilt text is unplaced.
+     *
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param array{sourceChunks?: list<array{int, int, string}>} $cellData
      * @param string $content
      */
     private function appendPlainRebuiltCellText(TableCell $cell, array $cellData, string $content): bool
     {
-        $chunks = $cellData['sourceChunks'] ?? [];
-        if (count($chunks) < 2) {
-            return false;
-        }
-
-        $joined = implode(' ', array_map(static fn (array $chunk): string => $chunk[2], $chunks));
-        if ($joined !== $content) {
-            return false;
-        }
-
-        $nodes = [];
-        $last = count($chunks) - 1;
-        foreach ($chunks as $idx => [$sourceLine, $column, $text]) {
-            $line = $this->sourceLines[$sourceLine] ?? null;
-            $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
-            if ($line === null || $lineStart === null) {
-                return false;
-            }
-            if (substr($line, $column, strlen($text)) !== $text) {
-                $found = strpos($line, $text);
-                if ($found === false) {
-                    return false;
-                }
-                $column = $found;
-            }
-
-            $value = $text;
-            if ($idx < $last) {
-                if (($line[$column + strlen($text)] ?? '') !== ' ') {
-                    return false;
-                }
-                $value .= ' ';
-            }
-
-            $span = $this->positionIndex?->span(
-                $lineStart + $column,
-                $lineStart + $column + strlen($value),
-                $sourceLine + 1,
-                $sourceLine + 1,
-                $lineStart,
-                $lineStart,
-            );
-            if ($span === null) {
-                return false;
-            }
-
-            $nodes[] = [$value, $span];
-        }
-
-        foreach ($nodes as [$value, $span]) {
-            $text = new Text($value);
-            $text->setPos($span);
-            $cell->appendChild($text);
-        }
-
-        return true;
+        return false;
     }
 
     private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
