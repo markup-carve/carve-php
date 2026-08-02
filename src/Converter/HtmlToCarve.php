@@ -1478,7 +1478,34 @@ class HtmlToCarve
                 $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $continuation = $indent . str_repeat(' ', strlen($prefix));
 
-                if ($contentParts === []) {
+                if ($contentParts === [] && $nestedContent !== '') {
+                    // An item whose ONLY content is a nested list: the nested
+                    // list starts ON the marker line, `- - cell`.
+                    //
+                    // Emitting a bare marker and letting the nested list follow
+                    // after a blank line lost a nesting level (carve-php#595): a
+                    // marker with no content is not a list item in Carve, so `- `
+                    // came back as a paragraph reading `-`, the blank line made
+                    // the list loose, and the nested list dedented to the top
+                    // level. The ProseMirror path returns this shape byte for
+                    // byte, so it is also the canonical spelling.
+                    $nestedLines = preg_split('/\R/', rtrim($nestedContent, "\n")) ?: [];
+                    $firstNested = array_shift($nestedLines) ?? '';
+                    $baseIndent = strlen($firstNested) - strlen(ltrim($firstNested));
+                    $output .= $indent . $prefix . substr($firstNested, $baseIndent) . "\n";
+                    if ($liAttrs !== '') {
+                        $output .= $continuation . '{' . $liAttrs . "}\n";
+                    }
+                    foreach ($nestedLines as $nestedLine) {
+                        // Shift each line left by the block's own base indent and
+                        // re-anchor it at this item's content column, so deeper
+                        // nesting keeps its relative shape.
+                        $output .= trim($nestedLine) === ''
+                            ? "\n"
+                            : $continuation . substr($nestedLine, $baseIndent) . "\n";
+                    }
+                    $nestedContent = '';
+                } elseif ($contentParts === []) {
                     $output .= $indent . $prefix . "\n";
                     if ($liAttrs !== '') {
                         $output .= $continuation . '{' . $liAttrs . "}\n";
