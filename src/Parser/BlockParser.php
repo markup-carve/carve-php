@@ -1447,15 +1447,12 @@ class BlockParser
             $openedList = true;
             /** @var string $itemContent */
             $itemContent = $itemInfo['content'];
-            // Two, not the marker's measured width, because that is the
-            // content column THIS parser uses for a bullet: `-   item` puts its
-            // body at column 2 here, and `    # Wide` under it is literal text,
-            // not a heading. Measuring the marker would index a heading the
-            // renderer never emits, and the reference would resolve to an id
-            // nothing carries - a dangling href is worse than declining.
-            $markerWidth = $itemInfo['type'] === ListBlock::TYPE_ORDERED
-                ? strlen($stripped) - strlen($itemContent)
-                : 2;
+            // The measured width, which is now what the list parser itself
+            // uses (carve-php#580). While a bullet was pinned at 2 here, this
+            // scan deliberately hardcoded 2 as well so it could not index a
+            // heading the renderer never emitted; both sides measure now, so
+            // the pre-scan and the parse agree by construction.
+            $markerWidth = $this->listMarkerWidth($stripped, $itemInfo);
             $baseColumn += $leadingColumns + $markerWidth;
             $listContentColumns[] = $baseColumn;
             $content = $itemContent;
@@ -2921,8 +2918,7 @@ class BlockParser
         $listType = $listInfo['type'];
         /** @var int $listStart */
         $listStart = $listInfo['start'] ?? 1;
-        /** @var string|null $listMarker */
-        $listMarker = $listInfo['marker'] ?? null;
+        $listMarker = $listInfo['marker'];
         /** @var string|null $listStyle */
         $listStyle = $listInfo['style'] ?? null;
 
@@ -3296,14 +3292,7 @@ class BlockParser
             // For bullet lists (including task lists): use 2 (for "- ")
             // For ordered lists: use actual marker width (varies with number length)
             // Task list checkbox is considered part of content, not marker
-            if ($listType === ListBlock::TYPE_ORDERED) {
-                // Ordered list marker width = length of trimmed line - length of content
-                // Examples: "1. " = 3, "10. " = 4, "(1) " = 4, "(10) " = 5
-                $markerWidth = strlen($trimmedLine) - strlen($itemContent);
-            } else {
-                // Bullet and task lists use 2-char base marker ("- " or "* " or "+ ")
-                $markerWidth = 2;
-            }
+            $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
             $contentIndent = $baseIndent + $markerWidth;
             // Remember this item's content column for the next iteration's
             // post-blank / nested-marker continuation gate (content-column model).
@@ -6278,14 +6267,39 @@ class BlockParser
     }
 
     /**
+     * The marker width of a list item, i.e. the column its content starts at
+     * relative to the marker's own indent.
+     *
+     * ORDERED and BULLET markers are MEASURED, so `- item` puts its content
+     * at 4 and `10. item` at 4. TASK items are pinned at 2: the checkbox is
+     * content, not marker, and extra spaces before it do not move the column
+     * either -- `- [ ] item` still has its content column at 2. That is not
+     * an accident of this parser, it is what carve-js and carve-rs both do, and
+     * the three engines are pinned together by the corpus.
+     *
+     * One helper rather than a copy per call site: the width is consulted by
+     * the list parser, by the implicit-heading pre-scan and by the looseness
+     * scan, and when those disagreed the pre-scan indexed a heading the
+     * renderer never emitted (carve-php#580).
+     *
+     * @param string $stripped The marker line with its leading indent removed.
+     * @param array{type: string, content: string} $info Parsed marker info.
+     */
+    protected function listMarkerWidth(string $stripped, array $info): int
+    {
+        if ($info['type'] === ListBlock::TYPE_TASK) {
+            return 2;
+        }
+
+        return strlen($stripped) - strlen($info['content']);
+    }
+
+    /**
      * The content column of a list-marker line, mirroring THIS parser's own
      * content-column model (see the `$markerWidth` computation in tryParseList),
      * so the looseness scan's "belongs to the sub-list" test agrees with where
      * the recursive parse actually places the content. Returns -1 when the line
-     * is not a list marker. Bullet and task items use a fixed 2-char marker
-     * width (a bullet with extra spaces after the dash still has content column
-     * base + 2, and a task item uses the bullet width, not the full checkbox
-     * width); ordered items use the real marker width.
+     * is not a list marker. See listMarkerWidth for the width rule.
      */
     protected function markerContentColumn(string $line): int
     {
@@ -6295,14 +6309,8 @@ class BlockParser
             return -1;
         }
         $base = IndentationHelper::getLeadingColumns($line);
-        if ($info['type'] === ListBlock::TYPE_ORDERED) {
-            /** @var string $content */
-            $content = $info['content'];
 
-            return $base + (strlen($stripped) - strlen($content));
-        }
-
-        return $base + 2;
+        return $base + $this->listMarkerWidth($stripped, $info);
     }
 
     /**
