@@ -74,7 +74,7 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, attributes?: array<string, string>}|null
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string>}|null
      */
     public function parseListItemMarker(string $line): ?array
     {
@@ -86,7 +86,7 @@ class ListParser
         $itemAttributes = [];
         if (
             preg_match(
-                '/^([-*]|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +\S.*)$/',
+                '/^([-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +\S.*)$/',
                 $line,
                 $am,
             )
@@ -116,7 +116,7 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string}|null
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool}|null
      */
     private function parseListItemMarkerBase(string $line): ?array
     {
@@ -160,6 +160,19 @@ class ListParser
                 'marker' => $matches[2],
                 'content' => $matches[3],
                 'start' => (int)$matches[1],
+            ];
+        }
+
+        // Bare-dot ordered list: `. text` is shorthand for decimal-dot ordered
+        // items starting at 1. Only the dot delimiter has this shorthand, and
+        // it still requires a space and non-empty content.
+        if (preg_match('/^\. +(\S.*)$/', $line, $matches)) {
+            return [
+                'type' => ListBlock::TYPE_ORDERED,
+                'marker' => '.',
+                'content' => $matches[1],
+                'start' => 1,
+                'bareMarker' => true,
             ];
         }
 

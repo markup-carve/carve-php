@@ -2928,6 +2928,7 @@ class BlockParser
             true, // Start as tight
             $listMarker,
             $listStyle,
+            $listInfo['bareMarker'] ?? false,
         );
 
         // Save and clear pending attributes - they apply to the list, not inner content
@@ -6442,8 +6443,9 @@ class BlockParser
             return true;
         }
 
-        // Ordered lists: digit(s) or letter followed by . or ) and space + content
-        if (preg_match('/^(\d+|[a-zA-Z])[.)] +\S/', $line)) {
+        // Ordered lists: digit(s) or letter plus delimiter, or the bare-dot
+        // shorthand, followed by space + content.
+        if (preg_match('/^(?:\.|(\d+|[a-zA-Z])[.)]) +\S/', $line)) {
             return true;
         }
 
