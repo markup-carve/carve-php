@@ -88,6 +88,97 @@ class CrossImplementationDivergenceTest extends TestCase
         );
     }
 
+    public function testCollapsedReferenceFindsMarkerLineListItemHeading(): void
+    {
+        $this->assertSame(
+            "<p>See <a href=\"#In-an-item\">In an item</a>.</p>\n"
+            . "<ul>\n"
+            . "  <li>\n"
+            . "    <h1 id=\"In-an-item\">In an item</h1>\n"
+            . "  </li>\n"
+            . "</ul>\n",
+            (new CarveConverter())->convert("See [In an item][].\n\n- # In an item"),
+        );
+    }
+
+    public function testCollapsedReferenceFindsIndentedListItemHeading(): void
+    {
+        $this->assertSame(
+            "<p>See <a href=\"#Indented\">Indented</a>.</p>\n"
+            . "<ul>\n"
+            . "  <li>item\n"
+            . "    <h1 id=\"Indented\">Indented</h1>\n"
+            . "  </li>\n"
+            . "</ul>\n",
+            (new CarveConverter())->convert("See [Indented][].\n\n- item\n  # Indented"),
+        );
+    }
+
+    public function testCollapsedReferenceDeclinesFencedHeadingText(): void
+    {
+        $this->assertSame(
+            "<p>See [Fenced][].</p>\n"
+            . "<pre><code># Fenced\n"
+            . "</code></pre>\n",
+            (new CarveConverter())->convert("See [Fenced][].\n\n```\n# Fenced\n```"),
+        );
+    }
+
+    public function testCollapsedReferenceDeclinesBlockquotedHeading(): void
+    {
+        $this->assertSame(
+            "<p>See [Quoted][].</p>\n"
+            . "<blockquote>\n"
+            . "  <h1 id=\"Quoted\">Quoted</h1>\n"
+            . "</blockquote>\n",
+            (new CarveConverter())->convert("See [Quoted][].\n\n> # Quoted"),
+        );
+    }
+
+    public function testCollapsedReferenceDeclinesListThenBlockquoteHeading(): void
+    {
+        $this->assertSame(
+            "<p>See [Q][].</p>\n"
+            . "<ul>\n"
+            . "  <li>\n"
+            . "    <blockquote>\n"
+            . "      <h1 id=\"Q\">Q</h1>\n"
+            . "    </blockquote>\n"
+            . "  </li>\n"
+            . "</ul>\n",
+            (new CarveConverter())->convert("See [Q][].\n\n- > # Q"),
+        );
+    }
+
+    public function testCollapsedReferenceDeclinesBlockquoteThenListHeading(): void
+    {
+        $this->assertSame(
+            "<p>See [Q][].</p>\n"
+            . "<blockquote>\n"
+            . "  <ul>\n"
+            . "    <li>\n"
+            . "      <h1 id=\"Q\">Q</h1>\n"
+            . "    </li>\n"
+            . "  </ul>\n"
+            . "</blockquote>\n",
+            (new CarveConverter())->convert("See [Q][].\n\n> - # Q"),
+        );
+    }
+
+    public function testCollapsedReferenceStillFindsTopLevelAndDivHeadings(): void
+    {
+        $this->assertSame(
+            "<p>See <a href=\"#Top\">Top</a> and <a href=\"#Inside\">Inside</a>.</p>\n"
+            . "<section id=\"Top\">\n"
+            . "  <h1>Top</h1>\n"
+            . "  <aside class=\"admonition note\">\n"
+            . "    <h1 id=\"Inside\">Inside</h1>\n"
+            . "  </aside>\n"
+            . "</section>\n",
+            (new CarveConverter())->convert("See [Top][] and [Inside][].\n\n# Top\n\n::: note\n# Inside\n:::"),
+        );
+    }
+
     public function testCollapsedHeadingReferenceRendersAsResolvedLinkInNonHtmlFormats(): void
     {
         $source = "See [name][]\n\n# Name";

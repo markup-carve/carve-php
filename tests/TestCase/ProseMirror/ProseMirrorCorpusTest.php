@@ -41,7 +41,27 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 344;
+    private const MINIMUM_LOSSLESS = 342;
+
+    /**
+     * Documents that survive the round trip, COVERED OR NOT.
+     *
+     * `MINIMUM_LOSSLESS` counts only fully-covered documents, so it moves for
+     * two unrelated reasons: the bridge losing fidelity, and a document
+     * acquiring a degraded type it did not have before. The second is not a
+     * regression. The floor was already unmet on main at 342 against 344 before
+     * this change, so it had stopped guarding anything - and the escaped-pipe
+     * change was wrongly suspected of causing that, because two documents
+     * (`09-tables-4` and `56-table-cell-escaped-pipe`) legitimately acquired a
+     * degraded type and left the count. Both still round-trip losslessly.
+     *
+     * This number cannot be moved that way, so it is the one that guards
+     * fidelity. Keep both: coverage is worth tracking too, just not as a proxy
+     * for correctness.
+     *
+     * @var int
+     */
+    private const MINIMUM_SURVIVING = 391;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
@@ -66,6 +86,7 @@ class ProseMirrorCorpusTest extends TestCase
         $converter = new ProseMirrorToCarve();
 
         $lossless = 0;
+        $survives = 0;
         $coveredButDiffering = [];
         $threw = [];
 
@@ -81,6 +102,16 @@ class ProseMirrorCorpusTest extends TestCase
                 $covered = $renderer->droppedTypes() === [] && $renderer->degradedTypes() === [];
 
                 $actual = (new CarveConverter())->render($converter->convert($proseMirror));
+
+                // Counted whether or not the document is covered, because
+                // FIDELITY and COVERAGE are different things and the lossless
+                // count below conflates them: a change that legitimately gives a
+                // document a degraded type moves it out of `$lossless` without
+                // changing whether it survives, which reads as a bridge
+                // regression and is not one.
+                if ($actual === $expected) {
+                    $survives++;
+                }
 
                 if (!$covered) {
                     continue;
@@ -104,6 +135,12 @@ class ProseMirrorCorpusTest extends TestCase
             self::MINIMUM_LOSSLESS,
             $lossless,
             sprintf('lossless round-trips dropped to %d; the bridge regressed', $lossless),
+        );
+
+        $this->assertGreaterThanOrEqual(
+            self::MINIMUM_SURVIVING,
+            $survives,
+            sprintf('documents surviving the round trip dropped to %d; the bridge lost fidelity', $survives),
         );
 
         $this->assertLessThanOrEqual(

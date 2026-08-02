@@ -117,7 +117,7 @@ class CarveCorpusTest extends TestCase
         '79-paragraph-interruption',
         '80-blockquote-lazy-continuation',
         '81-fenced-code-language-with-punctuation',
-        '82-multi-line-headings',
+        '82-single-line-headings',
         '83-blockquote-lazy-continuation-stops-at-a-fenced-block',
         '84-list-lazy-continuation',
         '85-compact-list-blocks',
@@ -205,6 +205,8 @@ class CarveCorpusTest extends TestCase
         '167-only-the-id-hoists-to-the-section-wrapper',
         '168-headings-inside-containers-are-not-wrapped',
         '169-attribute-order-on-an-unwrapped-heading',
+        '170-attribute-braces-on-a-list-item-marker-line',
+        '171-implicit-heading-references-with-no-definition',
     ];
 
     /**

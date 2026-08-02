@@ -43,16 +43,14 @@ class HeadingCaptionWhitespaceTest extends TestCase
         );
     }
 
-    public function testHeadingKeepsInteriorTrailingStripsFinal(): void
+    public function testHeadingStripsItsTrailingWhitespace(): void
     {
-        $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a \nb</h1>\n</section>\n",
-            $this->converter->convert("# a \nb"),
-        );
-        $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a\nb</h1>\n</section>\n",
-            $this->converter->convert("# a\nb "),
-        );
+        // A heading is one line, so §756 has a single line to strip and the
+        // following line is a paragraph (which strips its own trailing run).
+        $expected = "<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n";
+
+        $this->assertSame($expected, $this->converter->convert("# a \nb"));
+        $this->assertSame($expected, $this->converter->convert("# a\nb "));
     }
 
     public function testCaptionStripsFinalTrailingWhitespace(): void

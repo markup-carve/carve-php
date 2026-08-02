@@ -1242,9 +1242,45 @@ class BlockParser
         $headingIdTracker->setLowercase($this->headingIdLowercase);
         $pendingId = null;
         $count = count($lines);
+        $listContentColumns = [];
+        $fenceChar = null;
+        $fenceLength = 0;
 
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            $scan = $this->headingReferenceScanLine($line, $listContentColumns);
+            $contentLine = $scan['content'];
+
+            if ($fenceChar !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($contentLine, $fenceChar, $fenceLength)) {
+                    $fenceChar = null;
+                    $fenceLength = 0;
+                }
+
+                continue;
+            }
+
+            $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($contentLine);
+            if ($rawFenceInfo !== null) {
+                $fenceChar = $rawFenceInfo['fence'][0];
+                $fenceLength = $rawFenceInfo['length'];
+
+                continue;
+            }
+
+            $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($contentLine);
+            if ($codeFenceInfo !== null) {
+                $fenceChar = $codeFenceInfo['char'];
+                $fenceLength = $codeFenceInfo['length'];
+
+                continue;
+            }
+
+            if ($scan['quoted']) {
+                $pendingId = null;
+
+                continue;
+            }
 
             // Check for an explicit id on a block-attribute line before the
             // heading -- bare ({#custom-id}) or part of a fuller list
@@ -1272,49 +1308,16 @@ class BlockParser
             // The marker MUST start at column 0 (no leading indent): an indented `#`-line is a
             // paragraph, matching carve-js / carve-rs and the spec grammar (heading_first_line =
             // heading_marker, space, ...).
-            if (($line[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+            if (($contentLine[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $contentLine, $matches)) {
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
                 $headingText = trim($matches[2]);
                 $headingParts = [[$i, $headingText]];
                 $level = strlen($matches[1]);
 
-                // Collect continuation lines. This mirrors tryParseHeading so
-                // the implicit-reference label agrees with the rendered id: a
-                // `#`-marker continuation line folds ONLY when its marker count
-                // EQUALS the open level; a different count (more OR fewer) ends
-                // the heading and starts a new one.
-                $j = $i + 1;
-                while ($j < $count) {
-                    $nextLine = $lines[$j];
-                    if (trim($nextLine) === '') {
-                        break;
-                    }
-                    if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
-                        $headingParts[] = [$j, trim($contMatch[1])];
-                        $headingText .= ' ' . trim($contMatch[1]);
-                        $j++;
-
-                        continue;
-                    }
-                    if (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
-                        // Bare same-level marker continues, contributes nothing
-                        // (mirrors tryParseHeading so the id agrees at render).
-                        $j++;
-
-                        continue;
-                    }
-                    if (preg_match('/^#{1,6}/', $nextLine)) {
-                        break;
-                    }
-                    if (!$this->startsNewBlock($nextLine)) {
-                        $headingParts[] = [$j, trim($nextLine)];
-                        $headingText .= ' ' . trim($nextLine);
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
+                // SINGLE-LINE HEADINGS: a heading ends at the newline, so the
+                // label is this line's text alone. This mirrors tryParseHeading
+                // so the implicit-reference label agrees with the rendered id.
 
                 // Fast path: a heading whose collected text is purely letters,
                 // numbers and spaces has no inline markup, so its plain text
@@ -1337,9 +1340,8 @@ class BlockParser
                     $heading->setAttribute('id', $pendingId);
                     $pendingId = null;
                 }
-                // A heading folds continuation lines with a SPACE rather than a
-                // newline, but the mapping is the same shape: one segment per
-                // physical line, each a run of its own source line.
+                // One segment for the heading's single line: a run of its own
+                // source line.
                 $headingContentLines = [];
                 foreach ($headingParts as [$partIndex, $partText]) {
                     $partSourceLine = $this->sourceLineFor($partIndex);
@@ -1372,11 +1374,74 @@ class BlockParser
                 $this->registerHeadingReference($label, $reference);
             } else {
                 // Non-heading, non-attribute line - clear pending ID
-                if (!IndentationHelper::isBlankLine($line)) {
+                if (!IndentationHelper::isBlankLine($contentLine)) {
                     $pendingId = null;
                 }
             }
         }
+    }
+
+    /**
+     * Present a raw top-level line as implicit heading-reference extraction
+     * should see it after list containers expose their content. Blockquote
+     * ancestry is returned separately so quoted headings are deliberately
+     * skipped in either container order.
+     *
+     * @param string $line
+     * @param list<int> $listContentColumns
+     *
+     * @return array{content: string, quoted: bool, openedList: bool}
+     */
+    protected function headingReferenceScanLine(string $line, array &$listContentColumns): array
+    {
+        if (!IndentationHelper::isBlankLine($line)) {
+            $leadingColumns = IndentationHelper::getLeadingColumns($line);
+            while ($listContentColumns !== [] && $leadingColumns < $listContentColumns[array_key_last($listContentColumns)]) {
+                array_pop($listContentColumns);
+            }
+        }
+
+        $baseColumn = $listContentColumns === []
+            ? 0
+            : $listContentColumns[array_key_last($listContentColumns)];
+        $content = $baseColumn === 0 ? $line : IndentationHelper::stripLeadingColumns($line, $baseColumn);
+        $quoted = false;
+        $openedList = false;
+
+        while ($content !== '') {
+            $stripped = ltrim($content, " \t");
+            $leadingColumns = IndentationHelper::getLeadingColumns($content);
+
+            if (preg_match('/^> ?(.*)$/', $stripped, $quoteMatch) === 1) {
+                $quoted = true;
+                $content = $quoteMatch[1];
+
+                continue;
+            }
+
+            $itemInfo = $this->listParser->parseListItemMarker($stripped);
+            if ($itemInfo === null) {
+                break;
+            }
+
+            $openedList = true;
+            /** @var string $itemContent */
+            $itemContent = $itemInfo['content'];
+            // Two, not the marker's measured width, because that is the
+            // content column THIS parser uses for a bullet: `-   item` puts its
+            // body at column 2 here, and `    # Wide` under it is literal text,
+            // not a heading. Measuring the marker would index a heading the
+            // renderer never emits, and the reference would resolve to an id
+            // nothing carries - a dangling href is worse than declining.
+            $markerWidth = $itemInfo['type'] === ListBlock::TYPE_ORDERED
+                ? strlen($stripped) - strlen($itemContent)
+                : 2;
+            $baseColumn += $leadingColumns + $markerWidth;
+            $listContentColumns[] = $baseColumn;
+            $content = $itemContent;
+        }
+
+        return ['content' => $content, 'quoted' => $quoted, 'openedList' => $openedList];
     }
 
     /**
@@ -2160,7 +2225,12 @@ class BlockParser
         if ($title !== null) {
             $div->setHeader($title);
             $headerContainer = new Paragraph();
-            $this->inlineParser->parse($headerContainer, $title, $this->lineOffset + $start);
+            $this->inlineParser->parse(
+                $headerContainer,
+                $title,
+                $this->lineOffset + $start,
+                sourceMap: $this->openerTitleMap($start, $title),
+            );
             $div->setHeaderNodes($headerContainer->getChildren());
         }
         // Author source order, in the Node's canonical slot form (`#id` / `.class`
@@ -2460,79 +2530,17 @@ class BlockParser
         $level = strlen($matches[1]);
         // Keep the content verbatim here: the regex `#… +` already folded the
         // leading spaces into the delimiter, and a leading TAB is content (kept,
-        // matching a caption and carve-js / carve-rs). First-line trailing
-        // whitespace is INTERIOR once continuation lines fold in, so it is not
-        // stripped now; only the final line's trailing run is stripped below.
+        // matching a caption and carve-js / carve-rs).
         $content = $matches[2];
         $foldedLines = [[$start, $content]];
 
-        // Collect continuation lines
+        // SINGLE-LINE HEADINGS (NORMATIVE, diverges from Djot): a heading ENDS AT
+        // THE NEWLINE. Nothing folds into it -- not a plain line, not a same-count
+        // `#` line -- so the following line begins whatever block it begins,
+        // exactly as after any other closed block. Lazy continuation therefore
+        // means one thing across the language: it continues an open PARAGRAPH,
+        // and a heading is not one. Matches carve-js / carve-rs.
         $i = $start + 1;
-        $count = count($lines);
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-
-            // Empty line ends the heading
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                break;
-            }
-
-            // Check for continuation with # prefix (SAME level only) - these
-            // continue the heading. e.g., "# Heading\n# more" becomes
-            // "Heading\nmore" for a level-1 heading. A `#`-marker line whose
-            // marker count DIFFERS from the open level (more OR fewer) ends the
-            // heading and starts a new one (handled by the next branch), per
-            // Djot: only an exactly-equal marker count folds.
-            if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
-                // The heading already has non-empty first-line content, so a
-                // newline always precedes a folded continuation.
-                $foldedLines[] = [$i, $contMatch[1]];
-                $content .= "\n" . $contMatch[1];
-                $i++;
-            } elseif (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
-                // A bare SAME-level marker line (`#` / `# ` for a level-1
-                // heading) continues the heading but contributes no content, so
-                // surrounding marker lines join with a single newline (djot;
-                // "same number of `#` ... or none"). Matches carve-js / carve-rs.
-                $i++;
-            } elseif (preg_match('/^#{1,6}(?: |$)/', $nextLine)) {
-                // A `#`-marker line with a DIFFERENT count (more OR fewer) ends
-                // the open heading and starts a new one. The bare-`#` line then
-                // forms its own paragraph (it is not itself a heading).
-                break;
-            } elseif (
-                preg_match('/^\^ +.*\S/', $nextLine)
-                || $this->hasClosingCommentFenceAhead($nextLine, $lines, $i)
-            ) {
-                // A caption (`^ `) or a closed fenced comment (`%%%`) ends the heading.
-                break;
-            } elseif (
-                preg_match('/^\[[^\]]+\]: [ \t]*\S/', $nextLine)
-                || $this->isAbbreviationDefinitionLine($nextLine)
-                || preg_match('/^[ \t]*%%/', $nextLine)
-                || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
-                    && $this->inlineParser->isValidAttrPayload($invisibleAttr[1]))
-            ) {
-                // Invisible constructs -- a reference / footnote / abbreviation
-                // definition, a comment, or a block-attribute line -- are §10
-                // interrupters (INVISIBLE CONSTRUCTS): each ends the heading and
-                // is consumed or floated forward by its own parser, exactly as it
-                // interrupts a paragraph. Matches carve-js / carve-rs.
-                break;
-            } elseif ($this->endsHeadingOrQuote($nextLine, $lines, $i)) {
-                // A block-opener ends the heading and starts that block (§10). A
-                // LIST marker (bullet OR ordered) also ends the heading and starts
-                // a sibling list: a list marker folds only into a PARAGRAPH, not a
-                // heading (symmetric, matches carve-js / carve-rs / djot). Only
-                // plain text folds into the heading.
-                break;
-            } else {
-                // Plain text folds into the heading text.
-                $foldedLines[] = [$i, $nextLine];
-                $content .= "\n" . $nextLine;
-                $i++;
-            }
-        }
 
         $heading = new Heading($level);
 
@@ -2542,13 +2550,12 @@ class BlockParser
         // the full literal text. Attributes attach via a PRECEDING
         // block-attribute line (applyPendingAttributes below, PART 9 §15).
         //
-        // §756 (NORMATIVE): strip the FINAL line's trailing whitespace only
-        // (rtrim, ASCII whitespace -- a trailing NBSP is content and survives).
-        // A leading tab is preserved (see the extraction note above).
+        // §756 (NORMATIVE): strip the line's trailing whitespace (rtrim, ASCII
+        // whitespace -- a trailing NBSP is content and survives). A leading tab
+        // is preserved (see the extraction note above).
         $content = rtrim($content);
 
-        // Folded continuation lines need one segment each; the single-line map
-        // finds nothing the moment a heading wraps.
+        // One source segment for the heading's single line.
         $headingLines = [];
         foreach ($foldedLines as [$foldIndex, $foldText]) {
             $foldSourceLine = $this->sourceLineFor($foldIndex);
@@ -5065,6 +5072,42 @@ class BlockParser
             $start,
             $lastStart,
         );
+    }
+
+    /**
+     * Map an admonition opener's quoted title back to the source it came from,
+     * so its inline content can be placed.
+     *
+     * The title reaches this point as a regex capture out of an already-split
+     * class string, so its column is not in hand - but the QUOTED form is
+     * unambiguous in the opener line in a way the bare title is not. Searching
+     * for `title` alone would match the type word first in `::: note "note"`,
+     * pointing every inline in the title four columns too far left; searching
+     * for the quoted form cannot, because the type word carries no quotes.
+     *
+     * Returns null when positions are off or the quoted form is not found,
+     * which leaves the title's inlines unplaced rather than placed wrongly.
+     */
+    private function openerTitleMap(int $line, string $title): ?SourceMap
+    {
+        if (!$this->trackPositions || $title === '') {
+            return null;
+        }
+        $lineText = $this->sourceLines[$line] ?? null;
+        $lineStart = $this->lineStartOffsets[$line] ?? null;
+        if ($lineText === null || $lineStart === null) {
+            return null;
+        }
+        $quotedAt = strpos($lineText, '"' . $title . '"');
+        if ($quotedAt === false) {
+            return null;
+        }
+        $column = $quotedAt + 1;
+
+        $map = new SourceMap();
+        $map->add(0, $lineStart + $column, strlen($title), $line + 1, $column + 1);
+
+        return $map;
     }
 
     /**
