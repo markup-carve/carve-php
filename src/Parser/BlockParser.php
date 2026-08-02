@@ -150,6 +150,11 @@ class BlockParser
     protected bool $abbreviationsBeforeBody = false;
 
     /**
+     * @var array<string, array<string, int>>
+     */
+    protected array $abbreviationSpans = [];
+
+    /**
      * Pending block attributes to apply to next block
      *
      * @var array<string, string>
@@ -678,6 +683,7 @@ class BlockParser
         if ($this->abbreviations !== []) {
             $document->setAbbreviations($this->abbreviations);
             $document->setAbbreviationsBeforeBody($this->abbreviationsBeforeBody);
+            $document->setAbbreviationSpans($this->abbreviationSpans);
         }
 
         // Record the source byte length so renderers can size the
@@ -1065,6 +1071,20 @@ class BlockParser
 
                 // Store the abbreviation (case-sensitive)
                 $this->abbreviations[$abbr] = $definition;
+                // The definition's own lines, so the node built for it at
+                // serialization has somewhere to point. A continuation line is
+                // part of the definition, so the span covers `$i` through the
+                // last line consumed rather than the opener alone.
+                if ($this->trackPositions) {
+                    $lineMap = [];
+                    for ($k = $i; $k < $j; $k++) {
+                        $lineMap[] = $this->sourceLineFor($k);
+                    }
+                    $span = $this->spanForLineMap($lineMap);
+                    if ($span !== null) {
+                        $this->abbreviationSpans[$abbr] = $span->toArray();
+                    }
+                }
                 $i = $j;
 
                 continue;
