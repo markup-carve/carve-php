@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -654,11 +655,25 @@ class AstCodec
     }
 
     /**
-     * The parser's own nesting cap, mirrored here only to explain the bound below.
+     * The parser's own nesting cap. Taken FROM the parser rather than mirrored:
+     * a copy drifts silently, and the drift shows up as the decoder refusing
+     * documents the parser accepts.
      *
      * @var int
      */
-    private const MAX_PARSER_NESTING_DEPTH = 200;
+    private const MAX_PARSER_NESTING_DEPTH = BlockParser::MAX_NESTING_DEPTH;
+
+    /**
+     * The longest chain of wire levels ONE nesting level can cost.
+     *
+     * A div costs two - its object, then its `children` array. A list costs
+     * four: `list`, `items`, `list_item`, `children`. A table costs six, the
+     * deepest chain any container has, which is why the multiplier is 6 and not
+     * the 2:1 the div shape suggests.
+     *
+     * @var int
+     */
+    private const LONGEST_WIRE_CHAIN = 6;
 
     /**
      * Deepest JSON nesting `decodeJson()` will read.
@@ -677,9 +692,15 @@ class AstCodec
      * which stood in for a decision nobody had made and reported a payload past
      * it as a raw JsonException.
      *
+     * DERIVED, not written down: 1200 was right for a parser capped at 200 and
+     * silently wrong for any other number. Raising the parser's cap now raises
+     * this with it, which is the whole invariant - the decoder must accept
+     * anything the encoder can emit, whatever that limit becomes. carve-rs
+     * makes the same bound the same way (carve-rs#394).
+     *
      * @var int
      */
-    public const MAX_JSON_DEPTH = 1200;
+    public const MAX_JSON_DEPTH = self::MAX_PARSER_NESTING_DEPTH * self::LONGEST_WIRE_CHAIN + 16;
 
     public function decodeJson(string $json): Document
     {

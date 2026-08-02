@@ -79,9 +79,13 @@ class BlockParser
      * depth, container content is emitted as a literal paragraph instead of
      * recursing. Far above any real document; only adversarial input reaches it.
      *
+     * Public because `AstCodec` derives its ingest bound from this number
+     * rather than repeating it: the decoder has to accept anything parsing can
+     * produce, so raising this must raise that with it.
+     *
      * @var int
      */
-    private const MAX_NESTING_DEPTH = 200;
+    public const MAX_NESTING_DEPTH = 200;
 
     private int $nestingDepth = 0;
 

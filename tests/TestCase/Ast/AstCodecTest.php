@@ -632,7 +632,10 @@ class AstCodecTest extends TestCase
             . str_repeat('[', $depth) . str_repeat(']', $depth) . '}';
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/nests deeper than 1200 levels/');
+        // Matched on the reason rather than the number: the bound is derived
+        // from the parser's cap now, so pinning 1200 here would fail the day
+        // that cap moves - for a reason that has nothing to do with this test.
+        $this->expectExceptionMessageMatches('/nests deeper than \d+ levels/');
         $this->codec->decodeJson($json);
     }
 }
