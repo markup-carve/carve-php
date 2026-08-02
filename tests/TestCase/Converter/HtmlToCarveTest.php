@@ -33,6 +33,46 @@ class HtmlToCarveTest extends TestCase
         $this->roundTripConverter = new HtmlToCarve(true);
     }
 
+    /**
+     * An item whose ONLY content is a nested list puts that list on the marker
+     * line. Emitting the marker alone and the list below it gave `- ` followed
+     * by a blank, which does not survive a re-parse: a marker with nothing
+     * after it is not a marker, so it came back as a paragraph reading `-` and
+     * the nested list dedented out of the item (carve-php#595).
+     */
+    public function testListItemHoldingOnlyANestedListKeepsItOnTheMarkerLine(): void
+    {
+        $html = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>";
+
+        $this->assertSame("- - a\n  - b\n", $this->converter->convert($html));
+    }
+
+    /**
+     * The whole point is that it re-parses to the document it came from, so the
+     * check is the round trip rather than the string.
+     */
+    public function testANestedListSurvivesTheRoundTripThroughHtml(): void
+    {
+        $source = "::: list-table\n- - Cells with block content\n  - are a Carve construct\n:::\n";
+        $converter = new CarveConverter();
+
+        $back = $this->converter->convert($converter->convert($source));
+
+        $this->assertSame($source, $back);
+        $this->assertSame($converter->convert($source), $converter->convert($back));
+    }
+
+    /**
+     * An ordered marker is wider, so the nested list sits at ITS content
+     * column, not a fixed two.
+     */
+    public function testAnOrderedItemHoldingOnlyANestedListKeepsItsContentColumn(): void
+    {
+        $html = "<ol>\n  <li>\n    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ol>";
+
+        $this->assertSame("1. - a\n   - b\n", $this->converter->convert($html));
+    }
+
     // ==================== Basic Formatting ====================
 
     public function testParagraph(): void
