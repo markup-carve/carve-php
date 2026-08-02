@@ -272,6 +272,20 @@ class ProseMirrorRenderer
         $attrs = $this->attributesFor($cell);
         $attrs['colspan'] = $colspan;
         $attrs['rowspan'] = $rowspan;
+        // A BLOCKED span marker is content, not a span. `| < | b |` has no cell
+        // to its left to continue into, so the parser keeps the marker on the
+        // cell and renders it empty - and an empty cell is all the editor saw,
+        // so the writer had nothing to put back and the marker was lost in
+        // silence (carve-php#519, class 7). The resolved spans above are
+        // reconstructed from colspan/rowspan and were never the problem.
+        //
+        // `carveSpanMarker` follows `carveSource`: a lossless escape hatch for
+        // the exact thing the author wrote, which the editor carries but does
+        // not interpret.
+        $marker = $cell->getSpanMarker();
+        if ($marker !== null && $marker !== '') {
+            $attrs['carveSpanMarker'] = $marker;
+        }
         $out['attrs'] = $attrs;
 
         $content = $this->isInlineContainer($cell)
