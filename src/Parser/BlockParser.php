@@ -4097,6 +4097,7 @@ class BlockParser
             }
 
             $width = 0;
+            $runStart = $offset;
             while ($offset < $length && ($line[$offset] === ' ' || $line[$offset] === "\t")) {
                 if ($line[$offset] === "\t") {
                     $width += 4 - (($column + $width) % 4);
@@ -4117,7 +4118,21 @@ class BlockParser
                     );
                     $text = '';
                 }
-                $paragraph->appendChild(new Text(str_repeat("\u{E000}", $width)));
+                // The indent's own node. Each placeholder stands for exactly
+                // one source SPACE, so the run spans the same characters it
+                // replaced and is placeable - a value differing from its slice
+                // by a one-for-one substitution still covers its region.
+                //
+                // A TAB is the exception: it widens to up to four placeholders
+                // from one character, so `$width` and the source run's length
+                // disagree and any span would be too long. That run declines,
+                // per run rather than per line (carve-rs#411 draws the same
+                // line for the same reason).
+                $indent = new Text(str_repeat("\u{E000}", $width));
+                if ($width === $offset - $runStart) {
+                    $indent->setPos($this->verseIndentSpan($lineNo, $runStart, $offset));
+                }
+                $paragraph->appendChild($indent);
 
                 continue;
             }
@@ -5344,6 +5359,34 @@ class BlockParser
         return $this->positionIndex?->span(
             $start,
             $start + strlen($content),
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+    }
+
+    /**
+     * The span of a verse line's leading whitespace run, in the original source.
+     *
+     * `$from` and `$to` are byte offsets into the line as the line-block parser
+     * sees it, which is the source line - a verse line is not re-indented.
+     */
+    private function verseIndentSpan(int $index, int $from, int $to): ?SourceSpan
+    {
+        if (!$this->trackPositions || $to <= $from) {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        return $this->positionIndex?->span(
+            $lineStart + $from,
+            $lineStart + $to,
             $sourceLine + 1,
             $sourceLine + 1,
             $lineStart,
