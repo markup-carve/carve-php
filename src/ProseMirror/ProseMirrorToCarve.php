@@ -840,6 +840,8 @@ class ProseMirrorToCarve
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof Div && $key === 'title' => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof Div && $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
+                $node instanceof Div && $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
                 $node instanceof Abbreviation && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 $node instanceof InlineExtension && $key === 'carveSource' => $this->setState(
                     $node,
@@ -897,16 +899,42 @@ class ProseMirrorToCarve
             }
         }
 
-        // A `carveDiv` carries a class, not a spelling: the editor model has
-        // no room for "was this opened with a type word". Mark it typed on the
-        // same condition the parser uses, which is what carve-grammars' own
-        // serializer does with the same node - it writes `::: <class>`. Without
-        // this the container comes back as an attribute block plus a bare
-        // fence, and a bare fence cannot carry a title, so `::: tip "Pro Tip"`
-        // lost its heading outright.
-        if ($node instanceof Div && count($node->getClassList()) === 1) {
+        // Older payloads did not carry whether a `carveDiv` was opened with a
+        // type word. Keep the historical single-class heuristic for those only.
+        if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) === 1) {
             $this->setState($node, 'typed', true);
         }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param mixed $value
+     */
+    protected function applyCarveAttrs(Div $node, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return true;
+        }
+
+        $attributes = [];
+        $order = [];
+        foreach ($value as $key => $attributeValue) {
+            if (!is_string($key) || !is_scalar($attributeValue)) {
+                continue;
+            }
+            $attributes[$key] = self::asString($attributeValue);
+            if ($key === 'id') {
+                $order[] = '#id';
+            } elseif ($key === 'class') {
+                $order[] = '.class';
+            } else {
+                $order[] = $key;
+            }
+        }
+
+        $node->setAttributesWithOrder($attributes, $order);
+
+        return true;
     }
 
     private static function asString(mixed $value): string
