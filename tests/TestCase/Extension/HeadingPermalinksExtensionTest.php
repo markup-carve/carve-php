@@ -172,11 +172,13 @@ class HeadingPermalinksExtensionTest extends TestCase
         $converter = new CarveConverter();
         $converter->addExtension(new HeadingPermalinksExtension());
 
-        // Hard break in heading (backslash at end of line)
+        // A heading ends at its newline, so the trailing backslash breaks
+        // nothing into the title: only "Hello" is the heading, and the id
+        // follows it.
         $html = $converter->convert("# Hello\\\nWorld");
 
-        // The break should become a space in the ID
-        $this->assertStringContainsString('href="#Hello-World"', $html);
+        $this->assertStringContainsString('href="#Hello"', $html);
+        $this->assertStringContainsString('<p>World</p>', $html);
     }
 
     public function testShowOnHover(): void

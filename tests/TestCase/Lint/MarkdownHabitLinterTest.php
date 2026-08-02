@@ -81,39 +81,18 @@ class MarkdownHabitLinterTest extends TestCase
         $this->assertSame([], $this->rules($source));
     }
 
-    public function testReportsAHeadingThatSwallowsTheNextLine(): void
+    public function testAHeadingNoLongerSwallowsTheNextLine(): void
     {
-        $this->assertSame(
-            [MarkdownHabitLinter::RULE_HEADING_LAZY_CONTINUATION],
-            $this->rules("### Title\nBody line\n"),
-        );
-    }
+        // A heading ends at its newline (SINGLE-LINE HEADINGS), so prose written
+        // directly beneath one is its own paragraph. There is nothing left to
+        // warn about, which is why the heading-lazy-continuation rule is gone.
+        $this->assertSame([], $this->rules("### Title\nBody line\n"));
 
-    public function testTheSwallowedHeadingReallySwallows(): void
-    {
-        // The claim the diagnostic makes, pinned against the renderer: the
-        // following line lands INSIDE the heading, which the derived id shows
-        // most plainly.
         $html = (new CarveConverter())->convert("### Title\nBody line\n");
 
-        $this->assertStringContainsString('id="Title-Body-line"', $html);
-        $this->assertStringContainsString("<h3>Title\nBody line</h3>", $html);
-    }
-
-    public function testABlankLineAfterTheHeadingIsClean(): void
-    {
-        $this->assertSame([], $this->rules("### Title\n\nBody line\n"));
-    }
-
-    public function testAHeadingEndingTheDocumentIsClean(): void
-    {
-        $this->assertSame([], $this->rules("### Title\n"));
-    }
-
-    public function testAHeadingFollowedByAnotherBlockOpenerIsClean(): void
-    {
-        $this->assertSame([], $this->rules("### Title\n### Next\n"));
-        $this->assertSame([], $this->rules("### Title\n```php\necho 1;\n```\n"));
+        $this->assertStringContainsString('id="Title"', $html);
+        $this->assertStringContainsString('<h3>Title</h3>', $html);
+        $this->assertStringContainsString('<p>Body line</p>', $html);
     }
 
     public function testWarningCarriesPositionAndOffsets(): void

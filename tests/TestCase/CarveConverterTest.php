@@ -103,10 +103,11 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two"));
     }
 
-    public function testMultiLineHeadingContinuationIsFlush(): void
+    public function testHeadingEndsAtTheNewline(): void
     {
-        // Carve headings are multi-line; the folded continuation renders flush.
-        $expected = "<section id=\"Title-outside\">\n  <h1>Title\noutside</h1>\n</section>\n";
+        // SINGLE-LINE HEADINGS: prose on the next line is its own paragraph, and
+        // the id comes from the heading line alone (it used to be Title-outside).
+        $expected = "<section id=\"Title\">\n  <h1>Title</h1>\n  <p>outside</p>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
     }

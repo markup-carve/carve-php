@@ -1315,54 +1315,9 @@ class BlockParser
                 $headingParts = [[$i, $headingText]];
                 $level = strlen($matches[1]);
 
-                // Collect continuation lines. This mirrors tryParseHeading so
-                // the implicit-reference label agrees with the rendered id: a
-                // `#`-marker continuation line folds ONLY when its marker count
-                // EQUALS the open level; a different count (more OR fewer) ends
-                // the heading and starts a new one.
-                $j = $i + 1;
-                $continuationListContentColumns = $listContentColumns;
-                while ($j < $count) {
-                    $nextLine = $lines[$j];
-                    $nextScan = $this->headingReferenceScanLine($nextLine, $continuationListContentColumns);
-                    $nextContentLine = $nextScan['content'];
-                    if ($nextScan['quoted'] || $nextScan['openedList']) {
-                        break;
-                    }
-                    if (trim($nextContentLine) === '') {
-                        break;
-                    }
-                    if (
-                        $this->fencedBlockParser->parseRawBlockOpener($nextContentLine) !== null
-                        || $this->fencedBlockParser->parseCodeFenceOpener($nextContentLine) !== null
-                    ) {
-                        break;
-                    }
-                    if (preg_match('/^#{' . $level . '} +(.+)$/', $nextContentLine, $contMatch)) {
-                        $headingParts[] = [$j, trim($contMatch[1])];
-                        $headingText .= ' ' . trim($contMatch[1]);
-                        $j++;
-
-                        continue;
-                    }
-                    if (preg_match('/^#{' . $level . '}[ ]*$/', $nextContentLine)) {
-                        // Bare same-level marker continues, contributes nothing
-                        // (mirrors tryParseHeading so the id agrees at render).
-                        $j++;
-
-                        continue;
-                    }
-                    if (preg_match('/^#{1,6}/', $nextContentLine)) {
-                        break;
-                    }
-                    if (!$this->startsNewBlock($nextContentLine)) {
-                        $headingParts[] = [$j, trim($nextContentLine)];
-                        $headingText .= ' ' . trim($nextContentLine);
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
+                // SINGLE-LINE HEADINGS: a heading ends at the newline, so the
+                // label is this line's text alone. This mirrors tryParseHeading
+                // so the implicit-reference label agrees with the rendered id.
 
                 // Fast path: a heading whose collected text is purely letters,
                 // numbers and spaces has no inline markup, so its plain text
@@ -1385,9 +1340,8 @@ class BlockParser
                     $heading->setAttribute('id', $pendingId);
                     $pendingId = null;
                 }
-                // A heading folds continuation lines with a SPACE rather than a
-                // newline, but the mapping is the same shape: one segment per
-                // physical line, each a run of its own source line.
+                // One segment for the heading's single line: a run of its own
+                // source line.
                 $headingContentLines = [];
                 foreach ($headingParts as [$partIndex, $partText]) {
                     $partSourceLine = $this->sourceLineFor($partIndex);
@@ -2675,79 +2629,17 @@ class BlockParser
         $level = strlen($matches[1]);
         // Keep the content verbatim here: the regex `#… +` already folded the
         // leading spaces into the delimiter, and a leading TAB is content (kept,
-        // matching a caption and carve-js / carve-rs). First-line trailing
-        // whitespace is INTERIOR once continuation lines fold in, so it is not
-        // stripped now; only the final line's trailing run is stripped below.
+        // matching a caption and carve-js / carve-rs).
         $content = $matches[2];
         $foldedLines = [[$start, $content]];
 
-        // Collect continuation lines
+        // SINGLE-LINE HEADINGS (NORMATIVE, diverges from Djot): a heading ENDS AT
+        // THE NEWLINE. Nothing folds into it -- not a plain line, not a same-count
+        // `#` line -- so the following line begins whatever block it begins,
+        // exactly as after any other closed block. Lazy continuation therefore
+        // means one thing across the language: it continues an open PARAGRAPH,
+        // and a heading is not one. Matches carve-js / carve-rs.
         $i = $start + 1;
-        $count = count($lines);
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-
-            // Empty line ends the heading
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                break;
-            }
-
-            // Check for continuation with # prefix (SAME level only) - these
-            // continue the heading. e.g., "# Heading\n# more" becomes
-            // "Heading\nmore" for a level-1 heading. A `#`-marker line whose
-            // marker count DIFFERS from the open level (more OR fewer) ends the
-            // heading and starts a new one (handled by the next branch), per
-            // Djot: only an exactly-equal marker count folds.
-            if (preg_match('/^#{' . $level . '} +(.+)$/', $nextLine, $contMatch)) {
-                // The heading already has non-empty first-line content, so a
-                // newline always precedes a folded continuation.
-                $foldedLines[] = [$i, $contMatch[1]];
-                $content .= "\n" . $contMatch[1];
-                $i++;
-            } elseif (preg_match('/^#{' . $level . '}[ ]*$/', $nextLine)) {
-                // A bare SAME-level marker line (`#` / `# ` for a level-1
-                // heading) continues the heading but contributes no content, so
-                // surrounding marker lines join with a single newline (djot;
-                // "same number of `#` ... or none"). Matches carve-js / carve-rs.
-                $i++;
-            } elseif (preg_match('/^#{1,6}(?: |$)/', $nextLine)) {
-                // A `#`-marker line with a DIFFERENT count (more OR fewer) ends
-                // the open heading and starts a new one. The bare-`#` line then
-                // forms its own paragraph (it is not itself a heading).
-                break;
-            } elseif (
-                preg_match('/^\^ +.*\S/', $nextLine)
-                || $this->hasClosingCommentFenceAhead($nextLine, $lines, $i)
-            ) {
-                // A caption (`^ `) or a closed fenced comment (`%%%`) ends the heading.
-                break;
-            } elseif (
-                preg_match('/^\[[^\]]+\]: [ \t]*\S/', $nextLine)
-                || $this->isAbbreviationDefinitionLine($nextLine)
-                || preg_match('/^[ \t]*%%/', $nextLine)
-                || (preg_match('/^\{(.+)\}\s*$/', $nextLine, $invisibleAttr)
-                    && $this->inlineParser->isValidAttrPayload($invisibleAttr[1]))
-            ) {
-                // Invisible constructs -- a reference / footnote / abbreviation
-                // definition, a comment, or a block-attribute line -- are §10
-                // interrupters (INVISIBLE CONSTRUCTS): each ends the heading and
-                // is consumed or floated forward by its own parser, exactly as it
-                // interrupts a paragraph. Matches carve-js / carve-rs.
-                break;
-            } elseif ($this->endsHeadingOrQuote($nextLine, $lines, $i)) {
-                // A block-opener ends the heading and starts that block (§10). A
-                // LIST marker (bullet OR ordered) also ends the heading and starts
-                // a sibling list: a list marker folds only into a PARAGRAPH, not a
-                // heading (symmetric, matches carve-js / carve-rs / djot). Only
-                // plain text folds into the heading.
-                break;
-            } else {
-                // Plain text folds into the heading text.
-                $foldedLines[] = [$i, $nextLine];
-                $content .= "\n" . $nextLine;
-                $i++;
-            }
-        }
 
         $heading = new Heading($level);
 
@@ -2757,13 +2649,12 @@ class BlockParser
         // the full literal text. Attributes attach via a PRECEDING
         // block-attribute line (applyPendingAttributes below, PART 9 §15).
         //
-        // §756 (NORMATIVE): strip the FINAL line's trailing whitespace only
-        // (rtrim, ASCII whitespace -- a trailing NBSP is content and survives).
-        // A leading tab is preserved (see the extraction note above).
+        // §756 (NORMATIVE): strip the line's trailing whitespace (rtrim, ASCII
+        // whitespace -- a trailing NBSP is content and survives). A leading tab
+        // is preserved (see the extraction note above).
         $content = rtrim($content);
 
-        // Folded continuation lines need one segment each; the single-line map
-        // finds nothing the moment a heading wraps.
+        // One source segment for the heading's single line.
         $headingLines = [];
         foreach ($foldedLines as [$foldIndex, $foldText]) {
             $foldSourceLine = $this->sourceLineFor($foldIndex);

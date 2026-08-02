@@ -35,10 +35,13 @@ class TrailingBackslashAndHeadingContTest extends TestCase
         $this->assertSame("<p>a*</p>\n", $this->converter->convert('a\\*'));
     }
 
-    public function testBareSameLevelHashContinuesHeading(): void
+    public function testBareSameLevelHashDoesNotContinueAHeading(): void
     {
+        // Nothing folds into a heading any more, and a bare `#` has no content
+        // so it is not a heading itself: it is a paragraph between two of them.
         $this->assertSame(
-            "<section id=\"h-x\">\n  <h1>h\nx</h1>\n</section>\n",
+            "<section id=\"h\">\n  <h1>h</h1>\n  <p>#</p>\n</section>\n"
+            . "<section id=\"x\">\n  <h1>x</h1>\n</section>\n",
             $this->converter->convert("# h\n#\n# x\n"),
         );
     }
