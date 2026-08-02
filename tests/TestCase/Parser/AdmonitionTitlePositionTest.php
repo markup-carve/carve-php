@@ -83,6 +83,34 @@ class AdmonitionTitlePositionTest extends TestCase
     }
 
     /**
+     * With position tracking off, nothing is placed - and asking for a span
+     * anyway must not cost anything or invent one.
+     */
+    public function testNoSpanIsBuiltWhenTrackingIsOff(): void
+    {
+        $parser = new BlockParser(false, false, false, false);
+        $ast = (new AstCodec())->encode($parser->parse("::: note \"Pro Tip\"\nbody\n:::\n"));
+
+        $this->assertArrayNotHasKey('pos', $ast['children'][0]['title'][0]);
+    }
+
+    /**
+     * An EMPTY quoted title has no content to place. Searching the opener line
+     * for `""` would match at the quote rather than at any content, so the
+     * lookup declines instead.
+     */
+    public function testAnEmptyTitleIsDeclinedRatherThanPlacedAtTheQuote(): void
+    {
+        $ast = $this->ast("::: note \"\"\nbody\n:::\n");
+        $title = $ast['children'][0]['title'] ?? [];
+
+        foreach ($title as $node) {
+            $this->assertArrayNotHasKey('pos', $node, 'an empty title must not be placed');
+        }
+        $this->assertArrayHasKey('pos', $ast['children'][0], 'the admonition itself is still placed');
+    }
+
+    /**
      * A title is optional, and an admonition without one must be unaffected.
      */
     public function testAnAdmonitionWithoutATitleStillParses(): void
