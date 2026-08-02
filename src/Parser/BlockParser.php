@@ -2183,7 +2183,12 @@ class BlockParser
         if ($title !== null) {
             $div->setHeader($title);
             $headerContainer = new Paragraph();
-            $this->inlineParser->parse($headerContainer, $title, $this->lineOffset + $start);
+            $this->inlineParser->parse(
+                $headerContainer,
+                $title,
+                $this->lineOffset + $start,
+                sourceMap: $this->openerTitleMap($start, $title),
+            );
             $div->setHeaderNodes($headerContainer->getChildren());
         }
         // Author source order, in the Node's canonical slot form (`#id` / `.class`
@@ -5185,6 +5190,42 @@ class BlockParser
             $start,
             $lastStart,
         );
+    }
+
+    /**
+     * Map an admonition opener's quoted title back to the source it came from,
+     * so its inline content can be placed.
+     *
+     * The title reaches this point as a regex capture out of an already-split
+     * class string, so its column is not in hand - but the QUOTED form is
+     * unambiguous in the opener line in a way the bare title is not. Searching
+     * for `title` alone would match the type word first in `::: note "note"`,
+     * pointing every inline in the title four columns too far left; searching
+     * for the quoted form cannot, because the type word carries no quotes.
+     *
+     * Returns null when positions are off or the quoted form is not found,
+     * which leaves the title's inlines unplaced rather than placed wrongly.
+     */
+    private function openerTitleMap(int $line, string $title): ?SourceMap
+    {
+        if (!$this->trackPositions || $title === '') {
+            return null;
+        }
+        $lineText = $this->sourceLines[$line] ?? null;
+        $lineStart = $this->lineStartOffsets[$line] ?? null;
+        if ($lineText === null || $lineStart === null) {
+            return null;
+        }
+        $quotedAt = strpos($lineText, '"' . $title . '"');
+        if ($quotedAt === false) {
+            return null;
+        }
+        $column = $quotedAt + 1;
+
+        $map = new SourceMap();
+        $map->add(0, $lineStart + $column, strlen($title), $line + 1, $column + 1);
+
+        return $map;
     }
 
     /**
