@@ -37,6 +37,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A heading inside a list item or a definition resolves an implicit
+  `[Heading][]` reference** (markup-carve/carve-php#572, PART 11 R1). The rule
+  puts headings in divs, admonitions, list items and definitions in the index
+  and excludes only a blockquote ancestor - another document's headings are not
+  the author's to reference. This engine indexed by scanning source lines for a
+  `#` at column 0, which answers a different question, so it was wrong in both
+  directions: a heading inside a list item was missed because it is indented,
+  and a `#` line inside a CODE FENCE was indexed because it is not, giving a
+  reference that resolved to an id no element carried.
+
+  Two false warnings came with the miss and are gone with it: the reference was
+  reported undefined, and a plain `[x](#H)` link to the very same heading was
+  reported as a broken anchor.
+
+  The index is now taken from parsed block structure rather than from a line
+  scan, by the same document-order walk the renderer already uses to resolve
+  heading ids - so the two agree by construction instead of by mirroring each
+  other. That costs one extra block parse, and only for a document that could
+  use the index at all: `[text][ref]` and `[text][]` both contain `][`, and
+  without one the index is built and never read. Across the spec corpus 14 of
+  504 documents qualify.
+
 - **A destination-less mention keeps its attributes, and the source renders as
   the node did** (markup-carve/carve-php#567). An attribute set on a `Mention`
   reached the AST and the HTML and then vanished from Carve source: a bare
