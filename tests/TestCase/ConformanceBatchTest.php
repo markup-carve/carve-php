@@ -127,28 +127,24 @@ class ConformanceBatchTest extends TestCase
         ];
     }
 
-    /**
-     * Without a closer the `::: note` opener stays literal (no admonition).
-     */
-    public function testColonFenceOpenerStaysLiteralWithoutCloser(): void
+    public function testColonFenceOpenerClosesAtEndOfInput(): void
     {
         $html = $this->converter->convert("- ::: note\n  - para text\n");
 
-        $this->assertStringContainsString('<li>::: note', $html);
-        $this->assertStringNotContainsString('admonition', $html);
+        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<li>para text</li>', $html);
     }
 
     /**
-     * A closer dedented to column 0 leaves the item: the opener stays literal
-     * and the `:::` is a top-level paragraph.
+     * A closer dedented to column 0 leaves the item. It cannot close the item
+     * container, so it opens an empty top-level div instead.
      */
-    public function testColonFenceCloserAtColumnZeroKeepsOpenerLiteral(): void
+    public function testColonFenceCloserAtColumnZeroOpensTopLevelDiv(): void
     {
         $html = $this->converter->convert("- ::: note\n  - para text\n:::\n");
 
-        $this->assertStringContainsString('<li>::: note', $html);
-        $this->assertStringNotContainsString('admonition', $html);
-        $this->assertStringContainsString('<p>:::</p>', $html);
+        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString("<div>\n</div>", $html);
     }
 
     /**

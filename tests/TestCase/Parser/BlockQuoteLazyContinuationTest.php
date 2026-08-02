@@ -34,16 +34,12 @@ class BlockQuoteLazyContinuationTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testNonMarkerLineAfterDivOpenerTerminatesQuote(): void
+    public function testGluedTypeWordStaysParagraphInsideQuote(): void
     {
-        // The `:::note` opener inside the quote has no matching closer within
-        // the quote, so it is NOT a div -- it stays literal (§12), and the
-        // non-">" `body` line ends the quote. The trailing `> :::` is likewise
-        // an unterminated fence: a quoted paragraph of literal `:::`. Matches
-        // carve-js / carve-rs (no more empty-div divergence).
+        // `:::note` has no space after the fence, so it is paragraph text even
+        // when a fence-shaped line follows.
         $djot = "> :::note\nbody\n> :::";
-        $expected = "<blockquote><p>:::note</p></blockquote>\n"
-            . "<p>body</p>\n<blockquote><p>:::</p></blockquote>\n";
+        $expected = "<blockquote><p>:::note\nbody\n:::</p></blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -69,12 +65,10 @@ class BlockQuoteLazyContinuationTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testLazyContinuationOfParagraphInsideDivStillFolds(): void
+    public function testLazyContinuationAfterGluedTypeWordStillFolds(): void
     {
-        // Regression guard: a paragraph IS open inside the div, so the lazy line
-        // folds into it (must not be broken by the fix).
         $djot = "> :::note\n> para\nlazy\n> :::";
-        $expected = "<blockquote>\n  <aside class=\"admonition note\">\n    <p>para\nlazy</p>\n  </aside>\n</blockquote>\n";
+        $expected = "<blockquote><p>:::note\npara\nlazy\n:::</p></blockquote>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

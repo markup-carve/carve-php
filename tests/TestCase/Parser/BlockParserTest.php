@@ -368,18 +368,14 @@ class BlockParserTest extends TestCase
         $this->assertTrue($hasRawBlock, 'Raw block (with literal :::) should stay inside the div');
     }
 
-    public function testColonsInsideRawBlockDoNotSplitOpenParagraph(): void
+    public function testColonsInsideRawBlockDoNotCloseOpenDiv(): void
     {
-        // The paragraph-interruption lookahead must skip raw ``` =format (and
-        // code) blocks: a ::: line inside one is not a div closer, so an open
-        // paragraph must NOT be split as if a div opener with a closer ahead
-        // appeared. Without this, the lookahead and tryParseDiv disagree and the
-        // text is split while no div is ever produced.
         $doc = $this->parser->parse("para\n::: note\n```=html\n:::\n```");
 
         $children = $doc->getChildren();
         $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $this->assertInstanceOf(RawBlock::class, $children[1]);
+        $this->assertInstanceOf(Div::class, $children[1]);
+        $this->assertInstanceOf(RawBlock::class, $children[1]->getChildren()[0]);
     }
 
     public function testUnclosedRawFenceInsideDivDoesNotHideTheDivCloser(): void

@@ -202,6 +202,9 @@ class CarveCorpusTest extends TestCase
         '164-comment-fence-with-trailing-text',
         '165-unterminated-comment-fence',
         '166-widened-verbatim-fences',
+        '167-only-the-id-hoists-to-the-section-wrapper',
+        '168-headings-inside-containers-are-not-wrapped',
+        '169-attribute-order-on-an-unwrapped-heading',
     ];
 
     /**
