@@ -113,6 +113,15 @@ class BlockParser
     protected array $headingReferencesByFoldedLabel = [];
 
     /**
+     * True when a reference failed to resolve during the parse, in either the
+     * collapsed `[text][]` or the explicit `[text][Label]` form. Both can
+     * still land on a heading, and the heading index is built from the parsed
+     * tree, so it does not exist yet. This is the trigger for the second pass;
+     * a document whose references all resolved never pays for it.
+     */
+    protected bool $sawUnresolvedCollapsedReference = false;
+
+    /**
      * @var array<string, \MarkupCarve\Carve\Node\Block\Footnote>
      */
     protected array $footnotes = [];
@@ -582,6 +591,38 @@ class BlockParser
 
         // Second pass: parse blocks
         $this->parseBlocks($document, $lines, 0, topLevel: true);
+
+        // Third pass, and ONLY when the document needs it: an implicit
+        // `[Heading][]` reference that found no definition.
+        //
+        // R1's index is a property of the parsed TREE - it asks whether a
+        // heading has a blockquote ancestor - and references resolve during
+        // inline parsing, which happens inside the pass above. So the index
+        // cannot exist before the parse that consumes it, and the honest way
+        // to have both is to parse again with it seeded. A document with no
+        // unresolved collapsed reference never reaches this and parses once.
+        //
+        // The alternative was keeping the old line pre-scan and teaching it
+        // about list indentation, which leaves the index keyed on source
+        // column: the blockquote rule would stay an accident of the `>`
+        // prefix and the next container would inherit whatever spacing it
+        // happens to use (#572).
+        if ($this->sawUnresolvedCollapsedReference) {
+            $headingReferences = (new HeadingReferenceCollector($this->headingIdTrackerForReferences()))
+                ->collect($document);
+            // Only re-parse for headings the first pass could not already
+            // reach. Without this a single typo'd reference in a document full
+            // of top-level headings would pay for a second parse that changes
+            // nothing, since those headings resolved in pass 1 anyway.
+            $headingReferences = array_filter(
+                $headingReferences,
+                fn (string $folded): bool => !isset($this->headingReferencesByFoldedLabel[$folded]),
+                ARRAY_FILTER_USE_KEY,
+            );
+            if ($headingReferences !== []) {
+                $document = $this->reparseWithHeadingReferences($lines, $headingReferences, $sourceLength);
+            }
+        }
 
         // Append footnotes section if any
         foreach ($this->footnotes as $footnote) {
@@ -6434,6 +6475,62 @@ class BlockParser
         }
     }
 
+    /**
+     * A tracker configured like the ones the parse passes use, so the ids the
+     * reference index points at are the ids the renderer will emit.
+     */
+    protected function headingIdTrackerForReferences(): HeadingIdTracker
+    {
+        $tracker = new HeadingIdTracker();
+        $tracker->setIdTransformer($this->headingIdTransformer);
+        $tracker->setLowercase($this->headingIdLowercase);
+
+        return $tracker;
+    }
+
+    /**
+     * Re-run the parse with the tree-derived heading index seeded.
+     *
+     * Resets exactly the state `parse()` resets, so the second pass starts
+     * from the same place the first did and cannot double-count warnings,
+     * footnotes or used-reference bookkeeping. The seed is applied AFTER the
+     * extract passes, so a real link definition still wins the tie (R1).
+     *
+     * @param array<string> $lines
+     * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $headingReferences
+     * @param int $sourceLength
+     */
+    protected function reparseWithHeadingReferences(
+        array $lines,
+        array $headingReferences,
+        int $sourceLength,
+    ): Document {
+        $this->references = [];
+        $this->headingReferencesByFoldedLabel = [];
+        $this->footnotes = [];
+        $this->abbreviations = [];
+        $this->abbreviationsBeforeBody = false;
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
+        $this->warnings = [];
+        $this->usedReferences = [];
+        $this->anchorLinks = [];
+        $this->headingIds = [];
+        $this->lineOffset = 0;
+        $this->sawUnresolvedCollapsedReference = false;
+
+        $document = new Document();
+        $this->extractReferences($lines);
+        $this->extractFootnotes($lines);
+        $this->extractAbbreviations($lines);
+        $this->extractHeadingReferences($lines);
+        $this->seedHeadingReferences($headingReferences);
+        $this->parseBlocks($document, $lines, 0, topLevel: true);
+        $document->setSourceLength($sourceLength);
+
+        return $document;
+    }
+
     public function getReference(string $label): ?ReferenceDefinition
     {
         return $this->references[$label] ?? null;
@@ -6444,6 +6541,20 @@ class BlockParser
         return $this->references[$label] ?? $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ?? null;
     }
 
+    /**
+     * The line pre-scan no longer feeds the implicit-reference index.
+     *
+     * It matched `^#{1,6}` at column 0, so which headings it found came down
+     * to source indentation: a div's inner lines start at column 0 and were
+     * indexed, a list item's are indented and were not, and a blockquote's
+     * carry `>` and were not. Two of those three answers were right and all
+     * three were accidents - this engine had never implemented R1's blockquote
+     * rule, it just never saw past the prefix (#572).
+     *
+     * The index is now built from the parsed tree by
+     * HeadingReferenceCollector, which asks the question R1 actually asks:
+     * does this heading have a blockquote ANCESTOR.
+     */
     protected function registerHeadingReference(string $label, ReferenceDefinition $reference): void
     {
         if (!isset($this->references[$label])) {
@@ -6499,6 +6610,38 @@ class BlockParser
     /**
      * Add warning for undefined reference (called from InlineParser)
      */
+
+    /**
+     * Record that a collapsed `[text][]` reference found no definition.
+     *
+     * Called from the inline parser wherever a reference found no definition.
+     * The second pass only runs when this fired, so a document whose
+     * references all resolved parses exactly once.
+     */
+    public function markCollapsedReferenceUnresolved(): void
+    {
+        $this->sawUnresolvedCollapsedReference = true;
+    }
+
+    /**
+     * Heading references collected from the PARSED TREE, keyed by folded
+     * heading text (PART 11 R1).
+     *
+     * Seeds BOTH lookups. A heading is reachable by the collapsed `[text][]`
+     * form (folded, case-insensitive) and by the exact `[text][Label]` form,
+     * matching carve-js; a real link definition still wins either way,
+     * because the extract passes run first and these use `??=`.
+     *
+     * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $references
+     */
+    public function seedHeadingReferences(array $references): void
+    {
+        foreach ($references as $folded => [$label, $reference]) {
+            $this->headingReferencesByFoldedLabel[$folded] ??= $reference;
+            $this->references[$label] ??= $reference;
+        }
+    }
+
     public function addUndefinedReferenceWarning(string $ref, int $line, int $column): void
     {
         $this->addWarning(

@@ -2277,6 +2277,12 @@ class InlineParser
                 }
 
                 // Reference not found - leave the whole [text][ref] literal.
+                // Either form may still land on a heading - collapsed
+                // `[text][]` case-insensitively, explicit `[text][Label]`
+                // exactly - and the heading index is built from the parsed
+                // tree, so it does not exist yet (R1; carve-php#572). Flag it
+                // so the parser knows a second pass is worth running.
+                $this->blockParser->markCollapsedReferenceUnresolved();
                 $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
                 $endPos = $refEnd + 1;
 
