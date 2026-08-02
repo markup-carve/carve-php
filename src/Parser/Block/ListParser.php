@@ -219,11 +219,11 @@ class ListParser
      * For single-letter markers that could be either roman (i, v, x, l, c, d, m)
      * or alphabetical, looks ahead at subsequent items to determine the style.
      *
-     * @param array<string, mixed> $listInfo The parsed list info with ambiguous flag
+     * @param array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string} $listInfo The parsed list info with ambiguous flag
      * @param array<string> $lines All lines being parsed
      * @param int $start Starting line index
      *
-     * @return array<string, mixed> Updated list info with resolved style
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string} Updated list info with resolved style
      */
     public function disambiguateListStyle(array $listInfo, array $lines, int $start): array
     {
@@ -318,8 +318,11 @@ class ListParser
         }
 
         if ($hasNonRomanLetter) {
-            $listInfo['start'] = $listInfo['alpha_start'];
-            $listInfo['style'] = $listInfo['alpha_style'];
+            // Both are set together with `ambiguous`, by the only branch that
+            // sets it; the defaults keep the shape honest for a caller that
+            // hands us an info array without them.
+            $listInfo['start'] = $listInfo['alpha_start'] ?? 1;
+            $listInfo['style'] = $listInfo['alpha_style'] ?? 'a';
             unset($listInfo['ambiguous'], $listInfo['alpha_start'], $listInfo['alpha_style']);
 
             return $listInfo;
