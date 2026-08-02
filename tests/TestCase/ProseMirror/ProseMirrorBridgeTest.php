@@ -976,9 +976,68 @@ class ProseMirrorBridgeTest extends TestCase
         $pm = $this->renderer->render((new CarveConverter())->parse($source));
         $this->assertSame('tip', $pm['content'][0]['attrs']['class']);
         $this->assertSame('Pro Tip', $pm['content'][0]['attrs']['title']);
+        $this->assertTrue($pm['content'][0]['attrs']['carveTyped']);
 
         $back = $this->converter->convert($pm);
         $this->assertSame($source, CarveConverter::carve()->render($back));
+    }
+
+    /**
+     * A single authored class on a bare div is just an attribute, not the type
+     * word. The payload now carries that fact explicitly instead of forcing the
+     * converter to guess from the class count.
+     */
+    public function testAGenericSingleClassDivKeepsItsAuthoredClass(): void
+    {
+        $source = "{#s .sidebar}\n:::\nA div with attributes.\n:::\n";
+
+        $result = $this->roundTrip($source);
+
+        $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
+        $this->assertSame(
+            ['id' => 's', 'class' => 'sidebar'],
+            $result['pm']['content'][0]['attrs']['carveAttrs'],
+        );
+        $this->assertSame($result['expected'], $result['actual']);
+    }
+
+    /**
+     * The quoted opener title and an authored `title` attribute are two
+     * different facts. Both need to survive even though ProseMirror has one
+     * ordinary `attrs.title` slot.
+     */
+    public function testADivKeepsAnAuthoredTitleAttributeThatCollidesWithTheOpenerTitle(): void
+    {
+        $source = "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::\n";
+
+        $result = $this->roundTrip($source);
+
+        $this->assertSame('opener title', $result['pm']['content'][0]['attrs']['title']);
+        $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveAttrs']['title']);
+        $this->assertSame('note', $result['pm']['content'][0]['attrs']['carveAttrs']['class']);
+        $this->assertSame($result['expected'], $result['actual']);
+    }
+
+    public function testATypedDivWithNoAuthorAttributesIsUnchanged(): void
+    {
+        $source = "::: sidebar\nBody.\n:::\n";
+
+        $result = $this->roundTrip($source);
+
+        $this->assertTrue($result['pm']['content'][0]['attrs']['carveTyped']);
+        $this->assertSame(['class' => 'sidebar'], $result['pm']['content'][0]['attrs']['carveAttrs']);
+        $this->assertSame($result['expected'], $result['actual']);
+    }
+
+    public function testAGenericDivWithSeveralClassesIsUnchanged(): void
+    {
+        $source = "{.alpha .beta}\n:::\nBody.\n:::\n";
+
+        $result = $this->roundTrip($source);
+
+        $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
+        $this->assertSame(['class' => 'alpha beta'], $result['pm']['content'][0]['attrs']['carveAttrs']);
+        $this->assertSame($result['expected'], $result['actual']);
     }
 
     /**
@@ -997,23 +1056,55 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
-     * The editor model has no room for "was this opened with a type word", so
-     * a single-class div comes back as the typed opener - the spelling
-     * carve-grammars' own serializer writes for the same node. A div carrying
-     * more than one class cannot be spelled that way and keeps the attribute
-     * block.
+     * Payloads produced before `carveTyped` still fall back to the historical
+     * one-class heuristic.
      */
-    public function testASingleClassDivNormalizesToTheTypedOpener(): void
+    public function testADivPayloadWithoutCarveTypedFallsBackToTheSingleClassHeuristic(): void
     {
-        $pm = $this->renderer->render((new CarveConverter())->parse("{.custom}\n:::\nbody\n:::\n"));
+        $pm = [
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'carveDiv',
+                    'attrs' => ['class' => 'custom'],
+                    'content' => [
+                        [
+                            'type' => 'paragraph',
+                            'content' => [['type' => 'text', 'text' => 'body']],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
         $this->assertSame(
             "::: custom\nbody\n:::\n",
             CarveConverter::carve()->render($this->converter->convert($pm)),
         );
+    }
 
-        $multi = "{.a .b}\n:::\nbody\n:::\n";
-        $pm = $this->renderer->render((new CarveConverter())->parse($multi));
-        $this->assertSame($multi, CarveConverter::carve()->render($this->converter->convert($pm)));
+    public function testADivPayloadWithoutCarveAttrsStillUsesOrdinaryAttributes(): void
+    {
+        $pm = [
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'carveDiv',
+                    'attrs' => ['carveTyped' => false, 'id' => 's', 'class' => 'alpha beta'],
+                    'content' => [
+                        [
+                            'type' => 'paragraph',
+                            'content' => [['type' => 'text', 'text' => 'body']],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertSame(
+            "{#s .alpha .beta}\n:::\nbody\n:::\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
     }
 
     /**

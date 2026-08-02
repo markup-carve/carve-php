@@ -559,6 +559,8 @@ class ProseMirrorRenderer
             if ($header !== null) {
                 $attrs['title'] = $header;
             }
+            $attrs['carveTyped'] = $node->isTyped();
+            $attrs['carveAttrs'] = $node->getAttributes();
         }
 
         // Author attributes fill in around the structural ones; they never
