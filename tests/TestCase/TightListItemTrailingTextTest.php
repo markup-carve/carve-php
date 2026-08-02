@@ -42,7 +42,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightTrailingTextAfterAdmonitionIsBare(): void
     {
-        $input = "- item\n  :::note\n  body\n  :::\n  tail\n";
+        $input = "- item\n  ::: note\n  body\n  :::\n  tail\n";
 
         $expected = "<ul>\n"
             . "  <li>item\n"

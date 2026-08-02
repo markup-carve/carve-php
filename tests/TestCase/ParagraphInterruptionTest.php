@@ -135,14 +135,15 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(Div::class, $children[1]);
     }
 
-    public function testUnterminatedDivDoesNotInterruptParagraph(): void
+    public function testUnterminatedDivInterruptsParagraphAndClosesAtEndOfInput(): void
     {
         $parser = new BlockParser();
         $doc = $parser->parse("Note:\n::: warning\nImportant");
 
         $children = $doc->getChildren();
-        $this->assertCount(1, $children);
+        $this->assertCount(2, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
+        $this->assertInstanceOf(Div::class, $children[1]);
     }
 
     public function testNestedListWithoutBlankLine(): void
