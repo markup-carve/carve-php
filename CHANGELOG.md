@@ -7,6 +7,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An implicit `[Heading][]` reference now reaches a heading inside a list
+  item, and declines a quoted one on purpose** (#572, spec PART 11 R1). The
+  explicit `[text][Label]` form, which resolves against headings too, had the
+  same hole and is fixed with it.
+
+  The index came from a line-based pre-scan matching `^#{1,6}` at column 0, so
+  which headings it found came down to source indentation: a div's inner lines
+  start at column 0 and were indexed, a list item's are indented and were not,
+  and a blockquote's carry `>` and were not. Two of those three answers were
+  right and all three were accidents - this engine had never implemented R1's
+  blockquote rule, it just never saw past the prefix.
+
+  The index is now built from the parsed tree by `HeadingReferenceCollector`,
+  which asks what the rule asks: does this heading have a blockquote ANCESTOR,
+  in either nesting order. Because references resolve during inline parsing and
+  the tree does not exist until parsing finishes, a document whose reference
+  needs a heading the first pass could not reach is parsed a second time with
+  the index seeded. A document without one is unaffected; one that needs the
+  second pass costs about 2x.
+
+  Found by the combinatorial check in markup-carve/carve#452.
+
 ### Added
 
 - **`ProseMirrorToCarve::register()`**, so an application's own editor nodes
