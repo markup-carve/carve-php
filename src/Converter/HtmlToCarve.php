@@ -1478,12 +1478,21 @@ class HtmlToCarve
                 $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $continuation = $indent . str_repeat(' ', strlen($prefix));
 
-                if ($contentParts === []) {
+                // An item whose ONLY content is a nested list puts that list
+                // on the marker line, and the nested block below skips its
+                // usual blank separator. Emitting the marker alone gave `- `
+                // followed by a blank line, which does not round trip: a marker
+                // with nothing after it is not a marker, so it came back as a
+                // paragraph reading `-` and the nested list dedented out of the
+                // item. `- - a` is also what every engine's own writer emits.
+                $markerCarriesNested = $contentParts === [] && $nestedContent !== '';
+
+                if ($contentParts === [] && !$markerCarriesNested) {
                     $output .= $indent . $prefix . "\n";
                     if ($liAttrs !== '') {
                         $output .= $continuation . '{' . $liAttrs . "}\n";
                     }
-                } else {
+                } elseif ($contentParts !== []) {
                     $firstPart = array_shift($contentParts);
                     $firstPartLines = preg_split('/\R/', $firstPart) ?: [''];
                     $firstLine = array_shift($firstPartLines);
@@ -1527,7 +1536,24 @@ class HtmlToCarve
                         $pad = str_repeat(' ', $surplus);
                         $nestedContent = (string)preg_replace('/^(?=.)/m', $pad, $nestedContent);
                     }
-                    $output .= "\n" . $nestedContent;
+
+                    if ($markerCarriesNested) {
+                        // The nested list is already indented to this item's
+                        // content column, so its first line moves onto the
+                        // marker line unchanged apart from that indent, and the
+                        // rest stays where it is.
+                        $nestedLines = preg_split('/\R/', rtrim($nestedContent, "\n")) ?: [];
+                        $firstNested = ltrim((string)array_shift($nestedLines));
+                        $output .= $indent . $prefix . $firstNested . "\n";
+                        if ($liAttrs !== '') {
+                            $output .= $continuation . '{' . $liAttrs . "}\n";
+                        }
+                        foreach ($nestedLines as $line) {
+                            $output .= $line === '' ? "\n" : $line . "\n";
+                        }
+                    } else {
+                        $output .= "\n" . $nestedContent;
+                    }
                 }
 
                 $counter++;
