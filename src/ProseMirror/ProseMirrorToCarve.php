@@ -108,6 +108,22 @@ class ProseMirrorToCarve
             $carveDocument->appendChild($node);
         }
 
+        // Restore document-level abbreviation definitions (carve-php#519). See
+        // the note in ProseMirrorRenderer::render(): without these the marks
+        // come back but the definitions do not, so the written source loses
+        // every expansion.
+        $attrs = $document['attrs'] ?? [];
+        if (is_array($attrs)) {
+            $abbreviations = $attrs['carveAbbreviations'] ?? null;
+            if (is_array($abbreviations) && $abbreviations !== []) {
+                /** @var array<string, string> $abbreviations */
+                $carveDocument->setAbbreviations($abbreviations);
+                $carveDocument->setAbbreviationsBeforeBody(
+                    (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
+                );
+            }
+        }
+
         return $carveDocument;
     }
 
