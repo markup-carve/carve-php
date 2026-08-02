@@ -374,11 +374,18 @@ class CarveRenderer implements RendererInterface
             $marker = $node->getMarker();
             $delim = $marker === ')' ? ')' : '.';
             $bullet = $marker === '*' ? '*' : '-';
+            $bareDot = $node->getListType() === ListBlock::TYPE_ORDERED
+                && $node->hasBareMarker()
+                && $node->getStart() === 1
+                && $node->getStyle() === null
+                && $delim === '.';
             $children = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof ListItem));
             foreach ($children as $index => $item) {
                 $indent = str_repeat('  ', $this->listDepth - 1);
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-                    $prefix = $this->orderedMarker($counter, $node->getStyle()) . $delim . ' ';
+                    $prefix = $bareDot
+                        ? '. '
+                        : $this->orderedMarker($counter, $node->getStyle()) . $delim . ' ';
                     $counter++;
                 } elseif ($item->isTask()) {
                     $prefix = $bullet . ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ';

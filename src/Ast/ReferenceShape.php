@@ -164,7 +164,7 @@ final class ReferenceShape
         // lookup is keyed by the WIRE type, and a tag publishes as `tag`.
         'tag' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink'],
         // `ordered` carries this on the wire.
-        'list' => ['listType'],
+        'list' => ['listType', 'bareMarker'],
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
         // `header` carries this; the row flag is recomputed from its cells.
