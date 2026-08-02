@@ -286,10 +286,16 @@ class TableParser
                 continue;
             }
 
-            // Check for escaped pipe
+            // Check for escaped pipe. The escape is KEPT rather than
+            // resolved: the inline parser turns it into an `escaped_text`
+            // node, which is what carve-js and carve-rs publish and what the
+            // vocabulary defines. Resolving it here produced a single `text`
+            // node holding a bare `|`, losing both the node and the author's
+            // intent - and, because the cell content was then no longer a
+            // verbatim run of the row, nothing in the cell could carry a
+            // position either (carve-php#579).
             if ($char === '\\' && $i + 1 < $length && $line[$i + 1] === '|') {
-                $currentCell .= '|';
-                $cellVerbatim = false;
+                $currentCell .= '\\|';
                 $i++; // Skip the |
 
                 continue;
@@ -559,7 +565,10 @@ class TableParser
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
 
-            // Check for escaped pipe
+            // Check for escaped pipe. RESOLVED here, unlike in splitCells:
+            // this path's cells do not go through the inline parser, so a
+            // kept escape would never become an `escaped_text` node and the
+            // pipe was dropped from the output entirely.
             if ($char === '\\' && $i + 1 < $length && $line[$i + 1] === '|') {
                 $currentCell .= '|';
                 $cellVerbatim = false;

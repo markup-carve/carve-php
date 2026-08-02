@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\TestCase;
 
@@ -695,6 +696,10 @@ DJOT;
         $content = '';
         foreach ($cell->getChildren() as $child) {
             if ($child instanceof Text) {
+                $content .= $child->getContent();
+            } elseif ($child instanceof EscapedText) {
+                // An escaped character is its own node, so collecting only Text
+                // silently dropped it - `A \| B` read back as `A  B`.
                 $content .= $child->getContent();
             } else {
                 // For inline elements, recursively get text
