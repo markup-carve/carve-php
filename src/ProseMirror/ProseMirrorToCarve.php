@@ -827,6 +827,16 @@ class ProseMirrorToCarve
                 $node instanceof ListBlock && $key === 'tight' => $this->setState($node, 'tight', self::asBool($value)),
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
+                $node instanceof CodeBlock && $key === 'carveHeader' => $this->setState(
+                    $node,
+                    'header',
+                    is_scalar($value) ? (string)$value : null,
+                ),
+                $node instanceof CodeBlock && $key === 'carveLabel' => $this->setState(
+                    $node,
+                    'label',
+                    is_scalar($value) ? (string)$value : null,
+                ),
                 $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(
                     $node,
                     'spanMarker',

@@ -492,6 +492,22 @@ class ProseMirrorRenderer
             if ($language !== '') {
                 $attrs['language'] = $language;
             }
+            // The fence's own metadata. `getHeader()` is the quoted title as
+            // the opener carries it; the writer removes the matching `title`
+            // ATTRIBUTE when the two agree, so losing the header made the title
+            // come back twice - once in the opener and once as a stray
+            // attribute line, which a re-parse reads as separate content.
+            //
+            // `getLabel()` is the `[NPM]` a group extension reads as a tab name.
+            // Nothing carried it, so it simply vanished (carve-php#519).
+            $header = $node->getHeader();
+            if ($header !== null && $header !== '') {
+                $attrs['carveHeader'] = $header;
+            }
+            $label = $node->getLabel();
+            if ($label !== null && $label !== '') {
+                $attrs['carveLabel'] = $label;
+            }
         } elseif ($node instanceof ListBlock) {
             if ($node->getListType() === 'ordered') {
                 $attrs['start'] = $node->getStart();
