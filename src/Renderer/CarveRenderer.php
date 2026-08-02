@@ -1027,7 +1027,35 @@ class CarveRenderer implements RendererInterface
     protected function renderMention(Mention $node): string
     {
         if (($node->getDestination() ?? '') === '') {
-            return $this->plainInlineText($node);
+            // A bare `@name` has nowhere to hang an attribute: the parser leaves
+            // a trailing `{.x}` outside the node, so this spelling cannot carry
+            // one back. Writing it anyway dropped the attribute silently, which
+            // is the one outcome worth refusing (carve-php#567) - the link form
+            // is unavailable too, since there is no destination to put in it.
+            //
+            // The bracketed form keeps it. `[@alice]{#x}` re-parses as a span
+            // AROUND the mention rather than a mention carrying the attribute,
+            // so the HTML gains a wrapper `<span>`: this trades an exact HTML
+            // match for losing nothing, deliberately. Only a programmatically
+            // built tree or the ProseMirror bridge can reach this state - the
+            // parser never produces it - so no parsed document changes.
+            $bare = $this->plainInlineText($node);
+            if ($node->getAttributes() === []) {
+                return $bare;
+            }
+
+            // The PLAIN label inside the brackets, not the escaped inlines:
+            // `renderInlines()` writes `\@alice`, and an escaped sigil re-parses
+            // as ordinary text, so the wrapper would keep the attribute and lose
+            // the mention. Anything that is not a flat name has no unescaped
+            // spelling, and keeping the text is then worth more than the class.
+            $sigilled = str_starts_with($bare, '#') ? '#' : '@';
+            $plain = str_starts_with($bare, $sigilled) ? substr($bare, 1) : $bare;
+            $inner = $this->isFlatText($node) && $this->isMentionName($plain)
+                ? $bare
+                : $this->renderInlines($node->getChildren());
+
+            return '[' . $inner . ']' . $this->renderAttrs($node);
         }
 
         // The plain text, not the rendered inlines: a name is tested against
