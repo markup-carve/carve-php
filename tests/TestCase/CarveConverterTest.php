@@ -145,10 +145,10 @@ class CarveConverterTest extends TestCase
 
     public function testBlockOpenerInterruptsHeading(): void
     {
-        // A block-opener ends a heading and starts that block (§10). A LIST
-        // marker (bullet AND ordered) also ends the heading and starts a sibling
-        // list -- symmetric: a list marker folds only into a PARAGRAPH, not a
-        // heading. Only plain text folds into the heading.
+        // A heading ends at its newline, so a block-opener on the next line
+        // simply starts that block (§10). A LIST marker (bullet AND ordered)
+        // starts a sibling list -- symmetric: a list marker folds only into a
+        // PARAGRAPH, and nothing folds into a heading at all.
         $this->assertSame(
             "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
             $this->converter->convert("# T\n- item"),
