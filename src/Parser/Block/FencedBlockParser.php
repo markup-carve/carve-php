@@ -155,9 +155,11 @@ class FencedBlockParser
         // Match opening fence: 3+ colons, then an optional type word, an
         // optional quoted "header", an optional bracketed [label] -- in that
         // order -- and NOTHING else.
-        if (!preg_match('/^(:{3,})\s*(.*)$/', $line, $matches)) {
+        if (!preg_match('/^(:{3,})(.*)$/', $line, $matches)) {
             return null;
         }
+
+        $rest = trim($matches[2]);
 
         // STRICT (djot): the opener carries no inline {...} attributes. The
         // text after the fence must be empty (bare div), a type token, a type
@@ -168,7 +170,6 @@ class FencedBlockParser
         // group extension such as tabs consumes it). Any trailing `{...}` or
         // other text makes the line an ordinary paragraph, not a fence;
         // class/id attach via a preceding block-attribute line (§15).
-        $rest = trim($matches[2]);
         $label = null;
         if ($rest !== '') {
             if (preg_match('/^\[([^\]]*)\]$/', $rest, $m)) {
@@ -197,7 +198,7 @@ class FencedBlockParser
      * Check if a line closes a div fence.
      *
      * @param string $line The line to check
-     * @param int $fenceLength The minimum fence length required
+     * @param int $fenceLength The exact fence length required
      *
      * @return bool True if this line closes the fence
      */
@@ -207,7 +208,7 @@ class FencedBlockParser
             return false;
         }
 
-        return strlen($m[1]) >= $fenceLength;
+        return strlen($m[1]) === $fenceLength;
     }
 
     /**

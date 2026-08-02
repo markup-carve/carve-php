@@ -98,12 +98,7 @@ class CarveRenderer implements RendererInterface
 
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
-    /**
-     * Memo keyed by object id, then by the depth budget the node renders with.
-     *
-     * @var array<int, array<int, int>>
-     */
-    protected array $colonFenceWidths = [];
+    protected int $colonFenceDepth = 0;
 
     public function render(Document $document): string
     {
@@ -119,14 +114,14 @@ class CarveRenderer implements RendererInterface
     protected function renderWithEscapeMode(Document $document, string $escapeMode): string
     {
         $previousEscapeMode = $this->escapeMode;
-        $previousColonFenceWidths = $this->colonFenceWidths;
+        $previousColonFenceDepth = $this->colonFenceDepth;
         $this->escapeMode = $escapeMode;
-        $this->colonFenceWidths = [];
+        $this->colonFenceDepth = 0;
         try {
             return $this->renderDocumentParts($document);
         } finally {
             $this->escapeMode = $previousEscapeMode;
-            $this->colonFenceWidths = $previousColonFenceWidths;
+            $this->colonFenceDepth = $previousColonFenceDepth;
         }
     }
 
@@ -360,7 +355,7 @@ class CarveRenderer implements RendererInterface
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
-        $inner = $this->renderBlocks($node->getChildren());
+        $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
         $lines = explode("\n", $inner);
 
         return implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
@@ -423,38 +418,40 @@ class CarveRenderer implements RendererInterface
 
     protected function renderListItem(ListItem $node, bool $tight = false): string
     {
-        $children = $node->getChildren();
-        if (!$tight || count($children) < 2) {
-            return $this->renderBlocks($children);
-        }
-
-        // A tight item with more than one child block must not gain a blank line
-        // between its blocks - a blank there loosens the item on re-parse, so
-        // toHtml(fmt(x)) would diverge from toHtml(x) (carve corpus 162).
-        // Adjacent blocks are joined with a single newline instead, matching
-        // the canonical carve-js writer.
-        if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
-        }
-
-        $this->blockDepth++;
-        try {
-            $out = '';
-            foreach ($children as $child) {
-                $rendered = $this->renderBlock($child);
-                if ($rendered === '') {
-                    continue;
-                }
-                if ($out !== '') {
-                    $out .= "\n";
-                }
-                $out .= $rendered;
+        return $this->withResetColonFenceDepth(function () use ($node, $tight): string {
+            $children = $node->getChildren();
+            if (!$tight || count($children) < 2) {
+                return $this->renderBlocks($children);
             }
 
-            return $out;
-        } finally {
-            $this->blockDepth--;
-        }
+            // A tight item with more than one child block must not gain a blank line
+            // between its blocks - a blank there loosens the item on re-parse, so
+            // toHtml(fmt(x)) would diverge from toHtml(x) (carve corpus 162).
+            // Adjacent blocks are joined with a single newline instead, matching
+            // the canonical carve-js writer.
+            if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
+                return '';
+            }
+
+            $this->blockDepth++;
+            try {
+                $out = '';
+                foreach ($children as $child) {
+                    $rendered = $this->renderBlock($child);
+                    if ($rendered === '') {
+                        continue;
+                    }
+                    if ($out !== '') {
+                        $out .= "\n";
+                    }
+                    $out .= $rendered;
+                }
+
+                return $out;
+            } finally {
+                $this->blockDepth--;
+            }
+        });
     }
 
     protected function orderedMarker(int $n, ?string $type): string
@@ -485,8 +482,8 @@ class CarveRenderer implements RendererInterface
     protected function renderDiv(Div $node): string
     {
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
-        $body = $this->renderBlocks($node->getChildren());
         $fence = $this->colonFenceFor($node);
+        $body = $this->renderInsideColonFence(fn (): string => $this->renderBlocks($node->getChildren()));
 
         return $fence . $label . "\n" . $body . "\n" . $fence;
     }
@@ -507,8 +504,8 @@ class CarveRenderer implements RendererInterface
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
-        $body = $this->renderBlocks($node->getChildren());
         $fence = $this->colonFenceFor($node);
+        $body = $this->renderInsideColonFence(fn (): string => $this->renderBlocks($node->getChildren()));
 
         return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
     }
@@ -519,8 +516,8 @@ class CarveRenderer implements RendererInterface
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
-        $body = $this->renderBlocks($node->getChildren());
         $fence = $this->colonFenceFor($node);
+        $body = $this->renderInsideColonFence(fn (): string => $this->renderBlocks($node->getChildren()));
 
         return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
     }
@@ -609,13 +606,15 @@ class CarveRenderer implements RendererInterface
 
     protected function renderLineBlock(LineBlock $node): string
     {
+        $fence = $this->colonFenceFor($node);
+
         // Inside a line block every newline IS a hard break (grammar PART 3,
         // line_block_body), so the explicit backslash the inline writer emits
         // for a HardBreak would double it on re-parse.
         $this->inLineBlock++;
 
         try {
-            $body = $this->renderBlocks($node->getChildren());
+            $body = $this->renderInsideColonFence(fn (): string => $this->renderBlocks($node->getChildren()));
         } finally {
             $this->inLineBlock--;
         }
@@ -624,60 +623,33 @@ class CarveRenderer implements RendererInterface
         // Emitting a bare `:::` and tagging the node with a `line-block` class
         // instead re-parsed as an ordinary div, so the node type changed across
         // a format round trip and `parse(fmt(x)) == parse(x)` did not hold.
-        $fence = $this->colonFenceFor($node);
-
         return $fence . " |\n" . $body . "\n" . $fence;
     }
 
-    /**
-     * A colon fence closes on a bare fence of equal-or-greater length, so a
-     * container fence must be longer than every container fence below it, not
-     * just the ones among its direct children. Otherwise the middle container
-     * in a three-level nest re-parses as paragraph text across a fmt pass.
-     */
     protected function colonFenceFor(Node $node): string
     {
-        // Only the levels this pass will actually render may widen the fence:
-        // past MAX_RENDER_DEPTH renderBlock emits nothing, so counting deeper
-        // containers would size a fence for output that does not exist. An AST
-        // built through the API can nest far past the cap the parser enforces.
-        $budget = max(0, self::MAX_RENDER_DEPTH - $this->blockDepth);
-
-        return str_repeat(':', $this->colonFenceWidth($node, $budget));
+        return str_repeat(':', 3 + $this->colonFenceDepth);
     }
 
-    protected function colonFenceWidth(Node $node, int $budget): int
+    protected function renderInsideColonFence(callable $render): string
     {
-        if ($budget <= 0) {
-            return 3;
+        $this->colonFenceDepth++;
+        try {
+            return $render();
+        } finally {
+            $this->colonFenceDepth--;
         }
-
-        $key = spl_object_id($node);
-        if (isset($this->colonFenceWidths[$key][$budget])) {
-            return $this->colonFenceWidths[$key][$budget];
-        }
-
-        $widest = $this->widestDescendantColonFence($node, $budget);
-        $width = $widest === 0 ? 3 : $widest + 1;
-        $this->colonFenceWidths[$key][$budget] = $width;
-
-        return $width;
     }
 
-    protected function widestDescendantColonFence(Node $node, int $budget): int
+    protected function withResetColonFenceDepth(callable $render): string
     {
-        $widest = 0;
-        foreach ($node->getChildren() as $child) {
-            // Only a DIRECTLY nested container collides with this fence. One
-            // inside a blockquote, a list item or a definition body writes its
-            // fence lines with that host's prefix or indent, and an indented or
-            // quoted bare fence cannot close an ancestor fence.
-            if ($child instanceof Div || $child instanceof LineBlock) {
-                $widest = max($widest, $this->colonFenceWidth($child, $budget - 1));
-            }
+        $previous = $this->colonFenceDepth;
+        $this->colonFenceDepth = 0;
+        try {
+            return $render();
+        } finally {
+            $this->colonFenceDepth = $previous;
         }
-
-        return $widest;
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
@@ -687,7 +659,8 @@ class CarveRenderer implements RendererInterface
             if ($child instanceof DefinitionTerm) {
                 $out[] = ':: ' . $this->renderInlines($child->getChildren());
             } elseif ($child instanceof DefinitionDescription) {
-                $lines = explode("\n", $this->trimNonNbsp($this->renderBlocks($child->getChildren())));
+                $body = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($child->getChildren()));
+                $lines = explode("\n", $this->trimNonNbsp($body));
                 $out[] = ':  ' . array_shift($lines);
                 foreach ($lines as $line) {
                     $out[] = '   ' . $line;

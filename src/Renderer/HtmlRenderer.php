@@ -1350,10 +1350,7 @@ class HtmlRenderer implements RendererInterface
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         if ($body === '') {
-            // An empty generic div emits a blank body line
-            // (`<div>\n\n</div>`), matching carve-js / carve-rs (carve spec
-            // #114).
-            return '<div' . $attrs . ">\n\n</div>\n";
+            return '<div' . $attrs . ">\n</div>\n";
         }
 
         return '<div' . $attrs . ">\n" . $body . "\n</div>\n";

@@ -1122,11 +1122,9 @@ DJOT;
         $this->assertStringContainsString('Content', $result);
     }
 
-    public function testEmptyDivEmitsBlankBodyLine(): void
+    public function testEmptyDivRendersWithoutBlankBodyLine(): void
     {
-        // An empty div renders a blank body line (`<div>\n\n</div>`), matching
-        // the empty-blockquote shape and carve-js / carve-rs (carve spec #114).
-        $this->assertSame("<div>\n\n</div>\n", $this->converter->convert("::: \n:::"));
+        $this->assertSame("<div>\n</div>\n", $this->converter->convert("::: \n:::"));
     }
 
     public function testNestedDivs(): void
@@ -1142,15 +1140,13 @@ DJOT;
         $this->assertStringContainsString('class="inner"', $result);
     }
 
-    public function testSameLengthInnerFenceDoesNotNest(): void
+    public function testSameLengthInnerFenceNests(): void
     {
-        // A same-length inner fence closes the outer div: `::: inner` is literal
-        // text and the trailing `:::` is a stray paragraph (carve-js / carve-rs).
         $result = $this->converter->convert("::: outer\n::: inner\nNested\n:::\n:::");
 
         $this->assertStringContainsString('class="outer"', $result);
-        $this->assertStringNotContainsString('class="inner"', $result);
-        $this->assertStringContainsString('::: inner', $result);
+        $this->assertStringContainsString('class="inner"', $result);
+        $this->assertStringContainsString('<p>Nested</p>', $result);
     }
 
     public function testDivAttributesViaPrecedingLine(): void
@@ -1200,8 +1196,10 @@ DJOT;
         // An inline `::: {…}` opener is not a fence (strict djot).
         $html = $this->converter->convert("::: {.x}\nz\n:::");
 
-        $this->assertStringStartsWith('<p>', $html);
-        $this->assertStringNotContainsString('<div', $html);
+        // #439: the malformed opener is still paragraph text, while the final
+        // bare fence now opens its own empty container at EOF.
+        $this->assertStringStartsWith("<p>::: {.x}\nz</p>", $html);
+        $this->assertStringContainsString("<div>\n</div>", $html);
     }
 
     public function testDigitFirstAttributeNameStaysLiteral(): void
@@ -1909,18 +1907,15 @@ DJOT;
         $converter->convert("```php\ncode without closing fence");
     }
 
-    public function testUnclosedDivIsLiteralNotAnError(): void
+    public function testUnclosedDivClosesAtEndOfInput(): void
     {
-        // An unterminated colon fence is not a div: it is valid literal text
-        // (grammar §12; carve-js / carve-rs parity). Even in strict mode it
-        // does NOT raise -- there is nothing malformed to flag.
         $converter = new CarveConverter(strict: true);
 
         $result = $converter->convert("::: warning\nSome content without closing");
 
-        $this->assertStringNotContainsString('<div', $result);
-        $this->assertStringContainsString('::: warning', $result);
+        $this->assertStringContainsString('<aside class="admonition warning">', $result);
         $this->assertStringContainsString('Some content without closing', $result);
+        $this->assertStringContainsString('</aside>', $result);
     }
 
     public function testStrictModeThrowsOnUnclosedRawBlock(): void

@@ -476,8 +476,11 @@ DJOT;
 
         $html = $converter->convert("::: box {.x}\nbody\n:::");
 
-        $this->assertStringNotContainsString('<div', $html);
-        $this->assertStringContainsString('<p>', $html);
+        // #439: the malformed typed opener is still paragraph text, while the
+        // final bare fence now opens its own empty container at EOF.
+        $this->assertStringNotContainsString('class="box"', $html);
+        $this->assertStringStartsWith("<p>::: box {.x}\nbody</p>", $html);
+        $this->assertStringContainsString("<div>\n</div>", $html);
     }
 
     public function testQuotedTitleStillRendersWithBraces(): void

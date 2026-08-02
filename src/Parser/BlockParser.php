@@ -1288,13 +1288,6 @@ class BlockParser
         $i = 0;
         $count = count($lines);
 
-        // Precompute, once for this line set, the longest colon-fence CLOSER
-        // (a colon-only `:::` line outside a nested code block) at or after each
-        // index. tryParseDiv consults this in O(1) to decide whether an opener
-        // has a closer ahead, instead of rescanning to EOF per opener -- which
-        // made a document of many unterminated `:::` openers O(n²).
-        $divCloserSuffix = $this->buildDivCloserSuffixMax($lines);
-
         while ($i < $count) {
             $line = $lines[$i];
 
@@ -1370,8 +1363,8 @@ class BlockParser
                 ?? $this->tryParseRawBlock($parent, $lines, $i)
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseLineBlock($parent, $lines, $i)
-                ?? $this->tryParseHardBreaksBlock($parent, $lines, $i, $divCloserSuffix)
-                ?? $this->tryParseDiv($parent, $lines, $i, $divCloserSuffix)
+                ?? $this->tryParseHardBreaksBlock($parent, $lines, $i)
+                ?? $this->tryParseDiv($parent, $lines, $i)
                 ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
                 ?? $this->tryParseThematicBreak($parent, $line, $i)
@@ -1914,10 +1907,8 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
-     * @param array<int, int> $divCloserSuffix Longest colon-fence closer at or
-     *   after each index (from buildDivCloserSuffixMax), for an O(1) closer check.
      */
-    protected function tryParseDiv(Node $parent, array $lines, int $start, array $divCloserSuffix): ?int
+    protected function tryParseDiv(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
 
@@ -1930,20 +1921,6 @@ class BlockParser
         $fenceLength = $divInfo['length'];
         $className = $divInfo['className'];
         $label = $divInfo['label'];
-
-        // A colon fence opens only when a matching closer (a `:::` line of
-        // equal-or-greater length, not inside a nested code block) exists
-        // ahead. An unterminated `:::` / `::: note` stays literal -- it parses
-        // as ordinary blocks instead of swallowing the rest of the document
-        // (grammar §12; matches carve-js / carve-rs). A consequence: a
-        // SAME-length inner fence closes the outer div, so nested divs need an
-        // outer fence longer than the inner (also matching js / rs / djot).
-        // The precomputed suffix-max gives the closer test in O(1); checked
-        // before any state is touched (pending attributes, the div node) so a
-        // failed opener leaves them for the next parser.
-        if (($divCloserSuffix[$start + 1] ?? 0) < $fenceLength) {
-            return null;
-        }
 
         // STRICT (djot): the opener carries no inline attributes, so
         // `parseDivFenceOpener` has already guaranteed `$className` is empty
@@ -2003,78 +1980,13 @@ class BlockParser
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
 
-        $innerLines = [];
-        $innerLineMap = [];
-        $i = $start + 1;
-        $count = count($lines);
-        $closed = false;
-        $inCodeBlock = false;
-        $codeBlockFence = '';
-        $codeBlockFenceLength = 0;
-
-        while ($i < $count) {
-            $currentLine = $lines[$i];
-
-            // Track code blocks so we don't mistake ::: inside code blocks as
-            // closing fences. A raw ``` =format block is tracked the same way,
-            // but only when it really closes ahead: an unclosed ``` =format is
-            // inline code in a paragraph, not a verbatim region, so it must not
-            // swallow a later ::: as the div's closing fence.
-            if (!$inCodeBlock) {
-                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
-                if (
-                    $rawFenceInfo !== null
-                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
-                ) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $rawFenceInfo['fence'][0];
-                    $codeBlockFenceLength = $rawFenceInfo['length'];
-                    $innerLines[] = $currentLine;
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-
-                    continue;
-                }
-                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
-                if ($codeFenceInfo !== null) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $codeFenceInfo['char'];
-                    $codeBlockFenceLength = $codeFenceInfo['length'];
-                    $innerLines[] = $currentLine;
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-
-                    continue;
-                }
-            }
-            if ($inCodeBlock) {
-                // Check for closing code fence
-                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
-                    $inCodeBlock = false;
-                }
-                $innerLines[] = $currentLine;
-                $innerLineMap[] = $this->sourceLineFor($i);
-                $i++;
-
-                continue;
-            }
-
-            // Check for closing fence (equal or longer) - only when not in code block
-            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $fenceLength)) {
-                $i++;
-                $closed = true;
-
-                break;
-            }
-
-            $innerLines[] = $currentLine;
-            $innerLineMap[] = $this->sourceLineFor($i);
-            $i++;
-        }
-
-        if (!$closed) {
-            $this->addWarning('Unclosed div', $start, 1, true);
-        }
+        [$innerLines, $innerLineMap, $i, $closed] = $this->collectColonFenceBody(
+            $lines,
+            $start,
+            $fenceLength,
+            true,
+            true,
+        );
 
         // Parse inner content as blocks (track line offset for nested content)
         $previousOffset = $this->lineOffset;
@@ -2099,9 +2011,8 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
-     * @param array<int, int> $divCloserSuffix
      */
-    protected function tryParseHardBreaksBlock(Node $parent, array $lines, int $start, array $divCloserSuffix): ?int
+    protected function tryParseHardBreaksBlock(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
         if (preg_match('/^(?<fence>:{3,})[ \t]+\\\\[ \t]*$/', $line, $matches) !== 1) {
@@ -2109,9 +2020,6 @@ class BlockParser
         }
 
         $fenceLength = strlen($matches['fence']);
-        if (($divCloserSuffix[$start + 1] ?? 0) < $fenceLength) {
-            return null;
-        }
 
         $div = new Div();
         $div->addClass('hardbreaks');
@@ -2128,74 +2036,13 @@ class BlockParser
         }
         $this->pendingAttributes = [];
 
-        $innerLines = [];
-        $innerLineMap = [];
-        $i = $start + 1;
-        $count = count($lines);
-        $closed = false;
-        $inCodeBlock = false;
-        $codeBlockFence = '';
-        $codeBlockFenceLength = 0;
-
-        while ($i < $count) {
-            $currentLine = $lines[$i];
-
-            // See tryParseDiv: track raw ``` =format blocks too (only when
-            // closed ahead), so a bare ::: inside one is not taken as the
-            // closing div fence.
-            if (!$inCodeBlock) {
-                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
-                if (
-                    $rawFenceInfo !== null
-                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
-                ) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $rawFenceInfo['fence'][0];
-                    $codeBlockFenceLength = $rawFenceInfo['length'];
-                    $innerLines[] = $currentLine;
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-
-                    continue;
-                }
-                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
-                if ($codeFenceInfo !== null) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $codeFenceInfo['char'];
-                    $codeBlockFenceLength = $codeFenceInfo['length'];
-                    $innerLines[] = $currentLine;
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-
-                    continue;
-                }
-            }
-            if ($inCodeBlock) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
-                    $inCodeBlock = false;
-                }
-                $innerLines[] = $currentLine;
-                $innerLineMap[] = $this->sourceLineFor($i);
-                $i++;
-
-                continue;
-            }
-
-            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $fenceLength)) {
-                $i++;
-                $closed = true;
-
-                break;
-            }
-
-            $innerLines[] = $currentLine;
-            $innerLineMap[] = $this->sourceLineFor($i);
-            $i++;
-        }
-
-        if (!$closed) {
-            return null;
-        }
+        [$innerLines, $innerLineMap, $i, $closed] = $this->collectColonFenceBody(
+            $lines,
+            $start,
+            $fenceLength,
+            true,
+            true,
+        );
 
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
@@ -2224,77 +2071,134 @@ class BlockParser
     }
 
     /**
-     * Build, for one line set, the longest colon-fence CLOSER length at or
-     * after each index -- a line that is only colons (`:::`, after trimming),
-     * NOT inside a nested fenced code block. `$result[$i]` is the maximum such
-     * length at any line `>= $i` (0 if none). A div opener of length L at
-     * index `s` then has a matching closer ahead iff `$result[$s + 1] >= L`,
-     * an O(1) test that replaces a per-opener rescan to EOF (grammar §12).
-     *
      * @param array<string> $lines
+     * @param int $start
+     * @param int $fenceLength
+     * @param bool $nestingAware
+     * @param bool $skipOpaque
      *
-     * @return array<int, int>
+     * @return array{0: array<string>, 1: array<int, int>, 2: int, 3: bool}
      */
-    protected function buildDivCloserSuffixMax(array $lines): array
-    {
+    protected function collectColonFenceBody(
+        array $lines,
+        int $start,
+        int $fenceLength,
+        bool $nestingAware,
+        bool $skipOpaque,
+    ): array {
+        $innerLines = [];
+        $innerLineMap = [];
+        $stack = [$fenceLength];
+        $i = $start + 1;
         $count = count($lines);
-        $closerLen = array_fill(0, $count + 1, 0);
-        $inCodeBlock = false;
-        $codeBlockFence = '';
-        $codeBlockFenceLength = 0;
-        for ($i = 0; $i < $count; $i++) {
+
+        while ($i < $count) {
             $currentLine = $lines[$i];
-            if (!$inCodeBlock) {
-                // A raw ``` =format block must be tracked too: its opener is not
-                // a code-fence opener (the `=` leading token is declined), but
-                // its bare ``` closer WOULD be mistaken for a code-fence opener,
-                // flipping $inCodeBlock and swallowing every following ::: closer
-                // -- which makes later divs after a raw block parse as literal
-                // paragraphs. Track it only when it really CLOSES ahead: an
-                // unclosed ``` =format is just paragraph text (an inline code
-                // run), so it must NOT hide a later ::: div closer (matches the
-                // reference parser, which opens the div in that case).
-                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
-                if (
-                    $rawFenceInfo !== null
-                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
-                ) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $rawFenceInfo['fence'][0];
-                    $codeBlockFenceLength = $rawFenceInfo['length'];
-
-                    continue;
+            $top = $stack[count($stack) - 1];
+            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $top)) {
+                array_pop($stack);
+                if ($stack === []) {
+                    return [$innerLines, $innerLineMap, $i + 1, true];
                 }
-                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
-                if ($codeFenceInfo !== null) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $codeFenceInfo['char'];
-                    $codeBlockFenceLength = $codeFenceInfo['length'];
 
-                    continue;
-                }
+                $innerLines[] = $currentLine;
+                $innerLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
             }
-            if ($inCodeBlock) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
-                    $inCodeBlock = false;
+
+            $opaqueEnd = $skipOpaque ? $this->opaqueBlockEnd($lines, $i) : null;
+            if ($opaqueEnd !== null) {
+                while ($i <= $opaqueEnd && $i < $count) {
+                    $innerLines[] = $lines[$i];
+                    $innerLineMap[] = $this->sourceLineFor($i);
+                    $i++;
                 }
 
                 continue;
             }
-            // A closer is a line whose trimmed content is only colons (3+).
-            $trimmed = trim($currentLine);
-            if ($trimmed !== '' && strlen($trimmed) >= 3 && strspn($trimmed, ':') === strlen($trimmed)) {
-                $closerLen[$i] = strlen($trimmed);
+
+            $opener = $nestingAware ? $this->fencedBlockParser->parseDivFenceOpener($currentLine) : null;
+            if ($opener !== null) {
+                $stack[] = $opener['length'];
+            }
+
+            $innerLines[] = $currentLine;
+            $innerLineMap[] = $this->sourceLineFor($i);
+            $i++;
+        }
+
+        return [$innerLines, $innerLineMap, $i, false];
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function opaqueBlockEnd(array $lines, int $index): ?int
+    {
+        $line = $lines[$index];
+        $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($line);
+        if (
+            $rawFenceInfo !== null
+            && $this->startsInterruptingBlock($line, $lines, $index)
+        ) {
+            return $this->codeFenceEnd($lines, $index, $rawFenceInfo['fence'][0], $rawFenceInfo['length']);
+        }
+
+        $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($line);
+        if (
+            $codeFenceInfo !== null
+            && $this->startsInterruptingBlock($line, $lines, $index)
+        ) {
+            return $this->codeFenceEnd($lines, $index, $codeFenceInfo['char'], $codeFenceInfo['length']);
+        }
+
+        $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($line);
+        if (
+            $commentInfo !== null
+            && $this->hasClosingCommentFenceAhead($line, $lines, $index)
+        ) {
+            return $this->commentFenceEnd($lines, $index, $commentInfo['length']);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $openIndex
+     * @param string $fenceChar
+     * @param int $fenceLength
+     */
+    protected function codeFenceEnd(array $lines, int $openIndex, string $fenceChar, int $fenceLength): int
+    {
+        $count = count($lines);
+        for ($i = $openIndex + 1; $i < $count; $i++) {
+            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $fenceChar, $fenceLength)) {
+                return $i;
             }
         }
 
-        // Suffix-max so an opener can look up the deepest closer ahead in O(1).
-        $suffix = array_fill(0, $count + 1, 0);
-        for ($i = $count - 1; $i >= 0; $i--) {
-            $suffix[$i] = max($closerLen[$i], $suffix[$i + 1]);
+        return $openIndex;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $openIndex
+     * @param int $fenceLength
+     */
+    protected function commentFenceEnd(array $lines, int $openIndex, int $fenceLength): int
+    {
+        $count = count($lines);
+        for ($i = $openIndex + 1; $i < $count; $i++) {
+            if ($this->fencedBlockParser->isFencedCommentCloser($lines[$i], $fenceLength)) {
+                return $i;
+            }
         }
 
-        return $suffix;
+        return $openIndex;
     }
 
     /**
@@ -3213,19 +3117,15 @@ class BlockParser
             }
 
             // When the item's lead content is a colon-fence opener (`::: note`
-            // admonition or a bare `:::` div) whose matching closer line sits
-            // among the item-content-column lines that follow, the body in
-            // between -- including a NESTED LIST -- belongs to the container.
+            // admonition or a bare `:::` div), the item-owned body lines that
+            // follow -- including a NESTED LIST -- belong to the container.
             // The normal item collector would split the nested sub-list into
             // its own block stream (so an ordered sub-list nests instead of
-            // folding), which severs the opener from its body: the opener stays
-            // literal and the closer becomes trailing text. Keep the whole item
-            // stream together so tryParseDiv captures its nested-list body and
-            // finds its closer (grammar §12 `admonition = open, {block}, close`;
-            // matches carve-js / carve-rs). A closer at column 0 dedents out of
-            // the item and is NOT among the collected lines, so this guard does
-            // not fire and the opener correctly stays literal there (spec #114).
-            if ($this->leadColonFenceHasBodyCloser($itemContent, $lines, $i, $count, $contentIndent)) {
+            // folding), which severs the opener from its body. Keep the whole
+            // item stream together so tryParseDiv captures its item-owned body;
+            // if no exact closer appears in that stream, the container closes
+            // cleanly at the end of the item.
+            if ($this->leadColonFenceOpensContainer($itemContent, $lines, $i, $count, $contentIndent)) {
                 $i = $this->collectMarkerLeadItem(
                     $lines,
                     $i,
@@ -3246,16 +3146,10 @@ class BlockParser
                 continue;
             }
 
-            // Strict content-column rule: a lead colon-fence opener (`::: note`
-            // / bare `:::`) whose body and closer sit BELOW the item's content
-            // column does not form a div -- its body must reach the content
-            // column. Reaching this point with `inDiv` set means the lead IS a
-            // colon-fence opener that did NOT route through the
-            // leadColonFenceHasBodyCloser branch above, so no closer exists at
-            // the content column. Treat the opener as an open paragraph so the
-            // below-column body folds in as literal text instead of the
-            // dedented lines reconstructing a div (carve strict column rule;
-            // `- ::: note\n - x\n :::` -> literal `<li>` text, not an admonition).
+            // Strict content-column rule for malformed or below-column cases:
+            // if some earlier tracker state still thinks a div is open here,
+            // treat it as an open paragraph so dedented body text folds
+            // literally instead of reconstructing a container.
             if ($trailingState['inDiv']) {
                 $trailingState['inDiv'] = false;
                 $trailingState['openParagraph'] = true;
@@ -3393,6 +3287,11 @@ class BlockParser
                 $itemLines[] = $contentLine;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
+                if ($this->isBareColonFenceLine($contentLine) && $this->paragraphContainsColonFenceOpenerText(implode("\n", $itemLines))) {
+                    $trailingState['inDiv'] = false;
+                    $trailingState['divFenceLength'] = 0;
+                    $trailingState['openParagraph'] = false;
+                }
                 $i++;
 
                 continue;
@@ -3419,8 +3318,18 @@ class BlockParser
                 $itemLineMap[] = $this->sourceLineFor($i);
             }
             $trailingState = $this->advanceTrailingBlockState($trailingState, $nextTrimmed);
-            if ($foldedAsText && !$trailingState['inFence'] && !$trailingState['inDiv']) {
-                $trailingState['openParagraph'] = true;
+            if ($foldedAsText) {
+                $foldedContent = $itemLines[count($itemLines) - 1];
+                if (
+                    $this->fencedBlockParser->parseDivFenceOpener($nextTrimmed) !== null
+                    || ($this->isBareColonFenceLine($nextTrimmed) && $this->paragraphContainsColonFenceOpenerText($foldedContent))
+                ) {
+                    $trailingState['inDiv'] = false;
+                    $trailingState['divFenceLength'] = 0;
+                    $trailingState['openParagraph'] = true;
+                } elseif (!$trailingState['inFence'] && !$trailingState['inDiv']) {
+                    $trailingState['openParagraph'] = true;
+                }
             }
             $i++;
         }
@@ -3533,55 +3442,32 @@ class BlockParser
     }
 
     /**
-     * Decide whether a list item's lead content is a colon-fence opener
-     * (`::: word` admonition or bare `:::` div) whose matching closer sits
-     * among the item-content-column lines that follow.
-     *
-     * Used to keep a colon-fence opener and its body (including a nested list)
-     * in one block stream so the admonition/div opener captures its body and
-     * finds its closer, instead of being severed from it (carve spec #114).
-     * The closer must be one of the item-owned lines (>= content column,
-     * before any dedent out of the item): a `:::` at column 0 dedents out of
-     * the item and is NOT a body closer, so the opener stays literal.
-     *
      * @param string $itemContent The lead content on the marker line.
      * @param array<string> $lines All lines being parsed.
-     * @param int $i Index of the first line AFTER the marker line.
+     * @param int $i Index of the first line after the marker line.
      * @param int $count Total line count.
      * @param int $contentIndent The item's content column.
      */
-    protected function leadColonFenceHasBodyCloser(
+    protected function leadColonFenceOpensContainer(
         string $itemContent,
         array $lines,
         int $i,
         int $count,
         int $contentIndent,
     ): bool {
-        $opener = $this->fencedBlockParser->parseDivFenceOpener($itemContent);
-        if ($opener === null) {
+        if ($this->fencedBlockParser->parseDivFenceOpener($itemContent) === null) {
             return false;
         }
-        $fenceLength = $opener['length'];
 
         for ($j = $i; $j < $count; $j++) {
-            $line = $lines[$j];
-            if (IndentationHelper::isBlankLine($line)) {
+            if (IndentationHelper::isBlankLine($lines[$j])) {
                 continue;
             }
-            // A line dedented below the content column leaves the item; the
-            // closer must appear before that (a col-0 `:::` is not a body
-            // closer -- it stays a top-level paragraph and the opener is
-            // literal).
-            if (IndentationHelper::getLeadingColumns($line) < $contentIndent) {
-                return false;
-            }
-            $dedented = IndentationHelper::stripLeadingColumns($line, $contentIndent);
-            if ($this->fencedBlockParser->isDivFenceCloser($dedented, $fenceLength)) {
-                return true;
-            }
+
+            return IndentationHelper::getLeadingColumns($lines[$j]) >= $contentIndent;
         }
 
-        return false;
+        return true;
     }
 
     /**
@@ -3902,10 +3788,6 @@ class BlockParser
 
             $contentLines[] = $currentLine;
             $i++;
-        }
-
-        if (!$closed) {
-            return null;
         }
 
         $lineBlock = new LineBlock();
@@ -5690,6 +5572,29 @@ class BlockParser
         return $this->startsNewBlock($line, $lines, $index);
     }
 
+    protected function isBareColonFenceLine(string $line): bool
+    {
+        $trimmed = trim($line);
+
+        return strlen($trimmed) >= 3 && strspn($trimmed, ':') === strlen($trimmed);
+    }
+
+    protected function paragraphContainsColonFenceOpenerText(string $content): bool
+    {
+        foreach (explode("\n", $content) as $line) {
+            if (preg_match('/^:{3,}/', $line) !== 1) {
+                continue;
+            }
+            if ($this->isBareColonFenceLine($line)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Whether a non-">" line ENDS an open block quote (and starts a sibling
      * block) during lazy continuation. A list marker (bullet OR ordered) ends
@@ -5814,8 +5719,7 @@ class BlockParser
                     return true;
                 }
 
-                // Fenced divs interrupt only if a matching closer exists ahead.
-                return $this->hasClosingDivFenceAhead($line, $lines, $index);
+                return $this->fencedBlockParser->parseDivFenceOpener($line) !== null;
             case '%':
                 // Fenced comments interrupt only if a matching closer exists ahead.
                 return $this->hasClosingCommentFenceAhead($line, $lines, $index);
@@ -5922,72 +5826,6 @@ class BlockParser
             }
 
             if ($this->fencedBlockParser->isFencedCommentCloser($content, $length)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param string $line
-     * @param array<string>|null $lines
-     * @param int|null $index
-     */
-    protected function hasClosingDivFenceAhead(string $line, ?array $lines, ?int $index): bool
-    {
-        if (preg_match('/^:{3,}/', $line) !== 1) {
-            return false;
-        }
-
-        if ($lines === null || $index === null) {
-            return true;
-        }
-
-        $length = strspn($line, ':');
-        $count = count($lines);
-
-        // Reuse the collector's closer matcher (isDivFenceCloser allows no leading
-        // whitespace), so an indented `  :::` is not mistaken for a closer here
-        // when tryParseDiv would not accept it -- which would split the paragraph
-        // and swallow the document into an unterminated div. Skip fenced code and
-        // raw ``` =format blocks too: a ::: line inside one is NOT a div closer,
-        // and tryParseDiv's suffix scan ignores it -- so this lookahead must
-        // agree, or the paragraph is split while no div is ever produced.
-        $inCodeBlock = false;
-        $codeBlockFence = '';
-        $codeBlockFenceLength = 0;
-        for ($i = $index + 1; $i < $count; $i++) {
-            $currentLine = $lines[$i];
-            if (!$inCodeBlock) {
-                $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($currentLine);
-                if (
-                    $rawFenceInfo !== null
-                    && $this->hasCodeFenceCloserAhead($lines, $i, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
-                ) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $rawFenceInfo['fence'][0];
-                    $codeBlockFenceLength = $rawFenceInfo['length'];
-
-                    continue;
-                }
-                $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($currentLine);
-                if ($codeFenceInfo !== null) {
-                    $inCodeBlock = true;
-                    $codeBlockFence = $codeFenceInfo['char'];
-                    $codeBlockFenceLength = $codeFenceInfo['length'];
-
-                    continue;
-                }
-            }
-            if ($inCodeBlock) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $codeBlockFence, $codeBlockFenceLength)) {
-                    $inCodeBlock = false;
-                }
-
-                continue;
-            }
-            if ($this->fencedBlockParser->isDivFenceCloser($currentLine, $length)) {
                 return true;
             }
         }

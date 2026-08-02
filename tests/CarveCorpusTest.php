@@ -202,6 +202,9 @@ class CarveCorpusTest extends TestCase
         '164-comment-fence-with-trailing-text',
         '165-unterminated-comment-fence',
         '166-widened-verbatim-fences',
+        '167-only-the-id-hoists-to-the-section-wrapper',
+        '168-headings-inside-containers-are-not-wrapped',
+        '169-attribute-order-on-an-unwrapped-heading',
     ];
 
     /**
@@ -212,6 +215,32 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [];
+
+    /**
+     * Fixtures whose pinned HTML belongs to the pre-#439 spec submodule.
+     *
+     * These are asserted to STILL DIFFER rather than skipped, so the allowlist
+     * fails loudly once markup-carve/carve#456 lands in the submodule.
+     *
+     * @var array<string, string>
+     */
+    protected const EXPECTED_PINNED_SPEC_DIVERGENCES = [
+        // An opener on the list marker line now opens and auto-closes at the
+        // end of the item, with the item content column lines as its body.
+        '114-fence-opener-with-a-nested-list-body-inside-a-list-item-5' => 'marker-line container auto-closes at end of item',
+        // The column-0 trailing bare fence dedents out of the item; under #439
+        // it is a top-level empty container, not literal paragraph text.
+        '114-fence-opener-with-a-nested-list-body-inside-a-list-item-6' => 'dedented bare fence opens a top-level empty container',
+        // A bare colon fence without a later closer now interrupts and closes
+        // at EOF instead of remaining paragraph text.
+        '79-paragraph-interruption-11' => 'unterminated typed div closes at EOF',
+        '79-paragraph-interruption-19' => 'unterminated bare div closes at EOF',
+        // The malformed opener remains paragraph text, but the trailing bare
+        // fence now opens an empty container instead of staying in that paragraph.
+        '24-generic-divs-2' => 'malformed attribute opener plus trailing empty container',
+        '24-generic-divs-4' => 'malformed numeric opener plus trailing empty container',
+        '41-line-blocks-5' => 'malformed line-block attribute opener plus trailing empty container',
+    ];
 
     protected CarveConverter $converter;
 
@@ -284,6 +313,16 @@ class CarveCorpusTest extends TestCase
         );
 
         $actual = $this->converter->convert($crv);
+        if (isset(self::EXPECTED_PINNED_SPEC_DIVERGENCES[$slug])) {
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                'Pinned corpus divergence resolved; remove allowlist entry for ' . $slug
+                . ' (' . self::EXPECTED_PINNED_SPEC_DIVERGENCES[$slug] . ')',
+            );
+
+            return;
+        }
 
         $this->assertSame(
             $this->normalize($html),
