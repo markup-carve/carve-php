@@ -210,7 +210,12 @@ final class ReferenceShape
         // children rather than in a field, so their POSITION is structural
         // there; this engine keeps a field, a divergence recorded in
         // docs/ast-json.md rather than a reason to drop the content.
-        'document' => [],
+        //
+        // `abbreviationSpans` is internal outright: it records where each
+        // definition line sat so the node built for it at serialization can
+        // carry a position, and the reference has no field for it because it
+        // never needed one - its definitions are already nodes.
+        'document' => ['abbreviationSpans'],
     ];
 
     /**

@@ -19,6 +19,17 @@ class Document extends Node
     protected bool $abbreviationsBeforeBody = false;
 
     /**
+     * Where each `*[ABBR]: …` line sat, keyed by abbreviation.
+     *
+     * Definitions are collected out of the body into a map, which loses the one
+     * thing a position needs. Kept beside them rather than on a node, because
+     * the node does not exist until serialization builds it (carve-php#579).
+     *
+     * @var array<string, array<string, int>>
+     */
+    protected array $abbreviationSpans = [];
+
+    /**
      * Byte length of the original source the document was parsed from.
      *
      * Used by renderers to size the abbreviation-expansion budget (a DoS
@@ -72,6 +83,22 @@ class Document extends Node
     public function hasAbbreviationsBeforeBody(): bool
     {
         return $this->abbreviationsBeforeBody;
+    }
+
+    /**
+     * @return array<string, array<string, int>>
+     */
+    public function getAbbreviationSpans(): array
+    {
+        return $this->abbreviationSpans;
+    }
+
+    /**
+     * @param array<string, array<string, int>> $spans
+     */
+    public function setAbbreviationSpans(array $spans): void
+    {
+        $this->abbreviationSpans = $spans;
     }
 
     public function setAbbreviationsBeforeBody(bool $beforeBody): void

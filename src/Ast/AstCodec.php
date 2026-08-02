@@ -227,7 +227,13 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
-        return self::publishAbbreviationDefs($this->encodeNode($document));
+        // The spans come from the Document rather than the encoded array: they
+        // are internal, so `ReferenceShape` keeps them off the wire and the
+        // encoder never puts them there.
+        return self::publishAbbreviationDefs(
+            $this->encodeNode($document),
+            $document->getAbbreviationSpans(),
+        );
     }
 
     /**
@@ -249,7 +255,14 @@ class AstCodec
      *
      * @return array<string, mixed>
      */
-    private static function publishAbbreviationDefs(array $encoded): array
+
+    /**
+     * @param array<string, mixed> $encoded
+     * @param array<string, array<string, int>> $spans
+     *
+     * @return array<string, mixed>
+     */
+    private static function publishAbbreviationDefs(array $encoded, array $spans = []): array
     {
         $abbreviations = $encoded['abbreviations'] ?? null;
         $beforeBody = ($encoded['abbreviationsBeforeBody'] ?? false) === true;
@@ -260,11 +273,18 @@ class AstCodec
 
         $defs = [];
         foreach ($abbreviations as $abbr => $expansion) {
-            $defs[] = [
+            $def = [
                 'type' => 'abbreviation_def',
                 'abbr' => (string)$abbr,
                 'expansion' => is_scalar($expansion) ? (string)$expansion : '',
             ];
+            // The `*[ABBR]: …` line the definition came from, when the parser
+            // was tracking positions. Absent rather than invented otherwise.
+            $span = $spans[$abbr] ?? null;
+            if (is_array($span) && $span !== []) {
+                $def['pos'] = $span;
+            }
+            $defs[] = $def;
         }
 
         $children = is_array($encoded['children'] ?? null) ? $encoded['children'] : [];
