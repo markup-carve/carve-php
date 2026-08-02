@@ -313,14 +313,7 @@ class ProseMirrorToCarve
             $logicalCol = 0;
 
             foreach ($originalCells as $cell) {
-                while (($rowspanMap[$logicalCol] ?? 0) > 0) {
-                    $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
-                    $rowspanMap[$logicalCol]--;
-                    if ($rowspanMap[$logicalCol] === 0) {
-                        unset($rowspanMap[$logicalCol]);
-                    }
-                    $logicalCol++;
-                }
+                $this->drainRowspans($newCells, $rowspanMap, $logicalCol, $isHeaderRow);
 
                 $colspan = max(1, $cell->getColspan());
                 $rowspan = max(1, $cell->getRowspan());
@@ -331,6 +324,13 @@ class ProseMirrorToCarve
                 $logicalCol++;
 
                 for ($cs = 1; $cs < $colspan; $cs++) {
+                    // A column a rowspan from an earlier row already holds is
+                    // not this cell's to continue into: the `^` comes first and
+                    // the `<` lands past it. Draining only before a cell (and
+                    // not here) is what flattened `| p | ^ | < | e |` back to
+                    // four plain cells - the colspan continuation took the
+                    // column the rowspan owned, so no `^` was ever emitted.
+                    $this->drainRowspans($newCells, $rowspanMap, $logicalCol, $isHeaderRow);
                     $newCells[] = $this->spanPlaceholder($isHeaderRow, '<');
                     $logicalCol++;
                 }
@@ -338,14 +338,7 @@ class ProseMirrorToCarve
 
             // Trailing rowspan continuations for a row where the last real
             // cell does not reach the table's full width.
-            while (($rowspanMap[$logicalCol] ?? 0) > 0) {
-                $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
-                $rowspanMap[$logicalCol]--;
-                if ($rowspanMap[$logicalCol] === 0) {
-                    unset($rowspanMap[$logicalCol]);
-                }
-                $logicalCol++;
-            }
+            $this->drainRowspans($newCells, $rowspanMap, $logicalCol, $isHeaderRow);
 
             if (count($newCells) === count($originalCells)) {
                 // No span in this row; nothing to splice.
@@ -358,6 +351,25 @@ class ProseMirrorToCarve
             foreach ($newCells as $newCell) {
                 $row->appendChild($newCell);
             }
+        }
+    }
+
+    /**
+     * Emit a `^` placeholder for every rowspan an earlier row left pending at
+     * this column, advancing past each one.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Block\TableCell> $newCells
+     * @param array<int, int> $rowspanMap
+     */
+    protected function drainRowspans(array &$newCells, array &$rowspanMap, int &$logicalCol, bool $isHeaderRow): void
+    {
+        while (($rowspanMap[$logicalCol] ?? 0) > 0) {
+            $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
+            $rowspanMap[$logicalCol]--;
+            if ($rowspanMap[$logicalCol] === 0) {
+                unset($rowspanMap[$logicalCol]);
+            }
+            $logicalCol++;
         }
     }
 

@@ -780,6 +780,21 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
+     * A rowspan and a colspan meeting in one row: the editor sends `p` with
+     * colspan 2 and `b` with rowspan 2, and rebuilding the placeholder row has
+     * to interleave them as `| p | ^ | < | e |`. Draining pending rowspans only
+     * before a cell put the `<` in the column the `^` owned, so no `^` was
+     * emitted at all and the rowspan was silently flattened.
+     */
+    public function testARowspanAndAColspanMeetingInOneRowBothSurvive(): void
+    {
+        $result = $this->roundTrip("| p | q | r | s |\n|---|---|---|---|\n| a | b | c | d |\n| p | ^ | < | e |\n");
+
+        $this->assertStringContainsString('<td rowspan="2">b</td>', $result['expected']);
+        $this->assertSame($result['expected'], $result['actual']);
+    }
+
+    /**
      * The hook is a door, not a hole: a name nobody registered still throws,
      * so a typo cannot become a silent skip.
      */

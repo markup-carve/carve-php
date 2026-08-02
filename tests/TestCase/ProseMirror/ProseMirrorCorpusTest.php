@@ -36,17 +36,26 @@ class ProseMirrorCorpusTest extends TestCase
      * A count that only moves when the measurement is honest is the point of
      * the ratchet, so this is a correction, not a regression.
      *
+     * Rose to 344 when the span-placeholder walk stopped flattening a rowspan
+     * that shared a row with a colspan (carve-php#565).
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 329;
+    private const MINIMUM_LOSSLESS = 344;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
      * worth fixing, so this is a ceiling that should keep falling.
      *
+     * Pulled from 29 to the actual 5. At 29 against an actual 6 this could not
+     * detect a regression until the bridge was five times worse than it was -
+     * which is how carve-php#557 shipped two of them (the row attributes fixed
+     * in carve-php#564 and the flattened rowspan in carve-php#565) with CI
+     * green. A ceiling far above the measurement is not a ratchet.
+     *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 29;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 5;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {
