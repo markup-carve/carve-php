@@ -1035,13 +1035,20 @@ class CarveRenderer implements RendererInterface
             //
             // The bracketed form keeps it. `[@alice]{#x}` re-parses as a span
             // AROUND the mention rather than a mention carrying the attribute,
-            // so the HTML gains a wrapper `<span>`: this trades an exact HTML
-            // match for losing nothing, deliberately. Only a programmatically
-            // built tree or the ProseMirror bridge can reach this state - the
-            // parser never produces it - so no parsed document changes.
+            // so the HTML gains a wrapper `<span>`. That is the fallback here;
+            // `writeStaticMentionExactly()` reproduces the rendered form instead
+            // wherever it can, which is every case the bridge produces. Only a
+            // programmatically built tree or the ProseMirror bridge can reach
+            // this state - the parser never produces it - so no parsed document
+            // changes.
             $bare = $this->plainInlineText($node);
             if ($node->getAttributes() === []) {
                 return $bare;
+            }
+
+            $exact = $this->writeStaticMentionExactly($node);
+            if ($exact !== null) {
+                return $exact;
             }
 
             // The PLAIN label inside the brackets, not the escaped inlines:
@@ -1111,6 +1118,60 @@ class CarveRenderer implements RendererInterface
         }
 
         return true;
+    }
+
+    /**
+     * A destination-less mention written so the source RENDERS as the node did.
+     *
+     * With no URL template a mention is `<span class="…"><strong>…</strong>
+     * </span>` plus its own attributes - pinned by the corpus, so it is the
+     * target, not a choice. Three pieces reproduce it exactly:
+     *
+     * - `*…*` supplies the `<strong>`. Without it the span holds bare text.
+     * - the label is ESCAPED, so `\@alice` stays text rather than re-parsing as
+     *   a mention inside the span, which is what put a second `<span>` in the
+     *   output.
+     * - the class is written FIRST. A span renders its attributes in source
+     *   order, so `{#x .mention}` yields `<span id="x" class="mention">` and
+     *   fails on order alone.
+     *
+     * Returns null where no spelling reaches the rendered form, and the caller
+     * keeps the bracketed fallback: markup inside the label needs a doubled
+     * `*` delimiter that reads as literal asterisks, a label padded with
+     * whitespace puts a space beside a delimiter that then does not open, and a
+     * mention with no css class renders `class=""`, which is not worth
+     * spelling out.
+     *
+     * A `class` ATTRIBUTE is deliberately not written: the HTML renderer drops
+     * it on this path (the css class alone becomes `class`), so emitting it
+     * would render a class the node does not, and break the very equality this
+     * exists for. That the attribute renders nowhere is a separate defect
+     * (carve-php#567).
+     */
+    protected function writeStaticMentionExactly(Mention $node): ?string
+    {
+        if ($node->getCssClass() === '' || !$this->isFlatText($node)) {
+            return null;
+        }
+
+        $label = $this->renderInlines($node->getChildren());
+        if ($label === '' || $label !== trim($label)) {
+            // An emphasis delimiter needs a non-space beside it, so a label
+            // padded with whitespace writes a pair of literal asterisks into the
+            // span instead of a strong - and `[**]` is literal for the same
+            // reason. Both decline rather than emit source that renders
+            // differently, which is the one outcome this method exists to avoid.
+            return null;
+        }
+
+        // Everything except `class`, in the node's own order, via the normal
+        // attribute writer - so an id stays `#id` and a key/value stays one.
+        $rest = clone $node;
+        $rest->removeAttribute('class');
+        $written = $this->renderAttrs($rest);
+
+        return '[*' . $label . '*]{.' . $this->escapeAttrNameValue($node->getCssClass())
+            . ($written === '' ? '' : ' ' . substr($written, 1, -1)) . '}';
     }
 
     /**

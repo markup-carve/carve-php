@@ -37,6 +37,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A destination-less mention keeps its attributes, and the source renders as
+  the node did** (markup-carve/carve-php#567). An attribute set on a `Mention`
+  reached the AST and the HTML and then vanished from Carve source: a bare
+  `@alice` has nowhere to hang one, since the parser leaves a trailing `{.x}`
+  outside the node, and the link form needs a destination.
+
+  The writer now spells out the form such a mention RENDERS as -
+  `[*\@alice*]{.mention #x}` - so `toHtml(fmt(x)) == toHtml(x)` holds byte for
+  byte. Three pieces are each load-bearing: `*…*` supplies the `<strong>` that a
+  mention with no URL template renders (corpus-pinned, so it is the target
+  rather than a choice); the escaped sigil keeps the label as text instead of
+  re-parsing as a second mention inside the span; and the class is written
+  first, because a span renders its attributes in source order.
+
+  What it costs: re-parsing gives a span holding strong text rather than a
+  Mention node, so the node TYPE does not survive - the HTML and every value do.
+  Four shapes have no exact spelling and keep the bracketed fallback, which
+  loses nothing but gains a wrapper `<span>`: markup inside the label, an empty
+  label, a label padded with whitespace, and a mention with no css class.
+
+  Reachable only from a programmatically built tree or the ProseMirror bridge -
+  a stock Tiptap mention carries its `id` this way - so no parsed document
+  changes.
+
 - **An unresolved reference publishes as `text`, not as `raw_text`**
   (markup-carve/carve-php#531, PART 12 §5). `raw_text` holds markup the parser
   DECLINED - the `[a][]` of an unresolved reference - which the Carve writer

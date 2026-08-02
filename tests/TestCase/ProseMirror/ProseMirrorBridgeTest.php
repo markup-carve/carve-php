@@ -698,12 +698,12 @@ class ProseMirrorBridgeTest extends TestCase
      * only the name would resolve the node and then lose the visible name - the
      * mention dropped out of the source altogether.
      *
-     * The `id` survives all the way to Carve source, as `[@Alice]{#alice}`.
-     * That spelling is a span *around* the mention rather than a mention
-     * carrying the attribute - a Mention has no attribute slot of its own - so
-     * the re-parsed HTML gains a wrapper `<span>`. Keeping the id was judged
-     * worth that (carve-php#567); before it, the bridge wrote a bare `@Alice`
-     * and the id was gone with nothing reported.
+     * The `id` survives all the way to Carve source, and the source renders as
+     * the node did: a Mention has no attribute slot of its own, so the writer
+     * spells out the form a destination-less mention RENDERS as - a strong
+     * inside a classed span, sigil escaped so the label stays text rather than
+     * re-parsing as a second mention (carve-php#567). Before it, the bridge
+     * wrote a bare `@Alice` and the id was gone with nothing reported.
      */
     #[DataProvider('stockMentionProvider')]
     public function testAStockTiptapMentionConvertsWithoutRegistration(array $attrs, string $expected): void
@@ -730,7 +730,7 @@ class ProseMirrorBridgeTest extends TestCase
     public static function stockMentionProvider(): array
     {
         return [
-            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping [@Alice]{#alice}\n"],
+            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping [*\\@Alice*]{.mention #alice}\n"],
             // Tiptap renders the id when nothing labelled it, so the id is the
             // name rather than a second attribute beside an empty mention.
             'an unlabelled mention falls back to the id' => [['id' => 'alice'], "ping @alice\n"],
@@ -760,9 +760,10 @@ class ProseMirrorBridgeTest extends TestCase
         ]);
 
         // `label` stays an attribute here rather than becoming text, which is
-        // the point: one visible name, not two. It survives as an attribute on
-        // the bracketed form (carve-php#567) instead of being dropped.
-        $this->assertSame("[@alice]{label=Alice}\n", CarveConverter::carve()->render($document));
+        // the point: one visible name, not two. It reaches the source as an
+        // ordinary key/value on the written span (carve-php#567) instead of
+        // being dropped.
+        $this->assertSame("[*\\@alice*]{.mention label=Alice}\n", CarveConverter::carve()->render($document));
     }
 
     /**
