@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -237,24 +238,41 @@ class SourcePositionTest extends TestCase
         $this->assertSame([2, 6], $offsets);
     }
 
-    public function testACellWithAnEscapedPipeDeclinesAPosition(): void
+    public function testACellWithAnEscapedPipeIsPlaced(): void
     {
-        // `\|` collapses to `|`, so the cell's text is one byte shorter than
-        // the source it came from and offsets inside it would drift. Declining
-        // is correct; a span that is nearly right is the failure mode section 4
-        // rules out.
+        // The escape is no longer collapsed into the cell's text: it becomes an
+        // `EscapedText` node, as it does everywhere else and as carve-js and
+        // carve-rs publish it. So the cell's content is once again a verbatim
+        // run of the row and every piece of it carries a span.
+        //
+        // This used to assert the opposite, on the reasoning that a collapsed
+        // `\|` left the text a byte shorter than its source. That was true of
+        // the collapsing, not of the escape - keeping the escape removes the
+        // premise rather than working around it.
         $source = "| a\|b | c |\n|---|---|\n| x | y |\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
 
+        $pieces = [];
         foreach (self::walk($document) as $node) {
-            if ($node instanceof Text && $node->getContent() === 'a|b') {
-                $this->assertNull($node->getPos(), 'a rewritten cell must not carry a span');
-
-                return;
+            if ($node instanceof EscapedText && $node->getContent() === '|') {
+                $pieces['escape'] = $node;
+            }
+            if ($node instanceof Text && $node->getContent() === 'a') {
+                $pieces['before'] = $node;
             }
         }
 
-        $this->fail('the escaped-pipe cell was not found');
+        $this->assertArrayHasKey('escape', $pieces, 'the escaped pipe is not its own node');
+        $this->assertArrayHasKey('before', $pieces, 'the text before the escape was not found');
+        $this->assertNotNull($pieces['escape']->getPos(), 'the escape must carry a span');
+        $this->assertNotNull($pieces['before']->getPos(), 'the text before it must carry a span');
+
+        $span = $pieces['escape']->getPos();
+        $this->assertSame(
+            '\\|',
+            substr($source, $span->startOffset, $span->endOffset - $span->startOffset),
+            'the escape span does not cover the two source characters it came from',
+        );
     }
 
     public function testCellTextIsPlacedInsideItsOwnCellNotThePadding(): void
