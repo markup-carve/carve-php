@@ -698,11 +698,12 @@ class ProseMirrorBridgeTest extends TestCase
      * only the name would resolve the node and then lose the visible name - the
      * mention dropped out of the source altogether.
      *
-     * The `id` reaches the AST and the HTML as an attribute but not the Carve
-     * source: `[@alice]{#x}` parses as a span *around* a mention, so a Mention
-     * has no attribute slot of its own to serialize into. That is pre-existing
-     * and tracked separately (carve-php#567); it is asserted here as what the
-     * bridge does today rather than left to be discovered.
+     * The `id` survives all the way to Carve source, as `[@Alice]{#alice}`.
+     * That spelling is a span *around* the mention rather than a mention
+     * carrying the attribute - a Mention has no attribute slot of its own - so
+     * the re-parsed HTML gains a wrapper `<span>`. Keeping the id was judged
+     * worth that (carve-php#567); before it, the bridge wrote a bare `@Alice`
+     * and the id was gone with nothing reported.
      */
     #[DataProvider('stockMentionProvider')]
     public function testAStockTiptapMentionConvertsWithoutRegistration(array $attrs, string $expected): void
@@ -729,7 +730,7 @@ class ProseMirrorBridgeTest extends TestCase
     public static function stockMentionProvider(): array
     {
         return [
-            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping @Alice\n"],
+            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping [@Alice]{#alice}\n"],
             // Tiptap renders the id when nothing labelled it, so the id is the
             // name rather than a second attribute beside an empty mention.
             'an unlabelled mention falls back to the id' => [['id' => 'alice'], "ping @alice\n"],
@@ -759,9 +760,9 @@ class ProseMirrorBridgeTest extends TestCase
         ]);
 
         // `label` stays an attribute here rather than becoming text, which is
-        // the point: one visible name, not two. A Mention cannot serialize an
-        // attribute (carve-php#567), so the source shows the child alone.
-        $this->assertSame("@alice\n", CarveConverter::carve()->render($document));
+        // the point: one visible name, not two. It survives as an attribute on
+        // the bracketed form (carve-php#567) instead of being dropped.
+        $this->assertSame("[@alice]{label=Alice}\n", CarveConverter::carve()->render($document));
     }
 
     /**

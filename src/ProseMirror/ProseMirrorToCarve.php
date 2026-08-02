@@ -360,6 +360,8 @@ class ProseMirrorToCarve
      *
      * @param array<\MarkupCarve\Carve\Node\Block\TableCell> $newCells
      * @param array<int, int> $rowspanMap
+     * @param bool $isHeaderRow
+     * @param int $logicalCol
      */
     protected function drainRowspans(array &$newCells, array &$rowspanMap, int &$logicalCol, bool $isHeaderRow): void
     {

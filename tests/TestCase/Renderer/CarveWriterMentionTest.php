@@ -240,4 +240,40 @@ class CarveWriterMentionTest extends TestCase
 
         $this->assertSame($mention, $child->getParent());
     }
+
+    /**
+     * A bare `@name` has nowhere to hang an attribute - the parser leaves a
+     * trailing `{.x}` outside the node - and the link form is unavailable with
+     * no destination, so the writer used to emit the bare spelling and drop the
+     * attribute without a word (carve-php#567).
+     *
+     * The bracketed form keeps it. The cost is an extra wrapper `<span>` on
+     * re-parse, because `[@alice]{#x}` is a span AROUND a mention rather than a
+     * mention carrying the attribute: losing nothing is worth more than an exact
+     * HTML match for a state the parser cannot produce in the first place.
+     */
+    public function testAnAttributeOnADestinationlessMentionIsNotDropped(): void
+    {
+        $mention = new Mention('mention', '', '@alice');
+        $mention->setAttribute('id', 'x');
+
+        $written = $this->write($mention);
+
+        $this->assertStringContainsString('[@alice]{#x}', $written);
+
+        // Both survive the round trip: the id on the wrapper, the mention inside.
+        $html = (new CarveConverter())->render((new CarveConverter())->parse($written));
+        $this->assertStringContainsString('id="x"', $html);
+        $this->assertStringContainsString('class="mention"', $html);
+    }
+
+    /**
+     * The attribute case must not swallow the ordinary one: an unattributed
+     * bare mention still writes as `@alice`, not as a bracketed span.
+     */
+    public function testADestinationlessMentionWithoutAttributesStaysBare(): void
+    {
+        $this->assertStringContainsString('@alice', $this->write(new Mention('mention', '', '@alice')));
+        $this->assertStringNotContainsString('[', $this->write(new Mention('mention', '', '@alice')));
+    }
 }
