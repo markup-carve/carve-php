@@ -113,15 +113,23 @@ class ProseMirrorToCarve
         // come back but the definitions do not, so the written source loses
         // every expansion.
         $attrs = $document['attrs'] ?? [];
-        if (is_array($attrs)) {
-            $abbreviations = $attrs['carveAbbreviations'] ?? null;
-            if (is_array($abbreviations) && $abbreviations !== []) {
-                /** @var array<string, string> $abbreviations */
-                $carveDocument->setAbbreviations($abbreviations);
-                $carveDocument->setAbbreviationsBeforeBody(
-                    (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
-                );
+        $abbreviations = is_array($attrs) ? $attrs['carveAbbreviations'] ?? null : null;
+        if (is_array($attrs) && is_array($abbreviations) && $abbreviations !== []) {
+            // Narrowed rather than asserted: the payload is decoded JSON, so
+            // the values are whatever the caller sent. A non-string expansion
+            // is not a definition, so it is skipped rather than coerced into
+            // one - coercing would invent an expansion nobody wrote.
+            $definitions = [];
+            foreach ($abbreviations as $abbr => $expansion) {
+                if (!is_string($expansion)) {
+                    continue;
+                }
+                $definitions[(string)$abbr] = $expansion;
             }
+            $carveDocument->setAbbreviations($definitions);
+            $carveDocument->setAbbreviationsBeforeBody(
+                (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
+            );
         }
 
         return $carveDocument;
