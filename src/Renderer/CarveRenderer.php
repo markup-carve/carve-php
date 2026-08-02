@@ -284,7 +284,7 @@ class CarveRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
-            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimNonNbsp($this->renderInlines($node->getChildren()))),
+            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->collapseBreaks($this->trimNonNbsp($this->renderInlines($node->getChildren())))),
             $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it
@@ -1471,6 +1471,30 @@ class CarveRenderer implements RendererInterface
         // resolves AFTER normalize()'s trims, which would otherwise strip a
         // plain leading space when the paragraph is the document's first block.
         return str_replace("\u{E004}", ' ', $result);
+    }
+
+    /**
+     * Fold every line break in $text (a hard break's marker included) to a
+     * single space, then trim.
+     *
+     * A heading is SINGLE-LINE (PART 2), so its text must not contain a
+     * newline: writing one would end the heading and re-parse the remainder as
+     * a following block, moving text out of the title. No parse builds such a
+     * heading, but PART 12 lets an ingested AST put any inline in one, break
+     * nodes included. Only an ODD run of backslashes before the newline is a
+     * hard break's marker; an even run is literal backslashes that happen to
+     * end the line, and dropping one there would eat the escape. Matches
+     * carve-js and carve-rs.
+     */
+    protected function collapseBreaks(string $text): string
+    {
+        $collapsed = preg_replace_callback(
+            '/(\\\\*)\\n[ \\t]*/',
+            static fn (array $m): string => (strlen($m[1]) % 2 === 1 ? substr($m[1], 1) : $m[1]) . ' ',
+            $text,
+        );
+
+        return $this->trimNonNbsp((string)$collapsed);
     }
 
     protected function trimNonNbsp(string $text): string

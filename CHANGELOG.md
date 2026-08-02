@@ -7,6 +7,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`fmt` no longer splits a heading it was given.** A heading ends at the
+  newline, so its text must not contain one. No parse builds such a heading, but
+  PART 12 lets an ingested AST put any inline in one, break nodes included -
+  writing that out verbatim closed the heading and re-parsed the remainder as a
+  following block, moving text out of the title. Breaks now collapse to a single
+  space. Only an odd run of backslashes before the newline is a hard break's
+  marker, so a literal backslash ending a line survives.
+
 ### Changed
 
 - **BREAKING: a heading ends at the newline** (spec markup-carve/carve#451,
