@@ -7,6 +7,31 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a heading ends at the newline.** A heading no longer folds the
+  following line into its text. `# Title` with prose on the next line is now a
+  heading plus a paragraph, and `## A` / `## B` is two headings, matching
+  CommonMark and the SINGLE-LINE HEADINGS rule in grammar PART 2 (carve#434,
+  carve#451). Folding was a silent corruption for anyone arriving from Markdown:
+  the title text was wrong and so was the auto-generated id, which broke
+  `[Heading][]` cross-references and TOC anchors with nothing to lint.
+
+  **Migration:** a heading that was deliberately wrapped over several source
+  lines must be joined onto one line.
+
+- **BREAKING: `MarkdownHabitLinter` drops the `heading-lazy-continuation` rule**
+  and the `RULE_HEADING_LAZY_CONTINUATION` constant with it. The rule warned
+  that "Markdown starts a new block here; Carve does not" - which is no longer
+  true, so the diagnostic would fire on correct, unambiguous source.
+
+- `fmt` collapses a break inside a heading to a space instead of emitting it.
+  No parse produces such a heading, but an ingested AST can (PART 12 permits any
+  inline in a heading), and writing it out verbatim split the heading and moved
+  text out of the title on re-parse. Only an odd run of backslashes before the
+  newline is a hard break's marker, so a literal backslash ending a line
+  survives.
+
 ### Fixed
 
 - **An implicit `[Heading][]` reference now reaches a heading inside a list

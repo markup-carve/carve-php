@@ -98,21 +98,27 @@ class BlockParserTest extends TestCase
         }
     }
 
-    public function testHeadingContinuationFoldsOnlyOnSameMarkerCount(): void
+    public function testNoLineContinuesAHeading(): void
     {
-        // Djot rule: a `#`-marker continuation line continues the open heading
-        // ONLY when its marker count EQUALS the opener. A different count (more
-        // OR fewer) ends the heading and starts a new one. A no-`#` plain-text
-        // continuation line still folds.
+        // A heading ends at the newline (PART 2), so a `#`-marker line at ANY
+        // count starts its own heading and a plain line starts a paragraph.
+        // Djot merged the same-count and no-marker forms into the open heading.
 
-        // Same count folds into one heading.
-        foreach (["## H\n## more", "# H\n# more", "## H\nmore"] as $src) {
+        // Same count: two headings, not one.
+        foreach (["## H\n## more", "# H\n# more"] as $src) {
             $children = $this->parser->parse($src)->getChildren();
-            $this->assertCount(1, $children, 'for ' . $src);
+            $this->assertCount(2, $children, 'for ' . $src);
             $this->assertInstanceOf(Heading::class, $children[0]);
+            $this->assertInstanceOf(Heading::class, $children[1]);
         }
 
-        // Fewer `#` ends the heading: "## H\n# more" -> h2 then h1.
+        // A plain line is a paragraph, not heading text.
+        $children = $this->parser->parse("## H\nmore")->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Heading::class, $children[0]);
+        $this->assertInstanceOf(Paragraph::class, $children[1]);
+
+        // Fewer `#`: "## H\n# more" -> h2 then h1.
         $children = $this->parser->parse("## H\n# more")->getChildren();
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Heading::class, $children[0]);

@@ -64,10 +64,13 @@ class HeadingColumnZeroTest extends TestCase
      * open heading as literal text (the leading indent and the `##` are kept), and
      * the heading id is slugged from the full literal text.
      */
-    public function testIndentedContinuationFoldsAsLiteralText(): void
+    public function testIndentedHashLineIsAParagraphAfterTheHeading(): void
     {
+        // An indented `#`-line is not a heading (COLUMN ZERO, NORMATIVE). It used
+        // to fold into the heading above as literal text; now the heading ends at
+        // its newline and the line is a paragraph of its own.
         $input = "## H\n   ## indented";
-        $expected = "<section id=\"H-indented\">\n  <h2>H\n   ## indented</h2>\n</section>\n";
+        $expected = "<section id=\"H\">\n  <h2>H</h2>\n  <p>## indented</p>\n</section>\n";
 
         $this->assertSame($expected, $this->converter->convert($input));
     }

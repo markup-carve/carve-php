@@ -43,16 +43,12 @@ class HeadingCaptionWhitespaceTest extends TestCase
         );
     }
 
-    public function testHeadingKeepsInteriorTrailingStripsFinal(): void
+    public function testHeadingStripsTrailingWhitespaceAndDoesNotMergeLines(): void
     {
-        $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a \nb</h1>\n</section>\n",
-            $this->converter->convert("# a \nb"),
-        );
-        $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a\nb</h1>\n</section>\n",
-            $this->converter->convert("# a\nb "),
-        );
+        $expected = "<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n";
+
+        $this->assertSame($expected, $this->converter->convert("# a \nb"));
+        $this->assertSame($expected, $this->converter->convert("# a\nb "));
     }
 
     public function testCaptionStripsFinalTrailingWhitespace(): void

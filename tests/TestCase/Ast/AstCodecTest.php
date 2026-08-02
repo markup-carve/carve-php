@@ -350,6 +350,7 @@ class AstCodecTest extends TestCase
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
         '134-link-reference-definition-separator-must-be-a-space.crv',
         '157-indented-reference-and-footnote-definitions-stay-literal.crv',
+        '171-implicit-heading-references-with-no-definition.crv',
         '18-unresolved-reference-link.crv',
         '76-reference-labels-are-case-sensitive.crv',
     ];

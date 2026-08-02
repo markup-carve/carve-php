@@ -82,15 +82,15 @@ class MarkdownCrossRefLinkTest extends TestCase
         $this->assertStringNotContainsString('[Title]', $out);
     }
 
-    public function testMultiLineHeadingIsFlattenedWithIdOnTheHeadingLine(): void
+    public function testTextUnderAHeadingIsItsOwnMarkdownParagraph(): void
     {
-        // A markdown heading is single-line, so a lazy-continuation carve heading
-        // is flattened; the `{#id}` stays on the heading line so the link anchors.
-        $out = $this->md("# Foo\nbar\n\nSee </#foo-bar>.\n");
+        // A Carve heading is single-line too now (PART 2), so there is no folded
+        // heading left to flatten: `bar` converts to its own paragraph, and the
+        // `{#id}` sits on a heading line that holds only the title.
+        $out = $this->md("# Foo\nbar\n\nSee </#foo>.\n");
 
-        $this->assertStringContainsString('# Foo bar {#Foo-bar}', $out);
-        $this->assertStringContainsString('[Foo bar](#Foo-bar)', $out);
-        $this->assertStringNotContainsString("bar {#Foo-bar}\n\n# ", $out);
+        $this->assertStringContainsString("# Foo {#Foo}\n\nbar", $out);
+        $this->assertStringContainsString('[Foo](#Foo)', $out);
     }
 
     public function testUnresolvedReferenceStaysLiteral(): void

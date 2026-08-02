@@ -81,23 +81,20 @@ class MarkdownHabitLinterTest extends TestCase
         $this->assertSame([], $this->rules($source));
     }
 
-    public function testReportsAHeadingThatSwallowsTheNextLine(): void
+    public function testAHeadingNoLongerSwallowsTheNextLine(): void
     {
-        $this->assertSame(
-            [MarkdownHabitLinter::RULE_HEADING_LAZY_CONTINUATION],
-            $this->rules("### Title\nBody line\n"),
-        );
-    }
-
-    public function testTheSwallowedHeadingReallySwallows(): void
-    {
-        // The claim the diagnostic makes, pinned against the renderer: the
-        // following line lands INSIDE the heading, which the derived id shows
-        // most plainly.
+        // The `heading-lazy-continuation` rule warned that Carve folded the
+        // following line into the heading where Markdown starts a new block.
+        // SINGLE-LINE HEADINGS (PART 2) removed the fold, so the habit is no
+        // longer a habit and the rule was dropped. This pins the claim the
+        // removal rests on: nothing is swallowed, and the id comes from the
+        // heading line alone.
         $html = (new CarveConverter())->convert("### Title\nBody line\n");
 
-        $this->assertStringContainsString('id="Title-Body-line"', $html);
-        $this->assertStringContainsString("<h3>Title\nBody line</h3>", $html);
+        $this->assertStringContainsString('id="Title"', $html);
+        $this->assertStringContainsString('<h3>Title</h3>', $html);
+        $this->assertStringContainsString('<p>Body line</p>', $html);
+        $this->assertSame([], $this->rules("### Title\nBody line\n"));
     }
 
     public function testABlankLineAfterTheHeadingIsClean(): void
