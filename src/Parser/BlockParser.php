@@ -87,6 +87,20 @@ class BlockParser
      */
     public const MAX_NESTING_DEPTH = 200;
 
+    /**
+     * Depth bound for the heading-index walk.
+     *
+     * Matches `CrossReferenceResolver`'s own bound, because this walk has to
+     * reach every heading THAT one reaches: a heading it stops short of still
+     * gets an id at render time, so a lower bound here would render `<h1
+     * id="H">` while leaving `[H][]` literal. Nesting is capped at
+     * MAX_NESTING_DEPTH levels and a nested list spends two nodes per level, so
+     * the bound has to be comfortably above twice that.
+     *
+     * @var int
+     */
+    protected const MAX_HEADING_WALK_DEPTH = 512;
+
     private int $nestingDepth = 0;
 
     protected InlineParser $inlineParser;
@@ -546,18 +560,7 @@ class BlockParser
         // Capture the original source byte length before any normalization so
         // renderers can size the abbreviation-expansion budget (DoS guard).
         $sourceLength = strlen($input);
-        $this->references = [];
-        $this->headingReferencesByFoldedLabel = [];
-        $this->footnotes = [];
-        $this->abbreviations = [];
-        $this->abbreviationsBeforeBody = false;
-        $this->pendingAttributes = [];
-        $this->pendingAttributeOrder = [];
-        $this->warnings = [];
-        $this->usedReferences = [];
-        $this->anchorLinks = [];
-        $this->headingIds = [];
-        $this->lineOffset = 0;
+        $this->resetParseState();
         $document = new Document();
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
         // `﻿# T` is a heading, not literal text. Root only: this is the
@@ -578,7 +581,30 @@ class BlockParser
         $this->extractReferences($lines);
         $this->extractFootnotes($lines);
         $this->extractAbbreviations($lines);
-        $this->extractHeadingReferences($lines);
+        // The implicit `[Heading][]` index. Two ways to build it, and which one
+        // runs depends only on whether the document could USE it:
+        //
+        // The line scan below is cheap and sees a heading marker at column 0,
+        // which is every top-level heading and every one inside a div. It
+        // cannot see one inside a list item, a definition or a nested list -
+        // those are indented, and an indented `#` at top level is a paragraph,
+        // so the scan has no way to tell the two apart without re-deriving
+        // block structure. It also cannot see that a `#` line is inside a code
+        // fence, so it indexed headings that do not exist.
+        //
+        // PART 11 R1 puts headings in divs, admonitions, LIST ITEMS and
+        // definitions in the index, excluding only a blockquote ancestor. To
+        // get that right the structure has to be known, so when the source can
+        // actually contain a reference link the blocks are parsed once into a
+        // scratch tree and the index is taken from it - the same document-order
+        // walk the renderer already uses to resolve heading ids, so the ids
+        // agree by construction rather than by two scanners mirroring each
+        // other (carve-php#572).
+        if ($this->needsStructuredHeadingIndex($input)) {
+            $this->indexHeadingsFromStructure($lines);
+        } else {
+            $this->extractHeadingReferences($lines);
+        }
 
         // Second pass: parse blocks
         $this->parseBlocks($document, $lines, 0, topLevel: true);
@@ -1018,6 +1044,148 @@ class BlockParser
             }
             $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
         }
+    }
+
+    /**
+     * Is this document one where the difference between the two ways of
+     * building the heading index can be observed?
+     *
+     * Two consumers read it. A reference link - `[text][ref]` or the collapsed
+     * `[text][]`, both containing `][` - resolves through it. And anchor
+     * validation asks whether an id exists, which is why `](#` counts too: a
+     * heading in a list item that the line scan missed was reported as a broken
+     * anchor even in a document with no reference link at all. That half only
+     * matters when warnings are being collected, so it is gated on that as
+     * well.
+     *
+     * Everything else is left on the cheap line scan, where the index it builds
+     * is never read.
+     */
+    protected function needsStructuredHeadingIndex(string $input): bool
+    {
+        if (str_contains($input, '][')) {
+            return true;
+        }
+
+        return $this->collectWarnings && str_contains($input, '](#');
+    }
+
+    /**
+     * Build the implicit-reference index from parsed block structure.
+     *
+     * The blocks are parsed into a SCRATCH document and thrown away. That costs
+     * a second block parse, and buys the one thing a line scan cannot have:
+     * knowing whether an indented `#` line is a heading inside a list item or a
+     * paragraph at top level. Every mutable parse state the scratch run touched
+     * is reset afterwards and the extraction passes re-run, so the real parse
+     * starts from the same place it would have.
+     *
+     * @param array<string> $lines
+     */
+    protected function indexHeadingsFromStructure(array $lines): void
+    {
+        $scratch = new Document();
+        $this->parseBlocks($scratch, $lines, 0, topLevel: true);
+
+        $tracker = new HeadingIdTracker();
+        $tracker->setIdTransformer($this->headingIdTransformer);
+        $tracker->setLowercase($this->headingIdLowercase);
+        $index = [];
+        $ids = [];
+        // Document order, over every heading including nested ones - the same
+        // walk CrossReferenceResolver does at render time, so the ids this
+        // registers are the ids the output will carry.
+        $this->collectHeadingReferences($scratch, $tracker, false, $index, $ids);
+
+        $this->resetParseState();
+        $this->extractReferences($lines);
+        $this->extractFootnotes($lines);
+        $this->extractAbbreviations($lines);
+
+        foreach ($index as $label => $id) {
+            $this->registerHeadingReference((string)$label, new ReferenceDefinition('#' . $id, [], 0));
+        }
+        // Anchor validation asks a different question - does an element with
+        // this id exist - so it takes EVERY heading, blockquote ancestors
+        // included. Leaving these out warned "broken anchor link" for a link
+        // to a heading that is right there.
+        foreach ($ids as $id => $_present) {
+            $this->headingIds[(string)$id] = true;
+        }
+    }
+
+    /**
+     * Walk block structure, registering every heading the index may hold.
+     *
+     * A BLOCKQUOTE ancestor is the one exclusion (PART 11 R1): it carries
+     * another document's headings, so its wording is not the author's to
+     * reference. A list item, definition, div or admonition is the author's own
+     * grouping inside their own document, so those are included. The id is
+     * still resolved for an excluded heading, because it stays a valid `</#id>`
+     * crossref target and skipping it would shift the dedup counter.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
+     * @param bool $inBlockquote
+     * @param array<string, string> $index
+     * @param array<string, bool> $ids
+     * @param int $depth
+     */
+    protected function collectHeadingReferences(
+        Node $node,
+        HeadingIdTracker $tracker,
+        bool $inBlockquote,
+        array &$index,
+        array &$ids,
+        int $depth = 0,
+    ): void {
+        if ($depth >= self::MAX_HEADING_WALK_DEPTH) {
+            return;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Heading) {
+                $id = $tracker->getIdForHeading($child);
+                $ids[$id] = true;
+                $label = preg_replace('/\s+/', ' ', trim($tracker->getPlainText($child))) ?? '';
+                if (!$inBlockquote && $label !== '' && !isset($index[$label])) {
+                    $index[$label] = $id;
+                }
+
+                continue;
+            }
+
+            $this->collectHeadingReferences(
+                $child,
+                $tracker,
+                $inBlockquote || $child instanceof BlockQuote,
+                $index,
+                $ids,
+                $depth + 1,
+            );
+        }
+    }
+
+    /**
+     * Every mutable parse state, in one place.
+     *
+     * Called at the start of a parse and again after the scratch structure
+     * pass, so the two entry points cannot drift.
+     */
+    protected function resetParseState(): void
+    {
+        $this->references = [];
+        $this->headingReferencesByFoldedLabel = [];
+        $this->footnotes = [];
+        $this->abbreviations = [];
+        $this->abbreviationsBeforeBody = false;
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
+        $this->warnings = [];
+        $this->usedReferences = [];
+        $this->anchorLinks = [];
+        $this->headingIds = [];
+        $this->lineOffset = 0;
     }
 
     /**
