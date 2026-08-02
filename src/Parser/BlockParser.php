@@ -2100,6 +2100,7 @@ class BlockParser
             return null;
         }
 
+        /** @var list<string> $contentLines */
         $contentLines = [];
         if ($fenceInfo['tail'] !== '') {
             $contentLines[] = $fenceInfo['tail'];
@@ -2353,7 +2354,9 @@ class BlockParser
 
             foreach ($child->getChildren() as $index => $inline) {
                 if ($inline instanceof SoftBreak) {
-                    $child->replaceChild($index, new HardBreak());
+                    $hardBreak = new HardBreak();
+                    $hardBreak->setPos($inline->getPos());
+                    $child->replaceChild($index, $hardBreak);
                 }
             }
         }
@@ -4334,6 +4337,10 @@ class BlockParser
             // Store cell contents and attributes for potential merging
             $mergedCells = array_map(fn ($c) => $c['content'], $cellsWithAttrs);
             $cellAttributes = array_map(fn ($c) => $c['attributes'], $cellsWithAttrs);
+            $cellSourceChunks = [];
+            foreach ($cellsWithAttrs as $idx => $cell) {
+                $cellSourceChunks[$idx] = $this->tableCellSourceChunks($i, $cell);
+            }
             $baseLineForRow = $i;
 
             $i++;
@@ -4341,6 +4348,12 @@ class BlockParser
             // Check for continuation rows (lines starting with +)
             while ($i < $count && $this->tableParser->isContinuationRow($lines[$i])) {
                 $continuationCells = $this->tableParser->parseContinuationCells($lines[$i]);
+                foreach ($this->continuationCellSourceChunks($i, $lines[$i]) as $idx => $chunks) {
+                    if ($chunks === []) {
+                        continue;
+                    }
+                    $cellSourceChunks[$idx] = array_merge($cellSourceChunks[$idx] ?? [], $chunks);
+                }
                 $mergedCells = $this->tableParser->mergeCellContents($mergedCells, $continuationCells);
                 $i++;
             }
@@ -4361,6 +4374,7 @@ class BlockParser
                     'verbatim' => $original !== null
                         && $original['verbatim']
                         && $content === $original['content'],
+                    'sourceChunks' => $cellSourceChunks[$idx] ?? [],
                 ];
             }
 
@@ -4488,12 +4502,20 @@ class BlockParser
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
                 $trimmedContent = trim($marker['content']);
-                $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent);
+                $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
+                    ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
                 // The text's OWN extent inside the cell: the cell span covers
                 // the padding too, so the text is located within the raw slice
                 // the split kept for exactly this.
                 $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
+                if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
+                    $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+                    $row->appendChild($cell);
+                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+
+                    continue;
+                }
                 if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
                     $text = new Text($trimmedContent);
                     $text->setPos($cellMap?->spanFor(0, $trimmedContent) ?? $cellTextSpan);
@@ -4576,11 +4598,11 @@ class BlockParser
      * `consumedColspanColumns` to know which columns must NOT become a new
      * open origin for a later row, exactly as if they had been dropped.
      *
-     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null, raw: string|null}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
-     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
+     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
      */
     protected function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
     {
@@ -4671,6 +4693,7 @@ class BlockParser
                 'rawLength' => $cellData['rawLength'],
                 'raw' => $cellData['raw'],
                 'verbatim' => !$isEmpty && $cellData['verbatim'],
+                'sourceChunks' => $isEmpty ? [] : ($cellData['sourceChunks'] ?? []),
             ];
         }
 
@@ -4891,21 +4914,11 @@ class BlockParser
         // one entry containing newlines, so recording it as a single segment
         // would produce text that appears in no source line at all. Split it
         // back into physical lines, which is what the map resolves against.
+        /** @var list<array{int, int, int, string}> $contentLines */
         $contentLines = [];
         $indent = strlen($line) - strlen($content);
         $firstSourceLine = $this->sourceLineFor($start);
-        foreach (explode("\n", $content) as $piece => $pieceText) {
-            // The source line is resolved HERE, not later: the pieces are
-            // consecutive physical lines, but a pre-joined item has no line-map
-            // entry for any of them past the first, so re-resolving downstream
-            // would give -1 and drop the segment.
-            $contentLines[] = [
-                $firstSourceLine < 0 ? -1 : $firstSourceLine + $piece,
-                $piece === 0 ? $indent : 0,
-                strlen($pieceText),
-                $pieceText,
-            ];
-        }
+        $this->appendParagraphContentLines($contentLines, $firstSourceLine, $indent, $content);
 
         $i = $start + 1;
         $count = count($lines);
@@ -4931,12 +4944,12 @@ class BlockParser
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = $nextLine;
             $nextLine = ltrim($nextLine);
-            $contentLines[] = [
+            $this->appendParagraphContentLines(
+                $contentLines,
                 $this->sourceLineFor($i),
                 strlen($rawNextLine) - strlen($nextLine),
-                strlen($nextLine),
                 $nextLine,
-            ];
+            );
             $segment = "\n" . $nextLine;
             $content .= $segment;
             $braceState = $this->scanBraceState($segment, $braceState);
@@ -4957,8 +4970,13 @@ class BlockParser
         if ($trimmedContent !== $content) {
             $last = count($contentLines) - 1;
             $shrink = strlen($content) - strlen($trimmedContent);
-            $contentLines[$last][2] -= $shrink;
-            $contentLines[$last][3] = substr($contentLines[$last][3], 0, max(0, strlen($contentLines[$last][3]) - $shrink));
+            [$lineIndex, $column, $length, $lineText] = $contentLines[$last];
+            $contentLines[$last] = [
+                $lineIndex,
+                $column,
+                $length - $shrink,
+                substr($lineText, 0, max(0, strlen($lineText) - $shrink)),
+            ];
         }
         $content = $trimmedContent;
 
@@ -4977,6 +4995,27 @@ class BlockParser
         $parent->appendChild($paragraph);
 
         return $i - $start;
+    }
+
+    /**
+     * @param list<array{int, int, int, string}> &$contentLines
+     * @param int $firstSourceLine
+     * @param int $firstColumn
+     * @param string $text
+     */
+    private function appendParagraphContentLines(array &$contentLines, int $firstSourceLine, int $firstColumn, string $text): void
+    {
+        foreach (explode("\n", $text) as $piece => $pieceText) {
+            // The source line is resolved HERE, not later: the pieces are
+            // consecutive physical lines, but pre-joined list-item content has
+            // no line-map entry for embedded lines past the first.
+            $contentLines[] = [
+                $firstSourceLine < 0 ? -1 : $firstSourceLine + $piece,
+                $piece === 0 ? $firstColumn : 0,
+                strlen($pieceText),
+                $pieceText,
+            ];
+        }
     }
 
     /**
@@ -5450,9 +5489,179 @@ class BlockParser
         }
 
         $start = $lineStart + $cellOffset + $within;
+        if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+            $sourceColumn = strpos($this->sourceLines[$sourceLine] ?? '', $content);
+            if ($sourceColumn === false) {
+                return null;
+            }
+            $start = $lineStart + $sourceColumn;
+            if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+                return null;
+            }
+        }
 
-        return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $cellOffset + $within + 1)
+        return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $start - $lineStart + 1)
             ->withSource($this->normalizedSource, $this->positionIndex);
+    }
+
+    /**
+     * Source chunks for a table cell before continuation rows rebuild it.
+     *
+     * @param int $index
+     * @param array{content: string, offset?: int|null} $cellData
+     *
+     * @return list<array{int, int, string}> source line, source column, text
+     */
+    private function tableCellSourceChunks(int $index, array $cellData): array
+    {
+        $content = trim($cellData['content']);
+        if ($content === '') {
+            return [];
+        }
+
+        $offset = $cellData['offset'] ?? null;
+        if ($offset === null) {
+            return [];
+        }
+
+        $within = strpos($cellData['content'], $content);
+        if ($within === false) {
+            return [];
+        }
+
+        return [[$this->sourceLineFor($index), $offset + $within, $content]];
+    }
+
+    /**
+     * @return array<int, list<array{int, int, string}>>
+     */
+    private function continuationCellSourceChunks(int $index, string $line): array
+    {
+        $trimmed = ltrim($line);
+        $prefix = strlen($line) - strlen($trimmed);
+        $normalizedLine = '|' . substr($trimmed, 1);
+        $chunks = [];
+
+        foreach ($this->tableParser->splitCells($normalizedLine) as $idx => $cell) {
+            $content = trim($cell['content']);
+            if ($content === '') {
+                continue;
+            }
+            $within = strpos($cell['content'], $content);
+            if ($within === false) {
+                continue;
+            }
+            $chunks[$idx] = [[$this->sourceLineFor($index), $prefix + $cell['offset'] + $within, $content]];
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * A map for a table cell rebuilt from a base row plus `+` continuation rows.
+     *
+     * The spaces between chunks are parser-consumed joins, not source bytes, so
+     * they are deliberately left unmapped. Inline nodes that land on authored
+     * chunks keep positions; an all-plain rebuilt text node falls back to the
+     * measured extent from first chunk to last chunk.
+     *
+     * @param array{sourceChunks?: list<array{int, int, string}>} $cellData
+     * @param string $content
+     */
+    private function rebuiltCellSourceMap(array $cellData, string $content): ?SourceMap
+    {
+        if (!$this->trackPositions || $content === '') {
+            return null;
+        }
+
+        $chunks = $cellData['sourceChunks'] ?? [];
+        if ($chunks === []) {
+            return null;
+        }
+
+        $joined = implode(' ', array_map(static fn (array $chunk): string => $chunk[2], $chunks));
+        if ($joined !== $content) {
+            return null;
+        }
+
+        $map = new SourceMap();
+        $textOffset = 0;
+        $any = false;
+        foreach ($chunks as [$sourceLine, $column, $text]) {
+            $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+            if ($lineStart !== null) {
+                $map->add($textOffset, $lineStart + $column, strlen($text), $sourceLine + 1, $column + 1);
+                $any = true;
+            }
+            $textOffset += strlen($text) + 1;
+        }
+
+        return $any ? $map->withSource($this->normalizedSource, $this->positionIndex) : null;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param array{sourceChunks?: list<array{int, int, string}>} $cellData
+     * @param string $content
+     */
+    private function appendPlainRebuiltCellText(TableCell $cell, array $cellData, string $content): bool
+    {
+        $chunks = $cellData['sourceChunks'] ?? [];
+        if (count($chunks) < 2) {
+            return false;
+        }
+
+        $joined = implode(' ', array_map(static fn (array $chunk): string => $chunk[2], $chunks));
+        if ($joined !== $content) {
+            return false;
+        }
+
+        $nodes = [];
+        $last = count($chunks) - 1;
+        foreach ($chunks as $idx => [$sourceLine, $column, $text]) {
+            $line = $this->sourceLines[$sourceLine] ?? null;
+            $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+            if ($line === null || $lineStart === null) {
+                return false;
+            }
+            if (substr($line, $column, strlen($text)) !== $text) {
+                $found = strpos($line, $text);
+                if ($found === false) {
+                    return false;
+                }
+                $column = $found;
+            }
+
+            $value = $text;
+            if ($idx < $last) {
+                if (($line[$column + strlen($text)] ?? '') !== ' ') {
+                    return false;
+                }
+                $value .= ' ';
+            }
+
+            $span = $this->positionIndex?->span(
+                $lineStart + $column,
+                $lineStart + $column + strlen($value),
+                $sourceLine + 1,
+                $sourceLine + 1,
+                $lineStart,
+                $lineStart,
+            );
+            if ($span === null) {
+                return false;
+            }
+
+            $nodes[] = [$value, $span];
+        }
+
+        foreach ($nodes as [$value, $span]) {
+            $text = new Text($value);
+            $text->setPos($span);
+            $cell->appendChild($text);
+        }
+
+        return true;
     }
 
     private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
@@ -6883,6 +7092,11 @@ class BlockParser
         // Carve's delimiters: / (italic), and , / = (the ,, subscript
         // and == highlight pairs).
         return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n/,=') === false;
+    }
+
+    private function isPlainTableText(string $text): bool
+    {
+        return strpbrk($text, "\\`*_[{^~<\$:!\"'-\n/,=") === false;
     }
 
     /**
