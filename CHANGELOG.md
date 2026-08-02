@@ -7,6 +7,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a heading ends at the newline** (spec markup-carve/carve#451,
+  markup-carve/carve#434). Nothing folds into a heading any more - neither a
+  plain line nor a same-count `#` line - so `# Title` with prose beneath is a
+  heading plus a paragraph, and its id comes from the heading line alone
+  (`Title`, not `Title-Some-text`). Two documents that relied on the fold change
+  meaning; everything with a blank line after the heading is unaffected.
+
+  The fold was a silent corruption for anyone arriving from Markdown: the title
+  text and the derived id were both wrong, `</#id>` cross-references and TOC
+  anchors broke, and the intended body paragraph disappeared into the title with
+  nothing to report. Lazy continuation now means one thing across the language -
+  it continues an open paragraph - and a heading is not a paragraph.
+
+### Removed
+
+- **The `heading-lazy-continuation` lint rule.** It reported the fold above;
+  with the fold gone the rule describes behavior the engine no longer has.
+  `MarkdownHabitLinter` keeps its doubled-delimiter rules.
+
 ### Fixed
 
 - **An implicit `[Heading][]` reference now reaches a heading inside a list

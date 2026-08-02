@@ -19,8 +19,7 @@ namespace MarkupCarve\Carve\Lint;
  * Only forms that are never meaningful Carve are reported. `*x*` and `_x_` are
  * NOT flagged: they are correct Carve for strong and underline, so warning on
  * them would punish authors writing the language properly. That leaves the
- * doubled delimiters, which always degrade to literal text, and a heading that
- * swallows the line beneath it.
+ * doubled delimiters, which always degrade to literal text.
  *
  * Verbatim spans are skipped - `` `**not bold**` `` is code, not a habit.
  */
@@ -40,11 +39,6 @@ class MarkdownHabitLinter
      * @var string
      */
     public const RULE_STRIKETHROUGH = 'markdown-strikethrough';
-
-    /**
-     * @var string
-     */
-    public const RULE_HEADING_LAZY_CONTINUATION = 'heading-lazy-continuation';
 
     /**
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
@@ -78,11 +72,6 @@ class MarkdownHabitLinter
                 foreach ($this->inlineWarnings($line, $index + 1, $offset) as $warning) {
                     $warnings[] = $warning;
                 }
-
-                $continuation = $this->headingContinuation($lines, $index, $offset);
-                if ($continuation !== null) {
-                    $warnings[] = $continuation;
-                }
             }
 
             $offset += strlen($line) + 1;
@@ -97,42 +86,6 @@ class MarkdownHabitLinter
     private function fenceDelimiter(string $line): ?string
     {
         return preg_match('/^\s*(`{3,}|~{3,})/', $line, $matches) === 1 ? $matches[1] : null;
-    }
-
-    /**
-     * @param list<string> $lines
-     * @param int $offset
-     * @param int $index
-     */
-    private function headingContinuation(array $lines, int $index, int $offset): ?LintWarning
-    {
-        $line = $lines[$index];
-
-        if (preg_match('/^(#{1,6})\s+\S/', $line, $matches) !== 1) {
-            return null;
-        }
-
-        $next = $lines[$index + 1] ?? '';
-
-        // End of input, a blank line, or another block opener all end the
-        // heading; only prose on the very next line gets folded into it.
-        if (trim($next) === '' || preg_match('/^(#{1,6}\s|:::|\s*(`{3,}|~{3,}))/', $next) === 1) {
-            return null;
-        }
-
-        return new LintWarning(
-            line: $index + 1,
-            column: 1,
-            rule: self::RULE_HEADING_LAZY_CONTINUATION,
-            message: sprintf(
-                'The line below this heading is folded INTO it (lazy continuation), so the heading '
-                . 'reads "%s". Markdown starts a new block here; Carve does not. Leave a blank line '
-                . 'after the heading.',
-                $this->truncate(trim(substr($line, strlen($matches[1]))) . ' ' . trim($next)),
-            ),
-            start: $offset,
-            end: $offset + strlen($line),
-        );
     }
 
     /**
