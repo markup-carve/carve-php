@@ -108,6 +108,30 @@ class ProseMirrorToCarve
             $carveDocument->appendChild($node);
         }
 
+        // Restore document-level abbreviation definitions (carve-php#519). See
+        // the note in ProseMirrorRenderer::render(): without these the marks
+        // come back but the definitions do not, so the written source loses
+        // every expansion.
+        $attrs = $document['attrs'] ?? [];
+        $abbreviations = is_array($attrs) ? $attrs['carveAbbreviations'] ?? null : null;
+        if (is_array($attrs) && is_array($abbreviations) && $abbreviations !== []) {
+            // Narrowed rather than asserted: the payload is decoded JSON, so
+            // the values are whatever the caller sent. A non-string expansion
+            // is not a definition, so it is skipped rather than coerced into
+            // one - coercing would invent an expansion nobody wrote.
+            $definitions = [];
+            foreach ($abbreviations as $abbr => $expansion) {
+                if (!is_string($expansion)) {
+                    continue;
+                }
+                $definitions[(string)$abbr] = $expansion;
+            }
+            $carveDocument->setAbbreviations($definitions);
+            $carveDocument->setAbbreviationsBeforeBody(
+                (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
+            );
+        }
+
         return $carveDocument;
     }
 

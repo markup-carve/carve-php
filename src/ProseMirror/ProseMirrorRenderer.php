@@ -72,10 +72,32 @@ class ProseMirrorRenderer
         $this->dropped = [];
         $this->degraded = [];
 
-        return [
+        $doc = [
             'type' => 'doc',
             'content' => $this->renderBlocks($document->getChildren()),
         ];
+
+        // Abbreviation definitions are DOCUMENT state, not children, so they
+        // never reach renderBlocks and used to vanish across the bridge without
+        // being reported (carve-php#519). The occurrence survives - it is a
+        // `carveAbbreviation` mark carrying its title - but the definition it
+        // came from does not, so the writer emits no `*[ABBR]: ...` line and the
+        // next parse of that source has no abbreviation at all. Every expansion
+        // in the document silently stops working.
+        //
+        // They ride on the doc node's attrs, which is where ProseMirror puts
+        // document-level state. The ordering flag travels with them: it decides
+        // whether the definitions are written before the body or after it, and
+        // it is not recoverable from the map alone.
+        $abbreviations = $document->getAbbreviations();
+        if ($abbreviations !== []) {
+            $doc['attrs'] = [
+                'carveAbbreviations' => $abbreviations,
+                'carveAbbreviationsBeforeBody' => $document->hasAbbreviationsBeforeBody(),
+            ];
+        }
+
+        return $doc;
     }
 
     public function renderJson(Document $document, int $flags = 0): string
