@@ -70,10 +70,11 @@ trait PreservesHeadingIds
      * Inject `{#id}` above each heading whose Carve id differs from the live
      * one. A no-op when preservation is disabled.
      *
-     * Headings are paired positionally with the live ids. Adjacent or
-     * `#`-folded multi-line headings (a Carve-specific construct a published
-     * document is unlikely to contain) would desync the pairing, so a heading
-     * count mismatch throws rather than mis-pair.
+     * Headings are paired positionally with the live ids. A heading count
+     * mismatch would desync the pairing, so it throws rather than mis-pair.
+     * (This used to name `#`-folded multi-line headings as the way that
+     * happens. Headings end at the newline now, so that shape does not
+     * exist.)
      *
      * @throws \RuntimeException on a heading-count mismatch
      */
