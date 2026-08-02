@@ -63,6 +63,26 @@ class HtmlToCarveTest extends TestCase
     }
 
     /**
+     * Attributes go ON the marker (`-{.x} - a`), because the line below is now
+     * the nested list's own second item - an attribute line there would attach
+     * to that item instead. The marker gets wider, so the content column moves
+     * with it or the rest of the list dedents into a list of its own.
+     */
+    public function testAnAttributedItemHoldingOnlyANestedListKeepsBoth(): void
+    {
+        $html = '<ul><li class="x"><ul><li>a</li><li>b</li></ul></li></ul>';
+        $carve = $this->converter->convert($html);
+
+        $this->assertSame("-{.x} - a\n      - b\n", $carve);
+        // The attribute survives AND the nesting does - the failure this
+        // guards against kept one and lost the other.
+        $this->assertSame(
+            "<ul>\n  <li class=\"x\">\n    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n",
+            (new CarveConverter())->convert($carve),
+        );
+    }
+
+    /**
      * An ordered marker is wider, so the nested list sits at ITS content
      * column, not a fixed two.
      */

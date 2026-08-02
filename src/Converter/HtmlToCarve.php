@@ -1544,9 +1544,25 @@ class HtmlToCarve
                         // rest stays where it is.
                         $nestedLines = preg_split('/\R/', rtrim($nestedContent, "\n")) ?: [];
                         $firstNested = ltrim((string)array_shift($nestedLines));
-                        $output .= $indent . $prefix . $firstNested . "\n";
-                        if ($liAttrs !== '') {
-                            $output .= $continuation . '{' . $liAttrs . "}\n";
+                        // Attributes go ON the marker (`-{.x} - a`), not on a
+                        // line below it: the line below is now the nested
+                        // list's own second item, so an attribute line there
+                        // would attach to that item instead of this one.
+                        $marker = $liAttrs !== ''
+                            ? rtrim($prefix) . '{' . $liAttrs . '} '
+                            : $prefix;
+                        $output .= $indent . $marker . $firstNested . "\n";
+                        // Attributes widen the marker, and the content column
+                        // moves with it. Without this the following lines sit
+                        // at the UNattributed column and dedent out of the
+                        // item, splitting the nested list off into its own.
+                        $attrSurplus = strlen($marker) - $markerWidth;
+                        if ($attrSurplus > 0) {
+                            $attrPad = str_repeat(' ', $attrSurplus);
+                            $nestedLines = array_map(
+                                static fn (string $line): string => $line === '' ? '' : $attrPad . $line,
+                                $nestedLines,
+                            );
                         }
                         foreach ($nestedLines as $line) {
                             $output .= $line === '' ? "\n" : $line . "\n";
