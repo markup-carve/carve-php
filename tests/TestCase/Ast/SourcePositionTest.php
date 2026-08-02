@@ -135,6 +135,14 @@ class SourcePositionTest extends TestCase
                 if (self::applyEscapes($selected) === $node->getContent()) {
                     continue;
                 }
+                // A verse line's indent is the other rewrite: each leading
+                // SPACE becomes one U+E000, so the span covers the same
+                // characters while the text differs in exactly those positions.
+                // One-for-one, which is why it is placed at all - a tab widens
+                // to several and declines instead.
+                if (self::isVerseIndent($selected, $node->getContent())) {
+                    continue;
+                }
 
                 $wrong[] = basename($file) . ': ' . json_encode($selected);
             }
@@ -360,6 +368,71 @@ class SourcePositionTest extends TestCase
      * non-breaking-space sentinel, and a backslash before ASCII punctuation
      * becomes the punctuation alone.
      */
+
+    /**
+     * A verse line's indent is REWRITTEN one placeholder per space, so it spans
+     * exactly the characters it replaced and is placeable. The corpus-wide
+     * wrong-span guard cannot cover this on its own: without a position the
+     * node is simply skipped there, so absence looks identical to correctness.
+     */
+    public function testAVerseIndentIsPlacedOverTheSpacesItReplaced(): void
+    {
+        $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $indent = null;
+        foreach (self::walk($document) as $node) {
+            if ($node instanceof Text && $node->getContent() === str_repeat("\u{E000}", 2)) {
+                $indent = $node;
+
+                break;
+            }
+        }
+
+        $this->assertNotNull($indent, 'the verse indent did not become its own node');
+        $pos = $indent->getPos();
+        $this->assertNotNull($pos, 'a one-for-one rewrite must still be placed');
+        $this->assertSame(
+            '  ',
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+            'the span does not cover the two spaces the placeholders replaced',
+        );
+    }
+
+    /**
+     * A TAB widens to up to four placeholders from one character, so no span
+     * can be honest about it.
+     */
+    public function testATabIndentDeclinesAPosition(): void
+    {
+        $source = "::: |\nRoses,\n\tViolets.\n:::\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if ($node instanceof Text && str_contains($node->getContent(), "\u{E000}")) {
+                $this->assertNull($node->getPos(), 'a tab indent is not one-for-one and has no honest span');
+
+                return;
+            }
+        }
+
+        $this->fail('the tab-indented verse line was not found');
+    }
+
+    /**
+     * Whether `$content` is `$selected` with every space rewritten to the
+     * generated-NBSP placeholder, which is what a line block does to a verse
+     * line's indent.
+     */
+    private static function isVerseIndent(string $selected, string $content): bool
+    {
+        if ($selected === '' || trim($selected, ' ') !== '') {
+            return false;
+        }
+
+        return str_repeat("\u{E000}", strlen($selected)) === $content;
+    }
+
     private static function applyEscapes(string $slice): string
     {
         $escapable = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
