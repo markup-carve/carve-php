@@ -1725,7 +1725,7 @@ class HtmlRenderer implements RendererInterface
     protected function renderMention(Mention $node): string
     {
         $href = $node->getDestination() ?? '';
-        $class = $this->escapeAttribute($node->getCssClass());
+        $class = $node->getCssClass();
 
         // Carve default: with no configured URL template a mention/tag is a
         // non-link `<span class="…"><strong>…</strong></span>`. A configured
@@ -1734,10 +1734,12 @@ class HtmlRenderer implements RendererInterface
         // link path (with none they add nothing, matching the corpus output).
         if ($href === '') {
             $spanAttrs = $this->getRenderableAttributes($node);
+            $spanClass = $spanAttrs['class'] ?? '';
             unset($spanAttrs['class'], $spanAttrs['href']);
+            $attrs = $this->mergeAttribute(['class' => $class], 'class', $spanClass) + $spanAttrs;
 
-            return '<span class="' . $class . '"'
-                . $this->renderAttributeArray($spanAttrs) . '><strong>'
+            return '<span'
+                . $this->renderAttributeArray($attrs) . '><strong>'
                 . $this->renderChildren($node) . '</strong></span>';
         }
 
@@ -1751,11 +1753,14 @@ class HtmlRenderer implements RendererInterface
         // pipeline (e.g. rel="nofollow ugc" from a profile). With no
         // such attributes this is the exact corpus/reference output.
         $attrs = $this->getRenderableAttributes($node);
+        $linkClass = $attrs['class'] ?? '';
         unset($attrs['class'], $attrs['href']);
+        $linkAttrs = $this->mergeAttribute(['class' => $class], 'class', $linkClass);
+        $linkAttrs['href'] = $href;
+        $linkAttrs += $attrs;
 
-        return '<a class="' . $class . '"'
-            . ' href="' . $this->escapeAttribute($href) . '"'
-            . $this->renderAttributeArray($attrs) . '>'
+        return '<a'
+            . $this->renderAttributeArray($linkAttrs) . '>'
             . $this->renderChildren($node) . '</a>';
     }
 

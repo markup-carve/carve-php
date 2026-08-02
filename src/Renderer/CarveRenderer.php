@@ -1116,11 +1116,9 @@ class CarveRenderer implements RendererInterface
      * mention with no css class renders `class=""`, which is not worth
      * spelling out.
      *
-     * A `class` ATTRIBUTE is deliberately not written: the HTML renderer drops
-     * it on this path (the css class alone becomes `class`), so emitting it
-     * would render a class the node does not, and break the very equality this
-     * exists for. That the attribute renders nowhere is a separate defect
-     * (carve-php#567).
+     * A `class` ATTRIBUTE is written after the structural class: the HTML
+     * renderer merges it into the same leading class slot, so the authored class
+     * has to be present here for `toHtml(fmt(x)) == toHtml(x)`.
      */
     protected function writeStaticMentionExactly(Mention $node): ?string
     {
@@ -1138,10 +1136,10 @@ class CarveRenderer implements RendererInterface
             return null;
         }
 
-        // Everything except `class`, in the node's own order, via the normal
-        // attribute writer - so an id stays `#id` and a key/value stays one.
+        // Everything in the node's own order, via the normal attribute writer -
+        // so an author class stays `.class`, an id stays `#id`, and a key/value
+        // stays one.
         $rest = clone $node;
-        $rest->removeAttribute('class');
         $written = $this->renderAttrs($rest);
 
         return '[*' . $label . '*]{.' . $this->escapeAttrNameValue($node->getCssClass())
