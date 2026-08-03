@@ -42,6 +42,7 @@ use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -1596,6 +1597,26 @@ class HtmlRenderer implements RendererInterface
         return $html;
     }
 
+    /**
+     * A lone image is a BLOCK node (the `image` node's own description in the
+     * AST vocabulary), so it takes the trailing newline every other block
+     * emits. Before #633 the parser wrapped it in a paragraph and
+     * `renderParagraph` added that newline; the node arrives here directly now,
+     * and without this a block image and the paragraph it replaced woulddiffer by
+     * one byte.
+     */
+    protected function isBlockPositionImage(Image $node): bool
+    {
+        $parent = $node->getParent();
+
+        // A figure holds its image directly and controls its own layout - the
+        // image there was never a paragraph, so nothing about it changed.
+        return $parent !== null
+            && !$parent instanceof Paragraph
+            && !$parent instanceof Figure
+            && !$parent instanceof InlineNode;
+    }
+
     protected function renderImage(Image $node): string
     {
         $attrs = $this->renderAttributesExcluding($node, ['src']);
@@ -1621,7 +1642,9 @@ class HtmlRenderer implements RendererInterface
 
         $html .= $attrs;
 
-        return $this->xhtml ? $html . ' />' : $html . '>';
+        $tag = $this->xhtml ? $html . ' />' : $html . '>';
+
+        return $this->isBlockPositionImage($node) ? $tag . "\n" : $tag;
     }
 
     protected function renderCode(Code $node): string

@@ -280,6 +280,11 @@ class CarveRenderer implements RendererInterface
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
             $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->collapseBreaks($this->trimNonNbsp($this->renderInlines($node->getChildren())))),
+            // A LONE image is a block node, not a paragraph wrapping one (the
+            // `image` node's own description in the AST vocabulary). The block
+            // match had no arm for it, so it fell through and lost the blank
+            // line that separates it from the next block (#633).
+            $node instanceof Image => $this->renderImage($node),
             $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it

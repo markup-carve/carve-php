@@ -38,6 +38,7 @@ use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -323,6 +324,13 @@ class MarkdownRenderer implements RendererInterface
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
+                // A BLOCK-position image needs the separator a paragraph would
+                // have added. Decided by position, not by class: this match
+                // covers inline nodes too, and a bare `instanceof Image` arm
+                // here appended the separator to every inline image as well -
+                // `see ![a](x.png) here` came out split across three lines.
+                $node instanceof Image && $this->isBlockPositionImage($node)
+                => $this->renderImage($node) . "\n\n",
                 $node instanceof Paragraph => $this->renderParagraph($node),
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
@@ -836,6 +844,17 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return '[' . $text . '](' . $url . ')';
+    }
+
+    /**
+     * A lone image is a block-level image node (#633), so it takes the block
+     * separator. An image inside a paragraph or another inline is inline.
+     */
+    protected function isBlockPositionImage(Image $node): bool
+    {
+        $parent = $node->getParent();
+
+        return $parent !== null && !$parent instanceof Paragraph && !$parent instanceof InlineNode;
     }
 
     protected function renderImage(Image $node): string

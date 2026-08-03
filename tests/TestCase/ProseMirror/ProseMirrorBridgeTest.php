@@ -1033,9 +1033,15 @@ class ProseMirrorBridgeTest extends TestCase
     {
         $document = (new CarveConverter())->parse('![alt](real.png){src=evil.png}');
 
+        // A lone image is a BLOCK image node, so it is a direct child of the
+        // doc rather than wrapped in a paragraph (#633). This test is about
+        // attribute precedence, not shape - the bridge already accepted a
+        // top-level image on the way in (see
+        // testABlockPositionImageIsWrappedForCarveSource).
         $pm = $this->renderer->render($document);
-        $image = $pm['content'][0]['content'][0];
+        $image = $pm['content'][0];
 
+        $this->assertSame('image', $image['type']);
         $this->assertSame('real.png', $image['attrs']['src']);
     }
 

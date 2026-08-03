@@ -701,17 +701,36 @@ class BlockParser
      */
     protected function promoteBlockImageAttributes(Node $node): void
     {
-        foreach ($node->getChildren() as $child) {
+        $children = $node->getChildren();
+        $replaced = false;
+        foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $kids = $child->getChildren();
-                if (count($kids) === 1 && $kids[0] instanceof Image && $child->getAttributes() !== []) {
-                    $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
-                    foreach (array_keys($child->getAttributes()) as $key) {
-                        $child->removeAttribute((string)$key);
+                if (count($kids) === 1 && $kids[0] instanceof Image) {
+                    if ($child->getAttributes() !== []) {
+                        $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
+                        foreach (array_keys($child->getAttributes()) as $key) {
+                            $child->removeAttribute((string)$key);
+                        }
                     }
+                    // The AST vocabulary states it in the `image` node's own
+                    // description: "Also valid in BLOCK position: a lone image
+                    // paragraph is a block-level image." carve-js and carve-rs
+                    // publish the image; this engine published the paragraph
+                    // and unwrapped it again in the HTML renderer, so the
+                    // output matched while the tree did not - which no HTML
+                    // gate can see (#633).
+                    $kids[0]->setPos($kids[0]->getPos() ?? $child->getPos());
+                    $children[$index] = $kids[0];
+                    $replaced = true;
+
+                    continue;
                 }
             }
             $this->promoteBlockImageAttributes($child);
+        }
+        if ($replaced) {
+            $node->setChildren($children);
         }
     }
 
