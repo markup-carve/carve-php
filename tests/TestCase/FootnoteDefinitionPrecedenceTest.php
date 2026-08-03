@@ -78,4 +78,31 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
             $this->squash($this->converter->convert("see [t][a^b].\n\n[a^b]: u\n")),
         );
     }
+
+    /**
+     * `[^]:` is NOT a footnote definition, so it is a reference definition.
+     *
+     * `footnote_label` is one-or-more characters, so an empty label never forms
+     * a footnote definition; `reference_label` admits `^`, being neither `]`
+     * nor `@`. So the line is a reference definition and renders nothing.
+     *
+     * Excluding every `[^` from the reference-definition pattern - rather than
+     * excluding a VALID footnote definition - left this line as paragraph text,
+     * where carve-js and carve-rs both render nothing.
+     */
+    public function testEmptyFootnoteLabelIsAReferenceDefinition(): void
+    {
+        $html = CarveConverter::create()->convert("[^]: http://x.de\n\ny\n");
+
+        $this->assertStringNotContainsString('[^]', $html);
+        $this->assertSame('<p>y</p>', trim($html));
+    }
+
+    public function testANonEmptyFootnoteLabelStillWins(): void
+    {
+        $html = CarveConverter::create()->convert("see [^a]\n\n[^a]: note\n");
+
+        $this->assertStringContainsString('doc-noteref', $html);
+        $this->assertStringContainsString('note', $html);
+    }
 }

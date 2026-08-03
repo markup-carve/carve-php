@@ -284,7 +284,14 @@ class ReferenceDefinitionExtractor
         bool $pendingAttrsInList,
         array $referenceLine,
     ): ?array {
-        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?![@^])([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches) !== 1) {
+        // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
+        // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
+        // is one-or-more characters, so an empty label never forms a footnote
+        // definition and the line falls through to a reference definition with
+        // the label `^` - which `reference_label` admits, being neither `]`
+        // nor `@`. Excluding every `[^` left that line as paragraph text, where
+        // carve-js and carve-rs both render nothing.
+        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches) !== 1) {
             return null;
         }
 
