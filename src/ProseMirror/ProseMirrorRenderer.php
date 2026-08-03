@@ -690,23 +690,12 @@ class ProseMirrorRenderer
             }
         }
 
-        if ($node instanceof ListBlock) {
-            // The style, the marker and the bare-dot flag now travel as their
-            // own keys, so the only marker left that cannot come back is one
-            // the WRITER itself normalizes: it spells every non-`*` bullet as
-            // `-`, so a `+` list is already lost before the bridge sees it.
-            // Declaring the others would be a loss report for a loss that no
-            // longer happens, which is as misleading as the silence was.
-            $marker = $node->getMarker();
-            if (
-                $node->getListType() !== ListBlock::TYPE_ORDERED
-                && $marker !== null
-                && !in_array($marker, ['-', '*'], true)
-            ) {
-                $this->degraded['list'] = 'the writer spells every bullet other than `*` as `-`, '
-                    . 'so this list\'s marker character cannot come back';
-            }
-        }
+        // A list declares nothing. Its style, marker and bare-dot flag all
+        // travel as their own keys now, and the grammar admits exactly two
+        // bullets and two ordered delimiters, all four of which are carried -
+        // `+` is not a bullet in Carve at all, so a guard for "some other
+        // marker" would be a branch that cannot run. Reporting a loss that no
+        // longer happens is as misleading as the silence this replaced.
     }
 
     protected function isInlineContainer(Node $node): bool
