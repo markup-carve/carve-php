@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
@@ -257,9 +258,15 @@ class ProfileFilter
             $textContent = '[' . $type . ']';
         }
 
-        // For block nodes, wrap text in a paragraph to maintain block structure
-        // For inline nodes, just replace with text
-        if ($node instanceof BlockNode) {
+        // Decided by POSITION, not by class. A lone image is a block-level
+        // image node (#633) while `Image` extends `InlineNode`, so a class test
+        // put its placeholder text straight into a container as a bare text
+        // node - block content that is not in any block. Everything else keeps
+        // today's behavior: a block node's parent is a container, an inline
+        // node's parent is a paragraph or another inline.
+        $inBlockPosition = $node instanceof BlockNode
+            || (!$parent instanceof Paragraph && !$parent instanceof InlineNode);
+        if ($inBlockPosition) {
             $paragraph = new Paragraph();
             $this->appendTextWithBreaks($paragraph, $textContent);
             $parent->replaceChildNode($node, $paragraph);
