@@ -639,6 +639,52 @@ class AstCodecTest extends TestCase
         ];
     }
 
+    /**
+     * PART 12 §6, measured over the whole corpus rather than a handful of
+     * pinned inputs.
+     *
+     * `decode(encode(parse(x)))` must be the SAME tree as `parse(x)`. Comparing
+     * the encoded forms is the strongest comparison this engine can make today
+     * - a `RawText` run publishes as `text` and is joined by the encoder, so
+     * the trees legitimately differ there (#624) while the wire forms agree -
+     * but it is far from vacuous: it caught a decoder that appended a `.class`
+     * slot to `attrs.order` the parser never records.
+     *
+     * That slot is structural. The parser derives an admonition's kind class
+     * from the opener word and records no source slot for it, while
+     * `applyDerivedFields` wrote it with `setAttribute()`, which records one
+     * unconditionally. `42-admonitions-5` - an attribute line carrying `title=`
+     * above an opener title - came back with `["title", ".class"]` against the
+     * parser's `["title"]`. HTML and Carve output were identical, which is why
+     * the round-trip tests above stayed green.
+     */
+    public function testEveryCorpusDocumentEncodesIdenticallyAfterARoundTrip(): void
+    {
+        $directory = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
+        $inputs = glob($directory . '/*.crv') ?: [];
+        $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
+
+        $divergent = [];
+        foreach ($inputs as $input) {
+            $source = (string)file_get_contents($input);
+            $encoded = $this->codec->encode((new CarveConverter())->parse($source));
+            $again = $this->codec->encode($this->codec->decode($encoded));
+            if ($encoded !== $again) {
+                $divergent[] = basename($input);
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $divergent,
+            sprintf(
+                '%d corpus documents encode differently after a round trip: %s',
+                count($divergent),
+                implode(', ', array_slice($divergent, 0, 8)),
+            ),
+        );
+    }
+
     public function testDecodeJsonPassesAnOrdinaryJsonErrorThrough(): void
     {
         // Only the depth failure is reinterpreted; a syntax error is still the

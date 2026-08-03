@@ -1465,7 +1465,20 @@ class AstCodec
             self::writeProperty($node, 'typed', true);
             $kind = $data['kind'] ?? null;
             if (is_string($kind) && $kind !== '') {
+                // The kind class is STRUCTURAL - the parser derives it from the
+                // opener word and records no source slot for it - so writing it
+                // must not add one either. setAttribute() records `.class`
+                // unconditionally, which appended a slot the parsed tree does
+                // not have and made `decode(encode(parse(x)))` differ from
+                // `parse(x)` for `42-admonitions-5` (PART 12 §6): an attribute
+                // line carrying `title=` plus an opener title came back with
+                // `order` = `["title", ".class"]` against the parser's
+                // `["title"]`. An AUTHORED class still names its own slot,
+                // because that slot arrives in the wire's `order` and is
+                // restored below.
+                $order = $node->getAttributeOrder();
                 $node->setAttribute('class', $kind);
+                $node->setAttributeOrder($order);
             }
             // Falls through to the Div branch below, which recomputes the raw
             // title string an admonition needs just as much as a plain div.
