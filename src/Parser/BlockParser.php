@@ -4153,6 +4153,20 @@ class BlockParser
         $paragraph = new Paragraph();
         $lastIndex = count($lines) - 1;
 
+        // The stanza's extent is first-line start to last-line end - pure line
+        // geometry, which a tab does not move. Leaving it to be derived from the
+        // first PLACED child gave a tab-containing stanza a paragraph starting
+        // at the newline that ends its first line, so that line fell outside its
+        // own paragraph: a wrong span, which PART 12 §4 rates worse than an
+        // absent one (#669). A tab expands to indent sentinels and shifts every
+        // offset after it WITHIN a line, which is why the inline text stays
+        // unplaced - but the line's own start and end are unaffected.
+        $this->stampBlockSpan(
+            $paragraph,
+            $this->sourceLineFor($lines[0][1]),
+            $this->sourceLineFor($lines[$lastIndex][1]),
+        );
+
         foreach ($lines as $index => [$line, $lineNumber]) {
             $this->appendLineBlockLine($paragraph, $line, $lineNumber);
             if ($index < $lastIndex) {

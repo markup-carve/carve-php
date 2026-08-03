@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -463,6 +464,55 @@ class SourcePositionTest extends TestCase
     /**
      * @return \Generator<\MarkupCarve\Carve\Node\Node>
      */
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function lineBlockStanzaProvider(): array
+    {
+        return [
+            // A tab expands to indent sentinels and shifts every offset after it
+            // WITHIN a line, so the stanza's inline text is deliberately left
+            // unplaced. The stanza's own extent is a different fact - first-line
+            // start to last-line end - and a tab moves neither.
+            'tab stanza' => [
+                "::: |\ntab\tgap\nwide\t\tgap\n\tlead\n:::\n",
+                "tab\tgap\nwide\t\tgap\n\tlead",
+            ],
+            'tab-free stanza' => [
+                "::: |\nRoses are red,\nViolets are blue.\n:::\n",
+                "Roses are red,\nViolets are blue.",
+            ],
+        ];
+    }
+
+    #[DataProvider('lineBlockStanzaProvider')]
+    public function testALineBlockStanzaSpansItsOwnLines(string $source, string $expected): void
+    {
+        // The span used to be derived from the first PLACED child. With the
+        // first text unplaced by the tab, that was the hard break - so the
+        // paragraph began at the newline ENDING its first line and that line
+        // fell outside its own paragraph (#669).
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $paragraph = null;
+        foreach (self::walk($document) as $node) {
+            if ($node instanceof Paragraph) {
+                $paragraph = $node;
+
+                break;
+            }
+        }
+
+        $this->assertNotNull($paragraph);
+        $pos = $paragraph->getPos();
+        $this->assertNotNull($pos);
+        $this->assertSame(
+            $expected,
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+        );
+    }
+
     private static function walk(Node $node): iterable
     {
         foreach ($node->getChildren() as $child) {
