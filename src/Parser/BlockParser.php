@@ -1857,10 +1857,9 @@ class BlockParser
             while ($nextIdx < $count && IndentationHelper::isBlankLine($lines[$nextIdx])) {
                 $nextIdx++;
             }
-            if ($nextIdx < $count && preg_match('/^\[([^\]]+)\]: [ \t]*\S/', $lines[$nextIdx])) {
-                // Attributes precede a reference definition (non-empty
-                // destination required, matching the ref-def parser), don't
-                // store them as block attrs.
+            if ($nextIdx < $count && $this->isReferenceDefinitionLine($lines[$nextIdx])) {
+                // Attributes precede a reference definition, don't store them
+                // as block attrs.
                 return 1;
             }
 
@@ -5696,17 +5695,34 @@ class BlockParser
         }
 
         // Invisible constructs produce no rendered block of their own, so they
-        // are recognised next to prose rather than left as literal text. The
-        // ref-def pattern requires a non-empty destination (the same rule the
-        // ref-def parser uses): an empty `[r]:` / `[r]:   ` is literal text and
-        // must NOT interrupt the paragraph (matches carve-js / carve-rs).
+        // are recognised next to prose rather than left as literal text.
         // A `%%` line comment may be indented: leading whitespace before `%%`
         // does not matter, so an indented comment line interrupts the paragraph
         // exactly like a column-0 one (matches carve-js / carve-rs and the
         // grammar `comment_line = [whitespace], "%%", …`).
-        return preg_match('/^\[[^\]]+\]: [ \t]*\S/', $line) === 1
+        return $this->isReferenceDefinitionLine($line)
             || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^[ \t]*%%/', $line) === 1;
+    }
+
+    /**
+     * Whether a line opens a link reference definition.
+     *
+     * This is the INTERRUPTION side of the rule, so it has to accept exactly
+     * what the definition parser accepts. A line it accepts and the parser then
+     * rejects ends the paragraph and reappears as a visible one - which is what
+     * a citation key did (issue 619): `@` is excluded from a label so
+     * `[@key]: …` stays with CitationsExtension, but the predicate here matched
+     * it anyway.
+     *
+     * The destination must be non-empty (a bare `[r]:`, with nothing but spaces
+     * after it, is literal text) and the separator after `]:` must start with a
+     * literal space, both matching {@see self::tryParseReferenceDefinition()} and
+     * {@see \MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor}.
+     */
+    protected function isReferenceDefinitionLine(string $line): bool
+    {
+        return preg_match('/^\[(?!@)[^\]]+\]: [ \t]*\S/', $line) === 1;
     }
 
     protected function paragraphHasUnclaimedColonFenceLine(string $content): bool
