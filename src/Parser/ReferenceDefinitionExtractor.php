@@ -284,7 +284,7 @@ class ReferenceDefinitionExtractor
         bool $pendingAttrsInList,
         array $referenceLine,
     ): ?array {
-        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches) !== 1) {
+        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?![@^])([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches) !== 1) {
             return null;
         }
 
