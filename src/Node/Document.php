@@ -19,6 +19,22 @@ class Document extends Node
     protected bool $abbreviationsBeforeBody = false;
 
     /**
+     * Every `*[ABBR]: …` line the author wrote, in source order.
+     *
+     * The map above answers WHICH definition wins - the last one, per PART 9R.
+     * That is a resolution result, and PART 12 section 3a puts the serialized
+     * tree BEFORE resolution, so a shadowed definition is still a line that has
+     * to survive: the formatter prints it and the tree carries a node for it.
+     * Collecting into the map alone silently dropped it (carve#553).
+     *
+     * Each entry is `['abbr' => string, 'expansion' => string]`. Empty for a
+     * document built programmatically, where the map is all there is.
+     *
+     * @var array<int, array<string, string>>
+     */
+    protected array $abbreviationDefinitions = [];
+
+    /**
      * Where each `*[ABBR]: …` line sat, keyed by abbreviation.
      *
      * Definitions are collected out of the body into a map, which loses the one
@@ -104,5 +120,34 @@ class Document extends Node
     public function setAbbreviationsBeforeBody(bool $beforeBody): void
     {
         $this->abbreviationsBeforeBody = $beforeBody;
+    }
+
+    /**
+     * Authored abbreviation definitions in source order, shadowed ones
+     * included. Falls back to the resolved map for a document that never had
+     * a source.
+     *
+     * @return array<int, array<string, string>>
+     */
+    public function getAbbreviationDefinitions(): array
+    {
+        if ($this->abbreviationDefinitions !== []) {
+            return $this->abbreviationDefinitions;
+        }
+
+        $defs = [];
+        foreach ($this->abbreviations as $abbr => $expansion) {
+            $defs[] = ['abbr' => (string)$abbr, 'expansion' => $expansion];
+        }
+
+        return $defs;
+    }
+
+    /**
+     * @param array<int, array<string, string>> $definitions
+     */
+    public function setAbbreviationDefinitions(array $definitions): void
+    {
+        $this->abbreviationDefinitions = $definitions;
     }
 }
