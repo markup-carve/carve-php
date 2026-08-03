@@ -11,12 +11,23 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Covers the incremental brace scan used while collecting a paragraph.
+ * Paragraph collection: interruption does not depend on brace state, and the
+ * scan stays linear.
  *
- * The scan must (a) keep its original semantics - an unclosed attribute brace
- * in the paragraph so far suppresses block interruption - and (b) stay linear
- * in the number of lines. Re-scanning the whole growing content on every line
- * previously made a single multi-line paragraph parse in O(n^2).
+ * This file used to assert the opposite of its first two cases. An unclosed
+ * attribute brace suppressed block interruption, so every line after `text{a=x`
+ * became paragraph text until a blank line - which published COMMENT bodies and
+ * swallowed headings and fences.
+ *
+ * That rule was carve-php's alone: carve-js and carve-rs interrupt normally
+ * after `text{a=x`, and PART 9 §10's I1 says nothing about brace state. It also
+ * protected nothing, since an inline attribute block cannot span lines in any
+ * engine. The behaviour and these cases were corrected together; see
+ * BraceDoesNotSuppressInterruptionTest.
+ *
+ * The linearity guard below is the part that stays: re-scanning the whole
+ * growing content on every line previously made a single multi-line paragraph
+ * parse O(n^2).
  */
 class ParagraphBraceScanTest extends TestCase
 {
@@ -31,14 +42,13 @@ class ParagraphBraceScanTest extends TestCase
         return false;
     }
 
-    public function testUnclosedBraceSuppressesInterruption(): void
+    public function testUnclosedBraceDoesNotSuppressInterruption(): void
     {
         $parser = new BlockParser();
         $doc = $parser->parse("text{a=x\n# heading");
 
-        $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Paragraph::class, $doc->getChildren()[0]);
-        $this->assertFalse($this->hasHeading($doc));
+        $this->assertTrue($this->hasHeading($doc), 'the heading interrupts, as in carve-js and carve-rs');
     }
 
     public function testClosedBraceAllowsInterruption(): void
@@ -49,15 +59,14 @@ class ParagraphBraceScanTest extends TestCase
         $this->assertTrue($this->hasHeading($doc));
     }
 
-    public function testBraceInsideQuoteIsNotCounted(): void
+    public function testAQuotedBraceDoesNotChangeInterruption(): void
     {
-        // The `}` lives inside a quoted value, so the `{` stays unclosed and the
-        // heading must not interrupt - exercises quote state carried across the
-        // segment boundary.
+        // Whatever the brace state, the heading interrupts. Kept as a case
+        // because it is the shape that made the old rule look subtle.
         $parser = new BlockParser();
         $doc = $parser->parse("text{a=\"}\"\n# heading");
 
-        $this->assertFalse($this->hasHeading($doc));
+        $this->assertTrue($this->hasHeading($doc));
     }
 
     public function testPlainParagraphStillInterrupts(): void
