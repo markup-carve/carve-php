@@ -4942,11 +4942,6 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
 
-        // Track brace nesting incrementally. Re-scanning the whole (growing)
-        // $content on every continuation line made paragraph parsing O(n^2) in
-        // the number of lines; carrying the state forward keeps it linear.
-        $braceState = $this->scanBraceState($content, self::INITIAL_BRACE_STATE);
-
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -4954,9 +4949,17 @@ class BlockParser
                 break;
             }
 
-            // An unclosed brace in the content so far suppresses block
-            // interruption (e.g. `text{a=x` then `# not-a-heading`).
-            if ($braceState['depth'] <= 0 && $this->interruptsParagraph($lines, $i, $content, $start)) {
+            // An unclosed `{` used to suppress this check, so every following
+            // line became paragraph text until a blank line. That published
+            // COMMENT bodies - `%%` and `%%%` hold content the author does not
+            // want in the output - and swallowed headings and fences.
+            //
+            // It was this engine's rule alone: carve-js and carve-rs interrupt
+            // normally after `text{a=x`, which is the example the rule was
+            // written for, and PART 9 §10's I1 says nothing about brace state.
+            // It protected nothing either - an inline attribute block cannot
+            // span lines in any engine.
+            if ($this->interruptsParagraph($lines, $i, $content, $start)) {
                 break;
             }
 
@@ -4969,9 +4972,7 @@ class BlockParser
                 strlen($rawNextLine) - strlen($nextLine),
                 $nextLine,
             );
-            $segment = "\n" . $nextLine;
-            $content .= $segment;
-            $braceState = $this->scanBraceState($segment, $braceState);
+            $content .= "\n" . $nextLine;
             $i++;
         }
 

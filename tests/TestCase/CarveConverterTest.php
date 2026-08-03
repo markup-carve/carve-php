@@ -2980,25 +2980,25 @@ DJOT;
         $this->assertSame('<p id="id" class="class" style="color:red">A paragraph</p>' . "\n", $result);
     }
 
-    public function testUnclosedBraceParagraphContinuation(): void
+    public function testUnclosedBraceDoesNotHoldTheParagraphOpen(): void
     {
-        // Unclosed { means next line is continuation, not new block
-        $djot = "text{a=x\n# not-a-heading";
-        $result = $this->converter->convert($djot);
+        // These two asserted the opposite: an unclosed `{` made the next line a
+        // continuation, so a heading did not interrupt. That was this engine's
+        // rule alone - carve-js and carve-rs interrupt here - and it published
+        // comment bodies after an unclosed brace. See
+        // BraceDoesNotSuppressInterruptionTest.
+        $result = $this->converter->convert("text{a=x\n# heading");
 
-        // Should be single paragraph, not paragraph + heading
-        $this->assertSame("<p>text{a=x\n# not-a-heading</p>\n", $result);
-        $this->assertStringNotContainsString('<h1', $result);
+        $this->assertStringContainsString('<p>text{a=x</p>', $result);
+        $this->assertStringContainsString('<h1', $result);
     }
 
-    public function testUnclosedBraceAtStartOfLine(): void
+    public function testUnclosedBraceAtStartOfLineDoesNotHoldItOpenEither(): void
     {
-        // Unclosed { at start of line also continues
-        $djot = "{a=x\n# not-a-heading";
-        $result = $this->converter->convert($djot);
+        $result = $this->converter->convert("{a=x\n# heading");
 
-        $this->assertSame("<p>{a=x\n# not-a-heading</p>\n", $result);
-        $this->assertStringNotContainsString('<h1', $result);
+        $this->assertStringContainsString('<h1', $result);
+        $this->assertStringNotContainsString("{a=x\n# heading", $result);
     }
 
     // ==================== Nested List Edge Cases ====================
