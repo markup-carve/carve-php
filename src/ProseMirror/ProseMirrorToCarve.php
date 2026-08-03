@@ -127,6 +127,28 @@ class ProseMirrorToCarve
                 $definitions[(string)$abbr] = $expansion;
             }
             $carveDocument->setAbbreviations($definitions);
+            // The authored list, when the payload carries one. Narrowed the
+            // same way as the map: an entry without two string fields is not a
+            // definition. Absent, the map is all there is, and a term defined
+            // twice comes back as one line - which is what this attr exists to
+            // prevent (carve#553).
+            $authored = $attrs['carveAbbreviationDefinitions'] ?? null;
+            if (is_array($authored)) {
+                $ordered = [];
+                foreach ($authored as $definition) {
+                    if (
+                        !is_array($definition)
+                        || !is_string($definition['abbr'] ?? null)
+                        || !is_string($definition['expansion'] ?? null)
+                    ) {
+                        continue;
+                    }
+                    $ordered[] = ['abbr' => $definition['abbr'], 'expansion' => $definition['expansion']];
+                }
+                if ($ordered !== []) {
+                    $carveDocument->setAbbreviationDefinitions($ordered);
+                }
+            }
             $carveDocument->setAbbreviationsBeforeBody(
                 (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
             );
