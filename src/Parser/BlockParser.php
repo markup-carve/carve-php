@@ -3822,6 +3822,14 @@ class BlockParser
                         || preg_match('/^::(?!:)\s+/', $nextLine)
                         || preg_match('/^:\s\s+/', $nextLine)
                         || $this->endsHeadingOrQuote($nextLine, $lines, $i)
+                        // A construct that renders nothing is not term text. The
+                        // term was folding a comment, a reference / footnote /
+                        // abbreviation definition and a block-attribute line in
+                        // as continuation, putting their SOURCE in the `<dt>`.
+                        // A comment BLOCK already ended the term, so this engine
+                        // disagreed with itself as well as with the other two
+                        // (carve-php#671).
+                        || $this->isInvisibleOrAttributeLine($nextLine)
                     ) {
                         break;
                     }
@@ -5795,16 +5803,31 @@ class BlockParser
         // A standalone block-attribute line floats forward to the next block
         // (or is dropped when none follows), so it interrupts the paragraph
         // rather than folding in as literal text (grammar PART 9 §15).
+        return $this->isInvisibleOrAttributeLine($line);
+    }
+
+    /**
+     * A line that renders no block of its own: a block-attribute line, a
+     * reference / footnote / abbreviation definition, or a `%%` comment.
+     *
+     * Shared so the two places that need it cannot drift. A definition TERM was
+     * folding every one of these in as continuation text - rendering their
+     * SOURCE inside the `<dt>` - because its own break test knew only about
+     * headings and quotes (carve-php#671).
+     *
+     * A `%%` line comment may be indented: leading whitespace before `%%` does
+     * not matter, so an indented comment line counts exactly like a column-0
+     * one (matches carve-js / carve-rs and the grammar
+     * `comment_line = [whitespace], "%%", …`).
+     *
+     * @param string $line
+     */
+    protected function isInvisibleOrAttributeLine(string $line): bool
+    {
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
 
-        // Invisible constructs produce no rendered block of their own, so they
-        // are recognised next to prose rather than left as literal text.
-        // A `%%` line comment may be indented: leading whitespace before `%%`
-        // does not matter, so an indented comment line interrupts the paragraph
-        // exactly like a column-0 one (matches carve-js / carve-rs and the
-        // grammar `comment_line = [whitespace], "%%", …`).
         return $this->isReferenceDefinitionLine($line)
             || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^[ \t]*%%/', $line) === 1;
