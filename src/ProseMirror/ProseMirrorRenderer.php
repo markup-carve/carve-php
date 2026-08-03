@@ -353,10 +353,20 @@ class ProseMirrorRenderer
                 // ProseMirror wants a text node carrying a mark. Both of these
                 // have literal content and no children, so descending as a mark
                 // would emit an empty element and lose the text.
+                // A mark can carry attributes - the generic mark path below
+                // already does - so `` `code`{.cls} `` has somewhere to put
+                // them after all; omitting them dropped the class outright,
+                // which is a meaning loss, not a re-spelling (carve-php#519).
+                $ownMark = ['type' => (string)SchemaMap::nameFor($type)];
+                $ownAttrs = $this->attributesFor($node);
+                if ($ownAttrs !== []) {
+                    $ownMark['attrs'] = $ownAttrs;
+                }
+
                 $out[] = [
                     'type' => 'text',
                     'text' => $node->getContent(),
-                    'marks' => [...$marks, ['type' => (string)SchemaMap::nameFor($type)]],
+                    'marks' => [...$marks, $ownMark],
                 ];
 
                 continue;
@@ -516,8 +526,31 @@ class ProseMirrorRenderer
                 $attrs['carveFenceLabel'] = $fenceLabel;
             }
         } elseif ($node instanceof ListBlock) {
+            // The writer reads exactly three things off a list to decide how to
+            // spell its markers - the marker character, the numbering style and
+            // the bare-dot flag - and the editor model holds none of them. All
+            // three used to be lost, two of them silently, because `1)` and
+            // `a.` render the same `<ol>` as `1.` (carve-php#519). Each is only
+            // set when it changes what the writer emits, so an ordinary list
+            // gains no key that means nothing to it.
             if ($node->getListType() === 'ordered') {
                 $attrs['start'] = $node->getStart();
+                if ($node->hasBareMarker()) {
+                    $attrs['carveBareMarker'] = true;
+                }
+                // Alphabetic and roman numbering are not a re-spelling: without
+                // this, `a. apple` comes back `1. apple` and the visible label
+                // changes.
+                if ($node->getStyle() !== null) {
+                    $attrs['carveListStyle'] = $node->getStyle();
+                }
+            }
+            // Section 11: a different marker character starts a NEW list, so
+            // normalizing it can merge two sibling lists into one on re-parse
+            // (carve#286). That makes the marker structural, not decoration.
+            $marker = $node->getMarker();
+            if ($marker !== null && in_array($marker, [')', '*'], true)) {
+                $attrs['carveListMarker'] = $marker;
             }
             // Looseness decides whether items render their paragraphs, so it is
             // content, not styling: without it a loose list comes back tight.
@@ -549,6 +582,14 @@ class ProseMirrorRenderer
             $attrs['href'] = $node->getDestination();
             if ($node->getTitle() !== null) {
                 $attrs['title'] = $node->getTitle();
+            }
+            // `<https://example.com>` and `[https://example.com](https://...)`
+            // are the same mark with the same destination, so the writer had
+            // nothing to choose by and always emitted the explicit spelling.
+            // The flag is the node's own identity in Carve, not decoration -
+            // an autolink is its own type (carve-php#519).
+            if ($node->isAutolink()) {
+                $attrs['carveAutolink'] = true;
             }
         } elseif ($node instanceof Math) {
             $attrs['src'] = $node->getContent();
@@ -614,10 +655,6 @@ class ProseMirrorRenderer
     protected function noteUnrepresentableState(Node $node): void
     {
         if ($node instanceof Link && !$node instanceof Mention) {
-            if ($node->isAutolink()) {
-                $this->degraded['autolink'] = 'an autolink is a plain link mark in the editor model, '
-                    . 'so it comes back written as [text](url)';
-            }
             if ($node->getChildren() === []) {
                 // A mark needs text to attach to. An empty label has none, so
                 // the link does not merely change shape - it disappears.
@@ -653,19 +690,12 @@ class ProseMirrorRenderer
             }
         }
 
-        if ($node instanceof Code && $node->getAttributes() !== []) {
-            $this->degraded['code'] = 'inline code is a mark; its attributes have nowhere to live';
-        }
-
-        if ($node instanceof ListBlock) {
-            if ($node->getStyle() !== null) {
-                $this->degraded['list'] = 'an alphabetic or roman list style is not in the editor model, '
-                    . 'so the list comes back numbered';
-            } elseif ($node->getMarker() !== null && !in_array($node->getMarker(), ['-', '.'], true)) {
-                $this->degraded['list'] = 'a list marker character is not in the editor model, '
-                    . 'so the canonical one comes back';
-            }
-        }
+        // A list declares nothing. Its style, marker and bare-dot flag all
+        // travel as their own keys now, and the grammar admits exactly two
+        // bullets and two ordered delimiters, all four of which are carried -
+        // `+` is not a bullet in Carve at all, so a guard for "some other
+        // marker" would be a branch that cannot run. Reporting a loss that no
+        // longer happens is as misleading as the silence this replaced.
     }
 
     protected function isInlineContainer(Node $node): bool

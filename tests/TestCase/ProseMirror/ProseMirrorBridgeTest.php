@@ -35,9 +35,22 @@ class ProseMirrorBridgeTest extends TestCase
         $expected = (new CarveConverter())->render($document);
 
         $proseMirror = $this->renderer->render($document);
-        $actual = (new CarveConverter())->render($this->converter->convert($proseMirror));
+        $back = $this->converter->convert($proseMirror);
+        $actual = (new CarveConverter())->render($back);
 
-        return ['expected' => $expected, 'actual' => $actual, 'pm' => $proseMirror];
+        return [
+            'expected' => $expected,
+            'actual' => $actual,
+            'pm' => $proseMirror,
+            // Comparing HTML alone is a check that cannot fail for a whole
+            // class of defect: `::: note` and `{.note}` plus a bare fence are
+            // the same document, so a re-spelling passes no matter which side
+            // comes out. 55 losses hid behind exactly that (carve-php#519).
+            // Canonical Carve is strictly stronger - it subsumes the HTML
+            // comparison except for constructs that render AND spell alike.
+            'expectedCarve' => CarveConverter::carve()->render((new CarveConverter())->parse($source)),
+            'actualCarve' => CarveConverter::carve()->render($back),
+        ];
     }
 
     public function testTheRootIsAProseMirrorDoc(): void
@@ -75,6 +88,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $this->assertSame([], $this->renderer->droppedTypes(), 'nothing should be dropped here');
         $this->assertSame($result['expected'], $result['actual']);
+        $this->assertSame($result['expectedCarve'], $result['actualCarve'], 'the authored spelling changed');
     }
 
     public static function roundTripProvider(): array
@@ -887,16 +901,92 @@ class ProseMirrorBridgeTest extends TestCase
     public static function unrepresentableStateProvider(): array
     {
         return [
-            // An autolink is written differently from a link, so a formatter
-            // has to know which one the author used.
-            'autolink' => ["Visit <https://example.com>.\n", 'autolink'],
             // A mark needs text to attach to; an empty label has none, so the
             // link is not represented at all.
             'empty link label' => ["[](https://example.com)\n", 'link'],
-            'inline code attributes' => ["`code`{.cls}\n", 'code'],
-            'alphabetic list' => ["a. apple\nb. pear\n", 'list'],
-            'parenthesis delimiter' => ["1) one\n", 'list'],
-            'asterisk bullet' => ["* a\n", 'list'],
+            // Nested emphasis and strong are one unordered mark set in the
+            // editor model, so which delimiter was outermost is not recoverable.
+            'nested emphasis order' => ["/*x*/\n", 'emphasis'],
+        ];
+    }
+
+    /**
+     * The other half of the same contract. Each of these WAS declared degraded
+     * and is now carried, so asserting only that the report is empty would pass
+     * for a bridge that quietly stopped reporting - the round trip has to be
+     * identical as well, which is the thing the report was standing in for
+     * (carve-php#519).
+     *
+     * @param string $source
+     */
+    #[DataProvider('carriedStateProvider')]
+    public function testStateOnceReportedLostIsNowCarried(string $source): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+
+        $this->assertSame([], $this->renderer->degradedTypes());
+        $this->assertSame([], $this->renderer->droppedTypes());
+        $this->assertSame(
+            CarveConverter::carve()->render((new CarveConverter())->parse($source)),
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
+    }
+
+    /**
+     * The autolink flag is a hint, not truth.
+     *
+     * An editor can change the visible text of an autolink while its href stays
+     * put. The writer spells an autolink from its TEXT, so restoring the flag
+     * unconditionally would publish the new text as the destination and lose
+     * the real one - `<https://example.com>` retyped comes back `<changed>`,
+     * which is not even a link. Same shape as carve-php#516, different door.
+     *
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('editedAutolinkProvider')]
+    public function testAnEditedAutolinkKeepsItsDestination(string $source, string $expected): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+        $pm['content'][0]['content'][0]['text'] = 'changed';
+
+        $this->assertSame($expected, CarveConverter::carve()->render($this->converter->convert($pm)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function editedAutolinkProvider(): array
+    {
+        return [
+            'url' => ["<https://example.com>\n", "[changed](https://example.com)\n"],
+            // The parser adds `mailto:`, so the destination is not the text and
+            // the check has to allow for it - both intact and once edited.
+            'email' => ["<mark@example.com>\n", "[changed](mailto:mark@example.com)\n"],
+            // A blocked scheme must not be laundered into something else here
+            // either; it stays exactly what the author wrote.
+            'blocked scheme' => ["<vbscript:msgbox>\n", "[changed](vbscript:msgbox)\n"],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function carriedStateProvider(): array
+    {
+        return [
+            // An autolink is written differently from a link, so a formatter
+            // has to know which one the author used.
+            'autolink' => ["Visit <https://example.com>.\n"],
+            // A blocked scheme still has to come back as it was written - the
+            // bridge must not launder it into an explicit link.
+            'autolink with a blocked scheme' => ["<vbscript:msgbox>\n"],
+            'inline code attributes' => ["`code`{.cls}\n"],
+            'alphabetic list' => ["a. apple\nb. pear\n"],
+            'roman list' => ["iv. four\nv. five\n"],
+            'parenthesis delimiter' => ["1) one\n"],
+            'asterisk bullet' => ["* a\n"],
+            'bare dot ordered list' => [". first\n. second\n"],
         ];
     }
 
