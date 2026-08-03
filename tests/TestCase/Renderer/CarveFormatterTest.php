@@ -9,7 +9,9 @@ use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -20,6 +22,7 @@ use function explode;
 use function file_get_contents;
 use function glob;
 use function preg_replace;
+use function str_repeat;
 use function strlen;
 use function trim;
 
@@ -349,7 +352,64 @@ class CarveFormatterTest extends TestCase
                 $widest = max($widest, strlen($line));
             }
         }
-        $this->assertLessThanOrEqual(202, $widest);
+        // Derived, not pinned: the outermost fence is `:::` and each level
+        // inward adds a colon, so the widest a bounded writer can emit is fixed
+        // by the cap itself. Writing the number out made this test track the
+        // old cap rather than the rule (issue 517).
+        $this->assertLessThanOrEqual(3 + CarveRenderer::MAX_RENDER_DEPTH - 1, $widest);
+    }
+
+    /**
+     * A document nested at exactly the parser's cap parses fine, and the writer
+     * used to lose its innermost block: its bound was the parser's own number,
+     * so the guard fired on a tree the parser had just accepted, deleting
+     * content with no error and breaking PART 11's semantic invariant at the
+     * boundary (issue 517).
+     */
+    public function testWriterKeepsTheInnermostContentAtTheParserCap(): void
+    {
+        $source = str_repeat("::: note\n", BlockParser::MAX_NESTING_DEPTH) . "body\n";
+        $converter = new CarveConverter();
+        // At this indent the HTML pretty-printer wraps the close tag onto its
+        // own line, so the paragraph is matched by its opening rather than as a
+        // whole element.
+        $this->assertStringContainsString('<p>body', $converter->convert($source));
+
+        $written = CarveConverter::toCarve($source);
+        $this->assertStringContainsString('body', $written);
+        $this->assertSame($converter->convert($source), $converter->convert($written));
+    }
+
+    /**
+     * Raising a bound must not retire it. An AST that did not come from the
+     * parser can nest without limit, so the guard still has to truncate, and
+     * truncate at the same point however much deeper the input goes.
+     */
+    public function testRenderCapStillBoundsAHandBuiltAst(): void
+    {
+        $build = function (int $depth): Document {
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Text('body'));
+            $node = $paragraph;
+            for ($level = 0; $level < $depth; $level++) {
+                $div = new Div();
+                $div->appendChild($node);
+                $node = $div;
+            }
+            $document = new Document();
+            $document->appendChild($node);
+
+            return $document;
+        };
+
+        $renderer = new CarveRenderer();
+        $under = $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH - 2));
+        $this->assertStringContainsString('body', $under);
+
+        $over = $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH + 1));
+        $farOver = $renderer->render($build(1000));
+        $this->assertStringNotContainsString('body', $over);
+        $this->assertSame(strlen($over), strlen($farOver));
     }
 
     public function testDeepContainerLadderKeepsDepthAfterFormatting(): void
