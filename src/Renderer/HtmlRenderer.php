@@ -84,6 +84,15 @@ class HtmlRenderer implements RendererInterface
     private const MAX_RENDER_DEPTH = 512;
 
     /**
+     * Attributes that record where a block was WRITTEN rather than describing
+     * the element, and are therefore emitted after everything else - including
+     * an attribute this renderer generated.
+     *
+     * @var array<string>
+     */
+    protected const RENDER_ANNOTATIONS = ['data-source-line'];
+
+    /**
      * Safe mode configuration (null = disabled)
      */
     protected ?SafeMode $safeMode = null;
@@ -922,12 +931,33 @@ class HtmlRenderer implements RendererInterface
             ? ''
             : ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
 
+        // A RENDER ANNOTATION IS EMITTED LAST - after the GENERATED attribute,
+        // not merely after the authored ones. `data-source-line` records where
+        // a block was written rather than describing the element, so it is a
+        // third category behind authored and generated attributes.
+        //
+        // This engine stamps it at PARSE time, which carries it inside the
+        // authored run, and the generated id joins after that run - the exact
+        // inversion the rule exists to stop. Every other block renders the
+        // stamp among its attributes with nothing generated to follow it, so
+        // a heading whose id is generated and not hoisted to a <section> is
+        // the only shape where the order is observable (carve#535).
+        $annotations = [];
+        foreach (self::RENDER_ANNOTATIONS as $name) {
+            if (array_key_exists($name, $attrs)) {
+                $annotations[$name] = $attrs[$name];
+                unset($attrs[$name]);
+            }
+        }
+        $annotationAttr = $this->renderAttributeArray($annotations);
+
         $explicitIdAttr = '';
         if ($this->roundTripMode && $node->hasAttribute('id')) {
             $explicitIdAttr = ' data-djot-explicit-id="1"';
         }
 
-        return '<h' . $level . $this->renderAttributeArray($attrs) . $idAttr . $explicitIdAttr . '>'
+        return '<h' . $level . $this->renderAttributeArray($attrs) . $idAttr . $annotationAttr
+            . $explicitIdAttr . '>'
             . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
 
