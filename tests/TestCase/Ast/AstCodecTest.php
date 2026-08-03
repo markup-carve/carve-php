@@ -335,13 +335,11 @@ class AstCodecTest extends TestCase
      *
      * TWO causes, kept apart on purpose.
      *
-     * Most hold an unresolved reference - `[a][]` - which this engine keeps as
-     * a `raw_text` node so its writer reproduces the brackets the parser
-     * declined to interpret. PART 12 §5 excludes that node from the wire, so it
-     * publishes as `text` and comes back as one, and a text node's brackets are
-     * metacharacters that the writer escapes: `\[a\]\[\]`.
+     * `173` is the implicit-heading-reference authored-form gap: the parsed
+     * link records that the definition was derived from a heading, but that
+     * internal flag is not on the wire.
      *
-     * The `174-bare-dot-ordered-markers` pair is NOT that. A bare-dot ordered
+     * A bare-dot ordered
      * list has no field on the wire at all: `list` carries `delim` and
      * `bulletChar` for every other marker flavor, but nothing records the bare
      * form, so `. first` decodes as `1. first`. That is a gap in the FORMAT
@@ -350,74 +348,24 @@ class AstCodecTest extends TestCase
      * markup-carve/carve#480.
      *
      * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
-     * than a decoded payload. What is lost is authored form AFTER a trip
-     * through the JSON, which is the cost §5 accepted. Reconstructing the node
-     * on decode - "a text node that looks like reference source" - would trade
-     * this stated loss for a silent one.
+     * than a decoded payload.
      *
      * @var array<string>
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        '136-link-reference-definition-separator-must-be-a-space.crv',
-        '159-indented-reference-and-footnote-definitions-stay-literal.crv',
         '173-implicit-heading-references-with-no-definition.crv',
-        // No wire field for the bare-dot marker (markup-carve/carve#480).
         '174-bare-dot-ordered-markers-3.crv',
         '174-bare-dot-ordered-markers.crv',
-        '18-unresolved-reference-link.crv',
-        '78-reference-labels-are-case-sensitive.crv',
     ];
-
-    /**
-     * `raw_text` is this engine's node and no other engine has it, so an
-     * unresolved reference publishes as TEXT rather than as a type the schema
-     * rejects and the profile vocabulary does not name.
-     *
-     * It is now ONE text node, not three: PART 12 §1a coalesces adjacent runs,
-     * and the declined source is text like the words around it.
-     *
-     * The comment this replaces said carve-js and carve-rs both publish three
-     * text nodes here. carve-rs still does; carve-js publishes `text`, `link`,
-     * `text` - it keeps the reference as a link node with `ref`, which is what
-     * §3's "and `ref` when the author wrote a reference link" describes. So the
-     * engines disagree about what an unresolved reference IS, which coalescing
-     * surfaces rather than causes, and which is carve#486 to settle. This test
-     * pins what this engine does today; it is not evidence the shape is right.
-     */
-    public function testAnUnresolvedReferencePublishesAsText(): void
-    {
-        $encoded = $this->codec->encode($this->converter->parse('see [a][] here'));
-        $inlines = $encoded['children'][0]['children'];
-
-        $this->assertSame(['text'], array_column($inlines, 'type'));
-        // The content is the source the parser declined, not an escaped form of
-        // it: escaping belongs to the writer, not to the wire.
-        $this->assertSame('see [a][] here', $inlines[0]['value']);
-        $this->assertArrayNotHasKey('content', $inlines[0], 'a text node publishes `value`');
-    }
-
-    /**
-     * The mapping is on the way OUT only (PART 12 §1).
-     *
-     * The live tree keeps `raw_text`, so formatting a parsed document still
-     * reproduces the brackets. This is the half that would break silently if
-     * the node were dropped at parse time instead of at encode time, and it is
-     * why `fmt` is not affected by any of this.
-     */
-    public function testFormattingAParsedDocumentStillReproducesDeclinedMarkup(): void
-    {
-        $source = "see [a][] here\n";
-
-        $this->assertSame($source, (new CarveRenderer())->render($this->converter->parse($source)));
-    }
 
     /**
      * Reading one back still works, because this engine wrote them.
      *
-     * §5 governs what is PUBLISHED. A payload that names the node was produced
-     * by an earlier version of this codec, and a stored document cannot be
-     * recalled - rejecting it, or silently turning it into something else,
-     * would make the fix a data-loss event for anyone who serialized before it.
+     * §5 governs what is PUBLISHED, and nothing produces `raw_text` since §3a.
+     * A payload that names the node was produced by an earlier version of this
+     * codec, and a stored document cannot be recalled - rejecting it, or
+     * silently turning it into something else, would make the fix a data-loss
+     * event for anyone who serialized before it.
      */
     public function testAStoredPayloadNamingTheInternalNodeStillDecodes(): void
     {
@@ -440,17 +388,84 @@ class AstCodecTest extends TestCase
         $this->assertSame("[a][]\n", (new CarveRenderer())->render($decoded));
     }
 
-    public function testAnUnresolvedReferenceKeepsItsHtmlThroughARoundTrip(): void
+    /**
+     * Saving that document again must not put the internal type back on the
+     * wire. `raw_text` is not in the vocabulary, so re-encoding it verbatim
+     * would turn a stored document schema-invalid on the round trip that was
+     * supposed to preserve it - PART 12 §1 maps internals on the way out.
+     */
+    public function testAStoredPayloadNamingTheInternalNodeReencodesAsText(): void
     {
-        $document = $this->converter->parse('see [a][] here');
-        $decoded = $this->codec->decode($this->codec->encode($this->converter->parse('see [a][] here')));
+        $stored = [
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'raw_text', 'content' => '[a][]']],
+                ],
+            ],
+        ];
 
-        // HTML is the surface a consumer of the wire actually renders, and it is
-        // unchanged - the brackets are literal text either way.
-        $this->assertSame(
-            $this->converter->render($document),
-            (new CarveConverter())->render($decoded),
-        );
+        $encoded = $this->codec->encode($this->codec->decode($stored));
+        $inlines = $encoded['children'][0]['children'];
+
+        $this->assertSame(['text'], array_column($inlines, 'type'));
+        $this->assertSame('[a][]', $inlines[0]['value']);
+    }
+
+    public function testAnUnresolvedReferencePublishesAsALink(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('[missing][nope]'));
+        $link = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertSame('', $link['href']);
+        $this->assertSame('nope', $link['ref']);
+        $this->assertSame('[missing][nope]', $link['rawRef']);
+        $this->assertSame([['type' => 'text', 'value' => 'missing']], $link['children']);
+    }
+
+    public function testAnUnresolvedCollapsedReferencePublishesTheAuthoredRef(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('[a][]'));
+        $link = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertSame('', $link['href']);
+        $this->assertSame('a', $link['ref']);
+        $this->assertSame('[a][]', $link['rawRef']);
+    }
+
+    /**
+     * A lone image is a BLOCK image node (#633), but an unresolved reference
+     * image is not an image at all on the surface: it renders as its literal
+     * source, so it stays inside its paragraph, as it does in carve-js.
+     */
+    public function testAnUnresolvedReferenceImagePublishesAsAnImage(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('![alt][nope]'));
+        $this->assertSame('paragraph', $encoded['children'][0]['type']);
+        $image = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('image', $image['type']);
+        $this->assertSame('', $image['src']);
+        $this->assertSame('alt', $image['alt']);
+        $this->assertSame('nope', $image['ref']);
+        $this->assertSame('![alt][nope]', $image['rawRef']);
+        $this->assertArrayNotHasKey('children', $image);
+    }
+
+    public function testAnUnresolvedReferencePublishesAttributesOnTheLink(): void
+    {
+        $encoded = $this->codec->encode($this->converter->parse('[a][nope]{#i .c}'));
+        $link = $encoded['children'][0]['children'][0];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertSame('', $link['href']);
+        $this->assertSame('nope', $link['ref']);
+        $this->assertSame('[a][nope]{#i .c}', $link['rawRef']);
+        $this->assertSame('i', $link['attrs']['id']);
+        $this->assertSame(['c'], $link['attrs']['classes']);
     }
 
     public function testSmartPunctuationPublishesTheAuthorsSourceRun(): void
@@ -645,10 +660,8 @@ class AstCodecTest extends TestCase
      *
      * `decode(encode(parse(x)))` must be the SAME tree as `parse(x)`. Comparing
      * the encoded forms is the strongest comparison this engine can make today
-     * - a `RawText` run publishes as `text` and is joined by the encoder, so
-     * the trees legitimately differ there (#624) while the wire forms agree -
-     * but it is far from vacuous: it caught a decoder that appended a `.class`
-     * slot to `attrs.order` the parser never records.
+     * - but it is far from vacuous: it caught a decoder that appended a
+     * `.class` slot to `attrs.order` the parser never records.
      *
      * That slot is structural. The parser derives an admonition's kind class
      * from the opener word and records no source slot for it, while

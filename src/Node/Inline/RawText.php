@@ -8,6 +8,9 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
 
 /**
  * Literal inline source preserved for round-trip formatting.
+ *
+ * @deprecated Nothing produces this node since PART 12 §3a; it exists for
+ *             decoding older payloads.
  */
 class RawText extends InlineNode implements ContentNodeInterface
 {

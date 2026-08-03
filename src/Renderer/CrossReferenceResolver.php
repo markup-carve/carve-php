@@ -79,7 +79,12 @@ class CrossReferenceResolver
                 // link buried deeper in the label is unwrapped too.
                 $this->enforceNoNesting($child, $tracker, true, $depth + 1);
 
-                if ($insideLink) {
+                // An UNRESOLVED reference is a Link node (PART 12 §3a) but it
+                // never renders as an anchor: every writer emits its literal
+                // source. Unwrapping it to its label would discard that source,
+                // so `[[x][missing]](/z)` linked the word `x` instead of
+                // keeping `[x][missing]` inside the anchor, as carve-js does.
+                if ($insideLink && $child->getRawReferenceLabel() === null) {
                     // A link inside another link: drop the inner destination,
                     // splice in its (already-unwrapped) display content.
                     $node->replaceChildWithMany($child, array_values($child->getChildren()));

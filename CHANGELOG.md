@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unresolved reference is a link node, not reverted source** (PART 12 §3a,
+  #624). `[missing][nope]` with nothing defining the label was flattened to an
+  internal `raw_text` node, a type the AST vocabulary does not have: five corpus
+  documents serialized to JSON the schema rejects, and none of them could
+  satisfy §6, because a decoder had nothing to rebuild the node from. The
+  reference now stays a `link` (an `image` for `![alt][nope]`) carrying `ref`
+  and the new `rawRef` field with the verbatim source, which is what carve-js
+  publishes; every writer renders that source, so no rendered output changes.
+  The node count matches the other engines too, where `![alt][nope]` used to
+  split into two nodes and `[a][nope]{.c}` into three. Nothing produces
+  `raw_text` any more; the codec still decodes a stored payload that names it.
+  The resolved-form spelling of `ref` and `href` is markup-carve/carve#524.
+
 - **The canonical writer keeps a heading-derived reference in its authored
   form.** A reference resolved against a heading (PART 11 R1) has no
   `[label]: url` line, so `[getting started][]` is the only record of what the

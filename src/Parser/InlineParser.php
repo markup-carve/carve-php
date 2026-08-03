@@ -26,7 +26,6 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
-use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -2051,7 +2050,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text|\MarkupCarve\Carve\Node\Inline\RawText, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -2283,7 +2282,20 @@ class InlineParser
                     ];
                 }
 
-                // Reference not found - leave the whole [text][ref] literal.
+                // Reference not found. It is STILL a link node (PART 12 §3a):
+                // the tree records what the author wrote, and reverting to
+                // literal source discarded the fact that a reference was
+                // written at all. It renders as its source - every writer emits
+                // the raw reference below - so the output is unchanged.
+                $link = new Link('', null);
+                // The AUTHORED label, as carve-js publishes it: the bracket
+                // content verbatim, or the label derived from the link text for
+                // the collapsed form. The RESOLVED branch above stores `''` for
+                // the collapsed form instead, which the canonical writer reads;
+                // that spelling is markup-carve/carve#524.
+                $link->setReferenceLabel($originalRefBracket === '' ? $ref : $originalRefBracket);
+                $this->parseInlinesAt($link, $linkText, $pos + 1);
+
                 // Either form may still land on a heading - collapsed
                 // `[text][]` case-insensitively, explicit `[text][Label]`
                 // exactly - and the heading index is built from the parsed
@@ -2292,9 +2304,13 @@ class InlineParser
                 $this->blockParser->markCollapsedReferenceUnresolved();
                 $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
                 $endPos = $refEnd + 1;
+                if ($endPos < $length && $text[$endPos] === '{') {
+                    $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
+                }
+                $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
 
                 return [
-                    'node' => new RawText(substr($text, $pos, $endPos - $pos)),
+                    'node' => $link,
                     'pos' => $endPos,
                 ];
             }
@@ -2468,6 +2484,9 @@ class InlineParser
         // Transfer reference label for round-trip support
         if ($link->getReferenceLabel() !== null) {
             $image->setReferenceLabel($link->getReferenceLabel());
+        }
+        if ($link->getRawReferenceLabel() !== null) {
+            $image->setRawReferenceLabel('!' . $link->getRawReferenceLabel());
         }
 
         // Transfer attributes from link to image

@@ -47,6 +47,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 
@@ -163,6 +164,10 @@ class PlainTextRenderer implements RendererInterface
                 }
             }
 
+            // An unresolved reference renders as the source the author
+            // wrote, never as a link (PART 12 section 3a).
+            $rawReference = UnresolvedReference::sourceOf($node);
+
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
                 $node instanceof Div => $this->renderDiv($node),
@@ -189,6 +194,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof Code => $this->stripControls($node->getContent()),
                 $node instanceof CriticComment => $this->stripControls($node->getContent()),
                 $node instanceof Math => $this->stripControls($node->getContent()),
+                $rawReference !== null => $this->stripControls($rawReference),
                 $node instanceof Image => $this->stripControls($node->getAlt()),
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),

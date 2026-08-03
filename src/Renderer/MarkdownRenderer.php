@@ -57,6 +57,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
@@ -322,6 +323,10 @@ class MarkdownRenderer implements RendererInterface
                 }
             }
 
+            // An unresolved reference renders as the source the author
+            // wrote, never as a link (PART 12 section 3a).
+            $rawReference = UnresolvedReference::sourceOf($node);
+
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
                 // A BLOCK-position image needs the separator a paragraph would
@@ -369,6 +374,7 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Strike => $this->renderStrike($node),
                 $node instanceof Code => $this->renderCode($node),
                 $node instanceof Mention => $this->renderMention($node),
+                $rawReference !== null => $this->escapeText($this->stripControls($rawReference)),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
                 // A BACKSLASH, not two trailing spaces (PART 11 section 9). Both

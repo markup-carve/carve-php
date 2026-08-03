@@ -706,7 +706,15 @@ class BlockParser
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $kids = $child->getChildren();
-                if (count($kids) === 1 && $kids[0] instanceof Image) {
+                // An UNRESOLVED reference image is not an image in block
+                // position: it renders as its literal source (PART 12 §3a), so
+                // `![a][]` with nothing defining `[a]` stays a paragraph, as it
+                // does in carve-js. Promoting it dropped the `<p>` wrapper.
+                if (
+                    count($kids) === 1
+                    && $kids[0] instanceof Image
+                    && $kids[0]->getRawReferenceLabel() === null
+                ) {
                     if ($child->getAttributes() !== []) {
                         $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
                         foreach (array_keys($child->getAttributes()) as $key) {
