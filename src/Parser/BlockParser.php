@@ -4955,7 +4955,14 @@ class BlockParser
         // the canonical carve-js / carve-rs. No continuation gathering. The
         // separator after `]:` must START with a literal SPACE; a tab-first
         // separator (`[r]:\t/u`) does not form a definition (issue 288).
-        if (!preg_match('/^\[(?![@^])([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches)) {
+        // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
+        // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
+        // is one-or-more characters, so an empty label never forms a footnote
+        // definition and the line falls through to a reference definition with
+        // the label `^` - which `reference_label` admits, being neither `]`
+        // nor `@`. Excluding every `[^` left that line as paragraph text, where
+        // carve-js and carve-rs both render nothing.
+        if (!preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches)) {
             return null;
         }
 
