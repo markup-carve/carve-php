@@ -93,10 +93,25 @@ class ListLazyContinuationTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testFencedCodeLineEndsList(): void
+    public function testClosedFencedCodeLineEndsList(): void
     {
-        $djot = "- a\n```\nx";
+        $djot = "- a\n```\nx\n```";
         $expected = "<ul>\n  <li>a</li>\n</ul>\n<pre><code>x\n</code></pre>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testUnterminatedFenceDoesNotEndList(): void
+    {
+        // PART 9 §10 I4: a fence opener with no closer ahead is not a block
+        // opener, so it cannot interrupt. It stays paragraph text and the
+        // stray ``` opens an inline verbatim run that runs to the end.
+        //
+        // This case used to assert the opposite - it was written from what the
+        // engine did rather than from the rule, and pinned a divergence from
+        // carve-rs in place (carve-php#642).
+        $djot = "- a\n```\nx";
+        $expected = "<ul>\n  <li>a\n<code>\nx</code></li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
