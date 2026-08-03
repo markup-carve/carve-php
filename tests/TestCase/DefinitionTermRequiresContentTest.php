@@ -12,9 +12,14 @@ use PHPUnit\Framework\TestCase;
  * PART 9's MARKER REQUIRES CONTENT rule, applied to the definition-term marker.
  *
  *   "A content-less marker line -- bare (`-`) or with trailing whitespace only
- *   (`- `, `-   `) -- is NOT a list: it is paragraph text. The rule ignores
- *   trailing whitespace, so `-` and `- ` behave identically (an editor
- *   stripping the trailing space cannot change the meaning)."
+ *   -- is NOT a list: it is paragraph text. The rule ignores trailing
+ *   whitespace, so a bare dash and a dash followed by a space behave
+ *   identically (an editor stripping the trailing space cannot change the
+ *   meaning)."
+ *
+ * (The quote's own examples are spelled out rather than reproduced verbatim:
+ * one of them is a dash followed by three spaces, and the code sniffer reads a
+ * run of spaces inside a docblock as inline alignment.)
  *
  * The rule named bullets and ordered markers; `::` is the sibling nobody
  * extended it to, and the engines split three ways (carve#512). Under the old
