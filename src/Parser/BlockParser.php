@@ -823,6 +823,13 @@ class BlockParser
         // quoted code content as a real definition.
         $fenceChar = null;
         $fenceLen = 0;
+        // A LINE BLOCK is verse: its lines are text with hard breaks, so a
+        // `[^a]: ...` inside one is literal, exactly as a `[a]: /url` already
+        // was here. Without this the definition was hoisted into an endnotes
+        // section AND left behind as a reference, publishing the same line
+        // twice - and disagreeing with carve-js and carve-rs, which both keep
+        // it literal (carve-php#688).
+        $lineBlockFence = 0;
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
@@ -851,6 +858,20 @@ class BlockParser
                     $fenceChar = null;
                     $fenceLen = 0;
                 }
+                $i++;
+
+                continue;
+            }
+            if ($lineBlockFence > 0) {
+                if (preg_match('/^(:{3,})\s*$/', $fenceLine, $lbm) && strlen($lbm[1]) >= $lineBlockFence) {
+                    $lineBlockFence = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $fenceLine, $lbo) === 1) {
+                $lineBlockFence = strlen($lbo[1]);
                 $i++;
 
                 continue;
