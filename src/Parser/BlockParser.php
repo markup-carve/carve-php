@@ -6774,6 +6774,24 @@ class BlockParser
     }
 
     /**
+     * Whether a line is a quote marker with nothing after it, at any depth.
+     *
+     * `> > q` holds a paragraph; `> >` holds none, and PART 1 S4 then gives a
+     * following column-0 line nothing to fold into.
+     */
+    protected function isEmptyQuoteLine(string $line): bool
+    {
+        $rest = trim($line);
+        $sawQuote = false;
+        while ($rest === '>' || str_starts_with($rest, '> ')) {
+            $sawQuote = true;
+            $rest = $rest === '>' ? '' : ltrim(substr($rest, 2));
+        }
+
+        return $sawQuote && $rest === '';
+    }
+
+    /**
      * Advance the trailing-block tracker by one collected item content line.
      *
      * Tracks the kind of the item's most recent top-level block so the
@@ -6863,6 +6881,16 @@ class BlockParser
 
         if ($this->tableParser->isTableRow($line)) {
             // A table has no open paragraph for a dedented line to continue.
+            $state['openParagraph'] = false;
+
+            return $state;
+        }
+
+        // A quote marker with NOTHING after it opens a quote holding no
+        // paragraph, so a column-0 line has nothing to fold into and the item
+        // closes (PART 1 S4: NO OPEN PARAGRAPH, NO LAZY LINE). `> q` does hold
+        // one and still folds - one rule, opposite answers (carve#572).
+        if ($this->isEmptyQuoteLine($line)) {
             $state['openParagraph'] = false;
 
             return $state;
