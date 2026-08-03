@@ -159,10 +159,10 @@ final class ReferenceShape
         // two it is. The destination is always empty (nothing links anywhere)
         // and the title never set, so both would publish noise the schema
         // rejects outright.
-        'mention' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink'],
+        'mention' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink', 'fromHeadingReference'],
         // `tag` is the same node class, so it hides the same internals - the
         // lookup is keyed by the WIRE type, and a tag publishes as `tag`.
-        'tag' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink'],
+        'tag' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink', 'fromHeadingReference'],
         // `ordered` carries this on the wire.
         'list' => ['listType', 'bareMarker'],
         // `checked` carries this; a non-task item simply has no `checked`.
@@ -189,14 +189,14 @@ final class ReferenceShape
         'admonition' => ['typed', 'header'],
         // `isAutolink` IS the type name on the wire; the single text child is
         // published as `text`.
-        'autolink' => ['isAutolink', 'referenceLabel', 'title'],
+        'autolink' => ['isAutolink', 'referenceLabel', 'title', 'fromHeadingReference'],
         // Nothing. `label` is authored (`[NPM]` on the opener), and the
         // reference keeps `header` too - it is how a title written IN the fence
         // is told apart from one written on an attribute line above it, which
         // both land in `attrs.title`. A div's `header` is different: the
         // reference has no such field there, so that one stays internal.
         'code_block' => [],
-        'link' => ['isAutolink'],
+        'link' => ['isAutolink', 'fromHeadingReference'],
         'thematic_break' => ['char'],
         // Fence WIDTH is a writer's concern, recomputed when formatting; the
         // wire carries `block`, which is the question a consumer asks (derived

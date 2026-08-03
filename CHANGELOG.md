@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer keeps a heading-derived reference in its authored
+  form.** A reference resolved against a heading (PART 11 R1) has no
+  `[label]: url` line, so `[getting started][]` is the only record of what the
+  author wrote - and `fmt` replaced it with `[getting started](#Getting-Started)`,
+  baking a generated id into the source and doing it again on every pass. This
+  was the last document on which the three engines disagreed about the canonical
+  target apart from the abbreviation hoist (carve#478). An EXPLICIT definition
+  still writes the resolved link, which is what all three engines do there.
+
 - **The decoder stops recording a source slot for a structural class.** An
   admonition's kind class is derived from the opener word, and the parser
   records no slot for it - but `applyDerivedFields` wrote it with

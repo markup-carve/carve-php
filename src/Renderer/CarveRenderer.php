@@ -1008,6 +1008,22 @@ class CarveRenderer implements RendererInterface
     protected function renderLink(Link $node): string
     {
         $text = $this->renderInlines($node->getChildren());
+
+        // A reference RESOLVED FROM A HEADING is written back as the reference
+        // the author wrote (PART 11 R1, carve#478). There is no `[label]: url`
+        // line for it, so `[getting started][]` is the only record of the
+        // authored form - resolving it to `[getting started](#Getting-Started)`
+        // bakes a generated id into the source on every `fmt` pass, and both
+        // other engines keep the reference (carve-rs#435, carve-js#526).
+        //
+        // An EXPLICIT definition still writes the resolved link: there the
+        // definition line is dropped either way, so the authored pair is not
+        // reproducible from the tree and all three engines agree on the inline
+        // form.
+        if ($node->isFromHeadingReference()) {
+            return '[' . $text . '][' . $node->getReferenceLabel() . ']' . $this->renderAttrs($node);
+        }
+
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
 
         return '[' . $text . '](' . $this->escapeDestination((string)$node->getDestination()) . $title . ')' . $this->renderAttrs($node);

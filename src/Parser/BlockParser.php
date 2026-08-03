@@ -1164,7 +1164,7 @@ class BlockParser
         $this->extractAbbreviations($lines);
 
         foreach ($index as $label => $id) {
-            $this->registerHeadingReference((string)$label, new ReferenceDefinition('#' . $id, [], 0));
+            $this->registerHeadingReference((string)$label, new ReferenceDefinition('#' . $id, [], 0, null, true));
         }
         // Anchor validation asks a different question - does an element with
         // this id exist - so it takes EVERY heading, blockquote ancestors
@@ -1349,7 +1349,7 @@ class BlockParser
                     $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
                     $id = $headingIdTracker->getIdForText($label);
                     $this->headingIds[$id] = true;
-                    $reference = new ReferenceDefinition('#' . $id, [], $i);
+                    $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
                     $this->registerHeadingReference($label, $reference);
 
                     continue;
@@ -1390,7 +1390,7 @@ class BlockParser
                 // Register as reference if not already defined
                 // Use normalized plain text as the label (for [Heading][] style links)
                 $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
-                $reference = new ReferenceDefinition('#' . $id, [], $i);
+                $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
                 $this->registerHeadingReference($label, $reference);
             } else {
                 // Non-heading, non-attribute line - clear pending ID

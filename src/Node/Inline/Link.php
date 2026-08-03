@@ -16,6 +16,19 @@ class Link extends InlineNode
     protected ?string $referenceLabel = null;
 
     /**
+     * Whether the reference that produced this link was DERIVED from a heading
+     * (PART 11 R1) rather than written as a `[label]: url` line.
+     *
+     * The canonical writer needs the distinction and `referenceLabel` alone
+     * cannot carry it: this engine keeps that label for BOTH kinds, because the
+     * HTML round trip reproduces a `[label]: url` line from it. A heading has
+     * no such line, so the authored `[text][]` is the only record of what was
+     * written - resolving it to `[text](#Some-Id)` bakes a generated id into
+     * the source on every `fmt` pass.
+     */
+    protected bool $fromHeadingReference = false;
+
+    /**
      * Whether this link was created from an autolink like <url> or <email>
      */
     protected bool $isAutolink = false;
@@ -34,6 +47,16 @@ class Link extends InlineNode
     public function setReferenceLabel(string $label): void
     {
         $this->referenceLabel = $label;
+    }
+
+    public function isFromHeadingReference(): bool
+    {
+        return $this->fromHeadingReference;
+    }
+
+    public function setFromHeadingReference(bool $fromHeadingReference): void
+    {
+        $this->fromHeadingReference = $fromHeadingReference;
     }
 
     public function isAutolink(): bool

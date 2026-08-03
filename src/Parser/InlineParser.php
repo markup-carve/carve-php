@@ -2247,6 +2247,13 @@ class InlineParser
                     $link = new Link($refDef->url, $refDef->title);
                     // Store reference info for round-trip support
                     $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
+                    // Whether the definition was DERIVED from a heading
+                    // (PART 11 R1) rather than written as a `[label]: url`
+                    // line. Only the canonical writer reads it, and only to
+                    // decide whether the authored reference is reproducible:
+                    // a heading has no definition line, so `[text][]` is the
+                    // only record of it (carve#478).
+                    $link->setFromHeadingReference($refDef->fromHeading);
                     $this->parseInlinesAt($link, $linkText, $pos + 1);
 
                     // Track anchor links for validation
