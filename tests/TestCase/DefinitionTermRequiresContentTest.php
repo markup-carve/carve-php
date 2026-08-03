@@ -11,10 +11,14 @@ use PHPUnit\Framework\TestCase;
 /**
  * PART 9's MARKER REQUIRES CONTENT rule, applied to the definition-term marker.
  *
- *   "A content-less marker line -- bare (`-`) or with trailing whitespace only
- *   (`- `, `-   `) -- is NOT a list: it is paragraph text. The rule ignores
- *   trailing whitespace, so `-` and `- ` behave identically (an editor
- *   stripping the trailing space cannot change the meaning)."
+ * The rule, paraphrased rather than quoted because it spells its examples with
+ * runs of spaces that the code sniffer collapses - and collapsing them would
+ * turn the example into its own opposite: a marker line with no content is
+ * paragraph text rather than a list, whether it is bare or carries trailing
+ * whitespace only. Trailing whitespace is ignored, so however many spaces
+ * follow the marker it behaves the same, and an editor stripping them cannot
+ * change the meaning. Verbatim at `resources/grammar.ebnf`, MARKER REQUIRES
+ * CONTENT.
  *
  * The rule named bullets and ordered markers; `::` is the sibling nobody
  * extended it to, and the engines split three ways (carve#512). Under the old
