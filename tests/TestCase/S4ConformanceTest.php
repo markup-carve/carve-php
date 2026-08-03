@@ -19,14 +19,11 @@ class S4ConformanceTest extends TestCase
         $this->c = new CarveConverter();
     }
 
-    public function testBlockquoteSpaceAfterMarkerIsOptional(): void
+    public function testBlockquoteRequiresSpaceAfterMarker(): void
     {
-        $this->assertSame("<blockquote><p>tight</p></blockquote>\n", $this->c->convert('>tight'));
-        // nested with no spaces
-        $this->assertStringContainsString(
-            '<blockquote>',
-            $this->c->convert('>>>x'),
-        );
+        $this->assertSame("<p>&gt;tight</p>\n", $this->c->convert('>tight'));
+        $this->assertSame("<p>&gt;&gt;&gt;x</p>\n", $this->c->convert('>>>x'));
+        $this->assertSame("<blockquote><p>spaced</p></blockquote>\n", $this->c->convert('> spaced'));
     }
 
     public function testClassesAreDeduplicated(): void

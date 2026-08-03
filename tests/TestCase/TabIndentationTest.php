@@ -88,16 +88,15 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * The space after `>` is OPTIONAL (grammar `blockquote_line = '>', [' '],
-     * inline_content`), so `>` followed by a tab (or by text with no space)
-     * still opens a block quote -- matching carve-js / carve-rs.
+     * The blockquote marker requires a literal space separator. A tab after
+     * `>` is content, so the line stays prose.
      */
-    public function testBlockQuoteWithTabIsBlockquote(): void
+    public function testBlockQuoteWithTabIsParagraph(): void
     {
         $input = ">\tQuoted with tab";
         $result = $this->converter->convert($input);
 
-        $this->assertSame("<blockquote><p>Quoted with tab</p></blockquote>\n", $result);
+        $this->assertSame("<p>&gt;\tQuoted with tab</p>\n", $result);
     }
 
     /**
@@ -182,15 +181,15 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * `>` + tab opens a quote on each line (the post-`>` space is optional), so
-     * two `>\t` lines form one block quote -- matching carve-js / carve-rs.
+     * `>` + tab is prose on each line because a blockquote marker needs a
+     * literal space separator.
      */
-    public function testBlockQuoteContinuationWithTabIsBlockquote(): void
+    public function testBlockQuoteContinuationWithTabIsParagraph(): void
     {
         $input = ">\tLine 1\n>\tLine 2";
         $result = $this->converter->convert($input);
 
-        $this->assertSame("<blockquote><p>Line 1\nLine 2</p></blockquote>\n", $result);
+        $this->assertSame("<p>&gt;\tLine 1\n&gt;\tLine 2</p>\n", $result);
     }
 
     /**

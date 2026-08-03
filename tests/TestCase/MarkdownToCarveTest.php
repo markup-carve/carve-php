@@ -282,6 +282,10 @@ class MarkdownToCarveTest extends TestCase
                 "text\n> quote",
                 "text\n\n> quote",
             ],
+            'normalizes tight Markdown blockquote markers to Carve spacing' => [
+                ">quote\n>>nested",
+                "> quote\n> > nested",
+            ],
             'collapses 3+ consecutive blank lines to 2' => [
                 "a\n\n\n\nb",
                 "a\n\nb",
