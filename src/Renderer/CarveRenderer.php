@@ -1352,20 +1352,24 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Write a line block's leading indentation back as ordinary spaces.
+     * Write a line block's preserved whitespace back as ordinary spaces.
      *
-     * The parser records that indentation with the U+E000 placeholder - the
-     * same sentinel an escaped space uses, so it never collides with a literal
-     * nbsp - and normalize() resolves every remaining one to a real nbsp. That
-     * is right for an escaped space and wrong here: the source form of a line
-     * block's indent is a plain space, and a real nbsp re-parses as literal
-     * text rather than as indentation, so the text node came back different
-     * (carve#359).
+     * The parser records it with the U+E000 placeholder - the same sentinel an
+     * escaped space uses, so it never collides with a literal nbsp - and
+     * normalize() resolves every remaining one to a real nbsp. That is right
+     * for an escaped space and wrong here: the source form of a line block's
+     * layout is plain spaces, and a real nbsp re-parses as literal text rather
+     * than as layout, so the text node came back different (carve#359).
      *
-     * Only a run at the START of a line is indentation, so a mid-line escaped
-     * space inside a line block still resolves to a real nbsp. The leading run
-     * goes to the verbatim scheme, which restores plain spaces after
-     * normalize() has run.
+     * The runs handed to the verbatim scheme - which restores plain spaces
+     * after normalize() has run - are exactly the ones the parser reproduces
+     * from plain spaces (PART 9 §23, carve#487): a LEADING run of any width,
+     * and a medial or trailing run of TWO OR MORE. A lone medial sentinel can
+     * then only have come from an escaped space, so `a\ b` still round-trips
+     * as written. Two adjacent escaped spaces are the one form that changes -
+     * `a\ \ b` is written back as two plain spaces - because inside a line
+     * block the two are the same document: both parse to the same pair of
+     * sentinels.
      */
     protected function resolveIndentPlaceholder(string $text): string
     {
@@ -1374,7 +1378,7 @@ class CarveRenderer implements RendererInterface
         }
 
         return (string)preg_replace_callback(
-            '/^\x{E000}+/mu',
+            '/(?:^\x{E000}+)|\x{E000}{2,}/mu',
             static fn (array $m): string => str_repeat("\u{E001}", (int)mb_strlen($m[0], 'UTF-8')),
             $text,
         );
