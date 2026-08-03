@@ -120,10 +120,18 @@ class ListParser
      */
     private function parseListItemMarkerBase(string $line): ?array
     {
-        // Task list: - [.] where . is any single character
-        // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
-        // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[(.)\] +(\S.*)$/', $line, $matches)) {
+        // Task list. PART 9 enumerates the states exhaustively:
+        //
+        //   task_state = ' ' | 'x' | 'X' | '-' | '_' | '>' | '?' ;
+        //
+        // `x`/`X` are CHECKED, the other five UNCHECKED. Anything else is not a
+        // task marker and the brackets stay literal text.
+        //
+        // This used to accept any single character, which did not merely
+        // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
+        // checkbox nobody wrote (carve-php#657). Two characters were already
+        // rejected; it was only the one-character case that was open.
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[([ xX_>?-])\] +(\S.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
