@@ -161,24 +161,6 @@ class TextRunRoundTripTest extends TestCase
         return $out;
     }
 
-    /**
-     * Documents whose tree cannot survive a round trip for a reason that has
-     * nothing to do with §1a: they hold a `RawText` node, an internal type with
-     * no counterpart in the AST vocabulary, which the codec publishes as `text`
-     * so a decoder has nothing to rebuild it from (#624).
-     *
-     * Pinned rather than skipped, so a SIXTH document joining them fails.
-     *
-     * @var list<string>
-     */
-    protected const RAW_TEXT_GAP = [
-        '136-link-reference-definition-separator-must-be-a-space.crv',
-        '159-indented-reference-and-footnote-definitions-stay-literal.crv',
-        '173-implicit-heading-references-with-no-definition.crv',
-        '18-unresolved-reference-link.crv',
-        '78-reference-labels-are-case-sensitive.crv',
-    ];
-
     public function testEveryCorpusDocumentRoundTripsToTheSameTree(): void
     {
         $dir = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
@@ -198,9 +180,9 @@ class TextRunRoundTripTest extends TestCase
         }
 
         $this->assertSame(
-            self::RAW_TEXT_GAP,
+            [],
             $mismatched,
-            'documents whose tree did not survive a round trip - the pinned list is the raw_text gap (#624); anything else is a regression',
+            'every corpus document must survive PART 12 section 6: decode(encode(parse(x))) must equal parse(x)',
         );
     }
 

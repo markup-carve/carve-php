@@ -61,6 +61,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
@@ -864,9 +865,13 @@ class HtmlRenderer implements RendererInterface
         }
         $children = $node->getChildren();
 
+        // An UNRESOLVED reference image renders as its literal source (PART 12
+        // §3a), so it is not a block image: `![a][]` with nothing defining
+        // `[a]` keeps its <p>, as it does in carve-js.
         return $this->renderAttributes($node) === ''
             && count($children) === 1
-            && $children[0] instanceof Image;
+            && $children[0] instanceof Image
+            && $children[0]->getRawReferenceLabel() === null;
     }
 
     protected function renderParagraph(Paragraph $node): string
@@ -1560,6 +1565,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
+        $rawRef = UnresolvedReference::sourceOf($node);
+        if ($rawRef !== null) {
+            return $this->escape($rawRef);
+        }
+
         $attrs = $this->renderAttributesExcluding($node, ['href']);
         $href = $node->getDestination();
         $title = $node->getTitle();
@@ -1619,6 +1629,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
+        $rawRef = UnresolvedReference::sourceOf($node);
+        if ($rawRef !== null) {
+            return $this->escape($rawRef);
+        }
+
         $attrs = $this->renderAttributesExcluding($node, ['src']);
         $alt = $this->escapeAttribute($node->getAlt());
         $src = $node->getSource();

@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\TableSpanGrid;
 
@@ -312,6 +313,25 @@ class ProseMirrorRenderer
     {
         $out = [];
         foreach ($nodes as $node) {
+            $rawRef = UnresolvedReference::sourceOf($node);
+            if ($rawRef !== null) {
+                // The editor model has no unresolved reference: it holds text.
+                // Carrying the literal source keeps the characters, but not the
+                // fact that they are a reference - the writer escapes them on
+                // the way back (`\[a\]\[b\]`), so the document does not come
+                // back spelled as it was written. Say so rather than losing it
+                // silently (carve-php#519, carve-php#528).
+                $this->degraded[$node->getType()] = 'an unresolved reference has no editor counterpart, '
+                    . 'so it is carried as its literal source and comes back as escaped text';
+                $textNode = ['type' => 'text', 'text' => $rawRef];
+                if ($marks !== []) {
+                    $textNode['marks'] = $marks;
+                }
+                $out[] = $textNode;
+
+                continue;
+            }
+
             $type = $node->getType();
             $this->noteUnrepresentableState($node);
 

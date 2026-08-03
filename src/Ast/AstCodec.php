@@ -970,15 +970,12 @@ class AstCodec
      * and deserialized to equal `parse(x)` and a serializer-only merge breaks
      * that (#623). So this is NOT the primary pass.
      *
-     * What is left for it is the one case the tree cannot express: `RawText` is
-     * an internal type with no counterpart in the AST vocabulary and publishes
-     * as `text`, so `Text` + `RawText` + `Text` is one node in the vocabulary
-     * and three in the tree. The tree pass deliberately leaves it alone -
-     * merging would make the Markdown and Carve writers escape source that must
-     * not be re-escaped - so the join has to happen here or the wire carries the
-     * run. Those documents consequently do not satisfy §6; they are pinned in
-     * tests/TestCase/Ast/TextRunRoundTripTest.php and tracked in #624, which is
-     * where the type question is decided.
+     * What is left for it is a tree the parser did not build: an extension or
+     * the ProseMirror bridge can hand the encoder adjacent `Text` nodes, and
+     * §1a is a property of the WIRE, so the run is joined on the way out
+     * whatever produced it. Until §3a there was a second case - `RawText`
+     * published as `text` and so formed a published run the tree pass had to
+     * leave alone - and it is gone: nothing produces that node any more.
      *
      * `escaped_text` is NOT merged: PART 12 §5 keeps it distinct from `text`
      * because an escape is authored form.
@@ -1075,23 +1072,14 @@ class AstCodec
             $type = 'admonition';
         }
         if ($node instanceof RawText) {
-            // PART 12 §5: a formatter-internal node is not serialized. This one
-            // holds markup the parser DECLINED - the `[a][]` of an unresolved
-            // reference - which this engine keeps so its writer can reproduce
-            // the source verbatim instead of escaping brackets it never
-            // interpreted. The reference has no such node: carve-js and carve-rs
-            // both publish `["text", "text", "text"]` for `see [a][] here`.
-            //
-            // So it publishes as `text`, which §1 already licenses - "an
-            // implementation whose internals differ MAPS on the way out; it does
-            // not export its internals" - and the mapping is one-way on purpose.
-            // The live tree still holds `RawText`, so `fmt` is unaffected: it
-            // reads the tree it was handed, not a decoded payload. What a
-            // consumer loses is the authored form AFTER a round trip through the
-            // JSON, `[a][]` coming back as `\[a\]\[\]`, which is the cost §5
-            // accepted when it excluded these nodes. The alternative - guessing
-            // on decode which text nodes were declined markup - trades a stated
-            // loss for a silent one (carve-php#531).
+            // Nothing PRODUCES this node since §3a - an unresolved reference is
+            // a link now - but a tree decoded from a payload an older version of
+            // this codec wrote still holds one, and re-encoding it must not put
+            // an internal type back on the wire: `raw_text` is not in the
+            // vocabulary, so a stored document would become schema-invalid the
+            // moment it was saved again. PART 12 §5 excludes the node, §1
+            // licenses the mapping ("an implementation whose internals differ
+            // MAPS on the way out"), and `text` is what it maps to.
             $type = 'text';
         }
         $encoded = ['type' => $type];

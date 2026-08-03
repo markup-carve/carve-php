@@ -45,8 +45,8 @@ final class ReferenceShape
         // literal, so it is closer to a footnote's label than to a text node.
         'critic_comment' => ['content' => 'text'],
         'code_block' => ['content' => 'content', 'language' => 'lang'],
-        'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref'],
-        'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref'],
+        'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref', 'rawReferenceLabel' => 'rawRef'],
+        'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref', 'rawReferenceLabel' => 'rawRef'],
         // The INLINE reference, which the reference calls `footnote_ref` and
         // keys by `id`. The block definition is a different type and publishes
         // `label` in PART 12 §7.

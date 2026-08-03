@@ -16,6 +16,12 @@ class Link extends InlineNode
     protected ?string $referenceLabel = null;
 
     /**
+     * Verbatim authored source of an UNRESOLVED reference (`rawRef` in PART 12
+     * §3a). Writers restore the construct from this field.
+     */
+    protected ?string $rawReferenceLabel = null;
+
+    /**
      * Whether the reference that produced this link was DERIVED from a heading
      * (PART 11 R1) rather than written as a `[label]: url` line.
      *
@@ -47,6 +53,16 @@ class Link extends InlineNode
     public function setReferenceLabel(string $label): void
     {
         $this->referenceLabel = $label;
+    }
+
+    public function getRawReferenceLabel(): ?string
+    {
+        return $this->rawReferenceLabel;
+    }
+
+    public function setRawReferenceLabel(string $label): void
+    {
+        $this->rawReferenceLabel = $label;
     }
 
     public function isFromHeadingReference(): bool

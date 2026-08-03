@@ -61,6 +61,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use ReflectionObject;
@@ -924,25 +925,6 @@ class CarveRenderer implements RendererInterface
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if ($node instanceof InlineNode) {
-                    // A trailing `!` on a Text node immediately before an
-                    // unresolved reference (a RawText starting with `[`) must NOT
-                    // be escaped: together they round-trip as a literal reference
-                    // image (`![a][nope]`), matching carve-js / carve-rs. A
-                    // RawText never holds an inline-link `(...)`, so `!`+`[…]`
-                    // can only re-parse to a literal, never a real image. Escaping
-                    // just the `!` (`\![a][nope]`) would diverge.
-                    $next = $nodes[$i + 1] ?? null;
-                    if (
-                        $node instanceof Text
-                        && str_ends_with($node->getContent(), '!')
-                        && $next instanceof RawText
-                        && str_starts_with($next->getContent(), '[')
-                    ) {
-                        $content = $node->getContent();
-                        $out .= $this->escapeText(substr($content, 0, -1)) . '!';
-
-                        continue;
-                    }
                     $out .= $this->renderInline($node, $this->lastBoundary($nodes[$i - 1] ?? null), $this->firstBoundary($nodes[$i + 1] ?? null));
                 } elseif ($node instanceof Comment) {
                     $out .= ' %% ' . $node->getContent();
@@ -958,6 +940,9 @@ class CarveRenderer implements RendererInterface
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string
     {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
+        // An unresolved reference renders as the source the author
+        // wrote, never as a link (PART 12 section 3a).
+        $rawReference = UnresolvedReference::sourceOf($node);
 
         return match (true) {
             $node instanceof Text => $this->escapeText($this->resolveIndentPlaceholder($node->getContent())) . (string)$node->getAttribute('data-carve-raw-suffix'),
@@ -980,6 +965,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
+            $rawReference !== null => $rawReference,
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',

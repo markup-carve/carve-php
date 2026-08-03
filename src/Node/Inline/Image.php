@@ -15,6 +15,12 @@ class Image extends InlineNode
      */
     protected ?string $referenceLabel = null;
 
+    /**
+     * Verbatim authored source of an UNRESOLVED reference (`rawRef` in PART 12
+     * §3a). Writers restore the construct from this field.
+     */
+    protected ?string $rawReferenceLabel = null;
+
     public function __construct(
         protected string $source = '',
         protected string $alt = '',
@@ -30,6 +36,16 @@ class Image extends InlineNode
     public function setReferenceLabel(string $label): void
     {
         $this->referenceLabel = $label;
+    }
+
+    public function getRawReferenceLabel(): ?string
+    {
+        return $this->rawReferenceLabel;
+    }
+
+    public function setRawReferenceLabel(string $label): void
+    {
+        $this->rawReferenceLabel = $label;
     }
 
     public function getSource(): string

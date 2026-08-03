@@ -148,6 +148,7 @@
     "image": {
         "fields": [
             "ref",
+            "rawRef",
             "src",
             "alt",
             "title"
@@ -177,6 +178,7 @@
     "link": {
         "fields": [
             "ref",
+            "rawRef",
             "href",
             "title"
         ],

@@ -56,6 +56,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -423,6 +424,10 @@ class AnsiRenderer implements RendererInterface
 
         $this->renderDepth++;
         try {
+            // An unresolved reference renders as the source the author
+            // wrote, never as a link (PART 12 section 3a).
+            $rawReference = UnresolvedReference::sourceOf($node);
+
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
                 $node instanceof Paragraph => $this->renderParagraph($node),
@@ -452,6 +457,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Underline => $this->renderUnderline($node),
                 $node instanceof Strike => $this->renderStrike($node),
                 $node instanceof Code => $this->renderCode($node),
+                $rawReference !== null => $this->stripControls($rawReference),
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
