@@ -95,7 +95,7 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
         $html = CarveConverter::create()->convert("[^]: http://x.de\n\ny\n");
 
         $this->assertStringNotContainsString('[^]', $html);
-        $this->assertSame("<p>y</p>", trim($html));
+        $this->assertSame('<p>y</p>', trim($html));
     }
 
     public function testANonEmptyFootnoteLabelStillWins(): void
