@@ -4991,6 +4991,9 @@ class BlockParser
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line);
+        /** @var list<string> $contentParts */
+        $contentParts = [$content];
+        $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
         // Where each folded line's content sits, so a multi-line paragraph can
         // still place its inlines: [line index, column in that line, length].
         // Nested content arrives PRE-JOINED: a list item hands its body over as
@@ -5023,7 +5026,7 @@ class BlockParser
             // written for, and PART 9 §10's I1 says nothing about brace state.
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
-            if ($this->interruptsParagraph($lines, $i, $content, $start)) {
+            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine)) {
                 break;
             }
 
@@ -5036,9 +5039,13 @@ class BlockParser
                 strlen($rawNextLine) - strlen($nextLine),
                 $nextLine,
             );
-            $content .= "\n" . $nextLine;
+            $contentParts[] = $nextLine;
+            $hasUnclaimedColonFenceLine = $hasUnclaimedColonFenceLine
+                || $this->paragraphHasUnclaimedColonFenceLine($nextLine);
             $i++;
         }
+
+        $content = implode("\n", $contentParts);
 
         // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 paragraph rule; pinned
         // by corpus 102). Whitespace at the end of the paragraph's FINAL line is
@@ -5752,18 +5759,24 @@ class BlockParser
      *
      * @param array<string> $lines
      * @param int $i
-     * @param string $content Current paragraph content before the candidate line.
+     * @param list<string> $contentLines Current paragraph content before the candidate line.
      * @param int $sourceLine
+     * @param bool $hasUnclaimedColonFenceLine
      */
-    protected function interruptsParagraph(array $lines, int $i, string $content, int $sourceLine): bool
-    {
+    protected function interruptsParagraph(
+        array $lines,
+        int $i,
+        array $contentLines,
+        int $sourceLine,
+        bool $hasUnclaimedColonFenceLine,
+    ): bool {
         $line = $lines[$i];
 
         if (preg_match('/^\^ +.*\S/', $line)) {
-            return $this->isCaptionableParagraphContent($content, $sourceLine);
+            return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
-        if ($this->isBareColonFence($line) && $this->paragraphHasUnclaimedColonFenceLine($content)) {
+        if ($this->isBareColonFence($line) && $hasUnclaimedColonFenceLine) {
             return false;
         }
 
@@ -5812,16 +5825,20 @@ class BlockParser
     protected function paragraphHasUnclaimedColonFenceLine(string $content): bool
     {
         foreach (explode("\n", $content) as $line) {
-            $trimmed = ltrim($line);
-            if (
-                preg_match('/^:{3,}/', $trimmed) === 1
-                && $this->fencedBlockParser->parseDivFenceOpener($trimmed) === null
-            ) {
+            if ($this->isUnclaimedColonFenceLine($line)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    protected function isUnclaimedColonFenceLine(string $line): bool
+    {
+        $trimmed = ltrim($line);
+
+        return preg_match('/^:{3,}/', $trimmed) === 1
+            && $this->fencedBlockParser->parseDivFenceOpener($trimmed) === null;
     }
 
     protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool
