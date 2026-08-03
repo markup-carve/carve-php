@@ -112,6 +112,39 @@ class BlockParser
      */
     protected const MAX_HEADING_WALK_DEPTH = 512;
 
+    /**
+     * A definition term, with its content.
+     *
+     * The separator after `::` is the SPACE character:
+     * `definition_term = "::", space, inline_content, newline` and
+     * `space = ' '`, so a tab does not open a term and the line stays
+     * paragraph text - the rule every other space-separated marker already
+     * followed (carve#532).
+     *
+     * The three shapes below are one decision spelled for three callers, and
+     * they are constants because they had eleven copies between them: a fix
+     * applied to the one a bug report named would have left the rest deciding
+     * the old way.
+     *
+     * @var string
+     */
+    protected const DEFINITION_TERM_PATTERN = '/^::(?!:) +(?=\S)(.+)$/';
+
+    /**
+     * A definition term, tested rather than captured.
+     *
+     * @var string
+     */
+    protected const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) +\S/';
+
+    /**
+     * A definition-term MARKER, where the caller checks only that the line
+     * opens one.
+     *
+     * @var string
+     */
+    protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) +/';
+
     private int $nestingDepth = 0;
 
     protected InlineParser $inlineParser;
@@ -2939,7 +2972,7 @@ class BlockParser
         $isTableRow = $this->tableParser->isTableRow($trimmed);
         // A definition TERM is bounded like a heading: it holds inline content,
         // not a paragraph. `:::` is a div fence and is handled above.
-        $isDefinitionTerm = preg_match('/^::(?!:)[ \t]+\S/', $trimmed) === 1;
+        $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
         // An invisible definition leaves no paragraph at all - there is nothing
         // on the page for a lazy line to continue.
         $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
@@ -3806,7 +3839,7 @@ class BlockParser
      */
     protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
     {
-        if (!preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$start])) {
+        if (!preg_match(self::DEFINITION_TERM_PATTERN, $lines[$start])) {
             return null;
         }
 
@@ -3815,9 +3848,9 @@ class BlockParser
         $i = $start;
         $count = count($lines);
 
-        while ($i < $count && preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$i])) {
+        while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
-            while ($i < $count && preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$i], $m)) {
+            while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
                 $termStart = $i;
                 $termText = trim($m[1]);
                 $termLines = [$termText];
@@ -3830,7 +3863,7 @@ class BlockParser
                     $nextLine = $lines[$i];
                     if (
                         trim($nextLine) === ''
-                        || preg_match('/^::(?!:)\s+/', $nextLine)
+                        || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                         || preg_match('/^:\s\s+/', $nextLine)
                         || $this->endsHeadingOrQuote($nextLine, $lines, $i)
                         // A construct that renders nothing is not term text. The
@@ -3905,7 +3938,7 @@ class BlockParser
                         if (
                             trim($a) === ''
                             || preg_match('/^\+[ \t]*$/', $a)
-                            || preg_match('/^::(?!:)\s+/', $a)
+                            || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
                             || preg_match('/^:\s\s+/', $a)
                         ) {
                             break;
@@ -3940,7 +3973,7 @@ class BlockParser
                             if (
                                 trim($a) === ''
                                 || preg_match('/^\+[ \t]*$/', $a)
-                                || preg_match('/^::(?!:)\s+/', $a)
+                                || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
                                 || preg_match('/^:\s\s+/', $a)
                             ) {
                                 break;
@@ -3991,7 +4024,7 @@ class BlockParser
 
                     // A new term/definition marker ends this definition (the
                     // outer loop picks it up).
-                    if (preg_match('/^::(?!:)\s+/', $contLine) || preg_match('/^:\s\s+/', $contLine)) {
+                    if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match('/^:\s\s+/', $contLine)) {
                         break;
                     }
                     // Lazy continuation: a flush-left line with no blank before it
@@ -4019,7 +4052,7 @@ class BlockParser
                 while ($look < $count && trim($lines[$look]) === '') {
                     $look++;
                 }
-                if ($look < $count && preg_match('/^::(?!:)\s+/', $lines[$look])) {
+                if ($look < $count && preg_match(self::DEFINITION_TERM_LINE_PREFIX, $lines[$look])) {
                     $i = $look;
 
                     continue;
@@ -6382,7 +6415,7 @@ class BlockParser
                 // Definition list term (`:: term`, not `:::` div) is a
                 // first-class block opener (§24 C3), so it interrupts an open
                 // paragraph exactly like a heading or quote.
-                if (preg_match('/^::(?!:)[ \t]+\S/', $line) === 1) {
+                if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
                     return true;
                 }
 
@@ -6808,7 +6841,7 @@ class BlockParser
         // so it must never split off to document level when it follows a term
         // at a mismatched indent (carve#295: match carve-js, which keeps the
         // whole <dl> together rather than stranding the definition as a <p>).
-        if (preg_match('/^::(?!:)[ \t]+\S/', $line)) {
+        if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line)) {
             return true;
         }
 
