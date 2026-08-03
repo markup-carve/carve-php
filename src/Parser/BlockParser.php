@@ -3795,7 +3795,7 @@ class BlockParser
      */
     protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
     {
-        if (!preg_match('/^::(?!:)\s+(.+)$/', $lines[$start])) {
+        if (!preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$start])) {
             return null;
         }
 
@@ -3804,9 +3804,9 @@ class BlockParser
         $i = $start;
         $count = count($lines);
 
-        while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i])) {
+        while ($i < $count && preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
-            while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
+            while ($i < $count && preg_match('/^::(?!:)\s+(?=\S)(.+)$/', $lines[$i], $m)) {
                 $termStart = $i;
                 $termText = trim($m[1]);
                 $termLines = [$termText];
