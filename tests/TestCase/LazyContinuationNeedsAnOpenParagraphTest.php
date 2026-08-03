@@ -59,9 +59,14 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     {
         // A term is a bounded single line like a heading - it holds inline
         // content, not a paragraph - so a lazy line cannot extend it.
+        //
+        // The space after `>` is REQUIRED (carve#525). This case was written
+        // as `>:: t` while that was still a quote, and the rule landed one
+        // minute before this file did - so main went red on a test whose own
+        // PR had been green against the older base.
         $this->assertSame(
             '<blockquote> <dl> <dt>t</dt> </dl> </blockquote> <p>~</p>',
-            $this->squash($this->converter->convert(">:: t\n~\n")),
+            $this->squash($this->converter->convert("> :: t\n~\n")),
         );
     }
 
@@ -70,7 +75,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // An invisible construct leaves no paragraph at all.
         $this->assertSame(
             '<blockquote> </blockquote> <p>/</p>',
-            $this->squash($this->converter->convert(">[f]: ~\n/\n")),
+            $this->squash($this->converter->convert("> [f]: ~\n/\n")),
         );
     }
 
