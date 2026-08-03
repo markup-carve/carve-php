@@ -6158,6 +6158,14 @@ class BlockParser
             if (preg_match('/^\|/', $nextLine)) {
                 break;
             }
+            // A line that RENDERS NOTHING is not caption text: a link,
+            // footnote or abbreviation definition, a comment, a block-attribute
+            // line. Folding them in published `[A]: /u` as caption text, and a
+            // footnote definition twice - once in the caption and once as an
+            // endnote (carve-php#688).
+            if ($this->isInvisibleOrAttributeLine($nextLine)) {
+                break;
+            }
             $captionLines[] = $nextLine;
             $i++;
         }
