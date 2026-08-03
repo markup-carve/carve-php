@@ -120,10 +120,17 @@ class ListParser
      */
     private function parseListItemMarkerBase(string $line): ?array
     {
-        // Task list: - [.] where . is any single character
-        // Standard markers: ' ' (unchecked), 'x'/'X' (checked)
-        // Extended markers: '-' (cancelled), '/' (partial), '>' (deferred), etc.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[(.)\] +(\S.*)$/', $line, $matches)) {
+        // Task list. PART 9 enumerates the states EXHAUSTIVELY:
+        //
+        //   task_state = ' ' | 'x' | 'X' | '-' | '_' | '>' | '?' ;
+        //
+        // `x`/`X` render a CHECKED checkbox, the other five an UNCHECKED one.
+        // This accepted ANY single character, so `- [d] u` became a checkbox
+        // and the `[d]` was DELETED from the output -- a bracketed one-character
+        // tag at the head of an item silently lost its text and gained a
+        // checkbox nobody wrote (carve-php#657). Anything outside the
+        // enumeration is literal text, which is what carve-js does.
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[([ xX\-_>?])\] +(\S.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [

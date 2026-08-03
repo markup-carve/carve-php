@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Only the seven enumerated task states are task markers** (carve-php#657).
+  PART 9 lists them exhaustively - ` `, `x`, `X`, `-`, `_`, `>`, `?` - but any
+  single character was accepted, and the brackets were then DELETED: `- [!]
+  urgent` rendered as a checkbox plus ` urgent`, so a bracketed one-character
+  tag at the head of a list item silently lost its text and gained a checkbox
+  nobody wrote. Anything outside the enumeration is literal text now, matching
+  carve-js.
+
+### Fixed
+
 - **The canonical writer keeps a heading-derived reference in its authored
   form.** A reference resolved against a heading (PART 11 R1) has no
   `[label]: url` line, so `[getting started][]` is the only record of what the
