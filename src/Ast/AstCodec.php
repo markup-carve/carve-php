@@ -963,6 +963,60 @@ class AstCodec
     }
 
     /**
+     * Join adjacent `text` nodes into one (PART 12 §1a).
+     *
+     * `foo_bar_baz and snake_case stay literal` is ONE text node on the wire,
+     * not four. This parser emits a run per stretch left over where a delimiter
+     * did not open emphasis, which is its own bookkeeping rather than anything
+     * about the document - and publishing it made the same paragraph 4 nodes
+     * here and 1 in the reference, so a consumer could not compare two engines
+     * node-for-node (carve#474).
+     *
+     * Done at SERIALIZATION only. The runtime tree keeps its runs, because the
+     * renderers and the writer walk it and nothing there is improved by
+     * rebuilding nodes.
+     *
+     * `escaped_text` is deliberately NOT merged in: an escape is authored form
+     * and PART 12 §5 keeps the two types apart on purpose. Positions are merged
+     * by SPAN - the joined node runs from the first node's start to the last
+     * node's end - so the result still points at the source it came from.
+     *
+     * @param array<array<string, mixed>> $nodes
+     *
+     * @return array<array<string, mixed>>
+     */
+    private static function coalesceTextRuns(array $nodes): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            $previous = $out === [] ? null : $out[count($out) - 1];
+            if (
+                $previous !== null
+                && ($previous['type'] ?? null) === 'text'
+                && ($node['type'] ?? null) === 'text'
+                && is_string($previous['value'] ?? null)
+                && is_string($node['value'] ?? null)
+            ) {
+                $merged = $previous;
+                $merged['value'] = $previous['value'] . $node['value'];
+                if (isset($merged['pos'], $node['pos']) && is_array($merged['pos']) && is_array($node['pos'])) {
+                    foreach (['endLine', 'endColumn', 'endOffset'] as $end) {
+                        if (isset($node['pos'][$end])) {
+                            $merged['pos'][$end] = $node['pos'][$end];
+                        }
+                    }
+                }
+                $out[count($out) - 1] = $merged;
+
+                continue;
+            }
+            $out[] = $node;
+        }
+
+        return $out;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function encodeNode(Node $node): array
@@ -1108,10 +1162,10 @@ class AstCodec
             $encoded[$container] = [];
         }
         if ($children !== []) {
-            $encoded[$container] = array_map(
+            $encoded[$container] = self::coalesceTextRuns(array_map(
                 fn (Node $child): array => $this->encodeNode($child),
                 $children,
-            );
+            ));
         }
 
         return self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded))));

@@ -369,23 +369,31 @@ class AstCodecTest extends TestCase
     ];
 
     /**
-     * `raw_text` is this engine's node and no other engine has it.
+     * `raw_text` is this engine's node and no other engine has it, so an
+     * unresolved reference publishes as TEXT rather than as a type the schema
+     * rejects and the profile vocabulary does not name.
      *
-     * For `see [a][] here` both carve-js and carve-rs publish three text nodes,
-     * verified on their mains; this engine published a `raw_text` in the middle,
-     * which the schema rejects and the profile vocabulary does not name - so the
-     * conformance gate reported a node type nothing accounts for.
+     * It is now ONE text node, not three: PART 12 §1a coalesces adjacent runs,
+     * and the declined source is text like the words around it.
+     *
+     * The comment this replaces said carve-js and carve-rs both publish three
+     * text nodes here. carve-rs still does; carve-js publishes `text`, `link`,
+     * `text` - it keeps the reference as a link node with `ref`, which is what
+     * §3's "and `ref` when the author wrote a reference link" describes. So the
+     * engines disagree about what an unresolved reference IS, which coalescing
+     * surfaces rather than causes, and which is carve#486 to settle. This test
+     * pins what this engine does today; it is not evidence the shape is right.
      */
-    public function testAnUnresolvedReferencePublishesAsTextLikeTheReference(): void
+    public function testAnUnresolvedReferencePublishesAsText(): void
     {
         $encoded = $this->codec->encode($this->converter->parse('see [a][] here'));
         $inlines = $encoded['children'][0]['children'];
 
-        $this->assertSame(['text', 'text', 'text'], array_column($inlines, 'type'));
+        $this->assertSame(['text'], array_column($inlines, 'type'));
         // The content is the source the parser declined, not an escaped form of
         // it: escaping belongs to the writer, not to the wire.
-        $this->assertSame('[a][]', $inlines[1]['value']);
-        $this->assertArrayNotHasKey('content', $inlines[1], 'a text node publishes `value`');
+        $this->assertSame('see [a][] here', $inlines[0]['value']);
+        $this->assertArrayNotHasKey('content', $inlines[0], 'a text node publishes `value`');
     }
 
     /**
