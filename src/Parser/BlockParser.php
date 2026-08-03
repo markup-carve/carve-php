@@ -6981,6 +6981,36 @@ class BlockParser
     }
 
     /**
+     * Does this line open a TABLE, by the same rule the table parser uses?
+     *
+     * A complete row (`| a |`) always does. A row that opens a code span is
+     * only a row once a `+` continuation closes the span, so that shape needs
+     * the surrounding lines to answer; without them the incomplete row is
+     * treated as a row, which is what the block-boundary callers that have no
+     * line context assumed before this predicate existed.
+     *
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function isTableBlockStart(string $line, ?array $lines = null, ?int $index = null): bool
+    {
+        if ($this->tableParser->isTableRow($line)) {
+            return true;
+        }
+
+        if (!$this->tableParser->isPotentialTableRowWithUnclosedCodeSpan($line)) {
+            return false;
+        }
+
+        if ($lines === null || $index === null) {
+            return true;
+        }
+
+        return $this->canCloseCodeSpanWithContinuations($lines, $index, count($lines));
+    }
+
+    /**
      * Check if line starts a block element that should terminate list content collection.
      *
      * This is different from startsNewBlock() which is about paragraph interruption.
@@ -6988,10 +7018,6 @@ class BlockParser
      * of list content collection.
      *
      * @param string $line The trimmed line to check
-     */
-
-    /**
-     * @param string $line
      * @param array<string>|null $lines
      * @param int|null $index
      */
@@ -7034,8 +7060,22 @@ class BlockParser
             return true;
         }
 
-        // Tables (starting with |)
-        if (preg_match('/^\|/', $line)) {
+        // Tables. The row is VALIDATED, not just recognized by its first byte:
+        // a pipe in prose (`|`, `|x`) opens no table, and treating it as one
+        // made the block boundary depend on the character rather than on what
+        // the line is. A column-0 `|` after a list item detached from the item
+        // while `*`, `-` and `x` attached, purely because those three reach the
+        // same decision through the paragraph-interruption predicate, which has
+        // always validated the row (carve-php#683). carve-js validates in both
+        // places (`isTableRow` in `lineOpensBlock`).
+        //
+        // The test has to accept exactly what {@see self::tryParseTable()}
+        // accepts, INCLUDING its continuation path: a row that opens a code
+        // span (`| ``a |`) is not a complete row on its own, but a following
+        // `+` row closes the span and a table is what gets parsed. Answering
+        // "no block here" for that shape folded the table into the preceding
+        // list item instead of letting it break out.
+        if ($this->isTableBlockStart($line, $lines, $index)) {
             return true;
         }
 

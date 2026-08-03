@@ -9,6 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block boundary no longer depends on a line starting with a pipe** (#683).
+  The block-start test accepted ANY line beginning with `|` as a table, while
+  the paragraph-interruption test beside it validated the row first. So a
+  column-0 `|` after a list item detached from the item, where `*`, `-` and `x`
+  all attached - one shape answered two ways for no reason but the character.
+  The row is validated in both places now (as carve-js does), so a pipe in
+  prose is prose and `| a |` still opens a table. Validation accepts exactly
+  what the table parser accepts, continuation path included: a row that opens a
+  code span (`| ``a |`) becomes a row once a `+` row closes the span, and it
+  still breaks out of the item. A blank line followed by a bare `|` inside an
+  item now loosens it, for the same reason - the pipe is prose, so the item has
+  two blocks - which is also what carve-js does. What a column-0 line after a
+  container SHOULD do is still open across the engines
+  (markup-carve/carve#561); this only makes this engine answer it consistently.
+
 - **The definition pre-pass reads a container's closer at the depth it opened
   at** (#685). The scan stripped every leading `>` before testing for a closer,
   so inside `> ``` ` a nested `> > ``` ` - which is quoted code content, not a
