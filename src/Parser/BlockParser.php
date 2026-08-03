@@ -5487,6 +5487,29 @@ class BlockParser
         return $this->positionIndex?->span($end, $end + 1, $sourceLine + 1, $sourceLine + 1, $start, $start);
     }
 
+    /**
+     * Extend a node's span so it reaches the end of a later one.
+     *
+     * A span is immutable, so this replaces it. Both ends have to exist: a node
+     * with no span keeps none rather than gaining one that starts nowhere.
+     */
+    private function widenSpanTo(Node $node, ?SourceSpan $reach): void
+    {
+        $span = $node->getPos();
+        if ($span === null || $reach === null || $reach->endOffset <= $span->endOffset) {
+            return;
+        }
+
+        $node->setPos(new SourceSpan(
+            startLine: $span->startLine,
+            endLine: $reach->endLine,
+            startColumn: $span->startColumn,
+            endColumn: $reach->endColumn,
+            startOffset: $span->startOffset,
+            endOffset: $reach->endOffset,
+        ));
+    }
+
     private function wholeLineSpan(int $index): ?SourceSpan
     {
         if (!$this->trackPositions) {
@@ -6143,6 +6166,13 @@ class BlockParser
                 $this->contiguousMapFor($start, $lines[$start], $captionText),
             );
             $lastChild->setCaption($caption);
+            // The caption is one of the table's children, and it is written
+            // after the last row, so the table's span has to reach the end of
+            // the caption line. Attaching it without widening left the
+            // caption's inlines outside their own parent - which carve-js does
+            // not do, and which nothing could see: a span is compared against
+            // source text for text nodes alone (carve#565).
+            $this->widenSpanTo($lastChild, $caption->getPos());
 
             return $linesConsumed;
         }
