@@ -1134,9 +1134,56 @@ class BlockParser
         $i = 0;
         $count = count($lines);
         $firstAbbreviationLine = null;
+        // OPAQUE content defines nothing. A `*[A]: x` inside a fenced code
+        // SAMPLE registered an abbreviation for the whole document, so
+        // documenting the syntax changed the prose around it; inside a LINE
+        // BLOCK it did the same and was expanded in place, showing an <abbr>
+        // in verse the author never wrote (carve#573, carve#574).
+        //
+        // The footnote scan beside this one already tracks code fences for the
+        // same reason. Both fences close on their own width, so a wider opener
+        // is not closed by a narrower run.
+        $fenceChar = null;
+        $fenceLen = 0;
+        $verseFence = 0;
 
         while ($i < $count) {
             $line = $lines[$i];
+
+            if ($fenceChar !== null) {
+                if (
+                    preg_match('/^([`~]{3,})\s*$/', $line, $fm)
+                    && $fm[1][0] === $fenceChar
+                    && strlen($fm[1]) >= $fenceLen
+                ) {
+                    $fenceChar = null;
+                    $fenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if ($verseFence > 0) {
+                if (preg_match('/^(:{3,})\s*$/', $line, $vm) && strlen($vm[1]) >= $verseFence) {
+                    $verseFence = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^([`~]{3,})/', $line, $fo) === 1) {
+                $fenceChar = $fo[1][0];
+                $fenceLen = strlen($fo[1]);
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $line, $vo) === 1) {
+                $verseFence = strlen($vo[1]);
+                $i++;
+
+                continue;
+            }
 
             // Match abbreviation definition: *[abbr]: definition. The pattern
             // is anchored to a leading `*`, so skip it on any other line.
