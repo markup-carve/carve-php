@@ -28,6 +28,12 @@ class ReferenceDefinitionExtractor
         $fenceLen = 0;
         $fenceContentCol = 0;
         $fenceQuoted = false;
+        // A LINE BLOCK is verse: its body is inline content, so a definition
+        // written there is text and registers nothing (PART 9 §23, carve#574).
+        // Registering it made the line render AND resolve elsewhere - the one
+        // place in the language where a construct did both (carve#557).
+        // Tracked like a code fence, closing on its own width.
+        $verseFence = 0;
         $listContentCols = [];
         $prevBlank = true;
 
@@ -42,6 +48,21 @@ class ReferenceDefinitionExtractor
 
             $contentCol = $listContentCols === [] ? 0 : $listContentCols[array_key_last($listContentCols)];
             $fenceView = $this->fenceView($line, $contentCol);
+
+            if ($verseFence > 0) {
+                if (preg_match('/^(:{3,})\s*$/', trim($line), $vm) && strlen($vm[1]) >= $verseFence) {
+                    $verseFence = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', trim($line), $vo) === 1) {
+                $verseFence = strlen($vo[1]);
+                $i++;
+
+                continue;
+            }
 
             if ($fenceChar !== null) {
                 if ($this->isFenceCloser($line, $fenceQuoted, $fenceContentCol, $fenceChar, $fenceLen)) {
