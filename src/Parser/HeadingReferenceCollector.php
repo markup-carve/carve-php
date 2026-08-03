@@ -93,7 +93,7 @@ class HeadingReferenceCollector
             return;
         }
 
-        $this->references[$folded] = [$label, new ReferenceDefinition('#' . $id, [], 0)];
+        $this->references[$folded] = [$label, new ReferenceDefinition('#' . $id, [], 0, null, true)];
     }
 
     /**
