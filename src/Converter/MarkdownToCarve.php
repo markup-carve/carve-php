@@ -265,6 +265,9 @@ class MarkdownToCarve
             if ($isHeading) {
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
+            if ($isBlockquote) {
+                $body = $this->normalizeBlockquoteMarkers($body);
+            }
             // Carve has only `-`/`*` bullets (no `+`, which is the
             // continuation marker), and two adjacent bullet lists must use
             // different markers or Carve merges them into one. Keep the
@@ -343,6 +346,21 @@ class MarkdownToCarve
         $prefix = implode("\n", $frontmatter);
 
         return $carve === '' ? $prefix : $prefix . "\n" . $carve;
+    }
+
+    protected function normalizeBlockquoteMarkers(string $line): string
+    {
+        $rest = $line;
+        $prefix = '';
+        while (str_starts_with($rest, '>')) {
+            $rest = substr($rest, 1);
+            if (str_starts_with($rest, ' ') || str_starts_with($rest, "\t")) {
+                $rest = substr($rest, 1);
+            }
+            $prefix .= '> ';
+        }
+
+        return $prefix === '' ? $line : $prefix . $rest;
     }
 
     /**

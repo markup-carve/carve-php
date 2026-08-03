@@ -772,10 +772,14 @@ class BlockParser
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
-            // `^(?:> ?)+` only changes a line that begins with `>`.
-            $fenceLine = (($line[0] ?? '') === '>')
-                ? (preg_replace('/^(?:> ?)+/', '', $line) ?? $line)
-                : $line;
+            $fenceLine = $line;
+            while (($fenceLine[0] ?? '') === '>') {
+                $quoteContent = $this->blockQuoteLineContent($fenceLine);
+                if ($quoteContent === null) {
+                    break;
+                }
+                $fenceLine = $quoteContent;
+            }
 
             if ($fenceChar !== null) {
                 if (
@@ -858,7 +862,7 @@ class BlockParser
                     $opensBlock = $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
-                        || preg_match('/^[ \t]*>/', $lines[$i - 1]) === 1;
+                        || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
                     if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
                         $footnote = new Footnote($label);
                         if ($this->trackSourceLines) {
@@ -1005,9 +1009,10 @@ class BlockParser
         do {
             $previous = $rest;
 
-            // Blockquote marker `>` then an optional literal space.
-            if (($rest[0] ?? '') === '>' && preg_match('/^> ?/', $rest, $bm)) {
-                $rest = substr($rest, strlen($bm[0]));
+            // Blockquote marker `>` alone or `>` then a literal space.
+            $quoteContent = $this->blockQuoteLineContent($rest);
+            if ($quoteContent !== null) {
+                $rest = $quoteContent;
                 $stripped = true;
 
                 continue;
@@ -1451,9 +1456,10 @@ class BlockParser
             $stripped = ltrim($content, " \t");
             $leadingColumns = IndentationHelper::getLeadingColumns($content);
 
-            if (preg_match('/^> ?(.*)$/', $stripped, $quoteMatch) === 1) {
+            $quoteContent = $this->blockQuoteLineContent($stripped);
+            if ($quoteContent !== null) {
                 $quoted = true;
-                $content = $quoteMatch[1];
+                $content = $quoteContent;
 
                 continue;
             }
@@ -2656,14 +2662,11 @@ class BlockParser
         if ($line === '>') {
             return '';
         }
-        // The space after `>` is OPTIONAL (grammar `blockquote_line = '>',
-        // [' '], inline_content`): `>tight` is a quote of `tight`, and `>>x`
-        // nests. Consume one optional leading space.
         if (($line[1] ?? '') === ' ') {
             return substr($line, 2);
         }
 
-        return substr($line, 1);
+        return null;
     }
 
     /**
@@ -6267,7 +6270,7 @@ class BlockParser
                 return $this->tableParser->isTableRow($line);
             case '>':
                 // Block quotes
-                return true;
+                return $this->blockQuoteLineContent($line) !== null;
             case '`':
             case '~':
                 // Code fences interrupt only if a matching closer exists ahead.
@@ -6686,7 +6689,7 @@ class BlockParser
         }
 
         // Block quotes
-        if (preg_match('/^>/', $line)) {
+        if ($this->blockQuoteLineContent($line) !== null) {
             return true;
         }
 
