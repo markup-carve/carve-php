@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The decoder stops recording a source slot for a structural class.** An
+  admonition's kind class is derived from the opener word, and the parser
+  records no slot for it - but `applyDerivedFields` wrote it with
+  `setAttribute()`, which records one unconditionally. So
+  `decode(encode(parse(x)))` came back with `attrs.order` = `["title",
+  ".class"]` where `parse(x)` had `["title"]`, breaking PART 12 §6 for
+  `42-admonitions-5` (an attribute line carrying `title=` above an opener
+  title). HTML and Carve output were identical, which is why every existing
+  round-trip check stayed green; a corpus-wide §6 comparison now covers it.
+
 - **The canonical writer emits a line block's medial gap as plain spaces.** A
   line block preserves an inner or trailing run of two or more columns the way
   it preserves the indent (PART 9 §23), but the writer only routed the LEADING
