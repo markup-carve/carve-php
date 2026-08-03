@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use ReflectionObject;
 use Throwable;
 
@@ -71,9 +72,22 @@ use Throwable;
 class CarveRenderer implements RendererInterface
 {
     /**
+     * The writer's recursion bound, and it must sit ABOVE the parser's.
+     *
+     * The guard is for hand-built ASTs, which nest without limit. It is not a
+     * language rule, and the parser's own number made it one: a document nested
+     * at exactly MAX_NESTING_DEPTH parses fine, and the writer then emitted
+     * nothing for the innermost block, deleting content with no error and
+     * breaking PART 11's semantic invariant at the boundary (issue 517).
+     *
+     * A parsed tree is at least one block level deeper than the containers that
+     * produced it - the paragraph inside the innermost one - so the bound needs
+     * slack over the cap rather than equality with it. The HTML, Markdown,
+     * plain-text and ANSI renderers already sit above the cap.
+     *
      * @var int
      */
-    private const MAX_RENDER_DEPTH = 200;
+    public const MAX_RENDER_DEPTH = BlockParser::MAX_NESTING_DEPTH + 32;
 
     /**
      * @var list<string>
