@@ -333,11 +333,21 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * Every one holds an unresolved reference - `[a][]` - which this engine
-     * keeps as a `raw_text` node so its writer reproduces the brackets the
-     * parser declined to interpret. PART 12 §5 excludes that node from the
-     * wire, so it publishes as `text` and comes back as one, and a text node's
-     * brackets are metacharacters that the writer escapes: `\[a\]\[\]`.
+     * TWO causes, kept apart on purpose.
+     *
+     * Most hold an unresolved reference - `[a][]` - which this engine keeps as
+     * a `raw_text` node so its writer reproduces the brackets the parser
+     * declined to interpret. PART 12 §5 excludes that node from the wire, so it
+     * publishes as `text` and comes back as one, and a text node's brackets are
+     * metacharacters that the writer escapes: `\[a\]\[\]`.
+     *
+     * The `174-bare-dot-ordered-markers` pair is NOT that. A bare-dot ordered
+     * list has no field on the wire at all: `list` carries `delim` and
+     * `bulletChar` for every other marker flavor, but nothing records the bare
+     * form, so `. first` decodes as `1. first`. That is a gap in the FORMAT
+     * rather than in this codec - preserving it here would mean inventing a
+     * field the other engines do not publish - and is tracked as
+     * markup-carve/carve#480.
      *
      * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
      * than a decoded payload. What is lost is authored form AFTER a trip
@@ -348,11 +358,14 @@ class AstCodecTest extends TestCase
      * @var array<string>
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        '134-link-reference-definition-separator-must-be-a-space.crv',
-        '157-indented-reference-and-footnote-definitions-stay-literal.crv',
-        '171-implicit-heading-references-with-no-definition.crv',
+        '136-link-reference-definition-separator-must-be-a-space.crv',
+        '159-indented-reference-and-footnote-definitions-stay-literal.crv',
+        '173-implicit-heading-references-with-no-definition.crv',
+        // No wire field for the bare-dot marker (markup-carve/carve#480).
+        '174-bare-dot-ordered-markers-3.crv',
+        '174-bare-dot-ordered-markers.crv',
         '18-unresolved-reference-link.crv',
-        '76-reference-labels-are-case-sensitive.crv',
+        '78-reference-labels-are-case-sensitive.crv',
     ];
 
     /**
