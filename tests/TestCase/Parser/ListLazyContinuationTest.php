@@ -93,10 +93,27 @@ class ListLazyContinuationTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testFencedCodeLineEndsList(): void
+    public function testClosedFencedCodeLineEndsList(): void
+    {
+        $djot = "- a\n```\nx\n```\n";
+        $expected = "<ul>\n  <li>a</li>\n</ul>\n<pre><code>x\n</code></pre>\n";
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    /**
+     * PART 9 section 10, I4: an UNTERMINATED fence does not interrupt. The line
+     * stays paragraph text and the stray fence opens an unclosed inline
+     * verbatim run, so the list item keeps it instead of being ended by it.
+     *
+     * This case used to assert the closed-fence output above, which is what
+     * carve-php produced for it - it applied I4 at the top level only
+     * (carve-php#642). carve-rs renders the expectation below.
+     */
+    public function testUnterminatedFenceLineDoesNotEndList(): void
     {
         $djot = "- a\n```\nx";
-        $expected = "<ul>\n  <li>a</li>\n</ul>\n<pre><code>x\n</code></pre>\n";
+        $expected = "<ul>\n  <li>a\n<code>\nx</code></li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

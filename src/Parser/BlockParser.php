@@ -2470,7 +2470,17 @@ class BlockParser
             $fenceLength = $rawFenceInfo['length'];
         } else {
             $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($line);
-            if ($codeFenceInfo !== null) {
+            // Same closer requirement as the raw branch above, for the same
+            // reason: an UNCLOSED ``` is paragraph text (PART 9 section 10, I4),
+            // not a block that may hide the container's own ::: closer from
+            // this scan. Without it the closer was swallowed into the body, the
+            // container ran to end of file, and the swallowed ::: was then read
+            // a second time as an opener - which is where the phantom empty
+            // <div> inside the admonition came from (carve-php#642).
+            if (
+                $codeFenceInfo !== null
+                && $this->hasCodeFenceCloserAhead($lines, $start, $codeFenceInfo['char'], $codeFenceInfo['length'])
+            ) {
                 $fenceChar = $codeFenceInfo['char'];
                 $fenceLength = $codeFenceInfo['length'];
             }
@@ -2768,7 +2778,7 @@ class BlockParser
                 $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i);
                 $i++;
-            } elseif ($lazyState['paragraphOpen'] && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'])) {
+            } elseif ($lazyState['paragraphOpen'] && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'], $lines, $i)) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
                 // block that left no open paragraph (a just-opened div, a closed
@@ -3517,11 +3527,11 @@ class BlockParser
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
             $nextTrimmed = ltrim($nextLine);
 
-            if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent)) {
+            if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
             }
 
-            if ($this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent)) {
+            if ($this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
             }
 
@@ -3576,20 +3586,47 @@ class BlockParser
         return [$i, $trailingState];
     }
 
-    protected function listContinuationEndsAtDedentedBlock(int $nextIndent, string $nextTrimmed, int $baseIndent): bool
-    {
+    /**
+     * @param int $nextIndent
+     * @param string $nextTrimmed
+     * @param int $baseIndent
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function listContinuationEndsAtDedentedBlock(
+        int $nextIndent,
+        string $nextTrimmed,
+        int $baseIndent,
+        ?array $lines = null,
+        ?int $index = null,
+    ): bool {
         return $nextIndent < $baseIndent
             && (
                 $this->listParser->parseListItemMarker($nextTrimmed) !== null
                 || (
                     $nextIndent === 0
-                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                    && (
+                        $this->isBlockElementStart($nextTrimmed, $lines, $index)
+                        || $this->startsNewBlock($nextTrimmed, $lines, $index)
+                    )
                 )
             );
     }
 
-    protected function listContinuationEndsAtBaseColumn(int $nextIndent, string $nextTrimmed, int $baseIndent): bool
-    {
+    /**
+     * @param int $nextIndent
+     * @param string $nextTrimmed
+     * @param int $baseIndent
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function listContinuationEndsAtBaseColumn(
+        int $nextIndent,
+        string $nextTrimmed,
+        int $baseIndent,
+        ?array $lines = null,
+        ?int $index = null,
+    ): bool {
         if ($nextIndent !== $baseIndent) {
             return false;
         }
@@ -3599,7 +3636,10 @@ class BlockParser
         }
 
         return $baseIndent === 0
-            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
+            && (
+                $this->isBlockElementStart($nextTrimmed, $lines, $index)
+                || $this->startsNewBlock($nextTrimmed, $lines, $index)
+            );
     }
 
     /**
@@ -6605,8 +6645,10 @@ class BlockParser
      * of list content collection.
      *
      * @param string $line The trimmed line to check
+     * @param array<string>|null $lines The surrounding lines, when the caller has them.
+     * @param int|null $index This line's index in $lines.
      */
-    protected function isBlockElementStart(string $line): bool
+    protected function isBlockElementStart(string $line, ?array $lines = null, ?int $index = null): bool
     {
         // Headings: #{1,6}, a space, then non-empty content (a bare `#` / `# `
         // is not a heading).
@@ -6614,9 +6656,14 @@ class BlockParser
             return true;
         }
 
-        // Code fences (``` or ~~~)
+        // Code fences (``` or ~~~). An UNTERMINATED opener is not a block
+        // opener at all: PART 9 section 10's I4 keeps the line as paragraph
+        // text, and the stray fence then opens an unclosed inline verbatim run
+        // (carve-php#642). The guard needs the surrounding lines to answer, so
+        // callers without them keep the old unconditional reading.
         if (preg_match('/^[`~]{3,}/', $line)) {
-            return true;
+            return $lines === null || $index === null
+                || $this->hasClosingFenceAhead($line, $lines, $index);
         }
 
         // Fenced divs / admonitions (::: but not glued typed text like :::note)

@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unterminated verbatim fence no longer breaks out of its container.**
+  PART 9 §10's I4 guards the fence unconditionally - an unterminated ``` or
+  ~~~ opener does not interrupt - but that was applied at the top level only.
+  Inside a list item, a block quote or an admonition body the fence ended the
+  container. In the admonition case it also invented a node: the `:::` closer
+  was swallowed into the body by the unclosed fence, so the container ran to
+  end of file and the swallowed `:::` was read a second time as an opener,
+  leaving a phantom empty `<div>` behind. All four contexts now match carve-rs.
+
 - **The canonical writer keeps a heading-derived reference in its authored
   form.** A reference resolved against a heading (PART 11 R1) has no
   `[label]: url` line, so `[getting started][]` is the only record of what the
