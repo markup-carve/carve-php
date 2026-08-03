@@ -5819,7 +5819,18 @@ class BlockParser
                 return null;
             }
 
-            $parts[] = trim(substr($line, $pos + 1, $end - $pos - 1));
+            $part = trim(substr($line, $pos + 1, $end - $pos - 1));
+            // An EMPTY `{}` is not a block-attribute block, so a line holding
+            // one is not a block-attribute line - wherever it sits. Joining the
+            // payloads with a space made the empty one vanish silently, so
+            // `{}{x}` produced the payload `x` and the line was consumed;
+            // standalone that dropped the whole document, because there was no
+            // block to attach to. carve-js and carve-rs keep the line literal
+            // in every position (#638).
+            if ($part === '') {
+                return null;
+            }
+            $parts[] = $part;
             $pos = $end + 1;
         }
 
