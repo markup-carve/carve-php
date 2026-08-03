@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use PHPUnit\Framework\TestCase;
@@ -71,6 +73,92 @@ class TextRunRoundTripTest extends TestCase
         );
 
         $this->assertSame(['text', 'escaped_text', 'text'], $types);
+    }
+
+    public function testACitationPrefixIsCoalesced(): void
+    {
+        // `prefix`, `locator` and `suffix` are inline arrays on a citation item,
+        // NOT children, so a walk that follows only the child list never reaches
+        // them. The rule then holds for the corpus and not for the vocabulary -
+        // the same gap review found on carve-rs#441.
+        $converter = new CarveConverter();
+        $converter->addExtension(new CitationsExtension());
+        $document = $converter->parse("[see [missing][nope] @a, p. 3].\n\n[@a]: A.\n");
+
+        $group = $this->firstCitationGroup($document);
+        $this->assertInstanceOf(CitationGroup::class, $group, 'the source should produce a citation group');
+
+        foreach ($group->getItems() as $item) {
+            foreach (['prefix', 'locator', 'suffix'] as $field) {
+                if (!isset($item[$field])) {
+                    continue;
+                }
+                $previousWasText = false;
+                foreach ($item[$field] as $node) {
+                    $isText = $node instanceof Text;
+                    $this->assertFalse(
+                        $previousWasText && $isText,
+                        "adjacent text runs left in a citation {$field}",
+                    );
+                    $previousWasText = $isText;
+                }
+            }
+        }
+    }
+
+    public function testARunJoinedAcrossAGapCarriesNoSpan(): void
+    {
+        // A cell rebuilt from two source lines is joined by a space the source
+        // does not contain, so the merged value is not a slice of it at any
+        // offset. PART 12 section 4 rates a span selecting the wrong text worse
+        // than none, so the node carries none.
+        $document = $this->converter->parse(
+            "|= a |= b |\n| x | A long description |\n+     | that continues     |\n",
+        );
+        $texts = $this->collectText($document);
+        $joined = null;
+        foreach ($texts as $text) {
+            if (str_contains($text->getContent(), 'that continues')) {
+                $joined = $text;
+            }
+        }
+
+        $this->assertNotNull($joined, 'the continued cell should be one text node');
+        $this->assertSame('A long description that continues', $joined->getContent());
+        $this->assertNull($joined->getPos(), 'a run joined across a gap must not claim a span');
+    }
+
+    protected function firstCitationGroup(Node $node): ?CitationGroup
+    {
+        if ($node instanceof CitationGroup) {
+            return $node;
+        }
+        foreach ($node->getChildren() as $child) {
+            $found = $this->firstCitationGroup($child);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<\MarkupCarve\Carve\Node\Inline\Text>
+     */
+    protected function collectText(Node $node): array
+    {
+        $out = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $out[] = $child;
+            }
+            foreach ($this->collectText($child) as $nested) {
+                $out[] = $nested;
+            }
+        }
+
+        return $out;
     }
 
     /**
