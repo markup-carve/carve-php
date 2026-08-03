@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A content-less `::` is paragraph text** (markup-carve/carve#512). PART 9's
+  MARKER REQUIRES CONTENT covers every marker that takes a separator space, and
+  the definition-term marker was never extended to it. `::` and `:: ` were
+  already paragraphs, but `::` plus a SECOND space opened a definition list with
+  an EMPTY term - so deleting one invisible character changed the document's
+  structure, which is what the rule's rationale exists to prevent. The three
+  engines carried three answers here; carve-rs was right.
+
+### Fixed
+
 - **An unresolved reference is a link node, not reverted source** (PART 12 §3a,
   #624). `[missing][nope]` with nothing defining the label was flattened to an
   internal `raw_text` node, a type the AST vocabulary does not have: five corpus

@@ -3795,7 +3795,12 @@ class BlockParser
      */
     protected function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
     {
-        if (!preg_match('/^::(?!:)\s+(.+)$/', $lines[$start])) {
+        // MARKER REQUIRES CONTENT (PART 9): the content must be non-empty.
+        // `(.+)` matched a lone trailing space, so `::` plus a SECOND space
+        // opened a definition list with an EMPTY term while `::` and `:: ` were
+        // paragraphs -- deleting one invisible character changed the document's
+        // structure, which is what the rule exists to prevent (carve#512).
+        if (!preg_match('/^::(?!:)\s+(\S.*)$/', $lines[$start])) {
             return null;
         }
 
@@ -3804,9 +3809,9 @@ class BlockParser
         $i = $start;
         $count = count($lines);
 
-        while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i])) {
+        while ($i < $count && preg_match('/^::(?!:)\s+(\S.*)$/', $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
-            while ($i < $count && preg_match('/^::(?!:)\s+(.+)$/', $lines[$i], $m)) {
+            while ($i < $count && preg_match('/^::(?!:)\s+(\S.*)$/', $lines[$i], $m)) {
                 $termStart = $i;
                 $termText = trim($m[1]);
                 $termLines = [$termText];
