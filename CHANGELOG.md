@@ -9,6 +9,22 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The definition pre-pass reads a container's closer at the depth it opened
+  at** (#685). The scan stripped every leading `>` before testing for a closer,
+  so inside `> ``` ` a nested `> > ``` ` - which is quoted code content, not a
+  closer - ended the guarded region, and a `> [^a]: note` after it registered a
+  footnote from inside a code block. The same depth-blind test governed the line
+  block guarded in #691, so both now compare at the depth the region opened at,
+  and a line that leaves the blockquote ends the region with it. The line-block
+  guard moves onto the shared `parseLineBlockOpener` / `isDivFenceCloser`
+  helpers in the process, so the pre-pass and the real parser agree on what
+  opens and closes one instead of each carrying its own pattern.
+
+  A footnote definition inside a line block was already literal as of #691;
+  this does not change that answer, only how the region is tracked. Whether a
+  line block's body should register definitions at all - link references still
+  do, in all three engines - is markup-carve/carve#557.
+
 - **A sub-list lead does not exempt its item from the looseness rule** (PART 9
   §11, #681). An item whose content begins with another list marker is
   collected as one combined stream, and that path never ran the looseness scan
