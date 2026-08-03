@@ -70,7 +70,18 @@ class BlockParser
      *
      * @var string
      */
-    private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: (.*)$/';
+    /**
+     * PART 5: `abbreviation_expansion = {character - newline}+` - ONE or more,
+     * hence `(.+)` and not `(.*)`. An empty expansion is not a definition, and
+     * consuming the line DELETED it from the document (carve-php#674).
+     *
+     * `.` matches a space, so `*[A]:` followed by TWO spaces has a
+     * one-character expansion and IS a definition. That is the production as
+     * written and what carve-js does.
+     *
+     * @var string
+     */
+    private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: (.+)$/';
 
     /**
      * Maximum block-container nesting depth. Every level of blockquote / div /
