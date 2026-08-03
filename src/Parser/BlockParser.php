@@ -2900,21 +2900,43 @@ class BlockParser
 
         // Any other non-blank line is paragraph-ish content (plain text, an open
         // paragraph's continuation, or a block that opens with text on the same line:
-        // list item, heading, nested quote) - all leave an open paragraph a lazy line
+        // list item, nested quote) - all leave an open paragraph a lazy line
         // may continue.
-        $state['paragraphOpen'] = true;
-
-        // A list marker folds only into an open PLAIN paragraph. A heading,
-        // table row, or thematic break is a closed block that leaves no
-        // paragraph for a following list marker to fold into, so it clears
-        // paragraphTextOpen; plain text (including an open paragraph this line
-        // continues) sets it. Mirrors the top-level rule: `text\n- item` folds,
-        // `# h\n- item` is a heading plus a sibling list.
+        //
+        // EXCEPT the closed blocks below. PART 1 S4 makes lazy continuation
+        // conditional on an OPEN PARAGRAPH ("if ANY container in the open stack
+        // holds an OPEN PARAGRAPH ... Otherwise close the unmatched containers"),
+        // and a bounded single-line block leaves none. PART 9 §10 I6 says it
+        // again for the heading: "a bounded title holds no block and ENDS AT THE
+        // NEWLINE, so nothing folds into it at all".
+        //
+        // These used to set paragraphOpen anyway and clear only
+        // paragraphTextOpen, so `> # h` / `b` kept the quote open and put `b`
+        // inside it. carve-rs closes it; the distinction between the two flags
+        // was the bug (carve-php#652).
         $trimmed = ltrim($content);
         $isHeading = preg_match('/^#{1,6} .*\S/', $trimmed) === 1;
         $isThematicBreak = preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
         $isTableRow = $this->tableParser->isTableRow($trimmed);
-        $state['paragraphTextOpen'] = !$isHeading && !$isThematicBreak && !$isTableRow;
+        // A definition TERM is bounded like a heading: it holds inline content,
+        // not a paragraph. `:::` is a div fence and is handled above.
+        $isDefinitionTerm = preg_match('/^::(?!:)[ \t]+\S/', $trimmed) === 1;
+        // An invisible definition leaves no paragraph at all - there is nothing
+        // on the page for a lazy line to continue.
+        $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
+            || $this->isAbbreviationDefinitionLine($trimmed);
+
+        $leavesNoParagraph = $isHeading
+            || $isThematicBreak
+            || $isTableRow
+            || $isDefinitionTerm
+            || $isDefinitionLine;
+
+        $state['paragraphOpen'] = !$leavesNoParagraph;
+        // A list marker folds only into an open PLAIN paragraph, so the same
+        // set clears this too. Mirrors the top-level rule: `text\n- item`
+        // folds, `# h\n- item` is a heading plus a sibling list.
+        $state['paragraphTextOpen'] = !$leavesNoParagraph;
     }
 
     /**
