@@ -9,6 +9,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer emits a line block's medial gap as plain spaces.** A
+  line block preserves an inner or trailing run of two or more columns the way
+  it preserves the indent (PART 9 §23), but the writer only routed the LEADING
+  run back to plain spaces. Off the parser that looked correct by accident: the
+  gap is a text node of its own there, so it started at offset 0 and matched the
+  leading-run rule. On a coalesced tree - what a JSON round trip produces, and
+  what any programmatically built document looks like - the run sits mid-node
+  and came back escaped, so `Two roads    diverged` was written as
+  `Two roads\ \ \ \ diverged`: the same HTML, a different document. A LONE inner
+  sentinel is still written as `\ `, because only an escaped space can produce
+  one.
+
 - **A citation-key line no longer interrupts a paragraph.** `[@key]: …` is not a
   link reference definition here - `@` is excluded from a label so the line
   stays with `CitationsExtension` - but the interruption predicate matched it

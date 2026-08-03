@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -86,5 +88,59 @@ class CarveWriterLineBlockTest extends TestCase
         $formatted = CarveConverter::carve()->convert("::: note\nbody\n:::");
 
         $this->assertSame('div', $this->firstBlockType($formatted));
+    }
+
+    /**
+     * The writer emits a medial gap as the plain spaces it was authored with
+     * (PART 9 §23, carve#487).
+     *
+     * This has to be checked on a COALESCED tree, which is what a JSON round
+     * trip produces (PART 12 §1a) and what any consumer building a document
+     * programmatically produces. Straight off the parser the gap is a text node
+     * of its own, so it starts at offset 0 and the old leading-run-only rule
+     * matched it by accident - the writer looked correct while the rule it
+     * implemented was wrong. Coalesced, the run sits mid-node, falls through to
+     * normalize(), and the line comes back as `Two roads\ \ \ \ diverged`: the
+     * same HTML, a different document. That is how the corpus round trip found
+     * it, and a test off the parser alone could never fail.
+     */
+    private function writeCoalesced(string $source): string
+    {
+        $codec = new AstCodec();
+        $decoded = $codec->decode($codec->encode((new CarveConverter())->parse($source)));
+
+        return (new CarveRenderer())->render($decoded);
+    }
+
+    public function testAGappedLineIsWrittenBackWithPlainSpaces(): void
+    {
+        $source = "::: |\nTwo roads    diverged in a yellow wood,\nAnd looked   down one as far as I could\n:::\n";
+
+        $this->assertSame($source, $this->writeCoalesced($source));
+    }
+
+    public function testATrailingGapIsWrittenBackWithPlainSpaces(): void
+    {
+        $source = "::: |\nword   \nnext\n:::\n";
+
+        $this->assertSame($source, $this->writeCoalesced($source));
+    }
+
+    public function testAnIndentAndAGapOnTheSameLineBothSurvive(): void
+    {
+        $source = "::: |\n  indented    gapped\n:::\n";
+
+        $this->assertSame($source, $this->writeCoalesced($source));
+    }
+
+    /**
+     * A LONE inner sentinel can only have come from an escaped space - a single
+     * authored space is collapsible and never reaches the sentinel - so it
+     * still writes back as `\ `. This is the boundary that keeps the wider rule
+     * from swallowing the escape.
+     */
+    public function testALoneEscapedSpaceStillWritesBackAsAnEscape(): void
+    {
+        $this->assertStringContainsString('a\\ b', $this->writeCoalesced("::: |\na\\ b\n:::\n"));
     }
 }
