@@ -191,6 +191,14 @@ class BlockParser
      */
     protected array $abbreviations = [];
 
+    /**
+     * Every authored abbreviation definition line in source order, shadowed
+     * ones kept.
+     *
+     * @var array<int, array<string, string>>
+     */
+    protected array $abbreviationDefinitions = [];
+
     protected bool $abbreviationsBeforeBody = false;
 
     /**
@@ -726,6 +734,7 @@ class BlockParser
         // Store abbreviations on document for round-trip support
         if ($this->abbreviations !== []) {
             $document->setAbbreviations($this->abbreviations);
+            $document->setAbbreviationDefinitions($this->abbreviationDefinitions);
             $document->setAbbreviationsBeforeBody($this->abbreviationsBeforeBody);
             $document->setAbbreviationSpans($this->abbreviationSpans);
         }
@@ -1145,8 +1154,13 @@ class BlockParser
                     }
                 }
 
-                // Store the abbreviation (case-sensitive)
+                // Store the abbreviation (case-sensitive). The map answers
+                // WHICH definition wins - the last one (PART 9R) - and the
+                // list keeps every line the author wrote, shadowed ones
+                // included, because the tree is pre-resolve (PART 12 section
+                // 3a).
                 $this->abbreviations[$abbr] = $definition;
+                $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
                 // The definition's own lines, so the node built for it at
                 // serialization has somewhere to point. A continuation line is
                 // part of the definition, so the span covers `$i` through the
@@ -1315,6 +1329,7 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->abbreviations = [];
+        $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
@@ -7043,6 +7058,7 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->abbreviations = [];
+        $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];

@@ -271,11 +271,25 @@ class AstCodec
             return $encoded;
         }
 
+        $authored = $encoded['abbreviationDefinitions'] ?? null;
+        unset($encoded['abbreviationDefinitions']);
+        if (!is_array($authored) || $authored === []) {
+            $authored = [];
+            foreach ($abbreviations as $abbr => $expansion) {
+                $authored[] = ['abbr' => (string)$abbr, 'expansion' => $expansion];
+            }
+        }
+
         $defs = [];
-        foreach ($abbreviations as $abbr => $expansion) {
+        foreach ($authored as $definition) {
+            if (!is_array($definition)) {
+                continue;
+            }
+            $abbr = is_scalar($definition['abbr'] ?? null) ? (string)$definition['abbr'] : '';
+            $expansion = $definition['expansion'] ?? '';
             $def = [
                 'type' => 'abbreviation_def',
-                'abbr' => (string)$abbr,
+                'abbr' => $abbr,
                 'expansion' => is_scalar($expansion) ? (string)$expansion : '',
             ];
             // The `*[ABBR]: …` line the definition came from, when the parser

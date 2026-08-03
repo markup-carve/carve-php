@@ -144,18 +144,26 @@ class CarveRenderer implements RendererInterface
     {
         $parts = [];
         $abbrs = [];
-        foreach ($document->getAbbreviations() as $abbr => $expansion) {
-            $abbrs[] = '*[' . $this->escapeBracketText((string)$abbr) . ']: ' . str_replace("\n", ' ', (string)$expansion);
+        // Every authored definition, in source order. A term defined twice is
+        // two lines the author wrote; which one wins is resolution (PART 9R)
+        // and the formatter does not resolve.
+        foreach ($document->getAbbreviationDefinitions() as $definition) {
+            $abbrs[] = '*[' . $this->escapeBracketText($definition['abbr']) . ']: '
+                . str_replace("\n", ' ', $definition['expansion']);
         }
+        // One BLANK line between definitions, matching carve-js and carve-rs.
+        // Joining them with a single newline round-trips (the next line is a
+        // definition either way), so nothing but a byte comparison across
+        // engines could see it - and no corpus document had two definitions.
         if ($abbrs !== [] && $document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n", $abbrs);
+            $parts[] = implode("\n\n", $abbrs);
         }
         $body = $this->renderBlocks($document->getChildren());
         if ($body !== '') {
             $parts[] = $body;
         }
         if ($abbrs !== [] && !$document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n", $abbrs);
+            $parts[] = implode("\n\n", $abbrs);
         }
 
         return $this->normalize(implode("\n\n", $parts));
