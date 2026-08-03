@@ -692,9 +692,21 @@ class ProseMirrorToCarve
                 }
 
                 if ($markIndex !== null) {
+                    $mark = $marks[$markIndex];
                     unset($marks[$markIndex]);
 
-                    return [$this->wrapInMarks(new $class($text), array_values($marks))];
+                    // The mark carries this node's own attributes, so they have
+                    // to come off the MARK rather than the text node wrapping
+                    // it - `` `code`{.cls} `` lost its class here (carve-php#519).
+                    $node = new $class($text);
+                    if (is_array($mark)) {
+                        // Rebuilt rather than passed through: the payload is
+                        // decoded JSON, so its keys are whatever the caller
+                        // sent, and `attrs` is the only part that applies here.
+                        $this->applyAttributes($node, ['attrs' => $mark['attrs'] ?? []]);
+                    }
+
+                    return [$this->wrapInMarks($node, array_values($marks))];
                 }
             }
 
@@ -710,6 +722,36 @@ class ProseMirrorToCarve
         }
 
         return [$this->wrapInMarks($node, $data['marks'] ?? [])];
+    }
+
+    /**
+     * Keep the autolink flag only while the link still IS one.
+     *
+     * The writer spells an autolink from its TEXT, not its destination, so a
+     * flag restored onto a link whose two have diverged does not merely change
+     * the spelling - it publishes the text as the destination and the real one
+     * is gone. An editor that retyped the visible text of `<https://example.com>`
+     * would come back as `<changed>`, which is not even a link.
+     *
+     * That is the shape of carve-php#516, arriving by a different door, so the
+     * flag is treated as a HINT to be re-derived rather than as truth: an
+     * autolink is exactly a link whose text round-trips to its own destination,
+     * and anything else stays an explicit link, which always renders correctly.
+     */
+    protected function confirmAutolink(Link $link): void
+    {
+        if (!$link->isAutolink()) {
+            return;
+        }
+
+        $children = $link->getChildren();
+        $text = count($children) === 1 && $children[0] instanceof Text ? $children[0]->getContent() : null;
+
+        // `mailto:` is the one destination the parser adds that the author did
+        // not write, so an email autolink is still one.
+        if ($text === null || ($text !== $link->getDestination() && $link->getDestination() !== 'mailto:' . $text)) {
+            $link->setAutolink(false);
+        }
     }
 
     /**
@@ -735,6 +777,9 @@ class ProseMirrorToCarve
             $wrapper = $this->instantiate($markType, $mark);
             $this->applyAttributes($wrapper, $mark);
             $wrapper->appendChild($node);
+            if ($wrapper instanceof Link) {
+                $this->confirmAutolink($wrapper);
+            }
             $node = $wrapper;
         }
 
@@ -846,6 +891,9 @@ class ProseMirrorToCarve
                     && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
                 $node instanceof ListBlock && $key === 'start' => $this->setState($node, 'start', self::asInt($value)),
                 $node instanceof ListBlock && $key === 'tight' => $this->setState($node, 'tight', self::asBool($value)),
+                $node instanceof ListBlock && $key === 'carveBareMarker' => $this->setState($node, 'bareMarker', self::asBool($value)),
+                $node instanceof ListBlock && $key === 'carveListStyle' => $this->setState($node, 'style', self::asString($value)),
+                $node instanceof ListBlock && $key === 'carveListMarker' => $this->setState($node, 'marker', self::asString($value)),
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(
@@ -857,6 +905,7 @@ class ProseMirrorToCarve
                 $node instanceof Image && $key === 'src' => $this->setState($node, 'source', self::asString($value)),
                 $node instanceof Image && $key === 'alt' => $this->setState($node, 'alt', self::asString($value)),
                 $node instanceof Link && $key === 'href' => $this->setState($node, 'destination', self::asString($value)),
+                $node instanceof Link && $key === 'carveAutolink' => $this->setState($node, 'isAutolink', self::asBool($value)),
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),

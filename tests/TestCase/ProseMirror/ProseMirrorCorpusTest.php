@@ -41,7 +41,7 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 342;
+    private const MINIMUM_LOSSLESS = 374;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -61,7 +61,7 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 391;
+    private const MINIMUM_SURVIVING = 419;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
@@ -73,9 +73,15 @@ class ProseMirrorCorpusTest extends TestCase
      * in carve-php#564 and the flattened rowspan in carve-php#565) with CI
      * green. A ceiling far above the measurement is not a ratchet.
      *
+     * Now ZERO, and comparing canonical Carve rather than HTML - which is a
+     * strictly harder bar than the 5 it replaces, since it also sees the
+     * re-spellings HTML hides. A covered document that changes is either a
+     * bridge bug or a missing declaration; there is no third case to leave
+     * headroom for (carve-php#519).
+     *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 5;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 0;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {
@@ -95,13 +101,19 @@ class ProseMirrorCorpusTest extends TestCase
             $name = basename($file, '.crv');
 
             try {
-                $document = (new CarveConverter())->parse($source);
-                $expected = (new CarveConverter())->render($document);
+                $expected = (new CarveConverter())->render((new CarveConverter())->parse($source));
+                // Canonical Carve, from its OWN parse. Rendering a document
+                // mutates it - ids get assigned, references resolved - so
+                // reusing one parse here fed the bridge a post-render tree and
+                // made three link documents look like losses they are not.
+                $expectedCarve = CarveConverter::carve()->render((new CarveConverter())->parse($source));
 
-                $proseMirror = $renderer->render($document);
+                $proseMirror = $renderer->render((new CarveConverter())->parse($source));
                 $covered = $renderer->droppedTypes() === [] && $renderer->degradedTypes() === [];
 
-                $actual = (new CarveConverter())->render($converter->convert($proseMirror));
+                $back = $converter->convert($proseMirror);
+                $actualCarve = CarveConverter::carve()->render($back);
+                $actual = (new CarveConverter())->render((new CarveConverter())->parse($actualCarve));
 
                 // Counted whether or not the document is covered, because
                 // FIDELITY and COVERAGE are different things and the lossless
@@ -119,11 +131,17 @@ class ProseMirrorCorpusTest extends TestCase
 
                 if ($actual === $expected) {
                     $lossless++;
-
-                    continue;
                 }
 
-                $coveredButDiffering[] = $name;
+                // The silent-loss test, and the reason this compares CARVE
+                // rather than HTML: a re-spelling renders byte-identically, so
+                // an HTML comparison here cannot fail for the whole class of
+                // defect this corpus exists to catch - which is how 55 of them
+                // went unnoticed (carve-php#519). A covered document must come
+                // back spelled as it was written, or the bridge has to say so.
+                if ($actualCarve !== $expectedCarve) {
+                    $coveredButDiffering[] = $name;
+                }
             } catch (Throwable $e) {
                 $threw[$name] = $e->getMessage();
             }
