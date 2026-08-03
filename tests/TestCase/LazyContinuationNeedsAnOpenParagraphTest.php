@@ -61,7 +61,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // content, not a paragraph - so a lazy line cannot extend it.
         $this->assertSame(
             '<blockquote> <dl> <dt>t</dt> </dl> </blockquote> <p>~</p>',
-            $this->squash($this->converter->convert(">:: t\n~\n")),
+            $this->squash($this->converter->convert("> :: t\n~\n")),
         );
     }
 
@@ -70,7 +70,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // An invisible construct leaves no paragraph at all.
         $this->assertSame(
             '<blockquote> </blockquote> <p>/</p>',
-            $this->squash($this->converter->convert(">[f]: ~\n/\n")),
+            $this->squash($this->converter->convert("> [f]: ~\n/\n")),
         );
     }
 
