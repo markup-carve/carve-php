@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve;
 use Closure;
 use LengthException;
 use LogicException;
+use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\Extension\BeforeRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Extension\FrontmatterExtension;
@@ -421,6 +422,11 @@ class CarveConverter
                 $extension->afterParse($document);
             }
         }
+
+        // Last, so it also covers runs an extension left behind. PART 12 §1a is
+        // about the tree that gets published, whoever produced it - and §6
+        // requires it to be part of parse(), not of serialization (#623).
+        TextRunCoalescer::apply($document);
 
         return $document;
     }

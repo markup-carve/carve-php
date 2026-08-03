@@ -69,6 +69,24 @@ abstract class Node
         return $this->children;
     }
 
+    /**
+     * Replaces the whole child list in one assignment.
+     *
+     * Exists because rebuilding a list by repeated `removeChildAt` is
+     * quadratic: each removal shifts every later element, so a node with a
+     * 50,000-element run costs 50,000 shifts of up to 50,000 entries. The
+     * PART 12 §1a coalescing pass hit exactly that shape.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     */
+    public function setChildren(array $children): void
+    {
+        foreach ($children as $child) {
+            $child->parent = $this;
+        }
+        $this->children = array_values($children);
+    }
+
     public function getParent(): ?Node
     {
         return $this->parent;

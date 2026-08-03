@@ -963,23 +963,25 @@ class AstCodec
     }
 
     /**
-     * Join adjacent `text` nodes into one (PART 12 §1a).
+     * Joins adjacent published `text` nodes (PART 12 §1a).
      *
-     * `foo_bar_baz and snake_case stay literal` is ONE text node on the wire,
-     * not four. This parser emits a run per stretch left over where a delimiter
-     * did not open emphasis, which is its own bookkeeping rather than anything
-     * about the document - and publishing it made the same paragraph 4 nodes
-     * here and 1 in the reference, so a consumer could not compare two engines
-     * node-for-node (carve#474).
+     * The parsed tree is already coalesced - `Ast\TextRunCoalescer` runs at the
+     * end of `CarveConverter::parse`, because §6 requires `parse(x)` serialized
+     * and deserialized to equal `parse(x)` and a serializer-only merge breaks
+     * that (#623). So this is NOT the primary pass.
      *
-     * Done at SERIALIZATION only. The runtime tree keeps its runs, because the
-     * renderers and the writer walk it and nothing there is improved by
-     * rebuilding nodes.
+     * What is left for it is the one case the tree cannot express: `RawText` is
+     * an internal type with no counterpart in the AST vocabulary and publishes
+     * as `text`, so `Text` + `RawText` + `Text` is one node in the vocabulary
+     * and three in the tree. The tree pass deliberately leaves it alone -
+     * merging would make the Markdown and Carve writers escape source that must
+     * not be re-escaped - so the join has to happen here or the wire carries the
+     * run. Those documents consequently do not satisfy §6; they are pinned in
+     * tests/TestCase/Ast/TextRunRoundTripTest.php and tracked in #624, which is
+     * where the type question is decided.
      *
-     * `escaped_text` is deliberately NOT merged in: an escape is authored form
-     * and PART 12 §5 keeps the two types apart on purpose. Positions are merged
-     * by SPAN - the joined node runs from the first node's start to the last
-     * node's end - so the result still points at the source it came from.
+     * `escaped_text` is NOT merged: PART 12 §5 keeps it distinct from `text`
+     * because an escape is authored form.
      *
      * @param array<array<string, mixed>> $nodes
      *
@@ -999,12 +1001,19 @@ class AstCodec
             ) {
                 $merged = $previous;
                 $merged['value'] = $previous['value'] . $node['value'];
-                if (isset($merged['pos'], $node['pos']) && is_array($merged['pos']) && is_array($node['pos'])) {
-                    foreach (['endLine', 'endColumn', 'endOffset'] as $end) {
-                        if (isset($node['pos'][$end])) {
-                            $merged['pos'][$end] = $node['pos'][$end];
-                        }
-                    }
+                // Contiguous only. Two pieces that are not adjacent in the
+                // source join into a value that is not a slice of it at any
+                // offset, and PART 12 §4 rates a span selecting the wrong text
+                // worse than no span at all.
+                $previousPos = $previous['pos'] ?? null;
+                $nodePos = $node['pos'] ?? null;
+                $span = is_array($previousPos) && is_array($nodePos)
+                    ? self::mergedSpan($previousPos, $nodePos)
+                    : null;
+                if ($span === null) {
+                    unset($merged['pos']);
+                } else {
+                    $merged['pos'] = $span;
                 }
                 $out[count($out) - 1] = $merged;
 
@@ -1014,6 +1023,26 @@ class AstCodec
         }
 
         return $out;
+    }
+
+    /**
+     * @param array<mixed> $left
+     * @param array<mixed> $right
+     *
+     * @return array<mixed>|null
+     */
+    private static function mergedSpan(array $left, array $right): ?array
+    {
+        if (($left['endOffset'] ?? null) !== ($right['startOffset'] ?? null)) {
+            return null;
+        }
+        foreach (['endLine', 'endColumn', 'endOffset'] as $end) {
+            if (isset($right[$end])) {
+                $left[$end] = $right[$end];
+            }
+        }
+
+        return $left;
     }
 
     /**

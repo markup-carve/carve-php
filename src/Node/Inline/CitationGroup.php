@@ -42,6 +42,18 @@ class CitationGroup extends InlineNode
         return $this->items;
     }
 
+    /**
+     * Replaces the items, used by the PART 12 §1a text-run pass: `prefix`,
+     * `locator` and `suffix` are inline arrays that live outside `children`, so
+     * a walk over the tree cannot reach them through the ordinary child list.
+     *
+     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}> $items
+     */
+    public function setItems(array $items): void
+    {
+        $this->items = $items;
+    }
+
     public function getRaw(): string
     {
         return $this->raw;
