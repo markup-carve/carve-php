@@ -318,13 +318,18 @@ class AstCodec
      *
      * @param array<string, mixed> $data
      *
-     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: bool}
+     * The AUTHORED list travels beside the map: one entry per node, so a term
+     * defined twice keeps both lines. The map keeps last-wins, which is what
+     * resolution reads (PART 9R).
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: bool, 3: array<int, array<string, string>>}
      */
     private static function liftAbbreviationDefs(array $data): array
     {
         $children = is_array($data['children'] ?? null) ? $data['children'] : [];
         $kept = [];
         $abbreviations = [];
+        $authored = [];
         $seenContent = false;
         $beforeBody = true;
 
@@ -333,7 +338,9 @@ class AstCodec
                 $abbr = $child['abbr'] ?? null;
                 if (is_scalar($abbr)) {
                     $expansion = $child['expansion'] ?? '';
-                    $abbreviations[(string)$abbr] = is_scalar($expansion) ? (string)$expansion : '';
+                    $expansion = is_scalar($expansion) ? (string)$expansion : '';
+                    $abbreviations[(string)$abbr] = $expansion;
+                    $authored[] = ['abbr' => (string)$abbr, 'expansion' => $expansion];
                     if ($seenContent) {
                         $beforeBody = false;
                     }
@@ -347,7 +354,7 @@ class AstCodec
 
         $data['children'] = $kept;
 
-        return [$data, $abbreviations, $abbreviations !== [] && $beforeBody];
+        return [$data, $abbreviations, $abbreviations !== [] && $beforeBody, $authored];
     }
 
     public function encodeJson(Document $document, int $flags = 0): string
@@ -384,7 +391,7 @@ class AstCodec
         // Taken out BEFORE the walk: `abbreviation_def` is a wire node this
         // engine has no class for - it keeps definitions on the document - so
         // decoding one as a block would fail on a payload it wrote itself.
-        [$data, $abbreviations, $beforeBody] = self::liftAbbreviationDefs($data);
+        [$data, $abbreviations, $beforeBody, $authoredAbbreviations] = self::liftAbbreviationDefs($data);
 
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
@@ -393,6 +400,7 @@ class AstCodec
 
         if ($abbreviations !== []) {
             $node->setAbbreviations($abbreviations);
+            $node->setAbbreviationDefinitions($authoredAbbreviations);
             $node->setAbbreviationsBeforeBody($beforeBody);
         }
 

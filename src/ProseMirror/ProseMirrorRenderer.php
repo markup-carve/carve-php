@@ -92,10 +92,15 @@ class ProseMirrorRenderer
         // document-level state. The ordering flag travels with them: it decides
         // whether the definitions are written before the body or after it, and
         // it is not recoverable from the map alone.
+        // The MAP cannot carry a term defined twice, and the author wrote both
+        // lines, so the authored list rides along beside it. Reading order
+        // matters on the way back: the list is what the writer prints, and the
+        // map is what resolution uses.
         $abbreviations = $document->getAbbreviations();
         if ($abbreviations !== []) {
             $doc['attrs'] = [
                 'carveAbbreviations' => $abbreviations,
+                'carveAbbreviationDefinitions' => $document->getAbbreviationDefinitions(),
                 'carveAbbreviationsBeforeBody' => $document->hasAbbreviationsBeforeBody(),
             ];
         }
