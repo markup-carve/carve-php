@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A sub-list lead does not exempt its item from the looseness rule** (PART 9
+  §11, #681). An item whose content begins with another list marker is
+  collected as one combined stream, and that path never ran the looseness scan
+  the plain path runs - so `- - a` / blank / `  b` stayed tight where `- x` /
+  blank / `  b` went loose, on the same blank line. The outer item holds two
+  blocks either way. Content at or past the SUB-LIST's own content column still
+  belongs to the sub-list and does not propagate its looseness outwards, which
+  is the case the corpus already covered and why this looked covered too.
+
 - **An unresolved reference is a link node, not reverted source** (PART 12 §3a,
   #624). `[missing][nope]` with nothing defining the label was flattened to an
   internal `raw_text` node, a type the AST vocabulary does not have: five corpus
