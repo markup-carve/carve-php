@@ -823,13 +823,20 @@ class BlockParser
         // quoted code content as a real definition.
         $fenceChar = null;
         $fenceLen = 0;
-        // A LINE BLOCK is verse: its lines are text with hard breaks, so a
-        // `[^a]: ...` inside one is literal, exactly as a `[a]: /url` already
-        // was here. Without this the definition was hoisted into an endnotes
-        // section AND left behind as a reference, publishing the same line
-        // twice - and disagreeing with carve-js and carve-rs, which both keep
-        // it literal (carve-php#688).
-        $lineBlockFence = 0;
+        $fenceDepth = 0;
+        // Track an open LINE BLOCK the same way. A line block's body is inline
+        // content (`line_block_line = {whitespace}, inline_content, newline`),
+        // so the block-level definition form cannot occur there: a `[^a]: note`
+        // inside `::: |` is literal text and must register nothing. Without
+        // this the scan registered it, and the line then rendered as a live
+        // footnote REFERENCE with `: note` beside it plus an endnote nobody
+        // referenced (carve-php#685). Only the `|` type token opens one --
+        // an ordinary `::: note` div holds blocks, so a definition there still
+        // registers.
+        $lineBlockLen = 0;
+        // The blockquote depth the open line block was opened at, so its closer
+        // is read at that depth instead of after every marker is stripped.
+        $lineBlockDepth = 0;
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
@@ -840,6 +847,10 @@ class BlockParser
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
+            // Each entry is the line with THAT many leading markers removed, so
+            // a consumer can ask for the content at its own quote depth rather
+            // than the fully stripped tail (the line block below needs that).
+            $quoteStages = [$line];
             $fenceLine = $line;
             while (($fenceLine[0] ?? '') === '>') {
                 $quoteContent = $this->blockQuoteLineContent($fenceLine);
@@ -847,34 +858,53 @@ class BlockParser
                     break;
                 }
                 $fenceLine = $quoteContent;
+                $quoteStages[] = $fenceLine;
             }
 
             if ($fenceChar !== null) {
-                if (
-                    preg_match('/^([`~]{3,})\s*$/', $fenceLine, $fm)
-                    && $fm[1][0] === $fenceChar
-                    && strlen($fm[1]) >= $fenceLen
-                ) {
+                // Read the closer at the depth the fence opened at, for the
+                // reason spelled out at the line-block guard below: inside
+                // `> ``` ` a nested `> > ``` ` is quoted code content, and
+                // closing the region there let the lines after it register.
+                $closerLine = $quoteStages[$fenceDepth] ?? null;
+                if ($closerLine === null) {
                     $fenceChar = null;
                     $fenceLen = 0;
+                } else {
+                    if (
+                        preg_match('/^([`~]{3,})\s*$/', $closerLine, $fm)
+                        && $fm[1][0] === $fenceChar
+                        && strlen($fm[1]) >= $fenceLen
+                    ) {
+                        $fenceChar = null;
+                        $fenceLen = 0;
+                    }
+                    $i++;
+
+                    continue;
                 }
-                $i++;
-
-                continue;
             }
-            if ($lineBlockFence > 0) {
-                if (preg_match('/^(:{3,})\s*$/', $fenceLine, $lbm) && strlen($lbm[1]) >= $lineBlockFence) {
-                    $lineBlockFence = 0;
+            if ($lineBlockLen > 0) {
+                // The closer has to be read at the DEPTH the line block opened
+                // at: inside `> ::: |` a nested `> > :::` is a quoted `> :::`,
+                // which the real parser keeps as line-block content. Reading
+                // the fully stripped tail would close the region there and let
+                // the lines after it register again. A line that no longer
+                // reaches that depth has left the blockquote, so the line block
+                // ended with it.
+                $closerLine = $quoteStages[$lineBlockDepth] ?? null;
+                if ($closerLine === null) {
+                    $lineBlockLen = 0;
+                } elseif ($this->fencedBlockParser->isDivFenceCloser($closerLine, $lineBlockLen)) {
+                    $lineBlockLen = 0;
+                    $i++;
+
+                    continue;
+                } else {
+                    $i++;
+
+                    continue;
                 }
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $fenceLine, $lbo) === 1) {
-                $lineBlockFence = strlen($lbo[1]);
-                $i++;
-
-                continue;
             }
             $fc0 = $fenceLine[0] ?? '';
             if (
@@ -883,9 +913,20 @@ class BlockParser
             ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
+                $fenceDepth = count($quoteStages) - 1;
                 $i++;
 
                 continue;
+            }
+            if ($fc0 === ':') {
+                $lineBlockOpener = $this->parseLineBlockOpener($fenceLine);
+                if ($lineBlockOpener !== null) {
+                    $lineBlockLen = $lineBlockOpener['length'];
+                    $lineBlockDepth = count($quoteStages) - 1;
+                    $i++;
+
+                    continue;
+                }
             }
 
             // A footnote definition may sit at column 0 or directly inside a
@@ -4201,6 +4242,44 @@ class BlockParser
     }
 
     /**
+     * Whether a line opens a LINE BLOCK, and with which fence length.
+     *
+     * A bare pipe `|` is the line-block type token (carve spec, jgm/djot#29);
+     * `::: |` is the only line-block opener, so an ordinary `::: note` div is
+     * not one. Shared by the parser and by the footnote-definition pre-pass,
+     * which has to skip a line block's body: two copies of this predicate would
+     * drift, and the pre-pass having no copy at all is what made a definition
+     * written inside a line block register a footnote (carve-php#685).
+     *
+     * @param string $line
+     *
+     * @return array{length: int, attrs: string|null}|null
+     */
+    protected function parseLineBlockOpener(string $line): ?array
+    {
+        $divInfo = $this->fencedBlockParser->parseDivFenceOpener($line);
+        if ($divInfo === null) {
+            return null;
+        }
+
+        if (
+            preg_match(
+                '/^\|(?:\s*(?<attrs>\{.*\}))?\s*$/s',
+                $divInfo['className'],
+                $openerMatches,
+                PREG_UNMATCHED_AS_NULL,
+            ) !== 1
+        ) {
+            return null;
+        }
+
+        /** @var int $length */
+        $length = $divInfo['length'];
+
+        return ['length' => $length, 'attrs' => $openerMatches['attrs'] ?? null];
+    }
+
+    /**
      * Try to parse a line block (preserves author line layout).
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
@@ -4211,21 +4290,8 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        $divInfo = $this->fencedBlockParser->parseDivFenceOpener($line);
+        $divInfo = $this->parseLineBlockOpener($line);
         if ($divInfo === null) {
-            return null;
-        }
-
-        // A bare pipe `|` is the line-block type token (carve spec, jgm/djot#29);
-        // `::: |` is the only line-block opener.
-        if (
-            preg_match(
-                '/^\|(?:\s*(?<attrs>\{.*\}))?\s*$/s',
-                $divInfo['className'],
-                $openerMatches,
-                PREG_UNMATCHED_AS_NULL,
-            ) !== 1
-        ) {
             return null;
         }
 
@@ -4255,8 +4321,8 @@ class BlockParser
 
         $lineBlock = new LineBlock();
         $this->applyPendingAttributes($lineBlock);
-        if (($openerMatches['attrs'] ?? null) !== null) {
-            AttributeParser::applyToNode($lineBlock, substr($openerMatches['attrs'], 1, -1));
+        if ($divInfo['attrs'] !== null) {
+            AttributeParser::applyToNode($lineBlock, substr($divInfo['attrs'], 1, -1));
         }
 
         $stanza = [];
