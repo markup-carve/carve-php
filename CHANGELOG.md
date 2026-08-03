@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A citation-key line no longer interrupts a paragraph.** `[@key]: …` is not a
+  link reference definition here - `@` is excluded from a label so the line
+  stays with `CitationsExtension` - but the interruption predicate matched it
+  anyway, so a hard-wrapped prose line followed by a bibliography entry ended
+  the paragraph and the entry reappeared as a second, visible one. carve-js and
+  carve-rs continued the paragraph. The predicate now accepts exactly what the
+  definition parser accepts, and the two interruption sites share it so they
+  cannot drift apart again.
+
 - **`fmt` no longer splits a heading it was given.** A heading ends at the
   newline, so its text must not contain one. No parse builds such a heading, but
   PART 12 lets an ingested AST put any inline in one, break nodes included -
