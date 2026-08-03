@@ -410,7 +410,22 @@ class CarveRenderer implements RendererInterface
                 $out .= $indent . $prefix . ($first === '' ? '+' : $first) . "\n";
                 $continuation = str_repeat(' ', strlen($prefix));
                 foreach ($lines as $line) {
-                    $out .= $indent . $continuation . $line . "\n";
+                    // A BLANK continuation line stays blank: indenting it emits a
+                    // whitespace-only line, which the writer never may
+                    // (NoWhitespaceOnlyLineTest).
+                    //
+                    // The U+E003 form is the one that actually reaches here. A
+                    // blank line inside a fenced code block in a list item is
+                    // verbatim content, so protectVerbatim() encodes it to keep
+                    // the document-wide trim off it; indenting that placeholder
+                    // left `  ` behind once restoreVerbatim() mapped it back to
+                    // nothing. The blank is content, but it is BLANK - the indent
+                    // was trailing whitespace the source never had.
+                    //
+                    // A code line that genuinely holds spaces arrives as those
+                    // spaces (U+E001), not as this placeholder, and still indents.
+                    $blank = $line === '' || $line === "\u{E003}";
+                    $out .= $blank ? $line . "\n" : $indent . $continuation . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
                     $out .= "\n";
