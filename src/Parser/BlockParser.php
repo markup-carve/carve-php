@@ -3469,6 +3469,17 @@ class BlockParser
                     $itemLines,
                     $itemLineMap,
                 );
+                // A blank line between this item's blocks loosens the list, and a
+                // sub-list lead is no exception: the item still holds two blocks,
+                // the sub-list and whatever follows the blank at THIS item's
+                // content column. The combined stream skipped the scan the plain
+                // path runs, so `- - a` / blank / `  b` stayed tight while
+                // `- x` / blank / `  b` went loose (carve-php#681). Content at or
+                // past the sub-list's own content column still belongs to the
+                // sub-list and does not propagate its looseness outwards.
+                if ($this->subContentHasLooseningBlank($itemLines)) {
+                    $list->setTight(false);
+                }
                 $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
                 $list->appendChild($listItem);
 

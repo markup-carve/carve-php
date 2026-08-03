@@ -78,6 +78,38 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
         );
     }
 
+    public function testMarkerLineSubListLeadLoosensAtOuterContentColumn(): void
+    {
+        // The sub-list opens on the MARKER LINE, so the item is built from one
+        // combined stream and used to skip the looseness scan entirely. The
+        // outer item still holds two blocks separated by a blank -- the sub-list
+        // and `Body.` at ITS content column -- so it is loose (carve-php#681).
+        $this->assertHtml(
+            "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n    <p>Body.</p>\n  </li>\n</ul>",
+            "- - a\n\n  Body.\n",
+        );
+    }
+
+    public function testMarkerLineSubListLeadDoesNotTakeInnerLooseness(): void
+    {
+        // Control at the INNER item's content column: the body belongs to the
+        // sub-list, which loosens itself; that does not propagate outwards.
+        $this->assertHtml(
+            "<ul>\n  <li>\n    <ul>\n      <li><p>a</p>\n"
+                . "        <p>Body.</p>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            "- - a\n\n    Body.\n",
+        );
+    }
+
+    public function testMarkerLineSubListLeadStaysTightWithoutABlank(): void
+    {
+        // Control: the loosening must come from the BLANK, not from the lead.
+        $this->assertHtml(
+            "<ul>\n  <li>\n    <ul>\n      <li>a\nBody.</li>\n    </ul>\n  </li>\n</ul>",
+            "- - a\n  Body.\n",
+        );
+    }
+
     public function testNestedItemLoosenessDoesNotPropagate(): void
     {
         // Corpus 142: `> q` at column 4 is the nested content column, so it
