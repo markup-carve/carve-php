@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
@@ -6438,11 +6439,21 @@ class BlockParser
 
         $children = $paragraph->getChildren();
 
-        return count($children) === 1
-            && (
-                $children[0] instanceof Image
-                || ($children[0] instanceof Math && $children[0]->isDisplay())
-            );
+        if (count($children) !== 1) {
+            return false;
+        }
+
+        // An UNRESOLVED reference image is literal text, not an image, so it
+        // is not captionable either - and the caption line then folds into the
+        // paragraph rather than interrupting it, which is what carve-js and
+        // carve-rs do (carve-php#751). Asking the same question here as the
+        // promotion does keeps the two answers from disagreeing: a paragraph
+        // the caption cannot attach to must not be split by it.
+        if ($children[0] instanceof Image) {
+            return UnresolvedReference::sourceOf($children[0]) === null;
+        }
+
+        return $children[0] instanceof Math && $children[0]->isDisplay();
     }
 
     /**
@@ -6696,7 +6707,18 @@ class BlockParser
         // Handle Paragraph containing only an Image - wrap in figure
         if ($lastChild instanceof Paragraph) {
             $paragraphChildren = $lastChild->getChildren();
-            if (count($paragraphChildren) === 1 && $paragraphChildren[0] instanceof Image) {
+            if (
+                count($paragraphChildren) === 1
+                && $paragraphChildren[0] instanceof Image
+                // An UNRESOLVED reference image is not an image: `[nope]`
+                // resolves to nothing, so every writer emits the author's
+                // source text and there is no rendered image for a caption to
+                // attach to. Promoting it built a `<figure>` around literal
+                // text, which carve-js and carve-rs both decline
+                // (carve-php#751). PART 12 §3a keeps the node with `ref` and
+                // `rawRef` precisely so it can be recognized here.
+                && UnresolvedReference::sourceOf($paragraphChildren[0]) === null
+            ) {
                 $image = $paragraphChildren[0];
 
                 $figure = new Figure();

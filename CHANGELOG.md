@@ -9,6 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unresolved reference image is not a figure** (#751). `![a][nope]` with a
+  caption line under it was promoted to a `<figure>`: the label resolves to
+  nothing, so every writer emits the author's source text and there is no
+  rendered image for a caption to attach to. carve-js and carve-rs both decline
+  the promotion. The writer then made it worse - the figure came back out as
+  `![a]()`, losing both the label and the destination, so
+  `to_html(fmt(x)) != to_html(x)` inside this engine alone. Declining the
+  promotion fixes both halves, because the inline path already emits the
+  authored source PART 12 §3a keeps in `rawRef`.
+
+  The caption line's INTERRUPTION test had to move with it: a paragraph the
+  caption cannot attach to must not be split by it either, or `^ cap` became
+  its own paragraph where the other two engines fold it in. A resolved image -
+  inline or by reference - still becomes a figure.
+
 - **A marker-line colon fence needs its body at the content column** (PART 9
   §24 C3, #748). `- ::: note` with a flush-left `body` built an admonition
   here; §24 C3 puts a line below the item's content column outside the item
