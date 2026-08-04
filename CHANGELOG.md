@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An empty word-class div keeps its blank body line** (PART 10 §4,
+  markup-carve/carve#570, #702). A container whose body renders nothing keeps a
+  blank line where the body would be; the one exception is a BARE `:::` div,
+  which closes on the next line. This engine applied the exception to both, so
+  `::: b` / `:::` came out `<div class="b">` + `</div>` on consecutive lines
+  where carve-js and carve-rs keep the blank line between them. The split is on
+  the OPENER's spelling, not on whether the div ends up with a class: `{.b}`
+  above a bare `:::` stays compact, which is what the other two do as well. Of
+  the four shapes this clause names, the word-class div was the only one
+  nothing in the corpus pinned - which is why it drifted.
+
 - **An over-cap opener groups by the ordinary paragraph rule** (PART 9 §25,
   markup-carve/carve#547, #702). Past MAX_NESTING_DEPTH an opener degrades to
   literal text, and the clause is explicit that a flattened opener is ORDINARY

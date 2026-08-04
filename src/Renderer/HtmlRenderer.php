@@ -1386,6 +1386,17 @@ class HtmlRenderer implements RendererInterface
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         if ($body === '') {
+            // PART 10 §4: an empty container body keeps a BLANK LINE, and the
+            // one exception is a BARE `:::` div - no type word - which closes
+            // on the next line. The split is on the opener's spelling, not on
+            // whether the div ends up with a class: `{.b}` above a bare `:::`
+            // is compact here and in carve-js / carve-rs, while `::: b` is not.
+            // This engine emitted the compact form for both, which is the one
+            // shape the corpus pinned nowhere (carve#570).
+            if ($node->isTyped()) {
+                return '<div' . $attrs . ">\n\n</div>\n";
+            }
+
             return '<div' . $attrs . ">\n</div>\n";
         }
 
