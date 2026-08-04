@@ -7,6 +7,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A definition below every content column folds instead of vanishing**
+  (#721, PART 0 S4). One column in, a definition opens nothing - it reaches
+  neither the sub-list's content column nor the outer item's - so with the
+  item's paragraph open it is lazy text, which is what this engine already did
+  for a marker, a heading, a quote and a table row. A definition was the one
+  kind still being CONSUMED: the collector pushed the line trimmed, which put
+  it at the item's own column 0, where the block parser skips it as an
+  already-extracted definition and renders nothing. `- - a` / ` [^f]: x` lost
+  the second line outright, and the same held for a link reference definition,
+  an abbreviation definition and a `%%` comment. Matches carve-rs and the
+  executable spec.
+
 ### Added
 
 - **A reference definition carries trailing attributes** (PART 9 §16, PART 9R

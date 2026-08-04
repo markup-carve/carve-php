@@ -3480,8 +3480,18 @@ class BlockParser
                             // top-level list (carve-php#706). The marker-line
                             // collector already folds the same shape (#693);
                             // these two collectors disagreed about one line.
+                            // An INVISIBLE line (definition, comment) counts
+                            // here too. It is not block-SHAPED, so it used to
+                            // fall through and be pushed TRIMMED - which put a
+                            // definition at the item's own column 0, where the
+                            // block parser consumes it as an already-extracted
+                            // definition and renders nothing. The line vanished
+                            // from the document (carve-php#721). Kept where the
+                            // author put it, the nested parse reads it as the
+                            // text it is.
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
-                                || $this->startsNewBlock($trimmedLine, $lines, $i);
+                                || $this->startsNewBlock($trimmedLine, $lines, $i)
+                                || $this->isInvisibleOrAttributeLine($trimmedLine);
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
                                 && $subTrailingState['openParagraph']
@@ -3891,7 +3901,16 @@ class BlockParser
             if (
                 $trailingState['openParagraph']
                 && $itemLines !== []
-                && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                && (
+                    $this->isBlockElementStart($nextTrimmed)
+                    || $this->startsNewBlock($nextTrimmed)
+                    // A definition or comment renders nothing of its own, so
+                    // pushing it as its own line let the block parser consume
+                    // it and emit nothing at all - the line disappeared
+                    // (carve-php#721). Folded into the open paragraph it stays
+                    // the text S4 says it is.
+                    || $this->isInvisibleOrAttributeLine($nextTrimmed)
+                )
             ) {
                 $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
                 $foldedAsText = true;
