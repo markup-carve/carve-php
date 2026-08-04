@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A floating attribute does not cross a list-item boundary** (PART 9 §15 A2a
+  and A4, #757). `- a` / blank / `  {.c}` / `- b` put `class="c"` on the SECOND
+  item's paragraph here: the pending-attribute run is parser state, so an
+  attribute written inside one item that found no block there simply survived
+  into the next item's parse. A2a floats to the next VISIBLE block and A4 drops
+  a run that reaches the end with nothing to attach to - the item boundary is
+  such an end, and an attribute reaching into the next item would make a `{…}`
+  line's effect depend on where the list happens to break. carve-js and the
+  executable spec both drop it; the verdict is markup-carve/carve-js#620. An
+  attribute and its target INSIDE one item are unaffected.
+
+### Fixed
+
 - **An unresolved reference image is not a figure** (#751). `![a][nope]` with a
   caption line under it was promoted to a `<figure>`: the label resolves to
   nothing, so every writer emits the author's source text and there is no
