@@ -81,12 +81,18 @@ class BareDotOrderedMarkerTest extends TestCase
         $this->assertFalse($explicit->hasBareMarker());
     }
 
-    public function testSerializedAstDoesNotCarryBareMarker(): void
+    public function testSerializedAstCarriesBareMarker(): void
     {
+        // It used to be hidden from the wire, on the grounds that `ordered`
+        // carried it. `ordered` says the list is ordered; it says nothing about
+        // whether the author wrote `.` with no number, so a bare-dot list came
+        // back as `1.` after a round trip - the authored form PART 11 §6
+        // preserves. carve-js and carve-rs both publish the field
+        // (carve-php#711).
         $encoded = (new AstCodec())->encode((new CarveConverter())->parse(". a\n"));
 
         $this->assertSame('list', $encoded['children'][0]['type']);
-        $this->assertStringNotContainsString('bareMarker', json_encode($encoded, JSON_THROW_ON_ERROR));
+        $this->assertTrue($encoded['children'][0]['bareMarker']);
     }
 
     public function testSerializedAstValidatesAgainstPublishedSchema(): void

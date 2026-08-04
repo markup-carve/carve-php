@@ -163,8 +163,12 @@ final class ReferenceShape
         // `tag` is the same node class, so it hides the same internals - the
         // lookup is keyed by the WIRE type, and a tag publishes as `tag`.
         'tag' => ['cssClass', 'destination', 'title', 'referenceLabel', 'rawReferenceLabel', 'isAutolink', 'fromHeadingReference'],
-        // `ordered` carries this on the wire.
-        'list' => ['listType', 'bareMarker'],
+        // `ordered` carries `listType`. It does NOT carry `bareMarker`: that
+        // says the author wrote `.` with no number, which no other field
+        // implies, and hiding it made a bare-dot list come back as `1.` after a
+        // round trip - the authored form PART 11 §6 preserves. carve-js and
+        // carve-rs both publish it (carve-php#711).
+        'list' => ['listType'],
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
         // `header` carries this; the row flag is recomputed from its cells.
