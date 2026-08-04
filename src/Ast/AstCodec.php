@@ -1401,7 +1401,18 @@ class AstCodec
         }
 
         if ($node instanceof ListBlock) {
-            return ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
+            $encoded = ['ordered' => $node->getListType() === ListBlock::TYPE_ORDERED];
+            // PART 12 §3: `bareMarker` is true for an ordered list written with
+            // the BARE dot form (`. item`), which carries no number. Absent
+            // means the author numbered it. Without it on the wire the bare
+            // form has nowhere to live and decodes as `1. item`, losing
+            // authored form that every other marker flavour keeps - PART 11 §6
+            // (#711).
+            if ($node->hasBareMarker()) {
+                $encoded['bareMarker'] = true;
+            }
+
+            return $encoded;
         }
 
         if ($node instanceof ListItem) {
@@ -1513,6 +1524,11 @@ class AstCodec
                 'listType',
                 $data['ordered'] === true ? ListBlock::TYPE_ORDERED : $unordered,
             );
+            // Only meaningful on an ordered list; absent means the author
+            // numbered it, which is the default the property already carries.
+            if (($data['bareMarker'] ?? false) === true) {
+                self::writeProperty($node, 'bareMarker', true);
+            }
 
             return;
         }

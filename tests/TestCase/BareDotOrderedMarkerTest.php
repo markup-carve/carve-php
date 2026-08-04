@@ -81,12 +81,29 @@ class BareDotOrderedMarkerTest extends TestCase
         $this->assertFalse($explicit->hasBareMarker());
     }
 
-    public function testSerializedAstDoesNotCarryBareMarker(): void
+    public function testSerializedAstCarriesBareMarker(): void
     {
+        // PART 12 §3 lists `bareMarker` among the AUTHOR-CHOICE fields, and the
+        // published schema defines it as `"const": true` with the reason: the
+        // bare dot is the one authored marker distinction with no other field
+        // to hold it, so without this the form decodes as `1. a`.
+        //
+        // This asserted the field was ABSENT until #711 - it pinned the loss
+        // rather than the rule, and the round trip failed on two corpus
+        // documents because of it.
         $encoded = (new AstCodec())->encode((new CarveConverter())->parse(". a\n"));
 
         $this->assertSame('list', $encoded['children'][0]['type']);
-        $this->assertStringNotContainsString('bareMarker', json_encode($encoded, JSON_THROW_ON_ERROR));
+        $this->assertTrue($encoded['children'][0]['bareMarker'] ?? null);
+    }
+
+    public function testANumberedListCarriesNoBareMarker(): void
+    {
+        // Absent means the author numbered it, so the field must not appear
+        // for `1. a` - it is a marker of authored choice, not a default.
+        $encoded = (new AstCodec())->encode((new CarveConverter())->parse("1. a\n"));
+
+        $this->assertArrayNotHasKey('bareMarker', $encoded['children'][0]);
     }
 
     public function testSerializedAstValidatesAgainstPublishedSchema(): void
