@@ -884,13 +884,16 @@ class BlockParser
         while ($i < $count) {
             $line = $lines[$i];
             // Inside a code fence a `- x` line is sample text, not a marker.
-            $contentCol = $contentColumns->observe($line, $fence->isOpen());
+            // Content columns are measured INSIDE a block quote (carve#658);
+            // see the same strip in ReferenceDefinitionExtractor.
+            $unquotedForColumns = preg_replace('/^(?:[ \t]*>(?: |$))+/', '', $line) ?? $line;
+            $contentCol = $contentColumns->observe($unquotedForColumns, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
             // item's column it lands on - not necessarily the innermost
             // (carve-php#764).
             $reachedCol = $contentColumns->reachedBy(
-                strlen($line) - strlen(ltrim($line, " \t")),
+                strlen($unquotedForColumns) - strlen(ltrim($unquotedForColumns, " \t")),
             );
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
@@ -1026,14 +1029,23 @@ class BlockParser
             // column still registers nothing and folds as the paragraph text it
             // looks like (§24 C3). Indented PAST the column it keeps residual
             // spaces and fails the same test, matching carve-js.
+            //
+            // Measured on the quote-stripped view: inside `> - a` the content
+            // column counts from after the `> `, so applying it to the raw line
+            // cut into the quote marker and the definition was missed
+            // (carve#658).
             if (
                 $container['kind'] === 'none'
                 && $reachedCol > 0
-                && strlen($line) - strlen(ltrim($line, " \t")) >= $reachedCol
+                && strlen($unquotedForColumns) - strlen(ltrim($unquotedForColumns, " \t")) >= $reachedCol
             ) {
-                $columnBare = substr($line, $reachedCol);
+                $columnBare = substr($unquotedForColumns, $reachedCol);
                 if (preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
-                    $container = ['kind' => 'columnContainer', 'prefix' => substr($line, 0, $reachedCol)];
+                    $quotePrefixLength = strlen($line) - strlen($unquotedForColumns);
+                    $container = [
+                        'kind' => 'columnContainer',
+                        'prefix' => substr($line, 0, $quotePrefixLength + $reachedCol),
+                    ];
                     $bare = $columnBare;
                 }
             }

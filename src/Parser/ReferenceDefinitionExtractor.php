@@ -62,8 +62,15 @@ class ReferenceDefinitionExtractor
 
         while ($i < $count) {
             $line = $lines[$i];
+            // Content columns are measured INSIDE a block quote: `> - a` puts
+            // the item's content column at 2 of the QUOTED content. Feeding the
+            // raw line matched no marker, so the column stayed 0 and a
+            // definition written at it was rejected - while the item consumed
+            // the line anyway, leaving it neither visible nor active
+            // (carve#658).
+            $unquoted = preg_replace('/^(?:[ \t]*>(?: |$))+/', '', $line) ?? $line;
             // Inside a code fence a `- x` line is sample text, not a marker.
-            $contentCol = $contentColumns->observe($line, $fence->isOpen());
+            $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
             // 4), and a definition belongs to whichever open item's column it
             // lands on - not necessarily the innermost. Reading only the
@@ -72,7 +79,7 @@ class ReferenceDefinitionExtractor
             // a reference to it stayed literal. The footnote prepass already
             // asks this way (carve-php#764, carve-php#783).
             $reachedCol = $contentColumns->reachedBy(
-                strlen($line) - strlen(ltrim($line, " \t")),
+                strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
             );
 
             // A comment fence's closer is a leading `%` run of the SAME length;
@@ -196,9 +203,11 @@ class ReferenceDefinitionExtractor
         if (
             !$inList
             && $contentCol > 0
-            && strlen($line) - strlen(ltrim($line, " \t")) >= $contentCol
+            && strlen($bare) - strlen(ltrim($bare, " \t")) >= $contentCol
         ) {
-            $bare = substr($line, $contentCol);
+            // Measured on the quote-stripped view, not the raw line: inside
+            // `> - a` the column counts from after the `> ` (carve#658).
+            $bare = substr($bare, $contentCol);
             $inList = true;
         }
 
