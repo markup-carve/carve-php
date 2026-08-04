@@ -134,6 +134,56 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         );
     }
 
+    public function testADedentedMarkerUnderASubListFoldsAsText(): void
+    {
+        // One column in, `- b` reaches no content column at all, so it opens
+        // nothing and folds into the sub-item's open paragraph. The marker-line
+        // form of the same shape already folded here (#693); this is the
+        // following-line collector catching up (#706).
+        $this->assertSame(
+            '<ul> <li>x <ul> <li>a - b</li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- x\n  - a\n - b\n")),
+        );
+    }
+
+    public function testADedentedHeadingUnderASubListFoldsAsText(): void
+    {
+        $this->assertSame(
+            '<ul> <li>x <ul> <li>a # H</li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- x\n  - a\n # H\n")),
+        );
+    }
+
+    public function testAMarkerAtTheSubListsColumnIsStillASibling(): void
+    {
+        // Control: at the sub-list's own column the marker is a sibling item,
+        // not text - the fold is about being BELOW every content column.
+        $this->assertSame(
+            '<ul> <li>x <ul> <li>a</li> <li>b</li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- x\n  - a\n  - b\n")),
+        );
+    }
+
+    public function testAMarkerAtTheBaseColumnIsStillAnOuterSibling(): void
+    {
+        // Control: flush left it belongs to the outer list.
+        $this->assertSame(
+            '<ul> <li>x <ul> <li>a</li> </ul> </li> <li>b</li> </ul>',
+            $this->squash($this->converter->convert("- x\n  - a\n- b\n")),
+        );
+    }
+
+    public function testABlankBeforeTheDedentedMarkerStillEndsTheList(): void
+    {
+        // Control: the blank closes the sub-item's paragraph, so there is
+        // nothing to fold into and the marker starts a list of its own. All
+        // three engines agree here.
+        $this->assertSame(
+            '<ul> <li>x <ul> <li>a</li> </ul> </li> </ul> <ul> <li>b</li> </ul>',
+            $this->squash($this->converter->convert("- x\n  - a\n\n - b\n")),
+        );
+    }
+
     public function testAClosedFenceInTheStreamLeavesNothingToFoldInto(): void
     {
         // The item's stream ends with a CLOSED fence, so the dedented line ends

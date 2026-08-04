@@ -99,6 +99,18 @@ class BlockParser
     public const MAX_NESTING_DEPTH = 200;
 
     /**
+     * The narrowest column a nested construct can start at.
+     *
+     * A marker is at least a symbol plus its separating space, so nothing can
+     * own column 1: a line indented that far reaches no content column at all
+     * and is lazy paragraph text, whatever shape it has. carve-js and carve-rs
+     * draw the same line - both fold a marker one column in and nest it at two.
+     *
+     * @var int
+     */
+    protected const MIN_NESTING_COLUMNS = 2;
+
+    /**
      * Depth bound for the heading-index walk.
      *
      * Matches `CrossReferenceResolver`'s own bound, because this walk has to
@@ -3445,12 +3457,33 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine);
+                            $opensBlock = $this->isBlockElementStart($trimmedLine, $lines, $i)
+                                || $this->startsNewBlock($trimmedLine, $lines, $i);
+                            if (!$sawBlankLine && !$opensBlock) {
+                                $subLines[] = $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
+                                $i++;
+
+                                continue;
+                            }
+
+                            // A block-SHAPED line indented by less than the
+                            // narrowest marker can be is below every content
+                            // column there is, so it opens nothing: it is lazy
+                            // paragraph text, and it folds while a paragraph is
+                            // open. ` # H` and ` - b` under a sub-list fold into
+                            // that sub-item, exactly as they do at the top level
+                            // (carve-php#706). It carries ONE column into the
+                            // sub-stream - below the sub-list's content column,
+                            // above the sibling column - so the nested parse
+                            // folds it rather than promoting or detaching it.
                             if (
                                 !$sawBlankLine
-                                && !$this->isBlockElementStart($trimmedLine, $lines, $i)
-                                && !$this->startsNewBlock($trimmedLine, $lines, $i)
+                                && $lineIndent < self::MIN_NESTING_COLUMNS
+                                && $subTrailingState['openParagraph']
                             ) {
-                                $subLines[] = $trimmedLine;
+                                $subLines[] = ' ' . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $trimmedLine);
                                 $i++;

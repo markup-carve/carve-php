@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A marker one column in is lazy text, not a list of its own** (PART 0 S4,
+  #706). A block-shaped line indented by less than the narrowest marker can be
+  reaches no content column, so it opens nothing - but under a sub-list this
+  engine ended both lists and started a new one, where carve-js, carve-rs and
+  the executable spec fold it into the sub-item's open paragraph. `- x` /
+  `  - a` / ` - b` is now one list, and a heading in the same position folds
+  too. A marker at the sub-list's column is still a sibling, one at the base
+  column still belongs to the outer list, and a blank line before it still ends
+  the fold.
+
 - **A marker-line sub-list holds an open paragraph like any other** (PART 0 S4,
   #693). `- - a` / `b` ended the list and made `b` a document paragraph, where
   the same lines with the sub-list on its own line already folded `b` into the
