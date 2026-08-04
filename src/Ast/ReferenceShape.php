@@ -51,7 +51,7 @@ final class ReferenceShape
         // keys by `id`. The block definition is a different type and publishes
         // `label` in PART 12 §7.
         'footnote_ref' => ['label' => 'id'],
-        'heading_ref' => ['targetId' => 'target'],
+        'heading_ref' => ['targetId' => 'target', 'href' => 'href'],
         'math' => ['content' => 'content', 'display' => 'display'],
         'symbol' => ['name' => 'name'],
         // The reference calls an inline extension's name `name` and its body
