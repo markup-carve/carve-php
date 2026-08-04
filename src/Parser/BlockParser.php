@@ -3405,6 +3405,20 @@ class BlockParser
                     // the item in `<p>` because of a line the reader never sees
                     // (carve-php#744).
                     $firstContentOpensBlock = $this->lineOpensBlockForLooseness($strippedCurrent);
+                    // §17 L1b: an invisible line is not the second paragraph,
+                    // AND it is not a separator either - it cannot stand
+                    // between the blank line and the paragraph that follows.
+                    // Testing only the FIRST line after the blank stopped at
+                    // the comment and left the item tight, so deleting the
+                    // comment changed how both paragraphs render - a line that
+                    // outputs nothing making a visible difference (carve#630,
+                    // carve-php#771).
+                    if ($firstContentOpensBlock && $this->isInvisibleOrAttributeLine($strippedCurrent)) {
+                        $behind = $this->firstVisibleLineAfterInvisible($lines, $i, $lastItemContentIndent);
+                        if ($behind !== null && !$this->lineOpensBlockForLooseness($behind)) {
+                            $firstContentOpensBlock = false;
+                        }
+                    }
                     if (!$firstContentOpensBlock) {
                         // Indented plain text (or above-column lazy text) after a
                         // blank line = a second paragraph in the item => loose.
@@ -7379,6 +7393,47 @@ class BlockParser
      * ANY indent, every other opener only at column 0. Lexer-free: a
      * colon-fence-shaped opener counts regardless of closer lookahead.
      */
+
+    /**
+     * The first line after `$index` that renders something, skipping blanks and
+     * invisible lines, stripped to the item's content column - or null when the
+     * item ends first.
+     *
+     * §17 L1b asks what sits BEHIND an invisible line, because an invisible
+     * line neither is the second paragraph nor separates one from the blank
+     * before it.
+     *
+     * @param array<string> $lines
+     * @param int $contentIndent
+     * @param int $index
+     *
+     * @return string|null
+     */
+    protected function firstVisibleLineAfterInvisible(array $lines, int $index, int $contentIndent): ?string
+    {
+        $count = count($lines);
+        for ($j = $index + 1; $j < $count; $j++) {
+            $line = $lines[$j];
+            if (IndentationHelper::isBlankLine($line)) {
+                continue;
+            }
+
+            // Dedented out of the item: nothing of the item follows.
+            if (IndentationHelper::getLeadingColumns($line) < $contentIndent) {
+                return null;
+            }
+
+            $stripped = IndentationHelper::stripLeadingColumns($line, $contentIndent);
+            if ($this->isInvisibleOrAttributeLine($stripped)) {
+                continue;
+            }
+
+            return $stripped;
+        }
+
+        return null;
+    }
+
     protected function lineOpensBlockForLooseness(string $line): bool
     {
         if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
