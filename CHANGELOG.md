@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer stops escaping a caret that opens nothing** (PART 11
+  §2, markup-carve/carve#581, #702). §2 escapes a character IF AND ONLY IF
+  omitting the escape would change the re-parsed AST, and a lone `^` opens
+  nothing now that superscript is braced-only - so `}^p` was written `}\^p`
+  for a construct the language no longer has, and `a ^sup^ b` gained two
+  backslashes per pass. The caret keeps its escape exactly where it abuts a
+  shape that still reads it: `^[` (inline footnote) and the `{^` / `^}`
+  delimiters of a braced superscript. A caption-shaped `^ ` at the start of a
+  line is decided by the block writer and is unchanged. carve-rs escapes the
+  same carets this engine used to; carve-js additionally escapes the `}`.
+
 - **An empty word-class div keeps its blank body line** (PART 10 §4,
   markup-carve/carve#570, #702). A container whose body renders nothing keeps a
   blank line where the body would be; the one exception is a BARE `:::` div,
