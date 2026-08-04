@@ -1076,6 +1076,20 @@ class CarveRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
+        // An UNRESOLVED reference image round-trips via its verbatim source.
+        // The guard used to live in renderInline()'s dispatch, so it covered an
+        // image in a paragraph and not one inside a figure: `![a][nope]` with a
+        // caption came out `![a]()`, the label gone and the destination empty,
+        // and the re-parse was a different document - PART 11 §1's invariant
+        // broken inside this engine alone (carve-php#751).
+        //
+        // It belongs HERE, where every caller is covered, which is where
+        // carve-js keeps it.
+        $raw = UnresolvedReference::sourceOf($node);
+        if ($raw !== null) {
+            return $raw;
+        }
+
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
