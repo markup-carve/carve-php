@@ -229,6 +229,14 @@ class CarveCorpusTest extends TestCase
         'an-abbreviation-definition-is-recognized-only-at-document-level',
         'a-comment-is-recognized-at-any-column',
         'a-definition-below-every-content-column-folds-as-text',
+        'a-caret-is-a-reference-label-not-an-empty-footnote',
+        'an-invisible-line-does-not-cancel-a-blank-line-separation',
+        'a-comment-fence-is-a-comment-at-any-column-too',
+        'a-floating-attribute-stops-at-the-item-boundary',
+        'a-comment-under-a-nested-item-does-not-close-it',
+        'a-definition-inside-a-comment-registers-nothing',
+        'a-blank-after-a-comment-still-ends-the-item',
+        'a-comment-fence-under-a-nested-item-does-not-close-it-either',
     ];
 
     /**
