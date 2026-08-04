@@ -29,6 +29,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING: an attribute line above a reference definition floats past it**
+  (PART 9 §15 A2a, markup-carve/carve#529, #702). Pending attributes attach to
+  the next VISIBLE block, and a definition renders nothing, so
+
+  ~~~
+  {#i}
+  [f]: u
+
+  e
+  ~~~
+
+  is `<p id="i">e</p>`. This engine used to hand those attributes to the
+  DEFINITION instead, and every link resolving that label carried them - so
+  `{.external}` above `[ex]: …` classed the link and never reached the block
+  the author wrote it above. The behavior was carve-php's alone; carve-js drops
+  such attributes entirely and the executable spec already floats them. The
+  clause names all five invisible kinds, and this engine already floated past
+  the other three.
+
+  There is no replacement spelling for attributing a reference definition: a
+  trailing `{...}` ON the definition line is not that construct in any of the
+  three engines. Applications relying on definition-level link attributes must
+  move them to the link (`[Example][ex]{.external}`), which is unaffected.
+
 - **BREAKING: a renderer refuses at its ceiling instead of truncating** (PART 9
   §25, markup-carve/carve#548, #702). Reaching the recursion ceiling now throws
   `RenderDepthExceededException`, a typed failure naming the bound and the

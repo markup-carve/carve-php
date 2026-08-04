@@ -2135,19 +2135,13 @@ class BlockParser
                 return null;
             }
 
-            // Check if attributes precede a reference definition - if so, skip storing them
-            // (they were already applied during extractReferences)
-            $count = count($lines);
-            $nextIdx = $start + 1;
-            while ($nextIdx < $count && IndentationHelper::isBlankLine($lines[$nextIdx])) {
-                $nextIdx++;
-            }
-            if ($nextIdx < $count && $this->isReferenceDefinitionLine($lines[$nextIdx])) {
-                // Attributes precede a reference definition, don't store them
-                // as block attrs.
-                return 1;
-            }
-
+            // A definition that follows renders nothing, and §15 A2a says
+            // pending floats PAST anything that renders nothing to the next
+            // VISIBLE block. This used to drop the attributes here and hand
+            // them to the reference definition instead, so `{#i}` above
+            // `[f]: u` was lost to the document and reappeared on every link
+            // that used the label - the one place §15's "next block element"
+            // was read as a construct that emits nothing (carve-php#702).
             $this->parseAttributeString($attrStr);
 
             return 1;

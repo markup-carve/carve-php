@@ -72,13 +72,16 @@ class CitationKeyParagraphInterruptionTest extends TestCase
         $this->assertSame(1, substr_count($html, '<p>'));
     }
 
-    public function testAttributesBeforeARealDefinitionStillReachTheLink(): void
+    public function testAttributesBeforeARealDefinitionFloatPastIt(): void
     {
         // The same predicate decides whether a block-attribute line belongs to
         // a following definition, so this is the other side of the change.
+        // Under §15 A2a it belongs to neither: it floats past the definition to
+        // the next VISIBLE block.
         $html = (new CarveConverter())->convert("{.c}\n[b]: https://example.com\n\nSee [b][].\n");
 
-        $this->assertStringContainsString('<a href="https://example.com" class="c">b</a>', $html);
+        $this->assertStringContainsString('<p class="c">', $html);
+        $this->assertStringNotContainsString('class="c">b</a>', $html);
     }
 
     public function testAttributesBeforeACitationKeyLineAreNotSwallowed(): void

@@ -543,35 +543,38 @@ class CarveConverterTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testReferenceLinkWithTitle(): void
+    public function testAttributeLineAboveADefinitionDoesNotTitleTheLink(): void
     {
+        // PART 9 §15 A2a: pending floats PAST a construct that renders nothing
+        // and attaches to the next VISIBLE block. The definition is last here,
+        // so there is no next block and the attributes are dropped (A4).
         $djot = "[Example][ex]\n\n{title=\"My Title\"}\n[ex]: https://example.com";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('href="https://example.com"', $result);
-        $this->assertStringContainsString('title="My Title"', $result);
+        $this->assertStringNotContainsString('title="My Title"', $result);
     }
 
-    public function testReferenceLinkWithClass(): void
+    public function testAttributeLineAboveADefinitionDoesNotClassTheLink(): void
     {
         $djot = "[Example][ex]\n\n{.external}\n[ex]: https://example.com";
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('class="external"', $result);
+        $this->assertStringNotContainsString('class="external"', $result);
     }
 
-    public function testReferenceLinkAttributesOverride(): void
+    public function testLinkLevelAttributesAreUnaffected(): void
     {
-        // Link-level attributes should override definition-level
+        // The link's OWN attributes still apply; only the definition-level
+        // source of attributes is gone.
         $djot = "[Example][ex]{.local}\n\n{.external}\n[ex]: https://example.com";
 
         $result = $this->converter->convert($djot);
 
-        // Should have both classes (definition first, then link)
-        $this->assertStringContainsString('external', $result);
-        $this->assertStringContainsString('local', $result);
+        $this->assertStringContainsString('class="local"', $result);
+        $this->assertStringNotContainsString('external', $result);
     }
 
     public function testNestedEmphasis(): void
@@ -2928,26 +2931,26 @@ DJOT;
         $this->assertStringContainsString('b</strong>', $result);
     }
 
-    public function testReferenceDefinitionAttributes(): void
+    public function testAttributesAboveADefinitionReachTheNextVisibleBlock(): void
     {
-        // Attributes before reference definition apply to the link
+        // PART 9 §15 A2a: the definition renders nothing, so pending floats
+        // past it to the paragraph - which is where the author wrote it, one
+        // block early. It no longer travels to every link using the label.
         $djot = "{title=foo}\n[ref]: /url\n\n[ref][]";
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('title="foo"', $result);
+        $this->assertStringContainsString('<p title="foo">', $result);
         $this->assertStringContainsString('href="/url"', $result);
-        // Attributes should be on the link, not the paragraph
-        $this->assertStringNotContainsString('<p title=', $result);
+        $this->assertStringNotContainsString('<a href="/url" title="foo"', $result);
     }
 
-    public function testReferenceDefinitionAttributeOverride(): void
+    public function testALinksOwnAttributesStillWin(): void
     {
-        // Inline attributes override definition attributes
         $djot = "{title=foo}\n[ref]: /url\n\n[ref][]{title=bar}";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('title="bar"', $result);
-        $this->assertStringNotContainsString('title="foo"', $result);
+        $this->assertStringContainsString('<p title="foo">', $result);
     }
 
     public function testAttributeOrderIdFirst(): void

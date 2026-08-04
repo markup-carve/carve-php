@@ -90,11 +90,15 @@ class ReferenceDefinitionExtractor
             $referenceLine = $this->referenceLineView($line, $contentCol);
             $bare = $referenceLine['line'];
 
+            // An attribute line above a definition belongs to the next VISIBLE
+            // block (§15 A2a), not to the definition: it is SKIPPED here rather
+            // than collected, and the block parser keeps it pending. Collecting
+            // it put the attributes on every link that used the label and took
+            // them away from the block the author wrote them for
+            // (carve-php#702). A trailing `{...}` ON the definition line is a
+            // different construct and still applies.
             $refAttrStr = $this->parseSingleLineBlockAttributePayload($bare);
             if ($refAttrStr !== null && $refAttrStr !== '') {
-                $pendingAttrs = AttributeParser::parse($refAttrStr);
-                $pendingAttrsInQuote = $referenceLine['inQuote'];
-                $pendingAttrsInList = $referenceLine['inList'];
                 $i++;
 
                 continue;
