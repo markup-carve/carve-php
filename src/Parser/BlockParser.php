@@ -3333,7 +3333,7 @@ class BlockParser
                 if ($lastItem !== null) {
                     [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
                     if ($attached !== []) {
-                        $this->parseBlocks($lastItem, $attached, 0, $attachedLineMap);
+                        $this->parseItemBlocks($lastItem, $attached, $attachedLineMap);
                     }
                     // The continuation attaches content but does not loosen the list.
                     $lastItemHadBlankAfter = false;
@@ -3609,7 +3609,7 @@ class BlockParser
                     }
                     // Parse nested content
                     if ($subLines !== []) {
-                        $this->parseBlocks($lastItem, $subLines, 0, $subLineMap);
+                        $this->parseItemBlocks($lastItem, $subLines, $subLineMap);
                     }
                     // In djot, blank lines within nested content don't make the parent list loose
                     // The list is only loose if there's a blank line directly after item content
@@ -3699,7 +3699,7 @@ class BlockParser
             if (trim($itemContent) === '+') {
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 if ($attached !== []) {
-                    $this->parseBlocks($listItem, $attached, 0, $attachedLineMap);
+                    $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
                 }
                 $list->appendChild($listItem);
 
@@ -3754,7 +3754,7 @@ class BlockParser
                 if ($this->subContentHasLooseningBlank($itemLines)) {
                     $list->setTight(false);
                 }
-                $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
+                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
 
                 // A blank line directly before the next sibling marker still
@@ -3788,7 +3788,7 @@ class BlockParser
                     $itemLineMap,
                 );
                 $listItem->setPos($this->spanForLineMap($itemLineMap));
-                $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
+                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
 
                 if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
@@ -3849,7 +3849,7 @@ class BlockParser
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
             $listItem->setPos($this->spanForLineMap($itemLineMap));
-            $this->parseBlocks($listItem, $itemLines, 0, $itemLineMap);
+            $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
 
             $list->appendChild($listItem);
         }
@@ -3861,6 +3861,30 @@ class BlockParser
         $parent->appendChild($list);
 
         return $i - $start;
+    }
+
+    /**
+     * Parse a list item's block stream, with the pending-attribute run scoped
+     * to that item.
+     *
+     * §15 A2a floats a pending attribute to the next VISIBLE block and A4
+     * drops a run that reaches the end with nothing to attach to. The item
+     * boundary is such an end: an attribute written inside one item that finds
+     * no block there attaches to nothing, rather than reaching into the NEXT
+     * item's paragraph - which would make a `{...}` line's effect depend on
+     * where the list happens to break. The state is parser-global, so without
+     * this the run simply survived into the sibling's parse
+     * (carve-php#757, markup-carve/carve-js#620).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $item
+     * @param array<string> $lines
+     * @param array<int, int>|null $lineMap
+     */
+    protected function parseItemBlocks(Node $item, array $lines, ?array $lineMap = null): void
+    {
+        $this->parseBlocks($item, $lines, 0, $lineMap);
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
     }
 
     /**
