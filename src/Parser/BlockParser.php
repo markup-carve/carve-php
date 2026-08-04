@@ -1797,12 +1797,25 @@ class BlockParser
     protected function parseBlocks(Node $parent, array $lines, int $indent, ?array $lineMap = null, bool $topLevel = false): void
     {
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
-            $text = implode("\n", $lines);
-            if (trim($text) !== '') {
-                $paragraph = new Paragraph();
-                $this->inlineParser->parse($paragraph, $text);
-                $parent->appendChild($paragraph);
+            // PART 9 §25: past the cap an opener degrades to ORDINARY PARAGRAPH
+            // TEXT, and therefore groups by the ordinary paragraph rule -
+            // consecutive over-cap openers and the text after them form ONE
+            // paragraph, ending at the first blank line like any other, with no
+            // trailing newline before `</p>`. Handing the whole remainder to
+            // one paragraph kept the document's trailing newline inside it and
+            // swallowed blank lines that end a paragraph everywhere else
+            // (carve-php#702).
+            $group = [];
+            foreach ($lines as $line) {
+                if (IndentationHelper::isBlankLine($line)) {
+                    $this->appendDegradedParagraph($parent, $group);
+                    $group = [];
+
+                    continue;
+                }
+                $group[] = $line;
             }
+            $this->appendDegradedParagraph($parent, $group);
 
             return;
         }
@@ -1819,6 +1832,25 @@ class BlockParser
             $this->commentFenceLastIndex = $previousCommentFenceLastIndex;
             $this->nestingDepth--;
         }
+    }
+
+    /**
+     * One paragraph of over-cap content (PART 9 §25), or nothing when the
+     * group holds no visible text.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $group
+     */
+    private function appendDegradedParagraph(Node $parent, array $group): void
+    {
+        $text = rtrim(implode("\n", $group), "\n");
+        if (trim($text) === '') {
+            return;
+        }
+
+        $paragraph = new Paragraph();
+        $this->inlineParser->parse($paragraph, $text);
+        $parent->appendChild($paragraph);
     }
 
     /**
