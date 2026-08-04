@@ -4040,6 +4040,21 @@ class BlockParser
                 break;
             }
 
+            // A comment fence carries its body with it: pushed as its own
+            // lines the block parser consumes the whole span and renders
+            // nothing, and the item stays open across it exactly as it does
+            // across a `%%` line.
+            $commentFenceEnd = $this->commentFenceSpanEnd($nextTrimmed, $lines, $i);
+            if ($commentFenceEnd !== null) {
+                for ($j = $i; $j < $commentFenceEnd; $j++) {
+                    $itemLines[] = ltrim($lines[$j]);
+                    $itemLineMap[] = $this->sourceLineFor($j);
+                }
+                $i = $commentFenceEnd;
+
+                continue;
+            }
+
             $foldedAsText = false;
             if (
                 $trailingState['openParagraph']
@@ -6424,6 +6439,42 @@ class BlockParser
      * comment may never have. Every other invisible line folds as text there
      * (carve#618).
      */
+
+    /**
+     * Where a comment fence opened by $line ends, or null if it opens none.
+     *
+     * A `%%` line below an item's content column already stays a comment
+     * (carve-php#746, PART 9 §24 C3): the collectors do not fold it, so it
+     * reaches the block parser and renders nothing. The FENCE form did fold -
+     * `isBlockElementStart()` claims it - and folding a comment is the one
+     * outcome the construct may never have, so `%%% n` came out as item text
+     * while `%% n` did not. The whole span has to move together: pushing only
+     * the opener would leave the body behind as text (carve-php#770).
+     *
+     * Returns the index AFTER the closer. An UNCLOSED fence opens no block
+     * (PART 9 §28), so it stays whatever the caller decides for it.
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function commentFenceSpanEnd(string $line, array $lines, int $index): ?int
+    {
+        $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
+        if ($info === null || !$this->hasClosingCommentFenceAhead($line, $lines, $index)) {
+            return null;
+        }
+
+        $count = count($lines);
+        for ($j = $index + 1; $j < $count; $j++) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$j], $info['length'])) {
+                return $j + 1;
+            }
+        }
+
+        return null;
+    }
+
     protected function isFoldableInvisibleLine(string $line): bool
     {
         if (preg_match('/^[ \t]*%%/', $line) === 1) {

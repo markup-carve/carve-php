@@ -59,13 +59,31 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         $this->assertSame("<p>a</p>\n<p>b</p>\n", $this->converter->convert("a\n  %%% x\nb\n"));
     }
 
-    public function testInsideAListItemTheConstructIsUnchanged(): void
+    public function testInsideAListItemTheWholeSpanIsInvisible(): void
     {
-        // Pinned as-is, not as an endorsement: markup-carve/carve#629 decides
-        // whether this stays text or becomes an invisible comment, and the
-        // other two engines already consume it. Pinning it here means that
-        // decision cannot land silently.
-        $html = $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n");
+        // markup-carve/carve#629 settled this: a comment is recognized at any
+        // column, so below an item's content column the fence is a comment and
+        // not the text it looks like. Corpus case
+        // 186-a-comment-fence-is-a-comment-at-any-column-too pins it.
+        //
+        // The item stays open across it, so `tail` is still item content - a
+        // comment closes nothing.
+        $this->assertSame(
+            "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n",
+            $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n"),
+        );
+    }
+
+    public function testAnUnclosedFenceInAListItemStillRendersAsText(): void
+    {
+        // NOT an endorsement. An unclosed `%%%` opens no block (PART 9 §28) and
+        // degrades to the `%%` line form, which is invisible at any column - so
+        // carve-js and carve-rs render `<ul><li>a</li></ul>` here. This engine
+        // folds the opener into the item's paragraph instead, because
+        // isBlockElementStart() claims a comment fence without asking whether
+        // it closes. Pinned so the divergence is visible and cannot change
+        // silently while carve-php#775 is open.
+        $html = $this->converter->convert("- a\n %%% n\n");
 
         $this->assertStringContainsString('%%% n', $html);
     }
