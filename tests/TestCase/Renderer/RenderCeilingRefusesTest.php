@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
@@ -115,6 +116,29 @@ class RenderCeilingRefusesTest extends TestCase
         $html = (new HtmlRenderer())->render($this->deepDocument(10));
 
         $this->assertStringContainsString('body', $html);
+    }
+
+    public function testTheMarkdownIdCollectionPassRefusesToo(): void
+    {
+        // The Markdown target walks the tree once for heading and crossref ids
+        // BEFORE it renders. That pass is bounded by the same ceiling, and on a
+        // deep INLINE tree it is the one that reaches it first - so the refusal
+        // has to come from there as well, not only from the render walk.
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Text('x'));
+
+        $node = $paragraph;
+        for ($i = 0; $i < 600; $i++) {
+            $span = new Span();
+            $span->appendChild($node);
+            $node = $span;
+        }
+
+        $document = new Document();
+        $document->appendChild($node);
+
+        $this->expectException(RenderDepthExceededException::class);
+        (new MarkdownRenderer())->render($document);
     }
 
     public function testTheExceptionCarriesTheRendererName(): void

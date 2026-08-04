@@ -657,17 +657,16 @@ class HtmlRenderer implements RendererInterface
      * in a `<section id="…">`. Recurses for nested sections. Matches the
      * carve-js renderer and djot's structural model.
      *
+     * $depth tracks HEADING LEVEL nesting, so it is bounded by 6 - which is
+     * why this method carries no ceiling check of its own. Every node it
+     * renders goes through renderNode(), where the ceiling lives and where a
+     * tree deep enough to matter is refused first.
+     *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      * @param int $depth
-     *
-     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderSectionRange(array $nodes, int $depth = 0): string
     {
-        if ($depth >= self::MAX_RENDER_DEPTH) {
-            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
-        }
-
         $html = '';
         $count = count($nodes);
         $i = 0;
