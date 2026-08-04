@@ -287,6 +287,38 @@ class FencedBlockParser
      *
      * @return bool True if this line closes the fence
      */
+
+    /**
+     * The opener seen from a position that CONSUMES the fence.
+     *
+     * A comment is recognized at ANY column (PART 9 §24 C3, carve#624), and the
+     * line form `%%` already is. Reading the fence only at column 0 where it is
+     * consumed left an indented opener to the line-comment path, which took the
+     * opener and the closer one line at a time and rendered every line BETWEEN
+     * them as ordinary text - a comment that hid its delimiters and showed its
+     * contents (carve-php#770). Leading whitespace is not part of the
+     * delimiter; the `%` run length is.
+     *
+     * @param string $line
+     *
+     * @return array{fence: string, length: int, tail: string}|null
+     */
+    public function parseFencedCommentOpenerAnyColumn(string $line): ?array
+    {
+        return $this->parseFencedCommentOpener(ltrim($line, " \t"));
+    }
+
+    /**
+     * The closer counterpart of `parseFencedCommentOpenerAnyColumn()`.
+     *
+     * @param string $line
+     * @param int $fenceLength
+     */
+    public function isFencedCommentCloserAnyColumn(string $line, int $fenceLength): bool
+    {
+        return $this->isFencedCommentCloser(ltrim($line, " \t"), $fenceLength);
+    }
+
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
         if (preg_match('/^(%{3,})/', $line, $m) !== 1) {
