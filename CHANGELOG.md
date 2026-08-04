@@ -9,6 +9,60 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer escapes a caption marker only where a caption can
+  form** (PART 11 §2, #758). A `^ ` at the start of a block line opens a
+  caption only when the block before it can HOST one - a table, a code block, a
+  block quote, or a paragraph holding nothing but an image or display math. The
+  writer escaped it from the line position alone, so `para` / `^ cap` came back
+  as `\^ cap` for a construct that cannot form there, and an unresolved
+  reference image - which cannot host a caption either (#751) - took the escape
+  with it. carve-js already emitted the minimal form; carve-rs has the same
+  defect (markup-carve/carve-rs#565). Where the caption WOULD form the escape
+  is load-bearing and stays.
+
+### Fixed
+
+- **A floating attribute does not cross a list-item boundary** (PART 9 §15 A2a
+  and A4, #757). `- a` / blank / `  {.c}` / `- b` put `class="c"` on the SECOND
+  item's paragraph here: the pending-attribute run is parser state, so an
+  attribute written inside one item that found no block there simply survived
+  into the next item's parse. A2a floats to the next VISIBLE block and A4 drops
+  a run that reaches the end with nothing to attach to - the item boundary is
+  such an end, and an attribute reaching into the next item would make a `{…}`
+  line's effect depend on where the list happens to break. carve-js and the
+  executable spec both drop it; the verdict is markup-carve/carve-js#620. An
+  attribute and its target INSIDE one item are unaffected.
+
+### Fixed
+
+- **An unresolved reference image is not a figure** (#751). `![a][nope]` with a
+  caption line under it was promoted to a `<figure>`: the label resolves to
+  nothing, so every writer emits the author's source text and there is no
+  rendered image for a caption to attach to. carve-js and carve-rs both decline
+  the promotion. The writer then made it worse - the figure came back out as
+  `![a]()`, losing both the label and the destination, so
+  `to_html(fmt(x)) != to_html(x)` inside this engine alone. Declining the
+  promotion fixes both halves, because the inline path already emits the
+  authored source PART 12 §3a keeps in `rawRef`.
+
+  The caption line's INTERRUPTION test had to move with it: a paragraph the
+  caption cannot attach to must not be split by it either, or `^ cap` became
+  its own paragraph where the other two engines fold it in. A resolved image -
+  inline or by reference - still becomes a figure.
+
+- **A marker-line colon fence needs its body at the content column** (PART 9
+  §24 C3, #748). `- ::: note` with a flush-left `body` built an admonition
+  here; §24 C3 puts a line below the item's content column outside the item
+  body, where with no blank it lazily continues the item's paragraph - so the
+  opener is literal text and takes the following lines with it, which is what
+  carve-js, carve-rs and the executable spec all render. The item's collected
+  stream had lost that geometry: the opener sat at the stream's own column 0
+  with the body under it, exactly the shape the div parser builds a container
+  from. A body AT the content column, with or without a blank line before it,
+  still nests as before.
+
+### Fixed
+
 - **The canonical writer escapes a colon only where one can open something**
   (PART 11 §2 and §4, #743). A colon opens a construct at the START of a line -
   `::` a definition term, `:::` a div - and mid-line it is ordinary

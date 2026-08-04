@@ -283,10 +283,15 @@ class CarveRenderer implements RendererInterface
         }
 
         $this->blockDepth++;
+        $previousCaptionHost = $this->afterCaptionHost;
         try {
             $parts = [];
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
+                // Remember, for the NEXT block, whether a `^ ` line after it
+                // would be read back as a caption. Only then does the caption
+                // marker need escaping (PART 11 §2, carve-php#758).
+                $this->afterCaptionHost = self::hostsACaption($block);
                 if ($rendered !== '') {
                     $parts[] = $rendered;
                 }
@@ -295,7 +300,48 @@ class CarveRenderer implements RendererInterface
             return implode("\n\n", $parts);
         } finally {
             $this->blockDepth--;
+            $this->afterCaptionHost = $previousCaptionHost;
         }
+    }
+
+    /**
+     * Could a `^ ` line following this block be read back as its caption?
+     *
+     * The parser attaches a caption to a table, a code block, a block quote,
+     * and a paragraph holding nothing but an image or display math. After
+     * anything else the marker cannot form, so escaping it says nothing -
+     * which is what §2 calls a defect rather than a safe default.
+     *
+     * An UNRESOLVED reference image is not an image here either, for the same
+     * reason it is not a figure (#751): the label resolves to nothing, so
+     * there is no image for a caption to attach to.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $block
+     */
+    private static function hostsACaption(Node $block): bool
+    {
+        if ($block instanceof Table || $block instanceof CodeBlock || $block instanceof BlockQuote) {
+            return true;
+        }
+
+        if ($block instanceof Image) {
+            return UnresolvedReference::sourceOf($block) === null;
+        }
+
+        if (!$block instanceof Paragraph) {
+            return false;
+        }
+
+        $children = $block->getChildren();
+        if (count($children) !== 1) {
+            return false;
+        }
+
+        if ($children[0] instanceof Image) {
+            return UnresolvedReference::sourceOf($children[0]) === null;
+        }
+
+        return $children[0] instanceof Math && $children[0]->isDisplay();
     }
 
     /**
@@ -303,6 +349,12 @@ class CarveRenderer implements RendererInterface
      * hard-break backslash where the container already implies one.
      */
     protected int $inLineBlock = 0;
+
+    /**
+     * Whether the block just written can host a caption, so a following `^ `
+     * line would be read back as one (see hostsACaption()).
+     */
+    protected bool $afterCaptionHost = false;
 
     protected function renderBlock(Node $node): string
     {
@@ -975,7 +1027,9 @@ class CarveRenderer implements RendererInterface
                 $this->resolveIndentPlaceholder($node->getContent()),
                 // Does this node's first character sit at the start of a block
                 // line? Only there can `^ ` be read back as a caption marker.
-                ($prevChar === '' || $prevChar === "\n") && $this->tableCellDepth === 0,
+                ($prevChar === '' || $prevChar === "\n")
+                    && $this->tableCellDepth === 0
+                    && $this->afterCaptionHost,
             ) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -1076,6 +1130,20 @@ class CarveRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
+        // An UNRESOLVED reference image round-trips via its verbatim source.
+        // The guard used to live in renderInline()'s dispatch, so it covered an
+        // image in a paragraph and not one inside a figure: `![a][nope]` with a
+        // caption came out `![a]()`, the label gone and the destination empty,
+        // and the re-parse was a different document - PART 11 §1's invariant
+        // broken inside this engine alone (carve-php#751).
+        //
+        // It belongs HERE, where every caller is covered, which is where
+        // carve-js keeps it.
+        $raw = UnresolvedReference::sourceOf($node);
+        if ($raw !== null) {
+            return $raw;
+        }
+
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
