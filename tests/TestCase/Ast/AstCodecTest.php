@@ -342,10 +342,20 @@ class AstCodecTest extends TestCase
      * A bare-dot ordered
      * list has no field on the wire at all: `list` carries `delim` and
      * `bulletChar` for every other marker flavor, but nothing records the bare
-     * form, so `. first` decodes as `1. first`. That is a gap in the FORMAT
-     * rather than in this codec - preserving it here would mean inventing a
-     * field the other engines do not publish - and is tracked as
-     * markup-carve/carve#480.
+     * form, so `. first` decoded as `1. first`.
+     *
+     * THAT HALF IS FIXED (carve-php#711). The reasoning here said preserving it
+     * "would mean inventing a field the other engines do not publish", and that
+     * stopped being true when carve#480 landed: PART 12 section 3 lists
+     * `bareMarker` among the AUTHOR-CHOICE fields, the published schema defines
+     * it as `"const": true`, and carve-js and carve-rs both emit it. Measured
+     * before removing the three entries. The codec now writes and reads it, so
+     * the bare-dot documents round trip.
+     *
+     * What is left is one document and one cause: an implicit heading reference
+     * comes back RESOLVED - `[getting started][]` decodes as
+     * `[getting started](#Getting-Started)` - which is PART 12 section 3a, the
+     * tree being pre-resolve, and is tracked as item 10 of carve-php#702.
      *
      * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
      * than a decoded payload.
@@ -354,12 +364,6 @@ class AstCodecTest extends TestCase
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
         '173-implicit-heading-references-with-no-definition.crv',
-        '174-bare-dot-ordered-markers-3.crv',
-        '174-bare-dot-ordered-markers.crv',
-        // A third bare-dot document, not a third cause: `. >` opens the item
-        // whose empty quote the open-paragraph rule is about, so it decodes as
-        // `1. >` for the same missing field as the two above (carve#480).
-        '178-a-flush-left-line-needs-an-open-paragraph-to-fold-into.crv',
     ];
 
     /**
