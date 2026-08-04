@@ -105,6 +105,32 @@ class ListContentColumns
         return $this->columns === [] ? 0 : $this->columns[array_key_last($this->columns)];
     }
 
+    /**
+     * The content column of the OPEN item a line at `$indent` actually reaches:
+     * the deepest one at or below it, or 0 when it reaches none.
+     *
+     * One line can open several items - `- - b` opens two, with content columns
+     * 2 and 4 - and a definition written under it belongs to whichever item's
+     * column it lands on. Testing only the innermost left a definition at the
+     * OUTER column looking like text, so it registered nothing while the block
+     * parser still removed it: the line rendered as nothing and a reference to
+     * it stayed literal (carve-php#764).
+     *
+     * BELOW every open column is a different rule and still returns 0 - there
+     * the line folds as visible text and registers nothing (PART 9 §24 C3).
+     */
+    public function reachedBy(int $indent): int
+    {
+        $reached = 0;
+        foreach ($this->columns as $column) {
+            if ($column <= $indent && $column > $reached) {
+                $reached = $column;
+            }
+        }
+
+        return $reached;
+    }
+
     protected function popDeeperThan(int $column): void
     {
         while ($this->columns !== [] && $this->columns[array_key_last($this->columns)] > $column) {
