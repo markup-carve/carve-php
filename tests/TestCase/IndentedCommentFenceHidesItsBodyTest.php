@@ -74,17 +74,18 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         );
     }
 
-    public function testAnUnclosedFenceInAListItemStillRendersAsText(): void
+    public function testAnUnclosedFenceInAListItemIsInvisibleToo(): void
     {
-        // NOT an endorsement. An unclosed `%%%` opens no block (PART 9 §28) and
-        // degrades to the `%%` line form, which is invisible at any column - so
-        // carve-js and carve-rs render `<ul><li>a</li></ul>` here. This engine
-        // folds the opener into the item's paragraph instead, because
+        // An unclosed `%%%` opens no block (PART 9 §28) but it is still a
+        // COMMENT, and §24 C3 keeps a comment invisible at any column. This
+        // used to fold the opener into the item's paragraph, because
         // isBlockElementStart() claims a comment fence without asking whether
-        // it closes. Pinned so the divergence is visible and cannot change
-        // silently while carve-php#775 is open.
+        // it closes - so the same line rendered as text here and as nothing at
+        // the top level, at the content column, and in both other engines.
+        // Pinned the other way now that carve-php#775 is fixed.
         $html = $this->converter->convert("- a\n %%% n\n");
 
-        $this->assertStringContainsString('%%% n', $html);
+        $this->assertStringNotContainsString('%%%', $html);
+        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n", $html);
     }
 }
