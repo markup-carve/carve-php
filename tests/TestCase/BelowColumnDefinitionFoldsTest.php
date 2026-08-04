@@ -98,4 +98,28 @@ class BelowColumnDefinitionFoldsTest extends TestCase
             $this->assertStringContainsString($definition, $html, $definition . ' vanished');
         }
     }
+
+    public function testACommentIsNotFoldedButStaysInvisible(): void
+    {
+        // PART 9 §24 C3: a comment is the ONE construct recognized at any
+        // column. Folding it would make `%% c` VISIBLE, which is the one
+        // outcome a comment may never have. carve#618.
+        $html = $this->converter->convert("- - a\n %% c");
+
+        $this->assertStringNotContainsString('%% c', $html);
+        $this->assertSame(
+            "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>",
+            trim($html),
+        );
+    }
+
+    public function testACommentDoesNotCloseTheItem(): void
+    {
+        // The other half of being invisible: a following line continues the
+        // item's paragraph across the comment, byte for byte with carve-js
+        // and the executable spec.
+        $html = $this->converter->convert("- a\n %% c\nb");
+
+        $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
+    }
 }
