@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A marker-line colon fence needs its body at the content column** (PART 9
+  §24 C3, #748). `- ::: note` with a flush-left `body` built an admonition
+  here; §24 C3 puts a line below the item's content column outside the item
+  body, where with no blank it lazily continues the item's paragraph - so the
+  opener is literal text and takes the following lines with it, which is what
+  carve-js, carve-rs and the executable spec all render. The item's collected
+  stream had lost that geometry: the opener sat at the stream's own column 0
+  with the body under it, exactly the shape the div parser builds a container
+  from. A body AT the content column, with or without a blank line before it,
+  still nests as before.
+
+### Fixed
+
 - **The canonical writer escapes a colon only where one can open something**
   (PART 11 §2 and §4, #743). A colon opens a construct at the START of a line -
   `::` a definition term, `:::` a div - and mid-line it is ordinary

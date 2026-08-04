@@ -3817,6 +3817,27 @@ class BlockParser
                 $trailingState,
             );
 
+            // A marker-line colon fence whose body is BELOW the content column
+            // opens nothing: §24 C3 puts that line outside the item body, and
+            // with no blank it lazily continues the item's paragraph - so the
+            // opener is literal text and takes the following lines with it.
+            //
+            // The collected stream had lost that: the opener sits at the
+            // stream's own column 0 with the body under it, which is exactly
+            // the shape tryParseDiv() builds a container from, so `- ::: note`
+            // / `body` came back as an admonition where carve-js, carve-rs and
+            // the executable spec all render two literal lines
+            // (carve-php#748). Joining them into ONE line says what the
+            // geometry said. The body AT the content column is handled above
+            // and still nests.
+            if (
+                count($itemLines) > 1
+                && $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null
+            ) {
+                $itemLines = [implode("\n", $itemLines)];
+                $itemLineMap = [$itemLineMap[0] ?? -1];
+            }
+
             // For tight lists with continuation lines, check if content starts with
             // a block element. If so, parse as blocks; otherwise parse as plain text.
             // This prevents "-like" lines from being parsed as nested lists while
