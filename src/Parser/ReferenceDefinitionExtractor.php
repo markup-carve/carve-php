@@ -59,6 +59,13 @@ class ReferenceDefinitionExtractor
             }
         }
         $contentColumns = new ListContentColumns();
+        // A FOOTNOTE BODY is a container like any other: a definition written
+        // in one is collected, and the note keeps only its own text. Without
+        // this the indented line failed the column-0 test below and was
+        // skipped - while the note-body collector still took it out of the
+        // document, so the author's line rendered nowhere AND defined nothing
+        // (carve#664). carve-js tracks the same state for the same reason.
+        $inFootnoteBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -139,8 +146,20 @@ class ReferenceDefinitionExtractor
                 continue;
             }
 
+            // A flush-left footnote definition opens a note body; the next
+            // non-blank line at column 0 closes it. Blank and indented lines
+            // stay inside.
+            if (preg_match('/^\[\^[^\]]+\]: /', $line) === 1) {
+                $inFootnoteBody = true;
+            } elseif (trim($line) !== '' && ($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
+                $inFootnoteBody = false;
+            }
+
             $referenceLine = $this->referenceLineView($line, $reachedCol);
             $bare = $referenceLine['line'];
+            if ($inFootnoteBody && $reachedCol === 0 && !$referenceLine['inList'] && !$referenceLine['inQuote']) {
+                $bare = ltrim($bare, " \t");
+            }
 
             // An attribute line above a definition belongs to the next VISIBLE
             // block (§15 A2a), not to the definition: it is SKIPPED here rather
