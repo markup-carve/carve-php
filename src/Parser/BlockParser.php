@@ -3577,9 +3577,12 @@ class BlockParser
                             // from the document (carve-php#721). Kept where the
                             // author put it, the nested parse reads it as the
                             // text it is.
-                            $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
-                                || $this->startsNewBlock($trimmedLine, $lines, $i)
-                                || $this->isFoldableInvisibleLine($trimmedLine);
+                            $blockShaped = !$this->isCommentLineOrFence($trimmedLine)
+                                && (
+                                    $this->isBlockElementStart($trimmedLine, $lines, $i)
+                                    || $this->startsNewBlock($trimmedLine, $lines, $i)
+                                    || $this->isFoldableInvisibleLine($trimmedLine)
+                                );
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
                                 && $subTrailingState['openParagraph']
@@ -4044,6 +4047,7 @@ class BlockParser
             if (
                 $trailingState['openParagraph']
                 && $itemLines !== []
+                && !$this->isCommentLineOrFence($nextTrimmed)
                 && (
                     $this->isBlockElementStart($nextTrimmed)
                     || $this->startsNewBlock($nextTrimmed)
@@ -6424,6 +6428,21 @@ class BlockParser
      * comment may never have. Every other invisible line folds as text there
      * (carve#618).
      */
+
+    /**
+     * A comment in either form - the `%%` line or the `%%%` fence.
+     *
+     * PART 9 §24 C3 recognizes a comment at ANY column and keeps it invisible,
+     * so it is never folded into the paragraph above it. The FENCE form is a
+     * block start, so without this it satisfied the fold test and came back as
+     * visible text, while the line form - which is not a block start - already
+     * fell through and stayed invisible (carve-php#770).
+     */
+    protected function isCommentLineOrFence(string $line): bool
+    {
+        return preg_match('/^[ \t]*%%/', $line) === 1;
+    }
+
     protected function isFoldableInvisibleLine(string $line): bool
     {
         if (preg_match('/^[ \t]*%%/', $line) === 1) {

@@ -59,14 +59,16 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         $this->assertSame("<p>a</p>\n<p>b</p>\n", $this->converter->convert("a\n  %%% x\nb\n"));
     }
 
-    public function testInsideAListItemTheConstructIsUnchanged(): void
+    public function testInsideAListItemTheFenceIsInvisibleToo(): void
     {
-        // Pinned as-is, not as an endorsement: markup-carve/carve#629 decides
-        // whether this stays text or becomes an invisible comment, and the
-        // other two engines already consume it. Pinning it here means that
-        // decision cannot land silently.
+        // markup-carve/carve#629 decided it: §24 C3 recognizes a comment at
+        // ANY column, and the fence form is a comment. This test used to pin
+        // the opposite as a placeholder so the decision could not land
+        // silently - it did land, so the pin moves with it.
         $html = $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n");
 
-        $this->assertStringContainsString('%%% n', $html);
+        $this->assertStringNotContainsString('%%%', $html);
+        $this->assertStringNotContainsString('>x<', $html);
+        $this->assertStringContainsString('tail', $html);
     }
 }
