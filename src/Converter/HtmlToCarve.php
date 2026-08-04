@@ -1120,6 +1120,14 @@ class HtmlToCarve
         // Check for reference link (round-trip support)
         if ($node->hasAttribute('data-djot-ref')) {
             $refLabel = $node->getAttribute('data-djot-ref');
+            // The COLLAPSED form. `ref` used to hold `''` for it; PART 12 §3a
+            // made it the real label (carve#597), and a label equal to the link
+            // text is exactly what `[text][]` means - writing it out would
+            // produce `[text][text]`, which is a different construct in the
+            // source even though it resolves the same.
+            if ($refLabel === $text) {
+                $refLabel = '';
+            }
             // Skip href, title, and data-djot-ref since they're in the reference syntax
             $attrs = $this->formatInlineAttributes($node, ['href', 'title', 'data-djot-ref']);
 
@@ -1180,6 +1188,11 @@ class HtmlToCarve
         // Check for reference image (round-trip support)
         if ($node->hasAttribute('data-djot-ref')) {
             $refLabel = $node->getAttribute('data-djot-ref');
+            // The COLLAPSED form - see the note on the link branch above
+            // (carve#597).
+            if ($refLabel === $alt) {
+                $refLabel = '';
+            }
             // Skip src, alt, title, and data-djot-ref since they're in the reference syntax
             $attrs = $this->formatInlineAttributes($node, ['src', 'alt', 'title', 'data-djot-ref']);
 

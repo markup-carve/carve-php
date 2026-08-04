@@ -1034,6 +1034,15 @@ class CarveRenderer implements RendererInterface
         // reproducible from the tree and all three engines agree on the inline
         // form.
         if ($node->isFromHeadingReference()) {
+            // The AUTHORED source. `ref` now holds the real label rather than
+            // `''` for the collapsed form (PART 12 §3a, carve#597), so building
+            // the reference from it would write `[text][text]` where the author
+            // wrote `[text][]`. `rawRef` is that source verbatim.
+            $raw = $node->getRawReferenceLabel();
+            if ($raw !== null) {
+                return $raw . $this->renderAttrs($node);
+            }
+
             return '[' . $text . '][' . $node->getReferenceLabel() . ']' . $this->renderAttrs($node);
         }
 

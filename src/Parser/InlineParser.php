@@ -2244,8 +2244,12 @@ class InlineParser
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
                     $link = new Link($refDef->url, $refDef->title);
-                    // Store reference info for round-trip support
-                    $link->setReferenceLabel($originalRefBracket === '' ? '' : $ref);
+                    // PART 12 §3a, A RESOLVED REFERENCE KEEPS ITS DESTINATION:
+                    // the authored construct survives BESIDE the resolution
+                    // result. The label is the one the author wrote - the same
+                    // spelling the unresolved branch below stores - rather than
+                    // `''` for the collapsed form, which lost it (carve#597).
+                    $link->setReferenceLabel($originalRefBracket === '' ? $ref : $originalRefBracket);
                     // Whether the definition was DERIVED from a heading
                     // (PART 11 R1) rather than written as a `[label]: url`
                     // line. Only the canonical writer reads it, and only to
@@ -2275,6 +2279,11 @@ class InlineParser
                     if ($endPos < $length && $text[$endPos] === '{') {
                         $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
                     }
+
+                    // The authored source, as on the unresolved branch: §3a asks
+                    // for `ref` AND `rawRef` beside the destination, and without
+                    // this a resolved reference published half the pair.
+                    $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
 
                     return [
                         'node' => $link,
