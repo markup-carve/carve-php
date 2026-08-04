@@ -3445,6 +3445,39 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine);
+                            // A block-shaped line HERE reaches neither the nested
+                            // content column nor the outer item's, so under the
+                            // strict content-column rule it opens nothing: with a
+                            // paragraph still open it is a lazy line like any
+                            // other text (PART 0 S4). Ending the item on it
+                            // closed BOTH lists and re-opened the marker as a new
+                            // top-level list (carve-php#706). The marker-line
+                            // collector already folds the same shape (#693);
+                            // these two collectors disagreed about one line.
+                            $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
+                                || $this->startsNewBlock($trimmedLine, $lines, $i);
+                            $dedentedOpener = $blockShaped
+                                && !$sawBlankLine
+                                && $subTrailingState['openParagraph']
+                                && $subLines !== [];
+                            if ($dedentedOpener) {
+                                // Forward it with its OWN indentation, the way
+                                // collectMarkerLeadItem() forwards a dedented
+                                // line (#693): below the sub-list's content
+                                // column the nested parse reads a marker as
+                                // paragraph text, so the geometry decides it one
+                                // level in rather than this loop deciding it
+                                // here. Stripping it to column 0 first would put
+                                // it AT the nested list's marker column and open
+                                // a sibling item - the same wrong answer, one
+                                // level down.
+                                $subLines[] = $subLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $subLine);
+                                $i++;
+
+                                continue;
+                            }
                             if (
                                 !$sawBlankLine
                                 && !$this->isBlockElementStart($trimmedLine, $lines, $i)

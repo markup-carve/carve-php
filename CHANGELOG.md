@@ -9,6 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A dedented opener after a following-line sub-list folds as text** (#706).
+  A line below BOTH the sub-list's content column and the outer item's opens
+  nothing under the strict content-column rule, so while a paragraph is open it
+  is a lazy line (PART 0 S4). This collector ended the item on it instead: with
+  `- x` / `  - a` / ` - b` both lists closed and `- b` re-opened as a NEW
+  top-level list. The marker-line collector already folded the same shape
+  (#693), so the engine disagreed with itself about one line. The folded line
+  keeps its OWN indentation, so the nested parse decides from the column - the
+  same mechanism #693 uses one level up. A marker at the sub-list's marker
+  column or at the base column still opens a sibling, and a blank line still
+  leaves nothing to fold into. A dedented heading, quote, table row and
+  colon-fence opener move with the marker; an indented CODE FENCE and a
+  floating attribute line in that position are unchanged here and still differ
+  from carve-js.
+
 - **A marker-line sub-list holds an open paragraph like any other** (PART 0 S4,
   #693). `- - a` / `b` ended the list and made `b` a document paragraph, where
   the same lines with the sub-list on its own line already folded `b` into the
