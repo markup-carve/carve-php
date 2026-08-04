@@ -61,8 +61,58 @@ class CrossReferenceResolver
     {
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
+        $this->stampCrossReferenceHrefs($document, $tracker);
         $this->resolveNumberedCaptions($document, $tracker);
         $this->enforceLinksNeverNest($document, $tracker);
+    }
+
+    /**
+     * Publish each crossref's resolved destination on the node (PART 12 §3a,
+     * markup-carve/carve#614): `target` keeps what the author wrote, `href`
+     * carries what it resolved to, and an unresolved one keeps `href` null -
+     * which is what says it did not resolve.
+     *
+     * Separate from the render path on purpose: the AST is serialized without
+     * rendering, and a consumer that had to rebuild the id table to follow a
+     * crossref is the recomputation §5 exists to prevent.
+     *
+     * The two callers reach it differently. A renderer runs the whole resolve()
+     * pass; the AST codec runs ONLY the id walk and this stamp, because the
+     * rest of resolve() rewrites the tree (flattening nested links, turning a
+     * quoted crossref into text) and the AST must show the document, not the
+     * render preparation.
+     */
+    public function stampCrossReferenceHrefs(Node $node, HeadingIdTracker $tracker, int $depth = 0): void
+    {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof HeadingRef) {
+                $id = $tracker->findIdCaseInsensitive($child->getTargetId());
+                $child->setHref($id === null ? null : '#' . $id);
+
+                continue;
+            }
+
+            if ($child->hasChildren()) {
+                $this->stampCrossReferenceHrefs($child, $tracker, $depth + 1);
+            }
+        }
+    }
+
+    /**
+     * Resolve heading ids and stamp crossref destinations, and nothing else.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
+     */
+    public function resolveCrossReferenceTargets(Document $document, HeadingIdTracker $tracker): void
+    {
+        $this->trackIdFromNode($document, $tracker);
+        $this->preresolveHeadingIds($document, $tracker);
+        $this->stampCrossReferenceHrefs($document, $tracker);
     }
 
     /**

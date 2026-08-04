@@ -25,6 +25,8 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -227,6 +229,14 @@ class AstCodec
      */
     public function encode(Document $document): array
     {
+        // A crossref publishes the id it RESOLVED to beside the one the author
+        // wrote (PART 12 §3a, markup-carve/carve#614). Resolution happens on
+        // the render path, and the AST is serialized without rendering - so the
+        // narrow pass runs here. It stamps `href` and nothing else: the rest of
+        // CrossReferenceResolver rewrites the tree for rendering, which the AST
+        // must not show.
+        (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, new HeadingIdTracker());
+
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the
         // encoder never puts them there.

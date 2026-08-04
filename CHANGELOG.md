@@ -7,6 +7,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A resolved crossref publishes its destination** (PART 12 §3a,
+  markup-carve/carve#614, #735). `</#intro>` serializes as
+  `{"type":"heading_ref","target":"intro","href":"#Intro"}`: `target` keeps the
+  id the author wrote, `href` carries the id it resolved to, case-preserved
+  through the case-insensitive fallback. An unresolved crossref keeps `target`
+  and no `href` - the absent field is what says it did not resolve.
+
+  Only the authored half was published before, so a consumer decoding the tree
+  had to rebuild the heading-id table, apply the fallback and handle the
+  not-found case just to render a crossref - the recomputation §5 exists to
+  prevent. Rendered output is unchanged on every target.
+
+  The stamp runs in the AST codec rather than on the render path, because the
+  tree is serialized without rendering. It sets `href` and nothing else: the
+  rest of the cross-reference pass rewrites the tree for rendering (flattening
+  nested links, turning a quoted crossref into text), which the AST must not
+  show.
+
 ### Changed
 
 - **BREAKING: a renderer refuses at its ceiling instead of truncating** (PART 9
