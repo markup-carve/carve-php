@@ -238,6 +238,7 @@ class CarveCorpusTest extends TestCase
         'a-blank-after-a-comment-still-ends-the-item',
         'a-comment-fence-under-a-nested-item-does-not-close-it-either',
         'a-collapsed-reference-is-matched-by-the-label-the-author-wrote',
+        'an-abbreviation-at-a-list-item-s-content-column-is-still-not-a-definition',
     ];
 
     /**
