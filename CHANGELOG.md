@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An over-cap opener groups by the ordinary paragraph rule** (PART 9 §25,
+  markup-carve/carve#547, #702). Past MAX_NESTING_DEPTH an opener degrades to
+  literal text, and the clause is explicit that a flattened opener is ORDINARY
+  PARAGRAPH TEXT: consecutive over-cap openers and the text after them form ONE
+  paragraph, ending at the first blank line, with no trailing newline before
+  `</p>`. The degrade path handed the whole remainder to a single paragraph, so
+  the document's trailing newline stayed inside it (`x` + newline + `</p>`) and
+  a blank line - which ends a paragraph everywhere else - was swallowed along
+  with everything after it. carve-rs also keeps the blank line inside the
+  paragraph; that half is unreported against it so far.
+
 - **A dedented opener after a following-line sub-list folds as text** (#706).
   A line below BOTH the sub-list's content column and the outer item's opens
   nothing under the strict content-column rule, so while a paragraph is open it
