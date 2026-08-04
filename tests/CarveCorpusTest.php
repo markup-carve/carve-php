@@ -240,6 +240,7 @@ class CarveCorpusTest extends TestCase
         'a-collapsed-reference-is-matched-by-the-label-the-author-wrote',
         'an-abbreviation-at-a-list-item-s-content-column-is-still-not-a-definition',
         'a-definition-inside-a-container-is-collected-at-that-container-s-content-column',
+        'trailing-attributes-on-a-link-reference-definition',
     ];
 
     /**
