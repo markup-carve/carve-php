@@ -259,7 +259,12 @@ class PlainTextRendererTest extends TestCase
 
         $result = $this->renderer->render($document);
         $this->assertStringContainsString('Text[1]', $result);
-        $this->assertStringContainsString('[1]: Footnote content', $result);
+        // The DEFINITION keeps its caret (PART 10 §10a): `[1]: …` is a link
+        // reference definition, a different construct. The REFERENCE above is
+        // the resolved number and carries none. This asserted `[1]: …` until
+        // markup-carve/carve#589 - it pinned the caret loss rather than the
+        // rule, and carve-js and carve-rs both emit the caret here.
+        $this->assertStringContainsString('[^1]: Footnote content', $result);
     }
 
     public function testBracePercentIsLiteralInPlainText(): void

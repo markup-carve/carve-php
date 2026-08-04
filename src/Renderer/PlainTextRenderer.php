@@ -447,7 +447,13 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        return '[' . $this->stripControls($node->getLabel()) . ']: ' . trim($this->renderChildren($node)) . "\n";
+        // The MARKER is emitted as written (PART 10 §10a). `[^fn]: a note` is a
+        // footnote definition, so it renders with its caret; `[fn]: a note` is
+        // a LINK reference definition, which is a different construct and will
+        // not parse back as the one the author wrote. carve-js and carve-rs
+        // both keep the caret here (markup-carve/carve#589).
+        return '[^' . $this->stripControls($node->getLabel()) . ']: '
+            . trim($this->renderChildren($node)) . "\n";
     }
 
     protected function renderMention(Mention $node): string

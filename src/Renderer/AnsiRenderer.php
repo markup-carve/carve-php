@@ -887,7 +887,10 @@ class AnsiRenderer implements RendererInterface
     {
         $label = $this->stripControls($node->getLabel());
         $content = trim($this->renderChildren($node));
-        $marker = $this->style('[' . $label . ']', self::FG_CYAN . self::DIM);
+        // The caret is part of the marker (PART 10 §10a): `[fn]` is a LINK
+        // reference definition, a different construct. carve-js and carve-rs
+        // both keep it here (markup-carve/carve#589).
+        $marker = $this->style('[^' . $label . ']', self::FG_CYAN . self::DIM);
 
         return $marker . ' ' . $content . "\n";
     }
