@@ -3543,7 +3543,7 @@ class BlockParser
                             // text it is.
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
                                 || $this->startsNewBlock($trimmedLine, $lines, $i)
-                                || $this->isInvisibleOrAttributeLine($trimmedLine);
+                                || $this->isFoldableInvisibleLine($trimmedLine);
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
                                 && $subTrailingState['openParagraph']
@@ -3971,7 +3971,7 @@ class BlockParser
                     // it and emit nothing at all - the line disappeared
                     // (carve-php#721). Folded into the open paragraph it stays
                     // the text S4 says it is.
-                    || $this->isInvisibleOrAttributeLine($nextTrimmed)
+                    || $this->isFoldableInvisibleLine($nextTrimmed)
                 )
             ) {
                 $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
@@ -6333,6 +6333,25 @@ class BlockParser
      * @param string $line
      * @param bool $abbreviationCounts
      */
+
+    /**
+     * The subset of {@see isInvisibleOrAttributeLine} that FOLDS below a
+     * content column: definitions and attribute lines, but never a comment.
+     *
+     * PART 9 §24 C3: a comment is recognized at ANY column and stays
+     * invisible, because folding it would make it VISIBLE - the one outcome a
+     * comment may never have. Every other invisible line folds as text there
+     * (carve#618).
+     */
+    protected function isFoldableInvisibleLine(string $line): bool
+    {
+        if (preg_match('/^[ \t]*%%/', $line) === 1) {
+            return false;
+        }
+
+        return $this->isInvisibleOrAttributeLine($line);
+    }
+
     protected function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
     {
         if ($this->isBlockAttributeLine($line)) {
