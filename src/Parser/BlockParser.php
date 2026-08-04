@@ -837,6 +837,31 @@ class BlockParser
         // The blockquote depth the open line block was opened at, so its closer
         // is read at that depth instead of after every marker is stripped.
         $lineBlockDepth = 0;
+        // A `%%%` COMMENT FENCE is opaque, so a literal `::: |` inside one is
+        // not a line-block opener. Entering that state there left it open past
+        // the comment's own closer -- which is not a colon fence -- and every
+        // later definition in the document was skipped (#698).
+        //
+        // A comment's body is skipped outright, so a definition inside one no
+        // longer registers either. That is an intended behaviour change: a
+        // comment renders nothing, and carve-js has never registered from
+        // inside one.
+        $commentFenceLen = 0;
+        // The LAST line index at which a comment fence of each length closes,
+        // computed ONCE. Scanning forward per opener is what
+        // testDistinctWidthFenceOpenersDoNotRescanPerOpener forbids, and
+        // `%%% x`, `%%%% x`, ... is all openers and no closers -- every one of
+        // them would scan to the end of the document.
+        //
+        // Keyed by EXACT length: a `%%%%` line does not close a `%%%` fence.
+        // Any leading `%` run counts, not only a bare line, because `%%% end`
+        // closes a `%%%` fence.
+        $commentCloseAt = [];
+        for ($j = 0; $j < $count; $j++) {
+            if (preg_match('/^(%{3,})/', $lines[$j], $cj) === 1) {
+                $commentCloseAt[strlen($cj[1])] = $j;
+            }
+        }
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
@@ -879,6 +904,33 @@ class BlockParser
                         $fenceChar = null;
                         $fenceLen = 0;
                     }
+                    $i++;
+
+                    continue;
+                }
+            }
+            // A comment fence's closer is a leading `%` run of the SAME length --
+            // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
+            // only a bare fence missed real closers and left the state open.
+            if ($commentFenceLen > 0) {
+                if (preg_match('/^(%{3,})/', $line, $cm) === 1 && strlen($cm[1]) === $commentFenceLen) {
+                    $commentFenceLen = 0;
+                }
+                // The body is opaque: a code fence opener in there is comment
+                // TEXT, and letting it reach the fence scanner below opened a
+                // code block that swallowed the real comment closer.
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^(%{3,})/', $line, $cm) === 1) {
+                // Only a fence that CLOSES. An unterminated `%%%` is not a fenced
+                // comment -- the block parser degrades it to a single-line comment
+                // -- and treating it as open here stayed open for the rest of the
+                // document, suppressing every later line block.
+                $openLen = strlen($cm[1]);
+                if (($commentCloseAt[$openLen] ?? -1) > $i) {
+                    $commentFenceLen = $openLen;
                     $i++;
 
                     continue;
