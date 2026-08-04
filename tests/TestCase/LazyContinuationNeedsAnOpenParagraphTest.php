@@ -79,6 +79,72 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         );
     }
 
+    public function testAMarkerLineSubListStillHoldsAnOpenParagraph(): void
+    {
+        // Where the sub-list opens does not enter into S4: the sub-item's
+        // paragraph is open either way, so the flush-left line folds into it.
+        // The same two lines written as `- x` / `  - a` / `b` already folded
+        // here; the marker-line branch collected its item without ever reaching
+        // the lazy rule (carve-php#693).
+        $this->assertSame(
+            '<ul> <li> <ul> <li>a b</li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- - a\nb\n")),
+        );
+    }
+
+    public function testABelowColumnBlockOpenerFoldsAsTextIntoTheSubItem(): void
+    {
+        // One column in, `# H` is below the sub-list's content column, so it is
+        // paragraph text rather than a heading - and it folds like any other
+        // lazy line. The lazy line therefore keeps its own indentation into the
+        // item's stream; dedenting it would have promoted it to a heading.
+        $this->assertSame(
+            '<ul> <li> <ul> <li>a # H</li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- - a\n # H\n")),
+        );
+    }
+
+    public function testAFlushLeftBlockOpenerStillEndsTheItem(): void
+    {
+        // At column 0 the heading is a heading, so it interrupts as always.
+        $this->assertSame(
+            '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <section id="H"> <h1>H</h1> </section>',
+            $this->squash($this->converter->convert("- - a\n# H\n")),
+        );
+    }
+
+    public function testABlankClosesTheSubItemsParagraph(): void
+    {
+        // With the blank there is no open paragraph left, so the list ends and
+        // the line is a document paragraph (carve-php#681 pinned the loosening
+        // half of this shape).
+        $this->assertSame(
+            '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <p>b</p>',
+            $this->squash($this->converter->convert("- - a\n\nb\n")),
+        );
+    }
+
+    public function testALazyLineReachesTheDeepestOpenParagraph(): void
+    {
+        // S4 folds into the INNERMOST open paragraph, which here is inside the
+        // sub-item's block quote, not the sub-item itself.
+        $this->assertSame(
+            '<ul> <li> <ul> <li> <blockquote><p>q b</p></blockquote> </li> </ul> </li> </ul>',
+            $this->squash($this->converter->convert("- - > q\nb\n")),
+        );
+    }
+
+    public function testAClosedFenceInTheStreamLeavesNothingToFoldInto(): void
+    {
+        // The item's stream ends with a CLOSED fence, so the dedented line ends
+        // the item instead of being absorbed - the same rule as the quote case
+        // below, applied to the marker-line branch.
+        $this->assertSame(
+            '<ul> <li> <ul> <li>a</li> </ul> <pre><code>code </code></pre> </li> </ul> <p>c</p>',
+            $this->squash($this->converter->convert("- - a\n  ```\n  code\n  ```\nc\n")),
+        );
+    }
+
     public function testAClosedFenceAlreadyClosedTheQuote(): void
     {
         // Already correct in every engine; here so a fix that reached for

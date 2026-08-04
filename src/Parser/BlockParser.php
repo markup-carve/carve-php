@@ -3863,8 +3863,14 @@ class BlockParser
      * $contentIndent, so the combined stream parses through the normal
      * nested-list/absorption path (one persistent sub-list rather than a split
      * sub-list plus a leaked parent-row block). Collection stops at end of
-     * input, a line dedented below the content column, or a blank line that is
-     * NOT followed by further item-owned indented content.
+     * input, a blank line that is NOT followed by further item-owned indented
+     * content, or a dedented line the stream has no open paragraph to fold into.
+     *
+     * A dedented line is lazy continuation, exactly as it is for a plain lead:
+     * where the sub-list ends in an open paragraph, `- - a` / `b` folds `b` into
+     * the sub-item (carve-php#693). A sibling marker or a block opener at the
+     * base column still ends the item, and after a CLOSED block (fenced code,
+     * table, div) there is no open paragraph, so the dedented line ends it too.
      *
      * @param array<string> $lines All lines being parsed.
      * @param int $i Index of the first line AFTER the lead marker line.
@@ -3885,6 +3891,14 @@ class BlockParser
         array &$itemLines,
         array &$itemLineMap,
     ): int {
+        // Trailing-block state over the stream, seeded with the lead marker line
+        // the caller already put there. A dedented line folds only where this
+        // says a paragraph is open, which is the same gate the plain-lead
+        // collector applies (PART 0 S4: no open paragraph, no lazy line).
+        $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+        foreach ($itemLines as $seedLine) {
+            $trailingState = $this->advanceTrailingBlockState($trailingState, $seedLine);
+        }
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -3901,22 +3915,43 @@ class BlockParser
                 }
                 $itemLines[] = '';
                 $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingBlockState($trailingState, '');
                 $i++;
 
                 continue;
             }
 
-            // Content dedented below the content column ends the item: a sibling
-            // marker or outer block at the base column, or anything further left,
-            // is handled by the caller's loop. Unlike the plain-lead case there
-            // is no lazy paragraph continuation here -- the lead is a sub-list,
-            // not a paragraph, so a dedented line never folds in.
-            if (IndentationHelper::getLeadingColumns($nextLine) < $contentIndent) {
-                break;
+            $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
+            if ($nextIndent < $contentIndent) {
+                $nextTrimmed = ltrim($nextLine);
+                // A sibling marker or a block opener at the base column belongs
+                // to the caller's loop, and a stream ending in a closed block
+                // has nothing to continue: both end the item.
+                if (
+                    !$trailingState['openParagraph']
+                    || $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                    || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                ) {
+                    break;
+                }
+                // Lazy continuation of the stream's own last paragraph. The line
+                // keeps its OWN indentation instead of being dedented by the
+                // content column it never reached: below the sub-list's content
+                // column a block-shaped line is paragraph text, and the nested
+                // parse decides that from the column, so ` # H` folds as text
+                // where a flush-left `# H` would have opened a heading.
+                $itemLines[] = $nextLine;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingBlockState($trailingState, $nextLine);
+                $i++;
+
+                continue;
             }
 
-            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
+            $trailingState = $this->advanceTrailingBlockState($trailingState, $stripped);
             $i++;
         }
 
