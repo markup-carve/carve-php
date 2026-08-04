@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -79,6 +80,17 @@ class BlockParser
      * one-character expansion and IS a definition. That is the production as
      * written and what carve-js does.
      *
+     * @var string
+     */
+    /**
+     * A bullet, task or ordered marker line: it opens a list item whose lazy
+     * continuation a following flush-left line folds into.
+     *
+     * @var string
+     */
+    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) /';
+
+    /**
      * @var string
      */
     private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: (.+)$/';
@@ -1239,9 +1251,22 @@ class BlockParser
         $fenceChar = null;
         $fenceLen = 0;
         $verseFence = 0;
+        // PART 12 §7 recognizes an abbreviation definition only at document
+        // level. The pattern is anchored, so a block quote or list marker
+        // prefix already disqualifies a line. Two containers add no prefix of
+        // their own and so need tracking here: a `:::` div, and an open list
+        // item whose lazy continuation a flush-left line folds into.
+        $divs = [];
+        $inListItem = false;
 
         while ($i < $count) {
             $line = $lines[$i];
+
+            if (IndentationHelper::isBlankLine($line)) {
+                $inListItem = false;
+            } elseif (preg_match(self::LIST_ITEM_CONTEXT_PATTERN, $line) === 1) {
+                $inListItem = true;
+            }
 
             if ($fenceChar !== null) {
                 if (
@@ -1277,10 +1302,25 @@ class BlockParser
 
                 continue;
             }
+            // Colon fences close on an exact length match, so the stack records
+            // the opener width rather than just a depth count.
+            if (preg_match('/^(:{3,})[ \t]*(.*)$/', $line, $cm) === 1) {
+                $width = strlen($cm[1]);
+                if ($cm[2] === '' && $divs !== [] && end($divs) === $width) {
+                    array_pop($divs);
+                } else {
+                    $divs[] = $width;
+                }
+            }
 
             // Match abbreviation definition: *[abbr]: definition. The pattern
             // is anchored to a leading `*`, so skip it on any other line.
-            if (($line[0] ?? '') === '*' && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)) {
+            if (
+                ($line[0] ?? '') === '*'
+                && $divs === []
+                && !$inListItem
+                && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)
+            ) {
                 $firstAbbreviationLine ??= $i;
                 $abbr = $matches[1];
                 $definition = trim($matches[2]);
@@ -1923,7 +1963,7 @@ class BlockParser
             if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i);
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                 $i += $consumed;
 
@@ -1949,7 +1989,7 @@ class BlockParser
                 ?? $this->tryParseTable($parent, $lines, $i)
                 ?? $this->tryParseFootnoteDefinition($lines, $i)
                 ?? $this->tryParseReferenceDefinition($lines, $i)
-                ?? $this->tryParseAbbreviationDefinition($lines, $i)
+                ?? $this->tryParseAbbreviationDefinition($parent, $lines, $i, $topLevel)
                 ?? $this->tryParseCaption($parent, $lines, $i);
 
             if ($consumed === null) {
@@ -1962,7 +2002,7 @@ class BlockParser
                 }
             }
 
-            $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
+            $consumed ??= $this->tryParseParagraph($parent, $lines, $i, $topLevel);
 
             // The block ran from $i to $i + $consumed - 1 in THIS line array;
             // resolve the last one back to the top-level array the offsets are
@@ -3177,8 +3217,16 @@ class BlockParser
         $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
         // An invisible definition leaves no paragraph at all - there is nothing
         // on the page for a lazy line to continue.
+        // PART 12 §7 recognizes an abbreviation definition only at document
+        // level, so whether this line leaves an open paragraph depends on
+        // WHERE it was written. Written inside the quote (`> *[A]: b`) it is
+        // paragraph text and a lazy line continues it; written flush-left after
+        // the quote it is a real definition, which is invisible and so ends the
+        // quote. A reference definition is a definition at either level.
+        $rawLine = $sourceLines[$sourceIndex] ?? '';
+        $isFlushLeftCandidate = !str_starts_with(ltrim($rawLine, " \t"), '>');
         $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
-            || $this->isAbbreviationDefinitionLine($trimmed);
+            || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
 
         $leavesNoParagraph = $isHeading
             || $isThematicBreak
@@ -5325,11 +5373,24 @@ class BlockParser
     /**
      * Skip abbreviation definitions (already extracted in first pass)
      *
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
+     * @param bool $topLevel
      */
-    protected function tryParseAbbreviationDefinition(array $lines, int $start): ?int
-    {
+    protected function tryParseAbbreviationDefinition(
+        Node $parent,
+        array $lines,
+        int $start,
+        bool $topLevel = false,
+    ): ?int {
+        // PART 12 §7: recognized ONLY at document level. Inside a block quote,
+        // list item or div the line falls through to the paragraph branch and
+        // is preserved as the text the author typed.
+        if (!$topLevel) {
+            return null;
+        }
+
         $line = $lines[$start];
 
         // Match abbreviation definition: *[abbr]: definition
@@ -5365,6 +5426,17 @@ class BlockParser
             }
         }
 
+        // The line is KEPT as a node rather than merely skipped. It renders
+        // nothing on HTML and is emitted as written on the non-HTML targets
+        // (PART 11 §10a), and those renderers walk `children` - so a definition
+        // that leaves no node cannot be put back where the author wrote it. The
+        // expansions are collected separately by extractAbbreviations(); this
+        // carries the AUTHORED line (markup-carve/carve-php#708).
+        if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
+            $node = new AbbreviationDefinition($m[1], trim($m[2]));
+            $parent->appendChild($node);
+        }
+
         return $i - $start;
     }
 
@@ -5377,8 +5449,9 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
+     * @param bool $topLevel
      */
-    protected function tryParseParagraph(Node $parent, array $lines, int $start): int
+    protected function tryParseParagraph(Node $parent, array $lines, int $start, bool $topLevel = false): int
     {
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
@@ -5418,7 +5491,7 @@ class BlockParser
             // written for, and PART 9 §10's I1 says nothing about brace state.
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
-            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine)) {
+            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine, $topLevel)) {
                 break;
             }
 
@@ -6177,6 +6250,7 @@ class BlockParser
      * @param list<string> $contentLines Current paragraph content before the candidate line.
      * @param int $sourceLine
      * @param bool $hasUnclaimedColonFenceLine
+     * @param bool $topLevel
      */
     protected function interruptsParagraph(
         array $lines,
@@ -6184,6 +6258,7 @@ class BlockParser
         array $contentLines,
         int $sourceLine,
         bool $hasUnclaimedColonFenceLine,
+        bool $topLevel = false,
     ): bool {
         $line = $lines[$i];
 
@@ -6202,7 +6277,10 @@ class BlockParser
         // A standalone block-attribute line floats forward to the next block
         // (or is dropped when none follows), so it interrupts the paragraph
         // rather than folding in as literal text (grammar PART 9 §15).
-        return $this->isInvisibleOrAttributeLine($line);
+        // PART 12 §7: an abbreviation definition is invisible, and so
+        // interrupts, only at document level. Inside a container the same shape
+        // is paragraph text and folds in as a lazy continuation.
+        return $this->isInvisibleOrAttributeLine($line, $topLevel);
     }
 
     /**
@@ -6220,15 +6298,16 @@ class BlockParser
      * `comment_line = [whitespace], "%%", …`).
      *
      * @param string $line
+     * @param bool $abbreviationCounts
      */
-    protected function isInvisibleOrAttributeLine(string $line): bool
+    protected function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
     {
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
 
         return $this->isReferenceDefinitionLine($line)
-            || $this->isAbbreviationDefinitionLine($line)
+            || ($abbreviationCounts && $this->isAbbreviationDefinitionLine($line))
             || preg_match('/^[ \t]*%%/', $line) === 1;
     }
 
@@ -6678,6 +6757,16 @@ class BlockParser
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
         if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+            return true;
+        }
+
+        // This line is a flush-left lazy candidate by construction, so it is at
+        // DOCUMENT level - where an abbreviation definition is a definition
+        // (PART 12 §7). A definition is invisible and interrupts, so it ends
+        // the quote rather than folding into it. `startsNewBlock` cannot answer
+        // this: it is also asked about lines inside containers, where the same
+        // shape is ordinary paragraph text.
+        if ($this->isAbbreviationDefinitionLine($line)) {
             return true;
         }
 

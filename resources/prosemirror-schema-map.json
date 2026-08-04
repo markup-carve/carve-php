@@ -3,7 +3,7 @@
   "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "32cdfa42e0ff7a46088082b125345bcc2526aaf6",
+    "commit": "115a2b619e72aad0da3547649915ee9563e579fd",
     "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
   },
   "carveSpecVocabulary": "spec/docs/profiles.md",
@@ -202,6 +202,7 @@
   "unmapped": {
     "figure": "figure / caption blocks are not modeled",
     "caption": "figure / caption blocks are not modeled",
+    "abbreviation_def": "abbreviation definitions are document metadata, not editor content",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "citation_group": "citations are not modeled",
     "comment": "comments are not represented in the editor model",
