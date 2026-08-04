@@ -80,13 +80,15 @@ class CarveFormatterTest extends TestCase
             "{k=v .cls #id}\n# H\n" => "{k=v .cls #id}\n# H\n",
             "a  \n{$nbsp}\t \n" => "a\n{$nbsp}\n",
             "{.line-block}\n:::\na\nb\n:::\n" => "{.line-block}\n:::\na\nb\n:::\n",
-            // `^sup^` / `,sub,` are literal text (no bare sup/sub delimiter):
-            // the comma needs no escape; the caret keeps one (footnote/caption
-            // channels). Braced forms round-trip unchanged.
+            // `^sup^` / `,sub,` are literal text (no bare sup/sub delimiter),
+            // so neither needs an escape: PART 11 §2 escapes IF AND ONLY IF
+            // omitting it would change the re-parsed AST, and a lone caret
+            // opens nothing now that sup is braced-only. Braced forms
+            // round-trip unchanged.
             "a /em/ *strong* _u_ ~s~ {^sup^} {,sub,} =mark= `code`\n" =>
                 "a /em/ *strong* _u_ ~s~ {^sup^} {,sub,} =mark= `code`\n",
             "a ^sup^ ,sub, stays literal\n" =>
-                "a \\^sup\\^ ,sub, stays literal\n",
+                "a ^sup^ ,sub, stays literal\n",
             // An unresolved reference image round-trips VERBATIM (the leading
             // `!` is not escaped), matching an unresolved reference link and
             // carve-js / carve-rs - not the escaped `\![a][nope]` form.

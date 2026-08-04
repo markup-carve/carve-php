@@ -1632,7 +1632,7 @@ class CarveRenderer implements RendererInterface
             static function (array $match) use ($text, $minimal): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
-                if ($minimal && $char === '^' && $offset > 0 && $text[$offset - 1] === '[') {
+                if ($minimal && $char === '^' && !self::caretOpensAConstruct($text, $offset)) {
                     return '^';
                 }
 
@@ -1641,6 +1641,32 @@ class CarveRenderer implements RendererInterface
             $text,
             flags: PREG_OFFSET_CAPTURE,
         );
+    }
+
+    /**
+     * Would a BARE `^` at this offset let a construct form?
+     *
+     * PART 11 §2 escapes a character IF AND ONLY IF omitting the escape would
+     * change the re-parsed AST, and a lone `^` no longer opens anything: bare
+     * `^sup^` was removed in favour of the braced `{^x^}`. So the caret needs
+     * an escape only where it abuts one of the two shapes that still read it -
+     * the inline footnote `^[…]` and the braced superscript's own delimiters -
+     * and `}^p` is written bare, which is what carve#581 asks for.
+     *
+     * @param string $text
+     * @param int $offset
+     */
+    private static function caretOpensAConstruct(string $text, int $offset): bool
+    {
+        $next = $text[$offset + 1] ?? '';
+        // `^[` opens an inline footnote.
+        if ($next === '[') {
+            return true;
+        }
+
+        // `{^` opens a braced superscript and `^}` closes one. Either half
+        // bare would let the pair form around content it does not own.
+        return ($text[$offset - 1] ?? '') === '{' || $next === '}';
     }
 
     protected function escapeImageAlt(string $text): string
