@@ -287,7 +287,7 @@ class AstCodecTest extends TestCase
      * stricter surface because it has to reproduce what the AUTHOR wrote, which
      * is exactly what PART 12 §6 is about.
      *
-     * The four exceptions are the ones §5 states outright, listed by name so
+     * The exceptions are the ones §5 states outright, listed by name so
      * that a NEW loss fails here and so does one of these being FIXED - a
      * subset check would let the first through as soon as the list had an
      * entry.
@@ -356,6 +356,10 @@ class AstCodecTest extends TestCase
         '173-implicit-heading-references-with-no-definition.crv',
         '174-bare-dot-ordered-markers-3.crv',
         '174-bare-dot-ordered-markers.crv',
+        // A third bare-dot document, not a third cause: `. >` opens the item
+        // whose empty quote the open-paragraph rule is about, so it decodes as
+        // `1. >` for the same missing field as the two above (carve#480).
+        '178-a-flush-left-line-needs-an-open-paragraph-to-fold-into.crv',
     ];
 
     /**
