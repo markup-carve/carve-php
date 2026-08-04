@@ -1093,6 +1093,40 @@ class BlockParser
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
+                    // A continuation line is part of the body here too, and
+                    // its indent is measured from the DEFINITION line, not from
+                    // column 0 (§16). Collecting only the first line left the
+                    // skip pass - which walks the item's own dedented lines and
+                    // skips everything indented past the definition - consuming
+                    // a continuation the prepass had not collected, so the
+                    // author's line reached neither the note nor the page
+                    // (carve-php#794). carve-rs had the mirror of this and fixed
+                    // it the same way (carve-rs#592).
+                    //
+                    // Only for a COLUMN container. Under a blockquote prefix a
+                    // continuation carries the `>` itself, which this
+                    // line-based pass does not strip, so those stay single-line
+                    // and are left to normal block parsing.
+                    $bodyLines = [$content];
+                    $bodyLineMap = [$i];
+                    $next = $i + 1;
+                    if ($container['kind'] === 'columnContainer') {
+                        $defIndent = strlen($lines[$i]) - strlen(ltrim($lines[$i], " \t"));
+                        while ($next < $count) {
+                            $candidate = $lines[$next];
+                            if (IndentationHelper::isBlankLine($candidate)) {
+                                break;
+                            }
+                            $candidateIndent = strlen($candidate) - strlen(ltrim($candidate, " \t"));
+                            if ($candidateIndent < $defIndent + 2) {
+                                break;
+                            }
+                            $bodyLines[] = ltrim($candidate, " \t");
+                            $bodyLineMap[] = $next;
+                            $next++;
+                        }
+                    }
+
                     if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
                         $footnote = new Footnote($label);
                         if ($this->trackSourceLines) {
@@ -1100,12 +1134,12 @@ class BlockParser
                         }
                         $this->footnotes[$label] = $footnote;
                         $deferredBodies[$label] = [
-                            'lines' => [$content],
-                            'lineMap' => [$i],
+                            'lines' => $bodyLines,
+                            'lineMap' => $bodyLineMap,
                         ];
                     }
 
-                    $i++;
+                    $i = $next;
 
                     continue;
                 }
