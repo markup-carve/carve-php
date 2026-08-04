@@ -100,6 +100,8 @@ class HtmlRenderer implements RendererInterface
 
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
 
+    protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
+
     /**
      * Tab width for code content (null = preserve tabs verbatim, the default and
      * djot/CommonMark-aligned behavior; integer = convert each tab to that many
@@ -1878,17 +1880,39 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * The resolved glyph. The Carve renderer emits the source run instead, so
-     * `fmt` reproduces what the author wrote.
+     * The resolved glyph, or the author's source run in Source mode. The Carve
+     * renderer always emits the source run, so `fmt` reproduces what the author
+     * wrote.
      */
     protected function renderSmartPunctuation(SmartPunctuation $node): string
     {
+        if ($this->smartTypography === SmartTypographyMode::Source) {
+            return $this->escape($node->getContent());
+        }
+
         $glyph = $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? null;
 
         // Through escape() like any other text: a locale glyph can contain a
         // non-breaking space (French guillemets are `«` + U+00A0), which the
         // text path has always emitted as `&nbsp;`.
         return $this->escape($glyph ?? $node->getContent());
+    }
+
+    /**
+     * Render smart typography as its glyph (the default) or as the source run.
+     *
+     * Source mode is for output a machine reads rather than a person: a page
+     * that is re-parsed downstream, or a generated one that has to stay
+     * diff-stable, where a curly quote is a character the consumer did not ask
+     * for and cannot reverse. It only affects smart typography - escaping is a
+     * separate concern and is unchanged, and heading ids do not move with it
+     * (they slug from the glyph text, normalized back to ASCII).
+     */
+    public function setSmartTypography(SmartTypographyMode $mode): self
+    {
+        $this->smartTypography = $mode;
+
+        return $this;
     }
 
     protected function renderRawText(RawText $node): string
