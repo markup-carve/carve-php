@@ -885,8 +885,10 @@ class BlockParser
             $line = $lines[$i];
             // Inside a code fence a `- x` line is sample text, not a marker.
             // Content columns are measured INSIDE a block quote (carve#658);
-            // see the same strip in ReferenceDefinitionExtractor.
-            $unquotedForColumns = preg_replace('/^(?:[ \t]*>(?: |$))+/', '', $line) ?? $line;
+            // see the same strip in ReferenceDefinitionExtractor. Only a
+            // COLUMN-0 marker is stripped: an indented one sits at an item's
+            // content column, and eating that indentation loses it.
+            $unquotedForColumns = preg_replace('/^(?:>(?: |$))+/', '', $line) ?? $line;
             $contentCol = $contentColumns->observe($unquotedForColumns, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
@@ -1012,7 +1014,7 @@ class BlockParser
                 continue;
             }
 
-            $container = $this->footnoteContainerPrefix($line);
+            $container = $this->footnoteContainerPrefix($line, $reachedCol);
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
@@ -1079,7 +1081,14 @@ class BlockParser
                     // block there by geometry (§24 C3), so it needs no opener
                     // test: carve-js collects it under an item paragraph, under
                     // a blank, and as the item's first body line alike.
+                    // A BLOCKQUOTE marker in the prefix opens a block by
+                    // itself, wherever it sits: `- a` / `  > [^f]: x` starts a
+                    // quote inside the item, so the definition is that quote's
+                    // first block and does not depend on what precedes it. The
+                    // opener test below is about a line CONTINUING a paragraph,
+                    // which a quote marker never does (carve-php#788).
                     $opensBlock = $container['kind'] === 'columnContainer'
+                        || str_contains($container['prefix'], '>')
                         || $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
@@ -1223,15 +1232,31 @@ class BlockParser
      *
      * @return array{kind: string, prefix: string}
      */
-    protected function footnoteContainerPrefix(string $line): array
+    protected function footnoteContainerPrefix(string $line, int $contentCol = 0): array
     {
         $rest = $line;
         $stripped = false;
         do {
             $previous = $rest;
 
-            // Blockquote marker `>` alone or `>` then a literal space.
+            // Blockquote marker `>` alone or `>` then a literal space. The
+            // marker may be INDENTED: inside a list item the quote sits at the
+            // item's content column (`- a` / `  > [^f]: x`), and testing
+            // position 0 only left that line unstripped - so the definition was
+            // never collected while the block parser still emptied the quote,
+            // and the author's line rendered nothing AND defined nothing
+            // (carve-php#788). The list-marker arm below already ltrims.
             $quoteContent = $this->blockQuoteLineContent($rest);
+            if (
+                $quoteContent === null
+                && $contentCol > 0
+                && strlen($rest) - strlen(ltrim($rest, " \t")) >= $contentCol
+            ) {
+                // EXACTLY the item's content column, never arbitrary
+                // indentation: a top-level `    > [r]: /u` is indented text,
+                // not a quote (tests/BlockquoteRefDefTest).
+                $quoteContent = $this->blockQuoteLineContent(substr($rest, $contentCol));
+            }
             if ($quoteContent !== null) {
                 $rest = $quoteContent;
                 $stripped = true;

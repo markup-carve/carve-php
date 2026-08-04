@@ -68,7 +68,12 @@ class ReferenceDefinitionExtractor
             // definition written at it was rejected - while the item consumed
             // the line anyway, leaving it neither visible nor active
             // (carve#658).
-            $unquoted = preg_replace('/^(?:[ \t]*>(?: |$))+/', '', $line) ?? $line;
+            //
+            // Only a quote marker at COLUMN 0 is stripped. An indented one is
+            // inside something - `- a` / `  > [r]: /u` puts the quote at the
+            // item's content column - and eating that indentation here loses
+            // the very column the definition has to reach (carve-php#788).
+            $unquoted = preg_replace('/^(?:>(?: |$))+/', '', $line) ?? $line;
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
@@ -189,6 +194,18 @@ class ReferenceDefinitionExtractor
         $inList = false;
         do {
             $previousBare = $bare;
+            // The `>` may sit at an ITEM'S CONTENT COLUMN (`- a` /
+            // `  > [r]: /u`). Strip exactly that column first - never arbitrary
+            // indentation, since a top-level `    > [r]: /u` is indented text
+            // rather than a quote (tests/BlockquoteRefDefTest) - and then read
+            // the marker (carve-php#788).
+            if (
+                $contentCol > 0
+                && strlen($bare) - strlen(ltrim($bare, " \t")) >= $contentCol
+                && ($bare[$contentCol] ?? '') === '>'
+            ) {
+                $bare = substr($bare, $contentCol);
+            }
             if (($bare[0] ?? '') === '>' && preg_match('/^> ?/', $bare)) {
                 $inQuote = true;
                 $bare = preg_replace('/^> ?/', '', $bare) ?? $bare;
