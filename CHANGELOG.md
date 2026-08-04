@@ -9,6 +9,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A reference definition carries trailing attributes** (PART 9 §16, PART 9R
+  R1, markup-carve/carve#612).
+
+  ~~~
+  [ex]: https://example.com {.external}
+  ~~~
+
+  attributes the DEFINITION, and every link resolving `ex` gets them. The
+  link's own attributes override per key under the §15 A3 merge - definition
+  list first, link list second - so `[ex]: /u {.external #a}` with
+  `[E][ex]{.internal #b}` renders `class="external internal" id="b"`: classes
+  accumulate in source order, the repeated key takes the link's value.
+
+  The block is SCANNED rather than regex-matched, because a value may hold a
+  `}` inside quotes and a lazy `\{[^}]*\}` drops every attribute on the line
+  silently. It must be preceded by whitespace and end the line, so
+  `[a]: /u{.x}` keeps the braces in the destination. The definition's SOURCE
+  ORDER survives onto the link, which needed the ordered attribute parser:
+  the plain one hoists `class` to the front.
+
+  This is the slot R1 always assumed - the `linkDefs` symbol table has an
+  `attrs` field the production could not fill - and it replaces the spelling
+  §15 A2a took away in the same release.
+
 - **A resolved crossref publishes its destination** (PART 12 §3a,
   markup-carve/carve#614, #735). `</#intro>` serializes as
   `{"type":"heading_ref","target":"intro","href":"#Intro"}`: `target` keeps the
@@ -28,6 +52,29 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   show.
 
 ### Changed
+
+- **BREAKING: an attribute line above a reference definition floats past it**
+  (PART 9 §15 A2a, markup-carve/carve#529, #702). Pending attributes attach to
+  the next VISIBLE block, and a definition renders nothing, so
+
+  ~~~
+  {#i}
+  [f]: u
+
+  e
+  ~~~
+
+  is `<p id="i">e</p>`. This engine used to hand those attributes to the
+  DEFINITION instead, and every link resolving that label carried them - so
+  `{.external}` above `[ex]: …` classed the link and never reached the block
+  the author wrote it above. The behavior was carve-php's alone; carve-js drops
+  such attributes entirely and the executable spec already floats them. The
+  clause names all five invisible kinds, and this engine already floated past
+  the other three.
+
+  The replacement is the definition's OWN line, added in the same release
+  below: `[ex]: /u {.external}`. Anything relying on the old line-above form
+  moves the block onto the definition line.
 
 - **BREAKING: a renderer refuses at its ceiling instead of truncating** (PART 9
   §25, markup-carve/carve#548, #702). Reaching the recursion ceiling now throws

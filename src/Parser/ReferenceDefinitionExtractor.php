@@ -10,6 +10,17 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 class ReferenceDefinitionExtractor
 {
     /**
+     * The inline parser answers ONE question here: is a trailing `{...}` a
+     * valid attribute block? §14's rule is that a single invalid name
+     * invalidates the WHOLE block, and it is the inline parser that knows it -
+     * a second copy of the predicate would drift from the one every other
+     * attribute site uses.
+     */
+    public function __construct(private ?InlineParser $inlineParser = null)
+    {
+    }
+
+    /**
      * Extract reference link definitions from the document.
      *
      * @param array<string> $lines
@@ -90,11 +101,15 @@ class ReferenceDefinitionExtractor
             $referenceLine = $this->referenceLineView($line, $contentCol);
             $bare = $referenceLine['line'];
 
+            // An attribute line above a definition belongs to the next VISIBLE
+            // block (§15 A2a), not to the definition: it is SKIPPED here rather
+            // than collected, and the block parser keeps it pending. Collecting
+            // it put the attributes on every link that used the label and took
+            // them away from the block the author wrote them for
+            // (carve-php#702). A trailing `{...}` ON the definition line is a
+            // different construct and still applies.
             $refAttrStr = $this->parseSingleLineBlockAttributePayload($bare);
             if ($refAttrStr !== null && $refAttrStr !== '') {
-                $pendingAttrs = AttributeParser::parse($refAttrStr);
-                $pendingAttrsInQuote = $referenceLine['inQuote'];
-                $pendingAttrsInList = $referenceLine['inList'];
                 $i++;
 
                 continue;
@@ -322,9 +337,10 @@ class ReferenceDefinitionExtractor
         }
 
         $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
-        $attrsToUse = ($pendingAttrsInQuote === $referenceLine['inQuote'] && $pendingAttrsInList === $referenceLine['inList'])
-            ? $pendingAttrs
-            : [];
+        // A trailing `{...}` block attributes the DEFINITION (PART 9 §16,
+        // `[space, attributes]`), and PART 9R R1 transfers those attributes to
+        // every link that resolves the label.
+        [$url, $attrsToUse] = $this->splitTrailingAttributes($url);
         $title = null;
 
         if (
@@ -351,6 +367,97 @@ class ReferenceDefinitionExtractor
             'attrs' => $attrsToUse,
             'title' => $title,
         ];
+    }
+
+    /**
+     * Split a definition's tail into destination-plus-title and the trailing
+     * attribute block, if the line ends with one.
+     *
+     * The block is SCANNED, not regex-matched: an attribute value may hold a
+     * `}` inside quotes, and a lazy `\{[^}]*\}` stops at that brace and drops
+     * every attribute on the line silently. Only an UNQUOTED `}` closes the
+     * block, it must be preceded by whitespace, and it must end the line - so
+     * `[a]: /u{.x}` keeps the braces in the destination, which is what
+     * `space, attributes` requires.
+     *
+     * @param string $tail
+     *
+     * @return array{0: string, 1: array<string, string>}
+     */
+    private function splitTrailingAttributes(string $tail): array
+    {
+        $length = strlen($tail);
+        for ($i = 0; $i < $length; $i++) {
+            if ($tail[$i] !== '{' || $i === 0) {
+                continue;
+            }
+            $before = $tail[$i - 1];
+            if ($before !== ' ' && $before !== "\t") {
+                continue;
+            }
+
+            $quote = null;
+            for ($j = $i + 1; $j < $length; $j++) {
+                $char = $tail[$j];
+                if ($char === '\\' && $j + 1 < $length) {
+                    $j++;
+
+                    continue;
+                }
+                if ($quote !== null) {
+                    if ($char === $quote) {
+                        $quote = null;
+                    }
+
+                    continue;
+                }
+                if ($char === '"' || $char === "'") {
+                    $quote = $char;
+
+                    continue;
+                }
+                if ($char === '}') {
+                    if (trim(substr($tail, $j + 1)) !== '') {
+                        break;
+                    }
+                    $payload = substr($tail, $i + 1, $j - $i - 1);
+                    // The ORDERED parser: `parse()` hoists `class` to the front
+                    // regardless of where the author wrote it, and these
+                    // attributes are applied to a link in array order, so the
+                    // hoist would reorder the rendered attributes of every link
+                    // resolving the label. The inline path already preserves
+                    // source order; this has to match it.
+                    if ($this->inlineParser !== null && !$this->inlineParser->isValidAttrPayload($payload)) {
+                        // One invalid name invalidates the whole block (§14),
+                        // exactly as it does on a block-attribute line and
+                        // inline - so `{.a\}b}` yields NO attributes rather
+                        // than silently keeping the half that parsed.
+                        return [$tail, []];
+                    }
+                    $parsed = AttributeParser::parseOrderedWithSlots($payload);
+                    $attrs = $parsed['attributes'];
+                    if ($attrs === []) {
+                        return [$tail, []];
+                    }
+                    $ordered = [];
+                    foreach ($parsed['order'] as $slot) {
+                        $key = match ($slot) {
+                            '.class' => 'class',
+                            '#id' => 'id',
+                            default => $slot,
+                        };
+                        if (isset($attrs[$key])) {
+                            $ordered[$key] = $attrs[$key];
+                        }
+                    }
+                    $attrs = $ordered === [] ? $attrs : $ordered;
+
+                    return [rtrim(substr($tail, 0, $i)), $attrs];
+                }
+            }
+        }
+
+        return [$tail, []];
     }
 
     private function parseSingleLineBlockAttributePayload(string $line): ?string
