@@ -3493,17 +3493,19 @@ class BlockParser
                                 && $subTrailingState['openParagraph']
                                 && $subLines !== [];
                             if ($dedentedOpener) {
-                                // Forward it with its OWN indentation, the way
+                                // Forward it with exactly ONE column, the way
                                 // collectMarkerLeadItem() forwards a dedented
                                 // line (#693): below the sub-list's content
                                 // column the nested parse reads a marker as
                                 // paragraph text, so the geometry decides it one
                                 // level in rather than this loop deciding it
-                                // here. Stripping it to column 0 first would put
-                                // it AT the nested list's marker column and open
-                                // a sibling item - the same wrong answer, one
-                                // level down.
-                                $subLines[] = $subLine;
+                                // here. Stripping it to column 0 would put it AT
+                                // the nested list's marker column and open a
+                                // sibling item; forwarding its OWN indent let
+                                // two columns reach the nested CONTENT column
+                                // and open a list one level deeper (carve#603).
+                                // One column reaches neither.
+                                $subLines[] = ' ' . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $subLine);
                                 $i++;
@@ -4051,13 +4053,16 @@ class BlockParser
                 ) {
                     break;
                 }
-                // Lazy continuation of the stream's own last paragraph. The line
-                // keeps its OWN indentation instead of being dedented by the
-                // content column it never reached: below the sub-list's content
-                // column a block-shaped line is paragraph text, and the nested
-                // parse decides that from the column, so ` # H` folds as text
-                // where a flush-left `# H` would have opened a heading.
-                $itemLines[] = $nextLine;
+                // Lazy continuation of the stream's own last paragraph. The
+                // line carries exactly ONE column instead of being dedented by
+                // the content column it never reached: below the sub-list's
+                // content column a block-shaped line is paragraph text, and the
+                // nested parse decides that from the column, so ` # H` folds as
+                // text where a flush-left `# H` would open a heading. Its OWN
+                // indentation is not enough - two columns in reached the nested
+                // list's content column and opened a list there (carve#603) -
+                // and one column can reach no content column at all.
+                $itemLines[] = ' ' . $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, $nextLine);
                 $i++;

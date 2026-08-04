@@ -56,6 +56,28 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
         $this->assertStringNotContainsString('<blockquote>', $html);
     }
 
+    public function testTwoColumnsInFoldsAsWell(): void
+    {
+        // §24 C3 does not ask how deep the indent is: below the content column
+        // a marker folds, at any depth. This engine (and the other two) used to
+        // nest it under `a`, because the folded line kept its own indentation
+        // and that reached the SUB-list's content column on the reparse
+        // (carve#603).
+        $this->assertSame(
+            "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n",
+            $this->converter->convert("-   x\n    - a\n  - b"),
+        );
+    }
+
+    public function testTheWholeListIndentedFoldsTheSameWay(): void
+    {
+        // The threshold is the content column, not a distance from column 0.
+        $this->assertSame(
+            "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n",
+            $this->converter->convert("  - x\n    - a\n   - b"),
+        );
+    }
+
     public function testAMarkerAtTheContentColumnStillOpensASibling(): void
     {
         // At the sub-list's own marker column it IS an opener, unchanged.
