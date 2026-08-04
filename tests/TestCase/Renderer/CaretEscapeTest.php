@@ -30,6 +30,10 @@ class CaretEscapeTest extends TestCase
             'spaced' => ['a ^ b', 'a ^ b'],
             'sup-shaped run' => ['a ^sup^ ,sub, stays literal', 'a ^sup^ ,sub, stays literal'],
             'before a bracket keeps it' => ['a\\^[x]', 'a\\^[x]'],
+            // The two braced-superscript delimiters: bare, each half would let
+            // the pair form around content it does not own.
+            'after a brace opener keeps it' => ['a{^b', 'a{\\^b'],
+            'before a brace closer keeps it' => ['a^}b', 'a\\^}b'],
         ];
     }
 
@@ -51,6 +55,8 @@ class CaretEscapeTest extends TestCase
             'braced sup as text' => ['\\{^x^\\}'],
             'braced sup construct' => ['{^x^}'],
             'caption-shaped line' => ['\\^ x'],
+            'brace opener then caret' => ['a{^b'],
+            'caret then brace closer' => ['a^}b'],
             'real caption' => ["![i](i.png)\n^ A caption"],
         ];
     }
