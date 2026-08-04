@@ -46,6 +46,7 @@ if (!$autoloaderFound) {
 }
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
@@ -498,17 +499,26 @@ try {
     exit(1);
 }
 
-if ($options['format'] === 'json') {
-    $output = $codec->encodeJson(
-        $document ?? $converter->parse($input),
-        JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-    ) . "\n";
-} elseif ($document !== null) {
-    $output = $converter->render($document);
-} else {
-    $output = $options['format'] === 'carve'
-        ? $converter->getRenderer()->render($converter->parse($input))
-        : $converter->convert($input);
+try {
+    if ($options['format'] === 'json') {
+        $output = $codec->encodeJson(
+            $document ?? $converter->parse($input),
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ) . "\n";
+    } elseif ($document !== null) {
+        $output = $converter->render($document);
+    } else {
+        $output = $options['format'] === 'carve'
+            ? $converter->getRenderer()->render($converter->parse($input))
+            : $converter->convert($input);
+    }
+} catch (RenderDepthExceededException $exception) {
+    // A renderer that reaches its ceiling REFUSES (PART 9 §25). The CLI reports
+    // the refusal and exits non-zero rather than printing a partial document -
+    // or a PHP stack trace, which tells the caller as little as truncation did.
+    fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+
+    exit(1);
 }
 
 // Handle warnings

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
@@ -658,11 +659,13 @@ class HtmlRenderer implements RendererInterface
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      * @param int $depth
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderSectionRange(array $nodes, int $depth = 0): string
     {
         if ($depth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
         }
 
         $html = '';
@@ -792,7 +795,7 @@ class HtmlRenderer implements RendererInterface
     protected function renderNode(Node $node): string
     {
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
         }
 
         $this->renderDepth++;

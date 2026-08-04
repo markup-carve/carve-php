@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -337,7 +338,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderNode(Node $node): string
     {
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
         }
 
         $this->renderDepth++;
@@ -518,11 +519,13 @@ class MarkdownRenderer implements RendererInterface
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, true> $referencedIds
      * @param int $depth
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function collectHeadingAndRefIds(Node $node, array &$referencedIds, int $depth = 0): void
     {
         if ($depth >= self::MAX_RENDER_DEPTH) {
-            return;
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
         }
 
         if ($node instanceof Heading) {
