@@ -36,14 +36,11 @@ class UnresolvedImageFigureFmtTest extends TestCase
 
     public function testTheReferenceLabelSurvivesFormatting(): void
     {
-        // The caret is escaped because the shape is now a PARAGRAPH, not a
-        // figure (#751): at the start of a paragraph line the writer forces the
-        // caption-marker escape. Bare would re-parse identically here - the
-        // paragraph is not captionable - so the escape is unnecessary under
-        // PART 11 §2, which carve-js already gets right and this engine and
-        // carve-rs do not. Tracked separately; this test pins the LABEL
-        // surviving, which is what it was written for.
-        $this->assertSame("![a][nope]\n\\^ cap", $this->carve("![a][nope]\n^ cap\n"));
+        // Bare `^ cap`: the shape is a PARAGRAPH, not a figure (#751), and an
+        // unresolved reference image cannot host a caption - so the marker
+        // cannot form and the escape would say nothing (#758). carve-js emits
+        // the same bytes.
+        $this->assertSame("![a][nope]\n^ cap", $this->carve("![a][nope]\n^ cap\n"));
     }
 
     public function testFormattingPreservesTheRendering(): void
