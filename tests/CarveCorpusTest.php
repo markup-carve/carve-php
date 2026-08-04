@@ -224,6 +224,8 @@ class CarveCorpusTest extends TestCase
         'widened-verbatim-fences',
         'wrapped-definition-term-continuation-below-the-content-column-strips-leading-whitespace',
         'a-flush-left-line-needs-an-open-paragraph-to-fold-into',
+        'a-list-item-does-not-define-an-abbreviation-either',
+        'an-abbreviation-definition-is-recognized-only-at-document-level',
     ];
 
     /**

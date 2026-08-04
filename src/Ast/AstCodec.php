@@ -276,13 +276,30 @@ class AstCodec
     {
         $abbreviations = $encoded['abbreviations'] ?? null;
         $beforeBody = ($encoded['abbreviationsBeforeBody'] ?? false) === true;
-        unset($encoded['abbreviations'], $encoded['abbreviationsBeforeBody']);
+        $authored = $encoded['abbreviationDefinitions'] ?? null;
+        // All three are ENGINE state, never wire fields: PART 12 §7 puts the
+        // definitions in the tree as nodes. Dropped up front so no early
+        // return below can leave one on the root.
+        unset(
+            $encoded['abbreviations'],
+            $encoded['abbreviationsBeforeBody'],
+            $encoded['abbreviationDefinitions'],
+        );
         if (!is_array($abbreviations) || $abbreviations === []) {
             return $encoded;
         }
 
-        $authored = $encoded['abbreviationDefinitions'] ?? null;
-        unset($encoded['abbreviationDefinitions']);
+        // The definitions are NODES in the tree now (carve-php#708), so they
+        // encode like any other child and this synthesis would publish each one
+        // twice. It stays for a document that has the expansion map without the
+        // nodes -- one built through the API, or decoded from an older payload.
+        $encodedChildren = is_array($encoded['children'] ?? null) ? $encoded['children'] : [];
+        foreach ($encodedChildren as $child) {
+            if (is_array($child) && ($child['type'] ?? null) === 'abbreviation_def') {
+                return $encoded;
+            }
+        }
+
         if (!is_array($authored) || $authored === []) {
             $authored = [];
             foreach ($abbreviations as $abbr => $expansion) {
@@ -355,10 +372,11 @@ class AstCodec
                         $beforeBody = false;
                     }
                 }
-
-                continue;
+            } else {
+                // Only a real block counts as body content: the flag records
+                // whether every definition sat ahead of the document's prose.
+                $seenContent = true;
             }
-            $seenContent = true;
             $kept[] = $child;
         }
 
@@ -398,9 +416,10 @@ class AstCodec
             ));
         }
 
-        // Taken out BEFORE the walk: `abbreviation_def` is a wire node this
-        // engine has no class for - it keeps definitions on the document - so
-        // decoding one as a block would fail on a payload it wrote itself.
+        // Read BEFORE the walk: the definitions drive expansion, which is
+        // engine state on the document rather than anything the block nodes
+        // carry. The nodes themselves stay in `children` and decode like any
+        // other block, so a tree survives the round trip (PART 12 §6).
         [$data, $abbreviations, $beforeBody, $authoredAbbreviations] = self::liftAbbreviationDefs($data);
 
         $node = $this->decodeNode($data);
