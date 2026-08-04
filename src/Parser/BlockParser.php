@@ -2428,7 +2428,7 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpener($line);
+        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
         if ($fenceInfo === null) {
             return null;
         }
@@ -2451,7 +2451,7 @@ class BlockParser
         while ($i < $count) {
             $currentLine = $lines[$i];
 
-            if ($this->fencedBlockParser->isFencedCommentCloser($currentLine, $fenceLength)) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($currentLine, $fenceLength)) {
                 $i++;
 
                 break;
@@ -7054,7 +7054,7 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAhead(string $line, ?array $lines, ?int $index): bool
     {
-        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpener($line);
+        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
         if ($fenceInfo === null) {
             return false;
         }
@@ -7080,7 +7080,9 @@ class BlockParser
         if ($this->commentFenceLastIndex === null) {
             $index = [];
             foreach ($lines as $i => $candidate) {
-                $info = $this->fencedBlockParser->parseFencedCommentOpener($candidate);
+                // Any column: the consumption sites read an indented fence, so
+                // the index answering whether a closer exists must see one too.
+                $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($candidate);
                 if ($info !== null) {
                     $index[$info['length']] = $i;
                 }
