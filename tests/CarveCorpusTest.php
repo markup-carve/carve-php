@@ -237,6 +237,7 @@ class CarveCorpusTest extends TestCase
         'a-definition-inside-a-comment-registers-nothing',
         'a-blank-after-a-comment-still-ends-the-item',
         'a-comment-fence-under-a-nested-item-does-not-close-it-either',
+        'a-collapsed-reference-is-matched-by-the-label-the-author-wrote',
     ];
 
     /**
