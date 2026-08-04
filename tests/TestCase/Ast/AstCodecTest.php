@@ -333,19 +333,17 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * TWO causes, kept apart on purpose.
+     * ONE cause now. `173` is the implicit-heading-reference gap: the parsed
+     * link records that its destination was derived from a heading, and that
+     * flag is not on the wire, so `[label][]` comes back as `[label](#id)`.
+     * carve-js round-trips the same document unchanged.
      *
-     * `173` is the implicit-heading-reference authored-form gap: the parsed
-     * link records that the definition was derived from a heading, but that
-     * internal flag is not on the wire.
-     *
-     * A bare-dot ordered
-     * list has no field on the wire at all: `list` carries `delim` and
-     * `bulletChar` for every other marker flavor, but nothing records the bare
-     * form, so `. first` decodes as `1. first`. That is a gap in the FORMAT
-     * rather than in this codec - preserving it here would mean inventing a
-     * field the other engines do not publish - and is tracked as
-     * markup-carve/carve#480.
+     * The three bare-dot documents used to be here on the stated grounds that
+     * "preserving it here would mean inventing a field the other engines do not
+     * publish". They do publish it: carve-js and carve-rs both put `bareMarker`
+     * on a list node, and the published AST schema allows it - this engine was
+     * the only one hiding it, and hiding it is what made `. first` decode as
+     * `1. first` (carve-php#711).
      *
      * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
      * than a decoded payload.
@@ -354,12 +352,6 @@ class AstCodecTest extends TestCase
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
         '173-implicit-heading-references-with-no-definition.crv',
-        '174-bare-dot-ordered-markers-3.crv',
-        '174-bare-dot-ordered-markers.crv',
-        // A third bare-dot document, not a third cause: `. >` opens the item
-        // whose empty quote the open-paragraph rule is about, so it decodes as
-        // `1. >` for the same missing field as the two above (carve#480).
-        '178-a-flush-left-line-needs-an-open-paragraph-to-fold-into.crv',
     ];
 
     /**
