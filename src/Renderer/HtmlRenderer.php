@@ -880,7 +880,7 @@ class HtmlRenderer implements RendererInterface
         return $this->renderAttributes($node) === ''
             && count($children) === 1
             && $children[0] instanceof Image
-            && $children[0]->getRawReferenceLabel() === null;
+            && ($children[0]->getRawReferenceLabel() === null || $children[0]->getSource() !== '');
     }
 
     protected function renderParagraph(Paragraph $node): string

@@ -32,6 +32,31 @@ class CrossReferenceResolver
      */
     private const MAX_RESOLVE_DEPTH = 512;
 
+    /**
+     * A reference the document never resolved: it carries authored source and
+     * no destination.
+     *
+     * PART 12 §3a keeps `ref` and `rawRef` on a RESOLVED reference as well, so
+     * the presence of the authored source stopped answering this on its own
+     * (carve#597).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     */
+    protected function isUnresolvedReference(object $node): bool
+    {
+        if (!method_exists($node, 'getRawReferenceLabel')) {
+            return false;
+        }
+        if ($node->getRawReferenceLabel() === null) {
+            return false;
+        }
+        $destination = method_exists($node, 'getDestination')
+            ? $node->getDestination()
+            : (method_exists($node, 'getSource') ? $node->getSource() : null);
+
+        return $destination === null || $destination === '';
+    }
+
     public function resolve(Document $document, HeadingIdTracker $tracker): void
     {
         $this->trackIdFromNode($document, $tracker);
@@ -84,7 +109,7 @@ class CrossReferenceResolver
                 // source. Unwrapping it to its label would discard that source,
                 // so `[[x][missing]](/z)` linked the word `x` instead of
                 // keeping `[x][missing]` inside the anchor, as carve-js does.
-                if ($insideLink && $child->getRawReferenceLabel() === null) {
+                if ($insideLink && !$this->isUnresolvedReference($child)) {
                     // A link inside another link: drop the inner destination,
                     // splice in its (already-unwrapped) display content.
                     $node->replaceChildWithMany($child, array_values($child->getChildren()));

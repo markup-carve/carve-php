@@ -766,7 +766,7 @@ class BlockParser
                 if (
                     count($kids) === 1
                     && $kids[0] instanceof Image
-                    && $kids[0]->getRawReferenceLabel() === null
+                    && ($kids[0]->getRawReferenceLabel() === null || $kids[0]->getSource() !== '')
                 ) {
                     if ($child->getAttributes() !== []) {
                         $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
