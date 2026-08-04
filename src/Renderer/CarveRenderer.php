@@ -1635,12 +1635,48 @@ class CarveRenderer implements RendererInterface
                 if ($minimal && $char === '^' && !self::caretOpensAConstruct($text, $offset)) {
                     return '^';
                 }
+                // A COLON only opens something at the start of a line - `::`
+                // opens a definition term, `:::` a div, and a caption's
+                // `^ Figure #:` is read from the marker. Mid-line it is
+                // ordinary punctuation, and PART 11 §2 escapes a character
+                // only where omitting it would change the re-parse. Escaping
+                // every colon put `\:` in `\^ Figure 1\: moon`, where the
+                // caret is already escaped so nothing downstream reads the
+                // colon at all (carve-php#743).
+                if ($char === ':' && !self::opensLine($text, $offset)) {
+                    return ':';
+                }
 
                 return '\\' . $char;
             },
             $text,
             flags: PREG_OFFSET_CAPTURE,
         );
+    }
+
+    /**
+     * Is this offset at the start of a line within the node's text?
+     *
+     * A construct opens at a line start; mid-line the same character is
+     * punctuation. The node's own first character counts, because a text node
+     * that begins a paragraph begins a line.
+     *
+     * @param string $text
+     * @param int $offset
+     */
+    private static function opensLine(string $text, int $offset): bool
+    {
+        for ($i = $offset - 1; $i >= 0; $i--) {
+            $char = $text[$i];
+            if ($char === "\n") {
+                return true;
+            }
+            if ($char !== ' ' && $char !== "\t") {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

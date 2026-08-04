@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer escapes a colon only where one can open something**
+  (PART 11 §2 and §4, #743). A colon opens a construct at the START of a line -
+  `::` a definition term, `:::` a div - and mid-line it is ordinary
+  punctuation, so escaping every colon produced `\^ Figure 1\: moon` for the
+  indented caption in `158-indented-image-and-caption-stay-literal`. The caret
+  escape there is real; the colon rode along with it, and once the caret is
+  escaped the line is a paragraph and nothing reads the colon. carve-rs emits
+  the same bytes as this engine now, and the spec's fmt fixture pins it.
+
+### Fixed
+
 - **An invisible construct in a list item does not loosen it** (PART 9 §17 L1,
   markup-carve/carve#621, #744). L1 loosens an item that holds a
   blank-line-separated second PARAGRAPH, and a comment or a definition renders
