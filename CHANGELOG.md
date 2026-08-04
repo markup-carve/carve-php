@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer escapes a caption marker only where a caption can
+  form** (PART 11 §2, #758). A `^ ` at the start of a block line opens a
+  caption only when the block before it can HOST one - a table, a code block, a
+  block quote, or a paragraph holding nothing but an image or display math. The
+  writer escaped it from the line position alone, so `para` / `^ cap` came back
+  as `\^ cap` for a construct that cannot form there, and an unresolved
+  reference image - which cannot host a caption either (#751) - took the escape
+  with it. carve-js already emitted the minimal form; carve-rs has the same
+  defect (markup-carve/carve-rs#565). Where the caption WOULD form the escape
+  is load-bearing and stays.
+
+### Fixed
+
 - **A floating attribute does not cross a list-item boundary** (PART 9 §15 A2a
   and A4, #757). `- a` / blank / `  {.c}` / `- b` put `class="c"` on the SECOND
   item's paragraph here: the pending-attribute run is parser state, so an
