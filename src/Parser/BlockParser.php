@@ -827,6 +827,15 @@ class BlockParser
     {
         $i = 0;
         $count = count($lines);
+        // The enclosing item's content column, for a definition written on an
+        // item's CONTINUATION line: that line carries no marker, so the
+        // container stripping below leaves the item's indentation in front of
+        // the `[` and the definition was neither collected nor rendered - the
+        // author's line disappeared and a reference to it stayed literal
+        // (carve-php#761). extractReferences has always done this; this pass
+        // did not, which is why link definitions worked there and footnote
+        // definitions did not.
+        $columns = new ListContentColumns();
         // Track an open fenced code block so a `[^a]: ...` (or `> [^a]: ...`)
         // shown inside a ``` / ~~~ sample is treated as literal code, never
         // registered -- mirroring the fence-opacity guard in extractReferences.
@@ -834,6 +843,7 @@ class BlockParser
         // INSIDE a blockquote (`> ``` ` / `> [^a]: note` / `> ``` `) is tracked
         // too: without this the container stripping below would wrongly read the
         // quoted code content as a real definition.
+        $fenceContentCol = 0;
         $fenceChar = null;
         $fenceLen = 0;
         $fenceDepth = 0;
@@ -882,6 +892,9 @@ class BlockParser
 
         while ($i < $count) {
             $line = $lines[$i];
+            // Inside a fence or a line block `- verse` is content, not a
+            // marker, so the tracker is told to stand down there.
+            $contentCol = $columns->observe($line, $fenceChar !== null || $lineBlockLen > 0);
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
@@ -890,6 +903,18 @@ class BlockParser
             // than the fully stripped tail (the line block below needs that).
             $quoteStages = [$line];
             $fenceLine = $line;
+            // The same line read at the enclosing item's content column. A code
+            // fence opened after a list marker (`- ``` `) or on the item's
+            // continuation lines is invisible to the blockquote-only view
+            // above, so its body was scanned as ordinary lines and a `[^a]:`
+            // inside the code block registered as a definition. The reference
+            // extractor already reads fences this way (its `fenceView`).
+            $columnLine = null;
+            if ($contentCol > 0) {
+                $columnLine = $columns->openedItem()
+                    ? substr($line, $contentCol)
+                    : ListContentColumns::stripTo($line, $contentCol);
+            }
             while (($fenceLine[0] ?? '') === '>') {
                 $quoteContent = $this->blockQuoteLineContent($fenceLine);
                 if ($quoteContent === null) {
@@ -909,8 +934,11 @@ class BlockParser
                     $fenceChar = null;
                     $fenceLen = 0;
                 } else {
+                    $closerView = $fenceContentCol > 0
+                        ? (ListContentColumns::stripTo($closerLine, $fenceContentCol) ?? $closerLine)
+                        : $closerLine;
                     if (
-                        preg_match('/^([`~]{3,})\s*$/', $closerLine, $fm)
+                        preg_match('/^([`~]{3,})\s*$/', $closerView, $fm)
                         && $fm[1][0] === $fenceChar
                         && strlen($fm[1]) >= $fenceLen
                     ) {
@@ -971,13 +999,20 @@ class BlockParser
                     continue;
                 }
             }
-            $fc0 = $fenceLine[0] ?? '';
+            $openerView = $fenceLine;
+            $openerCol = 0;
+            if ($columnLine !== null && preg_match('/^([`~]{3,})/', $fenceLine) !== 1) {
+                $openerView = $columnLine;
+                $openerCol = $contentCol;
+            }
+            $fc0 = $openerView[0] ?? '';
             if (
                 ($fc0 === '`' || $fc0 === '~')
-                && preg_match('/^([`~]{3,})/', $fenceLine, $fm)
+                && preg_match('/^([`~]{3,})/', $openerView, $fm)
             ) {
                 $fenceChar = $fm[1][0];
                 $fenceLen = strlen($fm[1]);
+                $fenceContentCol = $openerCol;
                 $fenceDepth = count($quoteStages) - 1;
                 $i++;
 
@@ -1021,6 +1056,23 @@ class BlockParser
             $container = $this->footnoteContainerPrefix($line);
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
+            $atContentColumn = false;
+            if ($container['kind'] === 'none') {
+                // No marker on this line: it may still be an item's
+                // continuation. Strip exactly the content column - never more,
+                // so a line indented PAST it keeps residual spaces, fails the
+                // `^\[` test below and stays paragraph text, which is what
+                // carve#624 settled for a definition below the column.
+                $atColumn = $columns->stripToContentColumn($line);
+                if ($atColumn !== null && ($atColumn[0] ?? '') === '[') {
+                    $bare = $atColumn;
+                    $atContentColumn = true;
+                    $container = [
+                        'kind' => 'container',
+                        'prefix' => substr($line, 0, strlen($line) - strlen($atColumn)),
+                    ];
+                }
+            }
 
             // Match footnote definition: [^label]: content. The marker line
             // must carry inline content (grammar PART 9 §16 production:
@@ -1047,7 +1099,15 @@ class BlockParser
                     // still seen). An indented `- [^a]:` that merely lazily
                     // continues a preceding paragraph is NOT a definition -- the
                     // real parser leaves it in that paragraph (matches carve-js).
-                    $opensBlock = $i === 0
+                    // A line reached through the content-column strip is by
+                    // construction inside a list item, and the item's own text
+                    // is what precedes it. That is the shape carve-php#761 is
+                    // about, and carve-js collects it. The blank-line rule
+                    // still guards the top-level shape it was written for:
+                    // there the content column is 0, the strip never fires,
+                    // and an indented `[^a]:` under a paragraph stays text.
+                    $opensBlock = $atContentColumn
+                        || $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
