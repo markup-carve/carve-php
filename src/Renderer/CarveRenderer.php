@@ -1678,6 +1678,7 @@ class CarveRenderer implements RendererInterface
      * @param string $text
      * @param int $offset
      */
+
     /**
      * Is this caret a CAPTION MARKER - `^` plus a space at the start of a block
      * line?
