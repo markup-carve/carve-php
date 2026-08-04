@@ -4055,10 +4055,21 @@ class BlockParser
                 continue;
             }
 
+            // An UNCLOSED fence opens no block (PART 9 §28), but it is still a
+            // COMMENT, and §24 C3 keeps a comment invisible at any column. The
+            // span walk above returns null for it, so it fell through here and
+            // `isBlockElementStart()` folded it as visible text - leaving this
+            // engine rendering `%%% n` below an item's content column while
+            // rendering nothing for the very same line at the top level, at the
+            // content column, and in every other engine.
+            $opensUnclosedCommentFence =
+                $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($nextTrimmed) !== null;
+
             $foldedAsText = false;
             if (
                 $trailingState['openParagraph']
                 && $itemLines !== []
+                && !$opensUnclosedCommentFence
                 && (
                     $this->isBlockElementStart($nextTrimmed)
                     || $this->startsNewBlock($nextTrimmed)
