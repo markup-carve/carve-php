@@ -64,6 +64,16 @@ class ReferenceDefinitionExtractor
             $line = $lines[$i];
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($line, $fence->isOpen());
+            // One line can open SEVERAL items (`- - a` opens two, columns 2 and
+            // 4), and a definition belongs to whichever open item's column it
+            // lands on - not necessarily the innermost. Reading only the
+            // innermost left a link definition at the OUTER column consumed by
+            // the item and registered by nobody: the author's line vanished and
+            // a reference to it stayed literal. The footnote prepass already
+            // asks this way (carve-php#764, carve-php#783).
+            $reachedCol = $contentColumns->reachedBy(
+                strlen($line) - strlen(ltrim($line, " \t")),
+            );
 
             // A comment fence's closer is a leading `%` run of the SAME length;
             // trailing text is allowed, so `%%% end` closes a `%%%` fence.
@@ -117,7 +127,7 @@ class ReferenceDefinitionExtractor
                 continue;
             }
 
-            $referenceLine = $this->referenceLineView($line, $contentCol);
+            $referenceLine = $this->referenceLineView($line, $reachedCol);
             $bare = $referenceLine['line'];
 
             // An attribute line above a definition belongs to the next VISIBLE

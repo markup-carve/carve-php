@@ -4079,6 +4079,24 @@ class BlockParser
             $opensUnclosedCommentFence =
                 $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($nextTrimmed) !== null;
 
+            // A DEFINITION at the frame's own base column belongs to the
+            // container this item sits in, not to this item: it is at THAT
+            // item's content column, which §24 C3 reads as its block. Folding
+            // it here left it rendered as item text while the prepass had
+            // already registered it, so the note appeared twice and two
+            // elements claimed the same id (carve-php#783). Ending the item
+            // lets the enclosing frame see the definition at column 0, where
+            // the skip pass consumes it.
+            if (
+                $nextIndent === 0
+                && $trailingState['openParagraph']
+                && !$this->isBlockElementStart($nextTrimmed)
+                && !$this->startsNewBlock($nextTrimmed)
+                && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
+            ) {
+                break;
+            }
+
             $foldedAsText = false;
             if (
                 $trailingState['openParagraph']
@@ -6498,6 +6516,22 @@ class BlockParser
         }
 
         return null;
+    }
+
+    /**
+     * Is this line a DEFINITION - the one invisible kind that belongs to the
+     * enclosing item rather than this one when it sits at the frame's base?
+     *
+     * A comment is excluded because it is invisible at ANY column and closes
+     * nothing (§24 C3); an attribute line is excluded because it is
+     * column-strict and attaches to what follows it here.
+     *
+     * @param string $line
+     */
+    protected function isDefinitionLineForEnclosingItem(string $line): bool
+    {
+        return $this->isReferenceDefinitionLine($line)
+            || preg_match('/^\\[\\^[^\\]]+\\]: +\\S/', $line) === 1;
     }
 
     protected function isFoldableInvisibleLine(string $line): bool
