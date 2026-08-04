@@ -117,12 +117,42 @@ class PlainTextRenderer implements RendererInterface
         return $this->softBreakMode;
     }
 
+    /**
+     * Every abbreviation definition the author wrote, as source lines.
+     *
+     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * target. HTML drops it because it has nowhere to put one; Markdown, plain
+     * text and the terminal do not get to drop content the author wrote, and
+     * dropping it made the output depend on whether a reference exists
+     * elsewhere in the document (carve#589).
+     *
+     * They live on the document rather than in `children` here, so unlike
+     * carve-js and carve-rs this renderer places them itself - before the body
+     * or after it, following where the author put them.
+     */
+    protected function renderAbbreviationDefinitions(Document $document): string
+    {
+        $lines = [];
+        foreach ($document->getAbbreviationDefinitions() as $definition) {
+            $lines[] = '*[' . $this->stripControls($definition['abbr']) . ']: '
+                . $this->stripControls($definition['expansion']);
+        }
+
+        return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $text = $this->renderChildren($document);
+        $abbreviations = $this->renderAbbreviationDefinitions($document);
+        if ($abbreviations !== '') {
+            $text = $document->hasAbbreviationsBeforeBody()
+                ? $abbreviations . "\n" . $text
+                : $text . "\n" . $abbreviations;
+        }
 
         // Normalize multiple blank lines to single
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
@@ -447,7 +477,11 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        return '[' . $this->stripControls($node->getLabel()) . ']: ' . trim($this->renderChildren($node)) . "\n";
+        // The MARKER AS WRITTEN (PART 10 §10a): `[n]: …` is a LINK reference
+        // definition, so emitting one where the author wrote a footnote
+        // definition turns it into a different construct on the way back.
+        return '[^' . $this->stripControls($node->getLabel()) . ']: '
+            . trim($this->renderChildren($node)) . "\n";
     }
 
     protected function renderMention(Mention $node): string

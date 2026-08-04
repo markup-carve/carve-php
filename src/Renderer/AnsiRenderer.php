@@ -397,6 +397,27 @@ class AnsiRenderer implements RendererInterface
         return $this;
     }
 
+    /**
+     * Every abbreviation definition the author wrote, dimmed.
+     *
+     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * target - see the note in MarkdownRenderer. They live on the document
+     * rather than in `children` here, so this renderer places them itself.
+     */
+    protected function renderAbbreviationDefinitions(Document $document): string
+    {
+        $lines = [];
+        foreach ($document->getAbbreviationDefinitions() as $definition) {
+            $lines[] = $this->style(
+                '*[' . $this->stripControls($definition['abbr']) . ']: '
+                    . $this->stripControls($definition['expansion']),
+                self::DIM,
+            );
+        }
+
+        return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
@@ -404,6 +425,12 @@ class AnsiRenderer implements RendererInterface
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $output = $this->renderChildren($document);
+        $abbreviations = $this->renderAbbreviationDefinitions($document);
+        if ($abbreviations !== '') {
+            $output = $document->hasAbbreviationsBeforeBody()
+                ? $abbreviations . "\n" . $output
+                : $output . "\n" . $abbreviations;
+        }
 
         // Normalize multiple blank lines
         $output = preg_replace("/\n{3,}/", "\n\n", $output) ?? $output;
@@ -887,7 +914,8 @@ class AnsiRenderer implements RendererInterface
     {
         $label = $this->stripControls($node->getLabel());
         $content = trim($this->renderChildren($node));
-        $marker = $this->style('[' . $label . ']', self::FG_CYAN . self::DIM);
+        // The marker as written (PART 10 §10a): the caret is the construct.
+        $marker = $this->style('[^' . $label . ']', self::FG_CYAN . self::DIM);
 
         return $marker . ' ' . $content . "\n";
     }

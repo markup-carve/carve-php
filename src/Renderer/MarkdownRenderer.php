@@ -220,6 +220,30 @@ class MarkdownRenderer implements RendererInterface
         return $this->softBreakMode;
     }
 
+    /**
+     * Every abbreviation definition the author wrote, as source lines.
+     *
+     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * target. HTML drops it because it has nowhere to put one; Markdown, plain
+     * text and the terminal do not get to drop content the author wrote, and
+     * dropping it made the output depend on whether a reference exists
+     * elsewhere in the document (carve#589).
+     *
+     * They live on the document rather than in `children` here, so unlike
+     * carve-js and carve-rs this renderer places them itself - before the body
+     * or after it, following where the author put them.
+     */
+    protected function renderAbbreviationDefinitions(Document $document): string
+    {
+        $lines = [];
+        foreach ($document->getAbbreviationDefinitions() as $definition) {
+            $lines[] = '*[' . $this->stripControls($definition['abbr']) . ']: '
+                . $this->stripControls($definition['expansion']);
+        }
+
+        return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
@@ -235,6 +259,12 @@ class MarkdownRenderer implements RendererInterface
         $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
 
         $markdown = $this->renderChildren($document);
+        $abbreviations = $this->renderAbbreviationDefinitions($document);
+        if ($abbreviations !== '') {
+            $markdown = $document->hasAbbreviationsBeforeBody()
+                ? $abbreviations . "\n" . $markdown
+                : $markdown . "\n" . $abbreviations;
+        }
 
         // Normalize multiple blank lines
         $markdown = preg_replace("/\n{3,}/", "\n\n", $markdown) ?? $markdown;
