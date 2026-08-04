@@ -1019,6 +1019,22 @@ class BlockParser
             }
 
             $container = $this->footnoteContainerPrefix($line);
+            if ($container['kind'] === 'none') {
+                // A definition written on its own line at an open item's
+                // CONTENT COLUMN carries no marker of its own, so neither path
+                // above claimed it: the container form wants a marker to strip
+                // and the top-level form wants column 0. The line was consumed
+                // by the item and collected by nobody, so it rendered as
+                // nothing AND registered nothing - the reference to it stayed
+                // literal (carve-php#761). Reaching the content column is what
+                // makes it the item's own block; below that column it is text
+                // and registers nothing, which §24 C3 already covers.
+                $container = $this->indentedDefinitionContainer($lines, $i);
+            }
+            // Reaching the content column IS the block-opening test for that
+            // form: the line is the item's own block, not a lazy continuation
+            // of the marker line's paragraph.
+            $atContentColumn = $container['kind'] === 'content-column';
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
@@ -1047,7 +1063,8 @@ class BlockParser
                     // still seen). An indented `- [^a]:` that merely lazily
                     // continues a preceding paragraph is NOT a definition -- the
                     // real parser leaves it in that paragraph (matches carve-js).
-                    $opensBlock = $i === 0
+                    $opensBlock = $atContentColumn
+                        || $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
@@ -1188,6 +1205,75 @@ class BlockParser
      * ordinary checked-item content, not a footnote definition (matches the
      * oracle carve-js, which leaves it literal).
      *
+     * @return array{kind: string, prefix: string}
+     */
+    /**
+     * A definition line indented to the content column of the list item that is
+     * still open above it, treated as container-nested.
+     *
+     * @param array<string> $lines
+     *
+     * @return array{kind: string, prefix: string}
+     */
+    protected function indentedDefinitionContainer(array $lines, int $index): array
+    {
+        $line = $lines[$index];
+        if (preg_match('/^([ \t]+)\[\^[^\]]+\]: +\S/', $line, $m) !== 1) {
+            return ['kind' => 'none', 'prefix' => ''];
+        }
+
+        $indent = IndentationHelper::getLeadingColumns($line);
+        for ($j = $index - 1; $j >= 0; $j--) {
+            $previous = $lines[$j];
+            if (IndentationHelper::isBlankLine($previous)) {
+                return ['kind' => 'none', 'prefix' => ''];
+            }
+
+            $trimmed = ltrim($previous, " \t");
+            $info = $this->listParser->parseListItemMarker($trimmed);
+            if ($info === null || $info['type'] === 'task') {
+                continue;
+            }
+
+            $lead = IndentationHelper::getLeadingColumns($previous);
+            $contentColumn = $lead + (strlen($trimmed) - strlen((string)$info['content']));
+
+            // BELOW the content column the line is lazy item text (§24 C3): it
+            // stays visible and registers nothing, which is a different rule.
+            if ($indent < $contentColumn) {
+                return ['kind' => 'none', 'prefix' => ''];
+            }
+
+            // A fence opened between the marker and this line makes the
+            // definition CODE, and code is opaque - a `[^a]: note` shown in a
+            // sample registers nothing. The outer scan tracks fences opened on
+            // their own line but not one opened on the MARKER line (`- ```),
+            // so it is counted here over the same span this walk covers.
+            $open = false;
+            for ($k = $j; $k < $index; $k++) {
+                $content = ltrim($lines[$k], " \t");
+                if ($k === $j) {
+                    $markerInfo = $this->listParser->parseListItemMarker($content);
+                    $content = $markerInfo === null
+                        ? $content
+                        : ltrim((string)$markerInfo['content'], " \t");
+                }
+                if (preg_match('/^([`~]{3,})/', $content) === 1) {
+                    $open = !$open;
+                }
+            }
+
+            if ($open) {
+                return ['kind' => 'none', 'prefix' => ''];
+            }
+
+            return ['kind' => 'content-column', 'prefix' => $m[1]];
+        }
+
+        return ['kind' => 'none', 'prefix' => ''];
+    }
+
+    /**
      * @return array{kind: string, prefix: string}
      */
     protected function footnoteContainerPrefix(string $line): array
