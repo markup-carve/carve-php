@@ -1784,6 +1784,39 @@ class BlockParser
     }
 
     /**
+     * Group the lines past MAX_NESTING_DEPTH the way an ordinary paragraph
+     * groups: runs of non-blank lines, split on blank lines, each run stripped
+     * of its trailing whitespace. Blank-only input yields nothing.
+     *
+     * @param array<string> $lines
+     *
+     * @return array<string>
+     */
+    protected function splitFlattenedParagraphs(array $lines): array
+    {
+        $paragraphs = [];
+        $run = [];
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                if ($run !== []) {
+                    $paragraphs[] = rtrim(implode("\n", $run));
+                    $run = [];
+                }
+
+                continue;
+            }
+
+            $run[] = $line;
+        }
+
+        if ($run !== []) {
+            $paragraphs[] = rtrim(implode("\n", $run));
+        }
+
+        return array_values(array_filter($paragraphs, static fn (string $text): bool => $text !== ''));
+    }
+
+    /**
      * Recurse into block content, but cap nesting depth so pathologically
      * nested input degrades to literal text instead of overflowing the stack
      * (or exhausting memory). See MAX_NESTING_DEPTH.
@@ -1797,8 +1830,14 @@ class BlockParser
     protected function parseBlocks(Node $parent, array $lines, int $indent, ?array $lineMap = null, bool $topLevel = false): void
     {
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
-            $text = implode("\n", $lines);
-            if (trim($text) !== '') {
+            // The flattened lines are ORDINARY paragraph text (PART 9 §25), so
+            // they group by the ordinary paragraph rule: consecutive lines form
+            // one paragraph, ENDING AT THE FIRST BLANK LINE like any other, and
+            // with no trailing whitespace carried into the node. Collecting the
+            // whole run into a single node instead produced a paragraph holding
+            // a literal blank line, and the source's final newline before
+            // `</p>` - a byte nothing else in the HTML target emits (carve#494).
+            foreach ($this->splitFlattenedParagraphs($lines) as $text) {
                 $paragraph = new Paragraph();
                 $this->inlineParser->parse($paragraph, $text);
                 $parent->appendChild($paragraph);
