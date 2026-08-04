@@ -78,7 +78,28 @@ class AnsiRenderer implements RendererInterface
      */
     protected function renderSmartPunctuation(SmartPunctuation $node): string
     {
+        if ($this->smartTypography === SmartTypographyMode::Source) {
+            return $node->getContent();
+        }
+
         return $node->getGlyph() ?? SmartPunctuation::GLYPHS[$node->getKind()] ?? $node->getContent();
+    }
+
+    protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
+
+    /**
+     * Whether smart typography renders as its glyph or as the source run the
+     * author typed.
+     *
+     * The same switch the HTML and Markdown renderers carry. It was missing
+     * here, so a caller who turned smart typography off still got glyphs on
+     * this target (carve#560).
+     */
+    public function setSmartTypography(SmartTypographyMode $mode): self
+    {
+        $this->smartTypography = $mode;
+
+        return $this;
     }
 
     /**
