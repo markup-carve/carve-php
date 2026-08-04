@@ -28,6 +28,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A below-column line folds at every depth, not only one column in**
+  (PART 9 §24 C3, carve#603). The dedented-opener fold forwarded the line with
+  its own indentation, which two columns in REACHED the sub-list's content
+  column inside the re-parsed stream and opened a list there - `-   x` /
+  `    - a` / `  - b` nested `b` under `a`, as it did in all three engines. A
+  folded line now carries exactly one column, which reaches no content column
+  at all. At the content column a marker still opens a sublist, and at the base
+  column it is still a sibling.
+
 - **The canonical writer stops escaping a caret that opens nothing** (PART 11
   §2, markup-carve/carve#581, #702). §2 escapes a character IF AND ONLY IF
   omitting the escape would change the re-parsed AST, and a lone `^` opens
