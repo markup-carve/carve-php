@@ -1099,9 +1099,38 @@ class BlockParser
                             $footnote->setAttribute('data-source-line', (string)($i + 1));
                         }
                         $this->footnotes[$label] = $footnote;
+                        $bodyLines = [$content];
+                        $bodyLineMap = [$i];
+                        // A definition at an item's CONTENT COLUMN keeps its
+                        // continuation lines, measured from the definition
+                        // rather than from column 0 (PART 9 §16: ">= 2",
+                        // relative). Treating the column form as single-line
+                        // dropped `    more` under `  [^f]: x` - not into the
+                        // item, not into the note, gone from the document
+                        // (carve-php#794). carve-js and carve-rs both keep it;
+                        // a line at the definition's OWN column is not
+                        // continuation and all three leave it alone.
+                        if ($container['kind'] === 'columnContainer') {
+                            $bodyIndent = $reachedCol + 2;
+                            $k = $i + 1;
+                            while ($k < $count) {
+                                $continuation = $lines[$k];
+                                if (IndentationHelper::isBlankLine($continuation)) {
+                                    break;
+                                }
+                                $indent = strlen($continuation) - strlen(ltrim($continuation, " \t"));
+                                if ($indent < $bodyIndent) {
+                                    break;
+                                }
+                                $bodyLines[] = substr($continuation, $bodyIndent);
+                                $bodyLineMap[] = $k;
+                                $k++;
+                            }
+                            $i = $k - 1;
+                        }
                         $deferredBodies[$label] = [
-                            'lines' => [$content],
-                            'lineMap' => [$i],
+                            'lines' => $bodyLines,
+                            'lineMap' => $bodyLineMap,
                         ];
                     }
 
