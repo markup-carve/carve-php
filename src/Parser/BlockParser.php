@@ -834,9 +834,7 @@ class BlockParser
         // INSIDE a blockquote (`> ``` ` / `> [^a]: note` / `> ``` `) is tracked
         // too: without this the container stripping below would wrongly read the
         // quoted code content as a real definition.
-        $fenceChar = null;
-        $fenceLen = 0;
-        $fenceDepth = 0;
+        $fence = new PrepassFenceTracker();
         // Track an open LINE BLOCK the same way. A line block's body is inline
         // content (`line_block_line = {whitespace}, inline_content, newline`),
         // so the block-level definition form cannot occur there: a `[^a]: note`
@@ -879,9 +877,14 @@ class BlockParser
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
         $deferredBodies = [];
+        // The item content column a definition on a CONTINUATION line has to
+        // reach, tracked exactly as the link-reference prepass tracks it.
+        $contentColumns = new ListContentColumns();
 
         while ($i < $count) {
             $line = $lines[$i];
+            // Inside a code fence a `- x` line is sample text, not a marker.
+            $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
@@ -899,24 +902,11 @@ class BlockParser
                 $quoteStages[] = $fenceLine;
             }
 
-            if ($fenceChar !== null) {
-                // Read the closer at the depth the fence opened at, for the
-                // reason spelled out at the line-block guard below: inside
-                // `> ``` ` a nested `> > ``` ` is quoted code content, and
-                // closing the region there let the lines after it register.
-                $closerLine = $quoteStages[$fenceDepth] ?? null;
-                if ($closerLine === null) {
-                    $fenceChar = null;
-                    $fenceLen = 0;
-                } else {
-                    if (
-                        preg_match('/^([`~]{3,})\s*$/', $closerLine, $fm)
-                        && $fm[1][0] === $fenceChar
-                        && strlen($fm[1]) >= $fenceLen
-                    ) {
-                        $fenceChar = null;
-                        $fenceLen = 0;
-                    }
+            if ($fence->isOpen()) {
+                // LEFT means the line dropped out of the blockquote the fence
+                // was opened in, so the region ended without a closer and this
+                // line is read normally.
+                if ($fence->advance($line) !== PrepassFenceTracker::LEFT) {
                     $i++;
 
                     continue;
@@ -971,18 +961,12 @@ class BlockParser
                     continue;
                 }
             }
-            $fc0 = $fenceLine[0] ?? '';
-            if (
-                ($fc0 === '`' || $fc0 === '~')
-                && preg_match('/^([`~]{3,})/', $fenceLine, $fm)
-            ) {
-                $fenceChar = $fm[1][0];
-                $fenceLen = strlen($fm[1]);
-                $fenceDepth = count($quoteStages) - 1;
+            if ($fence->opensOn($line, $contentCol)) {
                 $i++;
 
                 continue;
             }
+            $fc0 = $fenceLine[0] ?? '';
             if ($fc0 === ':') {
                 $lineBlockOpener = $this->parseLineBlockOpener($fenceLine);
                 if ($lineBlockOpener !== null) {
@@ -1022,6 +1006,31 @@ class BlockParser
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
+            // A definition on an item's CONTINUATION line carries no marker of
+            // its own, so the prefix scan above leaves the item's indentation in
+            // front of the `[` and the line stops looking like a definition. It
+            // was then collected by nobody while the block parser still removed
+            // it from the output: the author's line rendered as nothing and a
+            // `[^f]` reference to it stayed literal (carve-php#761) - the same
+            // disappearance markup-carve/carve#624 describes.
+            //
+            // Exactly the content column is removed, never more: one column
+            // short and the `[` is not at position 0, so a definition BELOW the
+            // column still registers nothing and folds as the paragraph text it
+            // looks like (§24 C3). Indented PAST the column it keeps residual
+            // spaces and fails the same test, matching carve-js.
+            if (
+                $container['kind'] === 'none'
+                && $contentCol > 0
+                && strlen($line) - strlen(ltrim($line, " \t")) >= $contentCol
+            ) {
+                $columnBare = substr($line, $contentCol);
+                if (preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
+                    $container = ['kind' => 'columnContainer', 'prefix' => substr($line, 0, $contentCol)];
+                    $bare = $columnBare;
+                }
+            }
+
             // Match footnote definition: [^label]: content. The marker line
             // must carry inline content (grammar PART 9 §16 production:
             // `"]:", space, inline_content`); a bare `[^label]:` is an
@@ -1047,7 +1056,12 @@ class BlockParser
                     // still seen). An indented `- [^a]:` that merely lazily
                     // continues a preceding paragraph is NOT a definition -- the
                     // real parser leaves it in that paragraph (matches carve-js).
-                    $opensBlock = $i === 0
+                    // A line that REACHED the item's content column opens a
+                    // block there by geometry (§24 C3), so it needs no opener
+                    // test: carve-js collects it under an item paragraph, under
+                    // a blank, and as the item's first body line alike.
+                    $opensBlock = $container['kind'] === 'columnContainer'
+                        || $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;

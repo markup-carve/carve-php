@@ -35,30 +35,19 @@ class ReferenceDefinitionExtractor
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
         $pendingAttrsInList = false;
-        $fenceChar = null;
-        $fenceLen = 0;
-        $fenceContentCol = 0;
-        $fenceQuoted = false;
+        $fence = new PrepassFenceTracker();
         // A LINE BLOCK is verse: its body is inline content, so a definition
         // written there is text and registers nothing (PART 9 §23, carve#574).
         // Registering it made the line render AND resolve elsewhere - the one
         // place in the language where a construct did both (carve#557).
         // Tracked like a code fence, closing on its own width.
         $verseFence = 0;
-        $listContentCols = [];
-        $prevBlank = true;
+        $contentColumns = new ListContentColumns();
 
         while ($i < $count) {
             $line = $lines[$i];
-            $wasPrevBlank = $prevBlank;
-            $prevBlank = trim($line) === '';
-
-            if ($fenceChar === null) {
-                $this->updateListContentColumns($line, $wasPrevBlank, $listContentCols);
-            }
-
-            $contentCol = $listContentCols === [] ? 0 : $listContentCols[array_key_last($listContentCols)];
-            $fenceView = $this->fenceView($line, $contentCol);
+            // Inside a code fence a `- x` line is sample text, not a marker.
+            $contentCol = $contentColumns->observe($line, $fence->isOpen());
 
             if ($verseFence > 0) {
                 if (preg_match('/^(:{3,})\s*$/', trim($line), $vm) && strlen($vm[1]) >= $verseFence) {
@@ -75,24 +64,18 @@ class ReferenceDefinitionExtractor
                 continue;
             }
 
-            if ($fenceChar !== null) {
-                if ($this->isFenceCloser($line, $fenceQuoted, $fenceContentCol, $fenceChar, $fenceLen)) {
-                    $fenceChar = null;
-                    $fenceLen = 0;
-                    $fenceContentCol = 0;
-                    $fenceQuoted = false;
-                }
-                $i++;
+            if ($fence->isOpen()) {
+                // LEFT means the line dropped out of the blockquote the fence
+                // was opened in, so the region ended without a closer and this
+                // line is read normally.
+                if ($fence->advance($line) !== PrepassFenceTracker::LEFT) {
+                    $i++;
 
-                continue;
+                    continue;
+                }
             }
 
-            if ($this->matchFenceOpener($fenceView['line']) !== null) {
-                $match = $this->matchFenceOpener($fenceView['line']);
-                $fenceChar = $match['char'];
-                $fenceLen = $match['length'];
-                $fenceContentCol = $contentCol;
-                $fenceQuoted = $fenceView['quoted'];
+            if ($fence->opensOn($line, $contentCol)) {
                 $i++;
 
                 continue;
@@ -141,120 +124,6 @@ class ReferenceDefinitionExtractor
         }
 
         return $references;
-    }
-
-    /**
-     * @param string $line Current source line.
-     * @param bool $wasPrevBlank Whether the previous line was blank.
-     * @param list<int> $listContentCols List content columns, updated in place.
-     */
-    private function updateListContentColumns(string $line, bool $wasPrevBlank, array &$listContentCols): void
-    {
-        $indent = strlen($line) - strlen(ltrim($line, " \t"));
-        $rawTrimmed = trim($line);
-        $startsBlock = preg_match('/^#{1,6}([ \t]|$)/', $rawTrimmed) === 1
-            || str_starts_with($rawTrimmed, '>')
-            || preg_match('/^(`{3,}|~{3,})/', $rawTrimmed) === 1
-            || preg_match('/^(-{3,}|\*{3,}|_{3,})$/', $rawTrimmed) === 1;
-
-        if (
-            preg_match(
-                '/^([ \t]*)(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +/',
-                $line,
-                $lm,
-            ) === 1
-            && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
-        ) {
-            $markerIndent = strlen($lm[1]);
-            while ($listContentCols !== [] && $listContentCols[array_key_last($listContentCols)] > $markerIndent) {
-                array_pop($listContentCols);
-            }
-            $listContentCols[] = strlen($lm[0]);
-        } elseif ($rawTrimmed !== '' && ($wasPrevBlank || $startsBlock)) {
-            while ($listContentCols !== [] && $listContentCols[array_key_last($listContentCols)] > $indent) {
-                array_pop($listContentCols);
-            }
-        }
-    }
-
-    /**
-     * @return array{line: string, quoted: bool}
-     */
-    private function fenceView(string $line, int $contentCol): array
-    {
-        $afterMarker = preg_replace(
-            '/^([ \t]*)(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?/',
-            '',
-            $line,
-        ) ?? $line;
-        $rawIsQuoted = preg_match('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', $line) === 1
-            || preg_match('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', $afterMarker) === 1;
-
-        $fenceLine = $line;
-        do {
-            $previousFenceLine = $fenceLine;
-            if (($fenceLine[0] ?? '') === '>' && preg_match('/^> ?/', $fenceLine)) {
-                $fenceLine = preg_replace('/^> ?/', '', $fenceLine) ?? $fenceLine;
-            }
-            $fenceLine = $this->stripFenceListMarker($fenceLine);
-        } while ($fenceLine !== $previousFenceLine);
-
-        $keptIndent = strlen($fenceLine) - strlen(ltrim($fenceLine, " \t"));
-
-        return [
-            'line' => $keptIndent >= $contentCol ? substr($fenceLine, $contentCol) : $fenceLine,
-            'quoted' => $rawIsQuoted,
-        ];
-    }
-
-    private function stripFenceListMarker(string $line): string
-    {
-        $f0 = $line[0] ?? '';
-        if (
-            $f0 !== ' '
-            && $f0 !== "\t"
-            && $f0 !== '-'
-            && $f0 !== '*'
-            && ($f0 < '0' || $f0 > '9')
-            && ($f0 < 'a' || $f0 > 'z')
-            && ($f0 < 'A' || $f0 > 'Z')
-        ) {
-            return $line;
-        }
-
-        return preg_replace(
-            '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
-            '',
-            $line,
-        ) ?? $line;
-    }
-
-    private function isFenceCloser(string $line, bool $fenceQuoted, int $fenceContentCol, string $fenceChar, int $fenceLen): bool
-    {
-        $closeLine = $fenceQuoted
-            ? (preg_replace('/^(?:[^\S\x{00A0}]*>[^\S\x{00A0}]?)+/u', '', $line) ?? $line)
-            : $line;
-        $closeIndent = strlen($closeLine) - strlen(ltrim($closeLine, " \t"));
-        $deIndentedCloseLine = $closeIndent >= $fenceContentCol
-            ? substr($closeLine, $fenceContentCol)
-            : $closeLine;
-
-        return preg_match('/^([`~]{3,})\s*$/', $deIndentedCloseLine, $fm) === 1
-            && $fm[1][0] === $fenceChar
-            && strlen($fm[1]) >= $fenceLen;
-    }
-
-    /**
-     * @return array{char: string, length: int}|null
-     */
-    private function matchFenceOpener(string $line): ?array
-    {
-        $c0 = $line[0] ?? '';
-        if (($c0 !== '`' && $c0 !== '~') || preg_match('/^([`~]{3,})/', $line, $fm) !== 1) {
-            return null;
-        }
-
-        return ['char' => $fm[1][0], 'length' => strlen($fm[1])];
     }
 
     /**
