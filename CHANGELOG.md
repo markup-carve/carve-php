@@ -9,6 +9,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An invisible construct in a list item does not loosen it** (PART 9 §17 L1,
+  markup-carve/carve#621, #744). L1 loosens an item that holds a
+  blank-line-separated second PARAGRAPH, and a comment or a definition renders
+  nothing at all - so `- a` / blank / `  %% note` came back as
+  `<li><p>a</p></li>` here, an item wrapped in `<p>` because of a line the
+  reader never sees. This engine was the only one loosening for BOTH shapes.
+
+  L1's other clause is untouched: an item FOLLOWED by a blank line before the
+  next sibling marker is loose either way, and an invisible line in that gap
+  does not fill it - `- a` / blank / `  %% note` / `- b` stays loose. The
+  corpus pins the pair as `87-compact-list-blocks-4`/`-5` against `-6`.
+
+  The post-blank looseness test now routes through the shared predicate instead
+  of a second spelling of it.
+
+### Fixed
+
 - **A definition below every content column folds instead of vanishing**
   (#721, PART 0 S4). One column in, a definition opens nothing - it reaches
   neither the sub-list's content column nor the outer item's - so with the

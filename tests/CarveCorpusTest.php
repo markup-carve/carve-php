@@ -162,6 +162,7 @@ class CarveCorpusTest extends TestCase
         'numbered-cross-references',
         'only-the-id-hoists-to-the-section-wrapper',
         'opaque-spans-inside-a-container',
+        'openers-past-the-nesting-cap-are-one-paragraph',
         'ordered-list-dialects',
         'ordered-list-start-and-delimiter',
         'ordered-marker-vs-prose',
