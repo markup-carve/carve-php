@@ -119,4 +119,30 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         $this->assertStringNotContainsString('doc-endnotes', $html);
         $this->assertStringContainsString('[^a]: note', $html);
     }
+
+    public function testADefinitionAtTheOUTERColumnOfACompactNestedItemRegisters(): void
+    {
+        // `- - b` opens TWO items on one line, with content columns 2 and 4.
+        // A definition at column 2 reaches the OUTER item, so it is that item's
+        // own block and registers. Testing only the innermost column left it
+        // looking like text: it registered nothing while the block parser still
+        // removed it, so the line rendered as nothing and the reference stayed
+        // literal (carve-php#764).
+        $html = $this->converter->convert("- - b\n  [^f]: note\n\nsee[^f]");
+
+        $this->assertStringContainsString('doc-endnotes', $html);
+        $this->assertStringNotContainsString('see[^f]', $html);
+        $this->assertStringNotContainsString('[^f]: note', $html);
+    }
+
+    public function testBelowEveryOpenColumnStillStaysText(): void
+    {
+        // One column in reaches neither 2 nor 4, so §24 C3's fold applies and
+        // the line is visible text that registers nothing.
+        $html = $this->converter->convert("- - b\n [^f]: note\n\nsee[^f]");
+
+        $this->assertStringContainsString('[^f]: note', $html);
+        $this->assertStringContainsString('see[^f]', $html);
+        $this->assertStringNotContainsString('doc-endnotes', $html);
+    }
 }

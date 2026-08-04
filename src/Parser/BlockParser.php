@@ -885,6 +885,13 @@ class BlockParser
             $line = $lines[$i];
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($line, $fence->isOpen());
+            // One line can open SEVERAL items (`- - b` opens two, columns 2 and
+            // 4), and a definition written under it belongs to whichever open
+            // item's column it lands on - not necessarily the innermost
+            // (carve-php#764).
+            $reachedCol = $contentColumns->reachedBy(
+                strlen($line) - strlen(ltrim($line, " \t")),
+            );
             // Strip any leading blockquote markers before the fence test so a
             // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
             // is tracked and its quoted footnote-looking lines stay literal.
@@ -1021,12 +1028,12 @@ class BlockParser
             // spaces and fails the same test, matching carve-js.
             if (
                 $container['kind'] === 'none'
-                && $contentCol > 0
-                && strlen($line) - strlen(ltrim($line, " \t")) >= $contentCol
+                && $reachedCol > 0
+                && strlen($line) - strlen(ltrim($line, " \t")) >= $reachedCol
             ) {
-                $columnBare = substr($line, $contentCol);
+                $columnBare = substr($line, $reachedCol);
                 if (preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
-                    $container = ['kind' => 'columnContainer', 'prefix' => substr($line, 0, $contentCol)];
+                    $container = ['kind' => 'columnContainer', 'prefix' => substr($line, 0, $reachedCol)];
                     $bare = $columnBare;
                 }
             }
