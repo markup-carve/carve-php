@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A marker-line sub-list holds an open paragraph like any other** (PART 0 S4,
+  #693). `- - a` / `b` ended the list and made `b` a document paragraph, where
+  the same lines with the sub-list on its own line already folded `b` into the
+  sub-item - so the engine disagreed with itself, and with carve-js, carve-rs
+  and the executable spec. The combined stream the marker-line branch collects
+  now tracks its trailing block, so a dedented line folds only while a
+  paragraph is open; a blank line, a closed fence, a sibling marker or a
+  base-column block opener still ends the item.
+
 - **A block boundary no longer depends on a line starting with a pipe** (#683).
   The block-start test accepted ANY line beginning with `|` as a table, while
   the paragraph-interruption test beside it validated the row first. So a
