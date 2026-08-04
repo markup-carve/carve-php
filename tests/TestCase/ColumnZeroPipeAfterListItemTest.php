@@ -9,14 +9,21 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Whether a column-0 line continues a list item whose last block is a container
- * is an open cross-engine question (markup-carve/carve#561) - but the answer
- * cannot depend on which character the line happens to start with. It did: a
- * `|` detached the line while `*`, `-` and `x` attached it, because
- * isBlockElementStart() accepted ANY line starting with a pipe as a table,
- * while the paragraph-interruption predicate next to it validated the row
- * first (carve-php#683). A bare `|` is not a table row, so it now behaves
- * exactly like the other three. A real row still opens a table.
+ * A column-0 line after a list item whose only content is an EMPTY quote does
+ * not continue the item, and the answer cannot depend on which character the
+ * line happens to start with.
+ *
+ * The character-independence half was the original defect: a `|` detached the
+ * line while `*`, `-` and `x` attached it, because isBlockElementStart()
+ * accepted ANY line starting with a pipe as a table, while the
+ * paragraph-interruption predicate next to it validated the row first
+ * (carve-php#683). A bare `|` is not a table row, so it behaves like the other
+ * three.
+ *
+ * WHICH way all four go was open as markup-carve/carve#561 when this was
+ * written, and this engine attached them. PART 1 S4 has since answered it -
+ * NO OPEN PARAGRAPH, NO LAZY LINE - so they all detach now, and the assertions
+ * flip while the property they check does not.
  */
 class ColumnZeroPipeAfterListItemTest extends TestCase
 {
@@ -44,11 +51,11 @@ class ColumnZeroPipeAfterListItemTest extends TestCase
      * @param string $char
      */
     #[DataProvider('nonRowCharacterProvider')]
-    public function testColumnZeroLineAttachesToTheItemWhateverTheCharacter(string $char): void
+    public function testColumnZeroLineDetachesFromTheItemWhateverTheCharacter(string $char): void
     {
         $html = $this->converter->convert(". >\n" . $char);
-        $this->assertStringContainsString($char . "\n  </li>", $html);
-        $this->assertStringNotContainsString('<p>' . $char . '</p>', $html);
+        $this->assertStringNotContainsString($char . "\n  </li>", $html);
+        $this->assertStringContainsString('<p>' . $char . '</p>', $html);
     }
 
     public function testARealTableRowStillOpensATable(): void
