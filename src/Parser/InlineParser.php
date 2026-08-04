@@ -2224,10 +2224,18 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
-                // For empty reference [text][], use link text as reference
-                // In this case, normalize to strip formatting markers
+                // For empty reference [text][], the label IS the bracket text,
+                // whitespace-collapsed - the same normalization the explicit
+                // form below uses. Definitions are stored under the label the
+                // author wrote, so anything else cannot find them.
+                //
+                // This used to STRIP inline formatting characters from the
+                // label, which inverted the whole rule: a definition carrying
+                // any of them could not be reached by the label that defined
+                // it, while a plain definition WAS reached by a decorated
+                // label that never named it (carve-php#768).
                 if ($ref === '') {
-                    $ref = $this->normalizeReferenceLabel($linkText);
+                    $ref = preg_replace('/\\s+/', ' ', trim($linkText)) ?? $linkText;
                 } else {
                     // Explicit reference [text][ref] - only normalize whitespace, keep formatting chars
                     $ref = preg_replace('/\s+/', ' ', trim($ref)) ?? $ref;
@@ -2239,6 +2247,26 @@ class InlineParser
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
+                if ($refDef === null && $originalRefBracket === '') {
+                    // A HEADING-derived definition (PART 11 R1) is keyed by
+                    // the heading's TEXT, so a label carrying inline markup
+                    // cannot match it as written: a heading holding a code
+                    // span registers the span's content, not its backticks.
+                    // Retry once with the markup characters removed, and
+                    // accept the result only when it came from a heading - an
+                    // authored definition line is matched by the label the
+                    // author wrote, nothing else. carve-rs resolves both
+                    // shapes this way; carve-js resolves neither.
+                    $plain = preg_replace('/[_*~^+={}`\\[\\]]/', '', $ref) ?? $ref;
+                    $plain = trim(preg_replace('/\\s+/', ' ', $plain) ?? $plain);
+                    if ($plain !== $ref && $plain !== '') {
+                        $headingDef = $this->blockParser->getCollapsedReference($plain);
+                        if ($headingDef !== null && $headingDef->fromHeading) {
+                            $refDef = $headingDef;
+                            $ref = $plain;
+                        }
+                    }
+                }
                 if ($refDef !== null) {
                     // Track reference usage for validation
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
@@ -4259,16 +4287,4 @@ class InlineParser
      * - Collapse whitespace (including newlines) to single spaces
      * - Trim leading/trailing whitespace
      */
-    protected function normalizeReferenceLabel(string $label): string
-    {
-        // Strip inline formatting markers: _ * ~ ^ + = { } ` [ ]
-        // But keep the content between them
-        $label = preg_replace('/[_*~^+={}`\[\]]/', '', $label) ?? $label;
-
-        // Normalize whitespace: collapse multiple spaces/newlines to single space
-        $label = preg_replace('/\s+/', ' ', $label) ?? $label;
-
-        // Trim
-        return trim($label);
-    }
 }
