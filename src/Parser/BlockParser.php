@@ -2461,15 +2461,29 @@ class BlockParser
             $i++;
         }
 
-        // Trim trailing empty lines but preserve internal blank lines
+        // Trim leading and trailing empty lines but preserve internal blank
+        // lines - and preserve the INDENTATION of the lines that remain. A
+        // comment body is verbatim text: `trim()` on the joined content ate
+        // the first line's leading whitespace, so
+        //
+        //     %%%
+        //       x
+        //     %%%
+        //
+        // parsed to a comment holding `x` here and `  x` in carve-js and
+        // carve-rs - a cross-engine AST difference, and a round trip through
+        // `carve fmt` that silently moved the author's line (carve#653).
         while ($contentLines && trim(end($contentLines)) === '') {
             array_pop($contentLines);
+        }
+        while ($contentLines && trim($contentLines[0]) === '') {
+            array_shift($contentLines);
         }
 
         $content = implode("\n", $contentLines);
 
         // Comments are stored but not rendered
-        $comment = new Comment(trim($content), $fenceLength);
+        $comment = new Comment($content, $fenceLength);
         $parent->appendChild($comment);
 
         return $i - $start;
