@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -178,7 +179,7 @@ class PlainTextRenderer implements RendererInterface
     protected function renderNode(Node $node): string
     {
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'plain-text');
         }
 
         $this->renderDepth++;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Filter\ProfileFilter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -59,29 +60,40 @@ class DeepNestingTest extends TestCase
         $this->assertSame(3, $depth);
     }
 
-    public function testProgrammaticDeepDocumentDoesNotCrashRenderOrFilter(): void
+    public function testProgrammaticDeepDocumentRefusesRatherThanTruncating(): void
     {
+        // PART 9 §25: reaching the render ceiling produces a typed failure
+        // naming the bound. It used to return the opening markers with the
+        // body missing - a document that looks complete and is not.
         $doc = $this->buildProgrammaticDeepDocument();
 
-        $html = (new HtmlRenderer())->render($doc);
-        (new ProfileFilter())->filter($doc, new Profile());
-
-        $this->assertStringStartsWith('<p><span>', $html);
-        $this->assertStringNotContainsString('too deep', $html);
-        $this->assertLessThan(20000, strlen($html));
+        $this->expectException(RenderDepthExceededException::class);
+        (new HtmlRenderer())->render($doc);
     }
 
-    public function testProgrammaticDeepDocumentDoesNotCrashNonHtmlRenderers(): void
+    public function testTheFilterPassStillBoundsTheSameTree(): void
+    {
+        // The filter pass is bounded too, and bounding it is not the same
+        // question as rendering it: it must not crash on a tree it cannot
+        // walk to the bottom.
+        $doc = $this->buildProgrammaticDeepDocument();
+
+        (new ProfileFilter())->filter($doc, new Profile());
+
+        $this->assertTrue(true, 'the filter pass returned instead of overflowing the stack');
+    }
+
+    public function testEveryNonHtmlRendererRefusesTheSameTree(): void
     {
         $doc = $this->buildProgrammaticDeepDocument();
 
-        $markdown = (new MarkdownRenderer())->render($doc);
-        $plain = (new PlainTextRenderer())->render($doc);
-        $ansi = (new AnsiRenderer(useColors: false))->render($doc);
-
-        foreach ([$markdown, $plain, $ansi] as $output) {
-            $this->assertStringNotContainsString('too deep', $output);
-            $this->assertLessThan(20000, strlen($output));
+        foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            try {
+                $renderer->render($doc);
+                $this->fail($renderer::class . ' rendered a tree past the ceiling instead of refusing');
+            } catch (RenderDepthExceededException $exception) {
+                $this->assertStringContainsString((string)$exception->limit, $exception->getMessage());
+            }
         }
     }
 

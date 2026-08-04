@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -18,13 +19,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use function basename;
-use function explode;
 use function file_get_contents;
 use function glob;
 use function preg_replace;
 use function str_repeat;
-use function strlen;
-use function trim;
 
 #[Group('corpus')]
 class CarveFormatterTest extends TestCase
@@ -330,10 +328,11 @@ class CarveFormatterTest extends TestCase
 
     /**
      * An AST built through the API can nest far past the depth the parser
-     * allows. renderBlock emits nothing past MAX_RENDER_DEPTH, so a fence sized
-     * from those levels would be sized for output that never appears.
+     * allows, and PART 9 §25 makes the writer REFUSE there rather than emit a
+     * document whose body is missing. The fence-width question this test was
+     * written for cannot arise any more: there is no output to size.
      */
-    public function testFenceIgnoresContainersPastTheRenderCap(): void
+    public function testTheWriterRefusesContainersPastTheRenderCap(): void
     {
         $node = new Paragraph();
         for ($level = 0; $level < 1000; $level++) {
@@ -344,19 +343,8 @@ class CarveFormatterTest extends TestCase
         $document = new Document();
         $document->appendChild($node);
 
-        $formatted = (new CarveRenderer())->render($document);
-
-        $widest = 0;
-        foreach (explode("\n", $formatted) as $line) {
-            if ($line !== '' && trim($line, ':') === '') {
-                $widest = max($widest, strlen($line));
-            }
-        }
-        // Derived, not pinned: the outermost fence is `:::` and each level
-        // inward adds a colon, so the widest a bounded writer can emit is fixed
-        // by the cap itself. Writing the number out made this test track the
-        // old cap rather than the rule (issue 517).
-        $this->assertLessThanOrEqual(3 + CarveRenderer::MAX_RENDER_DEPTH - 1, $widest);
+        $this->expectException(RenderDepthExceededException::class);
+        (new CarveRenderer())->render($document);
     }
 
     /**
@@ -406,10 +394,12 @@ class CarveFormatterTest extends TestCase
         $under = $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH - 2));
         $this->assertStringContainsString('body', $under);
 
-        $over = $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH + 1));
-        $farOver = $renderer->render($build(1000));
-        $this->assertStringNotContainsString('body', $over);
-        $this->assertSame(strlen($over), strlen($farOver));
+        // Past the ceiling the writer refuses (§25). It used to return the
+        // fences with `body` dropped, which is the failure mode that clause
+        // exists to remove: identical output lengths at depth+1 and at 1000,
+        // and no way for the caller to tell either from a complete document.
+        $this->expectException(RenderDepthExceededException::class);
+        $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH + 1));
     }
 
     public function testDeepContainerLadderKeepsDepthAfterFormatting(): void

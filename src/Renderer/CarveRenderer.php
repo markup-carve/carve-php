@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
@@ -266,11 +267,13 @@ class CarveRenderer implements RendererInterface
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderBlocks(array $blocks): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
         }
 
         $this->blockDepth++;
@@ -479,7 +482,7 @@ class CarveRenderer implements RendererInterface
         // Adjacent blocks are joined with a single newline instead, matching
         // the canonical carve-js writer.
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
         }
 
         $previousColonFenceDepth = $this->colonFenceDepth;
@@ -920,11 +923,13 @@ class CarveRenderer implements RendererInterface
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderInlines(array $nodes): string
     {
         if ($this->inlineDepth >= self::MAX_RENDER_DEPTH) {
-            return '';
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
         }
         $this->inlineDepth++;
         try {

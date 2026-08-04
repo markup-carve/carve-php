@@ -7,6 +7,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a renderer refuses at its ceiling instead of truncating** (PART 9
+  §25, markup-carve/carve#548, #702). Reaching the recursion ceiling now throws
+  `RenderDepthExceededException`, a typed failure naming the bound and the
+  renderer, where every renderer used to return what it had produced so far -
+  the nested markers with the BODY dropped, a document that looks complete and
+  is not, with nothing in the return value to say so. The clause is explicit
+  that this makes a renderer FALLIBLE in implementations whose signature says
+  it cannot fail, and prefers that to a caller told nothing.
+
+  No document `parse()` produces can reach a ceiling: the block cap is 200, the
+  inline cap 100, and the ceilings sit above their sum (232 for the canonical
+  writer, which counts block and inline depth separately; 512 for the HTML,
+  Markdown, plain-text and ANSI renderers, which share one counter). What
+  refuses is a tree built through the API or decoded from JSON - where the
+  caller built it and can act on the failure. The CLI reports the refusal on
+  stderr and exits 1 rather than writing a partial document.
+
 ### Fixed
 
 - **An over-cap opener groups by the ordinary paragraph rule** (PART 9 §25,
