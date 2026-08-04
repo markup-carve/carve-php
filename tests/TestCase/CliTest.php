@@ -193,4 +193,50 @@ class CliTest extends TestCase
             $this->assertStringNotContainsString('Stack trace', $res['err']);
         }
     }
+
+    public function testSmartTypographySourceOnHtml(): void
+    {
+        // The CLI is the machine-facing case the switch exists for, and it is
+        // how the spec's optional corpus fixture 29-smart-typography-off is
+        // driven against this engine.
+        $result = $this->runCliInput(['--html', '--smart-typography', 'source'], "a...b -- c\n");
+
+        $this->assertSame(0, $result['exit'], $result['err']);
+        $this->assertSame('<p>a...b -- c</p>', trim($result['out']));
+    }
+
+    public function testSmartTypographySourceOnMarkdown(): void
+    {
+        $result = $this->runCliInput(['--markdown', '--smart-typography', 'source'], "a...b -- c\n");
+
+        $this->assertSame(0, $result['exit'], $result['err']);
+        $this->assertSame('a...b -- c', trim($result['out']));
+    }
+
+    public function testSmartTypographyDefaultsToTheGlyph(): void
+    {
+        $implicit = $this->runCliInput(['--html'], "a...b -- c\n");
+        $explicit = $this->runCliInput(['--html', '--smart-typography', 'glyph'], "a...b -- c\n");
+
+        $this->assertSame($implicit['out'], $explicit['out']);
+        $this->assertStringContainsString('…', $implicit['out']);
+    }
+
+    public function testSmartTypographyRejectsAnUnknownMode(): void
+    {
+        // Falling back to the default silently is the failure this switch
+        // keeps hitting: output that looks configured and is not.
+        $result = $this->runCliInput(['--html', '--smart-typography', 'bogus'], "a...b\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('expected glyph|source', $result['err']);
+    }
+
+    public function testSmartTypographyRequiresAMode(): void
+    {
+        $result = $this->runCliInput(['--html', '--smart-typography'], "a...b\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('requires a mode', $result['err']);
+    }
 }

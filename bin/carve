@@ -55,7 +55,10 @@ use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Stamp;
 
 /**
@@ -67,6 +70,7 @@ use MarkupCarve\Carve\Stamp;
 function parseArgs(array $argv): array
 {
     $options = [
+        'smartTypography' => 'glyph',
         'output' => null,
         'format' => 'html',
         'fromJson' => false,
@@ -123,6 +127,20 @@ function parseArgs(array $argv): array
         } elseif ($arg === '--strict') {
             $options['strict'] = true;
             $options['warnings'] = true;
+        } elseif ($arg === '--smart-typography') {
+            // The document-global switch the spec documents. Source mode is
+            // for machine-facing output - text piped into something that
+            // re-parses it - which is the shape of a CLI invocation.
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --smart-typography requires a mode (glyph|source)\n");
+                exit(1);
+            }
+            $mode = $argv[++$i];
+            if ($mode !== 'glyph' && $mode !== 'source') {
+                fwrite(STDERR, "Error: Unknown smart typography mode: $mode (expected glyph|source)\n");
+                exit(1);
+            }
+            $options['smartTypography'] = $mode;
         } elseif ($arg === '-o' || $arg === '--output') {
             if (!isset($argv[$i + 1])) {
                 fwrite(STDERR, "Error: --output requires a filename\n");
@@ -237,6 +255,10 @@ Output format (default --html; last one wins):
   --from-json            read an encoded AST instead of Carve source
   --ansi              ANSI-colored terminal text
   --carve             canonical Carve source
+
+Rendering:
+  --smart-typography MODE  glyph (default) or source: emit the runs the author
+                           typed instead of the resolved glyphs (HTML/Markdown)
 
 Formatter:
   lint                Report Markdown habits that render as something else
@@ -472,6 +494,16 @@ $converter = match ($options['format']) {
         mode: $options['static'] ? RenderMode::STATIC : RenderMode::INTERACTIVE,
     ),
 };
+
+// Smart typography is a RENDERING choice, so it is set on the renderer rather
+// than on the parse. Only the targets that implement it are affected: HTML and
+// Markdown carry the mode, plain text and ANSI still emit the glyph.
+if (($options['smartTypography'] ?? 'glyph') === 'source') {
+    $renderer = $converter->getRenderer();
+    if ($renderer instanceof HtmlRenderer || $renderer instanceof MarkdownRenderer) {
+        $renderer->setSmartTypography(SmartTypographyMode::Source);
+    }
+}
 
 // Register the bundled interactive extensions for the HTML format so a sample
 // that uses tabs / code-group / math / mermaid renders meaningfully in both
