@@ -3376,9 +3376,13 @@ class BlockParser
                     // (Rule B re-recognizes it after the residual), so it keeps
                     // the item tight.
                     $strippedCurrent = IndentationHelper::stripLeadingColumns($currentLine, $lastItemContentIndent);
-                    $firstContentOpensBlock =
-                        $this->listParser->parseListItemMarker(ltrim($strippedCurrent)) !== null
-                        || $this->isBlockElementStart($strippedCurrent);
+                    // The shared looseness predicate, not a second spelling of
+                    // it: a list marker at any indent, a block opener, and a
+                    // line that renders NOTHING all leave the item tight. A
+                    // comment or a definition here used to loosen it, wrapping
+                    // the item in `<p>` because of a line the reader never sees
+                    // (carve-php#744).
+                    $firstContentOpensBlock = $this->lineOpensBlockForLooseness($strippedCurrent);
                     if (!$firstContentOpensBlock) {
                         // Indented plain text (or above-column lazy text) after a
                         // blank line = a second paragraph in the item => loose.
@@ -3611,7 +3615,17 @@ class BlockParser
                     // (before nested content starts), which is already handled elsewhere
                     // Only reset if we didn't break to handle content at parent level
                     if (!$brokeForParentContent) {
-                        $lastItemHadBlankAfter = false;
+                        // ... unless everything collected after the blank
+                        // RENDERS NOTHING. §17 L1 has two clauses, and only the
+                        // second-paragraph one is answered above: an item
+                        // FOLLOWED by a blank line before the next sibling
+                        // marker is loose either way, and an invisible line in
+                        // that gap does not fill it. Keeping the flag lets a
+                        // following sibling loosen the list, while an item that
+                        // ends the list stays tight - which is the pair the
+                        // corpus pins as 87-compact-list-blocks-4/5 against -6
+                        // (carve-php#744).
+                        $lastItemHadBlankAfter = $this->contentRendersNothing($subLines);
                     }
 
                     continue;
@@ -7264,7 +7278,43 @@ class BlockParser
             return true;
         }
 
+        // A line that RENDERS NOTHING is not a second paragraph either. §17 L1
+        // loosens an item that holds a blank-line-separated second PARAGRAPH,
+        // and a comment or a definition produces no output at all - so an item
+        // came back wrapped in `<p>` because of a line the reader never sees,
+        // which is the blank line showing through (carve-php#744). The blank
+        // before a following SIBLING marker is a different clause and still
+        // loosens; that one is decided by the caller, not here.
+        if ($this->isInvisibleOrAttributeLine($line)) {
+            return true;
+        }
+
         return $this->isBlockElementStart($line);
+    }
+
+    /**
+     * Does this collected content produce no output at all?
+     *
+     * Only comments, definitions and attribute lines qualify - the constructs
+     * §15 A2a calls invisible. Blank lines do not disqualify it; a stream of
+     * nothing but invisible lines is still nothing.
+     *
+     * @param array<string> $lines
+     */
+    protected function contentRendersNothing(array $lines): bool
+    {
+        $sawLine = false;
+        foreach ($lines as $line) {
+            if (IndentationHelper::isBlankLine($line)) {
+                continue;
+            }
+            if (!$this->isInvisibleOrAttributeLine($line)) {
+                return false;
+            }
+            $sawLine = true;
+        }
+
+        return $sawLine;
     }
 
     /**
