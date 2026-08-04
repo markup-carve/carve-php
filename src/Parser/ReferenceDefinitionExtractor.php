@@ -42,12 +42,48 @@ class ReferenceDefinitionExtractor
         // place in the language where a construct did both (carve#557).
         // Tracked like a code fence, closing on its own width.
         $verseFence = 0;
+        // A comment's body is OPAQUE, and this pass did not know it: a
+        // `[r]: /u` written inside `%%%` registered, so a reference elsewhere
+        // resolved against text the author commented out - invisible in the
+        // output and active in the link table (carve-php#778). The footnote
+        // pass beside this one already tracked it; this one did not.
+        $commentFenceLen = 0;
+        // Only a fence that CLOSES opens the opaque region. An unterminated
+        // `%%%` degrades to a single-line comment, and treating it as open
+        // would suppress every definition in the rest of the document. Same
+        // pre-scan the footnote pass runs, for the same reason.
+        $commentCloseAt = [];
+        for ($j = 0; $j < $count; $j++) {
+            if (preg_match('/^(%{3,})/', $lines[$j], $cj) === 1) {
+                $commentCloseAt[strlen($cj[1])] = $j;
+            }
+        }
         $contentColumns = new ListContentColumns();
 
         while ($i < $count) {
             $line = $lines[$i];
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($line, $fence->isOpen());
+
+            // A comment fence's closer is a leading `%` run of the SAME length;
+            // trailing text is allowed, so `%%% end` closes a `%%%` fence.
+            if ($commentFenceLen > 0) {
+                if (preg_match('/^(%{3,})/', $line, $cm) === 1 && strlen($cm[1]) === $commentFenceLen) {
+                    $commentFenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            if (preg_match('/^(%{3,})/', $line, $cm) === 1) {
+                $openLen = strlen($cm[1]);
+                if (($commentCloseAt[$openLen] ?? -1) > $i) {
+                    $commentFenceLen = $openLen;
+                    $i++;
+
+                    continue;
+                }
+            }
 
             if ($verseFence > 0) {
                 if (preg_match('/^(:{3,})\s*$/', trim($line), $vm) && strlen($vm[1]) >= $verseFence) {
