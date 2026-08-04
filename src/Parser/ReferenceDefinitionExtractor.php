@@ -10,6 +10,17 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 class ReferenceDefinitionExtractor
 {
     /**
+     * The inline parser answers ONE question here: is a trailing `{...}` a
+     * valid attribute block? §14's rule is that a single invalid name
+     * invalidates the WHOLE block, and it is the inline parser that knows it -
+     * a second copy of the predicate would drift from the one every other
+     * attribute site uses.
+     */
+    public function __construct(private ?InlineParser $inlineParser = null)
+    {
+    }
+
+    /**
      * Extract reference link definitions from the document.
      *
      * @param array<string> $lines
@@ -329,7 +340,7 @@ class ReferenceDefinitionExtractor
         // A trailing `{...}` block attributes the DEFINITION (PART 9 §16,
         // `[space, attributes]`), and PART 9R R1 transfers those attributes to
         // every link that resolves the label.
-        [$url, $attrsToUse] = self::splitTrailingAttributes($url);
+        [$url, $attrsToUse] = $this->splitTrailingAttributes($url);
         $title = null;
 
         if (
@@ -373,7 +384,7 @@ class ReferenceDefinitionExtractor
      *
      * @return array{0: string, 1: array<string, string>}
      */
-    private static function splitTrailingAttributes(string $tail): array
+    private function splitTrailingAttributes(string $tail): array
     {
         $length = strlen($tail);
         for ($i = 0; $i < $length; $i++) {
@@ -416,6 +427,13 @@ class ReferenceDefinitionExtractor
                     // hoist would reorder the rendered attributes of every link
                     // resolving the label. The inline path already preserves
                     // source order; this has to match it.
+                    if ($this->inlineParser !== null && !$this->inlineParser->isValidAttrPayload($payload)) {
+                        // One invalid name invalidates the whole block (§14),
+                        // exactly as it does on a block-attribute line and
+                        // inline - so `{.a\}b}` yields NO attributes rather
+                        // than silently keeping the half that parsed.
+                        return [$tail, []];
+                    }
                     $parsed = AttributeParser::parseOrderedWithSlots($payload);
                     $attrs = $parsed['attributes'];
                     if ($attrs === []) {

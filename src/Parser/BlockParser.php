@@ -397,7 +397,7 @@ class BlockParser
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
         $this->fencedBlockParser = new FencedBlockParser();
-        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor();
+        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor($this->inlineParser);
     }
 
     /**

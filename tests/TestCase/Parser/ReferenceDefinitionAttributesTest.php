@@ -106,6 +106,32 @@ class ReferenceDefinitionAttributesTest extends TestCase
         $this->assertStringNotContainsString('class="a a"', $html);
     }
 
+    public function testOneInvalidNameInvalidatesTheWholeBlock(): void
+    {
+        // §14's rule, the same one a block-attribute line and an inline block
+        // follow: a single bad name drops the whole block rather than keeping
+        // the half that parsed.
+        $html = $this->converter->convert("[r]: /u {.123}\n\nsee [E][r]");
+
+        $this->assertStringContainsString('<a href="/u">E</a>', $html);
+        $this->assertStringNotContainsString('class=', $html);
+    }
+
+    public function testAnEscapedBraceInsideTheBlockDoesNotHalfParse(): void
+    {
+        $html = $this->converter->convert("[r]: /u {.a\\}b}\n\nsee [E][r]");
+
+        $this->assertStringContainsString('<a href="/u">E</a>', $html);
+        $this->assertStringNotContainsString('class="a"', $html);
+    }
+
+    public function testAnEmptyBlockAttributesNothing(): void
+    {
+        $html = $this->converter->convert("[r]: /u {}\n\nsee [E][r]");
+
+        $this->assertStringContainsString('<a href="/u">E</a>', $html);
+    }
+
     public function testADefinitionWithoutAttributesIsUnchanged(): void
     {
         $html = $this->converter->convert("[ex]: /u\n\nsee [E][ex]");
