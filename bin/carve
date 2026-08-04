@@ -55,8 +55,10 @@ use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Stamp;
@@ -496,11 +498,18 @@ $converter = match ($options['format']) {
 };
 
 // Smart typography is a RENDERING choice, so it is set on the renderer rather
-// than on the parse. Only the targets that implement it are affected: HTML and
-// Markdown carry the mode, plain text and ANSI still emit the glyph.
+// than on the parse. Every presentation target carries the mode: HTML,
+// Markdown, plain text and ANSI. The last two used to emit the glyph whatever
+// the flag said, so `--smart-typography source` was accepted and ignored there
+// (carve#560).
 if (($options['smartTypography'] ?? 'glyph') === 'source') {
     $renderer = $converter->getRenderer();
-    if ($renderer instanceof HtmlRenderer || $renderer instanceof MarkdownRenderer) {
+    if (
+        $renderer instanceof HtmlRenderer
+        || $renderer instanceof MarkdownRenderer
+        || $renderer instanceof PlainTextRenderer
+        || $renderer instanceof AnsiRenderer
+    ) {
         $renderer->setSmartTypography(SmartTypographyMode::Source);
     }
 }
