@@ -110,6 +110,12 @@ class CarveRenderer implements RendererInterface
 
     protected int $inlineDepth = 0;
 
+    /**
+     * Inside a table cell, where a leading `^` cannot open a caption: a caption
+     * marker is a BLOCK line, and a cell's content is not one.
+     */
+    protected int $tableCellDepth = 0;
+
     protected int $listDepth = 0;
 
     protected int $colonFenceDepth = 0;
@@ -850,7 +856,14 @@ class CarveRenderer implements RendererInterface
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
         $prefix = $attrs . ($cell->isHeader() && $markHeader ? '=' : '') . $align;
 
-        return ['text' => $prefix . $this->renderInlines($cell->getChildren()), 'tight' => $prefix !== ''];
+        $this->tableCellDepth++;
+        try {
+            $content = $this->renderInlines($cell->getChildren());
+        } finally {
+            $this->tableCellDepth--;
+        }
+
+        return ['text' => $prefix . $content, 'tight' => $prefix !== ''];
     }
 
     protected function renderFigure(Figure $node): string
@@ -958,7 +971,12 @@ class CarveRenderer implements RendererInterface
         $rawReference = UnresolvedReference::sourceOf($node);
 
         return match (true) {
-            $node instanceof Text => $this->escapeText($this->resolveIndentPlaceholder($node->getContent())) . (string)$node->getAttribute('data-carve-raw-suffix'),
+            $node instanceof Text => $this->escapeText(
+                $this->resolveIndentPlaceholder($node->getContent()),
+                // Does this node's first character sit at the start of a block
+                // line? Only there can `^ ` be read back as a caption marker.
+                ($prevChar === '' || $prevChar === "\n") && $this->tableCellDepth === 0,
+            ) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
             // The author escaped this character; the writer says so again. No
@@ -1614,7 +1632,7 @@ class CarveRenderer implements RendererInterface
         };
     }
 
-    protected function escapeText(string $text): string
+    protected function escapeText(string $text, bool $opensBlockLine = false): string
     {
         $text = (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F-\x9F]/u', '', $text);
         if (preg_match('/^\[\^[^\]\n]+\]$/u', $text) === 1) {
@@ -1629,9 +1647,13 @@ class CarveRenderer implements RendererInterface
 
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use ($text, $minimal): string {
+            static function (array $match) use ($text, $minimal, $opensBlockLine): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
+                if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
+                    // Forced in BOTH modes - see the note on the method.
+                    return '\\^';
+                }
                 if ($minimal && $char === '^' && !self::caretOpensAConstruct($text, $offset)) {
                     return '^';
                 }
@@ -1656,6 +1678,37 @@ class CarveRenderer implements RendererInterface
      * @param string $text
      * @param int $offset
      */
+    /**
+     * Is this caret a CAPTION MARKER - `^` plus a space at the start of a block
+     * line?
+     *
+     * Forced in both escape modes, unlike every other candidate. The
+     * minimal/conservative decision is per DOCUMENT: rendered bare in the
+     * minimal pass the marker becomes a caption, the two passes differ, and the
+     * whole document escalates to conservative - which then escapes every
+     * candidate in it, including characters that needed nothing. That produced
+     * `\^ Figure 1\: moon` for corpus 158-indented-image-and-caption-stay-
+     * literal, where the colon escape changes no parse in any engine
+     * (carve-php#743).
+     *
+     * `^sup^` is not this shape: superscript is braced-only and a caption needs
+     * the space, so it stays with caretOpensAConstruct() below and is written
+     * bare.
+     *
+     * @param string $text
+     * @param int $offset
+     * @param bool $opensBlockLine Whether offset 0 of $text is a block-line start.
+     */
+    private static function caretOpensACaption(string $text, int $offset, bool $opensBlockLine): bool
+    {
+        $next = $text[$offset + 1] ?? '';
+        if ($next !== ' ' && $next !== "\t") {
+            return false;
+        }
+
+        return $offset === 0 ? $opensBlockLine : ($text[$offset - 1] ?? '') === "\n";
+    }
+
     private static function caretOpensAConstruct(string $text, int $offset): bool
     {
         $next = $text[$offset + 1] ?? '';
