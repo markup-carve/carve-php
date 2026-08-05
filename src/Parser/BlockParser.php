@@ -5272,6 +5272,9 @@ class BlockParser
                     'content' => $content,
                     'attributes' => $cellAttributes[$idx] ?? '',
                     'offset' => $original === null ? null : $original['offset'],
+                    // Carried alongside `offset` everywhere a cell array is
+                    // rebuilt: it is the one `rawLength` measures from.
+                    'cellOffset' => $original === null ? null : $original['cellOffset'],
                     'rawLength' => $original === null ? null : $original['rawLength'],
                     'raw' => $original === null ? null : $original['raw'],
                     'verbatim' => $original !== null
@@ -5501,11 +5504,11 @@ class BlockParser
      * `consumedColspanColumns` to know which columns must NOT become a new
      * open origin for a later row, exactly as if they had been dropped.
      *
-     * @param array<int, array{content: string, attributes: string, offset: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, offset: int|null, cellOffset?: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
-     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
+     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
      */
     protected function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
     {
@@ -5593,6 +5596,7 @@ class BlockParser
                 // `verbatim` alone stays false: an empty cell has no text to map
                 // inline attributes or spans against.
                 'offset' => $cellData['offset'],
+                'cellOffset' => $cellData['cellOffset'] ?? $cellData['offset'],
                 'rawLength' => $cellData['rawLength'],
                 'raw' => $cellData['raw'],
                 'verbatim' => !$isEmpty && $cellData['verbatim'],
@@ -6321,7 +6325,7 @@ class BlockParser
      * node did not hold; this finds where the content actually sits.
      *
      * @param int $index
-     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
+     * @param array{content: string, attributes: string, offset?: int|null, cellOffset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
      * @param string $content
      */
     private function cellContentSpan(int $index, array $cellData, string $content): ?SourceSpan
@@ -6407,7 +6411,7 @@ class BlockParser
 
     /**
      * @param int $index
-     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
+     * @param array{content: string, attributes: string, offset?: int|null, cellOffset?: int|null, verbatim?: bool, rawLength?: int|null, raw?: string|null} $cellData
      */
     private function cellExtentSpan(int $index, array $cellData): ?SourceSpan
     {
@@ -6415,7 +6419,11 @@ class BlockParser
             return null;
         }
 
-        $offset = $cellData['offset'] ?? null;
+        // The CELL's own offset: `offset` is advanced past an attribute block so
+        // the cell's TEXT can be placed where it was written, while `rawLength`
+        // still measures the whole cell from its start. Adding one to the other
+        // slid the span right by the block's width (carve-php#889).
+        $offset = $cellData['cellOffset'] ?? $cellData['offset'] ?? null;
         $rawLength = $cellData['rawLength'] ?? null;
         if ($offset === null || $rawLength === null) {
             return null;
