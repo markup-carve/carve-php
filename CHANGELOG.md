@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`fmt` keeps attributes written in BOTH authored positions** (carve-php#839).
+  `class` is the one attribute that merges rather than replaces, so a `{.lead}`
+  line above an image and a `{.trail}` block at the reference arrive on the node
+  as the single string `lead trail` - equal to neither source. The subtraction
+  that keeps the writer from repeating what the reference already states compared
+  whole values, so it removed nothing and the line came out `{.lead .trail}`
+  beside a reference that already said `.trail`, growing by one duplicate per
+  pass. Class tokens now subtract per token, and a class on the DEFINITION no
+  longer hides the reference's own when both are present.
+
 - **`fmt` keeps an `#id` on a definition's attribute block** (carve-php#831). The
   definition node recorded its slot order with raw keys (`id`, `class`) where every
   other node uses the marker spelling (`#id`, `.class`), and the writer's raw-`id`

@@ -1391,8 +1391,16 @@ class CarveRenderer implements RendererInterface
         $label = $node->getReferenceLabel();
 
         $claimed = $label === null ? [] : ($this->definitionAttributes[$label] ?? []);
+        // `+` keeps the LEFT side's value for a shared key, which would drop the
+        // reference's own classes whenever the definition also carried one. Class
+        // tokens from both are subtracted, everything else keeps the union.
+        $subtract = $claimed + $atReference;
+        $classes = trim(($claimed['class'] ?? '') . ' ' . ($atReference['class'] ?? ''));
+        if ($classes !== '') {
+            $subtract['class'] = $classes;
+        }
 
-        return $this->renderAttrsExcept($node, $claimed + $atReference);
+        return $this->renderAttrsExcept($node, $subtract);
     }
 
     /**
@@ -1732,6 +1740,28 @@ class CarveRenderer implements RendererInterface
 
         $own = $node->getAttributes();
         foreach ($definitionAttributes as $key => $value) {
+            // CLASSES SUBTRACT PER TOKEN. `class` is the one attribute that
+            // MERGES rather than replaces: a `{.lead}` line above and a `{.trail}`
+            // block at the reference arrive on the node as the single string
+            // `lead trail`, which equals neither source. Comparing whole values
+            // therefore subtracted nothing, and the writer emitted `{.lead
+            // .trail}` beside a reference that already said `.trail` - the
+            // duplicate growing by one on every pass (carve-php#839).
+            if ($key === 'class') {
+                $stated = preg_split('/\s+/', trim((string)$value)) ?: [];
+                $mine = preg_split('/\s+/', trim((string)($own['class'] ?? ''))) ?: [];
+                $left = array_values(array_filter(
+                    $mine,
+                    static fn (string $class): bool => $class !== '' && !in_array($class, $stated, true),
+                ));
+                if ($left === []) {
+                    unset($own['class']);
+                } else {
+                    $own['class'] = implode(' ', $left);
+                }
+
+                continue;
+            }
             if (($own[$key] ?? null) === $value) {
                 unset($own[$key]);
             }
