@@ -470,7 +470,14 @@ class CarveRenderer implements RendererInterface
                 && $delim === '.';
             $children = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof ListItem));
             foreach ($children as $index => $item) {
-                $indent = str_repeat('  ', $this->listDepth - 1);
+                // NO absolute depth term here. The parent item's continuation
+                // prefix already IS the child list's indentation, so adding
+                // `'  ' * (depth - 1)` on top indented every level twice, and
+                // the two-space strip below was compensating for it. Output grew
+                // as O(depth^3) where the source is O(depth^2) - 1720 bytes in,
+                // 23040 out at depth 40 - and `05-lists-5` came back with four
+                // spaces where it was written with two (carve-php#792). Same
+                // defect and same fix as carve-js#653 and carve-rs#594.
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
                     $prefix = $bareDot
                         ? '. '
@@ -490,13 +497,9 @@ class CarveRenderer implements RendererInterface
                 }
 
                 $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));
-                $itemChildren = $item->getChildren();
-                if (count($itemChildren) === 1 && $itemChildren[0] instanceof ListBlock) {
-                    $content = (string)preg_replace('/^  /m', '', $content);
-                }
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
-                $out .= $indent . $prefix . ($first === '' ? '+' : $first) . "\n";
+                $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
                 $continuation = str_repeat(' ', strlen($prefix));
                 foreach ($lines as $line) {
                     // A BLANK continuation line stays blank: indenting it emits a
@@ -514,7 +517,7 @@ class CarveRenderer implements RendererInterface
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
                     $blank = $line === '' || $line === "\u{E003}";
-                    $out .= $blank ? $line . "\n" : $indent . $continuation . $line . "\n";
+                    $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
                     $out .= "\n";
