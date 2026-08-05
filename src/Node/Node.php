@@ -181,6 +181,24 @@ abstract class Node
         $this->recordAttributeSlot($key === 'id' ? '#id' : ($key === 'class' ? '.class' : $key));
     }
 
+    /**
+     * Set an attribute the SOURCE did not write in an attribute block.
+     *
+     * `attrs.order` is the source-appearance order of the slots in a
+     * `{#id .class key=value}` block - the schema says exactly that - so a value
+     * synthesized from other syntax has no slot to record. A code fence's title
+     * is written as fence metadata (``` ``` rust "Example" ```), and recording
+     * it as a slot claimed a position in a block the author never wrote
+     * (carve#785).
+     *
+     * The attribute itself is unaffected: it reaches the wire and the renderer
+     * emits it. Only the order claim is dropped.
+     */
+    public function setSynthesizedAttribute(string $key, string $value): void
+    {
+        $this->attributes[$key] = $value;
+    }
+
     public function getAttribute(string $key): ?string
     {
         return $this->attributes[$key] ?? null;

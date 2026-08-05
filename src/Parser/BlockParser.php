@@ -2612,7 +2612,9 @@ class BlockParser
         // unless a preceding {title=...} block-attribute line already set one
         // (the explicit attribute channel wins).
         if ($header !== null && !$codeBlock->hasAttribute('title')) {
-            $codeBlock->setAttribute('title', $header);
+            // Synthesized from the fence opener, so it takes no `order` slot -
+            // there is no attribute block it appeared in (carve#785).
+            $codeBlock->setSynthesizedAttribute('title', $header);
         }
         $parent->appendChild($codeBlock);
 
