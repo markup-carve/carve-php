@@ -97,10 +97,19 @@ class BareDotOrderedMarkerTest extends TestCase
 
     public function testSerializedAstValidatesAgainstPublishedSchema(): void
     {
-        $schemaPath = dirname(__DIR__, 2) . '/spec/resources/ast-schema.json';
-        if (!is_file($schemaPath)) {
-            $this->markTestSkipped('the published AST schema fixture is not available');
-        }
+        // `tests/spec`, which is where the submodule is - this said
+        // `dirname(__DIR__, 2)`, one level too far up, so it resolved to
+        // `<root>/spec/...` and the test skipped on every machine and in every CI
+        // run since it was written (carve-php#870).
+        //
+        // ASSERTED, not skipped: every CI job checks out with
+        // `submodules: recursive`, so a missing schema means a broken checkout
+        // rather than an environment without the spec.
+        $schemaPath = dirname(__DIR__) . '/spec/resources/ast-schema.json';
+        $this->assertFileExists(
+            $schemaPath,
+            'the spec submodule is missing - run `git submodule update --init --recursive`',
+        );
 
         $json = json_encode((new AstCodec())->encode((new CarveConverter())->parse(". a\n")), JSON_THROW_ON_ERROR);
         $pythonScript = <<<'PY'
