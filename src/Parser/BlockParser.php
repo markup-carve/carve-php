@@ -4184,7 +4184,22 @@ class BlockParser
                     || $this->isFoldableInvisibleLine($nextTrimmed)
                 )
             ) {
-                $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
+                // Never fold ONTO an unclosed comment fence. That line was
+                // pushed as its own entry precisely because it opens no block
+                // (§28) while staying invisible (§24 C3), and appending to it
+                // produced a single entry holding `%%% x\n# h` - which the
+                // unclosed-fence handling then consumed whole, so BOTH the
+                // fence and the author's line vanished from the document
+                // (carve-php#791). The fold belongs on the last VISIBLE entry,
+                // which is the paragraph the invisible line sits after.
+                $target = count($itemLines) - 1;
+                while (
+                    $target > 0
+                    && $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($itemLines[$target]) !== null
+                ) {
+                    $target--;
+                }
+                $itemLines[$target] .= "\n" . $nextTrimmed;
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
