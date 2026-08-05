@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -76,7 +77,7 @@ class SynthesizedTitleHasNoOrderSlotTest extends TestCase
 
     public function testTheFenceStillWritesBackWithItsTitle(): void
     {
-        $carve = (new CarveConverter(renderer: new \MarkupCarve\Carve\Renderer\CarveRenderer()))
+        $carve = (new CarveConverter(renderer: new CarveRenderer()))
             ->convert("``` rust \"Example\"\ncode\n```\n");
 
         $this->assertStringContainsString('"Example"', $carve);
