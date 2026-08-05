@@ -75,39 +75,6 @@ use Throwable;
 class CarveRenderer implements RendererInterface
 {
     /**
-     * The writer's recursion bound, and it must sit ABOVE the parser's.
-     *
-     * The guard is for hand-built ASTs, which nest without limit. It is not a
-     * language rule, and the parser's own number made it one: a document nested
-     * at exactly MAX_NESTING_DEPTH parses fine, and the writer then emitted
-     * nothing for the innermost block, deleting content with no error and
-     * breaking PART 11's semantic invariant at the boundary (issue 517).
-     *
-     * A parsed tree is at least one block level deeper than the containers that
-     * produced it - the paragraph inside the innermost one - so the bound needs
-     * slack over the cap rather than equality with it.
-     *
-     * IT IS THE SAME NUMBER AS EVERY OTHER RENDERER HERE. It used to be
-     * `MAX_NESTING_DEPTH + 32` = 232 while HTML, Markdown, plain text and ANSI
-     * all used 512, so a hand-built tree of 300 nested quotes rendered to HTML
-     * and could not be formatted by the same engine - a difference between two
-     * constants rather than a decision anyone made about depth 300
-     * (carve-php#835). Raising this one rather than lowering the others is the
-     * non-regressive direction: no document that renders today stops rendering.
-     *
-     * Measured at the new bound: the writer completes at 511 and refuses at 600,
-     * with no stack trouble on the way.
-     *
-     * What the number SHOULD be across engines is still open - carve-js uses 232
-     * everywhere, carve-rs 632 - and PART 9 §25 sets only a floor, so
-     * markup-carve/carve#741 is where that gets decided. This change is the
-     * internal disagreement only.
-     *
-     * @var int
-     */
-    public const MAX_RENDER_DEPTH = 512;
-
-    /**
      * @var list<string>
      */
     private const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];

@@ -102,11 +102,6 @@ class AnsiRenderer implements RendererInterface
         return $this;
     }
 
-    /**
-     * @var int
-     */
-    private const MAX_RENDER_DEPTH = 512;
-
     // ANSI escape codes
     /**
      * @var string

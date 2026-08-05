@@ -95,11 +95,6 @@ class PlainTextRenderer implements RendererInterface
         return $this;
     }
 
-    /**
-     * @var int
-     */
-    private const MAX_RENDER_DEPTH = 512;
-
     protected string $listItemPrefix = '- ';
 
     protected string $orderedListItemPrefix = '. ';

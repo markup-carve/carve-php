@@ -78,13 +78,6 @@ class HtmlRenderer implements RendererInterface
     use EventDispatcherTrait;
 
     /**
-     * Absolute recursion ceiling for public Document-accepting render paths.
-     *
-     * @var int
-     */
-    private const MAX_RENDER_DEPTH = 512;
-
-    /**
      * Attributes that record where a block was WRITTEN rather than describing
      * the element, and are therefore emitted after everything else - including
      * an attribute this renderer generated.
