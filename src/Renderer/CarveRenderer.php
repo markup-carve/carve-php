@@ -122,8 +122,122 @@ class CarveRenderer implements RendererInterface
 
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
+    /**
+     * The four writer-only sentinels, chosen per render from code points the
+     * DOCUMENT does not contain.
+     *
+     * They used to be the fixed U+E001..U+E004, restored unconditionally, so an
+     * AUTHORED occurrence was indistinguishable from one this renderer inserted:
+     * U+E001 and U+E004 came back as a space, U+E002 as a tab, U+E003 as nothing
+     * at all. Three of those are worse than a deletion, because a space or a tab
+     * is plausible content and the diff reads as whitespace (carve#678). It was
+     * never limited to code blocks - a paragraph holding one was corrupted too.
+     *
+     * Escaping the authored occurrences cannot fix it: any escape needs a
+     * reserved character, and that character has the same collision. Choosing
+     * characters the document does not use cannot collide by construction, and
+     * cannot run out - the BMP private-use area alone has 6400 code points.
+     *
+     * U+E000 is NOT here. It is the parser's in-band marker for a non-breaking
+     * space, shared with the HTML, plain, ANSI and Markdown renderers, so an
+     * authored U+E000 is already conflated with a parsed nbsp before this
+     * renderer runs. That is the other half of carve#678.
+     *
+     * @var array{0: string, 1: string, 2: string, 3: string}
+     */
+    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+
+    /**
+     * Every string in the tree, joined.
+     *
+     * ITERATIVE on purpose. `json_encode()` would be one line and it recurses,
+     * so on a document deeper than its nesting limit it fails - and this renderer
+     * has a documented §25 depth REFUSAL that has to be what fires instead. The
+     * `(array)` cast reaches protected and private properties, so no node type
+     * needs to know about this.
+     */
+    protected function collectStrings(object $root): string
+    {
+        $parts = [];
+        $stack = [$root];
+        // Nodes carry a PARENT reference, so the tree is a cyclic graph and an
+        // unguarded walk never terminates. Visiting each object once is what
+        // makes this linear rather than infinite.
+        $seen = [];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if (is_string($node)) {
+                $parts[] = $node;
+
+                continue;
+            }
+            if (is_array($node)) {
+                foreach ($node as $value) {
+                    $stack[] = $value;
+                }
+
+                continue;
+            }
+            if (!is_object($node)) {
+                continue;
+            }
+            $id = spl_object_id($node);
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            foreach ((array)$node as $value) {
+                $stack[] = $value;
+            }
+        }
+
+        return implode("\0", $parts);
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string, 3: string}
+     */
+    protected function pickVerbatimSentinels(string $text): array
+    {
+        $defaults = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+        $collides = static function (array $candidates) use ($text): bool {
+            foreach ($candidates as $candidate) {
+                if (str_contains($text, $candidate)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        // The common case: none of the defaults occur, so keep them and skip the
+        // search entirely.
+        if (!$collides($defaults)) {
+            return $defaults;
+        }
+
+        for ($base = 0xE005; $base <= 0xF8FC; $base += 4) {
+            $quartet = [
+                mb_chr($base, 'UTF-8'),
+                mb_chr($base + 1, 'UTF-8'),
+                mb_chr($base + 2, 'UTF-8'),
+                mb_chr($base + 3, 'UTF-8'),
+            ];
+            if (!$collides($quartet)) {
+                return $quartet;
+            }
+        }
+
+        // Unreachable for any real document; keep the old behavior rather than
+        // throw.
+        return $defaults;
+    }
+
     public function render(Document $document): string
     {
+        // Choose the sentinels before anything is rendered, so both escape passes
+        // below agree on them.
+        $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -516,7 +630,7 @@ class CarveRenderer implements RendererInterface
                     //
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
-                    $blank = $line === '' || $line === "\u{E003}";
+                    $blank = $line === '' || $line === $this->verbatimSentinels[2];
                     $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
@@ -1476,7 +1590,7 @@ class CarveRenderer implements RendererInterface
         $lines = explode("\n", $body);
         foreach ($lines as $i => $line) {
             if (preg_match('/^-{3,}[ \t]*$/', $line) === 1) {
-                $lines[$i] = "\u{E004}" . $line;
+                $lines[$i] = $this->verbatimSentinels[3] . $line;
             }
         }
 
@@ -1511,7 +1625,7 @@ class CarveRenderer implements RendererInterface
 
         return (string)preg_replace_callback(
             '/(?:^\x{E000}+)|\x{E000}{2,}/mu',
-            static fn (array $m): string => str_repeat("\u{E001}", (int)mb_strlen($m[0], 'UTF-8')),
+            fn (array $m): string => str_repeat($this->verbatimSentinels[0], (int)mb_strlen($m[0], 'UTF-8')),
             $text,
         );
     }
@@ -1580,13 +1694,16 @@ class CarveRenderer implements RendererInterface
     {
         $content = (string)preg_replace_callback(
             '/[ \t]+(?=\n|$)/',
-            static fn (array $m): string => strtr($m[0], [' ' => "\u{E001}", "\t" => "\u{E002}"]),
+            fn (array $m): string => strtr(
+                $m[0],
+                [' ' => $this->verbatimSentinels[0], "\t" => $this->verbatimSentinels[1]],
+            ),
             $content,
         );
         $lines = explode("\n", $content);
         foreach ($lines as $i => $line) {
             if ($line === '') {
-                $lines[$i] = "\u{E003}";
+                $lines[$i] = $this->verbatimSentinels[2];
             }
         }
 
@@ -1595,12 +1712,16 @@ class CarveRenderer implements RendererInterface
 
     protected function restoreVerbatim(string $text): string
     {
-        $result = strtr($text, ["\u{E001}" => ' ', "\u{E002}" => "\t", "\u{E003}" => '']);
+        $result = strtr($text, [
+            $this->verbatimSentinels[0] => ' ',
+            $this->verbatimSentinels[1] => "\t",
+            $this->verbatimSentinels[2] => '',
+        ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It
         // resolves AFTER normalize()'s trims, which would otherwise strip a
         // plain leading space when the paragraph is the document's first block.
-        return str_replace("\u{E004}", ' ', $result);
+        return str_replace($this->verbatimSentinels[3], ' ', $result);
     }
 
     /**
