@@ -1162,7 +1162,14 @@ class HtmlRenderer implements RendererInterface
 
                 continue;
             }
-            if ($line !== '' && ($i === 0 || str_starts_with($line, '<'))) {
+            // A NESTED block line carries its own indentation, so it does not
+            // START with the tag - only with whitespace before it - and was
+            // left under-indented relative to the other engines. Matching both
+            // puts a table, a list or a task list inside a note on the columns
+            // carve-js and carve-rs use. A paragraph's soft-break continuation
+            // is plain text at column 0 and still stays put, which is what the
+            // original test was protecting.
+            if ($line !== '' && ($i === 0 || preg_match('/^\s*</', $line) === 1)) {
                 $lines[$i] = '      ' . $line;
             }
             if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
