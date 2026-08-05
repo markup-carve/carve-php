@@ -193,6 +193,14 @@
         ],
         "required": []
     },
+    "link_reference_definition": {
+        "fields": [
+            "label",
+            "href",
+            "title"
+        ],
+        "required": []
+    },
     "list": {
         "fields": [
             "start",

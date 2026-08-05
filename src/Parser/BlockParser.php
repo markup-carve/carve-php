@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -725,6 +726,20 @@ class BlockParser
             $document->appendChild($footnote);
         }
 
+        // PART 12 §10: an authored link reference definition is a NODE, hoisted
+        // to the document like the other two definition kinds. Without one a
+        // writer cannot reproduce the definition, so a resolved reference was
+        // written back as an inline link and `parse(fmt(x)) == parse(x)` failed
+        // for every one of them (PART 11 §1, markup-carve/carve#642).
+        //
+        // Appended here rather than at parse time because the line may sit
+        // inside a block quote or a list item, and the node belongs to the
+        // DOCUMENT - the same reason footnotes are appended above. Built from
+        // the collected table, so the node and the table resolution uses cannot
+        // disagree about what the author wrote. A heading-derived reference is
+        // skipped: it has no definition line to reproduce.
+        $this->appendLinkReferenceDefinitions($document);
+
         // A sole-image paragraph carrying a leading block-attribute line's attrs
         // renders as a bare block <img> with those attrs on the image (§15). Run
         // this AFTER caption wrapping (so a captioned image is already a <figure>
@@ -805,6 +820,41 @@ class BlockParser
         }
         if ($replaced) {
             $node->setChildren($children);
+        }
+    }
+
+    /**
+     * Append a node per AUTHORED link reference definition (PART 12 §10).
+     *
+     * Document order, matching the line each definition was written on, so a
+     * writer reproduces them where the author had them. A definition DERIVED
+     * from a heading (PART 11 R1) has no authored line and is skipped.
+     */
+    protected function appendLinkReferenceDefinitions(Document $document): void
+    {
+        $authored = [];
+        foreach ($this->references as $label => $definition) {
+            if ($definition->fromHeading) {
+                continue;
+            }
+            $authored[] = [$label, $definition];
+        }
+        usort($authored, static fn (array $a, array $b): int => $a[1]->line <=> $b[1]->line);
+
+        foreach ($authored as [$label, $definition]) {
+            $node = new LinkReferenceDefinition($label, $definition->url, $definition->title);
+            if ($definition->attributes !== []) {
+                $node->setAttributesWithOrder(
+                    $definition->attributes,
+                    array_keys($definition->attributes),
+                );
+            }
+            // PART 12 §4 requires `pos` on every node but the root, and §10 says
+            // a hoisted definition's span still points at the line the author
+            // wrote it on - which is the whole point of hoisting a NODE rather
+            // than a root map. The definition is single-line by production.
+            $node->setPos($this->wholeLineSpan($definition->line));
+            $document->appendChild($node);
         }
     }
 
@@ -5648,6 +5698,11 @@ class BlockParser
             return null;
         }
 
+        // The line is CONSUMED here and the node is appended at DOCUMENT level
+        // instead. PART 12 §10 hoists a link reference definition exactly as §7
+        // hoists the other two kinds, and `$parent` is whatever container the
+        // line sits in - appending here put the node inside a block quote and
+        // changed that quote's rendering.
         return 1;
     }
 
