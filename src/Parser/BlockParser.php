@@ -143,14 +143,33 @@ class BlockParser
      *
      * @var string
      */
-    protected const DEFINITION_TERM_PATTERN = '/^::(?!:) +(?=\S)(.+)$/';
+    // The separator is ONE literal space; whitespace AFTER it is stripped
+    // rather than being the term's first character. `(?=\S)` straight after
+    // ` +` required the term to start on a non-space, so `:: <TAB>x` was a
+    // paragraph while `::   x` - differing only in which whitespace follows -
+    // was a term (carve-php#884, spec markup-carve/carve#794).
+    //
+    // The leading space stays REQUIRED. `::<TAB>x` is still prose, because a tab
+    // does not satisfy the marker's separator at all (corpus
+    // 176-a-marker-separator-is-a-space-never-a-tab). Widening the separator to
+    // `[ \t]+` would have made both terms and broken that fixture.
+    //
+    // All THREE constants change together, for the reason the docblock above
+    // gives: they exist because a fix applied to only the one a report named
+    // would leave the rest deciding the old way. The prefix one matters most -
+    // it is what strips the marker, and leaving it narrow would keep the tab as
+    // the term's first character even once the other two matched.
+    /**
+     * @var string
+     */
+    protected const DEFINITION_TERM_PATTERN = '/^::(?!:) [ \t]*(?=\S)(.+)$/';
 
     /**
      * A definition term, tested rather than captured.
      *
      * @var string
      */
-    protected const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) +\S/';
+    protected const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) [ \t]*\S/';
 
     /**
      * A definition-term MARKER, where the caller checks only that the line
@@ -158,7 +177,7 @@ class BlockParser
      *
      * @var string
      */
-    protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) +/';
+    protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
 
     private int $nestingDepth = 0;
 

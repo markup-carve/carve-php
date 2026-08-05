@@ -50,6 +50,7 @@ class CarveCorpusTest extends TestCase
         'a-bare-attribute-block-on-its-own-line-is-literal',
         'a-continuation-row-needs-a-body-row',
         'a-marker-separator-is-a-space-never-a-tab',
+        'a-tab-as-the-first-character-of-a-definition-term',
         'a-pipe-pair-with-no-cell-is-not-a-table',
         'a-repeated-definition-which-one-wins',
         'abbreviation-definition-interrupts-a-paragraph',
