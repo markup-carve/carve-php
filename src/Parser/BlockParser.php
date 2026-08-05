@@ -844,9 +844,21 @@ class BlockParser
         foreach ($authored as [$label, $definition]) {
             $node = new LinkReferenceDefinition($label, $definition->url, $definition->title);
             if ($definition->attributes !== []) {
+                // SLOT spellings, not raw keys. The writer's `#id` slot is what
+                // emits an id, and its raw-`id` branch returns early on purpose
+                // so a key cannot be written twice - so an order list holding
+                // `id` dropped the id from the definition line entirely
+                // (carve-php#831). Same mapping the block-attribute path uses.
                 $node->setAttributesWithOrder(
                     $definition->attributes,
-                    array_keys($definition->attributes),
+                    array_map(
+                        static fn (string $name): string => match ($name) {
+                            'id' => '#id',
+                            'class' => '.class',
+                            default => $name,
+                        },
+                        array_map('strval', array_keys($definition->attributes)),
+                    ),
                 );
             }
             // PART 12 §4 requires `pos` on every node but the root, and §10 says

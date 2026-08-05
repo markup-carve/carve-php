@@ -9,6 +9,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`fmt` keeps an `#id` on a definition's attribute block** (carve-php#831). The
+  definition node recorded its slot order with raw keys (`id`, `class`) where every
+  other node uses the marker spelling (`#id`, `.class`), and the writer's raw-`id`
+  branch returns early on purpose so a key cannot be written twice - so the id was
+  dropped from the line entirely. The corpus document that carries it has the
+  reference site override the id, so the HTML was identical and the engine's own
+  round trip stayed green.
+- **`fmt` keeps a block-attribute line above a captionless reference image.** A
+  reference image is written as its authored `rawRef`, which cannot carry an
+  attribute block that came from the line ABOVE it, so `{#f}` was lost outright -
+  this one did break `toHtml(fmt(x)) == toHtml(x)`. Written back as the line it
+  came from, which is where carve-js and carve-rs keep it.
+- **A definition's attributes are actually subtracted at the reference site now.**
+  `renderAttrsExcept()` subtracted through a node COPY, and both
+  `setAttributes()` and `setAttributesWithOrder()` merge into what the node
+  already holds - so every removed key went straight back and the subtraction
+  could not fire on any input. It renders the attribute list directly instead.
+
 - **`fmt` keeps a lone table span marker padded.** Glued to the opening pipe,
   `<` is also the LEFT-ALIGNMENT sigil, and the two readings differ: the
   executable spec reads `|<|` as alignment on an empty cell where all three
