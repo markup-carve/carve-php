@@ -2611,8 +2611,12 @@ class BlockParser
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one
         // (the explicit attribute channel wins).
+        // No order slot is recorded: `attrs.order` is the SOURCE-APPEARANCE
+        // order of AUTHORED slots, and the opener title is written after the
+        // language word rather than as `{title=...}`, so it has no authored
+        // position. Both writers append a key `order` omits.
         if ($header !== null && !$codeBlock->hasAttribute('title')) {
-            $codeBlock->setAttribute('title', $header);
+            $codeBlock->setAttributesWithOrder(['title' => $header], []);
         }
         $parent->appendChild($codeBlock);
 

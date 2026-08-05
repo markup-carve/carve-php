@@ -1090,11 +1090,15 @@ class AstCodec
         }
 
         if ($order === []) {
-            foreach (array_keys($attrs) as $name) {
-                $order[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
-            }
-
-            return [$attrs, $order];
+            // No `order` on the wire means no AUTHORED slot order to restore -
+            // the tree was built programmatically, or a key was synthesized
+            // rather than written (a fence title). Inventing one from the
+            // storage keys published an authored position the source never had,
+            // and the invented entry then survived a re-encode, so
+            // `encode(decode(encode(x))) == encode(x)` failed on four corpus
+            // documents. The renderers already fall back to storage order when
+            // `order` is empty, so nothing about the output changes.
+            return [$attrs, []];
         }
 
         // Rebuild the map in the AUTHOR'S order, not the order this function
