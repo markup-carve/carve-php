@@ -140,7 +140,20 @@ class ReferenceDefinitionExtractor
                 }
             }
 
-            if ($fence->opensOn($line, $contentCol)) {
+            // A FOOTNOTE BODY has a content column too, and it is not a list
+            // column. `$contentCol` tracks list items only, so inside a note body
+            // it is 0 and an INDENTED fence opener matched nothing - the fence
+            // went untracked and the definition-shaped line inside it was
+            // collected as a real definition, so a reference below the note
+            // resolved against a code SAMPLE (carve-php#811). The opener's own
+            // indent is the column to re-base on; the closer check above already
+            // re-bases to whatever the tracker recorded.
+            $openerCol = $contentCol;
+            if ($inFootnoteBody && $contentCol === 0) {
+                $openerCol = strlen($line) - strlen(ltrim($line, " \t"));
+            }
+
+            if ($fence->opensOn($line, $openerCol)) {
                 $i++;
 
                 continue;
