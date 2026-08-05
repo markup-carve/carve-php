@@ -179,6 +179,14 @@ class BlockParser
      */
     protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
 
+    /**
+     * A footnote body's own column (PART 9 §16). A continuation line must REACH
+     * it; this is not a count of space characters.
+     *
+     * @var int
+     */
+    protected const FOOTNOTE_BODY_COLUMN = 2;
+
     private int $nestingDepth = 0;
 
     protected InlineParser $inlineParser;
@@ -541,6 +549,39 @@ class BlockParser
     public function addBlockMatcher(Closure $matcher, int $priority = 0): void
     {
         $this->registerBlockMatcher($matcher, $priority);
+    }
+
+    /**
+     * Is this line a footnote continuation?
+     *
+     * The indent is a COLUMN claim (PART 9 §16), not a count of space
+     * characters. §24 C1 gives a tab a column value - to the next multiple of
+     * TAB_STOP from wherever it starts - so a bare tab (0 -> 4) and a
+     * space-then-tab (1 -> 4) both reach the body column, while a single space
+     * (column 1) falls short.
+     *
+     * This lived as `/^(?:[ ]{2}|\t)/` in THREE places, which is how the engines
+     * came apart: that pattern takes two spaces or a bare tab and refuses the
+     * mixture, while carve-js and carve-rs took the mixture and refused the bare
+     * tab. Neither was doing column arithmetic. One predicate now, for the same
+     * reason the DEFINITION_TERM_* constants are constants - a fix applied to
+     * the one site a bug report named would leave the rest deciding the old way
+     * (carve-php#887, spec markup-carve/carve#796).
+     *
+     * A rejected continuation does not indent differently: it LEAVES the note
+     * and renders as a top-level paragraph above the reference.
+     *
+     * @param string $line The line to test
+     *
+     * @return bool True when the line's indent reaches the footnote body column
+     */
+    protected static function isFootnoteContinuationLine(string $line): bool
+    {
+        if (IndentationHelper::isBlankLine($line)) {
+            return false;
+        }
+
+        return IndentationHelper::getLeadingColumns($line) >= self::FOOTNOTE_BODY_COLUMN;
     }
 
     /**
@@ -1286,13 +1327,14 @@ class BlockParser
 
                         continue;
                     }
-                    // A footnote body extends only to lines indented by at least
-                    // base indentation (2 spaces or a tab), per grammar PART 9
-                    // §16. A line with less indentation (e.g. a single space) is
-                    // a top-level block, not part of the footnote -- matches
-                    // carve-js / carve-rs.
-                    if (preg_match('/^(?:[ ]{2}|\t)(.*)$/', $nextLine, $contMatch)) {
-                        $contentLines[] = $contMatch[1];
+                    // A footnote body extends to lines whose indent REACHES the
+                    // body column (PART 9 §16). A line below it - a single space,
+                    // column 1 - is a top-level block, not part of the footnote.
+                    if (self::isFootnoteContinuationLine($nextLine)) {
+                        $contentLines[] = IndentationHelper::stripLeadingColumns(
+                            $nextLine,
+                            self::FOOTNOTE_BODY_COLUMN,
+                        );
                         $contentLineMap[] = $j;
                         $j++;
                     } else {
@@ -5663,7 +5705,8 @@ class BlockParser
                 // PART 9 §16, §17).
                 if (
                     $i + 1 < $count
-                    && (preg_match('/^(?:[ ]{2}|\t)/', $lines[$i + 1]) || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
+                    && (self::isFootnoteContinuationLine($lines[$i + 1])
+                        || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
                 ) {
                     $i++;
 
@@ -5691,7 +5734,7 @@ class BlockParser
 
                 continue;
             }
-            if (preg_match('/^(?:[ ]{2}|\t)/', $nextLine)) {
+            if (self::isFootnoteContinuationLine($nextLine)) {
                 $i++;
             } else {
                 break;
