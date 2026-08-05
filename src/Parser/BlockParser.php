@@ -838,7 +838,14 @@ class BlockParser
             if ($definition->fromHeading) {
                 continue;
             }
-            $authored[] = [$label, $definition];
+            // strval, because PHP turns an all-digit array key into an INT.
+            // A reference label is any inline text, so `[5]: /u` keys the map
+            // with 5 rather than "5", and the definition node's constructor
+            // types its label `string` - a fatal TypeError on an ordinary
+            // document (carve-php#881). Same coercion that broke a digit-only
+            // abbreviation term in #880, and the same guard the attribute names
+            // below already carry.
+            $authored[] = [(string)$label, $definition];
         }
         usort($authored, static fn (array $a, array $b): int => $a[1]->line <=> $b[1]->line);
 
