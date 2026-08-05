@@ -92,6 +92,16 @@ class ReferenceImageAttributeLineSubtractionTest extends TestCase
         $this->assertRoundTrips($reference);
     }
 
+    public function testABraceRunThatIsNotAValidBlockSubtractsNothing(): void
+    {
+        // The payload has to BE attributes for the subtraction to mean anything.
+        // `{not attrs!}` and `{}` are literal text at the reference, so nothing is
+        // subtracted and the line is written whole - matching carve-js on both.
+        foreach (["{#f}\n![a][r]{not attrs!}\n\n[r]: /u\n", "{#f}\n![a][r]{}\n\n[r]: /u\n"] as $source) {
+            $this->assertSame($source, $this->fmt($source), $source);
+        }
+    }
+
     public function testADirectImageStillWritesItsAttributesInline(): void
     {
         // Unchanged by this: a direct image has no `rawRef`, so it never reaches
