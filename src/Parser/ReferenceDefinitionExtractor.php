@@ -309,7 +309,13 @@ class ReferenceDefinitionExtractor
             return null;
         }
 
-        $label = preg_replace('/\s+/', ' ', trim($matches[1])) ?? trim($matches[1]);
+        // EXACT, as written. §6 and PART 9R R1 both say matching is
+        // "case-sensitive, no whitespace folding", and folding the key here (and
+        // the lookup in InlineParser) meant `[t][ b  c]` resolved against
+        // `[b c]: /u`. carve-js fixed the same defect in carve-js#674; carve-rs
+        // was already exact. Neither trimmed nor collapsed: identical padding has
+        // to keep matching, so `[ b]` resolves `[ b]`.
+        $label = $matches[1];
         // A trailing `{...}` block attributes the DEFINITION (PART 9 §16,
         // `[space, attributes]`), and PART 9R R1 transfers those attributes to
         // every link that resolves the label.
