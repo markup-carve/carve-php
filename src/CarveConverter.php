@@ -33,6 +33,7 @@ use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use RuntimeException;
+use SplObjectStorage;
 
 /**
  * Main Djot to HTML converter
@@ -64,6 +65,17 @@ class CarveConverter
     protected ?Profile $profile = null;
 
     protected ?ProfileFilter $profileFilter = null;
+
+    /**
+     * Documents this converter has already filtered, so the render path does not
+     * filter one twice and reset its violations (carve-php#853).
+     *
+     * Keyed by object identity rather than by a flag on the Document, which
+     * would be transient state on a node type PART 12 pins the shape of.
+     *
+     * @var \SplObjectStorage<\MarkupCarve\Carve\Node\Document, null>
+     */
+    protected SplObjectStorage $filteredDocuments;
 
     /**
      * Registered extensions
@@ -196,6 +208,7 @@ class CarveConverter
     ) {
         $this->collectWarnings = $warnings;
         $this->strictMode = $strict;
+        $this->filteredDocuments = new SplObjectStorage();
 
         // Use provided parser or create one from parameters
         if ($parser !== null) {
@@ -431,6 +444,20 @@ class CarveConverter
         // unwrapping splices an inner link's text in beside its neighbours and
         // leaves adjacent runs behind (carve-php#859).
         (new CrossReferenceResolver())->unwrapNestedLinks($document);
+
+        // A PROFILE FILTERS WHAT IS PUBLISHED, not only what is rendered.
+        // Filtering used to happen on the render path alone, so a host that
+        // denied a type and then serialized `parse()`'s result shipped the
+        // denied content in the tree - the HTML was right and the AST carried
+        // the code block the profile removed (carve-php#853). carve-js and
+        // carve-rs both filter before they serialize.
+        //
+        // Before the coalescer, not after: `to_text` degradation replaces nodes
+        // with Text, which can leave two runs adjacent, and §1a is about the
+        // tree that gets published.
+        $document = $this->applyProfile($document);
+        // offsetSet, not attach(): attach/contains are deprecated as of PHP 8.5.
+        $this->filteredDocuments->offsetSet($document, null);
 
         // Last, so it also covers runs an extension left behind. PART 12 §1a is
         // about the tree that gets published, whoever produced it - and §6
@@ -768,6 +795,18 @@ class CarveConverter
         }
 
         if ($this->profile === null || $this->profileFilter === null) {
+            return $document;
+        }
+
+        // `parse()` already filtered this one. Filtering it again is not merely
+        // wasted work: `applyProfile()` clears the violation list first, and a
+        // second pass over an already-clean tree finds nothing to deny - so
+        // `getProfileViolations()` after `convert()` would come back empty and a
+        // host in collect mode would be told the document was fine.
+        //
+        // A document from anywhere ELSE - hand-built, decoded from JSON, handed
+        // straight to `render()` - has not been filtered, and still is.
+        if ($this->filteredDocuments->offsetExists($document)) {
             return $document;
         }
 
