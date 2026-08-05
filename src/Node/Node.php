@@ -330,6 +330,14 @@ abstract class Node
         if ($slot === 'class') {
             $slot = '.class';
         }
+        // The same normalization for the id, which was missing. A caller that
+        // records raw attribute KEYS - `array_keys($attributes)` - handed in
+        // `id`, and the writer skips a bare `id` slot on purpose, so the id was
+        // recorded and then never emitted. The class survived only because it
+        // had this line and the id did not (carve-php#831).
+        if ($slot === 'id') {
+            $slot = '#id';
+        }
         if (($slot === '.class' || $slot === '#id') && in_array($slot, $this->attributeOrder, true)) {
             return;
         }
