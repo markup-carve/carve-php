@@ -186,7 +186,17 @@ class FencedBlockParser
                 // bare [label], no type -- a typeless generic div (tab member)
                 $label = $m[1];
                 $rest = '';
-            } elseif (preg_match('/^((?:\||[a-zA-Z_][\w-]*)(?:\s+"[^"]*")?)(?:\s+\[([^\]]*)\])?$/', $rest, $m)) {
+            } elseif (preg_match('/^(\|)$/', $rest, $m)) {
+                // THE BARE PIPE ONLY. `|` is the line-block opener, and it takes
+                // no quoted header and no [label] - the pipe IS the whole info
+                // string. Letting it through the general type-token branch below
+                // meant `::: | [id]` opened a line block and `::: | "t"` opened a
+                // div with a literal `| "t"` class, where the executable spec,
+                // carve-js and carve-rs all read both as ordinary paragraph text
+                // (carve-php#820). Nothing in the grammar gives a line block a
+                // label or a title.
+                $rest = $m[1];
+            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?:\s+"[^"]*")?)(?:\s+\[([^\]]*)\])?$/', $rest, $m)) {
                 $rest = $m[1];
                 if (isset($m[2])) {
                     $label = $m[2];
