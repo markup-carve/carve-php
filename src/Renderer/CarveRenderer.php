@@ -172,7 +172,15 @@ class CarveRenderer implements RendererInterface
                 continue;
             }
             if (is_array($node)) {
-                foreach ($node as $value) {
+                foreach ($node as $key => $value) {
+                    // KEYS carry authored text too. A document's abbreviations
+                    // are keyed by the TERM, and the term is written back out -
+                    // so a values-only walk missed it and the writer rewrote
+                    // the author's character in `*[term]: expansion` while
+                    // getting every code block right.
+                    if (is_string($key)) {
+                        $parts[] = $key;
+                    }
                     $stack[] = $value;
                 }
 
