@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
@@ -247,6 +248,10 @@ class AstCodec
         // stamps the number and nothing else, where the rest of the resolver
         // rewrites the tree for rendering, which the AST must not show.
         $resolver->resolveNumberedCaptions($document, new HeadingIdTracker());
+        // Footnote numbering is the other half of §5, and it lived only in
+        // HtmlRenderer's render context - keyed by label in an array, never on the
+        // node - so the published tree carried no number at all (carve-php#843).
+        self::numberFootnotes($document);
 
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the
@@ -486,6 +491,43 @@ class AstCodec
         self::resolveFootnoteRefs($node);
 
         return $node;
+    }
+
+    /**
+     * Assign footnote numbers for the published tree.
+     *
+     * PART 12 §5 serializes them: a consumer cannot recompute a footnote number
+     * without reimplementing PART 9R. The rule is the renderer's - first USE
+     * order, a repeat reusing its number, an unresolved reference left unnumbered
+     * because it never formed a footnote at all.
+     *
+     * AN INLINE FOOTNOTE TAKES A NUMBER FROM THE SAME SEQUENCE. carve-js and
+     * carve-rs both number `[^a] ^[x] [^a] ^[y]` as 1, 2, 1, 3; counting only
+     * references would disagree with both and with this engine's own HTML.
+     */
+    private static function numberFootnotes(Document $document): void
+    {
+        $numbers = [];
+        $counter = 0;
+        $walk = static function (Node $node) use (&$walk, &$numbers, &$counter): void {
+            if ($node instanceof FootnoteRef) {
+                if (!$node->isUnresolved()) {
+                    $label = $node->getLabel();
+                    if (!isset($numbers[$label])) {
+                        $counter++;
+                        $numbers[$label] = $counter;
+                    }
+                    $node->setNumber($numbers[$label]);
+                }
+            } elseif ($node instanceof InlineFootnote) {
+                $counter++;
+                $node->setNumber($counter);
+            }
+            foreach ($node->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+        $walk($document);
     }
 
     /**

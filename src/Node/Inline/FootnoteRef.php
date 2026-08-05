@@ -38,6 +38,28 @@ class FootnoteRef extends InlineNode
         $this->unresolved = $unresolved;
     }
 
+    /**
+     * The number this reference resolved to, once numbering has run.
+     *
+     * PART 12 §5 serializes it: footnote numbering is a resolution result that a
+     * consumer cannot recompute without reimplementing PART 9R. It used to live
+     * only in HtmlRenderer's render context, so the published tree carried none
+     * (carve-php#843).
+     *
+     * @var int|null
+     */
+    protected ?int $number = null;
+
+    public function getNumber(): ?int
+    {
+        return $this->number;
+    }
+
+    public function setNumber(int $number): void
+    {
+        $this->number = $number;
+    }
+
     public function getType(): string
     {
         return 'footnote_ref';

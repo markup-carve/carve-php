@@ -120,7 +120,8 @@
     },
     "footnote_ref": {
         "fields": [
-            "id"
+            "id",
+            "number"
         ],
         "required": []
     },
@@ -173,7 +174,9 @@
         ]
     },
     "inline_footnote": {
-        "fields": [],
+        "fields": [
+            "number"
+        ],
         "required": []
     },
     "insert": {
