@@ -55,7 +55,7 @@ class FootnoteRef extends InlineNode
         return $this->number;
     }
 
-    public function setNumber(int $number): void
+    public function setNumber(?int $number): void
     {
         $this->number = $number;
     }
