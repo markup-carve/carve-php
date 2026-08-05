@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Renderer\MarkdownRenderer;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\RendererInterface;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 
 /**
  * Every render target in this engine shares one depth ceiling.
@@ -26,12 +24,29 @@ use ReflectionClass;
  * documents they render today, and no document that renders now stops rendering
  * this way.
  *
- * WHAT THE NUMBER SHOULD BE ACROSS ENGINES IS NOT SETTLED HERE. carve-js uses 232
- * everywhere and carve-rs 632; PART 9 §25 sets only a floor (the ceiling must
- * exceed the parser's cap) and names the reference's choice without requiring it.
- * markup-carve/carve#741 is where that gets decided. These assertions are about
- * the INTERNAL agreement, so they compare the renderers to each other rather than
- * pinning 512 as a language rule.
+ * THERE IS NO CROSS-ENGINE NUMBER, and that is now settled rather than open:
+ * PART 9 §25 requires each implementation to DERIVE its margin from the worst
+ * per-level cost of its own unit and forbids adopting another's, so carve-js's 232
+ * and carve-rs's 632 are not candidates for this engine to match
+ * (markup-carve/carve#754). This file previously pointed at carve#741 as the open
+ * question; it is answered.
+ *
+ * WHAT THAT LEAVES TO CHECK is the derivation, not the number. This engine counts
+ * container depth, the same unit as `MAX_NESTING_DEPTH`, where the worst per-level
+ * cost is 2 - a container level contributes the container and then the block
+ * inside it. So 2 x MAX_NESTING_DEPTH is the floor, and
+ * testTheCeilingIsDerivedFromTheParseCap is what verifies the constant clears it.
+ * Stating a derivation in a docblock and never checking it is how the borrowed
+ * number got in the first time.
+ *
+ * THE AGREEMENT CASE IS GONE, deliberately. The five renderers now share one
+ * constant on `RendererInterface`, and PHP rejects a class that re-declares an
+ * interface constant with a different value - the process dies at load time, before
+ * any test runs. So a case comparing the five to each other could not fail for any
+ * reason, which makes it worse than absent: it reads as coverage of the drift that
+ * caused carve-php#835 while the language, not the suite, is what now prevents it.
+ * Verified rather than assumed - re-declaring 232 in one renderer produces
+ * "Premature end of PHP process", not a failed assertion.
  */
 class RenderCeilingsAgreeTest extends TestCase
 {
@@ -58,20 +73,29 @@ class RenderCeilingsAgreeTest extends TestCase
         return $json;
     }
 
-    public function testEveryRendererUsesTheSameCeiling(): void
+    public function testTheCeilingIsDerivedFromTheParseCap(): void
     {
-        // The disagreement itself, asserted directly: a constant that drifts in
-        // one file is what caused this, so the test compares them rather than
-        // re-checking one number.
-        $ceilings = [
-            'carve' => CarveRenderer::MAX_RENDER_DEPTH,
-            'html' => $this->ceilingOf(HtmlRenderer::class),
-            'markdown' => $this->ceilingOf(MarkdownRenderer::class),
-            'plain' => $this->ceilingOf(PlainTextRenderer::class),
-            'ansi' => $this->ceilingOf(AnsiRenderer::class),
-        ];
+        // The derivation §25 asks be stated - checked, so it cannot rot into a
+        // borrowed number with a docblock that still claims otherwise.
+        //
+        // Container depth is this engine's unit and the worst per-level cost in it
+        // is 2, so the floor is twice the parse cap. Asserted as a RELATIONSHIP:
+        // pinning 512 here would make the constant its own justification.
+        $floor = 2 * BlockParser::MAX_NESTING_DEPTH;
 
-        $this->assertCount(1, array_unique($ceilings), 'render ceilings disagree: ' . json_encode($ceilings));
+        $this->assertGreaterThanOrEqual(
+            $floor,
+            RendererInterface::MAX_RENDER_DEPTH,
+            sprintf(
+                'the ceiling %d is under the derived floor %d for this engine\'s unit',
+                RendererInterface::MAX_RENDER_DEPTH,
+                $floor,
+            ),
+        );
+
+        // And it must genuinely EXCEED the parse cap, which is the part §25 states
+        // as the reason a parsed tree can never reach it.
+        $this->assertGreaterThan(BlockParser::MAX_NESTING_DEPTH, RendererInterface::MAX_RENDER_DEPTH);
     }
 
     public function testATreeTheHtmlRendererAcceptsCanAlsoBeFormatted(): void
@@ -104,15 +128,5 @@ class RenderCeilingsAgreeTest extends TestCase
         $document = (new AstCodec())->decodeJson($this->nestedQuotes(3));
 
         $this->assertStringContainsString('>', (new CarveRenderer())->render($document));
-    }
-
-    /**
-     * Read a renderer's private ceiling without depending on its visibility.
-     */
-    protected function ceilingOf(string $class): int
-    {
-        $reflection = new ReflectionClass($class);
-
-        return (int)$reflection->getConstant('MAX_RENDER_DEPTH');
     }
 }

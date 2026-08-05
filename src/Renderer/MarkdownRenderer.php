@@ -109,11 +109,6 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
-     * @var int
-     */
-    private const MAX_RENDER_DEPTH = 512;
-
-    /**
      * Sentinel standing in for an underscore escape this renderer emitted, so
      * the final pass can tell those apart from a backslash the author wrote.
      * U+E000 is the NBSP sentinel and the Carve writer claims U+E001..U+E003;
