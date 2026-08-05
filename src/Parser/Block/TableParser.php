@@ -350,7 +350,7 @@ class TableParser
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string, offset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
+     * @return array<array{content: string, attributes: string, offset: int, cellOffset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
      *   attributes is the raw `{...}` inner (empty when none); offset is where the
      *   content begins in the original line, and verbatim says whether that stretch
      *   is a byte-for-byte copy of it (see splitCells)
@@ -401,6 +401,13 @@ class TableParser
                 'content' => $content,
                 'attributes' => $attributes,
                 'offset' => $cellOffset,
+                // Where the CELL starts, before the offset above was advanced
+                // past an attribute block. The two are the same for a plain
+                // cell and differ by the block's width for an attributed one,
+                // and `rawLength` measures from HERE - so a span built from the
+                // advanced offset slid right by that width, ending past the end
+                // of the line and overlapping the next cell (carve-php#889).
+                'cellOffset' => $cell['offset'],
                 'verbatim' => $cellVerbatim,
                 'rawLength' => $cellRawLength,
                 'raw' => $cellRaw,
