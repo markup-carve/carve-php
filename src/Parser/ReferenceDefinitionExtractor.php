@@ -10,6 +10,15 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 class ReferenceDefinitionExtractor
 {
     /**
+     * A footnote body's own column: the indent PART 9 §16 requires of a
+     * continuation line. A definition in a note body is collected at exactly
+     * this column and nowhere else (carve#717).
+     *
+     * @var int
+     */
+    private const FOOTNOTE_BODY_COLUMN = 2;
+
+    /**
      * The inline parser answers ONE question here: is a trailing `{...}` a
      * valid attribute block? §14's rule is that a single invalid name
      * invalidates the WHOLE block, and it is the inline parser that knows it -
@@ -170,8 +179,27 @@ class ReferenceDefinitionExtractor
 
             $referenceLine = $this->referenceLineView($line, $reachedCol);
             $bare = $referenceLine['line'];
+            // A footnote body has a content column of its own and it is TWO -
+            // the indent §16 requires of a continuation line (carve#717). This
+            // used to strip ALL leading whitespace instead, so a definition
+            // ANYWHERE in a note body was collected, including at columns where
+            // the body renders the line as prose: the reader saw `[r]: /u` in
+            // the note text while a reference to it silently resolved through
+            // the same line. Visible AND active is the outcome no reading
+            // produces - the `VA` rows of carve#669 and carve#701.
+            //
+            // Above the column the body's blocks read the residual indent and
+            // the line is paragraph text, exactly as above a list item's content
+            // column (§24 C3); below it the line is outside the body. Neither is
+            // a definition. A list or quote inside the body carries its own
+            // column and is left to the branches that track those.
+            $notAtBodyColumn = false;
             if ($inFootnoteBody && $reachedCol === 0 && !$referenceLine['inList'] && !$referenceLine['inQuote']) {
-                $bare = ltrim($bare, " \t");
+                if (IndentationHelper::getLeadingColumns($bare) === self::FOOTNOTE_BODY_COLUMN) {
+                    $bare = IndentationHelper::stripLeadingColumns($bare, self::FOOTNOTE_BODY_COLUMN);
+                } else {
+                    $notAtBodyColumn = true;
+                }
             }
 
             // An attribute line above a definition belongs to the next VISIBLE
@@ -188,7 +216,9 @@ class ReferenceDefinitionExtractor
                 continue;
             }
 
-            $definition = $this->parseReferenceDefinition($bare, $pendingAttrs, $pendingAttrsInQuote, $pendingAttrsInList, $referenceLine);
+            $definition = $notAtBodyColumn
+                ? null
+                : $this->parseReferenceDefinition($bare, $pendingAttrs, $pendingAttrsInQuote, $pendingAttrsInList, $referenceLine);
             if ($definition !== null) {
                 $references[$definition['label']] = new ReferenceDefinition(
                     $definition['url'],
