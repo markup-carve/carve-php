@@ -844,10 +844,22 @@ class BlockParser
         foreach ($authored as [$label, $definition]) {
             $node = new LinkReferenceDefinition($label, $definition->url, $definition->title);
             if ($definition->attributes !== []) {
-                $node->setAttributesWithOrder(
-                    $definition->attributes,
+                // SLOT names, not storage keys. `id` and `class` are stored under
+                // those keys but recorded in the source order as `#id` and
+                // `.class` - the spelling Node::setAttribute() uses and the one
+                // the writer's slot emitter understands. Passing the raw keys
+                // recorded a bare `id` slot, which the writer's dedup guard
+                // skips, so the definition's `#id` was silently dropped from
+                // `fmt` (carve-php#831).
+                $order = array_map(
+                    static fn (string $key): string => match ($key) {
+                        'id' => '#id',
+                        'class' => '.class',
+                        default => $key,
+                    },
                     array_keys($definition->attributes),
                 );
+                $node->setAttributesWithOrder($definition->attributes, $order);
             }
             // PART 12 §4 requires `pos` on every node but the root, and §10 says
             // a hoisted definition's span still points at the line the author
