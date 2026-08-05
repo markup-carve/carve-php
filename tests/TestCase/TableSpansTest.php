@@ -1024,26 +1024,20 @@ HTML;
      */
     public function testJsonOutputValidatesAgainstThePublishedSchema(): void
     {
-        // The repo root, however this checkout got here: a normal clone
-        // (`.../carve-php`, sibling to `.../carve`) or a worktree under
-        // `/tmp` for isolated work, which is not a sibling of anything -
-        // hence the second, well-known-path fallback.
+        // The schema ships WITH this repo, in the `tests/spec` submodule. This
+        // used to look for a sibling `../carve` clone and then for one
+        // contributor's absolute path, so it ran on that one machine and skipped
+        // everywhere else - including every CI job, which is the only place the
+        // result is read (carve-php#870).
+        //
+        // ASSERTED, not skipped: every CI job checks out with
+        // `submodules: recursive`.
         $repoRoot = dirname(__DIR__, 2);
-        $candidates = [
-            dirname($repoRoot) . '/carve/resources/ast-schema.json',
-            '/media/mark/data/work/git/carve/resources/ast-schema.json',
-        ];
-        $schemaPath = null;
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
-                $schemaPath = $candidate;
-
-                break;
-            }
-        }
-        if ($schemaPath === null) {
-            $this->markTestSkipped('the carve spec repo checkout is not available at ' . implode(' or ', $candidates));
-        }
+        $schemaPath = $repoRoot . '/tests/spec/resources/ast-schema.json';
+        $this->assertFileExists(
+            $schemaPath,
+            'the spec submodule is missing - run `git submodule update --init --recursive`',
+        );
 
         $binCarve = $repoRoot . '/bin/carve';
         $source = "| A | B | C |\n|---|---|---|\n| x | y | z |\n| ^ | < | d |\n";
