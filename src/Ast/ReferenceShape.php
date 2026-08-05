@@ -51,6 +51,10 @@ final class ReferenceShape
         // keys by `id`. The block definition is a different type and publishes
         // `label` in PART 12 §7.
         'footnote_ref' => ['label' => 'id'],
+        // The reference calls a caption's number `n`, and the schema pins that
+        // name with `additionalProperties: false` - publishing `number` is not a
+        // cosmetic difference, it is invalid (carve-php#843).
+        'caption_number' => ['number' => 'n'],
         'heading_ref' => ['targetId' => 'target', 'href' => 'href'],
         'math' => ['content' => 'content', 'display' => 'display'],
         'symbol' => ['name' => 'name'],

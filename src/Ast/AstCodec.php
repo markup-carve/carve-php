@@ -236,7 +236,17 @@ class AstCodec
         // narrow pass runs here. It stamps `href` and nothing else: the rest of
         // CrossReferenceResolver rewrites the tree for rendering, which the AST
         // must not show.
-        (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, new HeadingIdTracker());
+        $resolver = new CrossReferenceResolver();
+        $resolver->resolveCrossReferenceTargets($document, new HeadingIdTracker());
+        // PART 12 §5 serializes a caption number: it is a resolution result "a
+        // consumer can recompute", and recomputing it means reimplementing PART
+        // 9R. The number was assigned only on the render path, so `caption_number`
+        // reached the wire with no `n` at all (carve-php#843).
+        //
+        // This is the same narrow treatment as the line above - the numbering pass
+        // stamps the number and nothing else, where the rest of the resolver
+        // rewrites the tree for rendering, which the AST must not show.
+        $resolver->resolveNumberedCaptions($document, new HeadingIdTracker());
 
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the

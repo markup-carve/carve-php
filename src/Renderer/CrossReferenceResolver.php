@@ -256,8 +256,11 @@ class CrossReferenceResolver
     /**
      * Resolve caption number placeholders and register figure/table
      * cross-reference labels before any </#id> links are rendered.
+     *
+     * PUBLIC because the AST path needs it too: PART 12 §5 serializes a caption
+     * number, and it was assigned only while rendering (carve-php#843).
      */
-    protected function resolveNumberedCaptions(Node $node, HeadingIdTracker $tracker): void
+    public function resolveNumberedCaptions(Node $node, HeadingIdTracker $tracker): void
     {
         $counters = [];
         $this->resolveNumberedCaptionsInNode($node, $tracker, $counters);
