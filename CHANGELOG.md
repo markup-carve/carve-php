@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Footnote numbers reach the wire** (carve-php#843, the other half of #846).
+  PART 12 §5 serializes footnote numbering, and this engine assigned it into
+  `RenderContext::$footnoteNumbers` while emitting HTML - so `footnote_ref` and
+  `inline_footnote` published no number at all, and a consumer reading the field
+  the schema declares got nothing. A narrow pass now stamps it on the AST path,
+  matching carve-js byte for byte: document reference order, one number per
+  LABEL, inline notes drawing from the same sequence, and an unresolved
+  reference skipped. A definition's body is numbered only once its own reference
+  has a number, so an unreferenced definition contributes nothing - which is
+  what the HTML renderer already did, and what a source-order walk got wrong.
+
 - **`fmt` keeps attributes written in BOTH authored positions** (carve-php#839).
   `class` is the one attribute that merges rather than replaces, so a `{.lead}`
   line above an image and a `{.trail}` block at the reference arrive on the node

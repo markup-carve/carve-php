@@ -6,12 +6,14 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
@@ -249,6 +251,121 @@ class CrossReferenceResolver
                 $tracker->getIdForHeading($child);
             } else {
                 $this->preresolveHeadingIds($child, $tracker, $depth + 1);
+            }
+        }
+    }
+
+    /**
+     * Stamp each footnote reference with the number it renders as.
+     *
+     * PART 12 §5 serializes footnote numbering, and this engine assigned it into
+     * `RenderContext::$footnoteNumbers` while rendering HTML - so the AST path,
+     * which never renders, published no number at all (carve-php#843).
+     *
+     * The rule, measured against the reference implementation:
+     *
+     *   - document reference order;
+     *   - one number per LABEL, so a repeated reference shares the first one's;
+     *   - an inline note draws from the same sequence;
+     *   - an UNRESOLVED reference gets none - it renders as literal text, so
+     *     there is no note for a number to point at.
+     *
+     * Stamps the number and nothing else, like the caption pass beside it: the
+     * rest of this class rewrites the tree for rendering, which the AST must not
+     * show.
+     */
+    public function resolveFootnoteNumbers(Node $node): void
+    {
+        $definitions = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof FootnoteBlock) {
+                $definitions[$child->getLabel()] = $child;
+            }
+        }
+
+        // CLEARED first. A caller may encode the same Document twice with edits
+        // in between, and this pass only ever STAMPS: a reference that lost its
+        // definition, or a note inside a body that lost its reference, would
+        // keep the number from the previous encode and contradict the rule
+        // below. Nothing else clears it, because nothing else assigns it.
+        $clear = static function (Node $current) use (&$clear): void {
+            if ($current instanceof FootnoteRef || $current instanceof InlineFootnote) {
+                $current->setNumber(null);
+            }
+            foreach ($current->getChildren() as $child) {
+                $clear($child);
+            }
+        };
+        $clear($node);
+
+        $next = 1;
+        $byLabel = [];
+        // Bodies to number, in the order their notes render. A definition's body
+        // is numbered only once its own reference has a number, so an
+        // UNREFERENCED definition never contributes: it renders nowhere, and
+        // numbering a note inside it would take a number from the next real one.
+        // carve-js does the same, and this engine's own HTML already did - it
+        // was only the AST that walked the tree in source order and disagreed.
+        $pending = [];
+
+        $walk = function (Node $current) use (&$walk, &$next, &$byLabel, &$pending, $definitions): void {
+            if ($current instanceof FootnoteBlock) {
+                // Reached as a document child: its body is numbered from the
+                // queue below, if anything references it.
+                return;
+            }
+            if ($current instanceof FootnoteRef) {
+                $label = $current->getLabel();
+                // EXACTLY the renderer's predicate, which is `isUnresolved()`
+                // and nothing else - the flag, not a fresh look at the
+                // definitions. Both differ from each other only on a tree edited
+                // after parsing, and there the published number has to describe
+                // what the renderer will do:
+                //
+                //   - flag true, definition added later  -> renders literal
+                //     `[^id]`, so no number;
+                //   - flag false, definition removed later -> still renders a
+                //     numbered note, so it keeps its number.
+                //
+                // Checking the definitions map instead got the first right and
+                // the second wrong. A parsed tree has the flag set correctly, and
+                // a decoded one has it re-derived by `AstCodec`, so the two agree
+                // on every document either path produces.
+                if (!$current->isUnresolved()) {
+                    if (!isset($byLabel[$label])) {
+                        $byLabel[$label] = $next++;
+                        // Only a body that exists can be numbered. A reference
+                        // marked resolved whose definition is gone still gets its
+                        // own number; there is simply nothing inside to visit.
+                        if (isset($definitions[$label])) {
+                            $pending[] = $definitions[$label];
+                        }
+                    }
+                    $current->setNumber($byLabel[$label]);
+                }
+            } elseif ($current instanceof InlineFootnote) {
+                $current->setNumber($next++);
+                // The BODY is deferred like a definition's. The renderer emits
+                // both in the endnotes pass, after the main flow, so a note
+                // nested inside this one is numbered after the references that
+                // follow it in the paragraph. A parsed document cannot nest one
+                // (the parser leaves `[^b]` inside `^[...]` as text), but a
+                // decoded or programmatically built tree can, and then source
+                // order and render order differ.
+                $pending[] = $current;
+
+                return;
+            }
+            foreach ($current->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+
+        $walk($node);
+        while ($pending !== []) {
+            $body = array_shift($pending);
+            foreach ($body->getChildren() as $child) {
+                $walk($child);
             }
         }
     }

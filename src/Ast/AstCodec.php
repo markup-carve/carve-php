@@ -247,6 +247,10 @@ class AstCodec
         // stamps the number and nothing else, where the rest of the resolver
         // rewrites the tree for rendering, which the AST must not show.
         $resolver->resolveNumberedCaptions($document, new HeadingIdTracker());
+        // The other half of §5's sentence: footnote numbering. Assigned into the
+        // render context while emitting HTML, so the wire carried none
+        // (carve-php#843).
+        $resolver->resolveFootnoteNumbers($document);
 
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the
