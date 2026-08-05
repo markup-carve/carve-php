@@ -89,8 +89,56 @@ class ProfileFilter
         $this->emptied = [];
         $this->filterChildren($doc, $profile, 0);
         $this->cleanupEmptyContainers($doc, 0);
+        $this->rederiveFootnoteResolution($doc);
 
         return $doc;
+    }
+
+    /**
+     * Point every footnote reference at the definitions that are STILL here.
+     *
+     * `FootnoteRef::isUnresolved()` is decided at parse time, from the source,
+     * and the renderer reads it to choose between a link and the literal `[^a]`.
+     * This filter changes which definitions exist, and nothing re-derived that:
+     * a reference to a denied definition kept reporting resolved, so it took a
+     * number, emitted a link, and left an endnotes section holding an item with
+     * a backlink and no body (carve-php#849).
+     *
+     * The number goes with it. It is published (PART 12 §5), and a reference
+     * that no longer resolves has none - carve-js and carve-rs clear it in the
+     * same situation, for the same reason.
+     *
+     * ITERATIVE, NOT RECURSIVE. §25 requires a pass like this to be bounded, and
+     * a recursive version of it segfaulted the suite rather than raising
+     * anything: PHP overflows the host stack on the deep-nesting fixtures, which
+     * is not a failure mode a caller can catch. An explicit stack has no depth
+     * of its own to exceed.
+     */
+    protected function rederiveFootnoteResolution(Document $doc): void
+    {
+        $labels = [];
+        $refs = [];
+        $stack = [$doc];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof Footnote) {
+                $labels[$node->getLabel()] = true;
+            } elseif ($node instanceof FootnoteRef) {
+                $refs[] = $node;
+            }
+            foreach ($node->getChildren() as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        foreach ($refs as $ref) {
+            // Only ever tightens: a reference the parse already called
+            // unresolved cannot become resolved because a node was removed.
+            if (!isset($labels[$ref->getLabel()])) {
+                $ref->setUnresolved(true);
+                $ref->setNumber(null);
+            }
+        }
     }
 
     /**

@@ -55,7 +55,11 @@ class FootnoteRef extends InlineNode
         return $this->number;
     }
 
-    public function setNumber(int $number): void
+    /**
+     * Null clears it, for a reference that stopped resolving after the profile
+     * filter removed its definition (carve-php#849).
+     */
+    public function setNumber(?int $number): void
     {
         $this->number = $number;
     }
