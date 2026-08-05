@@ -333,10 +333,14 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * ONE cause now. `173` is the implicit-heading-reference gap: the parsed
-     * link records that its destination was derived from a heading, and that
-     * flag is not on the wire, so `[label][]` comes back as `[label](#id)`.
-     * carve-js round-trips the same document unchanged.
+     * EMPTY now. `173` was the implicit-heading-reference gap: the parsed link
+     * records that its destination was derived from a heading, and that flag is
+     * not on the wire, so `[label][]` came back as `[label](#id)`.
+     *
+     * PART 12 §10 closed it as a side effect rather than by publishing the flag.
+     * A reference link now writes the REFERENCE rather than its resolved
+     * destination, so the authored `[label][]` survives whether or not the
+     * decoder can tell where the destination came from (markup-carve/carve#642).
      *
      * The three bare-dot documents used to be here on the stated grounds that
      * "preserving it here would mean inventing a field the other engines do not
@@ -350,9 +354,7 @@ class AstCodecTest extends TestCase
      *
      * @var array<string>
      */
-    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        '173-implicit-heading-references-with-no-definition.crv',
-    ];
+    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [];
 
     /**
      * Reading one back still works, because this engine wrote them.

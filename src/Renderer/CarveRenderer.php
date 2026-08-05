@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -269,10 +270,29 @@ class CarveRenderer implements RendererInterface
         }
     }
 
+    /**
+     * Attributes carried by each authored definition, keyed by label.
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected array $definitionAttributes = [];
+
     protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
         $abbrs = [];
+        // PART 12 §10: definition attributes serialize ONCE, on the definition.
+        // Resolution materializes them onto every link that resolves the label
+        // so the HTML target can render them, which leaves the writer unable to
+        // tell them from attributes the author wrote AT the reference. Emitting
+        // both wrote `{.x}` twice and broke PART 11 §1 (carve#642), so the
+        // definition's own keys are subtracted at the reference site.
+        $this->definitionAttributes = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
+                $this->definitionAttributes[$child->getLabel()] = $child->getAttributes();
+            }
+        }
         // Every authored definition, in source order. A term defined twice is
         // two lines the author wrote; which one wins is resolution (PART 9R)
         // and the formatter does not resolve.
@@ -512,6 +532,13 @@ class CarveRenderer implements RendererInterface
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
             $node instanceof Comment => $this->renderComment($node),
             $node instanceof Footnote => $this->renderFootnote($node),
+            // PART 12 §10 gives the definition a node, so the writer emits the
+            // AUTHORED line instead of folding the destination into every
+            // reference. Inlining satisfied `toHtml(fmt(x)) == toHtml(x)` and
+            // broke PART 11 §1: `ref`/`rawRef` - which §3a keeps precisely so
+            // `[a][r]` and `[a](/u)` stay distinguishable - were absent from the
+            // reparse (carve#642).
+            $node instanceof LinkReferenceDefinition => $this->renderLinkReferenceDefinition($node),
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
             default => $this->renderBlocks($node->getChildren()),
         };
@@ -1092,6 +1119,28 @@ class CarveRenderer implements RendererInterface
         return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
 
+    /**
+     * Write an authored `[label]: /url "title" {attrs}` line back as written.
+     *
+     * The destination and title are emitted verbatim; the trailing attribute
+     * block is the node's own attributes (PART 9 §15 A2b), which transfer to
+     * every link or image resolving the label rather than styling this line.
+     */
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        $out = '[' . $node->getLabel() . ']: ' . $node->getHref();
+        $title = $node->getTitle();
+        if ($title !== null) {
+            $out .= ' "' . str_replace('"', '\\"', $title) . '"';
+        }
+        $attrs = $this->renderAttrs($node);
+        if ($attrs !== '') {
+            $out .= ' ' . $attrs;
+        }
+
+        return $out;
+    }
+
     protected function renderFootnote(Footnote $node): string
     {
         $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
@@ -1235,10 +1284,31 @@ class CarveRenderer implements RendererInterface
         // bakes a generated id into the source on every `fmt` pass, and both
         // other engines keep the reference (carve-rs#435, carve-js#526).
         //
-        // An EXPLICIT definition still writes the resolved link: there the
-        // definition line is dropped either way, so the authored pair is not
-        // reproducible from the tree and all three engines agree on the inline
-        // form.
+        // AN EXPLICIT DEFINITION NOW WRITES THE REFERENCE TOO. This used to
+        // write the resolved link, on the reasoning that "the definition line is
+        // dropped either way, so the authored pair is not reproducible from the
+        // tree". PART 12 §10 removed that premise: the definition IS in the
+        // tree, so both halves are reproducible and the pair round-trips.
+        //
+        // Inlining satisfied `toHtml(fmt(x)) == toHtml(x)` and broke PART 11
+        // §1: `ref` and `rawRef` - which §3a keeps precisely so `[a][r]` and
+        // `[a](/u)` stay distinguishable - were absent from the reparse. It also
+        // duplicated a destination the definition form exists to write once, so
+        // one URL became N after a single `fmt` (carve#642).
+        $referenceLabel = $node->getReferenceLabel();
+        if (!$node->isFromHeadingReference() && $referenceLabel !== null && $referenceLabel !== '') {
+            // `rawRef` is the authored source VERBATIM and already includes any
+            // attribute block the author wrote at the reference, so appending
+            // renderAttrs() here wrote `{.own}` twice.
+            $raw = $node->getRawReferenceLabel();
+            if ($raw !== null) {
+                return $raw;
+            }
+
+            return '[' . $text . '][' . $referenceLabel . ']'
+                . $this->renderAttrsExcept($node, $this->definitionAttributes[$referenceLabel] ?? []);
+        }
+
         if ($node->isFromHeadingReference()) {
             // The AUTHORED source. `ref` now holds the real label rather than
             // `''` for the collapsed form (PART 12 §3a, carve#597), so building
@@ -1274,6 +1344,22 @@ class CarveRenderer implements RendererInterface
         }
 
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+
+        // A RESOLVED reference image writes the reference, for the same reason a
+        // reference link does (PART 12 §10): the definition is in the tree now,
+        // so both halves round-trip. Inlining here while the definition is also
+        // emitted wrote the destination TWICE - once folded into the image and
+        // once as the definition line (carve#642).
+        $referenceLabel = $node->getReferenceLabel();
+        if ($referenceLabel !== null && $referenceLabel !== '') {
+            $rawRef = $node->getRawReferenceLabel();
+            if ($rawRef !== null) {
+                return $rawRef;
+            }
+
+            return '![' . $this->escapeImageAlt($node->getAlt()) . '][' . $referenceLabel . ']'
+                . $this->renderAttrsExcept($node, $this->definitionAttributes[$referenceLabel] ?? []);
+        }
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
     }
@@ -1508,6 +1594,39 @@ class CarveRenderer implements RendererInterface
         return $needsPad
             ? $fence . ' ' . $content . ' ' . $fence
             : $fence . $content . $fence;
+    }
+
+    /**
+     * renderAttrs(), minus keys the DEFINITION already carries.
+     *
+     * Resolution copies a definition's attributes onto every link resolving the
+     * label so HTML can render them (PART 9R R1). They belong to the definition
+     * on the wire (PART 12 §10), so writing them at the reference too says the
+     * same thing twice and does not re-parse to the same tree.
+     *
+     * @param \MarkupCarve\Carve\Node\Node|null $node
+     * @param array<string, string> $definitionAttributes
+     */
+    protected function renderAttrsExcept(?Node $node, array $definitionAttributes): string
+    {
+        if ($node === null || $definitionAttributes === []) {
+            return $this->renderAttrs($node);
+        }
+
+        $own = $node->getAttributes();
+        foreach ($definitionAttributes as $key => $value) {
+            if (($own[$key] ?? null) === $value) {
+                unset($own[$key]);
+            }
+        }
+        if ($own === $node->getAttributes()) {
+            return $this->renderAttrs($node);
+        }
+
+        $clone = clone $node;
+        $clone->setAttributes($own);
+
+        return $this->renderAttrs($clone);
     }
 
     protected function renderAttrs(?Node $node): string

@@ -35,12 +35,19 @@ class CarveWriterHeadingReferenceTest extends TestCase
         $this->assertSame($source, $this->format($source));
     }
 
-    public function testAnExplicitDefinitionIsWrittenAsAResolvedLink(): void
+    /**
+     * Was "written as a resolved link", on the reasoning that the definition
+     * line was dropped either way so the authored pair could not be reproduced.
+     * PART 12 §10 put the definition in the tree, so both halves round-trip and
+     * the reference stays a reference (markup-carve/carve#642).
+     */
+    public function testAnExplicitDefinitionKeepsBothHalves(): void
     {
         $formatted = $this->format("[Defined]: /wins\n\nSee [Defined][].\n");
 
-        $this->assertStringContainsString('[Defined](/wins)', $formatted);
-        $this->assertStringNotContainsString('[Defined][]', $formatted);
+        $this->assertStringContainsString('[Defined][]', $formatted);
+        $this->assertStringContainsString('[Defined]: /wins', $formatted);
+        $this->assertStringNotContainsString('[Defined](/wins)', $formatted);
     }
 
     /**

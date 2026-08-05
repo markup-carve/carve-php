@@ -50,12 +50,17 @@ class UnresolvedImageFigureFmtTest extends TestCase
         $this->assertSame($this->html($source), $this->html($this->carve($source) . "\n"));
     }
 
-    public function testAResolvedReferenceImageStillInlinesItsDestination(): void
+    /**
+     * Was "still inlines its destination". PART 12 §10 gives the definition a
+     * node, so inlining here while the definition line is ALSO emitted wrote the
+     * destination twice - once folded into the image and once as the definition
+     * (markup-carve/carve#642). Both halves are reproducible now, so the
+     * reference stays a reference and the document round-trips byte for byte.
+     */
+    public function testAResolvedReferenceImageKeepsTheReferenceAndItsDefinition(): void
     {
-        // The path that was already right, kept honest: a definition exists, so
-        // the writer emits the resolved form rather than the reference.
         $this->assertSame(
-            "![a](/u)\n^ cap",
+            "![a][r]\n^ cap\n\n[r]: /u",
             $this->carve("![a][r]\n^ cap\n\n[r]: /u\n"),
         );
     }
