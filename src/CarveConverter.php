@@ -22,6 +22,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
@@ -422,6 +423,14 @@ class CarveConverter
                 $extension->afterParse($document);
             }
         }
+
+        // Links never nest, and the grammar calls that a property of the
+        // DOCUMENT - so it binds the parsed tree, not only what a renderer emits.
+        // After the extensions, because an autolink matcher inside a link label is
+        // one of the ways an inner link appears, and BEFORE the coalescer, because
+        // unwrapping splices an inner link's text in beside its neighbours and
+        // leaves adjacent runs behind (carve-php#859).
+        (new CrossReferenceResolver())->unwrapNestedLinks($document);
 
         // Last, so it also covers runs an extension left behind. PART 12 §1a is
         // about the tree that gets published, whoever produced it - and §6
