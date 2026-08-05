@@ -1148,9 +1148,25 @@ class HtmlRenderer implements RendererInterface
     protected function indentFootnoteBody(string $content): string
     {
         $lines = explode("\n", rtrim($content, "\n"));
+        // Verbatim content is off limits, exactly as in indentBlock(). Without the
+        // guard, `</code></pre>` starts with a tag, so it was padded - and that
+        // padding sits INSIDE the `<pre>`, giving the rendered code trailing
+        // whitespace the author never wrote (carve-php#815). carve-js and carve-rs
+        // both leave the closer at column 0.
+        $inPre = false;
         foreach ($lines as $i => $line) {
+            if ($inPre) {
+                if (str_contains($line, '</pre>')) {
+                    $inPre = false;
+                }
+
+                continue;
+            }
             if ($line !== '' && ($i === 0 || str_starts_with($line, '<'))) {
                 $lines[$i] = '      ' . $line;
+            }
+            if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
+                $inPre = true;
             }
         }
 
