@@ -1116,7 +1116,7 @@ class BlockParser
                 continue;
             }
 
-            $container = $this->footnoteContainerPrefix($line, $reachedCol);
+            $container = $this->footnoteContainerPrefix($line, $reachedCol, $lines[$i - 1] ?? '');
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
@@ -1189,8 +1189,19 @@ class BlockParser
                     // first block and does not depend on what precedes it. The
                     // opener test below is about a line CONTINUING a paragraph,
                     // which a quote marker never does (carve-php#788).
+                    // A DESCRIPTION MARKER in the prefix opens a block by
+                    // itself for the same reason a quote marker does: the `dd`
+                    // begins on that line, so the definition is the entry's
+                    // first block and does not depend on what precedes it. What
+                    // precedes it is the `::` term line, which is neither blank
+                    // nor a container, so without this the opener test refused
+                    // every definition written in a `dd` (carve-php#891, spec
+                    // markup-carve/carve#801). The prefix holds only stripped
+                    // container markers, so a `:` followed by whitespace in it
+                    // is the description marker and nothing else.
                     $opensBlock = $container['kind'] === 'columnContainer'
                         || str_contains($container['prefix'], '>')
+                        || preg_match('/:[ \t]/', $container['prefix']) === 1
                         || $i === 0
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
@@ -1388,8 +1399,11 @@ class BlockParser
      *
      * @return array{kind: string, prefix: string}
      */
-    protected function footnoteContainerPrefix(string $line, int $contentCol = 0): array
-    {
+    protected function footnoteContainerPrefix(
+        string $line,
+        int $contentCol = 0,
+        string $previousLine = '',
+    ): array {
         $rest = $line;
         $stripped = false;
         do {
@@ -1429,6 +1443,25 @@ class BlockParser
             if ($info !== null && $info['type'] !== 'task') {
                 $markerWidth = strlen($rest) - strlen((string)$info['content']);
                 $rest = substr($rest, $markerWidth);
+                $stripped = true;
+
+                continue;
+            }
+
+            // A definition list's DESCRIPTION marker is a container opener too,
+            // so a footnote definition written on that line is the entry's own
+            // content and is collected from it - the same answer the bullet arm
+            // above gives (carve-php#891, spec markup-carve/carve#801). `::` is
+            // the TERM marker and does not match: it needs whitespace after the
+            // single colon, which `::` and a `:::` fence opener both fail.
+            // Only when a term opened the entry above it. A description line
+            // with no term is not a description at all - it is paragraph text,
+            // and a definition in it defines nothing (corpus
+            // `216-a-description-line-needs-a-term-above-it`).
+            $afterTerm = preg_match('/^::(?!:)[ \t]/', ltrim($previousLine, " \t")) === 1
+                || preg_match('/^:[ \t]/', ltrim($previousLine, " \t")) === 1;
+            if ($afterTerm && preg_match('/^[ \t]*:[ \t]\s*(?=\S)/', $rest, $descMatch) === 1) {
+                $rest = substr($rest, strlen($descMatch[0]));
                 $stripped = true;
             }
         } while ($rest !== $previous);

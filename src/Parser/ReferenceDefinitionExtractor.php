@@ -177,7 +177,7 @@ class ReferenceDefinitionExtractor
                 $inFootnoteBody = false;
             }
 
-            $referenceLine = $this->referenceLineView($line, $reachedCol);
+            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
             $bare = $referenceLine['line'];
             // A footnote body has a content column of its own and it is TWO -
             // the indent §16 requires of a continuation line (carve#717). This
@@ -249,7 +249,7 @@ class ReferenceDefinitionExtractor
     /**
      * @return array{line: string, inQuote: bool, inList: bool}
      */
-    private function referenceLineView(string $line, int $contentCol): array
+    private function referenceLineView(string $line, int $contentCol, string $previousLine = ''): array
     {
         $bare = $line;
         $inQuote = false;
@@ -272,7 +272,7 @@ class ReferenceDefinitionExtractor
                 $inQuote = true;
                 $bare = preg_replace('/^> ?/', '', $bare) ?? $bare;
             }
-            $afterMarker = $this->stripReferenceListMarker($bare);
+            $afterMarker = $this->stripReferenceListMarker($bare, $previousLine);
             if ($afterMarker !== $bare) {
                 $inList = true;
                 $bare = $afterMarker;
@@ -293,15 +293,55 @@ class ReferenceDefinitionExtractor
         return ['line' => $bare, 'inQuote' => $inQuote, 'inList' => $inList];
     }
 
-    private function stripReferenceListMarker(string $line): string
+    /**
+     * Is a `: ` line here actually a definition list's DESCRIPTION?
+     *
+     * Only when a term opened the entry above it. A description line with no
+     * term above it is not a description at all - it is paragraph text, and the
+     * definition-shaped content in it defines nothing (corpus
+     * `216-a-description-line-needs-a-term-above-it`). Without this test the
+     * marker was stripped from every `: ` line and a definition in a bare one
+     * was collected, which is the opposite of what 216 pins.
+     *
+     * The previous line is enough to decide it: an entry is opened by a `::`
+     * term and continued by a further `: ` description.
+     *
+     * @param string $previousLine The line above the one being tested
+     *
+     * @return bool
+     */
+    private function opensDefinitionEntry(string $previousLine): bool
     {
+        $trimmed = ltrim($previousLine, " \t");
+
+        return preg_match('/^::(?!:)[ \t]/', $trimmed) === 1
+            || preg_match('/^:[ \t]/', $trimmed) === 1;
+    }
+
+    private function stripReferenceListMarker(string $line, string $previousLine = ''): string
+    {
+        // A definition list's DESCRIPTION marker opens item content exactly as a
+        // bullet does, so a definition written on that line is the entry's own
+        // content and is collected from it. Without this the block parser still
+        // removed the line - the `dd` renders empty, which is right - while
+        // nothing was registered, so the reference it feeds stayed literal
+        // somewhere else in the document (carve-php#891, spec
+        // markup-carve/carve#801).
+        //
+        // `::` is the TERM marker and must not match here: it needs whitespace
+        // after the single colon, which `::` and a `:::` fence opener both fail.
         $m0 = $line[0] ?? '';
-        if ($m0 !== ' ' && $m0 !== "\t" && $m0 !== '-' && $m0 !== '*' && ($m0 < '0' || $m0 > '9')) {
+        if (
+            $m0 !== ' ' && $m0 !== "\t" && $m0 !== '-' && $m0 !== '*' && $m0 !== ':'
+            && ($m0 < '0' || $m0 > '9')
+        ) {
             return $line;
         }
 
+        $descriptionMarker = $this->opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+
         return preg_replace(
-            '/^[ \t]*(?:[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+            '/^[ \t]*(?:' . $descriptionMarker . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
             '',
             $line,
         ) ?? $line;
