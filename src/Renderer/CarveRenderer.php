@@ -1054,8 +1054,24 @@ class CarveRenderer implements RendererInterface
     protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): array
     {
         $attrs = $this->renderAttrs($cell);
+        // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
+        // `<` is also the left-alignment sigil, and the two readings differ: the
+        // executable spec reads `|<|` as alignment on an empty cell where all
+        // three engines read a colspan (carve#710). `alignment_marker` is
+        // defined as glued and `colspan_marker` may carry surrounding
+        // whitespace, so the padded form means the same thing to every reader
+        // and the writer must not emit the ambiguous one. `^` is not an
+        // alignment sigil, but takes the same shape so a row of span cells stays
+        // readable.
+        //
+        // A cell attribute stays GLUED to the pipe, where the grammar puts it;
+        // the space goes between it and the marker.
         if ($cell->getSpanMarker() !== null) {
-            return ['text' => $attrs . $cell->getSpanMarker(), 'tight' => true];
+            if ($attrs === '') {
+                return ['text' => $cell->getSpanMarker(), 'tight' => false];
+            }
+
+            return ['text' => $attrs . ' ' . $cell->getSpanMarker(), 'tight' => true];
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
         $prefix = $attrs . ($cell->isHeader() && $markHeader ? '=' : '') . $align;
