@@ -1243,7 +1243,23 @@ class BlockParser
         // Every footnote label is now registered; parse the bodies so a forward
         // reference to a later-defined footnote inside a body resolves.
         foreach ($deferredBodies as $label => $body) {
-            $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+            // A note body's PENDING ATTRIBUTES do not survive it. `parseBlocks()`
+            // leaves the state set when a body ends with an attribute line that
+            // has nothing to attach to, and the next block in the DOCUMENT then
+            // collected it - so a class written inside a note landed on body
+            // text outside the note (carve-php#816). Section 15 A4 drops a
+            // pending attribute with no following block element; the note body
+            // ending is that condition for anything written inside it.
+            $outerPendingAttributes = $this->pendingAttributes;
+            $outerPendingAttributeOrder = $this->pendingAttributeOrder;
+            $this->pendingAttributes = [];
+            $this->pendingAttributeOrder = [];
+            try {
+                $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+            } finally {
+                $this->pendingAttributes = $outerPendingAttributes;
+                $this->pendingAttributeOrder = $outerPendingAttributeOrder;
+            }
         }
     }
 
