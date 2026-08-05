@@ -111,6 +111,19 @@ class BlockParser
      *
      * @var int
      */
+    /**
+     * A footnote body's own column: the indent PART 9 §16 asks a continuation
+     * line for, and the amount the body is dedented by - never the first
+     * continuation line's actual indent, so a deeper line keeps its residual
+     * columns and the body's own blocks read them.
+     *
+     * @var int
+     */
+    private const FOOTNOTE_BODY_COLUMN = 2;
+
+    /**
+     * @var int
+     */
     public const MAX_NESTING_DEPTH = 200;
 
     /**
@@ -1286,13 +1299,17 @@ class BlockParser
 
                         continue;
                     }
-                    // A footnote body extends only to lines indented by at least
-                    // base indentation (2 spaces or a tab), per grammar PART 9
-                    // §16. A line with less indentation (e.g. a single space) is
-                    // a top-level block, not part of the footnote -- matches
-                    // carve-js / carve-rs.
-                    if (preg_match('/^(?:[ ]{2}|\t)(.*)$/', $nextLine, $contMatch)) {
-                        $contentLines[] = $contMatch[1];
+                    // A footnote body extends only to lines reaching the body's
+                    // column, which PART 9 §16 puts at 2. The measure is COLUMNS:
+                    // §24 C1 gives a tab a column value, so a bare tab, two
+                    // spaces and `<SPACE><TAB>` all reach it. This matched
+                    // `/^(?:[ ]{2}|\t)/` - two spaces or a tab, never the
+                    // mixture - while carve-js and carve-rs took the mixture and
+                    // refused the bare tab (carve#796, carve-php#887). A line
+                    // reaching only column 1 is a top-level block, not part of
+                    // the note.
+                    if (IndentationHelper::getLeadingColumns($nextLine) >= self::FOOTNOTE_BODY_COLUMN) {
+                        $contentLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                         $contentLineMap[] = $j;
                         $j++;
                     } else {
@@ -5663,7 +5680,8 @@ class BlockParser
                 // PART 9 §16, §17).
                 if (
                     $i + 1 < $count
-                    && (preg_match('/^(?:[ ]{2}|\t)/', $lines[$i + 1]) || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
+                    && (IndentationHelper::getLeadingColumns($lines[$i + 1]) >= self::FOOTNOTE_BODY_COLUMN
+                        || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
                 ) {
                     $i++;
 
@@ -5691,7 +5709,7 @@ class BlockParser
 
                 continue;
             }
-            if (preg_match('/^(?:[ ]{2}|\t)/', $nextLine)) {
+            if (IndentationHelper::getLeadingColumns($nextLine) >= self::FOOTNOTE_BODY_COLUMN) {
                 $i++;
             } else {
                 break;
