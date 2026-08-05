@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Build the implicit `[Heading][]` reference index from the PARSED TREE.
@@ -97,17 +98,26 @@ class HeadingReferenceCollector
     }
 
     /**
-     * R1 matches the heading index case-insensitively, which is looser than
-     * the exact, case-sensitive link-definition match in the same rule: a
-     * definition label is an identifier the author wrote twice, while a
+     * R1 matches the heading index NFC-normalized and case-insensitively, which
+     * is looser than the exact, case-sensitive link-definition match in the same
+     * rule: a definition label is an identifier the author wrote twice, while a
      * heading reference is prose quoted from elsewhere in the document.
+     *
+     * NFC is in the list because heading IDS are already normalized (section 25),
+     * so without it a document published an NFC id and then declined a reference
+     * spelling that exact string - the same alphabet on one side of the
+     * resolution and not the other, and invisible on screen (carve#725). It is
+     * also a WEAKER fold than the case fold beside it: case folding relates
+     * codepoints Unicode calls distinct, NFC relates sequences Unicode DEFINES
+     * as the same. NFKC stays out - it would fold a ligature into its ASCII
+     * spelling and change which text is being quoted.
      */
     protected function foldLabel(string $label): string
     {
         return (string)preg_replace_callback(
             '/./us',
             static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
-            $label,
+            StringUtil::normalizeNfc($label),
         );
     }
 }
