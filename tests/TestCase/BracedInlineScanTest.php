@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
  * of openers with no closer would otherwise walk to end-of-text at every opener
  * -> O(n^2); a memoized strrpos bails in O(1). Output must be byte-identical.
  */
+#[Group('scaling')]
 class BracedInlineScanTest extends TestCase
 {
     use ScalingGuardTrait;

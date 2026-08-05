@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  * otherwise walk to end-of-text at every opener -> O(n^2). A memoized strrpos
  * bails in O(1) when no closer lies ahead. Output must be byte-identical.
  */
+#[Group('scaling')]
 class BoldItalicScanTest extends TestCase
 {
     use ScalingGuardTrait;

@@ -54,6 +54,13 @@ trait ScalingGuardTrait
      * unevenly. Five rounds (an odd count, so the median is a real sample)
      * survived both suites running concurrently.
      *
+     * Deliberately NOT reduced to buy runtime. These 49 data sets used to be
+     * most of the default suite's wall clock, but they now run as their own
+     * `scaling` group on a runner of their own, so what this count costs is off
+     * the critical path -- and a smaller sample is exactly what makes the ratio
+     * flaky on a loaded machine, which is the failure this calibration was
+     * chosen to end.
+     *
      * @var int
      */
     private const SCALE_ROUNDS = 5;
@@ -95,9 +102,11 @@ trait ScalingGuardTrait
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
 
-        // Prime any per-instance caches so round 1 does not measure setup.
+        // Prime any per-instance caches so round 1 does not measure setup. The
+        // small sample is the same shape as the large one, so it warms the same
+        // caches; priming with the large sample as well bought nothing and cost
+        // a full 50000-repeat convert per data set.
         $converter->convert($small);
-        $converter->convert($large);
 
         $smallPerByte = [];
         $largePerByte = [];
