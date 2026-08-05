@@ -2162,7 +2162,15 @@ class HtmlRenderer implements RendererInterface
         // Strip ASCII C0/space plus Unicode whitespace and separators before the
         // scheme probe so a leading NBSP (U+00A0) or other Unicode space cannot
         // hide a `javascript:` / `data:` scheme from the denylist.
-        $probe = preg_replace('/[\x00-\x20]+|[\p{Z}\p{Cc}]+/u', '', $url);
+        //
+        // U+FEFF IS NAMED BY THE CLAUSE AND IS NEITHER Z NOR Cc. PART 9 section 25
+        // lists what has to be stripped and ends with "and the BOM (U+FEFF)";
+        // the BOM's category is Cf (format), so `\p{Z}\p{Cc}` misses it and a
+        // `<U+FEFF>javascript:` destination reached the output as a live
+        // `href`. Seventeen of the eighteen characters the clause names are Z
+        // or Cc and were already stripped - the BOM was the only one that was
+        // not, which is why nothing caught it (carve-php#874).
+        $probe = preg_replace('/[\x00-\x20]+|[\p{Z}\p{Cc}\x{feff}]+/u', '', $url);
         if ($probe === null) {
             // PCRE refused the UTF-8 pass (invalid byte sequence); fall back to
             // the ASCII-only strip so a malformed URL is still probed.
