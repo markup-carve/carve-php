@@ -139,14 +139,20 @@ class CarveRenderer implements RendererInterface
      * characters the document does not use cannot collide by construction, and
      * cannot run out - the BMP private-use area alone has 6400 code points.
      *
-     * U+E000 is NOT here. It is the parser's in-band marker for a non-breaking
-     * space, shared with the HTML, plain, ANSI and Markdown renderers, so an
-     * authored U+E000 is already conflated with a parsed nbsp before this
-     * renderer runs. That is the other half of carve#678.
+     * U+E000 is not one of the chosen characters - it is the parser's in-band
+     * marker for a non-breaking space, shared with the HTML, plain, ANSI and
+     * Markdown renderers, so an authored U+E000 is already conflated with a
+     * parsed nbsp before this renderer runs. That is the other half of carve#678.
      *
-     * @var array{0: string, 1: string, 2: string, 3: string}
+     * Slot 4 CARRIES an authored U+E000 through normalization, which would
+     * otherwise rewrite it to `\ ` - correct outside verbatim content and wrong
+     * inside it, where a backslash is literal (carve-php#829). It is a carrier,
+     * not a replacement for the marker: restoreVerbatim() puts the character
+     * back.
+     *
+     * @var array{0: string, 1: string, 2: string, 3: string, 4: string}
      */
-    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}"];
 
     /**
      * Every string in the tree, joined.
@@ -204,11 +210,11 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string}
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        $defaults = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+        $defaults = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}"];
         $collides = static function (array $candidates) use ($text): bool {
             foreach ($candidates as $candidate) {
                 if (str_contains($text, $candidate)) {
@@ -225,12 +231,13 @@ class CarveRenderer implements RendererInterface
             return $defaults;
         }
 
-        for ($base = 0xE005; $base <= 0xF8FC; $base += 4) {
+        for ($base = 0xE006; $base <= 0xF8FB; $base += 5) {
             $quartet = [
                 mb_chr($base, 'UTF-8'),
                 mb_chr($base + 1, 'UTF-8'),
                 mb_chr($base + 2, 'UTF-8'),
                 mb_chr($base + 3, 'UTF-8'),
+                mb_chr($base + 4, 'UTF-8'),
             ];
             if (!$collides($quartet)) {
                 return $quartet;
@@ -1589,6 +1596,11 @@ class CarveRenderer implements RendererInterface
 
     protected function renderCode(string $content): string
     {
+        // A code span is verbatim too, so an authored U+E000 is the CHARACTER
+        // here as much as inside a fence - and normalize() would otherwise
+        // rewrite it to `\ `, a literal backslash and a space inside backticks
+        // (carve-php#829). Same sentinel protectVerbatim() uses.
+        $content = str_replace("\u{E000}", $this->verbatimSentinels[4], $content);
         $fence = $this->safeFence($content, 1);
 
         // Pad exactly where the parser strips, so the strip is reversible and fmt
@@ -1839,6 +1851,14 @@ class CarveRenderer implements RendererInterface
      */
     protected function protectVerbatim(string $content): string
     {
+        // An authored U+E000 inside verbatim content is the CHARACTER, not an
+        // escape. normalize() rewrites every U+E000 to `\ `, which is right
+        // outside verbatim and wrong inside it - escapes do not resolve in a code
+        // block, so `\ ` there is a literal backslash and a space, and
+        // toHtml(fmt(x)) != toHtml(x) (carve-php#829). Carrying it under its own
+        // sentinel keeps it out of that rewrite; restoreVerbatim puts the
+        // character back. carve-rs already emits it as itself.
+        $content = str_replace("\u{E000}", $this->verbatimSentinels[4], $content);
         $content = (string)preg_replace_callback(
             '/[ \t]+(?=\n|$)/',
             fn (array $m): string => strtr(
@@ -1863,6 +1883,8 @@ class CarveRenderer implements RendererInterface
             $this->verbatimSentinels[0] => ' ',
             $this->verbatimSentinels[1] => "\t",
             $this->verbatimSentinels[2] => '',
+            // Back to the character itself - see protectVerbatim().
+            $this->verbatimSentinels[4] => "\u{E000}",
         ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It
