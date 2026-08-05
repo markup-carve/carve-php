@@ -91,7 +91,7 @@ class AstCodec
      *
      * @var int
      */
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     /**
      * Node types this engine has and the wire does not (PART 12 §5).
@@ -153,7 +153,8 @@ class AstCodec
         'highlight.children', 'image.alt', 'image.src',
         'inline_extension.content', 'inline_extension.name', 'inline_footnote.inline',
         'insert.children', 'line_block.children', 'link.children',
-        'link.href', 'list.items', 'list.ordered',
+        'link.href', 'link_reference_definition.href',
+        'link_reference_definition.label', 'list.items', 'list.ordered',
         'list.tight', 'list_item.children', 'literal_inline.content',
         'math.content', 'math.display', 'mention.user',
         'paragraph.children', 'raw_block.content', 'raw_block.format',
