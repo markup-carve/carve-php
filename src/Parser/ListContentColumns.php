@@ -86,6 +86,24 @@ class ListContentColumns
             return $this->current();
         }
 
+        // A definition list's DESCRIPTION marker opens a content column exactly
+        // as a list marker does. It was missing here, so a definition written
+        // inside a `dd` sat at a column no open item claimed: the block parser
+        // still removed the line (the `dd` renders empty, which is right) while
+        // nothing was collected, so the reference it feeds stayed literal
+        // somewhere else in the document (carve-php#891, spec
+        // markup-carve/carve#801).
+        //
+        // `::` is the TERM marker and must not match: the character after the
+        // first colon is a colon there, not whitespace, so the pattern below
+        // already excludes it - as it excludes a `:::` fence opener.
+        if (preg_match('/^([ \t]*):\s\s+(?=\S)/', $line, $descMatch) === 1) {
+            $this->popDeeperThan(strlen($descMatch[1]));
+            $this->columns[] = strlen($descMatch[0]);
+
+            return $this->current();
+        }
+
         // A line that OPENS a block at a shallower column has left the items it
         // sits outside of. Lazy text has not: it belongs to the item above it
         // whatever column it sits at, which is why this is gated on a blank
