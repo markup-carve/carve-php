@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Filter;
 use MarkupCarve\Carve\Exception\ProfileViolationException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\LinkPolicy;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -17,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -287,7 +289,20 @@ class ProfileFilter
         // missing-extractor path and injected a literal `[frontmatter]`
         // paragraph into the output, which is the marker's way of saying an arm
         // is missing rather than a claim about the content.
-        return $node instanceof Comment || $node instanceof Frontmatter || $node instanceof Footnote;
+        // A definition line is the same case again, and profiles.md names the
+        // two together: "`link_reference_definition` is the `abbreviation_def`
+        // case exactly: the definition line renders nothing in HTML, so denying
+        // it would not stop anything reaching the page - the `link` or `image`
+        // it feeds is the node a profile denies." Without them, denying a link
+        // reference definition under the default action injected a literal
+        // `[link_reference_definition]` paragraph, the same marker frontmatter
+        // used to produce (carve-php#855). The `link` and the `abbr` they feed
+        // are separate nodes a profile denies separately, and still render.
+        return $node instanceof Comment
+            || $node instanceof Frontmatter
+            || $node instanceof Footnote
+            || $node instanceof AbbreviationDefinition
+            || $node instanceof LinkReferenceDefinition;
     }
 
     protected function resolveFootnoteRefs(Document $document): void
