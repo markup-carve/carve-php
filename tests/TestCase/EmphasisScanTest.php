@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
  * the whole run is O(n^2). Correctness must be unchanged and the run must stay
  * linear.
  */
+#[Group('scaling')]
 class EmphasisScanTest extends TestCase
 {
     use ScalingGuardTrait;

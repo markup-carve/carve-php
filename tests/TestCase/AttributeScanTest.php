@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
  * (no `}` ahead -> bail) and a closer-supply check (unmatched brace depth can
  * never exceed the `}` remaining). Output must be byte-identical.
  */
+#[Group('scaling')]
 class AttributeScanTest extends TestCase
 {
     use ScalingGuardTrait;

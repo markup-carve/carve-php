@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  * run like `[a](` repeated was O(n^2). Correctness must be unchanged and the
  * run must stay linear.
  */
+#[Group('scaling')]
 class LinkDestinationScanTest extends TestCase
 {
     use ScalingGuardTrait;

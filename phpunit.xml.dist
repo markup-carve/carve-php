@@ -13,6 +13,19 @@
             <exclude>tests/spec</exclude>
         </testsuite>
     </testsuites>
+    <!--
+        The scaling guards measure wall-clock cost per input byte to catch a
+        reintroduced O(n^2) scan. 49 data sets convert a 50000-repeat input
+        several times each, which is most of the suite's runtime, and the
+        measurement is only meaningful on an unloaded runner. They are excluded
+        from the default run and covered by their own CI job (composer
+        test-scaling), so the everyday suite stays fast and parallelizable.
+    -->
+    <groups>
+        <exclude>
+            <group>scaling</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory suffix=".php">src/</directory>

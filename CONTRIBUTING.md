@@ -21,10 +21,27 @@ rather than skipping.
 ### Running Tests
 
 ```bash
-composer test                                  # phpunit, the whole suite
+composer test                                  # the everyday suite
+composer test-scaling                          # the scaling guards, on their own
+composer test-all                              # both
+composer test-coverage                         # the everyday suite, with coverage
 vendor/bin/phpunit tests/TestCase/CarveConverterTest.php
 vendor/bin/phpunit --filter testHeading
 ```
+
+`composer test` excludes the `scaling` group and runs with `pcov.enabled=0`.
+Both matter for how long a local run takes:
+
+- The five `*ScanTest` classes that use `ScalingGuardTrait` are wall-clock
+  guards against a reintroduced O(n^2) inline scan. 49 data sets each convert a
+  50000-repeat input several times, which is most of the suite's runtime, and
+  the measurement only means anything on an unloaded machine. They run in their
+  own CI job and via `composer test-scaling`.
+- `pcov` instruments every file under `src/` whenever the extension is enabled,
+  even when nothing collects coverage. `pcov.enabled` is `PHP_INI_SYSTEM`, so it
+  cannot be switched off from `phpunit.xml` or `ini_set()` - only a `-d` flag at
+  startup works, which is what the composer scripts pass. `composer test-coverage`
+  leaves it on.
 
 There is a single `default` suite covering `tests/`. Part of it is driven by the
 shared spec corpus in `tests/spec`, so a spec bump can change expectations

@@ -30,7 +30,31 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Run tests
-        run: vendor/bin/phpunit
+        run: composer test
+
+  scaling:
+    runs-on: ubuntu-latest
+    name: Scaling Guards
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      # Excluded from the default suite (see phpunit.xml.dist): they convert a
+      # 50000-repeat input several times per data set and measure wall clock, so
+      # they need a runner to themselves rather than a slot in the test matrix.
+      - name: Run scaling guards
+        run: composer test-scaling
 
   coverage:
     runs-on: ubuntu-latest
@@ -51,7 +75,7 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Run tests with coverage
-        run: vendor/bin/phpunit --coverage-clover coverage.xml
+        run: composer test-coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

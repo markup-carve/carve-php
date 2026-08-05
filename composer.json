@@ -52,7 +52,13 @@
         "fuzz": "php-fuzzer fuzz fuzz/target.php fuzz/corpus/",
         "fuzz-strict": "php-fuzzer fuzz fuzz/target-strict.php fuzz/corpus/",
         "stan": "phpstan analyze",
-        "test": "phpunit"
+        "test": "@php -d pcov.enabled=0 vendor/bin/phpunit",
+        "test-all": [
+            "@test",
+            "@test-scaling"
+        ],
+        "test-coverage": "@php vendor/bin/phpunit --coverage-clover coverage.xml",
+        "test-scaling": "@php -d pcov.enabled=0 vendor/bin/phpunit --group scaling"
     },
     "config": {
         "allow-plugins": {
