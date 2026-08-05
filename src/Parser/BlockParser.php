@@ -4184,22 +4184,29 @@ class BlockParser
                     || $this->isFoldableInvisibleLine($nextTrimmed)
                 )
             ) {
-                // Never fold ONTO an unclosed comment fence. That line was
-                // pushed as its own entry precisely because it opens no block
-                // (§28) while staying invisible (§24 C3), and appending to it
-                // produced a single entry holding `%%% x\n# h` - which the
-                // unclosed-fence handling then consumed whole, so BOTH the
-                // fence and the author's line vanished from the document
-                // (carve-php#791). The fold belongs on the last VISIBLE entry,
-                // which is the paragraph the invisible line sits after.
-                $target = count($itemLines) - 1;
-                while (
-                    $target > 0
-                    && $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($itemLines[$target]) !== null
-                ) {
-                    $target--;
+                // A COMMENT renders nothing, but it DOES end the open paragraph:
+                // all of the executable spec, carve-js and carve-rs make the line
+                // after it the item's SECOND paragraph, not a continuation of the
+                // first. Folding onto the comment entry produced one entry holding
+                // `%% x\n# h`, which the comment handling then consumed whole so
+                // the author's line vanished (carve-php#791 for the fence form,
+                // carve-php#800 for the line form). Folding PAST it instead ran
+                // the two source lines together in one paragraph.
+                //
+                // So push it as its own entry, with ONE leading space. The space
+                // is load-bearing: the item body is dedented, so a block-shaped
+                // line like `# h` would re-parse as a real HEADING at column 0,
+                // where §24 C3's BELOW branch says it is text. One column reaches
+                // no content column at any depth, which is the same guard
+                // carve-js uses for this case.
+                $lastEntry = $itemLines[count($itemLines) - 1];
+                $afterComment = $this->isCommentLineOrFence($lastEntry);
+                if ($afterComment) {
+                    $itemLines[] = ' ' . $nextTrimmed;
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                } else {
+                    $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;
                 }
-                $itemLines[$target] .= "\n" . $nextTrimmed;
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
@@ -6618,6 +6625,20 @@ class BlockParser
     {
         return $this->isReferenceDefinitionLine($line)
             || preg_match('/^\\[\\^[^\\]]+\\]: +\\S/', $line) === 1;
+    }
+
+    /**
+     * Whether a collected item line is a comment - either spelling, any column.
+     *
+     * A comment renders nothing but still ends the open paragraph, so the line
+     * after it starts a new one rather than folding into the comment's entry or
+     * past it (carve-php#800).
+     *
+     * @param string $line
+     */
+    protected function isCommentLineOrFence(string $line): bool
+    {
+        return preg_match('/^[ \t]*%%/', $line) === 1;
     }
 
     protected function isFoldableInvisibleLine(string $line): bool
