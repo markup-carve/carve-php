@@ -1344,7 +1344,13 @@ class InlineParser
         // Cache the regex pattern for abbreviations (built once per document)
         if ($this->cachedAbbreviations !== $abbreviations) {
             // Sort abbreviations by length (longest first) to match longer abbreviations first
-            $abbrKeys = array_keys($abbreviations);
+            // STRINGS, because PHP does not keep them that way. An array key
+            // that looks like a decimal integer comes back as an int, so a
+            // digit-only abbreviation term - `*[9]: nine`, valid per
+            // `abbreviation_term = (letter | digit)+` - handed `strlen()` and
+            // `preg_quote()` an int and killed the render with a TypeError
+            // (carve#791). A two-line document exited 255 with a stack trace.
+            $abbrKeys = array_map(static fn (string|int $key): string => (string)$key, array_keys($abbreviations));
             usort($abbrKeys, fn ($a, $b) => strlen($b) - strlen($a));
 
             // Build a regex pattern that matches any abbreviation at word boundaries
