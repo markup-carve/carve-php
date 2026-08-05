@@ -66,6 +66,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use ReflectionObject;
 use Throwable;
 
@@ -1381,14 +1382,61 @@ class CarveRenderer implements RendererInterface
         if ($raw === null) {
             return '';
         }
-        // Already carries a block: the author wrote it at the reference, so
-        // `rawRef` says it and the line would say it twice.
-        if (str_ends_with(rtrim($raw), '}')) {
-            return '';
-        }
+        // A block the author wrote AT the reference is inside `rawRef` already, so
+        // only what it does NOT state becomes a line. Bailing out whenever `rawRef`
+        // ended in `}` dropped the block-attribute line wholesale for
+        // `{#f}` + `![a][r]{.c}`, where the two blocks are different sets
+        // (carve-php#831 follow-up); carve-js and carve-rs both keep the `{#f}`.
+        $atReference = $this->trailingAttributesOf(rtrim($raw));
         $label = $node->getReferenceLabel();
 
-        return $this->renderAttrsExcept($node, $label === null ? [] : ($this->definitionAttributes[$label] ?? []));
+        $claimed = $label === null ? [] : ($this->definitionAttributes[$label] ?? []);
+
+        return $this->renderAttrsExcept($node, $claimed + $atReference);
+    }
+
+    /**
+     * Attributes an authored inline already states in its trailing `{...}` block.
+     *
+     * QUOTE-AWARE: a value may itself contain a brace (`{k="{y}"}`), so the block's
+     * opening brace is the last one seen OUTSIDE quotes - `strrpos()` finds the one
+     * inside the value and mis-parses the payload (corpus 71).
+     *
+     * @return array<string, string>
+     */
+    protected function trailingAttributesOf(string $text): array
+    {
+        if (!str_ends_with($text, '}')) {
+            return [];
+        }
+        $quote = null;
+        $open = null;
+        foreach (str_split($text) as $i => $ch) {
+            if ($quote !== null) {
+                if ($ch === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+            if ($ch === '"' || $ch === "'") {
+                $quote = $ch;
+
+                continue;
+            }
+            if ($ch === '{') {
+                $open = $i;
+            }
+        }
+        if ($open === null) {
+            return [];
+        }
+        $payload = substr($text, $open + 1, -1);
+        if (!AttributeParser::isValidPayload($payload)) {
+            return [];
+        }
+
+        return AttributeParser::parse($payload);
     }
 
     protected function renderImage(Image $node): string
