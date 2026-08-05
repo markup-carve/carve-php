@@ -186,6 +186,21 @@ class DeniedFootnoteLeavesNoTraceTest extends TestCase
         $this->assertNotEmpty($filter->getViolations());
     }
 
+    public function testStrippingTheDefinitionLeavesNoTraceAtAll(): void
+    {
+        // `strip` removes the definition outright, so unlike `to_text` there is
+        // no paragraph either - this is the one action where all three engines
+        // already agree on the whole output (carve-php#850).
+        //
+        // Two references on purpose: with the resolution stale, the second one
+        // produced a `fnref1-2` backlink as well, so the endnote item ended up
+        // holding two backlinks and no body.
+        $profile = Profile::full()->denyBlock(['footnote'])->onDisallowed(Profile::ACTION_STRIP);
+        $html = CarveConverter::create(profile: $profile)->convert("Text[^a] and[^a].\n\n[^a]: note\n");
+
+        $this->assertSame("<p>Text[^a] and[^a].</p>\n", $html);
+    }
+
     public function testNothingChangesWithoutAProfile(): void
     {
         // The boundary. Every assertion above would also pass if footnotes had
