@@ -2234,11 +2234,13 @@ class InlineParser
                 // any of them could not be reached by the label that defined
                 // it, while a plain definition WAS reached by a decorated
                 // label that never named it (carve-php#768).
+                // EXACT on both forms. A collapsed `[text][]` takes the link
+                // text as its label and an explicit `[text][ref]` takes the ref,
+                // and neither is folded or trimmed - §6 and PART 9R R1 say
+                // "case-sensitive, no whitespace folding". carve-js and carve-rs
+                // agree on both forms; this engine folded both.
                 if ($ref === '') {
-                    $ref = preg_replace('/\\s+/', ' ', trim($linkText)) ?? $linkText;
-                } else {
-                    // Explicit reference [text][ref] - only normalize whitespace, keep formatting chars
-                    $ref = preg_replace('/\s+/', ' ', trim($ref)) ?? $ref;
+                    $ref = $linkText;
                 }
 
                 // Store original bracket content before normalization
