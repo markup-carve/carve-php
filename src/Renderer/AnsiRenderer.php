@@ -999,7 +999,25 @@ class AnsiRenderer implements RendererInterface
             && !$node->isAutolink()
             && !str_starts_with($url, '#');
         if ($showTarget) {
-            $styled .= $this->style(' (' . $this->stripControls($url) . ')', self::DIM);
+            // PART 9 §25 binds every target that emits a resolvable URL, and this
+            // parenthetical IS the destination: a terminal autolinks it and hands
+            // the scheme to the OS handler on click, which is the same "deferred
+            // by one step" the clause describes for Markdown. It printed
+            // `javascript:` and the OS protocol-handler class verbatim, in all
+            // three engines, where Markdown already blanked them (carve-php#867).
+            //
+            // Blanked rather than omitted: §25 says to emit an EMPTY value, and
+            // the empty parenthetical distinguishes "withheld" from "the author
+            // wrote none". `$showTarget` is decided from the AUTHORED destination
+            // above, so a blanked one cannot change whether the parenthetical
+            // appears - only what is in it.
+            //
+            // The HTML renderer's one implementation, not a copy: a local list of
+            // four schemes in a writer is what let the OS-handler class through in
+            // carve#385, and the Markdown writer's own sanitizer delegates here
+            // for exactly that reason.
+            $shown = HtmlRenderer::blankDangerousScheme($this->stripControls($url));
+            $styled .= $this->style(' (' . $shown . ')', self::DIM);
         }
 
         return $styled;
