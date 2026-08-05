@@ -4071,6 +4071,9 @@ class BlockParser
         array $trailingState,
     ): array {
         $sawIndentedUnclaimedColonFence = false;
+        /** @var array<int, bool> $commentSpanEntries indices of $itemLines that are inside a comment fence span */
+        $commentSpanEntries = [];
+        $openCommentFenceLength = null;
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -4109,6 +4112,33 @@ class BlockParser
                 if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
                     $sawIndentedUnclaimedColonFence = true;
                 }
+                // TRACK the comment fence span. A fence AT the content column
+                // arrives here, one line at a time, indistinguishable from
+                // item text - and a later below-column fold walks back to the
+                // last VISIBLE entry, recognizing only the two DELIMITER lines
+                // by shape. So the fold landed on the fence's BODY, the block
+                // parser consumed the span with the author's line inside it,
+                // and the line vanished from the document (carve-php#804).
+                if ($openCommentFenceLength === null) {
+                    // Only a fence that CLOSES is a span. An unclosed opener
+                    // opens no block (PART 9 §28) and everything after it is
+                    // ordinary visible content, so tracking one would mark
+                    // real item text invisible and a later fold would skip
+                    // past it - putting the folded line BEFORE text it was
+                    // written after.
+                    $opener = $this->commentFenceSpanEnd($contentLine, $lines, $i) === null
+                        ? null
+                        : $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($contentLine);
+                    if ($opener !== null) {
+                        $openCommentFenceLength = $opener['length'];
+                        $commentSpanEntries[count($itemLines)] = true;
+                    }
+                } else {
+                    $commentSpanEntries[count($itemLines)] = true;
+                    if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($contentLine, $openCommentFenceLength)) {
+                        $openCommentFenceLength = null;
+                    }
+                }
                 $itemLines[] = $contentLine;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
@@ -4132,6 +4162,17 @@ class BlockParser
             $commentFenceEnd = $this->commentFenceSpanEnd($nextTrimmed, $lines, $i);
             if ($commentFenceEnd !== null) {
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
+                    // REMEMBER which entries belong to the span. A fold below
+                    // the content column walks back to the last VISIBLE entry,
+                    // and it can only recognize the two DELIMITER lines by
+                    // their shape - so it stopped on the fence's BODY and
+                    // appended the author's line there, inside the comment.
+                    // The block parser then consumed the span with the line in
+                    // it and the line vanished from the document entirely
+                    // (carve-php#804). Same failure as carve-php#791, one
+                    // layer in: there the fold landed on an opener, here on a
+                    // body line that looks like ordinary text.
+                    $commentSpanEntries[count($itemLines)] = true;
                     $itemLines[] = ltrim($lines[$j]);
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
@@ -4195,7 +4236,10 @@ class BlockParser
                 $target = count($itemLines) - 1;
                 while (
                     $target > 0
-                    && $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($itemLines[$target]) !== null
+                    && (
+                        isset($commentSpanEntries[$target])
+                        || $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($itemLines[$target]) !== null
+                    )
                 ) {
                     $target--;
                 }
