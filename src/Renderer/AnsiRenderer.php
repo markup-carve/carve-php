@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -420,14 +421,28 @@ class AnsiRenderer implements RendererInterface
      * PART 10 §10a: a definition NOTHING references is still emitted by this
      * target - see the note in MarkdownRenderer. They live on the document
      * rather than in `children` here, so this renderer places them itself.
+     *
+     * FROM THE NODES, not from the document's side list. A profile removes the
+     * AbbreviationDefinition NODE; the list is a second source of truth, so
+     * reading it emitted the line for a definition the host had denied - on this
+     * target and not on HTML, where the line never appears anyway
+     * (carve-php#858). Same shape as the numbering that lived in the render
+     * context (#843) and the profile that reached only the render path (#853).
+     *
+     * The expansion still comes from the map, and must: denying the definition
+     * denies the definition, and the inline `abbreviation` it feeds is a separate
+     * profile entry that keeps rendering.
      */
     protected function renderAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getAbbreviationDefinitions() as $definition) {
+        foreach ($document->getChildren() as $child) {
+            if (!$child instanceof AbbreviationDefinition) {
+                continue;
+            }
             $lines[] = $this->style(
-                '*[' . $this->stripControls($definition['abbr']) . ']: '
-                    . $this->stripControls($definition['expansion']),
+                '*[' . $this->stripControls($child->getAbbr()) . ']: '
+                    . $this->stripControls($child->getExpansion()),
                 self::DIM,
             );
         }

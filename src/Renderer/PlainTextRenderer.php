@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -146,13 +147,27 @@ class PlainTextRenderer implements RendererInterface
      * They live on the document rather than in `children` here, so unlike
      * carve-js and carve-rs this renderer places them itself - before the body
      * or after it, following where the author put them.
+     *
+     * FROM THE NODES, not from the document's side list. A profile removes the
+     * AbbreviationDefinition NODE; the list is a second source of truth, so
+     * reading it emitted the line for a definition the host had denied - on this
+     * target and not on HTML, where the line never appears anyway
+     * (carve-php#858). Same shape as the numbering that lived in the render
+     * context (#843) and the profile that reached only the render path (#853).
+     *
+     * The expansion still comes from the map, and must: denying the definition
+     * denies the definition, and the inline `abbreviation` it feeds is a separate
+     * profile entry that keeps rendering.
      */
     protected function renderAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getAbbreviationDefinitions() as $definition) {
-            $lines[] = '*[' . $this->stripControls($definition['abbr']) . ']: '
-                . $this->stripControls($definition['expansion']);
+        foreach ($document->getChildren() as $child) {
+            if (!$child instanceof AbbreviationDefinition) {
+                continue;
+            }
+            $lines[] = '*[' . $this->stripControls($child->getAbbr()) . ']: '
+                . $this->stripControls($child->getExpansion());
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
