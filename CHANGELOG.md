@@ -9,6 +9,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`fmt` keeps a lone table span marker padded.** Glued to the opening pipe,
+  `<` is also the LEFT-ALIGNMENT sigil, and the two readings differ: the
+  executable spec reads `|<|` as alignment on an empty cell where all three
+  engines read a colspan (carve#710). The writer was turning the unambiguous
+  `| < |` the author wrote into the ambiguous form, so a table formatted here
+  and read anywhere else could change meaning. `^` takes the same shape; a cell
+  attribute stays glued to the pipe, where the grammar puts it.
+
 - **The canonical writer escapes a caption marker only where a caption can
   form** (PART 11 §2, #758). A `^ ` at the start of a block line opens a
   caption only when the block before it can HOST one - a table, a code block, a
