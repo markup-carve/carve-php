@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
@@ -1283,6 +1284,30 @@ class AstCodec
                 continue;
             }
 
+            // AUTHORED alignment reaches the wire; INHERITED alignment does
+            // not. A column declares its alignment once, in the delimiter row
+            // or in the header cells' own markers, so republishing the resolved
+            // value on every body cell states as per-cell something the source
+            // says once - and leaves a consumer unable to tell the two apart
+            // (carve#784).
+            //
+            // A body cell that carries its OWN marker (`|< 12`) still
+            // publishes, and so does every cell of a HEADERLESS table, where
+            // there is no header row to carry the column's value. Both are
+            // authored, and both are what carve-js and carve-rs publish.
+            //
+            // The node keeps its alignment either way - this engine's renderer
+            // aligns body cells from their own nodes - and `applyDerivedFields`
+            // copies the column's value back down on decode.
+            if (
+                $field === 'align'
+                && $node instanceof TableCell
+                && !$node->isHeader()
+                && self::inheritsColumnAlignment($node)
+            ) {
+                continue;
+            }
+
             $encoded[$field] = $this->encodeValue($value);
         }
 
@@ -1699,6 +1724,97 @@ class AstCodec
             }
             self::writeProperty($node, 'isHeader', $allHeaders);
         }
+
+        if ($node instanceof Table) {
+            // A column's alignment is on the wire ONCE, on the header cells,
+            // because that is where the delimiter row declares it (carve#784).
+            // This engine's renderer aligns each body cell from its own node,
+            // so the column's value is copied back down here - the same
+            // recomputation a consumer performs, rather than a field the
+            // reference does not have.
+            $columns = [];
+            foreach ($node->getChildren() as $row) {
+                if (!$row instanceof TableRow || !$row->isHeader()) {
+                    continue;
+                }
+                $index = 0;
+                foreach ($row->getChildren() as $cell) {
+                    if ($cell instanceof TableCell) {
+                        $columns[$index] = $cell->getAlignment();
+                        $index++;
+                    }
+                }
+
+                break;
+            }
+            if ($columns !== []) {
+                foreach ($node->getChildren() as $row) {
+                    if (!$row instanceof TableRow || $row->isHeader()) {
+                        continue;
+                    }
+                    $index = 0;
+                    foreach ($row->getChildren() as $cell) {
+                        if (!$cell instanceof TableCell) {
+                            continue;
+                        }
+                        if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
+                            self::writeProperty($cell, 'alignment', $columns[$index]);
+                        }
+                        $index++;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * True when a body cell's alignment is its COLUMN's, taken from the header
+     * row, rather than one the author wrote on the cell itself.
+     *
+     * A cell with no header row above it inherits nothing - a headerless table
+     * carries its alignment on the cells that state it, which is where the
+     * author wrote it.
+     */
+    private static function inheritsColumnAlignment(TableCell $cell): bool
+    {
+        $row = $cell->getParent();
+        if (!$row instanceof TableRow) {
+            return false;
+        }
+        $table = $row->getParent();
+        if (!$table instanceof Table) {
+            return false;
+        }
+
+        $column = 0;
+        foreach ($row->getChildren() as $sibling) {
+            if ($sibling === $cell) {
+                break;
+            }
+            if ($sibling instanceof TableCell) {
+                $column++;
+            }
+        }
+
+        foreach ($table->getChildren() as $candidate) {
+            if (!$candidate instanceof TableRow || !$candidate->isHeader()) {
+                continue;
+            }
+            $index = 0;
+            foreach ($candidate->getChildren() as $headerCell) {
+                if (!$headerCell instanceof TableCell) {
+                    continue;
+                }
+                if ($index === $column) {
+                    return $headerCell->getAlignment() === $cell->getAlignment();
+                }
+                $index++;
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     /**
