@@ -61,8 +61,12 @@ class CrossReferenceResolver
     {
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
-        $this->stampCrossReferenceHrefs($document, $tracker);
+        // Before the stamp: a figure/table caption id's display text (e.g.
+        // "Figure 1") is only registered on the tracker here, and the stamp
+        // below resolves a crossref target through that same registration
+        // (carve-php#877).
         $this->resolveNumberedCaptions($document, $tracker);
+        $this->stampCrossReferenceHrefs($document, $tracker);
         $this->enforceLinksNeverNest($document, $tracker);
     }
 
@@ -77,10 +81,11 @@ class CrossReferenceResolver
      * crossref is the recomputation §5 exists to prevent.
      *
      * The two callers reach it differently. A renderer runs the whole resolve()
-     * pass; the AST codec runs ONLY the id walk and this stamp, because the
-     * rest of resolve() rewrites the tree (flattening nested links, turning a
-     * quoted crossref into text) and the AST must show the document, not the
-     * render preparation.
+     * pass; the AST codec runs resolveCrossReferenceTargets(), the id walk,
+     * caption-number resolution, and this stamp, because the rest of
+     * resolve() rewrites the tree (flattening nested links, turning a quoted
+     * crossref into text) and the AST must show the document, not the render
+     * preparation.
      */
     public function stampCrossReferenceHrefs(Node $node, HeadingIdTracker $tracker, int $depth = 0): void
     {
@@ -105,6 +110,12 @@ class CrossReferenceResolver
     /**
      * Resolve heading ids and stamp crossref destinations, and nothing else.
      *
+     * Includes resolveNumberedCaptions() (carve-php#877): a crossref to a
+     * `{#id}` on a figure or table resolves through the SAME id-to-text
+     * registration a numbered caption performs (e.g. "Figure 1"), so the
+     * stamp below must run after that registration exists, exactly as it
+     * already must in resolve().
+     *
      * @param \MarkupCarve\Carve\Node\Document $document
      * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
      */
@@ -112,6 +123,7 @@ class CrossReferenceResolver
     {
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
+        $this->resolveNumberedCaptions($document, $tracker);
         $this->stampCrossReferenceHrefs($document, $tracker);
     }
 

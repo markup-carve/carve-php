@@ -69,6 +69,30 @@ class CrossReferenceHrefTest extends TestCase
         $this->assertSame('#Getting-Started', $node['href']);
     }
 
+    /**
+     * carve-php#877: a crossref to a `{#id}` attribute block on a non-heading
+     * (a figure, here) was missing `href` even though the same crossref to a
+     * heading published it correctly. The id itself WAS tracked (so it could
+     * not collide with an auto-generated heading id), but the AST path never
+     * ran the pass that registers a figure/table caption's display text
+     * ("Figure 1") against that id, which is what the href stamp looks up.
+     */
+    public function testACrossrefToAFigureIdPublishesTheDestination(): void
+    {
+        $node = $this->firstHeadingRef("{#fig-a}\n![x](a.jpg)\n^ Figure #: cap\n\nSee </#fig-a> here.");
+
+        $this->assertSame('fig-a', $node['target'], 'the authored id survives');
+        $this->assertSame('#fig-a', $node['href'], 'PART 12 §3a: the resolved destination is published');
+    }
+
+    public function testAnUnresolvedCrossrefToAFigureIdPublishesNoDestination(): void
+    {
+        $node = $this->firstHeadingRef("{#fig-a}\n![x](a.jpg)\n^ Figure #: cap\n\nSee </#missing> here.");
+
+        $this->assertSame('missing', $node['target']);
+        $this->assertArrayNotHasKey('href', $node);
+    }
+
     public function testTheRenderedOutputIsUnchanged(): void
     {
         $html = (new CarveConverter())->convert("# Intro\n\nSee </#intro>.");
