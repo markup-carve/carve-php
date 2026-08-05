@@ -513,10 +513,15 @@ class CarveRenderer implements RendererInterface
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
             $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->collapseBreaks($this->trimNonNbsp($this->renderInlines($node->getChildren())))),
+            // A REFERENCE image cannot carry its attributes inline: the writer
+            // returns the authored `rawRef` verbatim, and an attribute block
+            // that came from the block-attribute LINE above is not part of that
+            // source - so it was dropped, and an `#id` on a captionless
+            // `![a][r]` was lost outright (carve-php#831). Written back as the
+            // line it came from, which is where carve-js and carve-rs keep it.
+            $node instanceof Image && $this->referenceImageAttributeLine($node) !== '' => $this->referenceImageAttributeLine($node) . "\n" . $this->renderImage($node),
             // A LONE image is a block node, not a paragraph wrapping one (the
-            // `image` node's own description in the AST vocabulary). The block
-            // match had no arm for it, so it fell through and lost the blank
-            // line that separates it from the next block (#633).
+            // `image` node's own description in the AST vocabulary).
             $node instanceof Image => $this->renderImage($node),
             $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
             // The opener's quoted title is resolved onto the `title` attribute at
@@ -1350,6 +1355,42 @@ class CarveRenderer implements RendererInterface
         return '[' . $text . '](' . $this->escapeDestination((string)$node->getDestination()) . $title . ')' . $this->renderAttrs($node);
     }
 
+    /**
+     * The block-attribute line a REFERENCE image needs, or '' when it needs none.
+     *
+     * `renderImage()` writes a reference image as the authored `rawRef`, which is
+     * the reference source verbatim - `![a][r]`. An attribute block the author
+     * wrote AT the reference is already inside that string; one that came from
+     * the block-attribute line above is not, and returning `rawRef` alone
+     * dropped it. Emitting the line back is the only spelling that survives a
+     * re-parse, since appending the block to `rawRef` would attach it to the
+     * image's own slot instead (carve-php#831).
+     *
+     * The DEFINITION's own attributes are excluded. They reach every link that
+     * resolves the label (PART 9R R1) and are already written once on the
+     * definition line, so treating the copy on this node as authored here wrote
+     * the same `{#id}` twice - the same reason the reference site itself uses
+     * renderAttrsExcept().
+     */
+    protected function referenceImageAttributeLine(Image $node): string
+    {
+        if ($node->getAttributes() === []) {
+            return '';
+        }
+        $raw = UnresolvedReference::sourceOf($node) ?? $node->getRawReferenceLabel();
+        if ($raw === null) {
+            return '';
+        }
+        // Already carries a block: the author wrote it at the reference, so
+        // `rawRef` says it and the line would say it twice.
+        if (str_ends_with(rtrim($raw), '}')) {
+            return '';
+        }
+        $label = $node->getReferenceLabel();
+
+        return $this->renderAttrsExcept($node, $label === null ? [] : ($this->definitionAttributes[$label] ?? []));
+    }
+
     protected function renderImage(Image $node): string
     {
         // An UNRESOLVED reference image round-trips via its verbatim source.
@@ -1651,18 +1692,37 @@ class CarveRenderer implements RendererInterface
             return $this->renderAttrs($node);
         }
 
-        $clone = clone $node;
-        $clone->setAttributes($own);
-
-        return $this->renderAttrs($clone);
+        // NOT via a clone. Both `setAttributes()` and `setAttributesWithOrder()`
+        // MERGE into what the node already holds, so setting the subtracted list
+        // on a copy put every removed key straight back - this subtraction could
+        // never fire, on any input, for as long as it has existed
+        // (carve-php#831). The attribute list is rendered directly instead.
+        return $this->renderAttrList($own, $node->getAttributeOrder());
     }
 
     protected function renderAttrs(?Node $node): string
     {
-        if ($node === null || $node->getAttributes() === []) {
+        if ($node === null) {
             return '';
         }
-        $attrs = $node->getAttributes();
+
+        return $this->renderAttrList($node->getAttributes(), $node->getAttributeOrder());
+    }
+
+    /**
+     * The `{...}` block for an attribute list, in the author's slot order.
+     *
+     * Takes the LIST rather than the node so a caller can render a subset, which
+     * renderAttrsExcept() needs and could not express through a node copy.
+     *
+     * @param array<string, string> $attrs
+     * @param list<string> $order
+     */
+    protected function renderAttrList(array $attrs, array $order): string
+    {
+        if ($attrs === []) {
+            return '';
+        }
         $parts = [];
         $seen = [];
         $emit = function (string $slot) use (&$parts, &$seen, $attrs): void {
@@ -1697,7 +1757,6 @@ class CarveRenderer implements RendererInterface
             $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
         };
 
-        $order = $node->getAttributeOrder();
         if ($order !== []) {
             foreach ($order as $slot) {
                 $emit($slot);
