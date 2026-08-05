@@ -82,18 +82,37 @@ final class StringUtil
      */
     public static function normalizeIdSource(string $value): string
     {
-        if (class_exists(Normalizer::class)) {
-            $normalized = Normalizer::normalize($value, Normalizer::FORM_C);
-            if ($normalized !== false) {
-                $value = $normalized;
-            }
-        }
+        $value = self::normalizeNfc($value);
 
         return str_replace(
             array_merge(self::BIDI_CONTROLS, self::ID_INVISIBLES),
             '',
             $value,
         );
+    }
+
+    /**
+     * NFC-normalize a string, or return it unchanged when ext-intl is absent.
+     *
+     * Split out of normalizeIdSource() because the implicit heading-REFERENCE
+     * key needs the same fold (PART 9R R1, carve#725): heading ids were
+     * normalized and the lookup key was not, so a document published
+     * `id="Cafe\u{0301}"` and then declined the precomposed `[Caf\u{00E9}][]`
+     * against the very heading that produced it.
+     *
+     * NFC, never NFKC. Canonical equivalence relates sequences Unicode DEFINES
+     * as the same; compatibility equivalence would fold the ligature
+     * `\u{FB01}le` into `file` and change which text the author is quoting.
+     */
+    public static function normalizeNfc(string $value): string
+    {
+        if (!class_exists(Normalizer::class)) {
+            return $value;
+        }
+
+        $normalized = Normalizer::normalize($value, Normalizer::FORM_C);
+
+        return $normalized === false ? $value : $normalized;
     }
 
     /**

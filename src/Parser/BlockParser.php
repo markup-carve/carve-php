@@ -44,6 +44,7 @@ use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Block-level parser for Djot
@@ -8138,12 +8139,17 @@ class BlockParser
         $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ??= $reference;
     }
 
+    /**
+     * The heading-index key: NFC-normalized, then case-folded (PART 9R R1).
+     * The second copy of HeadingReferenceCollector::foldLabel() - both fold, so
+     * both normalize, or a reference resolves on one path and not the other.
+     */
     protected function foldReferenceLabel(string $label): string
     {
         return (string)preg_replace_callback(
             '/./us',
             static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
-            $label,
+            StringUtil::normalizeNfc($label),
         );
     }
 
