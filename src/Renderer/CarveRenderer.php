@@ -122,8 +122,32 @@ class CarveRenderer implements RendererInterface
 
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
+    /**
+     * The writer-only sentinels, chosen per render from code points the
+     * DOCUMENT does not contain.
+     *
+     * They used to be the fixed U+E001..U+E004, restored unconditionally at the
+     * end - so an authored occurrence was indistinguishable from one the writer
+     * had inserted. A code block reproduces arbitrary bytes, and there U+E001
+     * came back as a space, U+E002 as a tab, U+E003 as nothing at all. Two of
+     * those are worse than the deletion: a space or a tab inside a code block
+     * is plausible content, so the document still looks right and the diff
+     * reads as whitespace. Either way `to_html(fmt(x)) != to_html(x)`, which is
+     * PART 11 section 1 (carve#678, fixed the same way in carve-js#666).
+     *
+     * Escaping cannot fix this - an escape needs a reserved character and that
+     * character has the same collision. Choosing code points the document does
+     * not contain cannot collide by construction, and the BMP private-use area
+     * has 6400 candidates. The common case (none of the defaults present) keeps
+     * the old characters and skips the search.
+     *
+     * @var array<int, string>
+     */
+    protected array $sentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+
     public function render(Document $document): string
     {
+        $this->sentinels = $this->pickSentinels($document);
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -131,6 +155,129 @@ class CarveRenderer implements RendererInterface
         }
 
         return $this->escapingIsRedundant($minimal, $conservative) ? $minimal : $conservative;
+    }
+
+    /**
+     * Four sentinels no text in this document uses.
+     *
+     * The defaults are kept whenever the document contains none of them, which
+     * is every document that does not deliberately carry private-use
+     * characters - so the scan costs one pass and the output is unchanged.
+     *
+     * The walk is ITERATIVE, and that is not a style choice. Encoding the AST
+     * and scanning the JSON was one line, and `json_encode` recurses: on a tree
+     * deeper than its nesting limit it throws before the writer can reach its
+     * own PART 9 section 25 depth REFUSAL, so a document that must be refused
+     * came back as a JsonException instead
+     * (CarveFormatterTest::testTheWriterRefusesContainersPastTheRenderCap).
+     *
+     * @return array<int, string>
+     */
+    protected function pickSentinels(Document $document): array
+    {
+        $defaults = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
+        $used = $this->privateUseCharacters($document);
+        $collides = false;
+        foreach ($defaults as $default) {
+            if (isset($used[$default])) {
+                $collides = true;
+
+                break;
+            }
+        }
+        if (!$collides) {
+            return $defaults;
+        }
+
+        $chosen = [];
+        $candidate = 0xE001;
+        foreach ($defaults as $default) {
+            if (!isset($used[$default]) && !in_array($default, $chosen, true)) {
+                $chosen[] = $default;
+
+                continue;
+            }
+            // U+E000 is skipped: it is the parser's in-band marker for a
+            // non-breaking space, shared with the other renderers, so it is
+            // never free. The BMP private-use area ends at U+F8FF.
+            while ($candidate <= 0xF8FF) {
+                $replacement = (string)mb_chr($candidate, 'UTF-8');
+                $candidate++;
+                if ($replacement === '' || isset($used[$replacement]) || in_array($replacement, $chosen, true)) {
+                    continue;
+                }
+                $chosen[] = $replacement;
+
+                continue 2;
+            }
+            // 6400 candidates exhausted by one document. Nothing safe is left,
+            // so keep the default and let the collision happen visibly rather
+            // than pick a character that is certainly in use.
+            $chosen[] = $default;
+        }
+
+        return $chosen;
+    }
+
+    /**
+     * Every BMP private-use character the document's own strings contain.
+     *
+     * Reflection rather than a per-node-type accessor list: a node type added
+     * later must not silently escape the scan, and the cost of missing one is a
+     * sentinel that collides with authored text - the defect this exists to
+     * prevent. Visited objects are tracked because nodes carry parent links.
+     *
+     * @return array<string, bool>
+     */
+    protected function privateUseCharacters(Document $document): array
+    {
+        $used = [];
+        $seen = new \SplObjectStorage();
+        $stack = [$document];
+        while ($stack !== []) {
+            $value = array_pop($stack);
+            if (is_string($value)) {
+                if (preg_match_all('/[\x{E000}-\x{F8FF}]/u', $value, $matches) > 0) {
+                    foreach ($matches[0] as $char) {
+                        $used[$char] = true;
+                    }
+                }
+
+                continue;
+            }
+            if (is_array($value)) {
+                foreach ($value as $key => $item) {
+                    // KEYS carry authored text too: a document built through
+                    // the API keys its abbreviations by the term itself, and
+                    // that term is written back out.
+                    if (is_string($key)) {
+                        $stack[] = $key;
+                    }
+                    if (is_string($item) || is_array($item) || is_object($item)) {
+                        $stack[] = $item;
+                    }
+                }
+
+                continue;
+            }
+            // Only objects reach here: strings and arrays were handled above,
+            // and nothing else is pushed onto the stack.
+            if (isset($seen[$value])) {
+                continue;
+            }
+            $seen[$value] = true;
+            foreach ((new \ReflectionObject($value))->getProperties() as $property) {
+                if (!$property->isInitialized($value)) {
+                    continue;
+                }
+                $item = $property->getValue($value);
+                if (is_string($item) || is_array($item) || is_object($item)) {
+                    $stack[] = $item;
+                }
+            }
+        }
+
+        return $used;
     }
 
     protected function renderWithEscapeMode(Document $document, string $escapeMode): string
@@ -516,7 +663,7 @@ class CarveRenderer implements RendererInterface
                     //
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
-                    $blank = $line === '' || $line === "\u{E003}";
+                    $blank = $line === '' || $line === $this->sentinels[2];
                     $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
@@ -1476,7 +1623,7 @@ class CarveRenderer implements RendererInterface
         $lines = explode("\n", $body);
         foreach ($lines as $i => $line) {
             if (preg_match('/^-{3,}[ \t]*$/', $line) === 1) {
-                $lines[$i] = "\u{E004}" . $line;
+                $lines[$i] = $this->sentinels[3] . $line;
             }
         }
 
@@ -1511,7 +1658,7 @@ class CarveRenderer implements RendererInterface
 
         return (string)preg_replace_callback(
             '/(?:^\x{E000}+)|\x{E000}{2,}/mu',
-            static fn (array $m): string => str_repeat("\u{E001}", (int)mb_strlen($m[0], 'UTF-8')),
+            fn (array $m): string => str_repeat($this->sentinels[0], (int)mb_strlen($m[0], 'UTF-8')),
             $text,
         );
     }
@@ -1580,13 +1727,13 @@ class CarveRenderer implements RendererInterface
     {
         $content = (string)preg_replace_callback(
             '/[ \t]+(?=\n|$)/',
-            static fn (array $m): string => strtr($m[0], [' ' => "\u{E001}", "\t" => "\u{E002}"]),
+            fn (array $m): string => strtr($m[0], [' ' => $this->sentinels[0], "\t" => $this->sentinels[1]]),
             $content,
         );
         $lines = explode("\n", $content);
         foreach ($lines as $i => $line) {
             if ($line === '') {
-                $lines[$i] = "\u{E003}";
+                $lines[$i] = $this->sentinels[2];
             }
         }
 
@@ -1595,12 +1742,16 @@ class CarveRenderer implements RendererInterface
 
     protected function restoreVerbatim(string $text): string
     {
-        $result = strtr($text, ["\u{E001}" => ' ', "\u{E002}" => "\t", "\u{E003}" => '']);
+        $result = strtr($text, [
+            $this->sentinels[0] => ' ',
+            $this->sentinels[1] => "\t",
+            $this->sentinels[2] => '',
+        ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It
         // resolves AFTER normalize()'s trims, which would otherwise strip a
         // plain leading space when the paragraph is the document's first block.
-        return str_replace("\u{E004}", ' ', $result);
+        return str_replace($this->sentinels[3], ' ', $result);
     }
 
     /**
