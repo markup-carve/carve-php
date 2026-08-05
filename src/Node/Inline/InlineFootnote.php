@@ -25,7 +25,11 @@ class InlineFootnote extends InlineNode
         return $this->number;
     }
 
-    public function setNumber(int $number): void
+    /**
+     * Null clears it: a reference that no longer resolves must not publish the
+     * number of a footnote the renderer will not emit.
+     */
+    public function setNumber(?int $number): void
     {
         $this->number = $number;
     }

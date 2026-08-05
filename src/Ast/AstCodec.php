@@ -504,32 +504,91 @@ class AstCodec
      * AN INLINE FOOTNOTE TAKES A NUMBER FROM THE SAME SEQUENCE. carve-js and
      * carve-rs both number `[^a] ^[x] [^a] ^[y]` as 1, 2, 1, 3; counting only
      * references would disagree with both and with this engine's own HTML.
+     *
+     * A DEFINITION BODY IS NOT WALKED WHERE IT SITS. The definitions are hoisted
+     * to the end of the tree in SOURCE order, so numbering them where they lie
+     * numbers a note in the body of the first-defined footnote before one in the
+     * body of the first-USED footnote, and numbers the body of a definition that
+     * is never referenced at all - a body that renders nowhere. Both disagree
+     * with this engine's own HTML, which walks the endnotes in use order and
+     * emits nothing for an unreferenced definition. So the bodies are deferred
+     * into a queue keyed on first use, exactly as carve-js does, and only a
+     * referenced definition ever joins it.
+     *
+     * An inline note's own content is never searched for footnotes: a note
+     * inside a note has no rendered home. Parsing cannot build one (`[^b]`
+     * inside `^[...]` stays text), but a decoded tree can carry one.
      */
     private static function numberFootnotes(Document $document): void
     {
-        $numbers = [];
-        $counter = 0;
-        $walk = static function (Node $node) use (&$walk, &$numbers, &$counter): void {
-            if ($node instanceof FootnoteRef) {
-                if ($node->isUnresolved()) {
-                    $node->setNumber(null);
-                } else {
-                    $label = $node->getLabel();
-                    if (!isset($numbers[$label])) {
-                        $counter++;
-                        $numbers[$label] = $counter;
-                    }
-                    $node->setNumber($numbers[$label]);
-                }
-            } elseif ($node instanceof InlineFootnote) {
-                $counter++;
-                $node->setNumber($counter);
+        $definitions = [];
+        foreach ($document->getChildren() as $child) {
+            // First definition wins, the same tie-break the renderer applies.
+            if ($child instanceof FootnoteBlock && !isset($definitions[$child->getLabel()])) {
+                $definitions[$child->getLabel()] = $child;
             }
+        }
+
+        $next = 1;
+        $indexes = [];
+        /** @var array<int, \MarkupCarve\Carve\Node\Block\Footnote> $pending bodies to walk, in first-use order */
+        $pending = [];
+        $walk = static function (Node $node) use (&$walk, &$next, &$indexes, &$pending, $definitions): void {
+            if ($node instanceof InlineFootnote) {
+                $node->setNumber($next);
+                $next++;
+
+                return;
+            }
+
+            if ($node instanceof FootnoteRef) {
+                // `isUnresolved()` and nothing else: it is the predicate
+                // `HtmlRenderer::renderFootnoteRef()` reads, so the published
+                // number cannot disagree with the rendered page.
+                if ($node->isUnresolved()) {
+                    // CLEARED, not skipped. The reference renders as its literal
+                    // source now, so a number carried in from the wire would name
+                    // a footnote that is no longer in the document (carve-js#698).
+                    $node->setNumber(null);
+
+                    return;
+                }
+
+                $label = $node->getLabel();
+                if (!isset($indexes[$label])) {
+                    $indexes[$label] = $next;
+                    $next++;
+                    // Queued on FIRST USE, which is what puts the bodies in use
+                    // order rather than the order the definitions were hoisted in.
+                    if (isset($definitions[$label])) {
+                        $pending[] = $definitions[$label];
+                    }
+                }
+                $node->setNumber($indexes[$label]);
+
+                return;
+            }
+
+            if ($node instanceof FootnoteBlock) {
+                return;
+            }
+
             foreach ($node->getChildren() as $child) {
                 $walk($child);
             }
         };
+
         $walk($document);
+
+        // The queue GROWS while it is drained: a body may cite a footnote
+        // referenced nowhere else, which then takes the next number and has its
+        // own body walked in turn.
+        while ($pending !== []) {
+            $body = array_shift($pending);
+            foreach ($body->getChildren() as $child) {
+                $walk($child);
+            }
+        }
     }
 
     /**

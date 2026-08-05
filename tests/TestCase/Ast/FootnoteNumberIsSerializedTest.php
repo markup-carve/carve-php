@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -109,8 +110,8 @@ class FootnoteNumberIsSerializedTest extends TestCase
 
     public function testAReferenceInsideANoteBodyIsNumbered(): void
     {
-        // A note body is walked like any other content, so a reference inside one
-        // takes the next number rather than being skipped.
+        // A REFERENCED note's body is walked, after the document, so a reference
+        // inside one takes the next number rather than being skipped.
         $this->assertSame(
             [['footnote_ref', 1], ['footnote_ref', 2]],
             $this->numbers($this->ast("[^a]: note [^b]\n[^b]: other\n\nsee[^a]\n")),
@@ -141,5 +142,106 @@ class FootnoteNumberIsSerializedTest extends TestCase
         $this->assertStringContainsString('id="fnref1-2"', $html);
         $this->assertStringContainsString('id="fnref2"', $html);
         $this->assertStringContainsString('<sup>2</sup>', $html);
+    }
+
+    public function testAnUnreferencedDefinitionBodyTakesNoNumber(): void
+    {
+        // `[^b]` is defined and never referenced, so it renders nowhere and the
+        // note inside its body is not part of the document. Numbering it would
+        // consume 2 and push the note in `[^a]`'s body - which DOES render - to
+        // 3, disagreeing with this engine's own HTML.
+        $this->assertSame(
+            [['footnote_ref', 1], ['inline_footnote', null], ['inline_footnote', 2]],
+            $this->numbers($this->ast("X[^a]\n\n[^b]: ^[u]\n\n[^a]: ^[r]\n")),
+        );
+    }
+
+    public function testANoteBodyIsNumberedInFirstUseOrderNotDefinitionOrder(): void
+    {
+        // Definitions are hoisted in SOURCE order (b, a) and used in the order
+        // a, b. The bodies are walked in use order, so the note in `[^a]`'s body
+        // is 3 - which is the number the HTML gives it.
+        $this->assertSame(
+            [
+                ['footnote_ref', 1],
+                ['footnote_ref', 2],
+                ['inline_footnote', 4],
+                ['inline_footnote', 3],
+            ],
+            $this->numbers($this->ast("P[^a] Q[^b]\n\n[^b]: bee ^[nb]\n\n[^a]: ay ^[na]\n")),
+        );
+    }
+
+    public function testTheHtmlAgreesWhichNoteGotWhichNumber(): void
+    {
+        // The claim the two tests above rest on, asserted rather than assumed:
+        // the rendered endnote list numbers `na` 3 and `nb` 4.
+        $html = (new CarveConverter())->convert("P[^a] Q[^b]\n\n[^b]: bee ^[nb]\n\n[^a]: ay ^[na]\n");
+        $order = [];
+        if (preg_match_all('/id="fn(\d+)"[^>]*>\s*(?:<p[^>]*>)?\s*([a-z]+)/', $html, $m, PREG_SET_ORDER)) {
+            foreach ($m as $hit) {
+                $order[$hit[2]] = (int)$hit[1];
+            }
+        }
+
+        $this->assertSame(3, $order['na'] ?? null, 'the note in [^a]s body renders as 3');
+        $this->assertSame(4, $order['nb'] ?? null, 'the note in [^b]s body renders as 4');
+    }
+
+    public function testAReferenceInsideAnInlineNoteBodyIsNotNumbered(): void
+    {
+        // Not reachable by parsing - `[^b]` inside `^[...]` stays text - but
+        // reachable from a decoded tree. carve-js never descends an inline
+        // note's content looking for footnotes ("no footnotes inside notes"),
+        // so neither does this. Numbering it would invent a footnote the
+        // renderer does not emit.
+        $codec = new AstCodec();
+        $tree = $this->ast("see[^a] and ^[note]\n\n[^a]: body\n");
+        $nested = null;
+        $splice = function (array &$node) use (&$splice, &$nested): void {
+            foreach ($node as $key => &$value) {
+                if (!is_array($value)) {
+                    continue;
+                }
+                if (($value['type'] ?? null) === 'footnote_ref') {
+                    $nested = $value;
+                    // Arrives unnumbered, so this pins that the pass does not
+                    // NUMBER it - a narrower claim than clearing a number the
+                    // pass never visits, which no engine does.
+                    unset($nested['number']);
+                }
+                if (($value['type'] ?? null) === 'inline_footnote' && $nested !== null) {
+                    $value['inline'][] = $nested;
+
+                    return;
+                }
+                $splice($value);
+            }
+        };
+        $splice($tree['children']);
+
+        $this->assertSame(
+            [['footnote_ref', 1], ['inline_footnote', 2], ['footnote_ref', null]],
+            $this->numbers($codec->encode($codec->decode($tree))),
+        );
+    }
+
+    public function testAReferenceWhoseDefinitionWasRemovedCarriesNoNumber(): void
+    {
+        // An editor deletes the definition and feeds the tree back. The
+        // reference now renders as its literal source - `see[^a]` - so a
+        // published number would name a footnote that is not in the document.
+        // carve-js clears it for the same reason on the paths where its pass
+        // runs (carve-js#698).
+        $codec = new AstCodec();
+        $tree = $this->ast("see[^a]\n\n[^a]: note\n");
+        $tree['children'] = array_values(array_filter(
+            $tree['children'],
+            fn (array $node): bool => ($node['type'] ?? null) !== 'footnote',
+        ));
+        $document = $codec->decode($tree);
+
+        $this->assertStringContainsString('see[^a]', (new HtmlRenderer())->render($document));
+        $this->assertSame([['footnote_ref', null]], $this->numbers($codec->encode($document)));
     }
 }
