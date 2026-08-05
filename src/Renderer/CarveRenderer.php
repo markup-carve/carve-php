@@ -1098,7 +1098,11 @@ class CarveRenderer implements RendererInterface
         $lines = explode("\n", $body);
         $out = '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: ' . array_shift($lines);
         foreach ($lines as $line) {
-            $out .= "\n   " . $line;
+            // TWO spaces, the body's own column (PART 9 §16). A wider indent is
+            // legal continuation but puts the body's blocks at a relative column
+            // above zero, and an indented block opener does not open a block - so
+            // a table or list written at three came back as a paragraph.
+            $out .= "\n  " . $line;
         }
 
         return $out;
