@@ -781,6 +781,16 @@ class CarveConverter
             $this->profileFilter->clearViolations();
         }
 
+        // The carve target WRITES the document back; it does not render it, and
+        // a profile is a statement about what may be rendered (profiles.md,
+        // "The `carve` target does not apply a profile"; carve#759). Filtering
+        // here annotated links with the profile's link policy and replaced a
+        // denied image with `\[img: alt\]` - in the source, so the author got
+        // back a document they never wrote, and in the deny case lost content.
+        if ($this->renderer instanceof CarveRenderer) {
+            return $document;
+        }
+
         if ($this->profile !== null && $this->profileFilter !== null) {
             return $this->profileFilter->filter($document, $this->profile);
         }
