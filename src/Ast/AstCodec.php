@@ -511,7 +511,9 @@ class AstCodec
         $counter = 0;
         $walk = static function (Node $node) use (&$walk, &$numbers, &$counter): void {
             if ($node instanceof FootnoteRef) {
-                if (!$node->isUnresolved()) {
+                if ($node->isUnresolved()) {
+                    $node->setNumber(null);
+                } else {
                     $label = $node->getLabel();
                     if (!isset($numbers[$label])) {
                         $counter++;

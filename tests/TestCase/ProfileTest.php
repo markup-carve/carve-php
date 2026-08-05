@@ -1114,8 +1114,8 @@ DJOT;
         $this->assertStringNotContainsString('<a href="#fn', $html);
         // Footnote reference should be converted to text
         $this->assertStringContainsString('[^1]', $html);
-        // Footnote definition should preserve label with content
-        $this->assertStringContainsString('[^1]: The footnote content.', $html);
+        // Footnote definitions render nowhere, so denying them removes them.
+        $this->assertStringNotContainsString('[^1]: The footnote content.', $html);
     }
 
     public function testBlockquoteWithMultipleParagraphsPreservesLineBreaks(): void

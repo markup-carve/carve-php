@@ -89,6 +89,7 @@ class ProfileFilter
         $this->emptied = [];
         $this->filterChildren($doc, $profile, 0);
         $this->cleanupEmptyContainers($doc, 0);
+        $this->resolveFootnoteRefs($doc);
 
         return $doc;
     }
@@ -228,10 +229,9 @@ class ProfileFilter
 
     protected function convertToText(Node $node, Node $parent): void
     {
-        // A comment is never visible content. Converting it to text would leak
-        // its body into the output (and, being a block node, wrap it in a
-        // stray paragraph), so always drop it regardless of the action.
-        if ($node instanceof Comment) {
+        // Some nodes never render where they are written. Converting them to
+        // text would inject source that the unrestricted render path suppresses.
+        if ($this->rendersNothing($node)) {
             $this->emptied[spl_object_id($parent)] = $parent;
             $parent->removeChild($node);
 
@@ -241,18 +241,9 @@ class ProfileFilter
         $textContent = $this->extractTextContent($node, 0);
 
         if ($textContent === '') {
-            // A node that renders nothing has nothing to degrade to, so removing
-            // it loses nothing. Anything else reaching here means extractTextContent
-            // has no arm for the node's payload: record it rather than deleting
-            // visible content, and substitute a marker deliberately ugly enough
-            // that it cannot pass for intended output.
-            if ($this->rendersNothing($node)) {
-                $this->emptied[spl_object_id($parent)] = $parent;
-                $parent->removeChild($node);
-
-                return;
-            }
-
+            // extractTextContent has no arm for the node's payload: record it
+            // rather than deleting visible content, and substitute a marker
+            // deliberately ugly enough that it cannot pass for intended output.
             $type = Profile::canonicalTypeOf($node);
             $this->violations[] = new ProfileViolation($type, 'to_text_yielded_nothing', null);
             $textContent = '[' . $type . ']';
@@ -296,7 +287,35 @@ class ProfileFilter
         // missing-extractor path and injected a literal `[frontmatter]`
         // paragraph into the output, which is the marker's way of saying an arm
         // is missing rather than a claim about the content.
-        return $node instanceof Comment || $node instanceof Frontmatter;
+        return $node instanceof Comment || $node instanceof Frontmatter || $node instanceof Footnote;
+    }
+
+    protected function resolveFootnoteRefs(Document $document): void
+    {
+        $defined = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof Footnote) {
+                $defined[$child->getLabel()] = true;
+            }
+        }
+
+        $walk = static function (Node $node, int $depth) use (&$walk, $defined): void {
+            if ($depth >= self::MAX_FILTER_DEPTH) {
+                return;
+            }
+
+            if ($node instanceof FootnoteRef) {
+                $unresolved = !isset($defined[$node->getLabel()]);
+                $node->setUnresolved($unresolved);
+                if ($unresolved) {
+                    $node->setNumber(null);
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $walk($child, $depth + 1);
+            }
+        };
+        $walk($document, 0);
     }
 
     /**
