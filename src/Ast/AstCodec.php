@@ -1090,11 +1090,14 @@ class AstCodec
         }
 
         if ($order === []) {
-            foreach (array_keys($attrs) as $name) {
-                $order[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
-            }
-
-            return [$attrs, $order];
+            // NO ORDER ON THE WIRE MEANS NO ORDER, not "the order this map
+            // happens to iterate in". The schema calls `order` the
+            // source-appearance order of the slots and says it is absent on a
+            // programmatically built tree, so inventing one turns "unknown"
+            // into a positive claim about a block the author may never have
+            // written - and it round-trips as a DIFFERENT tree from the one
+            // that was encoded (carve#785).
+            return [$attrs, []];
         }
 
         // Rebuild the map in the AUTHOR'S order, not the order this function
