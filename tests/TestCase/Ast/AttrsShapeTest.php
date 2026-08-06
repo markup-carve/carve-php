@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\AstDecodeException;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -119,16 +120,47 @@ class AttrsShapeTest extends TestCase
         }
     }
 
-    public function testAnOlderFlatPayloadStillDecodes(): void
+    public function testAnOlderFlatPayloadIsRefused(): void
     {
-        // Trees written before this change are stored: a key that is not one of
-        // the four structured ones is taken as an attribute under its own name,
-        // which is exactly what it used to mean.
-        $decoded = $this->codec->decode([
+        // This engine once published the attribute block as a flat `name =>
+        // value` map, and the decoder went on taking any key outside the four
+        // structured ones as an attribute under its own name.
+        //
+        // PART 12 §11 ends that: an ingest refuses a property the schema does
+        // not name, and names the pass-through as "the one answer that cannot
+        // be right". Its narrow legacy-alias exception does not rescue this
+        // one - the exception is for a property an implementation once
+        // published AND DOCUMENTS AND decodes onto a field the schema does
+        // name, and it "does NOT extend to a property the implementation
+        // merely tolerates". This loop tolerated every string key there is, so
+        // there is no bounded set of names to document it as.
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessageMatches('/does not name.*attrs\.class/');
+
+        $this->codec->decode([
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
                 ['type' => 'paragraph', 'attrs' => ['class' => 'old', 'title' => 't'], 'children' => []],
+            ],
+        ]);
+    }
+
+    /**
+     * The structured spelling of the same block is what replaces it, so a
+     * stored tree is re-expressible rather than unreadable.
+     */
+    public function testTheStructuredSpellingOfThatBlockDecodes(): void
+    {
+        $decoded = $this->codec->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'attrs' => ['classes' => ['old'], 'keyValues' => ['title' => 't']],
+                    'children' => [],
+                ],
             ],
         ]);
 
