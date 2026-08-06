@@ -25,11 +25,18 @@ namespace MarkupCarve\Carve\Ast;
  * invalid text. `Parser\PositionIndex` performs the conversion once per
  * document.
  *
- * SOURCE. Offsets are into the source AFTER the parser's own normalization -
- * BOM stripped, CRLF folded to LF, NUL replaced. That matches carve-js, which
- * reports offset 3 for the `*` in both "a\n\n*b*" and "a\r\n\r\n*b*", and it is
- * the only definition that stays meaningful: the raw bytes are not what any
- * later pass, renderer or consumer sees.
+ * SOURCE. Offsets index the source AS GIVEN - the exact string the caller
+ * passed, before the parser folds CRLF, strips a leading BOM or replaces NUL.
+ * That is the only string a consumer holds: it can slice the file it read, and
+ * it cannot slice a normalized copy it never saw.
+ *
+ * This paragraph used to claim the opposite, and cited carve-js reporting the
+ * same offset for "a\n\n*b*" and "a\r\n\r\n*b*". carve-js does not: it reports
+ * 9 and 11 for those, and 3 rather than 2 when a BOM leads the file. The
+ * parser here was corrected to match (carve#876), and carve-rs took the same
+ * decision separately (carve-rs#707); only this docblock was left behind. It
+ * stayed wrong for as long as it did because no corpus document contained a
+ * carriage return or a mark, so nothing measured either claim.
  */
 final class SourceSpan
 {

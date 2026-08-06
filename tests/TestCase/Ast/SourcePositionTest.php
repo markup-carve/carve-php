@@ -110,11 +110,16 @@ class SourcePositionTest extends TestCase
         $checked = 0;
         $wrong = [];
         foreach ($files as $file) {
+            // SLICED FROM THE SOURCE AS GIVEN. This used to fold CRLF and strip
+            // a leading BOM first, on the theory that offsets index the
+            // parser's normalized copy. They do not - they index the file the
+            // caller passed, which is the only string a consumer holds
+            // (carve#876, and carve-rs#707 for the same decision there). The
+            // difference was unreachable while no corpus document contained a
+            // carriage return or a mark; the four the spec added under
+            // `line-endings-and-a-byte-order-mark` reach it, and this sweep
+            // reported five wrong spans that were the sweep's own arithmetic.
             $source = (string)file_get_contents($file);
-            $normalized = str_replace(["\r\n", "\r"], "\n", $source);
-            if (str_starts_with($normalized, "\u{FEFF}")) {
-                $normalized = substr($normalized, 3);
-            }
 
             $document = (new BlockParser(trackPositions: true))->parse($source);
             foreach (self::walk($document) as $node) {
@@ -124,7 +129,7 @@ class SourcePositionTest extends TestCase
                 }
 
                 $checked++;
-                $selected = mb_substr($normalized, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
+                $selected = mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
                 // Two verified classes, not one. A verbatim run's span selects
                 // exactly its content. A run the parser REWROTE cannot - its
                 // text is not its source by construction - so it is checked the
