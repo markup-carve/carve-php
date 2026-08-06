@@ -40,6 +40,7 @@ use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -519,6 +520,14 @@ class AnsiRenderer implements RendererInterface
                 $rawReference !== null => $this->stripControls($rawReference),
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
+                // A BLOCK-position image needs the separator a paragraph would
+                // have added; without it the image ran straight into whatever
+                // followed (markup-carve/carve-rs#692). Decided by POSITION,
+                // not by class, the same test the Markdown renderer uses: this
+                // match covers inline nodes too, and a bare `instanceof Image`
+                // arm would split every inline image across three lines.
+                $node instanceof Image && $this->isBlockPositionImage($node)
+                => $this->renderImage($node) . "\n\n",
                 $node instanceof Image => $this->renderImage($node),
                 $node instanceof HardBreak => "\n",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
@@ -589,6 +598,17 @@ class AnsiRenderer implements RendererInterface
         }
 
         return $content . "\n\n";
+    }
+
+    /**
+     * A lone image is a block-level image node, so it takes the block
+     * separator. An image inside a paragraph or another inline is inline.
+     */
+    protected function isBlockPositionImage(Image $node): bool
+    {
+        $parent = $node->getParent();
+
+        return $parent !== null && !$parent instanceof Paragraph && !$parent instanceof InlineNode;
     }
 
     protected function renderHeading(Heading $node): string
