@@ -89,7 +89,7 @@ class ReferenceDefinitionExtractor
             // inside something - `- a` / `  > [r]: /u` puts the quote at the
             // item's content column - and eating that indentation here loses
             // the very column the definition has to reach (carve-php#788).
-            $unquoted = preg_replace('/^(?:>(?: |$))+/', '', $line) ?? $line;
+            $unquoted = ContainerPrefix::stripQuoteMarkers($line);
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
@@ -261,16 +261,14 @@ class ReferenceDefinitionExtractor
             // indentation, since a top-level `    > [r]: /u` is indented text
             // rather than a quote (tests/BlockquoteRefDefTest) - and then read
             // the marker (carve-php#788).
-            if (
-                $contentCol > 0
-                && strlen($bare) - strlen(ltrim($bare, " \t")) >= $contentCol
-                && ($bare[$contentCol] ?? '') === '>'
-            ) {
-                $bare = substr($bare, $contentCol);
+            $atColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
+            if ($atColumn !== null && ($atColumn[0] ?? '') === '>') {
+                $bare = $atColumn;
             }
-            if (($bare[0] ?? '') === '>' && preg_match('/^> ?/', $bare)) {
+            $quoteContent = ContainerPrefix::looseQuoteContent($bare);
+            if ($quoteContent !== null) {
                 $inQuote = true;
-                $bare = preg_replace('/^> ?/', '', $bare) ?? $bare;
+                $bare = $quoteContent;
             }
             $afterMarker = $this->stripReferenceListMarker($bare, $previousLine);
             if ($afterMarker !== $bare) {
@@ -279,14 +277,11 @@ class ReferenceDefinitionExtractor
             }
         } while ($bare !== $previousBare);
 
-        if (
-            !$inList
-            && $contentCol > 0
-            && strlen($bare) - strlen(ltrim($bare, " \t")) >= $contentCol
-        ) {
+        $atItemColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
+        if (!$inList && $atItemColumn !== null) {
             // Measured on the quote-stripped view, not the raw line: inside
             // `> - a` the column counts from after the `> ` (carve#658).
-            $bare = substr($bare, $contentCol);
+            $bare = $atItemColumn;
             $inList = true;
         }
 
@@ -327,7 +322,7 @@ class ReferenceDefinitionExtractor
         $trimmed = ltrim($previousLine, " \t");
         while (true) {
             $before = $trimmed;
-            $trimmed = preg_replace('/^> ?/', '', $trimmed) ?? $trimmed;
+            $trimmed = ContainerPrefix::looseQuoteContent($trimmed) ?? $trimmed;
             $trimmed = preg_replace('/^(?:[-*]|[0-9]+[.)]) +(?=\S)/', '', $trimmed) ?? $trimmed;
             $trimmed = ltrim($trimmed, " \t");
             if ($trimmed === $before) {
