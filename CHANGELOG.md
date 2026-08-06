@@ -7,6 +7,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`AstDecodeException` for every AST-decoding refusal** (carve-php#912). The
+  decoder already refused a foreign root, an unknown node type, a missing
+  required field, a wrong encoding version, an over-deep payload and a property
+  the schema does not name, naming what was wrong each time - but it threw a
+  bare `RuntimeException`, so a caller could not tell "this payload is not a
+  Carve AST" apart from a bug in their own code. PART 12 §9(b) and §11 require
+  a typed failure. The new class extends `RuntimeException`, so existing
+  catches keep working.
+
 ### Fixed
 
 - **`fmt` keeps attributes written in BOTH authored positions** (carve-php#839).

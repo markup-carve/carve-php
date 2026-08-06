@@ -231,7 +231,11 @@ does. An unregistered type fails loudly rather than silently dropping content.
   reference will not find them where it expects.
 - **A foreign tree is rejected, not decoded wrongly.** The decoder re-encodes what
   it built and compares against the input, so a field it did not understand is an
-  error naming the field rather than silent loss. This replaces a real failure:
+  error naming the field rather than silent loss. Every such refusal throws
+  `MarkupCarve\Carve\Exception\AstDecodeException`, which is what PART 12 §9(b)
+  and §11 mean by "a typed, documented failure" - catch that to handle "this
+  payload is not a Carve AST" without also catching a bug in your own code. It
+  extends `RuntimeException`, so existing catches keep working. This replaces a real failure:
   a carve-js tree of `Text with *bold*.` used to render `<p><strong></strong></p>`
   and exit 0, because carve-js writes `value` where this codec read `content` and
   the missing field defaulted to empty. Keys this engine cannot produce - `pos` -
