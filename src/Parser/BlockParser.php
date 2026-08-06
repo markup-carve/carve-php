@@ -4863,6 +4863,16 @@ class BlockParser
                 }
                 $dl->appendChild($dd);
             }
+            // The next entry may follow with NO blank line at all:
+            // `definition_list = definition_entry+`, and the blank is only ever
+            // a separator the grammar permits ("for readability"), never one it
+            // requires. Falling through to the break below ended the list at
+            // the first entry and started a second `<dl>` for the next
+            // (carve#839). The outer condition re-tests the same line, and the
+            // term loop above always consumes it, so this cannot spin.
+            if ($i < $count && preg_match(self::DEFINITION_TERM_LINE_PREFIX, $lines[$i])) {
+                continue;
+            }
             // Allow a single blank line before the next entry's `:: term`.
             if ($i < $count && trim($lines[$i]) === '') {
                 $look = $i;
