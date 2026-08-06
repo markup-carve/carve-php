@@ -1509,8 +1509,14 @@ class BlockParser
             // with no term is not a description at all - it is paragraph text,
             // and a definition in it defines nothing (corpus
             // `216-a-description-line-needs-a-term-above-it`).
-            $afterTerm = preg_match('/^::(?!:)[ \t]/', ltrim($previousLine, " \t")) === 1
-                || preg_match('/^:[ \t]/', ltrim($previousLine, " \t")) === 1;
+            // ONE SPELLING of "is there a term above this", shared with the
+            // link-definition pass. Both passes had their own, and both read
+            // the RAW previous line - so a term written inside a block quote or
+            // a list item (`> :: term`) answered no, the description marker was
+            // not stripped, and the definition on the line registered nowhere
+            // while the block parser emptied the entry anyway
+            // (markup-carve/carve#840).
+            $afterTerm = ReferenceDefinitionExtractor::opensDefinitionEntry($previousLine);
             if ($afterTerm && preg_match('/^[ \t]*:[ \t]\s*(?=\S)/', $rest, $descMatch) === 1) {
                 $rest = substr($rest, strlen($descMatch[0]));
                 $stripped = true;
