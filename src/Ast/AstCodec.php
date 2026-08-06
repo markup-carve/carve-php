@@ -477,6 +477,13 @@ class AstCodec
             }
         }
 
+        // PART 12 §11, and on the payload as the CALLER wrote it: everything
+        // below rewrites `$data`, and a check asking afterwards would be asking
+        // about a payload this method produced. Before the decode as well as
+        // before the loss comparison, so a tree carrying a property the format
+        // does not have is refused rather than half-read.
+        self::verifyNoUnnamedSlots($data);
+
         // Read BEFORE the walk: the definitions drive expansion, which is
         // engine state on the document rather than anything the block nodes
         // carry. The nodes themselves stay in `children` and decode like any
@@ -807,6 +814,97 @@ class AstCodec
                 count($lost),
                 implode(', ', array_slice($lost, 0, 6)),
             ));
+        }
+    }
+
+    /**
+     * The slots the AST schema names inside a node's two structured sub-objects.
+     *
+     * Mirrors `attrs` and `pos` in `resources/ast-schema.json`, both of which
+     * carry `additionalProperties: false`. Kept as a constant rather than read
+     * from the schema at runtime: the schema ships in the spec repo, which this
+     * package pins as a TEST fixture and does not install at runtime.
+     * `AstCodecSchemaTest` compares the two, so a slot added upstream cannot
+     * drift past this list unnoticed.
+     *
+     * @var array<string, list<string>>
+     */
+    private const SCHEMA_NAMED_SLOTS = [
+        'attrs' => ['id', 'classes', 'keyValues', 'order'],
+        'pos' => ['startLine', 'endLine', 'startColumn', 'endColumn', 'startOffset', 'endOffset'],
+    ];
+
+    /**
+     * PART 12 §11: refuse a property the schema does not name, saying which one
+     * and where.
+     *
+     * The node's OWN keys are answered by the loss comparison, which reports a
+     * key the re-encode did not reproduce. That comparison cannot see inside
+     * `attrs` and `pos`, and must not be made to: `attrs` is NORMALIZED on the
+     * way back out (a `class` slot re-encodes as `classes`), so comparing it
+     * against the re-encode would report a wrong TYPE as an unnamed property,
+     * and a wrong type is §11's neighbour rather than §11 itself
+     * (markup-carve/carve#881). Names are therefore checked BY NAME.
+     *
+     * Walks the payload the CALLER handed over, before `decode()` rewrites it -
+     * so the legacy `footnoteDefs` map, whose blocks are adopted into the tree
+     * and then dropped from the comparison, is covered by the same pass. There
+     * is one producer of this finding, because the row reachable through that
+     * door is the row the schema names.
+     *
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
+     */
+    private static function verifyNoUnnamedSlots(array $payload): void
+    {
+        $unnamed = [];
+        self::collectUnnamedSlots($payload, '', $unnamed);
+
+        if ($unnamed === []) {
+            return;
+        }
+
+        throw new AstDecodeException(sprintf(
+            'The payload carries %d propert%s the AST schema does not name: %s. PART 12 §11 pins '
+                . 'the wire shape with `additionalProperties: false` at every node, so an ingest '
+                . 'refuses an unnamed property rather than dropping it or passing it through. '
+                . '`attrs` is `{id, classes, keyValues, order}`; `pos` is `{startLine, endLine, '
+                . 'startColumn, endColumn, startOffset, endOffset}`.',
+            count($unnamed),
+            count($unnamed) === 1 ? 'y' : 'ies',
+            implode(', ', array_slice($unnamed, 0, 6)),
+        ));
+    }
+
+    /**
+     * @param array<mixed> $data
+     * @param string $path
+     * @param array<string> $unnamed
+     */
+    private static function collectUnnamedSlots(array $data, string $path, array &$unnamed): void
+    {
+        $type = is_string($data['type'] ?? null) ? $data['type'] : null;
+        $here = $type === null ? $path : ($path === '' ? $type : $path . '.' . $type);
+
+        foreach ($data as $key => $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+
+            $step = $here === '' ? (string)$key : $here . '.' . $key;
+
+            if (isset(self::SCHEMA_NAMED_SLOTS[$key])) {
+                foreach (array_keys($value) as $slot) {
+                    if (!in_array((string)$slot, self::SCHEMA_NAMED_SLOTS[$key], true)) {
+                        $unnamed[] = $step . '.' . $slot;
+                    }
+                }
+
+                continue;
+            }
+
+            self::collectUnnamedSlots($value, $step, $unnamed);
         }
     }
 
