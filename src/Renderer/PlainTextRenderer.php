@@ -38,6 +38,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
@@ -257,6 +258,16 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof CriticComment => $this->stripControls($node->getContent()),
                 $node instanceof Math => $this->stripControls($node->getContent()),
                 $rawReference !== null => $this->stripControls($rawReference),
+                // A BLOCK-position image needs the separator a paragraph would
+                // have added. Without it the image's alt text ran straight into
+                // whatever followed - `alt textfollowing paragraph` - and it was
+                // the only block in this renderer that contributed no boundary
+                // at all (markup-carve/carve-rs#692). Decided by POSITION, not
+                // by class: this match covers inline nodes too, and a bare
+                // `instanceof Image` arm would split every inline image across
+                // three lines. Same test the Markdown renderer already uses.
+                $node instanceof Image && $this->isBlockPositionImage($node)
+                => $this->stripControls($node->getAlt()) . "\n\n",
                 $node instanceof Image => $this->stripControls($node->getAlt()),
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
@@ -384,6 +395,18 @@ class PlainTextRenderer implements RendererInterface
      * content so attacker text cannot inject terminal escape sequences into
      * plain-text output displayed in a terminal.
      */
+
+    /**
+     * A lone image is a block-level image node, so it takes the block
+     * separator. An image inside a paragraph or another inline is inline.
+     */
+    protected function isBlockPositionImage(Image $node): bool
+    {
+        $parent = $node->getParent();
+
+        return $parent !== null && !$parent instanceof Paragraph && !$parent instanceof InlineNode;
+    }
+
     protected function stripControls(string $text): string
     {
         return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
