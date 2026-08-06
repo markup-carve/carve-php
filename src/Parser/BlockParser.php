@@ -786,6 +786,9 @@ class BlockParser
             $this->deriveContainerSpans($document);
         }
 
+        // After the spans exist, because it sorts BY them.
+        $this->orderCollectedDefinitions($document);
+
         // Validate references and anchor links if warnings are enabled
         if ($this->collectWarnings) {
             $this->validateReferences();
@@ -863,6 +866,54 @@ class BlockParser
      * writer reproduces them where the author had them. A definition DERIVED
      * from a heading (PART 11 R1) has no authored line and is skipped.
      */
+
+    /**
+     * PART 12 §7: "Definitions appear in DOCUMENT ORDER by source position."
+     *
+     * Collection moves a definition to the document and §4 keeps the `pos` it
+     * was written at, so the published order has to follow that `pos`. It
+     * followed the collection tables instead - footnotes appended first, link
+     * definitions second - so a footnote preceded a link definition whatever the
+     * author wrote, and `pos` ran backwards between two adjacent siblings
+     * (markup-carve/carve#746).
+     *
+     * Only the COLLECTED kinds move. An `abbreviation_def` is not collected out
+     * of the document - §7 refuses that specifically, since hoisting it would
+     * empty the line rather than relocate visible output - so it already sits at
+     * its source position and keeps its index.
+     *
+     * The reordering is confined to the slots the collected definitions already
+     * occupy, so no other child moves, and the sort is stable, so a definition
+     * with no recorded span (position tracking is opt-in, §4) keeps the order it
+     * was collected in rather than being given an invented one.
+     */
+    protected function orderCollectedDefinitions(Document $document): void
+    {
+        $children = $document->getChildren();
+        $slots = [];
+        $collected = [];
+        foreach ($children as $index => $child) {
+            if ($child instanceof Footnote || $child instanceof LinkReferenceDefinition) {
+                $slots[] = $index;
+                $collected[] = [count($slots), $child->getPos()->startOffset ?? PHP_INT_MAX, $child];
+            }
+        }
+        if (count($slots) < 2) {
+            return;
+        }
+
+        // Stable: the collection index breaks a tie rather than usort's
+        // unspecified order for equal keys.
+        usort(
+            $collected,
+            static fn (array $a, array $b): int => [$a[1], $a[0]] <=> [$b[1], $b[0]],
+        );
+        foreach ($slots as $k => $index) {
+            $children[$index] = $collected[$k][2];
+        }
+        $document->setChildren($children);
+    }
+
     protected function appendLinkReferenceDefinitions(Document $document): void
     {
         $authored = [];
