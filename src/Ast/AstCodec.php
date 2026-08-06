@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -253,6 +254,15 @@ class AstCodec
         // HtmlRenderer's render context - keyed by label in an array, never on the
         // node - so the published tree carried no number at all (carve-php#843).
         self::numberFootnotes($document);
+        // A generated heading id is the third §5 result, and the clause names it:
+        // "A `heading` whose id was slugged from its text rather than written
+        // carries that id in `attrs.id`". It is not recomputable from one
+        // subtree - dedup assigns the next free suffix in DOCUMENT ORDER, so
+        // `Notes-2` needs every heading before it - which is exactly §5's test.
+        // Computed here for the same reason the two passes above are: this
+        // engine assigned ids on the render path only, so a published heading
+        // carried no `attrs` at all (carve#750).
+        self::stampHeadingIds($document);
 
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the
@@ -492,6 +502,31 @@ class AstCodec
         self::resolveFootnoteRefs($node);
 
         return $node;
+    }
+
+    /**
+     * Give every heading the id the renderer would give it, unless the source
+     * wrote one.
+     *
+     * The id takes no `order` slot: `order` is the source-appearance order of
+     * the slots in a `{#id .class key=value}` block, and a slugged id was never
+     * written in one. An AUTHORED id keeps both its value and its slot.
+     */
+    private static function stampHeadingIds(Document $document): void
+    {
+        $tracker = new HeadingIdTracker();
+        $walk = function (Node $node) use (&$walk, $tracker): void {
+            if ($node instanceof Heading) {
+                $id = $tracker->getIdForHeading($node);
+                if ($id !== '' && $node->getAttribute('id') === null) {
+                    $node->setSynthesizedAttribute('id', $id);
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+        $walk($document);
     }
 
     /**
@@ -1087,6 +1122,19 @@ class AstCodec
             if (is_string($value)) {
                 $attrs[(string)$name] = $value;
             }
+        }
+
+        // AN ID WITH NO `#id` SLOT IS A GENERATED ONE, and a generated
+        // attribute is emitted AFTER the authored ones - which is where the
+        // renderer puts it when it assigns the id itself. Decoding it into the
+        // map's first position instead rendered `<h1 id="Auto" a="b">` where a
+        // fresh parse renders `<h1 a="b" id="Auto">`: same attributes, same
+        // values, different bytes, and the round-trip test reports it as lost
+        // HTML (carve#750).
+        if (isset($attrs['id']) && !in_array('#id', $order, true)) {
+            $generatedId = $attrs['id'];
+            unset($attrs['id']);
+            $attrs['id'] = $generatedId;
         }
 
         if ($order === []) {

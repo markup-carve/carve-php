@@ -849,10 +849,25 @@ class CarveRenderer implements RendererInterface
                 $emit($slot);
             }
             foreach ($attrs as $key => $_value) {
+                // An id with no `#id` slot is a GENERATED one - since carve#750
+                // a heading's slugged id is on the wire, so a decoded node
+                // carries it - and a writer reproduces what the author wrote.
+                // Emitting it here put `{#Notes}` into 39 corpus documents
+                // whose source has no attribute block at all.
+                if ((string)$key === 'id' && !in_array('#id', $order, true)) {
+                    continue;
+                }
                 $emit((string)$key);
             }
         } else {
-            $emit('#id');
+            // NO SLOTS AT ALL. An `id` here is a GENERATED one - since carve#750
+            // a heading's slugged id is published, and an AUTHORED id always
+            // carries its `#id` slot - so emitting it writes `{#Welcome}` above
+            // a heading whose source has no attribute block. A programmatic
+            // tree that wants the id in the source records the slot.
+            if (!array_key_exists('id', $attrs)) {
+                $emit('#id');
+            }
             $emit('.class');
             foreach ($attrs as $key => $_value) {
                 $emit((string)$key);
@@ -1821,10 +1836,25 @@ class CarveRenderer implements RendererInterface
                 $emit($slot);
             }
             foreach ($attrs as $key => $_value) {
+                // An id with no `#id` slot is a GENERATED one - since carve#750
+                // a heading's slugged id is on the wire, so a decoded node
+                // carries it - and a writer reproduces what the author wrote.
+                // Emitting it here put `{#Notes}` into 39 corpus documents
+                // whose source has no attribute block at all.
+                if ((string)$key === 'id' && !in_array('#id', $order, true)) {
+                    continue;
+                }
                 $emit((string)$key);
             }
         } else {
-            $emit('#id');
+            // NO SLOTS AT ALL. An `id` here is a GENERATED one - since carve#750
+            // a heading's slugged id is published, and an AUTHORED id always
+            // carries its `#id` slot - so emitting it writes `{#Welcome}` above
+            // a heading whose source has no attribute block. A programmatic
+            // tree that wants the id in the source records the slot.
+            if (!array_key_exists('id', $attrs)) {
+                $emit('#id');
+            }
             $emit('.class');
             foreach ($attrs as $key => $_value) {
                 $emit((string)$key);
