@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+
 /**
  * The content column of the innermost list item a line-based prepass is inside.
  *
@@ -43,7 +45,7 @@ class ListContentColumns
     public function observe(string $line, bool $opaque = false): int
     {
         $wasPreviousBlank = $this->previousWasBlank;
-        $this->previousWasBlank = trim($line) === '';
+        $this->previousWasBlank = IndentationHelper::isBlankLine($line);
 
         if ($opaque) {
             return $this->current();
