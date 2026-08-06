@@ -168,6 +168,7 @@ class CarveCorpusTest extends TestCase
         'inline-span',
         'leading-attribute-brace-before-an-inline-span-stays-literal',
         'line-blocks',
+        'line-endings-and-a-byte-order-mark',
         'link-destination-parentheses-balance',
         'link-reference-definition-separator-must-be-a-space',
         'links',
