@@ -514,6 +514,25 @@ class AttributeParserTest extends TestCase
         );
     }
 
+    public function testColonBearingNameMixedIntoAGluedBulletMarker(): void
+    {
+        // The marker block is judged as a WHOLE: a good class beside an
+        // unrecognized name does not open a list carrying the good half.
+        $this->assertSame(
+            "<p>-{.ok xml:lang=en} item</p>\n",
+            $this->converter->convert("-{.ok xml:lang=en} item\n"),
+        );
+        $this->assertSame(
+            "<p>1.{.ok xml:lang=en} item</p>\n",
+            $this->converter->convert("1.{.ok xml:lang=en} item\n"),
+        );
+        // The control: a wholly valid marker block still opens the list.
+        $this->assertSame(
+            "<ul>\n  <li class=\"a b\">item</li>\n</ul>\n",
+            $this->converter->convert("-{.a .b} item\n"),
+        );
+    }
+
     public function testColonInAttributeNameOnATableRow(): void
     {
         // A row-attribute block that is not valid leaves the line without a
