@@ -488,7 +488,9 @@ $converter = match ($options['format']) {
     'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
     'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
     'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
-    'carve' => CarveConverter::carve(new BlockParser($wantWarnings)),
+    // Positions ON: the writer orders collected definitions by the spans §4
+    // records, and they are opt-in (carve-php#905).
+    'carve' => CarveConverter::carve(new BlockParser($wantWarnings, false, false, true)),
     default => new CarveConverter(
         xhtml: $options['xhtml'],
         warnings: $wantWarnings,
