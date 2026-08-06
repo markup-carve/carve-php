@@ -9,6 +9,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Every table-cell padding slot takes a space** (carve-php#960). PART 7
+  decides the terminal by position, and every one of these slots sits after the
+  row's opening pipe: `delimiter_cell`, `header_cell` and `data_cell` at both
+  ends, plus `rowspan_marker` and `colspan_marker`. A non-space run there is not
+  a rejection - it stops being padding and becomes ordinary cell content, so
+  `|<TAB>a |<TAB>b |` now renders two cells whose text still starts with the
+  tab. At `delimiter_cell` the failure is structural on top of that: the line is
+  no longer a delimiter row, so no header is promoted, no alignment is assigned,
+  and the `---` run is content that smart typography renders as an em dash. A
+  tab beside a `^` or `<` likewise makes the cell ordinary content and the span
+  does not happen. Five sites decided this through three different character
+  classes - the content strip used `trim()`, whose charlist admits a tab and a
+  vertical tab but not a form feed; the delimiter-row test used the regex `\s`
+  class, which in PCRE is `[ \t\n\r\f\v]`, so a form feed satisfied a
+  delimiter cell while already surviving a data cell; and a continuation row's
+  cells are `data_cell`s padded in a second place, so `+<TAB>x | y |` joined the
+  tab away, while a cell carrying a glued `{...}` attribute block stripped its
+  leading slot in a third place before the content strip ever ran. Cardinality
+  is unchanged: these slots are a run of spaces and stay one.
+
 - **A nested container no longer re-measures every body line's whole
   indentation run at every level** (markup-carve/carve#752). The indentation
   gate walked a line's entire leading whitespace before comparing the result

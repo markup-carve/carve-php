@@ -139,7 +139,7 @@ class TableParser
             return false;
         }
         foreach ($cells as $cell) {
-            if (preg_match('/^\s*:?-+:?\s*$/', $cell) !== 1) {
+            if (preg_match('/^ *:?-+:? *$/', $cell) !== 1) {
                 return false;
             }
         }
@@ -160,7 +160,7 @@ class TableParser
         $cells = $this->parseTableCells($separatorLine);
 
         foreach ($cells as $cell) {
-            $cell = trim($cell);
+            $cell = trim($cell, ' ');
             if (str_starts_with($cell, ':') && str_ends_with($cell, ':')) {
                 $alignments[] = TableCell::ALIGN_CENTER;
             } elseif (str_ends_with($cell, ':')) {
@@ -405,7 +405,12 @@ class TableParser
                     ) {
                         $attributes = $inner;
                         $rest = substr($cellContent, $end + 1);
-                        $content = ltrim($rest, " \t");
+                        // The slot between a cell attribute block and the
+                        // cell content is `data_cell`'s own `{space}` run
+                        // (PART 7), not a fresh one - so it takes a space and
+                        // a tab after `{...}` is content, exactly as it is
+                        // after a bare `|`.
+                        $content = ltrim($rest, ' ');
                         $cellOffset += $end + 1 + (strlen($rest) - strlen($content));
                     }
                 }
@@ -687,7 +692,7 @@ class TableParser
      */
     public function isRowspanMarker(string $cellContent): bool
     {
-        return trim($cellContent) === '^';
+        return trim($cellContent, ' ') === '^';
     }
 
     /**
@@ -701,7 +706,7 @@ class TableParser
      */
     public function isColspanMarker(string $cellContent): bool
     {
-        return trim($cellContent) === '<';
+        return trim($cellContent, ' ') === '<';
     }
 
     /**
@@ -790,8 +795,8 @@ class TableParser
         $count = max(count($baseCells), count($continuationCells));
 
         for ($i = 0; $i < $count; $i++) {
-            $base = trim($baseCells[$i] ?? '');
-            $continuation = trim($continuationCells[$i] ?? '');
+            $base = trim($baseCells[$i] ?? '', ' ');
+            $continuation = trim($continuationCells[$i] ?? '', ' ');
 
             if ($base !== '' && $continuation !== '') {
                 // Join with space (like soft breaks in paragraphs)
