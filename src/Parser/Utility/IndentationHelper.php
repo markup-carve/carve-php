@@ -35,16 +35,33 @@ class IndentationHelper
      * nesting: a space advances one column, a tab advances to the next tab stop.
      * For space-only indentation both helpers return the same value.
      *
+     * `$cap` bounds the walk. The result is min(realColumns, $cap), so a caller
+     * that only compares the answer against a threshold can stop the scan there
+     * instead of walking an indentation run whose length it does not care about.
+     * Every nesting level re-measures the same run, so an unbounded walk costs
+     * O(depth) per line per level - half the character work of parsing a deep
+     * container (markup-carve/carve#752). Pick `$cap` by the comparison:
+     *
+     * - `>= t` and `< t` take `$cap = t`;
+     * - `=== t`, `<= t` and `> t` take `$cap = t + 1`.
+     *
+     * Both are exact: min(real, cap) and real compare identically against any
+     * threshold strictly below cap, and a tab that overshoots cap only
+     * saturates a value the comparison had already decided. Leave `$cap` null
+     * where the NUMBER itself is used rather than compared.
+     *
      * @param string $line The line to examine
+     * @param int|null $cap Stop the walk once this column is reached
      *
      * @return int The visual column where the first non-whitespace character sits
      */
-    public static function getLeadingColumns(string $line): int
+    public static function getLeadingColumns(string $line, ?int $cap = null): int
     {
         $col = 0;
         $len = strlen($line);
+        $i = 0;
 
-        for ($i = 0; $i < $len; $i++) {
+        while ($i < $len && ($cap === null || $col < $cap)) {
             if ($line[$i] === ' ') {
                 $col++;
             } elseif ($line[$i] === "\t") {
@@ -52,9 +69,14 @@ class IndentationHelper
             } else {
                 break;
             }
+            $i++;
         }
 
-        return $col;
+        if (LayoutWork::$on) {
+            LayoutWork::$gate += $i;
+        }
+
+        return $cap !== null && $col > $cap ? $cap : $col;
     }
 
     /**
@@ -161,9 +183,19 @@ class IndentationHelper
             // (carve-php#890). PART 9 §24 C1 makes indentation a column claim,
             // which a partial tab has to honor in both directions.
             if ($next > $amount) {
+                if (LayoutWork::$on) {
+                    // The walk ($i) plus the copy ($len - $i): the whole line.
+                    LayoutWork::$strip += $len;
+                }
+
                 return str_repeat(' ', $next - $amount) . substr($line, $i);
             }
             $col = $next;
+        }
+
+        if (LayoutWork::$on) {
+            // The walk ($i) plus the copy ($len - $i): the whole line.
+            LayoutWork::$strip += $len;
         }
 
         return substr($line, $i);

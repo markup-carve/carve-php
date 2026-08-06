@@ -1425,7 +1425,7 @@ class BlockParser
                     // refused the bare tab (carve#796, carve-php#887). A line
                     // reaching only column 1 is a top-level block, not part of
                     // the note.
-                    if (IndentationHelper::getLeadingColumns($nextLine) >= self::FOOTNOTE_BODY_COLUMN) {
+                    if (IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN) {
                         $contentLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                         $contentLineMap[] = $j;
                         $j++;
@@ -2066,7 +2066,12 @@ class BlockParser
     protected function headingReferenceScanLine(string $line, array &$listContentColumns): array
     {
         if (!IndentationHelper::isBlankLine($line)) {
-            $leadingColumns = IndentationHelper::getLeadingColumns($line);
+            // The stack rises left to right, so its last entry is its largest
+            // and bounds every comparison this loop makes.
+            $leadingColumns = IndentationHelper::getLeadingColumns(
+                $line,
+                $listContentColumns === [] ? null : $listContentColumns[array_key_last($listContentColumns)],
+            );
             while ($listContentColumns !== [] && $leadingColumns < $listContentColumns[array_key_last($listContentColumns)]) {
                 array_pop($listContentColumns);
             }
@@ -3891,7 +3896,21 @@ class BlockParser
 
                             continue;
                         }
-                        $lineIndent = IndentationHelper::getLeadingColumns($subLine);
+                        // BOUNDED. This is asked of every collected line at
+                        // every nesting level, and it walks the line's whole
+                        // indentation run - so on a deep ladder it was 98.5% of
+                        // this parser's indentation work and cubic in depth
+                        // (markup-carve/carve#752). Every comparison below is
+                        // against $subIndent or $baseIndent, and the only other
+                        // consumer is $maxContentIndent, which is itself only
+                        // ever read as `> $subIndent`. Saturating at one past
+                        // the larger of the two therefore answers all of them
+                        // exactly: a run that overshoots the cap had already
+                        // decided every one of these tests.
+                        $lineIndent = IndentationHelper::getLeadingColumns(
+                            $subLine,
+                            max($subIndent, $baseIndent) + 1,
+                        );
 
                         // If we've seen content at a higher indent level (actual nested content),
                         // and now we're back at the marker level (subIndent) after a blank line,
@@ -4415,7 +4434,7 @@ class BlockParser
             if (IndentationHelper::isBlankLine($line)) {
                 break;
             }
-            $lineIndent = IndentationHelper::getLeadingColumns($line);
+            $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
             if ($lineIndent < $baseIndent) {
                 break;
             }
@@ -4474,7 +4493,7 @@ class BlockParser
                 break;
             }
 
-            $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
+            $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
 
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
@@ -4739,7 +4758,7 @@ class BlockParser
                 while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                     $look++;
                 }
-                if ($look >= $count || IndentationHelper::getLeadingColumns($lines[$look]) < $contentIndent) {
+                if ($look >= $count || IndentationHelper::getLeadingColumns($lines[$look], $contentIndent) < $contentIndent) {
                     break;
                 }
                 $itemLines[] = '';
@@ -4750,7 +4769,7 @@ class BlockParser
                 continue;
             }
 
-            $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
+            $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             if ($nextIndent < $contentIndent) {
                 $nextTrimmed = ltrim($nextLine, " \t");
                 // A sibling marker or a block opener at the base column belongs
@@ -4826,7 +4845,7 @@ class BlockParser
             $i++;
         }
 
-        return $i < $count && IndentationHelper::getLeadingColumns($lines[$i]) >= $contentIndent;
+        return $i < $count && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
     }
 
     /**
@@ -5001,7 +5020,7 @@ class BlockParser
                     // reader of five spellings, and the only one that made the
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
-                    $indent = IndentationHelper::getLeadingColumns($contLine);
+                    $indent = IndentationHelper::getLeadingColumns($contLine, self::DEFINITION_CONTINUATION_COLUMN);
                     // Form A: an indented continuation line (no intervening blank).
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
                         $body[] = ltrim($contLine, " \t");
@@ -5025,7 +5044,7 @@ class BlockParser
                         // the column the same way, or a tab-indented paragraph
                         // is unreachable through a blank line while reachable
                         // without one.
-                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after);
+                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, self::DEFINITION_CONTINUATION_COLUMN);
                         if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= self::DEFINITION_CONTINUATION_COLUMN) {
                             for (; $i < $look; $i++) {
                                 $body[] = '';
@@ -5997,7 +6016,7 @@ class BlockParser
                 // PART 9 §16, §17).
                 if (
                     $i + 1 < $count
-                    && (IndentationHelper::getLeadingColumns($lines[$i + 1]) >= self::FOOTNOTE_BODY_COLUMN
+                    && (IndentationHelper::getLeadingColumns($lines[$i + 1], self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                         || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
                 ) {
                     $i++;
@@ -6026,7 +6045,7 @@ class BlockParser
 
                 continue;
             }
-            if (IndentationHelper::getLeadingColumns($nextLine) >= self::FOOTNOTE_BODY_COLUMN) {
+            if (IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN) {
                 $i++;
             } else {
                 break;
@@ -8062,7 +8081,7 @@ class BlockParser
             if ($j >= $n) {
                 continue;
             }
-            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($subLines[$j]) >= $subCol) {
+            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($subLines[$j], $subCol) >= $subCol) {
                 // Belongs to the sub-list; its looseness is its own business.
                 continue;
             }
@@ -8155,7 +8174,7 @@ class BlockParser
             }
 
             // Dedented out of the item: nothing of the item follows.
-            if (IndentationHelper::getLeadingColumns($line) < $contentIndent) {
+            if (IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent) {
                 return null;
             }
 
