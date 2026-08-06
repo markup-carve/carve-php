@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Hidden / blurred "spoiler" content, revealed on interaction (Tier-3).
@@ -33,13 +34,21 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * `on*` / `srcdoc` / `formaction` and neutralizes dangerous values), plus any
  * safe-mode name filtering, so a `{onclick="..."}` can never reach the output.
  *
+ * In `static` mode - HTML for a medium that cannot interact or run client
+ * scripts - hiding is meaningless, so both forms are REVEALED: the block
+ * flattens to a `<section class="spoiler spoiler-revealed">` whose title is an
+ * `<h3>`, and the inline span gains the `spoiler-revealed` class the host
+ * stylesheet keys the blur off. See `docs/graceful-degradation.md`: a
+ * disclosure with no `open` renders collapsed in a print engine, so leaving the
+ * interactive `<details>` in place loses the body on the way to PDF.
+ *
  * Example:
  * ```php
  * $converter = new CarveConverter();
  * $converter->addExtension(new SpoilerExtension());
  * ```
  */
-class SpoilerExtension implements ExtensionInterface
+class SpoilerExtension implements StaticRenderExtensionInterface
 {
     use ExtensionAttributesTrait;
 
@@ -63,6 +72,14 @@ class SpoilerExtension implements ExtensionInterface
      * @var string
      */
     public const DEFAULT_SUMMARY = 'Spoiler';
+
+    /**
+     * Class marking a spoiler as revealed in `static` mode - the signal a host
+     * stylesheet keys the blur off. Matches carve-js and carve-rs.
+     *
+     * @var string
+     */
+    public const REVEALED_CLASS = 'spoiler-revealed';
 
     public function register(CarveConverter $converter): void
     {
@@ -98,6 +115,70 @@ class SpoilerExtension implements ExtensionInterface
     }
 
     /**
+     * Static mode: reveal, rather than hide.
+     *
+     * `docs/graceful-degradation.md` puts the spoiler in class 1 - the content
+     * is all present and only the UI is gone - and its principle is that a
+     * non-interactive target MUST keep the content and MAY drop only the
+     * interaction. A `<details>` with no `open` does the opposite: a print
+     * engine renders it collapsed, so the body never reaches the page. Both
+     * forms are therefore revealed here, matching carve-js and carve-rs byte
+     * for byte.
+     *
+     * @param \MarkupCarve\Carve\Event\RenderEvent $event The render event for the current node.
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer The active HTML renderer.
+     *
+     * @return bool Whether this extension consumed the node.
+     */
+    public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+    {
+        $node = $event->getNode();
+
+        if ($node instanceof Div && $node->hasClass(self::KIND)) {
+            $event->setHtml($this->renderStaticBlock($node, $event->getChildrenHtml(), $renderer));
+
+            return true;
+        }
+
+        if ($node instanceof InlineExtension && $node->getExtensionType() === self::INLINE_TYPE) {
+            $event->setHtml('<span' . $this->openAttributes($node, $renderer, revealed: true) . '>'
+                . $event->getChildrenHtml() . '</span>');
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Render the revealed `<section>` that replaces the disclosure in static
+     * mode: the summary becomes an `<h3 class="spoiler-title">`, and a grouping
+     * `[label]` follows it as the caption the core floor would otherwise have
+     * emitted (this path consumes the node, so that floor never runs).
+     */
+    protected function renderStaticBlock(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
+    {
+        $rendered = trim($renderer->renderInlineNodesFragment($node->getHeaderNodes()));
+        $title = $rendered !== '' ? $rendered : $this->escapeHtml(self::DEFAULT_SUMMARY);
+
+        $attrs = $this->openAttributes($node, $renderer, revealed: true);
+        $body = rtrim($this->indentBlock(rtrim($childrenHtml, "\n"), 2), "\n");
+
+        $label = $node->getLabel();
+        $labelLine = $label !== null && $label !== ''
+            ? '  <p class="div-label">' . $this->escapeHtml(StringUtil::stripBidiControls($label)) . "</p>\n"
+            : '';
+
+        // An empty body renders as a single blank line, the same shape the
+        // interactive path and both sibling engines produce.
+        return '<section' . $attrs . ">\n"
+            . '  <h3 class="spoiler-title">' . $title . "</h3>\n"
+            . $labelLine
+            . ($body !== '' ? $body . "\n" : "\n")
+            . "</section>\n";
+    }
+
+    /**
      * Render the `<details>/<summary>` disclosure widget for a spoiler block.
      */
     protected function renderBlock(Div $node, string $childrenHtml, HtmlRenderer $renderer): string
@@ -129,10 +210,17 @@ class SpoilerExtension implements ExtensionInterface
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param array<string> $exclude Extra attribute names to drop (e.g. `title`).
+     * @param bool $revealed Append the static-mode reveal class after the base class.
      */
-    protected function openAttributes(Node $node, HtmlRenderer $renderer, array $exclude = []): string
-    {
-        return $this->renderExtensionAttributes($node, $renderer, [self::KIND], $exclude);
+    protected function openAttributes(
+        Node $node,
+        HtmlRenderer $renderer,
+        array $exclude = [],
+        bool $revealed = false,
+    ): string {
+        $fixed = $revealed ? [self::KIND, self::REVEALED_CLASS] : [self::KIND];
+
+        return $this->renderExtensionAttributes($node, $renderer, $fixed, $exclude);
     }
 
     /**

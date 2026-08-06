@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\MathBlockExtension;
+use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use PHPUnit\Framework\TestCase;
@@ -530,6 +531,158 @@ class StaticRenderModeTest extends TestCase
             '</div>',
         ]);
         $this->assertSame($expected, $html);
+    }
+
+    public function testSpoilerStaysACollapsedDisclosureInInteractiveMode(): void
+    {
+        // The interactive form is the disclosure the reader clicks. It is the
+        // baseline the static assertions below have to differ from - without
+        // it, a static path that changed nothing would look like agreement.
+        $converter = new CarveConverter();
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("::: spoiler\nhidden text\n:::\n"));
+
+        $expected = implode("\n", [
+            '<details class="spoiler">',
+            '  <summary>Spoiler</summary>',
+            '  <p>hidden text</p>',
+            '</details>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testSpoilerBlockIsRevealedInStaticMode(): void
+    {
+        // docs/graceful-degradation.md, spoiler row: "blurred until revealed |
+        // revealed | degrades natively (hiding is meaningless offline)". A
+        // <details> with no `open` renders COLLAPSED in a print engine, so
+        // leaving the interactive form in place loses the body on the way to
+        // PDF - the one thing the page's principle forbids.
+        //
+        // Byte-for-byte the carve-js and carve-rs oracle output.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("::: spoiler\nhidden text\n:::\n"));
+
+        $expected = implode("\n", [
+            '<section class="spoiler spoiler-revealed">',
+            '  <h3 class="spoiler-title">Spoiler</h3>',
+            '  <p>hidden text</p>',
+            '</section>',
+        ]);
+        $this->assertSame($expected, $html);
+        // Asserted on the VALUE, not on a shape the defect also produced: the
+        // unfixed engine emitted `<details class="spoiler">` here, which still
+        // contains the body text and would satisfy a content-only assertion.
+        $this->assertStringNotContainsString('<details', $html);
+    }
+
+    public function testSpoilerBlockTitleBecomesTheRevealedHeading(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("::: spoiler \"Ending\"\nEveryone lives.\n:::\n"));
+
+        $expected = implode("\n", [
+            '<section class="spoiler spoiler-revealed">',
+            '  <h3 class="spoiler-title">Ending</h3>',
+            '  <p>Everyone lives.</p>',
+            '</section>',
+        ]);
+        $this->assertSame($expected, $html);
+        $this->assertStringNotContainsString('<summary>', $html);
+    }
+
+    public function testSpoilerBlockKeepsItsGroupingLabelAsACaption(): void
+    {
+        // The static path CONSUMES the node, so the core caption floor never
+        // runs on it. Without the label line here the `[label]` would be
+        // dropped exactly where the page says a label must not be - and the
+        // rest of the output would still look right.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("::: spoiler \"T\" [Lbl]\nbody\n:::\n"));
+
+        $expected = implode("\n", [
+            '<section class="spoiler spoiler-revealed">',
+            '  <h3 class="spoiler-title">T</h3>',
+            '  <p class="div-label">Lbl</p>',
+            '  <p>body</p>',
+            '</section>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testSpoilerBlockAuthorAttributesSurviveTheStaticPath(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("{#s .extra}\n::: spoiler\nbody\n:::\n"));
+
+        $this->assertStringContainsString('<section id="s" class="spoiler spoiler-revealed extra">', $html);
+    }
+
+    public function testSpoilerBlockInsideAContainerIsRevealedToo(): void
+    {
+        // Nesting reaches the static hook through renderChildren(), so a fix
+        // wired only to the top level would pass every case above and fail
+        // here.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("> ::: spoiler\n> b\n> :::\n"));
+
+        $expected = implode("\n", [
+            '<blockquote>',
+            '  <section class="spoiler spoiler-revealed">',
+            '    <h3 class="spoiler-title">Spoiler</h3>',
+            '    <p>b</p>',
+            '  </section>',
+            '</blockquote>',
+        ]);
+        $this->assertSame($expected, $html);
+    }
+
+    public function testSpoilerInlineIsRevealedInStaticMode(): void
+    {
+        // The second producer of the same omission. `class="spoiler"` alone IS
+        // the blur trigger the host stylesheet keys off, so an inline spoiler
+        // that reaches print unmarked is invisible there - the content is in
+        // the HTML and not on the page.
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("a :spoiler[hi *there*] b\n"));
+
+        $this->assertSame(
+            '<p>a <span class="spoiler spoiler-revealed">hi <strong>there</strong></span> b</p>',
+            $html,
+        );
+    }
+
+    public function testSpoilerInlineStaysBlurredInInteractiveMode(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("a :spoiler[hi] b\n"));
+
+        $this->assertSame('<p>a <span class="spoiler">hi</span> b</p>', $html);
+    }
+
+    public function testSpoilerInlineAuthorAttributesKeepTheirSourceOrder(): void
+    {
+        $converter = new CarveConverter(mode: RenderMode::STATIC);
+        $converter->addExtension(new SpoilerExtension());
+
+        $html = trim($converter->convert("a :spoiler[hi]{#x .y} b\n"));
+
+        $this->assertSame('<p>a <span id="x" class="spoiler spoiler-revealed y">hi</span> b</p>', $html);
     }
 
     public function testMarkdownRendererForcesLabelFloorRegardlessOfMode(): void

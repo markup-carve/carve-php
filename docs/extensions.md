@@ -120,11 +120,20 @@ output:
 | `CodeGroupExtension` | each code block as a `<section class="code-group-panel">` headed by its `[label]` |
 | `MathBlockExtension` | the `math` renderer's server-side output (MathML/HTML) inside `<div class="math display">`, else the LaTeX source inside `<pre class="math display">` |
 | `FencedRenderExtension` (mermaid, chart, ...) | the renderer's image (keyed by the fence's CSS class) inside `<div class="...">`, else the source inside `<pre><code class="language-...">` |
+| `ImgFenceExtension` | the sanitized SVG inline, else the source |
+| `SpoilerExtension` | block: a revealed `<section class="spoiler spoiler-revealed">` headed by `<h3 class="spoiler-title">`, with any grouping `[label]` following as a `<p class="div-label">` caption; inline: `<span class="spoiler spoiler-revealed">` |
 
-`DetailsExtension` and `SpoilerExtension` already degrade natively - both emit an
-HTML5 `<details>` disclosure whose content is present and whose quoted title is
-the `<summary>` - so they need no separate static path. The
-`ListTableExtension`, citations and heading-permalink extensions are already
+`DetailsExtension` reaches the same end without implementing the interface: it
+asks the renderer for the mode directly and appends `open`, because the page
+calls a disclosure a special case that is **kept, not flattened**.
+
+This paragraph used to read "`DetailsExtension` and `SpoilerExtension` already
+degrade natively ... so they need no separate static path". That was false for
+the spoiler, and it is why the gap stood: a `<details>` carrying no `open`
+renders COLLAPSED in a print engine, so the body never reaches the page. The
+disclosure escapes that only because it forces `open`.
+
+The `ListTableExtension`, citations and heading-permalink extensions are already
 static and render identically in both modes (resolution step 2).
 
 Extensions that exist in the carve-js reference but **not** in carve-php (a
