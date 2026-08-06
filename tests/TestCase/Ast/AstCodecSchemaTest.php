@@ -51,7 +51,7 @@ class AstCodecSchemaTest extends TestCase
                 $payload[$field] = in_array($field, ['items'], true) ? [] : '';
             }
 
-            $decoded = (new AstCodec())->decode(['type' => 'document', 'children' => [$payload]]);
+            $decoded = (new AstCodec())->decode(['type' => 'document', 'srcByteLength' => 0, 'children' => [$payload]]);
 
             $this->assertSame($type, $decoded->getChildren()[0]->getType());
         }
@@ -68,7 +68,7 @@ class AstCodecSchemaTest extends TestCase
 
         $this->expectExceptionMessage(sprintf('Node "%s" is missing the required field', $type));
 
-        (new AstCodec())->decode(['type' => 'document', 'children' => [['type' => $type]]]);
+        (new AstCodec())->decode(['type' => 'document', 'srcByteLength' => 0, 'children' => [['type' => $type]]]);
     }
 
     /**

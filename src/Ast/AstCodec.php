@@ -447,6 +447,36 @@ class AstCodec
             ));
         }
 
+        // PART 12 §12(a): a root missing any of §7's three fields is refused,
+        // not defaulted. Checked HERE and not further down, because everything
+        // below rewrites `$data` - `adoptFrontmatter` CREATES `children` when a
+        // legacy root carried none, and `liftAbbreviationDefs` rewrites it - so
+        // a later check would be asking about a payload this method wrote rather
+        // than the one the caller handed over.
+        //
+        // AFTER the version envelope and only when the root already claims to be
+        // a `document`. A version-1 payload and a ProseMirror `doc` are both
+        // already ruled elsewhere (§9's root-type paragraph for the second), and
+        // both deserve to hear which of those they are rather than a report about
+        // a field a foreign format was never going to carry.
+        //
+        // `array_key_exists` rather than `isset`: (a) is about the field being
+        // PRESENT, the VALUE of `srcByteLength` is explicitly not this clause's
+        // business, and `isset` would read a null `children` as absent and cite
+        // the wrong rule.
+        if (($data['type'] ?? null) === 'document') {
+            foreach (['children', 'srcByteLength'] as $required) {
+                if (!array_key_exists($required, $data)) {
+                    throw new AstDecodeException(sprintf(
+                        'The payload root is missing `%s`. PART 12 §7 fixes the root at `type`, '
+                            . '`children` and `srcByteLength`, and §12 refuses a root without one - '
+                            . 'a reader that supplies a default has silently repaired the payload.',
+                        $required,
+                    ));
+                }
+            }
+        }
+
         // Read BEFORE the walk: the definitions drive expansion, which is
         // engine state on the document rather than anything the block nodes
         // carry. The nodes themselves stay in `children` and decode like any

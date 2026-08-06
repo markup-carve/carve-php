@@ -25,6 +25,7 @@ class FootnoteDefsInteropTest extends TestCase
     {
         return [
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'paragraph',

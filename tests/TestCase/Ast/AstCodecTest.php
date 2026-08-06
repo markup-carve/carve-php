@@ -89,6 +89,7 @@ class AstCodecTest extends TestCase
         $this->codec->decode([
 
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 ['type' => 'paragraph', 'children' => [['type' => 'text', 'content' => 'Text']]],
             ],
@@ -102,6 +103,7 @@ class AstCodecTest extends TestCase
         $document = $this->codec->decode([
 
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
 
@@ -205,6 +207,7 @@ class AstCodecTest extends TestCase
         // trivial valid tree there is.
         $document = $this->codec->decode([
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [],
             'srcByteLength' => 0,
         ]);
@@ -218,6 +221,7 @@ class AstCodecTest extends TestCase
         // survive rather than be written off as a spelled-out default.
         $document = $this->codec->decode([
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'list',
@@ -244,7 +248,7 @@ class AstCodecTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unknown node type: not_a_node');
 
-        $this->codec->decode(['type' => 'document', 'children' => [['type' => 'not_a_node']]]);
+        $this->codec->decode(['type' => 'document', 'srcByteLength' => 0, 'children' => [['type' => 'not_a_node']]]);
     }
 
     public function testDecodeRejectsAFutureEncodingVersion(): void
@@ -369,6 +373,7 @@ class AstCodecTest extends TestCase
     {
         $stored = [
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'paragraph',
@@ -396,6 +401,7 @@ class AstCodecTest extends TestCase
     {
         $stored = [
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'paragraph',

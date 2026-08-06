@@ -183,7 +183,12 @@ class CliTest extends TestCase
             [
                 '{"ast": 99, "type": "document"}' => 'AST encoding version',
                 '{not json' => 'Syntax error',
-                '{"type": "document", "children": [{"type": "nope"}]}' => 'Unknown node type',
+                '{"type": "document", "srcByteLength": 0, "children": [{"type": "nope"}]}'
+                    => 'Unknown node type',
+                // PART 12 §12(a). The refusal has to reach the user as a
+                // documented failure, like every other one in this list.
+                '{"type": "document", "children": []}' => 'missing `srcByteLength`',
+                '{"type": "document", "srcByteLength": 0}' => 'missing `children`',
             ] as $input => $expected
         ) {
             $res = $this->runCliInput(['--from-json'], (string)$input);
