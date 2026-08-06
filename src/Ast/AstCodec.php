@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Ast;
 
 use JsonException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -35,7 +36,6 @@ use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
-use RuntimeException;
 use SplFileInfo;
 
 /**
@@ -428,13 +428,13 @@ class AstCodec
     /**
      * @param array<string, mixed> $data
      *
-     * @throws \RuntimeException When the payload is not a document this version can read.
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When the payload is not a document this version can read.
      */
     public function decode(array $data): Document
     {
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
-            throw new RuntimeException(sprintf(
+            throw new AstDecodeException(sprintf(
                 'This payload announces AST encoding version %s; this codec writes %d. Version 1 used '
                     . "this engine's internal field names, which version 2 maps to the PART 12 "
                     . 'reference shape (`content` became `value`, a list\'s `children` became `items`).',
@@ -451,7 +451,7 @@ class AstCodec
 
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
-            throw new RuntimeException('The payload root must be a document node');
+            throw new AstDecodeException('The payload root must be a document node');
         }
 
         if ($abbreviations !== []) {
@@ -676,7 +676,7 @@ class AstCodec
      * @param array<string, mixed> $input
      * @param \MarkupCarve\Carve\Node\Document $document
      *
-     * @throws \RuntimeException When decoding dropped content the input carried.
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When decoding dropped content the input carried.
      */
 
     /**
@@ -759,7 +759,7 @@ class AstCodec
      * @param array<string, mixed> $input
      * @param \MarkupCarve\Carve\Node\Document $document
      *
-     * @throws \RuntimeException
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
      */
     private function verifyNothingWasLost(array $input, Document $document): void
     {
@@ -767,7 +767,7 @@ class AstCodec
         $this->compareNode($input, $this->encodeNode($document), '', $lost);
 
         if ($lost !== []) {
-            throw new RuntimeException(sprintf(
+            throw new AstDecodeException(sprintf(
                 'Decoding lost %d field(s) the payload carried: %s. The payload may come from an '
                     . 'engine whose field names differ; this decoder reads the PART 12 shape.',
                 count($lost),
@@ -930,7 +930,7 @@ class AstCodec
             $data = json_decode($json, true, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             if (str_contains($e->getMessage(), 'stack depth')) {
-                throw new RuntimeException(sprintf(
+                throw new AstDecodeException(sprintf(
                     'AST JSON nests deeper than %d levels. The parser caps nesting at %d AST '
                         . 'levels, whose deepest wire form stays well inside this bound, so a '
                         . 'payload past it was not produced by parsing a document.',
@@ -2018,13 +2018,13 @@ class AstCodec
     /**
      * @param array<string, mixed> $data
      *
-     * @throws \RuntimeException When the node type is unknown.
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When the node type is unknown.
      */
     private function decodeNode(array $data): Node
     {
         $type = $data['type'] ?? null;
         if (!is_string($type)) {
-            throw new RuntimeException('Every node needs a string type');
+            throw new AstDecodeException('Every node needs a string type');
         }
 
         // Undo the wire shapes this codec writes, so a tree it produced decodes
@@ -2035,7 +2035,7 @@ class AstCodec
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
-            throw new RuntimeException(sprintf(
+            throw new AstDecodeException(sprintf(
                 'Unknown node type: %s. Application node types must be registered with %s::register().',
                 $type,
                 self::class,
@@ -2122,7 +2122,7 @@ class AstCodec
      * null, [] and false), so this only ever fires on hand-written or foreign
      * trees, which is exactly where it is wanted.
      *
-     * @throws \RuntimeException When a required field is missing.
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When a required field is missing.
      */
     private function initializeDefault(Node $node, ReflectionProperty $property, string $nodeType): void
     {
@@ -2138,7 +2138,7 @@ class AstCodec
                 return;
             }
 
-            throw new RuntimeException(sprintf(
+            throw new AstDecodeException(sprintf(
                 'Node "%s" is missing the required field "%s"',
                 $nodeType,
                 $property->getName(),
