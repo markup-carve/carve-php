@@ -5739,7 +5739,7 @@ class BlockParser
                     // carve-js), not via setAttributes() which reorders.
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
-                $trimmedContent = trim($marker['content']);
+                $trimmedContent = trim($marker['content'], ' ');
                 $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
                     ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
@@ -6826,7 +6826,7 @@ class BlockParser
      */
     private function tableCellSourceChunks(int $index, array $cellData): array
     {
-        $content = trim($cellData['content']);
+        $content = trim($cellData['content'], ' ');
         if ($content === '') {
             return [];
         }
@@ -6855,7 +6855,7 @@ class BlockParser
         $chunks = [];
 
         foreach ($this->tableParser->splitCells($normalizedLine) as $idx => $cell) {
-            $content = trim($cell['content']);
+            $content = trim($cell['content'], ' ');
             if ($content === '') {
                 continue;
             }
