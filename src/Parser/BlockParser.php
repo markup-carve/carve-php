@@ -192,6 +192,37 @@ class BlockParser
      */
     protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
 
+    // THE BODY SEPARATOR IS TWO LITERAL SPACES, for the same reason the term
+    // marker's is one: `definition_body = ':', space, space, ...` with
+    // `space = ' '` and `whitespace = ' ' | '\t'` kept deliberately apart. A
+    // marker separator is literal; indentation is columns, and a separator is
+    // not indentation (carve#692, and carve#698 for the `::` marker above).
+    //
+    // Six sites spelled this `/^:\s\s+/`. Without the `u` modifier PCRE's `\s`
+    // is `[ \t\n\r\f\v]`, so a tab, a vertical tab or a form feed in either
+    // slot opened a `<dd>` no other implementation opens - and it was consumed
+    // with the separator, so the result was byte-identical to the two-space
+    // spelling the grammar does admit (carve-php#935).
+    //
+    // ` {2,}` rather than exactly two: the old pattern was greedy over the run,
+    // and a wider run is still the separator rather than leading indentation of
+    // the body. Named constants because six independent spellings is how this
+    // survived the fix that corrected the three term patterns beside it.
+    /**
+     * A definition body, captured.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_PATTERN = '/^: {2,}(.+)$/';
+
+    /**
+     * A definition BODY marker, where the caller checks only that the line
+     * opens one.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_LINE_PREFIX = '/^: {2,}/';
+
     private int $nestingDepth = 0;
 
     protected InlineParser $inlineParser;
@@ -4728,7 +4759,7 @@ class BlockParser
                     if (
                         trim($nextLine) === ''
                         || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
-                        || preg_match('/^:\s\s+/', $nextLine)
+                        || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
                         || $this->endsHeadingOrQuote($nextLine, $lines, $i)
                         // A construct that renders nothing is not term text. The
                         // term was folding a comment, a reference / footnote /
@@ -4780,13 +4811,13 @@ class BlockParser
                     while ($look < $count && trim($lines[$look]) === '') {
                         $look++;
                     }
-                    if ($look < $count && preg_match('/^:\s\s+/', $lines[$look])) {
+                    if ($look < $count && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
                         $i = $look;
                     } else {
                         break;
                     }
                 }
-                if (!preg_match('/^:\s\s+(.+)$/', $lines[$i], $m)) {
+                if (!preg_match(self::DEFINITION_BODY_PATTERN, $lines[$i], $m)) {
                     break;
                 }
                 $definitionStart = $i;
@@ -4803,7 +4834,7 @@ class BlockParser
                             trim($a) === ''
                             || preg_match('/^\+[ \t]*$/', $a)
                             || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
-                            || preg_match('/^:\s\s+/', $a)
+                            || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
                         ) {
                             break;
                         }
@@ -4838,7 +4869,7 @@ class BlockParser
                                 trim($a) === ''
                                 || preg_match('/^\+[ \t]*$/', $a)
                                 || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
-                                || preg_match('/^:\s\s+/', $a)
+                                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
                             ) {
                                 break;
                             }
@@ -4888,7 +4919,7 @@ class BlockParser
 
                     // A new term/definition marker ends this definition (the
                     // outer loop picks it up).
-                    if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match('/^:\s\s+/', $contLine)) {
+                    if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $contLine)) {
                         break;
                     }
                     // Lazy continuation: a flush-left line with no blank before it
