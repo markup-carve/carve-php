@@ -9,6 +9,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A raw block's interior lines are passed through verbatim** (carve-php#907,
+  ruled at carve#800). ```` ```=html ```` means the bytes reach the target
+  unchanged, but this renderer indents block output line by line after the
+  fact, so every line of a multi-line raw block gained its container's columns.
+  Inside a `<pre>` those columns are content, so the rendered code block said
+  something the source did not. The opening position is still indented, which
+  is where a block goes; carve-js and carve-rs read it the same way.
+
 - **A field the schema REQUIRES is published even when it holds the default**
   (carve-php#915). The encoder omits a field carrying the node's default, which
   is right for an optional field and is how the payload stays small - but for a
