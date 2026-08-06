@@ -31,12 +31,24 @@ namespace MarkupCarve\Carve\Ast;
  * it cannot slice a normalized copy it never saw.
  *
  * This paragraph used to claim the opposite, and cited carve-js reporting the
- * same offset for "a\n\n*b*" and "a\r\n\r\n*b*". carve-js does not: it reports
- * 9 and 11 for those, and 3 rather than 2 when a BOM leads the file. The
- * parser here was corrected to match (carve#876), and carve-rs took the same
- * decision separately (carve-rs#707); only this docblock was left behind. It
- * stayed wrong for as long as it did because no corpus document contained a
- * carriage return or a mark, so nothing measured either claim.
+ * same offset for "a\n\n*b*" and "a\r\n\r\n*b*". It does not. Measured on both
+ * engines, taking the `strong` node's span:
+ *
+ * - "a\n\n*b*" gives 3..6
+ * - "a\r\n\r\n*b*" gives 5..8
+ * - a BOM before "*b*" gives 1..4, against 0..3 without the mark
+ *
+ * The mark shifts the span by ONE, not three: §4 counts CODEPOINTS, and U+FEFF
+ * is a single codepoint written as three bytes. Stating it as three would be a
+ * byte count, which is the unit confusion that produced carve#876 in the first
+ * place - and this is the file someone comes to when looking the rule up.
+ *
+ * The parser here was corrected to match (carve#876), and carve-rs took the
+ * same decision separately (carve-rs#707); only this docblock was left behind.
+ * It stayed wrong for as long as it did because no corpus document contained a
+ * carriage return or a mark, so nothing measured either claim - which is also
+ * why the numbers above are now pinned by a test rather than left in prose
+ * (tests/TestCase/Ast/SourceSpanDocblockOffsetsTest.php).
  */
 final class SourceSpan
 {
