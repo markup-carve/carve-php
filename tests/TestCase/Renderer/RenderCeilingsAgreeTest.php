@@ -67,7 +67,7 @@ class RenderCeilingsAgreeTest extends TestCase
         // 512 returns false. Casting that to a string yields '' and a
         // "Syntax error" from the decoder, which reads like a broken fixture
         // rather than a depth limit.
-        $json = json_encode(['type' => 'document', 'children' => [$node]], 0, 4096);
+        $json = json_encode(['type' => 'document', 'srcByteLength' => 0, 'children' => [$node]], 0, 4096);
         $this->assertIsString($json, 'the fixture failed to encode');
 
         return $json;

@@ -72,6 +72,7 @@ class RootFieldsTest extends TestCase
     {
         $decoded = $this->codec->decode([
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'paragraph',
@@ -100,6 +101,7 @@ class RootFieldsTest extends TestCase
     {
         $decoded = $this->codec->decode([
             'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [
                 [
                     'type' => 'footnote',
