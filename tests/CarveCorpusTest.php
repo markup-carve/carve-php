@@ -57,6 +57,8 @@ class CarveCorpusTest extends TestCase
         'a-tab-indent-is-the-column-it-reaches-whatever-the-line-holds',
         'the-same-column-written-with-four-spaces',
         'sibling-markers-that-reach-one-column-are-one-list',
+        'the-continuation-marker-at-an-item-s-own-column-and-what-follows-it',
+        'a-continuation-marker-after-a-blank-line-in-the-item',
         'a-multi-line-raw-block-is-placed-at-its-opening-and-verbatim-after-it',
         'an-abbreviation-term-is-one-ascii-alphanumeric-word',
         'a-tab-reaches-a-footnote-body-s-column-just-as-two-spaces-do',
