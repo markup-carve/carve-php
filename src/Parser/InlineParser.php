@@ -2560,6 +2560,61 @@ class InlineParser
     }
 
     /**
+     * The non-ASCII characters carrying the Unicode White_Space property.
+     *
+     * The ASCII ones (`\t`, `\n`, `\v`, `\f`, `\r`, space) are already excluded
+     * by the `\s` in the body pattern, which is a byte test.
+     *
+     * ENUMERATED rather than written `\s` with the `u` modifier, because PCRE's
+     * Unicode `\s` is not this property: it additionally matches U+180E
+     * MONGOLIAN VOWEL SEPARATOR, which Unicode 6.3.0 removed from White_Space.
+     * U+180E is a NON-whitespace non-ASCII character, so it belongs to the open
+     * question in markup-carve/carve#860 rather than to this rule, and matching
+     * it here would answer that question by accident.
+     *
+     * Zero-width characters are deliberately absent: U+200B and U+FEFF are not
+     * White_Space, and grammar.ebnf says so outright -- "the test is the Unicode
+     * White_Space property, not 'is invisible'".
+     *
+     * @var string
+     */
+    private const NON_ASCII_WHITESPACE_RE = '/[\x{0085}\x{00a0}\x{1680}\x{2000}-\x{200a}'
+        . '\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]/u';
+
+    /**
+     * Whether the run between `<` and `>` is a `url_autolink` body.
+     *
+     * ONE recognizer, called from both `parseAutolink()` and
+     * `findAutolinkEnd()`. The two carried independent copies of the same
+     * pattern, so a change to one silently disagreed with the other.
+     *
+     * WHITESPACE IS UNICODE WHITESPACE. `url_char` (`resources/grammar.ebnf`)
+     * enumerates ASCII, and `unicode_url_char` -- the only production admitting
+     * anything outside it -- is "any NON-WHITESPACE, non-ASCII Unicode
+     * character", with a normative note that this means the Unicode White_Space
+     * property. So a NO-BREAK SPACE inside the body ends it under either reading
+     * of markup-carve/carve#860, and `<https://e<U+00A0>.com/>` is literal text,
+     * not a link whose href carries an invisible character (the same defect as
+     * markup-carve/carve#404, one production over).
+     *
+     * Whether a non-whitespace non-ASCII character (an IDN host, U+200B, U+FEFF)
+     * may appear here at all is the open question on that ticket, and this
+     * engine's answer to it is deliberately unchanged.
+     */
+    private static function isUrlAutolinkBody(string $content): bool
+    {
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content) !== 1) {
+            return false;
+        }
+
+        // A subject that is not valid UTF-8 makes this return false rather than
+        // 0, which leaves the body exactly as the byte pattern above judged it.
+        // Refusing an autolink on the strength of a failed match would decide a
+        // malformed-input case this clause says nothing about.
+        return preg_match(self::NON_ASCII_WHITESPACE_RE, $content) !== 1;
+    }
+
+    /**
      * @return array{node: \MarkupCarve\Carve\Node\Inline\Link, pos: int}|null
      */
     protected function parseAutolink(string $text, int $pos): ?array
@@ -2576,7 +2631,7 @@ class InlineParser
         // whitespace and `<`/`>` plus `"` `\` `` ` `` `{` `}` `|` `^`; any of
         // those inside the body invalidates the construct (whole-literal), so
         // `<http://a.com/"q">` is NOT an autolink. Matches carve-js/carve-rs.
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content)) {
+        if (self::isUrlAutolinkBody($content)) {
             $link = new Link($content);
             $link->setAutolink(true);
             // The label sits between the angle brackets, so one byte past the
@@ -3891,7 +3946,7 @@ class InlineParser
         $content = substr($text, $pos + 1, $end - $pos - 1);
 
         // Check if it's a valid URL autolink (same url_char body as parseAutolink).
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content)) {
+        if (self::isUrlAutolinkBody($content)) {
             return $end + 1;
         }
 
