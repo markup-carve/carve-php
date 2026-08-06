@@ -2194,17 +2194,30 @@ class BlockParser
             // one paragraph kept the document's trailing newline inside it and
             // swallowed blank lines that end a paragraph everywhere else
             // (carve-php#702).
+            // THE DEGRADED PARAGRAPH IS PLACEABLE, so it carries its span.
+            // Each group is a contiguous run of lines, and the map that turns a
+            // local index into a source line is the `$lineMap` argument - it is
+            // in scope here and nowhere after, because `$this->currentLineMap`
+            // is only swapped in below the cap check. Publishing no position
+            // read as compliant (§4 permits it on a REASSEMBLED node) while
+            // this node is nothing of the kind (carve-php#945, carve#534).
             $group = [];
-            foreach ($lines as $line) {
+            $groupStart = null;
+            foreach ($lines as $offset => $line) {
+                $index = (int)$offset;
                 if (IndentationHelper::isBlankLine($line)) {
-                    $this->appendDegradedParagraph($parent, $group);
+                    $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, $index - 1);
                     $group = [];
+                    $groupStart = null;
 
                     continue;
                 }
+                if ($groupStart === null) {
+                    $groupStart = $index;
+                }
                 $group[] = $line;
             }
-            $this->appendDegradedParagraph($parent, $group);
+            $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, count($lines) - 1);
 
             return;
         }
@@ -2224,21 +2237,93 @@ class BlockParser
     }
 
     /**
+     * Place the breaks the degraded text's own newlines produced.
+     *
+     * A soft break IS a line ending, so its extent is derivable from line
+     * geometry exactly as it is on the line-block path - no offset inside the
+     * rewritten text is needed, which is what keeps this safe where placing the
+     * inline runs would not be.
+     *
+     * ONLY WHEN THE COUNT PROVES THE MAPPING. The breaks are matched to lines
+     * positionally, so the mapping is only sound if the inline parser produced
+     * exactly one per gap between the group's lines. If anything else appears -
+     * an escape turning one into a hard break, a construct spanning lines - the
+     * assumption is wrong and they are left unplaced, because PART 12 §4 rates
+     * a wrong span worse than an absent one.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $paragraph
+     * @param array<string> $group
+     * @param array<int, int>|null $lineMap
+     * @param int|null $firstIndex
+     */
+    private function placeDegradedSoftBreaks(
+        Node $paragraph,
+        array $group,
+        ?array $lineMap,
+        ?int $firstIndex,
+    ): void {
+        if (!$this->trackPositions || $firstIndex === null) {
+            return;
+        }
+
+        $breaks = [];
+        foreach ($paragraph->getChildren() as $child) {
+            if ($child instanceof SoftBreak) {
+                $breaks[] = $child;
+            }
+        }
+        if (count($breaks) !== count($group) - 1) {
+            return;
+        }
+
+        $previousLineMap = $this->currentLineMap;
+        $this->currentLineMap = $lineMap;
+        foreach ($breaks as $offset => $break) {
+            $break->setPos($this->endOfLineSpan($firstIndex + $offset));
+        }
+        $this->currentLineMap = $previousLineMap;
+    }
+
+    /**
      * One paragraph of over-cap content (PART 9 §25), or nothing when the
      * group holds no visible text.
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $group
+     * @param array<int, int>|null $lineMap
+     * @param int|null $firstIndex
+     * @param int|null $lastIndex
      */
-    private function appendDegradedParagraph(Node $parent, array $group): void
-    {
+    private function appendDegradedParagraph(
+        Node $parent,
+        array $group,
+        ?array $lineMap = null,
+        ?int $firstIndex = null,
+        ?int $lastIndex = null,
+    ): void {
         $text = rtrim(implode("\n", $group), "\n");
         if (trim($text) === '') {
             return;
         }
 
         $paragraph = new Paragraph();
+        // Pure line geometry - first line's start to last line's end - which is
+        // what `stampBlockSpan` wants and what carve-js publishes for the same
+        // document. The inline text stays unplaced: these lines were rewritten
+        // on the way here, so an offset inside them would be a claim this
+        // cannot support, and §4 rates a wrong span worse than an absent one.
+        if ($firstIndex !== null && $lastIndex !== null && $lastIndex >= $firstIndex) {
+            $previousLineMap = $this->currentLineMap;
+            $this->currentLineMap = $lineMap;
+            $this->stampBlockSpan(
+                $paragraph,
+                $this->sourceLineFor($firstIndex),
+                $this->sourceLineFor($lastIndex),
+            );
+            $this->currentLineMap = $previousLineMap;
+        }
         $this->inlineParser->parse($paragraph, $text);
+        $this->placeDegradedSoftBreaks($paragraph, $group, $lineMap, $firstIndex);
         $parent->appendChild($paragraph);
     }
 
