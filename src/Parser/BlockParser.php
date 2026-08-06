@@ -1533,7 +1533,7 @@ class BlockParser
             // parser so every accepted marker (bullet `-`/`*`/`+`, decimal /
             // alpha / roman ordered) is recognized identically to the real
             // parser; a task marker stops the loop (its content is not a def).
-            $trimmed = ltrim($rest);
+            $trimmed = ltrim($rest, " \t");
             $info = $this->listParser->parseListItemMarker($trimmed);
             if ($info !== null && $info['type'] !== 'task') {
                 $markerWidth = strlen($rest) - strlen((string)$info['content']);
@@ -1692,7 +1692,7 @@ class BlockParser
                     // list, not a definition continuation. startsNewBlock() no
                     // longer reports list markers (symmetric interruption), so
                     // check explicitly to avoid swallowing the list.
-                    if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
+                    if ($this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null) {
                         break;
                     }
                     // Continuation line (indented)
@@ -2820,8 +2820,8 @@ class BlockParser
 
         // Carve line comment: a `%%` line (the `%%%` fenced form is handled
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
-        if (str_starts_with(ltrim($line), '%%')) {
-            $parent->appendChild(new Comment(trim(substr(ltrim($line), 2))));
+        if (str_starts_with(ltrim($line, " \t"), '%%')) {
+            $parent->appendChild(new Comment(trim(substr(ltrim($line, " \t"), 2))));
 
             return 1;
         }
@@ -2890,7 +2890,7 @@ class BlockParser
         while ($contentLines && trim(end($contentLines)) === '') {
             array_pop($contentLines);
         }
-        while ($contentLines && trim($contentLines[0]) === '') {
+        while ($contentLines && IndentationHelper::isBlankLine($contentLines[0])) {
             array_shift($contentLines);
         }
 
@@ -3661,7 +3661,7 @@ class BlockParser
         // paragraphTextOpen, so `> # h` / `b` kept the quote open and put `b`
         // inside it. carve-rs closes it; the distinction between the two flags
         // was the bug (carve-php#652).
-        $trimmed = ltrim($content);
+        $trimmed = ltrim($content, " \t");
         $isHeading = preg_match('/^#{1,6} .*\S/', $trimmed) === 1;
         $isThematicBreak = preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
         $isTableRow = $this->tableParser->isTableRow($trimmed);
@@ -3707,7 +3707,7 @@ class BlockParser
         // line so an indented bullet/ordered marker still opens a list (Rule B:
         // a list opens at any indentation, not only at column 0); the leading
         // indentation becomes the list's base column (getLeadingColumns below).
-        $listInfo = $this->listParser->parseListItemMarker(ltrim($line));
+        $listInfo = $this->listParser->parseListItemMarker(ltrim($line, " \t"));
         if ($listInfo === null) {
             return null;
         }
@@ -3780,7 +3780,7 @@ class BlockParser
             // (a bullet needs `+ ` + content), so this does not collide with
             // `+`-bulleted lists; lets you attach a code block, table or quote to
             // an item without indenting its body.
-            if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine))) {
+            if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
                     [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
@@ -3799,7 +3799,7 @@ class BlockParser
             // preceding blank line (tight nesting); other indented
             // content still requires the blank line (loose nesting).
             $indentedListMarker = $currentIndent > $baseIndent
-                && $this->listParser->parseListItemMarker(ltrim($currentLine)) !== null;
+                && $this->listParser->parseListItemMarker(ltrim($currentLine, " \t")) !== null;
             // Content-column model (carve#295): a continuation - after a blank, or
             // a no-blank nested marker - belongs to the previous item only when it
             // REACHES that item's content column. Below it the item body has
@@ -3916,7 +3916,7 @@ class BlockParser
                             // into the open PLAIN paragraph. Once the stream
                             // holds list content, sibling markers belong to that
                             // nested list and must not get a loosening blank.
-                            $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped)) !== null;
+                            $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped, " \t")) !== null;
                             if (
                                 $strippedIsMarker
                                 && !$subSawListMarker
@@ -3938,7 +3938,7 @@ class BlockParser
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
                             // Line is at base indent - check if it starts a new block or list item
-                            $trimmedLine = ltrim($subLine);
+                            $trimmedLine = ltrim($subLine, " \t");
                             $itemInfo = $this->listParser->parseListItemMarker($trimmedLine);
                             $sameStyle = !isset($listInfo['style']) || !isset($itemInfo['style']) || $itemInfo['style'] === $listInfo['style'];
                             if ($itemInfo !== null && $itemInfo['type'] === $listInfo['type'] && $itemInfo['marker'] === $listInfo['marker'] && $sameStyle) {
@@ -4007,7 +4007,7 @@ class BlockParser
                             // continues the deepest paragraph in the nested parse.
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
-                            $trimmedLine = ltrim($subLine);
+                            $trimmedLine = ltrim($subLine, " \t");
                             // A block-shaped line HERE reaches neither the nested
                             // content column nor the outer item's, so under the
                             // strict content-column rule it opens nothing: with a
@@ -4119,7 +4119,7 @@ class BlockParser
 
             // For first item, use the already-parsed listInfo (may have been disambiguated)
             // For subsequent items, parse fresh
-            $trimmedLine = ltrim($currentLine);
+            $trimmedLine = ltrim($currentLine, " \t");
             if ($firstItem) {
                 $itemInfo = $listInfo;
                 $firstItem = false;
@@ -4180,7 +4180,7 @@ class BlockParser
             // the sole item content is the continuation marker, not literal text
             // (`- + text` keeps `+ text` as literal content). This lets an item
             // start directly with a table, code block, quote or div at column 0.
-            if ($this->isContinuationMarker(ltrim($itemContent))) {
+            if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 if ($attached !== []) {
                     $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
@@ -4415,7 +4415,7 @@ class BlockParser
             if ($lineIndent < $baseIndent) {
                 break;
             }
-            $trimmed = ltrim($line);
+            $trimmed = ltrim($line, " \t");
             if (
                 $lineIndent === $baseIndent
                 && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
@@ -4471,7 +4471,7 @@ class BlockParser
             }
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
-            $nextTrimmed = ltrim($nextLine);
+            $nextTrimmed = ltrim($nextLine, " \t");
 
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
@@ -4531,7 +4531,7 @@ class BlockParser
             $commentFenceEnd = $this->commentFenceSpanEnd($nextTrimmed, $lines, $i);
             if ($commentFenceEnd !== null) {
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
-                    $itemLines[] = ltrim($lines[$j]);
+                    $itemLines[] = ltrim($lines[$j], " \t");
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
                 $i = $commentFenceEnd;
@@ -4748,7 +4748,7 @@ class BlockParser
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine);
             if ($nextIndent < $contentIndent) {
-                $nextTrimmed = ltrim($nextLine);
+                $nextTrimmed = ltrim($nextLine, " \t");
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
@@ -4860,7 +4860,7 @@ class BlockParser
                 while ($i < $count) {
                     $nextLine = $lines[$i];
                     if (
-                        trim($nextLine) === ''
+                        IndentationHelper::isBlankLine($nextLine)
                         || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                         || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
                         || $this->endsHeadingOrQuote($nextLine, $lines, $i)
@@ -4909,9 +4909,9 @@ class BlockParser
                 // parity): a definition may be separated from its term or a
                 // previous definition by a blank line. A blank not followed by a
                 // `:  ` definition ends the entry.
-                if (trim($lines[$i]) === '') {
+                if (IndentationHelper::isBlankLine($lines[$i])) {
                     $look = $i;
-                    while ($look < $count && trim($lines[$look]) === '') {
+                    while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                         $look++;
                     }
                     if ($look < $count && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
@@ -4934,7 +4934,7 @@ class BlockParser
                     while ($i < $count) {
                         $a = $lines[$i];
                         if (
-                            trim($a) === ''
+                            IndentationHelper::isBlankLine($a)
                             || preg_match('/^\+[ \t]*$/', $a)
                             || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
                             || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
@@ -4969,7 +4969,7 @@ class BlockParser
                         while ($i < $count) {
                             $a = $lines[$i];
                             if (
-                                trim($a) === ''
+                                IndentationHelper::isBlankLine($a)
                                 || preg_match('/^\+[ \t]*$/', $a)
                                 || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
                                 || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
@@ -4993,8 +4993,8 @@ class BlockParser
                     }
                     $indent = strlen($contLine) - strlen(ltrim($contLine, ' '));
                     // Form A: an indented continuation line (no intervening blank).
-                    if (trim($contLine) !== '' && $indent >= 3) {
-                        $body[] = ltrim($contLine);
+                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= 3) {
+                        $body[] = ltrim($contLine, " \t");
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
@@ -5003,14 +5003,14 @@ class BlockParser
                     // Blank line: absorb as a paragraph separator ONLY when a
                     // later line still continues the definition; otherwise leave
                     // it for the entry separator / outer block stream.
-                    if (trim($contLine) === '') {
+                    if (IndentationHelper::isBlankLine($contLine)) {
                         $look = $i;
-                        while ($look < $count && trim($lines[$look]) === '') {
+                        while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                             $look++;
                         }
                         $after = $lines[$look] ?? null;
                         $afterIndent = $after === null ? 0 : strlen($after) - strlen(ltrim($after, ' '));
-                        if ($after !== null && trim($after) !== '' && $afterIndent >= 3) {
+                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= 3) {
                             for (; $i < $look; $i++) {
                                 $body[] = '';
                                 $bodyMap[] = $this->sourceLineFor($i);
@@ -5029,7 +5029,7 @@ class BlockParser
                     // that does not start an interrupting block folds into the
                     // open paragraph (the same rule list items and block quotes
                     // use; djot-compatible). A block opener ends the definition.
-                    if (trim($contLine) !== '' && !$this->startsInterruptingBlock($contLine, $lines, $i)) {
+                    if (!IndentationHelper::isBlankLine($contLine) && !$this->startsInterruptingBlock($contLine, $lines, $i)) {
                         $body[] = $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
@@ -5065,9 +5065,9 @@ class BlockParser
                 continue;
             }
             // Allow a single blank line before the next entry's `:: term`.
-            if ($i < $count && trim($lines[$i]) === '') {
+            if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
                 $look = $i;
-                while ($look < $count && trim($lines[$look]) === '') {
+                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                     $look++;
                 }
                 if ($look < $count && preg_match(self::DEFINITION_TERM_LINE_PREFIX, $lines[$look])) {
@@ -6110,7 +6110,7 @@ class BlockParser
             }
             // A list marker (bullet or ordered, at any indent) starts a list,
             // not a definition continuation; stop the skip so it is parsed.
-            if ($this->listParser->parseListItemMarker(ltrim($nextLine)) !== null) {
+            if ($this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null) {
                 break;
             }
             if (preg_match('/^\s+(.+)$/', $nextLine)) {
@@ -6149,7 +6149,7 @@ class BlockParser
     {
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
-        $content = ltrim($line);
+        $content = ltrim($line, " \t");
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
@@ -6191,7 +6191,7 @@ class BlockParser
 
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = $nextLine;
-            $nextLine = ltrim($nextLine);
+            $nextLine = ltrim($nextLine, " \t");
             $this->appendParagraphContentLines(
                 $contentLines,
                 $this->sourceLineFor($i),
@@ -6814,7 +6814,7 @@ class BlockParser
      */
     private function continuationCellSourceChunks(int $index, string $line): array
     {
-        $trimmed = ltrim($line);
+        $trimmed = ltrim($line, " \t");
         $prefix = strlen($line) - strlen($trimmed);
         $normalizedLine = '|' . substr($trimmed, 1);
         $chunks = [];
@@ -7135,7 +7135,7 @@ class BlockParser
 
     protected function isUnclaimedColonFenceLine(string $line): bool
     {
-        $trimmed = ltrim($line);
+        $trimmed = ltrim($line, " \t");
 
         return preg_match('/^:{3,}/', $trimmed) === 1
             && $this->fencedBlockParser->parseDivFenceOpener($trimmed) === null;
@@ -7527,7 +7527,7 @@ class BlockParser
      */
     protected function endsHeadingOrQuote(string $line, ?array $lines = null, ?int $index = null): bool
     {
-        if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+        if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 
@@ -7560,7 +7560,7 @@ class BlockParser
     ): bool {
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
-        if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+        if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 
@@ -7975,7 +7975,7 @@ class BlockParser
         // choice, and the gate above is the only consumer), so the two facts are
         // tracked separately: after `:::note` + `# h`, the bare `:::` below is a
         // real div opener, exactly as it is at the top level.
-        $trimmedForBoundary = ltrim($line);
+        $trimmedForBoundary = ltrim($line, " \t");
         $endsTheParagraph = preg_match('/^#{1,6} .*\S/', $trimmedForBoundary) === 1
             || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedForBoundary) === 1;
         $state['absorbingFence'] = $wasAbsorbing && !$endsTheParagraph;
@@ -8004,7 +8004,7 @@ class BlockParser
             if ($sl === '') {
                 continue;
             }
-            if ($this->listParser->parseListItemMarker(ltrim($sl)) !== null) {
+            if ($this->listParser->parseListItemMarker(ltrim($sl, " \t")) !== null) {
                 $firstBlockIdx = $idx;
 
                 break;
@@ -8156,7 +8156,7 @@ class BlockParser
 
     protected function lineOpensBlockForLooseness(string $line): bool
     {
-        if ($this->listParser->parseListItemMarker(ltrim($line)) !== null) {
+        if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 

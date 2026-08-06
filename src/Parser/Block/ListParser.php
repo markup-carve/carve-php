@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser\Block;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
 /**
  * Parser for list blocks (bullet, ordered, task lists).
@@ -274,7 +275,7 @@ class ListParser
             $line = $lines[$i];
 
             // Stop at blank lines or non-list content
-            if (trim($line) === '') {
+            if (IndentationHelper::isBlankLine($line)) {
                 continue;
             }
 

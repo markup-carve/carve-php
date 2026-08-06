@@ -405,7 +405,7 @@ class TableParser
                     ) {
                         $attributes = $inner;
                         $rest = substr($cellContent, $end + 1);
-                        $content = ltrim($rest);
+                        $content = ltrim($rest, " \t");
                         $cellOffset += $end + 1 + (strlen($rest) - strlen($content));
                     }
                 }
@@ -718,7 +718,7 @@ class TableParser
     public function isContinuationRow(string $line): bool
     {
         // Continuation rows start with + and end with |
-        $trimmed = ltrim($line);
+        $trimmed = ltrim($line, " \t");
 
         if (!str_starts_with($trimmed, '+')) {
             return false;
@@ -767,7 +767,7 @@ class TableParser
      */
     public function parseContinuationCells(string $line): array
     {
-        $trimmed = ltrim($line);
+        $trimmed = ltrim($line, " \t");
 
         // Replace leading + with | for parsing
         $normalizedLine = '|' . substr($trimmed, 1);

@@ -173,7 +173,7 @@ class ReferenceDefinitionExtractor
             // stay inside.
             if (preg_match('/^\[\^[^\]]+\]: /', $line) === 1) {
                 $inFootnoteBody = true;
-            } elseif (trim($line) !== '' && ($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
+            } elseif (!IndentationHelper::isBlankLine($line) && ($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
                 $inFootnoteBody = false;
             }
 
