@@ -696,6 +696,15 @@ class CarveRenderer implements RendererInterface
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
                     $blank = $line === '' || $line === $this->verbatimSentinels[2];
+                    if (!$blank && str_starts_with($line, self::MARKER_COLUMN)) {
+                        // The continuation marker and the block it attaches sit
+                        // at the ITEM's marker column, not its content column
+                        // (§17 L3). Indenting either is what made the attached
+                        // paragraph fold (carve#861).
+                        $out .= substr($line, strlen(self::MARKER_COLUMN)) . "\n";
+
+                        continue;
+                    }
                     $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
@@ -707,6 +716,31 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->listDepth--;
         }
+    }
+
+    /**
+     * Sentinel marking a line to be written at the ITEM's marker column.
+     *
+     * The list writer prefixes an item's continuation lines with its content
+     * column. A `+` continuation marker and the block it attaches are the two
+     * things that must NOT get that prefix (§17 L3), and they are produced deep
+     * inside the item body where the prefix is not yet known - so they are
+     * tagged here and the prefix loop honours the tag.
+     *
+     * Deliberately OUTSIDE the U+E001..U+E005 run `$verbatimSentinels` uses:
+     * those are re-picked per document when the source contains one, and a tag
+     * that collided with a verbatim sentinel would be rewritten underneath it.
+     *
+     * @var string
+     */
+    protected const MARKER_COLUMN = "\u{e010}";
+
+    protected function atMarkerColumn(string $text): string
+    {
+        return implode("\n", array_map(
+            static fn (string $line): string => self::MARKER_COLUMN . $line,
+            explode("\n", $text),
+        ));
     }
 
     protected function renderListItem(ListItem $node, bool $tight = false): string
@@ -736,6 +770,7 @@ class CarveRenderer implements RendererInterface
                 // collected out of the item, and the gap it left is what split
                 // one paragraph into two. Dropping the line would rejoin them,
                 // so it is written back where it was (carve#805).
+                $separated = false;
                 if ($previous !== null) {
                     $written = $this->definitionInGap($previous, $child);
                     if ($written !== null && $written !== '') {
@@ -743,16 +778,36 @@ class CarveRenderer implements RendererInterface
                             $out .= "\n";
                         }
                         $out .= $written;
+                        $separated = true;
                     }
                 }
-                $previous = $child;
                 $rendered = $this->renderBlock($child);
                 if ($rendered === '') {
+                    $previous = $child;
+
                     continue;
                 }
                 if ($out !== '') {
                     $out .= "\n";
                 }
+                // §17 L3: a PARAGRAPH after a paragraph needs its continuation
+                // marker written back. Indented under the item it is a lazy
+                // continuation of the paragraph above (§10 I2), so the item
+                // comes back holding ONE block where the author wrote two
+                // (carve#861). Only a paragraph reaches this - no other
+                // attached kind can fold into an open paragraph, which is why
+                // the corpus, pinning a fence and a quote, never saw it.
+                //
+                // A definition written back in the gap already ended the
+                // paragraph above, so the marker would be redundant there and
+                // would change corpus 228's canonical form.
+                if (!$separated && $previous instanceof Paragraph && $child instanceof Paragraph) {
+                    $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
+                    $previous = $child;
+
+                    continue;
+                }
+                $previous = $child;
                 $out .= $rendered;
             }
 

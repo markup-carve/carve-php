@@ -9,6 +9,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The writer keeps a `+` continuation marker before an attached paragraph**
+  (carve#861). §17 L3 attaches the following block to the item, so `- a` / `+`
+  / `b` holds two blocks - but the writer dropped the marker and indented the
+  paragraph, which re-parses as a lazy continuation of the one above it, so
+  `carve fmt` returned a document saying something else. A paragraph is the
+  only attached kind affected: a fence, quote, heading, table, div or thematic
+  break cannot fold into an open paragraph.
+
 - **Two markers that reach the same column are one list, however they got
   there** (carve-php#890). PART 9 §24 C1 makes indentation a column claim, so
   a space-plus-tab and four spaces both put a marker at column 4 - but
