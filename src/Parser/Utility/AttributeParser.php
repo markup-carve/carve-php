@@ -48,13 +48,15 @@ class AttributeParser
         // Parse .class -- the class name is a grammar identifier and may not
         // start with a digit (a `class="123"` is also invalid CSS), so a
         // digit-first `.123` is not matched. The whole block then yields no
-        // attribute and stays literal (§14).
-        if (preg_match_all('/\.([a-zA-Z_][a-zA-Z0-9_:-]*)/', $strippedForShorthand, $classMatches)) {
+        // attribute and stays literal (§14). The possessive `*+` with `(?!:)`
+        // refuses a colon-bearing name OUTRIGHT rather than capturing the part
+        // before the colon: `.a:b` yields no class at all.
+        if (preg_match_all('/\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)/', $strippedForShorthand, $classMatches)) {
             $attributes['class'] = implode(' ', $classMatches[1]);
         }
 
         // Parse #id -- the id is a grammar identifier (no leading digit).
-        if (preg_match('/#([a-zA-Z_][a-zA-Z0-9_:-]*)/', $strippedForShorthand, $idMatch)) {
+        if (preg_match('/#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)/', $strippedForShorthand, $idMatch)) {
             $attributes['id'] = $idMatch[1];
         }
 
@@ -66,14 +68,16 @@ class AttributeParser
         // Per carve-js, unquoted values may contain any non-whitespace byte
         // except quotes and braces.
         // Unquoted values must be followed by whitespace or } to be valid.
-        // Keys can contain letters, digits, underscore, hyphen, colon (permissive like JS reference)
-        // The key is a grammar identifier and may not start with a digit, so
-        // a digit-first key (`123=v`) is not matched -- the block then yields
-        // no attribute and stays literal (§14). This also avoids a numeric
-        // string key being cast to int when used as an array key.
-        $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
-            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)/';
+        // The key is a grammar `identifier`: letter/`_` first, then letters,
+        // digits, `_` or `-`. A digit-first key (`123=v`) and a colon-bearing
+        // key (`xml:lang=en`) are therefore not matched -- the block then
+        // yields no such attribute and stays literal (§14). A colon remains
+        // legal inside an unquoted VALUE (`k=a:b`), per `unquoted_value`.
+        // Refusing a digit-first key also avoids a numeric string key being
+        // cast to int when used as an array key.
+        $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
+            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)/';
 
         $kvMatches = [];
         if (self::safeMatchAll($kvPattern, $attrStr, $kvMatches)) {
@@ -141,17 +145,17 @@ class AttributeParser
         // the block yields no such attribute and stays literal (§14).
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][a-zA-Z0-9_:-]*)|'
+            . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][a-zA-Z0-9_:-]*)|'
+            . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
@@ -236,18 +240,18 @@ class AttributeParser
         // also prevents a numeric key being cast to int and crashing escape().
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_:-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
+            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
             . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][a-zA-Z0-9_:-]*)|'
+            . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][a-zA-Z0-9_:-]*)|'
+            . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
             . '/';
@@ -284,15 +288,17 @@ class AttributeParser
      * Strips every recognized token (quoted key=value, comments, unquoted
      * key=value, .class, #id, boolean); if anything non-whitespace remains the
      * block is invalid and must stay literal (§14). A name (key/class/id) is a
-     * grammar identifier (letter/`_` first), so a digit-first or hyphen-first
-     * name invalidates the whole block even mixed with valid tokens -- matching
-     * carve-js / carve-rs and the inline attribute rule.
+     * grammar `identifier` -- letter/`_` first, then letters, digits, `_` or
+     * `-` -- so a digit-first, hyphen-first or COLON-bearing name invalidates
+     * the whole block even mixed with valid tokens, matching carve-js /
+     * carve-rs and the inline attribute rule. A colon is still legal inside an
+     * unquoted VALUE (`{k=a:b}`), which `unquoted_value` admits.
      */
     public static function isValidPayload(string $attrStr): bool
     {
         // Quoted key=values first, so dots/braces/% inside quotes are protected.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $attrStr,
         ) ?? $attrStr;
@@ -301,9 +307,9 @@ class AttributeParser
             return true;
         }
         $patterns = [
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s"\'{}]+/',
-            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
-            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^\s"\'{}]+/',
+            '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
+            '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
             '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
             '/\s+/',
         ];

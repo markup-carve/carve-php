@@ -3504,16 +3504,18 @@ class InlineParser
     {
         // Strip every RECOGNIZED token; if anything non-whitespace remains the
         // block is invalid and stays literal (§14). A name (key, class, id)
-        // is a grammar identifier (letter/`_` first), so a digit-first or
-        // hyphen-first name is NOT recognized -- one bad name invalidates the
-        // WHOLE block, even mixed with valid ones, matching carve-js.
-        // Booleans, colon-bearing keys, and an invalid unquoted VALUE (which
-        // is tolerated and skipped) all stay accepted.
+        // is a grammar `identifier`: letter/`_` first, then letters, digits,
+        // `_` or `-` -- so a digit-first, hyphen-first or COLON-bearing name
+        // is NOT recognized, and one bad name invalidates the WHOLE block even
+        // mixed with valid ones, matching carve-js and carve-rs. A colon is
+        // still legal inside an unquoted VALUE (`{k=a:b}`, `unquoted_value`).
+        // Booleans and an invalid unquoted VALUE (which is tolerated and
+        // skipped) stay accepted.
         $rest = $attrStr;
         // Quoted key=values first, so `%`, dots and braces inside quotes are
         // protected from the shorthand patterns.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $rest,
         ) ?? $rest;
@@ -3523,9 +3525,12 @@ class InlineParser
         $patterns = [
             // unquoted key=value (the key is an identifier; the value is
             // tolerant like carve-js's `\S+`, so an invalid value is skipped)
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_:-]*=[^\s}]+/',
-            '/\.[a-zA-Z_][a-zA-Z0-9_:-]*/',
-            '/#[a-zA-Z_][a-zA-Z0-9_:-]*/',
+            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^\s}]+/',
+            // The possessive `*+` plus `(?!:)` stops a colon-bearing shorthand
+            // from being stripped in PART: `.a:b` must leave `.a:b` behind, not
+            // a bare `:b`, so the whole block is judged invalid on the NAME.
+            '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
+            '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
             '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
             '/\s+/',
         ];
