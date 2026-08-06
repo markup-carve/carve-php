@@ -2314,11 +2314,39 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->escape($content) . "\n";
+                return $this->guardInteriorNewlines($this->escape($content)) . "\n";
             }
         }
 
-        return $content . "\n";
+        return $this->guardInteriorNewlines($content) . "\n";
+    }
+
+    /**
+     * Hide a raw block's own line breaks from the block indenters.
+     *
+     * ```` ```=html ```` means "these bytes reach the target unchanged"
+     * (carve#800). This renderer indents block output line by line AFTER the
+     * fact, and a text pass cannot tell a raw block's interior from ordinary
+     * block markup - so every line of a multi-line raw block gained the
+     * container's columns and came out different from what the author wrote.
+     * Inside a `<pre>` those columns are CONTENT, so the rendered code block
+     * said something the source did not (carve-php#907).
+     *
+     * The indenters split on "\n", so joining the interior with the existing
+     * inline-break guard makes the whole raw block ONE line to them: it takes
+     * the container's padding at its opening, the way any other block does, and
+     * nothing reaches its interior. `restoreSoftBreakGuards()` turns the guards
+     * back into newlines once all indentation has run.
+     *
+     * A `<pre>` guard already existed in both indenters and covered exactly the
+     * case where the tag is visible in the output. The rule is about raw
+     * blocks, not about `<pre>`, so it missed every raw block that does not
+     * open one - which is how `<i>y</i>` was indented while the `<pre>` beside
+     * it was not.
+     */
+    protected function guardInteriorNewlines(string $content): string
+    {
+        return str_replace("\n", self::INLINE_BREAK_GUARD, $content);
     }
 
     protected function renderLiteralInline(LiteralInline $node): string
