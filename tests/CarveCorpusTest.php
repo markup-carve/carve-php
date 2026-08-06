@@ -59,6 +59,8 @@ class CarveCorpusTest extends TestCase
         'sibling-markers-that-reach-one-column-are-one-list',
         'the-continuation-marker-at-an-item-s-own-column-and-what-follows-it',
         'a-continuation-marker-after-a-blank-line-in-the-item',
+        'an-attribute-name-admits-no-colon',
+        'trailing-whitespace-after-a-block-marker',
         'a-multi-line-raw-block-is-placed-at-its-opening-and-verbatim-after-it',
         'an-abbreviation-term-is-one-ascii-alphanumeric-word',
         'a-tab-reaches-a-footnote-body-s-column-just-as-two-spaces-do',
