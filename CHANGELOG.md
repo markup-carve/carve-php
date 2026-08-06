@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Every whitespace slot on a colon-fence opener is a literal space**
+  (carve-php#941, carve-php#948). PART 7 decides the terminal by position: a
+  tab is syntax only in a line's leading indentation run, and every slot on
+  this line sits after the fence run. So `:::<TAB>note` is prose, and so are
+  `::: note<TAB>"Title"`, `::: note<TAB>[lbl]` and `::: note "T"<TAB>[lbl]`,
+  which used to open an admonition and keep their metadata. The separator is
+  a run test rather than a first-character test, so `:::<SP><TAB>note` is
+  prose too. The code fence, frontmatter and raw-block openers are a separate
+  question, tracked as carve-php#951.
+
 - **A `+` continuation marker with trailing whitespace is recognized**
   (carve-php#929). §17 L3 says "a line whose only content is `+`", and trailing
   whitespace is not content - but the test was spelled four ways across seven
