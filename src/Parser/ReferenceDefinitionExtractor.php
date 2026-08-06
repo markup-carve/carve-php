@@ -310,9 +310,30 @@ class ReferenceDefinitionExtractor
      *
      * @return bool
      */
-    private function opensDefinitionEntry(string $previousLine): bool
+    public static function opensDefinitionEntry(string $previousLine): bool
     {
+        // Read the term through its CONTAINER PREFIX. A definition list inside
+        // a block quote or a list item writes its term as `> :: term` or
+        // `- :: term`, and testing the raw line found a `>` or a `-` and
+        // answered no - so the description marker was not stripped and the
+        // definition on it registered nowhere, while the block parser emptied
+        // the `dd` anyway. The line was consumed and the definition lost
+        // (markup-carve/carve#840).
+        //
+        // The current line is already reduced this way by the loop in
+        // `referenceLineView`; this is the same reduction for the line above
+        // it. It cannot widen 216 - a `: ` line whose predecessor is prose
+        // reduces to prose and still answers no.
         $trimmed = ltrim($previousLine, " \t");
+        while (true) {
+            $before = $trimmed;
+            $trimmed = preg_replace('/^> ?/', '', $trimmed) ?? $trimmed;
+            $trimmed = preg_replace('/^(?:[-*]|[0-9]+[.)]) +(?=\S)/', '', $trimmed) ?? $trimmed;
+            $trimmed = ltrim($trimmed, " \t");
+            if ($trimmed === $before) {
+                break;
+            }
+        }
 
         return preg_match('/^::(?!:)[ \t]/', $trimmed) === 1
             || preg_match('/^:[ \t]/', $trimmed) === 1;
@@ -338,7 +359,7 @@ class ReferenceDefinitionExtractor
             return $line;
         }
 
-        $descriptionMarker = $this->opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
 
         return preg_replace(
             '/^[ \t]*(?:' . $descriptionMarker . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
