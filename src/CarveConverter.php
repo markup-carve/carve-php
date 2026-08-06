@@ -29,6 +29,7 @@ use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RendererInterface;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
@@ -192,6 +193,7 @@ class CarveConverter
      * @param \MarkupCarve\Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \MarkupCarve\Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
      * @param \MarkupCarve\Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). For local visible line breaks, use `::: \` or a trailing backslash.
+     @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool|null $smartTypography Whether smart typography resolves to glyphs. Passing false keeps the author's source runs, so two hyphens stay two hyphens; true and null are the default. Unlike the options above, this one is NOT HTML-only - it reaches a renderer passed in $renderer too.
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
@@ -207,6 +209,7 @@ class CarveConverter
         SafeMode|bool|null $safeMode = null,
         ?Profile $profile = null,
         ?SoftBreakMode $softBreakMode = null,
+        SmartTypographyMode|bool|null $smartTypography = null,
         bool $roundTripMode = false,
         string $mode = RenderMode::INTERACTIVE,
         array $renderers = [],
@@ -243,6 +246,28 @@ class CarveConverter
             // Configure round-trip mode
             if ($roundTripMode) {
                 $this->renderer->setRoundTripMode(true);
+            }
+        }
+
+        // SMART TYPOGRAPHY REACHES A RENDERER THE CALLER BUILT.
+        //
+        // The options above are documented as ignored when a renderer is
+        // passed, and that is right for them: xhtml, safeMode and
+        // softBreakMode all describe HTML. This one does not. Every renderer
+        // resolves the same node, and plain text and ANSI are reached in this
+        // engine ONLY by passing the renderer in - so ignoring it there would
+        // leave the documented option silently ineffective on exactly the
+        // targets it matters most for (carve#560).
+        //
+        // The boolean spelling is what the documentation shows and what
+        // carve-js takes; the enum is this engine's own vocabulary. Both are
+        // accepted, as safeMode beside it already accepts SafeMode or bool.
+        if ($smartTypography !== null) {
+            $typographyMode = $smartTypography instanceof SmartTypographyMode
+                ? $smartTypography
+                : ($smartTypography ? SmartTypographyMode::Glyph : SmartTypographyMode::Source);
+            if (method_exists($this->renderer, 'setSmartTypography')) {
+                $this->renderer->setSmartTypography($typographyMode);
             }
         }
 
