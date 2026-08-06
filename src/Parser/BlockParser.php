@@ -3077,7 +3077,10 @@ class BlockParser
     protected function tryParseHardBreaksBlock(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
-        if (preg_match('/^(?<fence>:{3,})[ \t]+\\\\[ \t]*$/', $line, $matches) !== 1) {
+        // The separator is a SPACE, like every other colon-fence opener: the
+        // backslash after it is what selects this block, so PART 7 makes the
+        // slot a marker separator rather than padding (carve-php#941).
+        if (preg_match('/^(?<fence>:{3,}) +\\\\[ \t]*$/', $line, $matches) !== 1) {
             return null;
         }
 

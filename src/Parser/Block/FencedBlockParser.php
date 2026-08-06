@@ -174,7 +174,18 @@ class FencedBlockParser
             $rest = '';
         } elseif ($tail[0] === '[') {
             $rest = $tail;
-        } elseif ($tail[0] === ' ' || $tail[0] === "\t") {
+        } elseif ($tail[0] === ' ') {
+            // THE SEPARATOR IS A SPACE, U+0020 and nothing else. PART 7's
+            // MARKER SEPARATORS AND PADDING SLOTS is normative: the slot
+            // immediately after the fence run is a marker separator, because
+            // the token after it selects which of the four blocks the line
+            // opens. A tab was accepted here, so a tabbed opener opened an
+            // admonition, a div, a line block or a local hard-break block
+            // where the grammar makes the line a paragraph (carve-php#941,
+            // spec carve#886).
+            //
+            // The opener's METADATA slots are a different role and keep the
+            // tab - see the type-token pattern below.
             $rest = trim($tail);
         } else {
             return null;
@@ -196,7 +207,11 @@ class FencedBlockParser
                 // (carve-php#820). Nothing in the grammar gives a line block a
                 // label or a title.
                 $rest = $m[1];
-            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?:\s+"[^"]*")?)(?:\s+\[([^\]]*)\])?$/', $rest, $m)) {
+            // PADDING, not a separator: `whitespace` is a space or a tab and
+            // nothing else. These slots used the regex whitespace class, which
+            // in PCRE also admits a form feed, a vertical tab and a carriage
+            // return - none of which the grammar names.
+            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?:[ \t]+"[^"]*")?)(?:[ \t]+\[([^\]]*)\])?$/', $rest, $m)) {
                 $rest = $m[1];
                 if (isset($m[2])) {
                     $label = $m[2];
