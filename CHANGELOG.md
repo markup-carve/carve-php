@@ -9,6 +9,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A `+` continuation marker works whatever the item already holds**
+  (carve-php#925). §17 L3 conditions the marker on its column and on nothing
+  else, but this engine recognized it in a tight item and ignored it once the
+  item held a blank line - so the marker came out as literal text inside the
+  paragraph it was meant to end, and the block it should have attached was
+  folded in with it.
+
 - **The writer keeps a `+` continuation marker before an attached paragraph**
   (carve#861). §17 L3 attaches the following block to the item, so `- a` / `+`
   / `b` holds two blocks - but the writer dropped the marker and indented the

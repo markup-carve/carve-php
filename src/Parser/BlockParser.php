@@ -3817,6 +3817,24 @@ class BlockParser
 
                                 break;
                             }
+                            // A lone `+` at the marker column is the CONTINUATION
+                            // MARKER (§17 L3), whatever this item already holds.
+                            // The clause conditions it on the column and on
+                            // nothing else - not on the item being tight, and not
+                            // on what was written above - so breaking here hands
+                            // it to the loop that attaches the following block,
+                            // exactly as happens when no blank line preceded it.
+                            //
+                            // Without this the marker fell through to the lazy
+                            // branch below and came out as literal text inside the
+                            // paragraph it was meant to end, so the same construct
+                            // read two ways depending on unrelated context above
+                            // (carve-php#925). `collectListContinuationBlock()`
+                            // already stops on exactly this line; this collector
+                            // was the one short of the case.
+                            if ($trimmedLine === '+') {
+                                break;
+                            }
                             // After a blank line, content dropping back to base indent
                             // starts a new block outside the list - let parent handle it.
                             if ($sawBlankLine) {
