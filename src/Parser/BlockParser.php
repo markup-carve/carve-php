@@ -1085,7 +1085,7 @@ class BlockParser
             // see the same strip in ReferenceDefinitionExtractor. Only a
             // COLUMN-0 marker is stripped: an indented one sits at an item's
             // content column, and eating that indentation loses it.
-            $unquotedForColumns = preg_replace('/^(?:>(?: |$))+/', '', $line) ?? $line;
+            $unquotedForColumns = ContainerPrefix::stripQuoteMarkers($line);
             $contentCol = $contentColumns->observe($unquotedForColumns, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
@@ -1233,20 +1233,16 @@ class BlockParser
             // column counts from after the `> `, so applying it to the raw line
             // cut into the quote marker and the definition was missed
             // (carve#658).
-            if (
-                $container['kind'] === 'none'
-                && $reachedCol > 0
-                && strlen($unquotedForColumns) - strlen(ltrim($unquotedForColumns, " \t")) >= $reachedCol
-            ) {
-                $columnBare = substr($unquotedForColumns, $reachedCol);
-                if (preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
-                    $quotePrefixLength = strlen($line) - strlen($unquotedForColumns);
-                    $container = [
-                        'kind' => 'columnContainer',
-                        'prefix' => substr($line, 0, $quotePrefixLength + $reachedCol),
-                    ];
-                    $bare = $columnBare;
-                }
+            $columnBare = $container['kind'] === 'none'
+                ? ContainerPrefix::atContentColumn($unquotedForColumns, $reachedCol)
+                : null;
+            if ($columnBare !== null && preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
+                $quotePrefixLength = strlen($line) - strlen($unquotedForColumns);
+                $container = [
+                    'kind' => 'columnContainer',
+                    'prefix' => substr($line, 0, $quotePrefixLength + $reachedCol),
+                ];
+                $bare = $columnBare;
             }
 
             // Match footnote definition: [^label]: content. The marker line
@@ -1512,15 +1508,14 @@ class BlockParser
             // and the author's line rendered nothing AND defined nothing
             // (carve-php#788). The list-marker arm below already ltrims.
             $quoteContent = $this->blockQuoteLineContent($rest);
-            if (
-                $quoteContent === null
-                && $contentCol > 0
-                && strlen($rest) - strlen(ltrim($rest, " \t")) >= $contentCol
-            ) {
+            if ($quoteContent === null) {
                 // EXACTLY the item's content column, never arbitrary
                 // indentation: a top-level `    > [r]: /u` is indented text,
                 // not a quote (tests/BlockquoteRefDefTest).
-                $quoteContent = $this->blockQuoteLineContent(substr($rest, $contentCol));
+                $atColumn = ContainerPrefix::atContentColumn($rest, $contentCol);
+                if ($atColumn !== null) {
+                    $quoteContent = $this->blockQuoteLineContent($atColumn);
+                }
             }
             if ($quoteContent !== null) {
                 $rest = $quoteContent;
@@ -3398,22 +3393,16 @@ class BlockParser
     /**
      * Block-quote line content: the text after a `> ` prefix, '' for a lone
      * `>`, or null when the line does not open/continue a block quote.
-     * Byte-equivalent to the `/^> (.*)$/` and `/^>$/` regexes -- a space is
-     * required after `>`; `>text` and `>\t` do not start a quote.
+     *
+     * ONE SPELLING, shared with the prepasses and the pre-scan
+     * ({@see \MarkupCarve\Carve\Parser\ContainerPrefix}). The nine call sites
+     * below reach the rule through here, so a container-model change is made in
+     * one place rather than in whichever spelling a bug report named
+     * (markup-carve/carve-php#961).
      */
     private function blockQuoteLineContent(string $line): ?string
     {
-        if (($line[0] ?? '') !== '>') {
-            return null;
-        }
-        if ($line === '>') {
-            return '';
-        }
-        if (($line[1] ?? '') === ' ') {
-            return substr($line, 2);
-        }
-
-        return null;
+        return ContainerPrefix::quoteContent($line);
     }
 
     /**

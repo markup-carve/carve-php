@@ -68,10 +68,7 @@ class PrepassFenceTracker
             return self::LEFT;
         }
 
-        $closeIndent = strlen($closeLine) - strlen(ltrim($closeLine, " \t"));
-        $deIndentedCloseLine = $closeIndent >= $this->contentColumn
-            ? substr($closeLine, $this->contentColumn)
-            : $closeLine;
+        $deIndentedCloseLine = ContainerPrefix::atContentColumn($closeLine, $this->contentColumn) ?? $closeLine;
 
         if (
             preg_match('/^([`~]{3,})\s*$/', $deIndentedCloseLine, $closeMatch) !== 1
@@ -99,10 +96,11 @@ class PrepassFenceTracker
     {
         $rest = $line;
         for ($depth = 0; $depth < $this->quoteDepth; $depth++) {
-            if (($rest[0] ?? '') !== '>' || preg_match('/^> ?/', $rest) !== 1) {
+            $content = ContainerPrefix::looseQuoteContent($rest);
+            if ($content === null) {
                 return null;
             }
-            $rest = preg_replace('/^> ?/', '', $rest) ?? $rest;
+            $rest = $content;
         }
 
         return $rest;
@@ -150,17 +148,16 @@ class PrepassFenceTracker
         $quoteDepth = 0;
         do {
             $previousFenceLine = $fenceLine;
-            if (($fenceLine[0] ?? '') === '>' && preg_match('/^> ?/', $fenceLine) === 1) {
-                $fenceLine = preg_replace('/^> ?/', '', $fenceLine) ?? $fenceLine;
+            $quoteContent = ContainerPrefix::looseQuoteContent($fenceLine);
+            if ($quoteContent !== null) {
+                $fenceLine = $quoteContent;
                 $quoteDepth++;
             }
             $fenceLine = $this->stripListMarker($fenceLine);
         } while ($fenceLine !== $previousFenceLine);
 
-        $keptIndent = strlen($fenceLine) - strlen(ltrim($fenceLine, " \t"));
-
         return [
-            'line' => $keptIndent >= $contentColumn ? substr($fenceLine, $contentColumn) : $fenceLine,
+            'line' => ContainerPrefix::atContentColumn($fenceLine, $contentColumn) ?? $fenceLine,
             'quoteDepth' => $quoteDepth,
         ];
     }
