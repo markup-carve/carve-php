@@ -52,6 +52,8 @@ class CarveCorpusTest extends TestCase
         'a-marker-separator-is-a-space-never-a-tab',
         'a-tab-as-the-first-character-of-a-definition-term',
         'a-link-definition-written-before-a-footnote-stays-before-it',
+        'a-zero-width-character-in-a-reference-definition-destination',
+        'a-multi-line-raw-block-is-placed-at-its-opening-and-verbatim-after-it',
         'an-abbreviation-term-is-one-ascii-alphanumeric-word',
         'a-tab-reaches-a-footnote-body-s-column-just-as-two-spaces-do',
         'a-footnote-body-s-last-block-when-it-is-not-a-paragraph-gets-a-synthesized-paragraph-for-the-backlink',
