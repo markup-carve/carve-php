@@ -55,6 +55,7 @@ class CarveCorpusTest extends TestCase
         'a-zero-width-character-in-a-reference-definition-destination',
         'a-block-image-is-separated-from-the-block-after-it-on-every-target',
         'a-tab-indent-is-the-column-it-reaches-whatever-the-line-holds',
+        'a-tab-separates-two-attributes-and-pads-a-block-as-a-space-does',
         'the-same-column-written-with-four-spaces',
         'sibling-markers-that-reach-one-column-are-one-list',
         'the-continuation-marker-at-an-item-s-own-column-and-what-follows-it',
