@@ -226,6 +226,16 @@ class CarveConverter
             $this->parser = new BlockParser($warnings, $strict, $sourceLines);
         }
 
+        // ONE place, because the carve target is built four ways - carve(),
+        // toCarve(), AstCodec's writer, and bin/carve's own parser - and a rule
+        // spelled once per caller is a rule that drifts. The writer reads spans
+        // back (see BlockParser::trackPositions), and a parse that does not
+        // record them hands it a tree where every position is null, so the
+        // lookup compares nothing to nothing and passes while doing nothing.
+        if (($renderer ?? null) instanceof CarveRenderer) {
+            $this->parser->trackPositions();
+        }
+
         // Use provided renderer or create one from parameters
         if ($renderer !== null) {
             $this->renderer = $renderer;

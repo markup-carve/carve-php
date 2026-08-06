@@ -266,10 +266,56 @@ class CarveRenderer implements RendererInterface
      */
     protected array $definitionAttributes = [];
 
+    /**
+     * Hoisted definition nodes keyed by the SOURCE LINE the author wrote them on.
+     *
+     * @var array<int, \MarkupCarve\Carve\Node\Node>
+     */
+    protected array $definitionsByLine = [];
+
+    /**
+     * Object ids of the definitions a description has already written back.
+     *
+     * @var array<int, true>
+     */
+    protected array $definitionsWrittenInPlace = [];
+
     protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
         $abbrs = [];
+        // A definition written inside a definition list's description is
+        // COLLECTED, which empties the `dd` (markup-carve/carve#801) and hoists
+        // the node to the document (PART 12 §7 and §10). An empty description has
+        // no source spelling - the production requires content after the marker -
+        // so the writer emitted a bare `:` line, which re-parses as a
+        // continuation of the term above it and broke `to_html(fmt(x)) ==
+        // to_html(x)`, PART 11 §1 (markup-carve/carve#805).
+        //
+        // Nothing new is needed. The description's own span and the hoisted
+        // node's span name the SAME line, so the description writes the
+        // definition back on it and the document-level pass skips what a
+        // description already claimed.
+        //
+        // Rebuilt PER PASS, not per call: render() renders the document twice
+        // and picks between the forms (PART 11 §4). A "written in place" set
+        // that survived the first pass would tell the second that every
+        // definition is already placed - the description emits a bare `:` again
+        // and the document-level arm emits nothing, deleting the definition
+        // outright.
+        $this->definitionsByLine = [];
+        $this->definitionsWrittenInPlace = [];
+        foreach ($document->getChildren() as $child) {
+            if (!$child instanceof LinkReferenceDefinition && !$child instanceof Footnote) {
+                continue;
+            }
+            $line = $child->getPos()?->startLine;
+            // First writer wins for a line, which cannot normally collide: two
+            // definitions on one line is not a shape the parser produces.
+            if ($line !== null && !isset($this->definitionsByLine[$line])) {
+                $this->definitionsByLine[$line] = $child;
+            }
+        }
         // PART 12 §10: definition attributes serialize ONCE, on the definition.
         // Resolution materializes them onto every link that resolves the label
         // so the HTML target can render them, which leaves the writer unable to
@@ -489,6 +535,12 @@ class CarveRenderer implements RendererInterface
 
     protected function renderBlock(Node $node): string
     {
+        // Unless a definition list already wrote it on its own description line,
+        // where the author put it - writing it twice would define it twice
+        // (markup-carve/carve#805).
+        if (isset($this->definitionsWrittenInPlace[spl_object_id($node)])) {
+            return '';
+        }
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
 
@@ -932,6 +984,27 @@ class CarveRenderer implements RendererInterface
             if ($child instanceof DefinitionTerm) {
                 $out[] = ':: ' . $this->renderInlines($child->getChildren());
             } elseif ($child instanceof DefinitionDescription) {
+                // An EMPTY description whose line carries a hoisted definition is
+                // one the author wrote that definition on: write it back there
+                // (markup-carve/carve#805). Without this the line came out as a
+                // bare `:`, which re-parses into the term above it.
+                $line = $child->getChildren() === [] ? $child->getPos()?->startLine : null;
+                $definition = $line === null ? null : ($this->definitionsByLine[$line] ?? null);
+                if ($definition !== null) {
+                    // Render BEFORE marking it: the document-level arm returns ''
+                    // for a marked node, so marking first renders the line away.
+                    $written = $this->withResetColonFenceDepth(fn (): string => $this->renderBlock($definition));
+                    $this->definitionsWrittenInPlace[spl_object_id($definition)] = true;
+                    $writtenLines = explode("\n", $written);
+                    $out[] = ':  ' . array_shift($writtenLines);
+                    // A footnote body can be multi-line; its continuation lines
+                    // carry the body's own indent and sit under the description.
+                    foreach ($writtenLines as $writtenLine) {
+                        $out[] = '   ' . $writtenLine;
+                    }
+
+                    continue;
+                }
                 $body = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($child->getChildren()));
                 $lines = explode("\n", $this->trimNonNbsp($body));
                 $out[] = ':  ' . array_shift($lines);

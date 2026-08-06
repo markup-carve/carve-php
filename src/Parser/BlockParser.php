@@ -424,6 +424,21 @@ class BlockParser
     protected bool $trackPositions = false;
 
     /**
+     * Track source spans from here on, whatever the constructor was told.
+     *
+     * The canonical writer READS positions back: a definition collected from a
+     * definition list's description empties the `dd`, and the description's own
+     * span is the only record of the line the author wrote the definition on
+     * (markup-carve/carve#805). PART 12 §4 requires a span on every node but the
+     * root anyway, so the carve target asking for them is the tree the spec
+     * already describes rather than an extra the writer invented.
+     */
+    public function trackPositions(): void
+    {
+        $this->trackPositions = true;
+    }
+
+    /**
      * Per-line map for the line array currently being parsed.
      *
      * @var array<int, int>|null
@@ -4851,6 +4866,19 @@ class BlockParser
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);
+                // A description's span is normally derived from what it holds
+                // (deriveContainerSpans). Collecting a definition out of it -
+                // markup-carve/carve#801 - leaves it holding nothing, so that
+                // derivation has nothing to measure and the node came out with
+                // no span at all, in breach of PART 12 §4. The description's own
+                // marker line is real source and is what the writer needs to put
+                // the definition back where the author wrote it
+                // (markup-carve/carve#805). carve-rs already publishes exactly
+                // this span. Set only in the emptied case: a description with
+                // content keeps the derived extent it has always had.
+                if ($dd->getChildren() === []) {
+                    $dd->setPos($this->wholeLineSpan($definitionStart));
+                }
                 $dl->appendChild($dd);
             }
             // Allow a single blank line before the next entry's `:: term`.
