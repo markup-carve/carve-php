@@ -181,12 +181,16 @@ class FencedBlockParser
             // the token after it selects which of the four blocks the line
             // opens. A tab was accepted here, so a tabbed opener opened an
             // admonition, a div, a line block or a local hard-break block
-            // where the grammar makes the line a paragraph (carve-php#941,
-            // spec carve#886).
+            // where the grammar makes the line a paragraph (carve-php#941).
             //
-            // The opener's METADATA slots are a different role and keep the
-            // tab - see the type-token pattern below.
-            $rest = trim($tail);
+            // A RUN, not a first character. `ltrim($tail, ' ')` consumes only
+            // spaces, so a tab anywhere in the separator run leaves the type
+            // token unreachable and every branch below rejects the line. The
+            // former `trim($tail)` inspected the first character and then
+            // stripped a tab that followed it, so `:::<SP><TAB>note` still
+            // opened an admonition. Trailing whitespace is not a slot in the
+            // grammar and stays as tolerant as it was.
+            $rest = rtrim(ltrim($tail, ' '));
         } else {
             return null;
         }
@@ -207,11 +211,21 @@ class FencedBlockParser
                 // (carve-php#820). Nothing in the grammar gives a line block a
                 // label or a title.
                 $rest = $m[1];
-            // PADDING, not a separator: `whitespace` is a space or a tab and
-            // nothing else. These slots used the regex whitespace class, which
-            // in PCRE also admits a form feed, a vertical tab and a carriage
-            // return - none of which the grammar names.
-            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?:[ \t]+"[^"]*")?)(?:[ \t]+\[([^\]]*)\])?$/', $rest, $m)) {
+            // PADDING, and a space all the same. PART 7 decides the terminal
+            // by POSITION, not by role: a tab is syntax only in a line's
+            // leading indentation run, and these slots sit after the fence
+            // run. `admonition_open` is spelled `colon_fence:open, space,
+            // admonition_type, [space+, quoted_title], [space+, label]`, and
+            // its own prose names this case - "`::: note<TAB>\"T\"` is not an
+            // admonition opener, the line stays prose". carve#886 read these
+            // slots as `whitespace`; carve#905 reverted that reading, because
+            // the question is not what a slot recognizes but where it sits.
+            //
+            // Not `\s` either, at any point: PCRE's class is `[ \t\n\r\f\v]`,
+            // so a form feed or a vertical tab would open an admonition the
+            // grammar names nowhere. That narrowing came in with #947 and is
+            // a fortiori still right now that the slot is a space.
+            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?: +"[^"]*")?)(?: +\[([^\]]*)\])?$/', $rest, $m)) {
                 $rest = $m[1];
                 if (isset($m[2])) {
                     $label = $m[2];
