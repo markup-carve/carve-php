@@ -504,6 +504,16 @@ class AttributeParserTest extends TestCase
         );
     }
 
+    public function testColonInAttributeNameOnAGluedBulletMarker(): void
+    {
+        // A block glued to a bullet marker is a marker only when it is a valid
+        // attribute block, so this line is a paragraph, not a list.
+        $this->assertSame(
+            "<p>-{.a:b} item</p>\n",
+            $this->converter->convert("-{.a:b} item\n"),
+        );
+    }
+
     public function testColonInAttributeNameOnATableRow(): void
     {
         // A row-attribute block that is not valid leaves the line without a
