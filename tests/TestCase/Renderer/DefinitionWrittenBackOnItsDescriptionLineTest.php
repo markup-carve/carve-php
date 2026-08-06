@@ -132,6 +132,18 @@ class DefinitionWrittenBackOnItsDescriptionLineTest extends TestCase
     }
 
     /**
+     * The line map is keyed on the DOCUMENT's hoisted definitions, so a
+     * description nested in a container has to find its definition there too.
+     */
+    public function testAnEmptiedDescriptionInsideAContainer(): void
+    {
+        $source = "::: note\n:: term\n:  [r]: /u\n:::\n\nsee [t][r]\n";
+
+        $this->assertSame($source, $this->carve($source));
+        $this->assertTrue($this->roundTrips($source));
+    }
+
+    /**
      * The neighbouring shapes, so the fix is bounded: a description that still
      * holds content keeps its own body, and a definition no description claimed
      * keeps the writer's ordinary placement.
