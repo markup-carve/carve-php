@@ -17,6 +17,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   something the source did not. The opening position is still indented, which
   is where a block goes; carve-js and carve-rs read it the same way.
 
+- **A spoiler is revealed in `static` mode, instead of staying a collapsed
+  disclosure** (markup-carve/carve#843). `SpoilerExtension` did not implement
+  `StaticRenderExtensionInterface`, so `mode: "static"` produced output
+  byte-identical to the interactive form: `<details class="spoiler">` with no
+  `open`. A print or PDF engine renders that collapsed, so the body never
+  reached the page - silent content loss on exactly the path
+  `docs/graceful-degradation.md` exists to rule out. Both forms now degrade the
+  way carve-js and carve-rs already did: the block flattens to
+  `<section class="spoiler spoiler-revealed">` with the title as an
+  `<h3 class="spoiler-title">` and any grouping `[label]` kept as a caption, and
+  the inline form gains the `spoiler-revealed` class.
+
 - **A field the schema REQUIRES is published even when it holds the default**
   (carve-php#915). The encoder omits a field carrying the node's default, which
   is right for an optional field and is how the payload stays small - but for a
