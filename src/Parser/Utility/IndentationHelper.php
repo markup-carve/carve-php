@@ -144,12 +144,26 @@ class IndentationHelper
             if ($line[$i] === ' ') {
                 $col++;
                 $i++;
-            } elseif ($line[$i] === "\t") {
-                $col += self::TAB_STOP - ($col % self::TAB_STOP);
-                $i++;
-            } else {
+
+                continue;
+            }
+            if ($line[$i] !== "\t") {
                 break;
             }
+            $next = $col + self::TAB_STOP - ($col % self::TAB_STOP);
+            $i++;
+            // A TAB THAT STRADDLES THE BOUNDARY still advances to its stop, so
+            // the columns past $amount are indentation this line keeps - they
+            // come back as spaces. Consuming the whole tab silently dropped
+            // them: dedenting `<SPACE><TAB>- c` by 2 gave `- c` where four
+            // spaces gave `  - c`, so two markers written at the same column
+            // reached the nested parse at different ones and opened two lists
+            // (carve-php#890). PART 9 §24 C1 makes indentation a column claim,
+            // which a partial tab has to honor in both directions.
+            if ($next > $amount) {
+                return str_repeat(' ', $next - $amount) . substr($line, $i);
+            }
+            $col = $next;
         }
 
         return substr($line, $i);
