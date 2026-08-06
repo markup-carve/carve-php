@@ -4851,6 +4851,16 @@ class BlockParser
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);
+                if ($dd->getChildren() === []) {
+                    // A description EMPTIED by collection still occupied a line,
+                    // and §4 wants a position on every node but the root.
+                    // Container spans are derived from children, so this one
+                    // came out with none - and the writer then had no way to
+                    // find the definition the author wrote on it, which is what
+                    // made the emptied `dd` unable to round-trip (carve#805,
+                    // carve-php#903).
+                    $dd->setPos($this->wholeLineSpan($definitionStart));
+                }
                 $dl->appendChild($dd);
             }
             // Allow a single blank line before the next entry's `:: term`.

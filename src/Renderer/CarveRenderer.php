@@ -266,6 +266,21 @@ class CarveRenderer implements RendererInterface
      */
     protected array $definitionAttributes = [];
 
+    /**
+     * Collected definitions, by the source line the author wrote them on.
+     *
+     * @var array<int, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition|\MarkupCarve\Carve\Node\Block\Footnote>
+     */
+    protected array $definitionsByLine = [];
+
+    /**
+     * Definitions already written on a description line, so the document-level
+     * pass does not write them a second time.
+     *
+     * @var array<int, true>
+     */
+    protected array $definitionsWrittenInPlace = [];
+
     protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
@@ -277,9 +292,26 @@ class CarveRenderer implements RendererInterface
         // both wrote `{.x}` twice and broke PART 11 §1 (carve#642), so the
         // definition's own keys are subtracted at the reference site.
         $this->definitionAttributes = [];
+        // A definition COLLECTED from a description is written back on that
+        // description's line, so the emptied `dd` is not a bare `:` that
+        // re-parses into the term above it (carve#805, carve-php#903). Indexed
+        // by the line the author wrote it on; the description carries the same
+        // line since the parser stopped losing it.
+        $this->definitionsByLine = [];
+        $this->definitionsWrittenInPlace = [];
         foreach ($document->getChildren() as $child) {
             if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
                 $this->definitionAttributes[$child->getLabel()] = $child->getAttributes();
+            }
+            // BOTH collected kinds, because the author can write either on a
+            // description line: a link reference definition or a footnote.
+            if ($child instanceof LinkReferenceDefinition || $child instanceof Footnote) {
+                $line = $child->getPos()?->startLine;
+                // First writer wins for a line, which cannot normally collide:
+                // two definitions on one line is not a shape the parser builds.
+                if ($line !== null && !isset($this->definitionsByLine[$line])) {
+                    $this->definitionsByLine[$line] = $child;
+                }
             }
         }
         // Every authored definition, in source order. A term defined twice is
@@ -525,14 +557,18 @@ class CarveRenderer implements RendererInterface
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
             $node instanceof Comment => $this->renderComment($node),
-            $node instanceof Footnote => $this->renderFootnote($node),
+            $node instanceof Footnote => isset($this->definitionsWrittenInPlace[spl_object_id($node)])
+                ? ''
+                : $this->renderFootnote($node),
             // PART 12 §10 gives the definition a node, so the writer emits the
             // AUTHORED line instead of folding the destination into every
             // reference. Inlining satisfied `toHtml(fmt(x)) == toHtml(x)` and
             // broke PART 11 §1: `ref`/`rawRef` - which §3a keeps precisely so
             // `[a][r]` and `[a](/u)` stay distinguishable - were absent from the
             // reparse (carve#642).
-            $node instanceof LinkReferenceDefinition => $this->renderLinkReferenceDefinition($node),
+            $node instanceof LinkReferenceDefinition => isset($this->definitionsWrittenInPlace[spl_object_id($node)])
+                ? ''
+                : $this->renderLinkReferenceDefinition($node),
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
             default => $this->renderBlocks($node->getChildren()),
         };
@@ -932,6 +968,21 @@ class CarveRenderer implements RendererInterface
             if ($child instanceof DefinitionTerm) {
                 $out[] = ':: ' . $this->renderInlines($child->getChildren());
             } elseif ($child instanceof DefinitionDescription) {
+                // An EMPTY description whose line carries a collected definition
+                // is one the author wrote that definition on: write it back
+                // there. Without this the line came out as a bare `:`, which
+                // re-parses into the term above it (carve#805).
+                $line = $child->getChildren() === [] ? $child->getPos()?->startLine : null;
+                $collected = $line === null ? null : ($this->definitionsByLine[$line] ?? null);
+                if ($collected !== null) {
+                    $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
+                    $written = $collected instanceof Footnote
+                        ? $this->renderFootnote($collected)
+                        : $this->renderLinkReferenceDefinition($collected);
+                    $out[] = ':  ' . $written;
+
+                    continue;
+                }
                 $body = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($child->getChildren()));
                 $lines = explode("\n", $this->trimNonNbsp($body));
                 $out[] = ':  ' . array_shift($lines);
