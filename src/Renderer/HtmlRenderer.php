@@ -922,7 +922,14 @@ class HtmlRenderer implements RendererInterface
         // being moved to the end. The id is rendered via escapeHeadingId
         // so a literal NBSP stays a raw byte (decision F-id), unlike the
         // generic escapeAttribute path.
-        $authoredId = $node->hasAttribute('id');
+        // AUTHORED means the id took a SLOT in an attribute block, not merely
+        // that the node carries one. Since carve#750 a heading's GENERATED id
+        // is published on the wire, so a decoded node has the attribute too -
+        // and testing for presence made a round-tripped document render
+        // `<h1 id="Auto" a="b">` where a fresh parse renders `<h1 a="b"
+        // id="Auto">`. The slot list is what distinguishes them, in this engine
+        // and on the wire.
+        $authoredId = in_array('#id', $node->getAttributeOrder(), true);
         $attrs = $this->getRenderableAttributes($node, $authoredId ? [] : ['id']);
         $idAttr = $authoredId
             ? ''
