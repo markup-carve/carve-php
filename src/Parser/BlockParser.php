@@ -324,6 +324,16 @@ class BlockParser
     protected array $lineStartOffsets = [];
 
     /**
+     * The source exactly as the caller passed it, before any normalization.
+     *
+     * PART 12 §4 offsets index this string, not the normalized copy - stripping
+     * a BOM and collapsing CRLF both shorten the text, and a table measured
+     * against the result puts every span before the characters it names
+     * (carve#876).
+     */
+    protected string $originalSource = '';
+
+    /**
      * The normalized top-level source lines, kept so a block span can measure
      * where its last line ends.
      *
@@ -678,6 +688,9 @@ class BlockParser
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
         // `﻿# T` is a heading, not literal text. Root only: this is the
         // top-level entry; nested content is parsed from line arrays.
+        // Kept for the offset table: PART 12 §4 positions index the ORIGINAL
+        // file, and everything below rewrites the text the parser sees.
+        $this->originalSource = $input;
         if (str_starts_with($input, "\u{FEFF}")) {
             $input = substr($input, 3);
         }
@@ -6314,7 +6327,7 @@ class BlockParser
             $textOffset += $length + 1;
         }
 
-        return $any ? $map->withSource($this->normalizedSource, $this->positionIndex) : null;
+        return $any ? $map->withSource($this->positionSource(), $this->positionIndex) : null;
     }
 
     /**
@@ -6510,13 +6523,13 @@ class BlockParser
         // cell offset is short by whatever was stripped and the span would land
         // on the wrong bytes. Check, and fall back to locating the content in
         // the real source line before giving up.
-        if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+        if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
             $inSourceLine = strpos($this->sourceLines[$sourceLine] ?? '', $content);
             if ($inSourceLine === false) {
                 return null;
             }
             $start = $lineStart + $inSourceLine;
-            if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+            if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
                 return null;
             }
         }
@@ -6619,19 +6632,19 @@ class BlockParser
         }
 
         $start = $lineStart + $cellOffset + $within;
-        if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+        if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
             $sourceColumn = strpos($this->sourceLines[$sourceLine] ?? '', $content);
             if ($sourceColumn === false) {
                 return null;
             }
             $start = $lineStart + $sourceColumn;
-            if (substr($this->normalizedSource, $start, strlen($content)) !== $content) {
+            if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
                 return null;
             }
         }
 
         return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $start - $lineStart + 1)
-            ->withSource($this->normalizedSource, $this->positionIndex);
+            ->withSource($this->positionSource(), $this->positionIndex);
     }
 
     /**
@@ -6726,7 +6739,7 @@ class BlockParser
             $textOffset += strlen($text) + 1;
         }
 
-        return $any ? $map->withSource($this->normalizedSource, $this->positionIndex) : null;
+        return $any ? $map->withSource($this->positionSource(), $this->positionIndex) : null;
     }
 
     /**
@@ -6786,7 +6799,7 @@ class BlockParser
         }
 
         return SourceMap::contiguous($lineStart + $column, strlen($content), $sourceLine + 1, $column + 1)
-            ->withSource($this->normalizedSource, $this->positionIndex);
+            ->withSource($this->positionSource(), $this->positionIndex);
     }
 
     /**
@@ -8199,6 +8212,19 @@ class BlockParser
     }
 
     /**
+     * The text PART 12 §4 offsets are measured against: the source as given.
+     *
+     * Every site that turns an offset back into characters has to use the same
+     * string the offset table was built from, or a document with a BOM or CRLF
+     * verifies a span against text three (or one-per-line) bytes away and
+     * silently reports no position at all.
+     */
+    protected function positionSource(): string
+    {
+        return $this->originalSource !== '' ? $this->originalSource : $this->normalizedSource;
+    }
+
+    /**
      * @return array<string>
      */
     protected function splitLines(string $input): array
@@ -8213,11 +8239,25 @@ class BlockParser
         $this->lineStartOffsets = [];
         $this->sourceLines = $lines;
         $this->normalizedSource = $normalized;
-        $this->positionIndex = $this->trackPositions ? new PositionIndex($normalized) : null;
-        $offset = 0;
+        // MEASURED ON THE SOURCE AS GIVEN. `strlen($line) + 1` assumes every
+        // line ending is one byte, and a stripped BOM is three more - so a CRLF
+        // or BOM-led document had every span land before the text it named
+        // (carve#876). The widths come from the original, so `\n`, `\r\n` and a
+        // lone `\r` are each counted at their real size, and the mark is
+        // skipped so line 0 starts at the first real character.
+        $original = $this->originalSource !== '' ? $this->originalSource : $normalized;
+        $this->positionIndex = $this->trackPositions ? new PositionIndex($original) : null;
+        $offset = str_starts_with($original, "\u{FEFF}") ? 3 : 0;
         foreach ($lines as $index => $line) {
             $this->lineStartOffsets[$index] = $offset;
-            $offset += strlen($line) + 1;
+            $offset += strlen($line);
+            $ending = substr($original, $offset, 2);
+            if (str_starts_with($ending, "\r\n")) {
+                $offset += 2;
+
+                continue;
+            }
+            $offset += 1;
         }
 
         return $lines;
