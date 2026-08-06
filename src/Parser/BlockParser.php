@@ -64,9 +64,9 @@ class BlockParser
      * `openParagraph` starts true: an empty item (no block yet) can absorb a
      * lazy line. See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}
      */
-    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0];
+    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -4440,9 +4440,9 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int} $trailingState
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -4481,9 +4481,18 @@ class BlockParser
                 break;
             }
 
-            if ($sawIndentedUnclaimedColonFence && $nextIndent <= $baseIndent) {
-                break;
-            }
+            // NO EXCEPTION FOR AN ABSORBED FENCE. This used to break when the
+            // item had collected a colon-fence line that is not a valid opener,
+            // which ended the item and made the flush-left line a document
+            // paragraph. PART 1 S4 says the opposite: `:::note` fails PART 9
+            // §12's opener test so it is paragraph text, §12 then has the
+            // paragraph absorb the bare fence below it as text too, and a
+            // paragraph nothing ever interrupted is still OPEN when the
+            // flush-left line arrives (carve#891, corpus
+            // `86-list-lazy-continuation-9`). What decides is whether a block
+            // was opened, never the shape of the line that tried - and
+            // `advanceTrailingBlockState` below already answers that question
+            // for every other block kind.
 
             if ($nextIndent >= $contentIndent) {
                 if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
@@ -4501,11 +4510,17 @@ class BlockParser
                 continue;
             }
 
-            if (
-                !$trailingState['openParagraph']
-                && !$trailingState['inFence']
-                && !$trailingState['inDiv']
-            ) {
+            // AN OPEN DIV IS NOT AN OPEN PARAGRAPH. `inDiv` used to keep the
+            // item collecting, so an unterminated `:::` inside an item
+            // swallowed the flush-left line INTO the div - where carve-js and
+            // carve-rs end the item and leave the div empty. The comment that
+            // justified it cited a §10 closer lookahead that carve#439 removed,
+            // and the shape was only reachable through the absorbed-fence latch
+            // deleted above, which is why it surfaced with that (carve#891).
+            //
+            // A code fence is different and stays: an unterminated one runs to
+            // end of input by §28, so the lines after it are its content.
+            if (!$trailingState['openParagraph'] && !$trailingState['inFence']) {
                 break;
             }
 
@@ -7809,13 +7824,22 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}
      */
     protected function advanceTrailingBlockState(array $state, string $line): array
     {
+        // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
+        // wherever that paragraph does. Clearing it here and re-arming it only
+        // in the two branches that continue the same paragraph is what keeps a
+        // heading, a table or a code fence between a malformed fence and a
+        // later bare `:::` from leaving it set: those end the paragraph, and
+        // the later fence opens a real div (carve#891).
+        $wasAbsorbing = $state['absorbingFence'];
+        $state['absorbingFence'] = false;
+
         if ($state['inFence']) {
             // Inside a fenced code block: stay code (no open paragraph) until
             // the matching closer is seen. The closer itself is still part of
@@ -7836,6 +7860,14 @@ class BlockParser
             // (it is paragraph text under the §10 closer-lookahead rule).
             if ($this->fencedBlockParser->isDivFenceCloser($line, $state['divFenceLength'])) {
                 $state['inDiv'] = false;
+                // The closer is consumed HERE rather than by the bare-run branch
+                // below, so the depth has to come back down here too. Left
+                // unbalanced, a later malformed fence in the same item saw a
+                // container still open, armed nothing, and the bare run after it
+                // read as a phantom closer.
+                if ($state['divDepth'] > 0) {
+                    $state['divDepth']--;
+                }
             }
             $state['openParagraph'] = false;
 
@@ -7845,6 +7877,9 @@ class BlockParser
         if (IndentationHelper::isBlankLine($line)) {
             // A blank line closes the current block. Until a fresh block opens,
             // a dedented line is a new top-level block, not a continuation.
+            // The paragraph that was absorbing malformed fences ends here too,
+            // so the next fence-shaped line is an opener again. `$wasAbsorbing`
+            // is deliberately not carried past this point.
             $state['openParagraph'] = false;
 
             return $state;
@@ -7864,13 +7899,50 @@ class BlockParser
             return $state;
         }
 
+        $bareFence = preg_match('/^:{3,}[ \t]*$/', $line) === 1;
+        // A bare run with a container open is that container's CLOSER, so it is
+        // neither an opener nor absorbable text.
+        if ($bareFence && $state['divDepth'] > 0) {
+            $state['divDepth']--;
+            $state['openParagraph'] = false;
+
+            return $state;
+        }
+
         $divOpener = $this->fencedBlockParser->parseDivFenceOpener($line);
         if ($divOpener !== null) {
+            // ...unless the paragraph above already absorbed a malformed fence
+            // and this is a BARE run, in which case §12 takes it as text too and
+            // the paragraph stays open. Not width-tagged: after a malformed
+            // `:::note` a following `::::` is absorbed as readily as a `:::`. A
+            // line that opens something of its own - `::: note`, `::: |`,
+            // `::: [label]` - still interrupts, exactly as it does at the top
+            // level, where this engine already implements §12.
+            if ($wasAbsorbing && $bareFence) {
+                $state['absorbingFence'] = true;
+                $state['openParagraph'] = true;
+
+                return $state;
+            }
             /** @var int $divFenceLength */
             $divFenceLength = $divOpener['length'];
             $state['inDiv'] = true;
             $state['divFenceLength'] = $divFenceLength;
+            $state['divDepth']++;
             $state['openParagraph'] = false;
+
+            return $state;
+        }
+
+        // A fence-shaped line that is NOT a valid opener is ordinary paragraph
+        // text, and from here the paragraph absorbs the next fence-shaped line
+        // as well. `:::note` fails §12's opener test because a type word must be
+        // separated from the fence by a space. Inside an open container it is
+        // body text and arms nothing: the bare run below it is still that
+        // container's closer.
+        if (preg_match('/^:{3,}/', $line) === 1) {
+            $state['absorbingFence'] = $state['divDepth'] === 0;
+            $state['openParagraph'] = true;
 
             return $state;
         }
@@ -7896,6 +7968,17 @@ class BlockParser
         // paragraph, blockquote, heading text). Treat the trailing block
         // as having an open paragraph and let the existing lazy-continuation
         // behavior fold the dedented line in.
+        //
+        // An absorption already under way survives PROSE, because that is the
+        // same paragraph - but not a heading or a thematic break, which end it.
+        // This tracker keeps `openParagraph` true for those (its own older
+        // choice, and the gate above is the only consumer), so the two facts are
+        // tracked separately: after `:::note` + `# h`, the bare `:::` below is a
+        // real div opener, exactly as it is at the top level.
+        $trimmedForBoundary = ltrim($line);
+        $endsTheParagraph = preg_match('/^#{1,6} .*\S/', $trimmedForBoundary) === 1
+            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedForBoundary) === 1;
+        $state['absorbingFence'] = $wasAbsorbing && !$endsTheParagraph;
         $state['openParagraph'] = true;
 
         return $state;
