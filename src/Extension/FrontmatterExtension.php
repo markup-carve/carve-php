@@ -82,6 +82,31 @@ use MarkupCarve\Carve\Node\Document;
  */
 class FrontmatterExtension implements ParsedDocumentExtensionInterface
 {
+    /**
+     * The opening delimiter, in ONE spelling.
+     *
+     * THE SLOT BEFORE THE FORMAT TOKEN IS A SPACE, U+0020 and nothing else.
+     * PART 7's MARKER SEPARATORS AND PADDING SLOTS decides the terminal by
+     * POSITION rather than by role: a tab is syntax only in a line's leading
+     * indentation run, and this slot sits after the `---`. The grammar spells
+     * it `frontmatter_open = "---", [space], [frontmatter_format], newline`,
+     * and the clause names this slot among the padding ones - "the `---` pair
+     * has already decided the block; the token only names the metadata
+     * dialect" - padding that takes `space` all the same.
+     *
+     * The slot read `[ \t]*`, so `---<TAB>yaml` opened frontmatter and its
+     * body was swallowed as metadata where the grammar leaves a thematic break
+     * followed by ordinary lines. The trailing `\s*$` is not a slot in the
+     * grammar and stays as tolerant as it was (carve-php#951).
+     *
+     * The pattern was spelled out twice, once to register the matcher and once
+     * to re-read the captured format. One rule gets one spelling, so a future
+     * correction cannot land on one of them and miss the other.
+     *
+     * @var string
+     */
+    protected const OPEN_PATTERN = '/^--- *(\w*)\s*$/';
+
     protected ?Frontmatter $frontmatter = null;
 
     /**
@@ -110,10 +135,11 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
         // Register block pattern for frontmatter
         // Matches --- optionally followed by a format identifier (e.g. ---yaml, ---toml).
         // The space between --- and the identifier is optional (lenient input:
-        // both ---yaml and --- yaml are accepted; ---yaml is canonical).
+        // both ---yaml and --- yaml are accepted; ---yaml is canonical) - but it
+        // is a SPACE when present, see self::OPEN_PATTERN.
         // When no identifier is present, $defaultFormat is used as the fallback
         $parser->addBlockPattern(
-            '/^---[ \t]*(\w*)\s*$/',
+            self::OPEN_PATTERN,
             function (array $lines, int $start, $parent, $blockParser) {
                 // Frontmatter is the document's FIRST production:
                 // grammar.ebnf pins `document = [frontmatter], {block}, EOF`,
@@ -126,7 +152,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
                     return null;
                 }
 
-                if (!preg_match('/^---[ \t]*(\w*)\s*$/', $lines[$start], $matches)) {
+                if (!preg_match(self::OPEN_PATTERN, $lines[$start], $matches)) {
                     return null; // @codeCoverageIgnore - pattern already matched
                 }
                 $format = $matches[1] !== '' ? $matches[1] : $this->defaultFormat;
