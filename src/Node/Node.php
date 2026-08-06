@@ -348,7 +348,15 @@ abstract class Node
         if ($slot === 'class') {
             $slot = '.class';
         }
-        if (($slot === '.class' || $slot === '#id') && in_array($slot, $this->attributeOrder, true)) {
+        // EVERY slot is recorded once, at its first appearance. `keyValues`
+        // holds one entry per key, so a key listed twice made the two disagree
+        // about how many slots the source had - and a formatter walking `order`
+        // to rebuild the block emitted the key twice from a document that has
+        // one (carve-php#878). The guard covered `#id` and `.class` only, which
+        // is why a repeated id or class was already correct.
+        //
+        // The LAST value still wins; that is `$attributes`, not this list.
+        if (in_array($slot, $this->attributeOrder, true)) {
             return;
         }
         $this->attributeOrder[] = $slot;
