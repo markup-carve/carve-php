@@ -62,6 +62,7 @@ class CarveCorpusTest extends TestCase
         'a-continuation-marker-after-a-blank-line-in-the-item',
         'a-continuation-marker-after-a-blank-line-in-a-loose-item',
         'an-attribute-name-admits-no-colon',
+        'an-inline-attribute-block-does-not-span-lines-but-an-attribute-line-does',
         'trailing-whitespace-after-a-block-marker',
         'a-multi-line-raw-block-is-placed-at-its-opening-and-verbatim-after-it',
         'an-abbreviation-term-is-one-ascii-alphanumeric-word',
