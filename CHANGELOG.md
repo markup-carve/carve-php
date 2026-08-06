@@ -7,6 +7,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A field the schema REQUIRES is published even when it holds the default**
+  (carve-php#915). The encoder omits a field carrying the node's default, which
+  is right for an optional field and is how the payload stays small - but for a
+  required one the result is not a smaller equivalent tree, it is a tree the
+  format rejects. An emptied `definition_description` published without
+  `children`, which `npm run ast:check` reports as a schema violation. Five
+  more were latent the same way and are fixed in the same pass:
+  `definition_term.children`, `footnote.label`, `footnote.children`,
+  `citation_group.items` and `citation_group.raw`.
+
 ### Added
 
 - **`AstDecodeException` for every AST-decoding refusal** (carve-php#912). The
