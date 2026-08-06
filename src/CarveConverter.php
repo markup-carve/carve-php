@@ -443,7 +443,19 @@ class CarveConverter
         // one of the ways an inner link appears, and BEFORE the coalescer, because
         // unwrapping splices an inner link's text in beside its neighbours and
         // leaves adjacent runs behind (carve-php#859).
-        (new CrossReferenceResolver())->unwrapNestedLinks($document);
+        // NOT ON THE CARVE PATH. The unwrap is right for the document a
+        // consumer reads, and wrong for the source a writer gives back: it
+        // drops the inner destination, so `[[x](y)](z)` came back as `[x](z)`
+        // and `[pre <http://h> post](/u)` lost the autolink's brackets. Both
+        // re-render to the same HTML, which is why PART 11 §1's invariant held
+        // and nothing caught it (carve#787).
+        //
+        // carve-rs reaches the same place by parsing in a mode that skips its
+        // resolution passes; this is that mode, chosen by the renderer that
+        // asked for the parse.
+        if (!$this->renderer instanceof CarveRenderer) {
+            (new CrossReferenceResolver())->unwrapNestedLinks($document);
+        }
 
         // A PROFILE FILTERS WHAT IS PUBLISHED, not only what is rendered.
         // Filtering used to happen on the render path alone, so a host that
