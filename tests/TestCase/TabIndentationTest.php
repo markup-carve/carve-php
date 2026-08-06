@@ -322,17 +322,40 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * A tab-indented block opener under a list item dedents with its residual
-     * columns preserved: stripping the `1. ` content column (3) from a tab (4)
-     * leaves one column, so `\t> quote` nests as a block quote in the item.
+     * A tab-indented block opener under a list item lands ONE COLUMN PAST the
+     * content column, and a block opener past that column is literal text.
+     *
+     * `1. ` claims columns 0-2, so the content column is 3; a tab advances to
+     * column 4. The space spellings settle what that means, and all three
+     * engines agree on them: a three-space `> quote` (column 3) nests a
+     * block quote, and a four-space one (column 4) is text. A tab reaching column 4 is the same
+     * claim as four spaces, so it is text too (PART 9 §24 C1).
+     *
+     * THIS TEST USED TO ASSERT THE OPPOSITE, and passed because
+     * `stripLeadingColumns()` consumed a straddling tab whole - dropping the
+     * residual column its own docblock said it preserved. Fixing that
+     * (carve-php#890) makes the tab and space spellings of column 4 agree, and
+     * the assertion follows the column rule rather than the bug.
      */
-    public function testTabIndentedBlockOpenerUnderItemNests(): void
+    public function testTabIndentedBlockOpenerUnderItemIsTextPastTheContentColumn(): void
     {
         $input = "1. a\n\t> quote";
         $result = $this->converter->convert($input);
 
-        $this->assertStringContainsString('<blockquote>', $result);
+        $this->assertStringNotContainsString('<blockquote>', $result);
         $this->assertSame(1, substr_count($result, '<ol>'));
+    }
+
+    /**
+     * The control at the content column itself, which must keep nesting -
+     * otherwise the assertion above passes for a renderer that stopped nesting
+     * block openers in list items entirely.
+     */
+    public function testABlockOpenerAtTheContentColumnStillNests(): void
+    {
+        $result = $this->converter->convert("1. a\n   > quote");
+
+        $this->assertStringContainsString('<blockquote>', $result);
     }
 
     /**

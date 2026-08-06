@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Two markers that reach the same column are one list, however they got
+  there** (carve-php#890). PART 9 §24 C1 makes indentation a column claim, so
+  a space-plus-tab and four spaces both put a marker at column 4 - but
+  dedenting to a content column consumed a straddling TAB whole and dropped the
+  columns past it, so one marker arrived at the nested parse still indented and
+  the other flush, and a third list opened between them. The same fix makes a
+  tab-indented block opener under a list item agree with its space spelling: a
+  `>` one column past the content column is text either way.
+
 - **A raw block's interior lines are passed through verbatim** (carve-php#907,
   ruled at carve#800). ```` ```=html ```` means the bytes reach the target
   unchanged, but this renderer indents block output line by line after the
