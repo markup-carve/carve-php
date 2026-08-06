@@ -9,6 +9,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A nested container no longer re-measures every body line's whole
+  indentation run at every level** (markup-carve/carve#752). The indentation
+  gate walked a line's entire leading whitespace before comparing the result
+  against a column two or three wide, and every enclosing level repeated the
+  walk over the same run - `O(depth)` character work per line per level. On the
+  deepest ladder a conforming document can reach (depth 200, 40,600 bytes,
+  `MAX_NESTING_DEPTH` is 200) the gate walked 2,707,196 characters, 98.5% of
+  them at one call site; it now walks 100,097, and its counted growth per depth
+  doubling is 4.00x against the document's own 3.94x where it was 7.88x.
+  Parsing that ladder went from 82.4 ms to 49.7 ms on an idle machine, and its
+  growth per depth doubling from 5.10x to 4.07x - which is the document's own
+  3.94x within measurement error, so the parse of a deep list is now linear in
+  its size. The gate takes the column its caller is comparing against and stops
+  there. Every parse result is unchanged: the whole spec corpus renders
+  byte-identically on all five targets (HTML, AST JSON, Markdown, Carve, plain
+  text), the same SHA-256 over 675 documents before and after.
+
 - **The code fence, frontmatter and raw-block openers take a space in every
   slot** (carve-php#951). PART 7 decides the terminal by position, so the code
   fence's slot before its info string, `code_fence_info`'s own `"header"` and

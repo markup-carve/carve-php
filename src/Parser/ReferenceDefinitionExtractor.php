@@ -195,7 +195,7 @@ class ReferenceDefinitionExtractor
             // column and is left to the branches that track those.
             $notAtBodyColumn = false;
             if ($inFootnoteBody && $reachedCol === 0 && !$referenceLine['inList'] && !$referenceLine['inQuote']) {
-                if (IndentationHelper::getLeadingColumns($bare) === self::FOOTNOTE_BODY_COLUMN) {
+                if (IndentationHelper::getLeadingColumns($bare, self::FOOTNOTE_BODY_COLUMN + 1) === self::FOOTNOTE_BODY_COLUMN) {
                     $bare = IndentationHelper::stripLeadingColumns($bare, self::FOOTNOTE_BODY_COLUMN);
                 } else {
                     $notAtBodyColumn = true;
