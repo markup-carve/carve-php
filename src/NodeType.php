@@ -123,6 +123,16 @@ final class NodeType
     /**
      * @var string
      */
+    public const ABBREVIATION_DEF = 'abbreviation_def';
+
+    /**
+     * @var string
+     */
+    public const LINK_REFERENCE_DEFINITION = 'link_reference_definition';
+
+    /**
+     * @var string
+     */
     public const FIGURE = 'figure';
 
     /**
@@ -332,6 +342,13 @@ final class NodeType
             self::COMMENT,
             self::FIGURE,
             self::CAPTION,
+            // Both definition kinds are in the normative Block vocabulary
+            // (carve#771, ruled by carve#826). Without them here,
+            // Profile::isTypeAllowed() takes the "outside the vocabulary"
+            // branch and answers true for a type the same profile denies
+            // through isNodeAllowed().
+            self::ABBREVIATION_DEF,
+            self::LINK_REFERENCE_DEFINITION,
         ];
     }
 

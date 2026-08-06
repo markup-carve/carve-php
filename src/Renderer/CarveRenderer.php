@@ -730,7 +730,22 @@ class CarveRenderer implements RendererInterface
         $this->blockDepth++;
         try {
             $out = '';
+            $previous = null;
             foreach ($children as $child) {
+                // A definition the author wrote BETWEEN these two blocks was
+                // collected out of the item, and the gap it left is what split
+                // one paragraph into two. Dropping the line would rejoin them,
+                // so it is written back where it was (carve#805).
+                if ($previous !== null) {
+                    $written = $this->definitionInGap($previous, $child);
+                    if ($written !== null && $written !== '') {
+                        if ($out !== '') {
+                            $out .= "\n";
+                        }
+                        $out .= $written;
+                    }
+                }
+                $previous = $child;
                 $rendered = $this->renderBlock($child);
                 if ($rendered === '') {
                     continue;
@@ -746,6 +761,40 @@ class CarveRenderer implements RendererInterface
             $this->blockDepth--;
             $this->colonFenceDepth = $previousColonFenceDepth;
         }
+    }
+
+    /**
+     * The definition the author wrote on a line strictly between two blocks.
+     *
+     * Collecting it emptied the line, and an emptied line is a blank one: the
+     * blocks it separated re-parse as a single paragraph, which is a different
+     * document (carve#805, corpus 228). The description write-back finds its
+     * definition by the description's own line; here there is no node left to
+     * carry it, so the gap between the neighbours names it instead.
+     */
+    protected function definitionInGap(Node $before, Node $after): ?string
+    {
+        $from = $before->getPos()?->endLine;
+        $to = $after->getPos()?->startLine;
+        if ($from === null || $to === null) {
+            return null;
+        }
+
+        foreach ($this->definitionsByLine as $line => $node) {
+            if ($line <= $from || $line >= $to) {
+                continue;
+            }
+            if (isset($this->definitionsWrittenInPlace[spl_object_id($node)])) {
+                continue;
+            }
+            $this->definitionsWrittenInPlace[spl_object_id($node)] = true;
+
+            return $node instanceof Footnote
+                ? $this->renderFootnote($node)
+                : $this->renderLinkReferenceDefinition($node);
+        }
+
+        return null;
     }
 
     protected function orderedMarker(int $n, ?string $type): string

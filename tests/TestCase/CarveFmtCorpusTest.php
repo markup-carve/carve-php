@@ -10,6 +10,9 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use function basename;
+use function count;
+use function dirname;
+use function file_exists;
 use function file_get_contents;
 use function glob;
 
@@ -62,6 +65,66 @@ class CarveFmtCorpusTest extends TestCase
         }
 
         return $cases;
+    }
+
+    /**
+     * The documents whose canonical form the spec pins, as `<slug>.fmt`.
+     *
+     * @return array<string, array{slug: string, crv: string, fmt: string}>
+     */
+    public static function pinnedProvider(): array
+    {
+        $dir = dirname(__DIR__) . '/spec/tests/corpus';
+        $cases = [];
+        foreach (glob($dir . '/*.fmt') ?: [] as $fmtPath) {
+            $slug = basename($fmtPath, '.fmt');
+            $crvPath = $dir . '/' . $slug . '.crv';
+            if (!file_exists($crvPath)) {
+                continue;
+            }
+            $cases[$slug] = [
+                'slug' => $slug,
+                'crv' => (string)file_get_contents($crvPath),
+                'fmt' => (string)file_get_contents($fmtPath),
+            ];
+        }
+
+        return $cases;
+    }
+
+    /**
+     * A `.fmt` fixture is read, so the sweep below can fail.
+     *
+     * Guards against a glob that quietly matches nothing - which is the state
+     * the fixtures were already in for their first five releases
+     * (markup-carve/carve#671).
+     */
+    public function testAPinnedFixtureIsRead(): void
+    {
+        $this->assertGreaterThanOrEqual(5, count(self::pinnedProvider()), 'no .fmt fixtures were found');
+    }
+
+    /**
+     * fmt(src) matches the canonical form the spec pins (PART 11 §2).
+     *
+     * The two invariants above cannot see this. Both hold for every writer
+     * divergence found so far: a comment renders nothing, so a body written at
+     * the wrong column still preserves the HTML, and a writer is happily
+     * idempotent about a spelling it picked itself. The BYTES are the only
+     * thing that separates one canonical form from two, and PART 11 §2 is
+     * normative about which one it is.
+     *
+     * The spec repo reads these fixtures against its pinned carve-js build.
+     * That leaves this engine's own writer unchecked against them, which is the
+     * half of markup-carve/carve#671 its own test file names as still open.
+     *
+     * Measured before adding: this engine already matches all of them, so this
+     * lands green and bites only on a regression.
+     */
+    #[DataProvider('pinnedProvider')]
+    public function testFormatMatchesThePinnedCanonicalForm(string $slug, string $crv, string $fmt): void
+    {
+        $this->assertSame($fmt, CarveConverter::toCarve($crv), 'the writer disagrees with the pinned canonical form for ' . $slug);
     }
 
     /**
