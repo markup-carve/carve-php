@@ -9,6 +9,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A `+` continuation marker with trailing whitespace is recognized**
+  (carve-php#929). §17 L3 says "a line whose only content is `+`", and trailing
+  whitespace is not content - but the test was spelled four ways across seven
+  sites, so whether a trailing space broke the marker depended on which code
+  path a document happened to reach. One predicate now, with each caller
+  keeping its own column check.
+
 - **A `+` continuation marker works whatever the item already holds**
   (carve-php#925). §17 L3 conditions the marker on its column and on nothing
   else, but this engine recognized it in a tight item and ignored it once the

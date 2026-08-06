@@ -3343,7 +3343,7 @@ class BlockParser
             // `>` line, or a further `+`) and splice them into the quote body
             // behind a blank-line separator, so they parse as their own block
             // instead of folding into the preceding quoted paragraph.
-            if (rtrim($currentLine) === '+') {
+            if ($this->isContinuationMarker($currentLine)) {
                 $i++; // consume the `+` marker
                 /** @var array<string> $attached */
                 $attached = [];
@@ -3356,7 +3356,7 @@ class BlockParser
                     if ($this->blockQuoteLineContent($line) !== null) {
                         break; // a `>` line resumes the quote normally
                     }
-                    if (rtrim($line) === '+') {
+                    if ($this->isContinuationMarker($line)) {
                         break; // a further `+` starts the next attached block
                     }
                     $attached[] = $line;
@@ -3648,7 +3648,7 @@ class BlockParser
             // (a bullet needs `+ ` + content), so this does not collide with
             // `+`-bulleted lists; lets you attach a code block, table or quote to
             // an item without indenting its body.
-            if ($currentIndent === $baseIndent && trim($currentLine) === '+') {
+            if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine))) {
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
                     [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
@@ -3832,7 +3832,7 @@ class BlockParser
                             // (carve-php#925). `collectListContinuationBlock()`
                             // already stops on exactly this line; this collector
                             // was the one short of the case.
-                            if ($trimmedLine === '+') {
+                            if ($this->isContinuationMarker($trimmedLine)) {
                                 break;
                             }
                             // After a blank line, content dropping back to base indent
@@ -4048,7 +4048,7 @@ class BlockParser
             // the sole item content is the continuation marker, not literal text
             // (`- + text` keeps `+ text` as literal content). This lets an item
             // start directly with a table, code block, quote or div at column 0.
-            if (trim($itemContent) === '+') {
+            if ($this->isContinuationMarker(ltrim($itemContent))) {
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 if ($attached !== []) {
                     $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
@@ -4240,6 +4240,26 @@ class BlockParser
     }
 
     /**
+     * Is this the §17 L3 continuation marker?
+     *
+     * "A line whose only content is `+`" - so trailing whitespace is not
+     * content, matching the executable spec's own `/^\+[ \t]*$/`.
+     *
+     * ONE PREDICATE, and the CALLER owns the column. This was spelled four ways
+     * across seven sites - `trim()`, `rtrim()`, and twice against an already
+     * `ltrim`ed value - so whether a trailing space broke the marker depended on
+     * which code path a document happened to reach (carve-php#929, and the same
+     * asymmetry produced carve-php#925). Leading whitespace is deliberately NOT
+     * stripped here: the block-quote form requires column 0 and the list form
+     * checks its own base indent, so each caller passes a line whose indentation
+     * it has already accounted for.
+     */
+    protected function isContinuationMarker(string $line): bool
+    {
+        return rtrim($line) === '+';
+    }
+
+    /**
      * Collect the flush-left block attached by a list continuation marker.
      *
      * @param array<string> $lines All lines being parsed.
@@ -4266,7 +4286,7 @@ class BlockParser
             $trimmed = ltrim($line);
             if (
                 $lineIndent === $baseIndent
-                && ($this->listParser->parseListItemMarker($trimmed) !== null || $trimmed === '+')
+                && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
             ) {
                 break;
             }
@@ -4500,7 +4520,7 @@ class BlockParser
             return false;
         }
 
-        if ($this->listParser->parseListItemMarker($nextTrimmed) !== null || $nextTrimmed === '+') {
+        if ($this->listParser->parseListItemMarker($nextTrimmed) !== null || $this->isContinuationMarker($nextTrimmed)) {
             return true;
         }
 
