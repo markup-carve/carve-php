@@ -9,6 +9,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The link and image title slots take a space** (carve-php#962).
+  `link_title` is spelled `space` in `resources/grammar.ebnf` and
+  `image_title = link_title` inherits it, so PART 7 applies: the slot sits after
+  the first non-whitespace character of the line, and from there onward a tab is
+  not syntax. The fallback is not a link without a title - the quoted run is left
+  unconsumed and lands inside a destination that admits no whitespace, so the
+  bracket run stays literal text and the run the author typed survives:
+  `[t](/u<TAB>"T")` renders as `<p>[t](/u<TAB>&ldquo;T&rdquo;)</p>`. The site used
+  the regex `\s` class with no `/u` modifier, i.e. `[ \t\n\r\f\v]`, so a
+  vertical tab, a form feed and a line break filled the slot too and all of them
+  stop now. One narrowing covers both tails, since the same block reads the link
+  tail and the image tail. Cardinality is unchanged: a run of spaces still fills
+  the slot. A reference definition's title is read elsewhere and is untouched.
+
 - **Every table-cell padding slot takes a space** (carve-php#960). PART 7
   decides the terminal by position, and every one of these slots sits after the
   row's opening pipe: `delimiter_cell`, `header_cell` and `data_cell` at both

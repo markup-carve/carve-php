@@ -2154,9 +2154,9 @@ class InlineParser
                 // honor it (see ref-def parsing / grammar known divergence).
                 $title = null;
                 if (
-                    preg_match('/^([\s\S]*?)\s+"((?:\\\\"|[^"])*)"$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?)\s+\'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?)\s+\(([^()]*)\)$/', $raw, $tm)
+                    preg_match('/^([\s\S]*?) +"((?:\\\\"|[^"])*)"$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?) +\'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?) +\(([^()]*)\)$/', $raw, $tm)
                 ) {
                     $raw = $tm[1];
                     // Unescape any backslash + ASCII-punctuation inside the
