@@ -71,9 +71,17 @@ class TableParser
             return $line;
         }
 
-        // Row attributes appear after final pipe: |...|{.class}
+        // Row attributes appear after final pipe: |...|{.class}. The payload
+        // must be a valid attribute block (§14): an unrecognized name -- a
+        // colon-bearing, digit-first or otherwise non-`identifier` one -- makes
+        // the whole `{...}` literal content, so the line no longer ends with
+        // `|` and is not a table row at all. carve-js and carve-rs leave such a
+        // line a paragraph; without this gate the block was stripped whatever
+        // it held and the row was built anyway.
         if (preg_match('/^(.*\|)\{([^{}]+)\}\s*$/', $line, $matches)) {
-            return $matches[1];
+            if (AttributeParser::isValidPayload($matches[2])) {
+                return $matches[1];
+            }
         }
 
         return $line;
@@ -93,6 +101,12 @@ class TableParser
         }
 
         if (preg_match('/\|\{([^{}]+)\}\s*$/', $line, $matches)) {
+            // Same §14 gate as stripRowAttributes: an invalid payload is not a
+            // row-attribute block, so it contributes no attributes either.
+            if (!AttributeParser::isValidPayload($matches[1])) {
+                return [];
+            }
+
             return AttributeParser::parse($matches[1]);
         }
 

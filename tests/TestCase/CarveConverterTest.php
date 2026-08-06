@@ -3694,12 +3694,28 @@ DJOT;
             // Brackets + block render literally, but the inner content is still
             // inline-parsed (matches carve-js: `[*x*]{???}` keeps the strong).
             'invalid block keeps inner markup' => ['[*x*]{???}', "<p>[<strong>x</strong>]{???}</p>\n"],
-            // Real attributes are unaffected, including colon-bearing keys and
-            // classes that AttributeParser accepts (regression guard: these
-            // must form the span, not leave `[x]` literal inside it).
+            // Real attributes are unaffected (regression guard: these must form
+            // the span, not leave `[x]` literal inside it).
             'class block' => ['[x]{.a}', "<p><span class=\"a\">x</span></p>\n"],
-            'colon key block' => ['[x]{xml:lang="en"}', "<p><span xml:lang=\"en\">x</span></p>\n"],
-            'colon class block' => ['[x]{.sm:hover}', "<p><span class=\"sm:hover\">x</span></p>\n"],
+            // A NAME is a grammar `identifier`, which admits no colon, so a
+            // colon-bearing key, class or id makes the whole block
+            // unrecognized and the run literal (§14) -- carve-js and carve-rs
+            // render exactly these strings. In the id row the leftover `#a` is
+            // an ordinary hashtag in running text, which is why that expected
+            // value carries a tag span rather than a bare `#a`.
+            'colon key block' => ['[x]{xml:lang="en"}', "<p>[x]{xml:lang=\u{201c}en\u{201d}}</p>\n"],
+            'colon key block unquoted' => ['[x]{xlink:href=a}', "<p>[x]{xlink:href=a}</p>\n"],
+            'colon key block namespaced' => ['[x]{xmlns:x=y}', "<p>[x]{xmlns:x=y}</p>\n"],
+            'colon class block' => ['[x]{.sm:hover}', "<p>[x]{.sm:hover}</p>\n"],
+            'colon id block' => [
+                '[x]{#a:b}',
+                "<p>[x]{<span class=\"tag\"><strong>#a</strong></span>:b}</p>\n",
+            ],
+            // One invalid name invalidates the WHOLE block, mixed or not.
+            'colon key beside a valid class' => ['[x]{.ok xml:lang=en}', "<p>[x]{.ok xml:lang=en}</p>\n"],
+            // A colon in an unquoted VALUE stays legal (`unquoted_value`), so
+            // this control must keep forming a span.
+            'colon in an unquoted value' => ['[x]{k=a:b}', "<p><span k=\"a:b\">x</span></p>\n"],
             'boolean attr block' => ['[x]{disabled}', "<p><span disabled=\"\">x</span></p>\n"],
             'consecutive class blocks' => ['[x]{.a}{.b}', "<p><span class=\"a b\">x</span></p>\n"],
             // Valid block followed by an invalid one: span keeps the valid

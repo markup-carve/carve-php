@@ -96,7 +96,13 @@ class ListParser
             // Valid only if it yields >= 1 attribute or is the empty block `{}`
             // (mirrors the inline-span disambiguation, grammar §14). Otherwise
             // `-{...}` is not a marker and the line stays ordinary text.
-            if ($parsed !== [] || $body === '') {
+            //
+            // The WHOLE payload has to be valid, not merely yield something:
+            // `parseOrdered()` reports the valid tokens it finds, so a block
+            // mixing a good class with an unrecognized name (`{.ok xml:lang=en}`,
+            // `{.ok .1}`) used to open a list carrying the good half, where
+            // carve-js and carve-rs leave the line a paragraph.
+            if (($parsed !== [] && AttributeParser::isValidPayload($body)) || $body === '') {
                 $itemAttributes = $parsed;
                 $line = $am[1] . $am[3];
             }

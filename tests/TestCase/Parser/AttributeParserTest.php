@@ -439,30 +439,108 @@ class AttributeParserTest extends TestCase
     }
 
     /**
-     * Tests for colon in attribute keys (xml:lang, data:foo, etc.).
+     * Tests for a colon in an attribute NAME (key, class or id).
      *
-     * Colons should be allowed in attribute key names to support
-     * namespaced attributes like xml:lang.
+     * An attribute name is a grammar `identifier`, which admits letters,
+     * digits, `_` and `-` only. A colon-bearing name (`xml:lang`, `.sm:hover`,
+     * `#a:b`) is therefore not recognized, and one unrecognized name makes the
+     * whole block not an attribute block (§14) -- the run stays literal, as in
+     * carve-js and carve-rs. A colon inside an unquoted VALUE stays legal.
      */
-    public function testColonInAttributeKey(): void
+    public function testColonInAttributeKeyYieldsNoAttribute(): void
     {
-        $result = AttributeParser::parse('xml:lang=en');
-
-        $this->assertSame('en', $result['xml:lang']);
+        $this->assertSame([], AttributeParser::parse('xml:lang=en'));
+        $this->assertFalse(AttributeParser::isValidPayload('xml:lang=en'));
     }
 
-    public function testColonInAttributeKeyQuoted(): void
+    public function testColonInAttributeKeyQuotedYieldsNoAttribute(): void
     {
-        $result = AttributeParser::parse('xmlns:xlink="http://example.com"');
+        $this->assertSame([], AttributeParser::parse('xmlns:xlink="http://example.com"'));
+        $this->assertFalse(AttributeParser::isValidPayload('xmlns:xlink="http://example.com"'));
+    }
 
-        $this->assertSame('http://example.com', $result['xmlns:xlink']);
+    public function testColonInClassOrIdYieldsNoAttribute(): void
+    {
+        $this->assertSame([], AttributeParser::parse('.sm:hover'));
+        $this->assertSame([], AttributeParser::parse('#a:b'));
+        $this->assertFalse(AttributeParser::isValidPayload('.sm:hover'));
+        $this->assertFalse(AttributeParser::isValidPayload('#a:b'));
+    }
+
+    public function testColonBearingNameInvalidatesTheWholeBlock(): void
+    {
+        // Mixed with a valid class, the block is still not an attribute block.
+        // `parse()` is a token extractor and still reports the valid class -
+        // it is `isValidPayload()` that decides, so the run stays literal.
+        $this->assertFalse(AttributeParser::isValidPayload('.ok xml:lang=en'));
+        $this->assertSame(['class' => 'ok'], AttributeParser::parse('.ok xml:lang=en'));
+        $this->assertSame(
+            "<p>[x]{.ok xml:lang=en}</p>\n",
+            $this->converter->convert('[x]{.ok xml:lang=en}'),
+        );
+    }
+
+    public function testColonInUnquotedValueStaysValid(): void
+    {
+        $this->assertSame(['k' => 'a:b'], AttributeParser::parse('k=a:b'));
+        $this->assertTrue(AttributeParser::isValidPayload('k=a:b'));
     }
 
     public function testColonInAttributeKeyConvertedOutput(): void
     {
-        $result = $this->converter->convert('[text]{xml:lang=en}');
+        $this->assertSame(
+            "<p>[text]{xml:lang=en}</p>\n",
+            $this->converter->convert('[text]{xml:lang=en}'),
+        );
+    }
 
-        $this->assertStringContainsString('xml:lang="en"', $result);
+    public function testColonInAttributeNameOnABlockAttributeLine(): void
+    {
+        // The block-attribute carrier follows the same rule: the line is not an
+        // attribute block, so it stays a paragraph and joins the next line.
+        $this->assertSame(
+            "<p>{.a:b}\npara</p>\n",
+            $this->converter->convert("{.a:b}\npara\n"),
+        );
+    }
+
+    public function testColonInAttributeNameOnAGluedBulletMarker(): void
+    {
+        // A block glued to a bullet marker is a marker only when it is a valid
+        // attribute block, so this line is a paragraph, not a list.
+        $this->assertSame(
+            "<p>-{.a:b} item</p>\n",
+            $this->converter->convert("-{.a:b} item\n"),
+        );
+    }
+
+    public function testColonBearingNameMixedIntoAGluedBulletMarker(): void
+    {
+        // The marker block is judged as a WHOLE: a good class beside an
+        // unrecognized name does not open a list carrying the good half.
+        $this->assertSame(
+            "<p>-{.ok xml:lang=en} item</p>\n",
+            $this->converter->convert("-{.ok xml:lang=en} item\n"),
+        );
+        $this->assertSame(
+            "<p>1.{.ok xml:lang=en} item</p>\n",
+            $this->converter->convert("1.{.ok xml:lang=en} item\n"),
+        );
+        // The control: a wholly valid marker block still opens the list.
+        $this->assertSame(
+            "<ul>\n  <li class=\"a b\">item</li>\n</ul>\n",
+            $this->converter->convert("-{.a .b} item\n"),
+        );
+    }
+
+    public function testColonInAttributeNameOnATableRow(): void
+    {
+        // A row-attribute block that is not valid leaves the line without a
+        // trailing `|`, so it is not a table row at all.
+        $this->assertSame(
+            "<p>| a | b |{.a:b}</p>\n",
+            $this->converter->convert("| a | b |{.a:b}\n"),
+        );
     }
 
     public function testUnderscoreKeyAfterWhitespace(): void
