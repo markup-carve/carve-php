@@ -9,6 +9,22 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The paragraph a capped container degrades to places its text runs**
+  (carve-php#965). carve-php#946 placed that paragraph and its soft breaks; its
+  `text` runs were still published with no `pos`, which was the whole of this
+  engine's outstanding column in the spec's `resources/ast-position-waivers.txt`.
+  That is not the PART 12 §4 exemption - §4 permits omitting `pos` on a
+  reassembled node and names them, and a degraded run is none of them: it is a
+  contiguous slice of exactly one source line, which carve-js publishes and whose
+  span passes the slice rule. The runs are now placed from line geometry, the
+  same way the soft breaks already were, and only where the source proves the
+  mapping: one run per group line, each run's text a suffix of its source line
+  (which is what recovers the stripped container prefix), and all or nothing per
+  paragraph. A paragraph whose inline shape does not match its lines - smart
+  typography splitting a run, a trailing backslash making a hard break - places
+  nothing rather than guessing, because §4 rates a wrong span worse than an
+  absent one.
+
 - **The link and image title slots take a space** (carve-php#962).
   `link_title` is spelled `space` in `resources/grammar.ebnf` and
   `image_title = link_title` inherits it, so PART 7 applies: the slot sits after

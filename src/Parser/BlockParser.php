@@ -2324,9 +2324,10 @@ class BlockParser
         $paragraph = new Paragraph();
         // Pure line geometry - first line's start to last line's end - which is
         // what `stampBlockSpan` wants and what carve-js publishes for the same
-        // document. The inline text stays unplaced: these lines were rewritten
-        // on the way here, so an offset inside them would be a claim this
-        // cannot support, and §4 rates a wrong span worse than an absent one.
+        // document. The inline runs are placed separately, from the same line
+        // geometry and only where the source proves the mapping, because these
+        // lines may have been rewritten on the way here and §4 rates a wrong
+        // span worse than an absent one - see placeDegradedTextRuns.
         if ($firstIndex !== null && $lastIndex !== null && $lastIndex >= $firstIndex) {
             $previousLineMap = $this->currentLineMap;
             $this->currentLineMap = $lineMap;
@@ -2339,7 +2340,135 @@ class BlockParser
         }
         $this->inlineParser->parse($paragraph, $text);
         $this->placeDegradedSoftBreaks($paragraph, $group, $lineMap, $firstIndex);
+        $this->placeDegradedTextRuns($paragraph, $group, $lineMap, $firstIndex);
         $parent->appendChild($paragraph);
+    }
+
+    /**
+     * Place the text runs of a degraded paragraph, from line geometry.
+     *
+     * PART 12 §4 permits omitting `pos` on a REASSEMBLED node and names them; a
+     * degraded paragraph is none of them, and neither are its runs - each one
+     * is a contiguous slice of exactly one source line. carve-js publishes all
+     * of them and its spans pass the slice rule, so an honest span EXISTS here
+     * and the exemption does not apply (carve-php#965, carve#534). A node whose
+     * parent is placed and whose own span is missing is also the awkward case
+     * for a consumer: it can resolve an offset to the paragraph and then not
+     * descend into it.
+     *
+     * ONLY WHEN THE SOURCE PROVES THE MAPPING, on three counts, because these
+     * lines were rewritten on the way here - a container prefix was stripped -
+     * so nothing about a run's offset can be assumed:
+     *
+     * 1. The paragraph's DIRECT text children have to number exactly one per
+     *    group line, which is what makes the positional match meaningful.
+     *    Smart typography splitting a line into two runs fails here.
+     * 2. Each run's content has to be a SUFFIX of its source line. That
+     *    identifies the stripped prefix without having to know what it was, and
+     *    it fails closed when the inline parser rewrote the text rather than
+     *    copying it. A trailing backslash fails HERE and not at 1: it makes a
+     *    hard break, which leaves the run count intact and takes the backslash
+     *    out of the text, so the run is no longer a suffix of its line.
+     * 3. Every run has to pass before ANY is placed. A half-placed paragraph
+     *    would be a new shape for a consumer to handle, and PART 12 §4 rates a
+     *    wrong span worse than an absent one - so the group is all or nothing.
+     *
+     * Conditions 2 and 3 each reject a document the other two accept, and both
+     * are pinned. An earlier draft guarded the shape by requiring strictly
+     * alternating runs and SOFT breaks instead; that spelling made 2 and 3
+     * unreachable and no mutation of any of the three could be made to fail.
+     *
+     * CONDITION 1 IS A CONTROL, said out loud rather than counted: no document
+     * has been found that it alone rejects, because a line the inline parser
+     * splits into two runs makes neither of them a suffix of that line, so 2
+     * rejects it first. It is kept because without it an over-count would index
+     * runs against lines AFTER the group, where a suffix match could
+     * coincidentally succeed and publish a wrong span - which §4 rates worse
+     * than the absent one. The same holds for the empty-content guard in
+     * degradedRunSpan: no empty run is produced here, but `str_ends_with($line,
+     * '')` is vacuously true, so without it an empty run would take a
+     * zero-width span at an arbitrary line end.
+     *
+     * The spans this produces satisfy markup-carve/carve#913's containment
+     * invariant by construction: the paragraph's span runs from its first
+     * line's start to its last line's end, and every run lies inside one of
+     * those lines.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $paragraph
+     * @param array<string> $group
+     * @param array<int, int>|null $lineMap
+     * @param int|null $firstIndex
+     */
+    private function placeDegradedTextRuns(
+        Node $paragraph,
+        array $group,
+        ?array $lineMap,
+        ?int $firstIndex,
+    ): void {
+        if (!$this->trackPositions || $firstIndex === null) {
+            return;
+        }
+
+        /** @var array<int, \MarkupCarve\Carve\Node\Inline\Text> $runs */
+        $runs = [];
+        foreach ($paragraph->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $runs[] = $child;
+            }
+        }
+        if (count($runs) !== count($group)) {
+            return;
+        }
+
+        $previousLineMap = $this->currentLineMap;
+        $this->currentLineMap = $lineMap;
+        $spans = [];
+        foreach ($runs as $offset => $run) {
+            $spans[$offset] = $this->degradedRunSpan($firstIndex + $offset, $run->getContent());
+        }
+        $this->currentLineMap = $previousLineMap;
+
+        if (in_array(null, $spans, true)) {
+            return;
+        }
+
+        foreach ($runs as $offset => $run) {
+            $run->setPos($spans[$offset]);
+        }
+    }
+
+    /**
+     * The span of one degraded run: the tail of its source line that the run
+     * reproduces byte for byte.
+     *
+     * The run is a SUFFIX rather than the whole line because a container prefix
+     * was stripped from the front on the way in. Matching from the end recovers
+     * the offset without the caller having to know the prefix's width, and it
+     * refuses outright when the text is not a copy of the source at all.
+     */
+    private function degradedRunSpan(int $index, string $content): ?SourceSpan
+    {
+        if ($content === '') {
+            return null;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $start = $this->lineStartOffsets[$sourceLine] ?? null;
+        $line = $this->sourceLines[$sourceLine] ?? null;
+        if ($start === null || $line === null || !str_ends_with($line, $content)) {
+            return null;
+        }
+
+        $runStart = $start + strlen($line) - strlen($content);
+
+        return $this->positionIndex?->span(
+            $runStart,
+            $runStart + strlen($content),
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $start,
+            $start,
+        );
     }
 
     /**
