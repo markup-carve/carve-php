@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\NodeType;
+use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,6 +30,33 @@ class NodeTypeVocabularyTest extends TestCase
 
         $this->assertSame([], array_values(array_diff($spec, NodeType::allBlockTypes())), 'spec lists a block type NodeType cannot name');
         $this->assertSame([], array_values(array_diff(NodeType::allBlockTypes(), $spec)), 'NodeType names a block type the spec does not list');
+    }
+
+    /**
+     * Membership in the list is not the point - being deniable is.
+     *
+     * The two APIs on one profile answered opposite things (carve#771): a type
+     * outside `allBlockTypes()` fell through `isTypeAllowed()`'s
+     * "outside the vocabulary" branch and reported allowed, while
+     * `isNodeAllowed()` on the same profile reported denied. Comparing the two
+     * lists alone would not have caught that - `abbreviation_def` was already
+     * denied correctly on the node path while the string path said yes - so
+     * this asks the behavioral question of every type the spec lists.
+     */
+    public function testEverySpecListedBlockTypeCanActuallyBeDenied(): void
+    {
+        foreach (self::specVocabulary('Block') as $type) {
+            $profile = Profile::full()->denyBlock([$type]);
+            $this->assertFalse($profile->isTypeAllowed($type), "denyBlock([{$type}]) left isTypeAllowed({$type}) true");
+        }
+    }
+
+    public function testEverySpecListedInlineTypeCanActuallyBeDenied(): void
+    {
+        foreach (self::specVocabulary('Inline') as $type) {
+            $profile = Profile::full()->denyInline([$type]);
+            $this->assertFalse($profile->isTypeAllowed($type), "denyInline([{$type}]) left isTypeAllowed({$type}) true");
+        }
     }
 
     /**
