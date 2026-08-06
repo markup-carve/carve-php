@@ -223,6 +223,21 @@ class BlockParser
      */
     protected const DEFINITION_BODY_LINE_PREFIX = '/^: {2,}/';
 
+    /**
+     * The visual COLUMN a definition body's continuation line must reach.
+     *
+     * `definition_continuation = (space, space, space, inline_content, newline)`
+     * - the body's content column, `:` plus its two-space separator. The number
+     * is a column, not a character count: `definition_continuation` is a leading
+     * indentation run, which is the one position where a tab IS syntax, and PART
+     * 9 §24 C1 measures a leading run in columns with a tab advancing to the next
+     * multiple of 4 (markup-carve/carve#888 signoff `direction=27fba08112af`,
+     * reaffirmed by markup-carve/carve#901).
+     *
+     * @var int
+     */
+    protected const DEFINITION_CONTINUATION_COLUMN = 3;
+
     private int $nestingDepth = 0;
 
     protected InlineParser $inlineParser;
@@ -4980,9 +4995,15 @@ class BlockParser
 
                         continue;
                     }
-                    $indent = strlen($contLine) - strlen(ltrim($contLine, ' '));
+                    // COLUMNS, not literal spaces. This counted the leading
+                    // SPACES, so a tab never continued the body and a mixed run
+                    // continued it only once three spaces had appeared - one
+                    // reader of five spellings, and the only one that made the
+                    // answer depend on which character an editor inserted
+                    // (carve-php#964).
+                    $indent = IndentationHelper::getLeadingColumns($contLine);
                     // Form A: an indented continuation line (no intervening blank).
-                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= 3) {
+                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
                         $body[] = ltrim($contLine, " \t");
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
@@ -4998,8 +5019,14 @@ class BlockParser
                             $look++;
                         }
                         $after = $lines[$look] ?? null;
-                        $afterIndent = $after === null ? 0 : strlen($after) - strlen(ltrim($after, ' '));
-                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= 3) {
+                        // The SECOND spelling of the same rule, with a different
+                        // job: this one decides whether the blank is an internal
+                        // paragraph break or the end of the body. It has to read
+                        // the column the same way, or a tab-indented paragraph
+                        // is unreachable through a blank line while reachable
+                        // without one.
+                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after);
+                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= self::DEFINITION_CONTINUATION_COLUMN) {
                             for (; $i < $look; $i++) {
                                 $body[] = '';
                                 $bodyMap[] = $this->sourceLineFor($i);
