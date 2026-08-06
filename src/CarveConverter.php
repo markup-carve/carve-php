@@ -150,7 +150,16 @@ class CarveConverter
      */
     public static function carve(?BlockParser $parser = null): self
     {
-        return self::create($parser, new CarveRenderer());
+        // POSITIONS ON by default for this target. The writer emits collected
+        // definitions in the order the tree holds them (§7, PART 11 §6), and
+        // `orderCollectedDefinitions()` sorts by the spans §4 records - which
+        // are opt-in, so a parser without them left every definition reporting
+        // no span and the sort kept the collection order. Footnotes then came
+        // out before link definitions whatever the author wrote
+        // (carve-php#905).
+        //
+        // A caller that supplies its own parser keeps whatever it configured.
+        return self::create($parser ?? new BlockParser(false, false, false, true), new CarveRenderer());
     }
 
     /**
