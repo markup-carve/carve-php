@@ -9,6 +9,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The code fence, frontmatter and raw-block openers take a space in every
+  slot** (carve-php#951). PART 7 decides the terminal by position, so the code
+  fence's slot before its info string, `code_fence_info`'s own `"header"` and
+  `[label]` sub-slots, the frontmatter format slot and the raw block's
+  `=FORMAT` slot are all spelled `space`. Each admitted a different width, for
+  a different reason: the code fence read its slot with `trim()`, whose
+  charlist also holds a vertical tab; frontmatter spelled it `[ \t]*`; the raw
+  block used the regex `\s` class, which in PCRE is `[ \t\n\r\f\v]`, so a form
+  feed opened one too. ```` ```<TAB>js ````, ```` ``` js<TAB>"T" ````,
+  `---<TAB>yaml` and ```` ```<TAB>=html ```` are ordinary prose now. The two
+  code-fence metadata slots become run tests rather than first-character
+  tests, so ```` ``` js<SP><TAB>"T" ```` no longer keeps its title. Cardinality
+  is unchanged: a run of spaces still fills every one of these slots.
+
 - **Every whitespace slot on a colon-fence opener is a literal space**
   (carve-php#941, carve-php#948). PART 7 decides the terminal by position: a
   tab is syntax only in a line's leading indentation run, and every slot on

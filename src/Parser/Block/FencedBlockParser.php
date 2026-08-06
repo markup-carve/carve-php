@@ -38,7 +38,20 @@ class FencedBlockParser
         $fence = $matches[1];
         $fenceChar = $fence[0];
         $fenceLength = strlen($fence);
-        $info = trim($matches[2]);
+        // THE SLOT BEFORE THE INFO STRING IS A SPACE, U+0020 and nothing else.
+        // PART 7's MARKER SEPARATORS AND PADDING SLOTS decides the terminal by
+        // POSITION, not by role: a tab is syntax only in a line's leading
+        // indentation run, and this slot sits after the fence run. The grammar
+        // spells it `fenced_code_block = code_fence_open, [space],
+        // [code_fence_info], newline` and says so outright - the slot is
+        // PADDING, "but both roles take `space`".
+        //
+        // `trim()` was the trap. Its default charlist is `" \t\n\r\0\x0B"`, so
+        // it admitted a tab AND a vertical tab, the latter a character the
+        // grammar names nowhere at all. Trailing whitespace is not a slot in
+        // the grammar and stays as tolerant as it was, so only the leading side
+        // is narrowed (carve-php#951).
+        $info = rtrim(ltrim($matches[2], ' '));
 
         // Check for inline code on a single line: ``` foo ``` should be inline code
         if ($fenceChar === '`' && self::hasRunAtLeast($info, '`', $fenceLength)) {
@@ -76,13 +89,24 @@ class FencedBlockParser
                     return null;
                 }
                 $rest = substr($rest, strlen($language));
-                // Header/label must be whitespace-separated from the language
-                // (grammar: space+). A language glued to a quote or bracket
-                // (```php"x", ```php[x]) is not valid metadata -> fall back.
-                if ($rest !== '' && !ctype_space($rest[0])) {
+                // Header/label must be SPACE-separated from the language
+                // (grammar: `code_fence_info = ( language_info, [space+,
+                // quoted_title], [space+, label] ) | …`). A language glued to a
+                // quote or bracket (```php"x", ```php[x]) is not valid metadata
+                // -> fall back.
+                //
+                // A RUN, not a first character. `ctype_space($rest[0])` looked
+                // at one character and then `ltrim($rest)` stripped the rest
+                // with the default charlist, so a tab or a vertical tab in the
+                // run reached the metadata either way - and
+                // ```` ``` js<SP><TAB>"T" ```` still carried its title. Testing
+                // the first character for a space and consuming only spaces
+                // leaves any other whitespace in `$rest`, which every branch
+                // below then rejects (carve-php#951).
+                if ($rest !== '' && $rest[0] !== ' ') {
                     return null;
                 }
-                $rest = ltrim($rest);
+                $rest = ltrim($rest, ' ');
             }
             // optional quoted "header" (no escape inside, like the admonition title)
             if ($rest !== '' && $rest[0] === '"') {
@@ -91,13 +115,16 @@ class FencedBlockParser
                 }
                 $header = $im[1];
                 $rest = substr($rest, strlen($im[0]));
-                // A [label] must be whitespace-separated from the header
-                // (grammar: space+). A label glued to the header (```php "x"[y])
-                // is not valid metadata -> fall back.
-                if ($rest !== '' && !ctype_space($rest[0])) {
+                // A [label] must be SPACE-separated from the header (grammar:
+                // `[space+, label]`, in BOTH alternatives that carry it - one
+                // slot, one role, one terminal). A label glued to the header
+                // (```php "x"[y]) is not valid metadata -> fall back. Same
+                // run-versus-first-character correction as the slot above
+                // (carve-php#951).
+                if ($rest !== '' && $rest[0] !== ' ') {
                     return null;
                 }
-                $rest = ltrim($rest);
+                $rest = ltrim($rest, ' ');
             }
             // optional bracketed [label]; nothing else may follow
             if ($rest !== '') {
@@ -278,7 +305,19 @@ class FencedBlockParser
         // leading `=`, immediately followed by the format name, is the block
         // parallel of the inline raw `{=format}` attribute; the former
         // ```raw FORMAT keyword form was removed.
-        if (!preg_match('/^([`~]{3,})\s*=([a-zA-Z][\w-]*)\s*$/', $line, $matches)) {
+        //
+        // THE SLOT BEFORE THE `=` IS A SPACE, U+0020 and nothing else. This one
+        // is a marker SEPARATOR rather than padding - the `=` after it selects
+        // a raw block over a code block - but PART 7 gives it the same terminal
+        // regardless: `raw_block = code_fence_open, [space], "=", format_name,
+        // newline`, and the clause says so of this exact slot ("identical
+        // shape, different role, same terminal").
+        //
+        // PCRE's `\s` is `[ \t\n\r\f\v]`, which made this the widest of the
+        // three fence-adjacent slots in this engine: a tab, a form feed AND a
+        // vertical tab all opened a raw block. The trailing `\s*$` is not a
+        // slot in the grammar and stays as tolerant as it was (carve-php#951).
+        if (!preg_match('/^([`~]{3,}) *=([a-zA-Z][\w-]*)\s*$/', $line, $matches)) {
             return null;
         }
 
