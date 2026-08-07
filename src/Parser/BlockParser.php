@@ -2700,6 +2700,15 @@ class BlockParser
             // is what put the heading back on the `:` and on the `>`. What is
             // being measured is the PREFIX, so the tail is not evidence about
             // it in either direction.
+            //
+            // THE SUFFIX TEST IS DEFENSIVE AND SAYS SO. Its one remaining
+            // input is an item stream RE-JOINED into a single line, and every
+            // block built from such a line is a paragraph, which is placed by
+            // `foldedLinesSpan` and never reads this map - so removing the
+            // test changes no published span in the corpus. It is kept because
+            // what it prevents is the MAP recording a width the line does not
+            // support, and that is a property of the map rather than of which
+            // span helper currently happens to win.
             $trimmedSource = rtrim($source, " \t");
             $trimmedText = rtrim($text, " \t");
             $width = strlen($trimmedSource) - strlen($trimmedText);
