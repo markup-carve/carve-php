@@ -8,7 +8,7 @@ declare(strict_types=1);
  *
  * Usage:
  *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
- *   carve lint [files...]
+ *   carve lint [--platform <name>] [files...]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -175,11 +175,25 @@ function parseArgs(array $argv): array
  */
 function parseLintArgs(array $argv): array
 {
-    $options = ['command' => 'lint', 'help' => false, 'files' => []];
+    $options = ['command' => 'lint', 'help' => false, 'files' => [], 'platforms' => []];
 
-    foreach (array_slice($argv, 2) as $arg) {
+    $argc = count($argv);
+    for ($i = 2; $i < $argc; $i++) {
+        $arg = $argv[$i];
         if ($arg === '-h' || $arg === '--help') {
             $options['help'] = true;
+        } elseif ($arg === '--platform') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --platform requires a name\n");
+                exit(1);
+            }
+            $platform = $argv[++$i];
+            assertKnownLintPlatform($platform);
+            $options['platforms'][] = $platform;
+        } elseif (str_starts_with($arg, '--platform=')) {
+            $platform = substr($arg, strlen('--platform='));
+            assertKnownLintPlatform($platform);
+            $options['platforms'][] = $platform;
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "Error: Unknown lint option: $arg\n");
             exit(1);
@@ -189,6 +203,30 @@ function parseLintArgs(array $argv): array
     }
 
     return ['options' => $options, 'input' => null];
+}
+
+/**
+ * REFUSED here, while the programmatic API ignores an unknown name. The
+ * asymmetry is deliberate: a misspelt flag that silently reported nothing would
+ * be indistinguishable from a clean document, and an API caller has a type
+ * checker where a command line has none.
+ */
+function assertKnownLintPlatform(string $platform): void
+{
+    $known = MarkupCarve\Carve\Lint\MarkdownHabitLinter::knownPlatforms();
+    if (in_array($platform, $known, true)) {
+        return;
+    }
+
+    fwrite(
+        STDERR,
+        sprintf(
+            "Error: Unknown --platform value: %s (known: %s)\n",
+            $platform,
+            implode(', ', $known),
+        ),
+    );
+    exit(1);
 }
 
 function parseFmtArgs(array $argv): array
@@ -264,6 +302,9 @@ Rendering:
 
 Formatter:
   lint                Report Markdown habits that render as something else
+  lint --platform NAME
+                      Also report host autolinks a platform re-linkifies
+                      (repeatable; off unless named)
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
@@ -335,7 +376,7 @@ if (($options['command'] ?? null) === 'lint') {
 
     $found = 0;
     foreach ($sources as $name => $source) {
-        foreach ($linter->lint($source) as $warning) {
+        foreach ($linter->lint($source, ['platforms' => $options['platforms']]) as $warning) {
             $found++;
             fwrite(STDOUT, sprintf(
                 "%s:%d:%d %s %s\n",
