@@ -2691,8 +2691,14 @@ class BlockParser
             if ($source === null) {
                 continue;
             }
-            $width = strlen($source) - strlen($text);
-            if ($width > 0 && str_ends_with($source, $text)) {
+            // The TAIL IS TRIMMED on both sides of the comparison, because
+            // trailing whitespace on a content line is dropped before the line
+            // reaches here: `:  # h  ` arrives as `# h`, which is not a suffix
+            // of what it came from, and an untrimmed test declines the column
+            // and puts the heading back on the definition marker.
+            $trimmed = rtrim($source, " \t");
+            $width = strlen($trimmed) - strlen($text);
+            if ($width > 0 && str_ends_with($trimmed, $text)) {
                 $columns[$sourceLine] = $width;
             }
         }

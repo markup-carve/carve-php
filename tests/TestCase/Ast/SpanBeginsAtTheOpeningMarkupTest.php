@@ -69,6 +69,18 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
                 10,
                 '-',
             ],
+            // AND THE TAIL IS TRIMMED BEFORE THE COMPARISON. Trailing
+            // whitespace on a content line is dropped, so the built text is
+            // not a suffix of the line it came from either - and declining the
+            // column there puts the heading back on the definition marker.
+            // The trailing runs are written as `\x20` so no formatter can
+            // silently collapse the thing under test.
+            'heading in a description with a trailing run' => [
+                ":: t\x20\n:  # h\x20\x20\n",
+                'children.0.items.1.children.0',
+                9,
+                '#',
+            ],
             // CONTROLS. Nothing outside a container moves, and a list item
             // still opens at its own marker rather than at its content.
             'heading at top level' => ["# h\n", 'children.0', 0, '#'],
