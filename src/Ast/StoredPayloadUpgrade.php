@@ -118,6 +118,9 @@ final class StoredPayloadUpgrade
     private static function scan(array $node, array &$types, bool &$labels): void
     {
         $type = $node['type'] ?? null;
+        if (is_string($type) && AstCodec::isApplicationType($type)) {
+            return;
+        }
         if (is_string($type)) {
             if (isset(self::RETIRED_NODE_TYPES[$type])) {
                 $types[$type] = true;
@@ -326,6 +329,14 @@ final class StoredPayloadUpgrade
     private static function upgradeNodes(array $node): array
     {
         $type = $node['type'] ?? null;
+        if (is_string($type) && AstCodec::isApplicationType($type)) {
+            // An application node's state is an array this package did not
+            // shape, so a key spelled `type` or `id` in there is data rather
+            // than a node - and PART 12 §12(d) already leaves the subtree
+            // alone for exactly that reason. Register the class before running
+            // the migration, or its own fields are read as nodes.
+            return $node;
+        }
         if ($type === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
             // §7 renamed a footnote definition's `id` to `label`. Rebuilt rather
             // than assigned so the field keeps the slot `id` held, which is what

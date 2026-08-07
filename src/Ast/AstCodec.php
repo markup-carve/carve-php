@@ -223,6 +223,17 @@ class AstCodec
     private static ?array $classMap = null;
 
     /**
+     * The class map WITHOUT the application classes `register()` added.
+     *
+     * Kept apart because "is this node one of ours" is a different question
+     * from "can this node be built", and two passes over the encoded tree have
+     * to stop at a node that is not.
+     *
+     * @var array<string, class-string<\MarkupCarve\Carve\Node\Node>>|null
+     */
+    private static ?array $packageTypes = null;
+
+    /**
      * Node classes registered by consuming applications, which is how an app's
      * own node types become encodable without patching this package.
      *
@@ -317,6 +328,12 @@ class AstCodec
     private static function mapInternalTypes(array $encoded): array
     {
         $type = $encoded['type'] ?? null;
+        if (is_string($type) && self::isApplicationType($type)) {
+            // Its state is an array this package did not shape, so a key
+            // spelled `type` in there is the application's data. §12(d) leaves
+            // the subtree alone for the same reason.
+            return $encoded;
+        }
         if (is_string($type) && isset(self::NOT_ON_THE_WIRE[$type])) {
             $encoded['type'] = self::NOT_ON_THE_WIRE[$type];
         }
@@ -1117,6 +1134,29 @@ class AstCodec
         }
 
         return $this->decode($data);
+    }
+
+    /**
+     * Is `$type` an application's own node rather than one of this package's?
+     *
+     * PART 12 §12(d) already answers this question once: a type registered with
+     * `register()` and ITS SUBTREE are outside the schema by construction, so
+     * the rule has nothing to decide about them. The passes that rewrite an
+     * encoded tree - publishing an internal type under a vocabulary name, and
+     * the stored-payload upgrade - draw the same line, and for the same reason:
+     * an application node's state is an array whose keys this package did not
+     * choose, so a key spelled `type` there is data rather than a node
+     * (carve-php#1002).
+     *
+     * Asked by WIRE name, so a canonical spelling this engine maps to
+     * (`autolink` for a `link`, `admonition` for a typed `div`) is answered as
+     * the package type it is.
+     */
+    public static function isApplicationType(string $type): bool
+    {
+        self::classMap();
+
+        return !isset(self::$packageTypes[ReferenceShape::classTypeFor($type)]);
     }
 
     /**
@@ -2444,6 +2484,7 @@ class AstCodec
             $map[$instance->getType()] = $nodeClass;
         }
 
+        self::$packageTypes = $map;
         self::$classMap = $map + self::$registered;
 
         return self::$classMap;
