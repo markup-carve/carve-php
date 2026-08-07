@@ -9,6 +9,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`HtmlRenderer::getSmartTypography()`** (carve-php#1033). The setter's
+  counterpart, so an extension that derives its own display text at render time -
+  a table-of-contents entry, for one - can honor the mode the renderer was
+  configured with instead of materializing glyphs of its own. See
+  [`README.md`](README.md).
+
 - **Two platform autolink lint rules, off by default** (carve-php#1005,
   specified in markup-carve/carve#959, reference implementation
   markup-carve/carve-js#856). `MarkdownHabitLinter::lint()` takes a second
@@ -26,6 +32,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`docs/lint.md`](docs/lint.md).
 
 ### Fixed
+
+- **A numbered cross-reference label and a table-of-contents entry keep the
+  target heading's source run** (carve-php#1033, specified in
+  markup-carve/carve#957). PART 9R R4 binds every consumer that derives display
+  text from a heading, not the cross-reference alone. With smart typography in
+  `Source` mode, `HeadingNumbersExtension` rendered
+  `Section 1 - The "quoted" - heading` with resolved glyphs one line under a
+  heading showing the run the author typed, and both table-of-contents
+  extensions did the same. The numbered label now splices the heading's inline
+  NODES, because that transform runs before any renderer and a string would
+  answer the mode question permanently; the two TOC extensions ask the tracker
+  with the renderer's own mode, because they build their text at render time.
+  Default (glyph) output is unchanged, the label word, the number and the
+  separator around them are still the extension's own, and a heading's markup is
+  still stripped rather than spliced into the label.
 
 - **A fence opened on a `:  ` definition-body marker line no longer swallows
   lines below the body's content column** (carve-php#1031, specified in

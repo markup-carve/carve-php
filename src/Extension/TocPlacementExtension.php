@@ -158,13 +158,20 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             if ($level < $minLevel || $level > $maxLevel) {
                 continue;
             }
+            $id = $tracker->getIdForHeading($heading);
             $entries[] = [
                 'level' => $level,
-                // getPlainText excludes the presentational section-number span
-                // but keeps the space before the title; trim to the bare title
-                // (matches carve-js / carve-rs).
-                'text' => trim($this->stripBidi($tracker->getPlainText($heading))),
-                'id' => $tracker->getIdForHeading($heading),
+                // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R
+                // R4 reaches it (markup-carve/carve#957) and the
+                // glyph-or-source-run decision stays the RENDERER's. Asked with
+                // the renderer's own mode, this entry and the heading it points
+                // at read the same way.
+                //
+                // The tracker's label excludes the presentational section-number
+                // span but keeps the space before the title; trim to the bare
+                // title (matches carve-js / carve-rs).
+                'text' => trim($this->stripBidi($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '')),
+                'id' => $id,
             ];
         }
 

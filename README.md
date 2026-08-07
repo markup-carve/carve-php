@@ -81,7 +81,10 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
 - `setSmartTypography()`: smart typography renders as the resolved glyph
   (`SmartTypographyMode::Glyph`, the default) or as the author's source run
   (`::Source`). Source mode suits output a machine reads, where `...` and `--`
-  should stay what the author typed.
+  should stay what the author typed. `HtmlRenderer` also exposes the mode back
+  through `getSmartTypography()`, which an extension that builds its own display
+  text from a heading - a table of contents, say - reads so its entries and the
+  headings they point at do not disagree.
 - `setAttributeFallback()`: Markdown has no block container and no attribute
   syntax on an image, so a `::: class` div and an `![alt](src){.class}` lose
   their `{#id .class data-*}` by default (`AttributeFallback::Drop`), which is

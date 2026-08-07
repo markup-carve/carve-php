@@ -1938,6 +1938,19 @@ class HtmlRenderer implements RendererInterface
         return $this;
     }
 
+    /**
+     * The mode a consumer that derives its own display text has to honor.
+     *
+     * PART 9R R4 makes glyph-or-source-run a decision the RENDERER owns, so a
+     * table-of-contents entry built at render time asks the tracker with this
+     * rather than materializing glyphs of its own and diverging from the heading
+     * one line above it (markup-carve/carve#957).
+     */
+    public function getSmartTypography(): SmartTypographyMode
+    {
+        return $this->smartTypography;
+    }
+
     protected function renderRawText(RawText $node): string
     {
         return $this->escape($node->getContent());

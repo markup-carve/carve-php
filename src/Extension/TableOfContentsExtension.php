@@ -87,9 +87,10 @@ class TableOfContentsExtension implements ResettableExtensionInterface
         }
 
         $tracker = $converter->getHeadingIdTracker();
+        $renderer = $converter->getRenderer();
 
         // Hook into heading rendering to collect TOC entries
-        $converter->on('render.heading', function ($event) use ($tracker): void {
+        $converter->on('render.heading', function ($event) use ($tracker, $renderer): void {
             $node = $event->getNode();
             if (!$node instanceof Heading) {
                 return;
@@ -101,11 +102,20 @@ class TableOfContentsExtension implements ResettableExtensionInterface
                 return;
             }
 
-            // getPlainText excludes the presentational section-number span but
-            // leaves the space that preceded the title, so a numbered heading
-            // yields " Alpha"; trim it to the bare title (matches carve-js/rs).
-            $text = trim($tracker->getPlainText($node));
             $id = $tracker->getIdForHeading($node);
+            // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R R4
+            // reaches it (markup-carve/carve#957): it is built from the heading's
+            // inline nodes and the glyph-or-source-run decision belongs to the
+            // RENDERER. Asked here with the renderer's own mode, the entry and
+            // the heading it points at read the same way; composed as glyphs of
+            // its own, a TOC in source mode showed curly quotes one line above a
+            // heading showing the typed ones.
+            //
+            // The tracker's label excludes the presentational section-number
+            // span but leaves the space that preceded the title, so a numbered
+            // heading yields " Alpha"; trim it to the bare title (matches
+            // carve-js/rs).
+            $text = trim($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '');
 
             $this->toc[] = [
                 'level' => $level,
