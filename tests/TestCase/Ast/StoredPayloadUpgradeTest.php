@@ -531,6 +531,19 @@ class StoredPayloadUpgradeTest extends TestCase
     }
 
     /**
+     * A top-level JSON ARRAY is not an object either, and PHP reads both as an
+     * array - so the guard has to ask which one it was, or a store sweep passes
+     * a malformed record through as if it had been converted.
+     */
+    public function testATopLevelJsonArrayIsRefusedWithTheTypedError(): void
+    {
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('got a JSON array');
+
+        StoredPayloadUpgrade::upgradeJson('[{"type":"document"}]');
+    }
+
+    /**
      * A subtree handed over on its own still gets the node-level rewrites; only
      * the root ever carried the retired FIELDS.
      */

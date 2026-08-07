@@ -217,10 +217,13 @@ final class StoredPayloadUpgrade
         } catch (JsonException $e) {
             throw new AstDecodeException('The stored payload is not valid JSON: ' . $e->getMessage(), 0, $e);
         }
-        if (!is_array($decoded)) {
+        // A LIST IS NOT AN OBJECT, and PHP reads both as an array. `[]` alone
+        // stays acceptable: it is what an empty JSON object decodes to as well,
+        // and the decoder refuses it as a root missing `type` either way.
+        if (!is_array($decoded) || (array_is_list($decoded) && $decoded !== [])) {
             throw new AstDecodeException(sprintf(
                 'The stored payload must be a JSON object; got %s.',
-                get_debug_type($decoded),
+                is_array($decoded) ? 'a JSON array' : get_debug_type($decoded),
             ));
         }
 
