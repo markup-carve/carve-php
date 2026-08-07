@@ -9,6 +9,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block-attribute block spans any number of lines** (carve-php#954). Both
+  normative files admit one line break per attribute separator with no limit -
+  `attr_separator = (whitespace | continuation), opt_ws` in
+  `resources/grammar.ebnf`, `battrSp = " " | "\t" | "\n"` under a star in
+  `resources/carve-core.ohm` - and carve-js, carve-rs and the executable spec
+  all read `{.a` + `.b` + `.c}` as one block. This engine capped it at a single
+  break, because the continuation branch required the line to be INDENTED, which
+  is not what `continuation` says: the indent lives in the optional `opt_ws`. A
+  two-line block worked only because its second line met the CLOSING branch, so
+  the cap became visible from the third line onward, and `{` + `.a` + `}` did
+  not work at all. Two things move with it, both inside the same production: a
+  blank line now ends the attempt as PART 15 A5 says (a line of spaces or tabs
+  IS a blank line, and used to be accepted as interior padding), and a
+  continuation line that is not a valid attribute list on its own ends it too -
+  a line break falls between attributes and never inside one, so `{.a` +
+  `# heading` + `.b}` is literal text. Inside a QUOTED value a line break is
+  part of the value, so its lines are exempt from that rule and a value spanning
+  several lines parses exactly as it did - for single-quoted values as well as
+  double-quoted ones, and across a backslash-escaped quote.
+
 - **The paragraph a capped container degrades to places its text runs**
   (carve-php#965). carve-php#946 placed that paragraph and its soft breaks; its
   `text` runs were still published with no `pos`, which was the whole of this
