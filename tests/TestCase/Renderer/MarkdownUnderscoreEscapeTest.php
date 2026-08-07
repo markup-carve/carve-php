@@ -223,6 +223,32 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
     }
 
+    /**
+     * A definition anywhere in the document is what a shortcut reference
+     * resolves against, and no block can see it from where it sits - so one
+     * definition keeps every bracket escape in the document, including the
+     * subscript in a paragraph that has nothing to do with it.
+     */
+    public function testADefinitionInTheDocumentKeepsEveryBracketEscape(): void
+    {
+        $this->assertSame(
+            "Text with array\\[0\\].\n\n[^a]: the note",
+            trim(CarveConverter::markdown()->convert("Text with array[0].\n\n[^a]: the note\n")),
+        );
+    }
+
+    /**
+     * Blocks without a bracket are passed over untouched, and each block is
+     * judged on its own.
+     */
+    public function testOnlyTheBlocksHoldingBracketsAreConsidered(): void
+    {
+        $this->assertSame(
+            "text\n\narray[0] here\n\nplain paragraph",
+            trim(CarveConverter::markdown()->convert("text\n\narray[0] here\n\nplain paragraph\n")),
+        );
+    }
+
     public function testCodeSpansAreUntouched(): void
     {
         $this->assertSame('`code_span`', trim(CarveConverter::markdown()->convert('`code_span`')));
