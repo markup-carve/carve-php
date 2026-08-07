@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-autolink-body-admits-non-ascii-and-excludes-format-characters',
         'a-real-div-in-a-container-and-the-flush-left-line-after-it',
         'the-flush-left-line-after-a-container-a-quoted-line-opened',
         'a-definition-body-continuation-indented-past-its-column-is-lazy-text',

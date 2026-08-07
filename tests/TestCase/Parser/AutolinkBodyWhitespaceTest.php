@@ -196,15 +196,18 @@ class AutolinkBodyWhitespaceTest extends TestCase
             'a plain ascii autolink still links' => ['<https://e.com/>', true],
             'whitespace outside the brackets does not reach the body'
                 => ["<https://e.com/>\u{00A0}x", true],
-            'zero-width space is not whitespace (carve#860, open)'
-                => ["<https://e\u{200B}.com/>", true],
-            'byte order mark is not whitespace (carve#860, open)'
-                => ["<https://e\u{FEFF}.com/>", true],
-            'an idn host (carve#860, open)' => ["<https://\u{4F8B}.jp/>", true],
-            'mongolian vowel separator is not White_Space (carve#860, open)'
-                => ["<https://e\u{180E}.com/>", true],
-            'word joiner is not whitespace (carve#860, open)'
-                => ["<https://e\u{2060}.com/>", true],
+            // RULED since this file was written (markup-carve/carve#844,
+            // markup-carve/carve#860): a format character is not a `url_char`,
+            // and it is excluded as Cf rather than as whitespace - which is why
+            // the four below sit here as CONTROLS for the whitespace rule and
+            // are answered by the neighbouring one. The IDN host is the other
+            // half of the same clause and links.
+            'zero-width space is a format character' => ["<https://e\u{200B}.com/>", false],
+            'byte order mark is a format character' => ["<https://e\u{FEFF}.com/>", false],
+            'an idn host is a run of url_chars' => ["<https://\u{4F8B}.jp/>", true],
+            'mongolian vowel separator is a format character'
+                => ["<https://e\u{180E}.com/>", false],
+            'word joiner is a format character' => ["<https://e\u{2060}.com/>", false],
             'an ascii space already broke the body' => ['<https://e .com/>', false],
         ];
     }
@@ -224,10 +227,11 @@ class AutolinkBodyWhitespaceTest extends TestCase
     }
 
     /**
-     * A subject that is not valid UTF-8 makes the Unicode pattern return false
-     * rather than 0. Reading that as "whitespace found" would refuse an
-     * autolink over a malformed-input case no clause covers, so the byte
-     * pattern's verdict stands and the run still links.
+     * A subject that is not valid UTF-8 makes the Unicode pattern return FALSE
+     * rather than 0. Reading that as a refusal would decide a malformed-input
+     * case no clause covers - a rule stated in Unicode general categories says
+     * nothing about bytes that are not characters - so the byte reading of the
+     * same production stands and the run still links.
      */
     public function testAMalformedByteSequenceIsJudgedByTheBytePatternAlone(): void
     {

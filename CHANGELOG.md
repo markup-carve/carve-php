@@ -27,6 +27,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An autolink body excludes format and control characters** (carve-php#983,
+  ruled on markup-carve/carve#844 and markup-carve/carve#860). PART 3's
+  `url_char` now admits, outside ASCII, any character that is not whitespace,
+  not a format character (General_Category Cf) and not a control character (Cc).
+  This engine already linked an internationalized domain and had the first half;
+  it also linked a host carrying a byte order mark, a zero-width space, a word
+  joiner or a U+0001, which the second half excludes. A format character is
+  invisible by definition, so a host carrying one renders as the host without it
+  and links somewhere else - a spoofing surface rather than an authoring
+  convenience. `<https://e` + U+FEFF + `.com/>` is literal text now. The ASCII
+  half of the production is written as the enumeration the grammar gives rather
+  than as a negated class, which is what excludes the control characters; the
+  nine punctuation exclusions are unchanged, `link_destination` is a different
+  production and is unchanged, and `scheme` stays ASCII.
+
+### Fixed
+
 - **A span begins at the construct's opening markup** (carve-php#978, ruled on
   markup-carve/carve#913). PART 12 §4 puts the markup that OPENS a construct
   inside its `pos`, so a span round-trips to the source that produced it.
