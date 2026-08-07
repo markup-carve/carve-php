@@ -143,29 +143,28 @@ class MarkerInsideAnOpenFenceIsCodeTextTest extends TestCase
     }
 
     /**
-     * AND THE DIV SHAPE IS LEFT EXACTLY AS IT WAS, which is asserted rather
-     * than assumed: widening the guard to `inDiv` as well is a mutation that
-     * CHANGES this document, so it is not an equivalent one and the choice of
-     * `inFence` alone is load-bearing.
+     * THE RULING ARRIVED, so this case records the answer it moved to.
      *
-     * A marker at the content column below a div opener that is not on the
-     * marker line severs the div here - an empty aside, the list beside it,
-     * and a spurious empty `div` for the closer. That looks wrong, and it is
-     * NOT this change's to settle: carve-js publishes the same shape for the
-     * same input, so it is a question for markup-carve/carve rather than a
-     * defect in one engine, and it is filed as such. The fence rows are what
-     * corpus 278 pins.
+     * This used to assert the severed shape - an empty aside, the list beside
+     * it, and a spurious empty `div` for the closer - and said in as many
+     * words that it recorded today's answer rather than a belief that it was
+     * right, to be deleted if a ruling moved it. Corpus category 279 is that
+     * ruling: §24 S1/S2 place a line by the column it reaches and never by its
+     * first character, so a marker at the body's own column is inside the open
+     * container and does not end the ITEM.
      *
-     * If a ruling later moves this shape, this case is the one to delete - it
-     * records today's answer and the reason it was not changed here, not a
-     * belief that it is right.
+     * Whether it then opens a list is the BODY'S question, which is the one
+     * the case above asks: here nothing is open when `- x` arrives, so the div
+     * body opens a list, and the div stays whole around it.
      */
-    public function testTheDivShapeIsUnchangedByTheFenceGuard(): void
+    public function testAMarkerAtTheBodyColumnNoLongerSeversTheDiv(): void
     {
         $html = $this->html("- a\n  ::: note\n  - x\n  :::\n");
 
         $this->assertStringContainsString('<li>x</li>', $html);
-        $this->assertStringContainsString('<div>', $html);
+        // ONE aside, and no spurious empty `div` for the closer beside it.
+        $this->assertSame(1, substr_count($html, '<aside'));
+        $this->assertStringNotContainsString('<div>', $html);
     }
 
     /**

@@ -258,6 +258,22 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of into a scheme. An ampersand that opens nothing, such as the `&` in
   a query string, is untouched. Percent-encoding the ampersand would have
   corrupted every query string and was not done.
+- **A boundary line inside an open fence no longer ends the container**
+  (markup-carve/carve#983 corpus category 279, markup-carve/carve#985,
+  carve-php#1049). A `+` continuation marker attaches ONE block, and a fenced
+  block ends at its closer - so a blank line, a sibling list marker, a dedent, a
+  quote line or the next definition written between an opener and its closer is
+  fence content and ends nothing. Six `+` collectors consulted no fence state at
+  all (a seventh consulted only the code fence), so a code, `:::` or `%%%` fence
+  with a blank in its body was cut in two in every container that can hold one:
+  a list item, a block quote, a footnote body and a `dd`. The opener was left an
+  empty block, the tail escaped to document level, and a code fence's closer
+  came back as an empty inline code span. A list item's INDENTED body severed on
+  the same reading: a list marker at the body's own column split a `:::` div
+  around a nested list and published a spurious empty `div`, and a blank inside
+  the item's own `%%%` body ended the item, leaked the span out as two
+  paragraphs and loosened the item that held it. An UNTERMINATED fence is
+  unchanged and still ends at the boundary.
 
 - **Whitespace is a space or a tab, in every construct** (carve-php#1041, PART 7,
   markup-carve/carve#963, markup-carve/carve#977). Carve has exactly four
