@@ -652,7 +652,20 @@ class AnsiRenderer implements RendererInterface
             $lang = $this->stripControls($lang);
         }
 
-        $lines = explode("\n", rtrim($content));
+        // Drop the content's TERMINATOR only. A bare `rtrim` also takes the
+        // trailing space on the block's last line and every blank line at its
+        // end - both of which are VERBATIM CONTENT that this engine's HTML,
+        // plain-text, Markdown and canonical targets all keep, and that the
+        // corpus HTML pins (`<pre><code>abc \n</code></pre>`). Only the ANSI
+        // target dropped them, so the same code block rendered two ways out of
+        // one engine (corpus 268-trailing-whitespace-on-a-content-line-is-
+        // dropped-9).
+        // `explode` always returns at least one element, so the only question
+        // is whether the LAST one is the empty string the terminator leaves.
+        $lines = explode("\n", $content);
+        if (end($lines) === '') {
+            array_pop($lines);
+        }
         $output = '';
 
         // Header with language
@@ -849,10 +862,13 @@ class AnsiRenderer implements RendererInterface
                     $lastGenuine = $colIndex;
                 }
             }
-            // Drop only SYNTHETIC trailing padding (columns a short/rowspan row
-            // lacks), but KEEP a genuine trailing empty cell so the box stays
-            // well-formed (`| x || ` -> `│ x │   │`). Matches carve-rs.
-            $cells = array_slice($cells, 0, $lastGenuine + 1);
+            // Drop only SYNTHETIC trailing padding - columns this row does not
+            // reach - but KEEP every column the row AUTHORED, so the box stays
+            // well-formed (`| x || ` -> `│ x │   │`). The `<` and `^` markers are
+            // cells the writer typed, so a row whose last column is covered by a
+            // span is not a short row; cutting it back to `$lastGenuine` drew a
+            // row narrower than the border above and below it. Matches carve-rs.
+            $cells = array_slice($cells, 0, max($lastGenuine + 1, $row['authoredWidth']));
             $rows[] = $cells;
         }
 

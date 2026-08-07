@@ -17,7 +17,7 @@ final class TableLayout
      * @param \MarkupCarve\Carve\Node\Block\Table $table
      * @param callable $renderCell
      *
-     * @return array{rows: array<int, array{isHeader: bool, cells: array<int, mixed|null>}>, columnCount: int}
+     * @return array{rows: array<int, array{isHeader: bool, cells: array<int, mixed|null>, authoredWidth: int}>, columnCount: int}
      */
     public static function expand(Table $table, callable $renderCell): array
     {
@@ -50,6 +50,16 @@ final class TableLayout
             $rows[] = [
                 'isHeader' => $tableRows[$index]->isHeader(),
                 'cells' => $cells,
+                // How many columns THIS ROW authored, before the padding below.
+                // A column a span CLAIMED is authored - the `<` or `^` marker is
+                // a cell the writer typed - while padding is a column the row
+                // does not reach at all. Both arrive as `null`, so a renderer
+                // that trims trailing `null`s cannot tell them apart, and it
+                // truncated a row whose LAST column was covered by a span: the
+                // text targets wrote `c` where the row spans two columns, and
+                // the ANSI target drew a row narrower than its own box border
+                // (corpus 256-table-cell-padding-must-be-a-space-21).
+                'authoredWidth' => count($cells),
             ];
         }
 
