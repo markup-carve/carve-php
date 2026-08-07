@@ -415,10 +415,16 @@ class ReferenceDefinitionExtractor
         [$url, $attrsToUse] = $this->splitTrailingAttributes($url);
         $title = null;
 
+        // EXACTLY ONE SPACE before the quoted title. This is `link_title`, the
+        // same production the inline form reads, and PART 7's cardinality
+        // paragraph names it among the four slots spelled `space` (carve#912).
+        // The slot read a RUN of Unicode whitespace, so `[a]: /u<SP><SP>"T"`
+        // and `[a]: /u<TAB>"T"` both carried a title. Neither is a title now:
+        // the slot does not match, and what is left is not the definition's.
         if (
             preg_match(
                 '/^([^\p{Z}\x{0009}-\x{000D}\x{0085}]+)'
-                . '(?:[\p{Z}\x{0009}-\x{000D}\x{0085}]+'
+                . '(?: '
                 . '(?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\'))?/u',
                 $url,
                 $tm,
@@ -463,8 +469,16 @@ class ReferenceDefinitionExtractor
             if ($tail[$i] !== '{' || $i === 0) {
                 continue;
             }
-            $before = $tail[$i - 1];
-            if ($before !== ' ' && $before !== "\t") {
+            // EXACTLY ONE SPACE, and it is the fourth of the four slots PART 7
+            // names as spelled `space` (carve#912). The slot admitted a tab and
+            // a run of either character, so `[a]: /u<SP><SP>{.c}` attributed the
+            // definition. It does not now: the braces are not the definition's,
+            // and the destination's own whitespace test then keeps them out of
+            // the href too.
+            if ($tail[$i - 1] !== ' ') {
+                continue;
+            }
+            if ($i >= 2 && ($tail[$i - 2] === ' ' || $tail[$i - 2] === "\t")) {
                 continue;
             }
 

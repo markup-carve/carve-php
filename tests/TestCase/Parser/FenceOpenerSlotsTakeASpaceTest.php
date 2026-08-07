@@ -101,12 +101,15 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     }
 
     /**
-     * A space, and a run of spaces, still fills each of those six slots.
+     * A space still fills each of those six slots, and a RUN fills only some.
      *
-     * The control per slot: narrowing the class must not close the door on the
-     * spelling the grammar does admit. Cardinality is a separate question from
-     * the terminal - the clause says so in as many words - so a run of spaces
-     * stays as tolerant as it was.
+     * The control per slot: narrowing must not close the door on the spelling
+     * the grammar does admit. Cardinality is decided per PRODUCTION, and the
+     * two answers sit one token apart on this very line. The fence's OPENER
+     * slot is spelled `[space]` and takes exactly one (carve#912), so its run
+     * row moved to {@see self::runFilledCodeFenceOpenerProvider()};
+     * `code_fence_info`'s own `"header"` and `[label]` slots are spelled
+     * `space+` and keep their runs, which is why they are still here.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -114,7 +117,6 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     {
         return [
             'info slot, one space' => ['``` js', 'language-js'],
-            'info slot, a run of spaces' => ['```   js', 'language-js'],
             'info slot, no space at all (canonical)' => ['```js', 'language-js'],
             'header slot after a language, one space' => ['``` js "T"', 'title="T"'],
             'header slot after a language, a run of spaces' => ['``` js   "T"', 'title="T"'],
@@ -198,11 +200,58 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
 
     public function testASpaceStillFillsTheFrontmatterFormatSlot(): void
     {
-        foreach (['--- yaml', '---   yaml', '---yaml'] as $opener) {
+        foreach (['--- yaml', '---yaml'] as $opener) {
             $out = $this->html("{$opener}\na: 1\n---\nx\n");
 
             $this->assertStringNotContainsString('a: 1', $out, $opener);
             $this->assertSame("<p>x</p>\n", $out, $opener);
+        }
+    }
+
+    /**
+     * A RUN of spaces does not fill the two slots spelled `[space]`.
+     *
+     * Cardinality is per PRODUCTION, and this class now pins both answers. The
+     * code fence's OPENER slot and `frontmatter_open`'s are two of the four
+     * PART 7 names as exactly one space (carve#912); `code_fence_info`'s own
+     * `"header"` and `[label]` slots are spelled `space+` and keep their runs,
+     * which {@see self::testASpaceStillFillsEveryCodeFenceSlot()} still asserts
+     * one token away on the same line.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function runFilledOpenerSlotProvider(): array
+    {
+        return [
+            'code fence opener slot, two spaces' => ['```  js', 'language-js'],
+            'code fence opener slot, three spaces' => ['```   js', 'language-js'],
+        ];
+    }
+
+    #[DataProvider('runFilledOpenerSlotProvider')]
+    public function testARunDoesNotFillTheCodeFenceOpenerSlot(string $opener, string $marker): void
+    {
+        // The INVALID-FENCE FALLBACK, which is what PART 7 promises when a
+        // padding slot leaves a token unconsumed: `language_info` cannot match a
+        // space, the opener matches no shape, and the run becomes an inline
+        // verbatim span in a paragraph. Asserting only "no `language-js`" would
+        // also pass for a fence that opened and dropped its info string.
+        $out = $this->html("{$opener}\nx\n```\n");
+
+        $this->assertStringNotContainsString('<pre', $out);
+        $this->assertStringNotContainsString($marker, $out);
+        $this->assertStringContainsString('<p><code>', $out);
+    }
+
+    public function testARunDoesNotFillTheFrontmatterFormatSlot(): void
+    {
+        foreach (['---  yaml', '---   yaml'] as $opener) {
+            // The body is the tell, as in the tab rows: frontmatter is stripped
+            // from the rendered output, so metadata still being visible is the
+            // observable form of "no frontmatter opened".
+            $out = $this->html("{$opener}\na: 1\n---\nx\n");
+
+            $this->assertStringContainsString('a: 1', $out, $opener);
         }
     }
 
@@ -236,7 +285,8 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         // what this file proves, not a tidy-up.
         $this->assertCount(5, self::NON_SPACE_RUNS);
         $this->assertCount(30, self::codeFenceOpenerProvider());
-        $this->assertCount(10, self::spacedCodeFenceOpenerProvider());
+        $this->assertCount(9, self::spacedCodeFenceOpenerProvider());
+        $this->assertCount(2, self::runFilledOpenerSlotProvider());
         $this->assertCount(5, self::frontmatterOpenerProvider());
         $this->assertCount(5, self::rawBlockOpenerProvider());
 

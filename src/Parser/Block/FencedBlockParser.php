@@ -51,7 +51,18 @@ class FencedBlockParser
         // grammar names nowhere at all. Trailing whitespace is not a slot in
         // the grammar and stays as tolerant as it was, so only the leading side
         // is narrowed (carve-php#951).
-        $info = rtrim(ltrim($matches[2], ' '));
+        //
+        // EXACTLY ONE, and `ltrim($matches[2], ' ')` was the second trap: it
+        // took the whole run, so ```` ```<SP><SP>php ```` still opened a php
+        // block. PART 7's cardinality paragraph settles it - the slot is
+        // spelled `[space]`, one character, and a second space is not padding
+        // (carve#912). What is left over then reaches the info string, where
+        // `language_info` cannot match a space, and the opener falls back to an
+        // inline verbatim span in a paragraph.
+        $info = rtrim($matches[2]);
+        if (($info[0] ?? '') === ' ') {
+            $info = substr($info, 1);
+        }
 
         // Check for inline code on a single line: ``` foo ``` should be inline code
         if ($fenceChar === '`' && self::hasRunAtLeast($info, '`', $fenceLength)) {

@@ -46,6 +46,18 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-blank-line-holds-spaces-and-tabs-and-nothing-else',
+        'a-code-fence-opener-takes-exactly-one-space',
+        'a-frontmatter-opener-takes-exactly-one-space',
+        'a-link-title-takes-exactly-one-space',
+        'a-reference-definition-s-metadata-slots-take-exactly-one-space',
+        'a-tab-continues-a-list-item-just-as-two-spaces-do',
+        'an-absorbed-colon-fence-leaves-a-block-quote-s-paragraph-open',
+        'code-fence-metadata-slots-must-be-a-space-too',
+        'colon-fence-metadata-slots-must-be-a-space-too',
+        'colon-fence-separator-must-be-a-space',
+        'link-and-image-title-slots-must-be-a-space',
+        'table-cell-padding-must-be-a-space',
         'a-backslash-in-a-link-destination-is-a-literal-character',
         'a-bare-attribute-block-on-its-own-line-is-literal',
         'a-continuation-row-needs-a-body-row',

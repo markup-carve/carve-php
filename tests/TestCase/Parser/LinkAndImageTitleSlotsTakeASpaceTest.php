@@ -39,20 +39,19 @@ use PHPUnit\Framework\TestCase;
  * and U+2000 out. That is why the vertical tab, the form feed and the line
  * break each get a row of their own rather than riding along with the tab.
  *
- * OUT OF SCOPE, DELIBERATELY. `src/Parser/ReferenceDefinitionExtractor.php`
- * reads a reference definition's title through a different expression and is
- * markup-carve/carve#911, which is still deciding what that line does on a
- * failed match. It is untouched here.
+ * CARDINALITY IS NOW IN SCOPE, and the two-space rows that used to be controls
+ * have changed sides. markup-carve/carve#912 ruled that this slot means exactly
+ * ONE space and that all four artifacts accepting a run are lax; that ruling
+ * covers four slots at once - this one, the reference-definition attributes
+ * slot, and the code-fence and frontmatter openers - and lands corpus categories
+ * 262 to 265. The run rows are asserted as WHOLE renderings in
+ * {@see self::testARunDoesNotFillTheTitleSlot()}, so they pin the prose fallback
+ * rather than merely the absence of a title.
  *
- * CARDINALITY IS ALSO OUT OF SCOPE, and the two-space controls below are
- * deliberate rather than incidental. markup-carve/carve#912 ruled that this
- * slot means exactly ONE space and that all four artifacts accepting a run are
- * lax; that ruling covers four slots at once - this one, the
- * reference-definition attributes slot, and the code-fence and frontmatter
- * openers - and lands its own corpus (categories 262 to 265). Shipping one
- * quarter of it inside a fix for the terminal is the partial-fix hazard this
- * repository keeps cataloguing, so the run of spaces still works here and the
- * controls say so out loud.
+ * The reference definition's own title slot is the same production read through
+ * a different expression in `src/Parser/ReferenceDefinitionExtractor.php`, and
+ * it is narrowed alongside this one - see
+ * {@see \MarkupCarve\Carve\Test\TestCase\Parser\ReferenceDefinitionMetadataSlotsTakeOneSpaceTest}.
  */
 class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
 {
@@ -130,9 +129,7 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     {
         return [
             'link, one space' => ['[t](/u "T")', 'title="T"'],
-            'link, a run of spaces' => ['[t](/u  "T")', 'title="T"'],
             'image, one space' => ['![a](/p.png "T")', 'title="T"'],
-            'image, a run of spaces' => ['![a](/p.png  "T")', 'title="T"'],
             'link, single quotes, one space' => ["[t](/u 'T')", 'title="T"'],
             'link, parentheses, one space' => ['[t](/u (T))', 'title="T"'],
             'link with attributes, one space' => ['[t](/u "T"){.x}', 'title="T"'],
@@ -154,6 +151,42 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     public function testASpaceStillFillsTheTitleSlot(string $source, string $marker): void
     {
         $this->assertStringContainsString($marker, $this->html($source));
+    }
+
+    /**
+     * A RUN of spaces does not fill the slot either.
+     *
+     * `link_title = space, ('"' …)` is one of the four slots PART 7 holds to
+     * exactly one space (carve#912), and this class previously pinned the run
+     * as accepted on the reading that cardinality was a separate question left
+     * alone. It is not left alone any more, and the four artifacts that agreed
+     * with each other about the run were the ones that moved.
+     *
+     * All three delimiter spellings are here because they are ONE production:
+     * a fix that narrowed the double-quoted alternative alone would leave the
+     * code and the grammar disagreeing about which quote makes a title.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function runFilledTitleSlotProvider(): array
+    {
+        return [
+            'link, two spaces' => ['[t](/u  "T")', "<p>[t](/u  \u{201C}T\u{201D})</p>\n"],
+            'link, three spaces' => ['[t](/u   "T")', "<p>[t](/u   \u{201C}T\u{201D})</p>\n"],
+            'image, two spaces' => ['![a](/p.png  "T")', "<p>![a](/p.png  \u{201C}T\u{201D})</p>\n"],
+            'link, single quotes, two spaces' => ["[t](/u  'T')", "<p>[t](/u  \u{2018}T\u{2019})</p>\n"],
+            'link, parentheses, two spaces' => ['[t](/u  (T))', "<p>[t](/u  (T))</p>\n"],
+        ];
+    }
+
+    #[DataProvider('runFilledTitleSlotProvider')]
+    public function testARunDoesNotFillTheTitleSlot(string $source, string $expected): void
+    {
+        // Asserted as the WHOLE rendering, not as "no title attribute". The
+        // failure PART 7 asks for is the bracket run surviving as text; a link
+        // that opened with its title silently dropped would satisfy a
+        // `assertStringNotContainsString('title=')` and is a different outcome.
+        $this->assertSame($expected, $this->html($source));
     }
 
     /**
@@ -193,7 +226,8 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
         // space is represented, here or in the line-break test.
         $this->assertCount(5, self::NON_SPACE_RUNS);
         $this->assertCount(12, self::titleSlotProvider());
-        $this->assertCount(7, self::spacedTitleSlotProvider());
+        $this->assertCount(5, self::spacedTitleSlotProvider());
+        $this->assertCount(5, self::runFilledTitleSlotProvider());
 
         $this->assertSame(
             ["\t", "\v", "\f", " \t", "\t "],
