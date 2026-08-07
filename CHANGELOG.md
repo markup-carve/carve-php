@@ -33,6 +33,35 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **One whitespace definition, in every construct** (carve-php#1041, PART 7,
+  ruled in markup-carve/carve#963 and written in markup-carve/carve#977). The
+  whitespace characters Carve has are exactly four - U+0020, U+0009, U+000A and
+  U+000D - and every other character is content, so a VERTICAL TAB (U+000B) and
+  a FORM FEED (U+000C) are CONTENT in every construct. carve-php reached into
+  the host language at 25 places and got two answers, because PHP's default trim
+  charlist takes a vertical tab and PCRE's `\s` takes a form feed as well.
+
+  What changes for a document holding one of those characters:
+
+  - A list marker followed by one now opens a LIST ITEM holding it, for bullet,
+    ordered, bare-dot, roman, alpha and task markers alike, where the line used
+    to be a paragraph.
+  - A definition term and a definition description keep it as content instead of
+    dropping the entry or emptying the body.
+  - A footnote definition whose body is one is a DEFINITION, where a vertical
+    tab used to make the whole definition disappear from the document.
+  - A `+` line followed by a vertical tab is NO LONGER the continuation marker.
+    `continuation_marker = '+', newline` spells no run at all, so any character
+    between the `+` and the line end is content.
+  - A code fence whose info string is a vertical tab no longer opens a code
+    block, matching what a form feed and any other non-identifier info string
+    already did.
+
+  A block-attribute line followed by one is still NOT an attribute line: the
+  character is trailing content, so the line does not end where an attribute
+  line must. That was already right here. Rendered HTML is unchanged for all 830
+  corpus documents.
+
 - **The canonical writer spells the frontmatter format token out** (carve-php#1044,
   PART 11 §6b, ruled in markup-carve/carve#961 and written in
   markup-carve/carve#977). `carve fmt` now writes `---yaml` where it used to

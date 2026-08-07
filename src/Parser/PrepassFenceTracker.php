@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Util\StringUtil;
+
 /**
  * Whether a line-based prepass is inside a fenced code block.
  *
@@ -178,7 +180,7 @@ class PrepassFenceTracker
         }
 
         return preg_replace(
-            '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+            '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/',
             '',
             $line,
         ) ?? $line;

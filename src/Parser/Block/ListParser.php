@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Parser for list blocks (bullet, ordered, task lists).
@@ -87,7 +88,7 @@ class ListParser
         $itemAttributes = [];
         if (
             preg_match(
-                '/^([-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +\S.*)$/',
+                '/^([-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
             )
@@ -138,7 +139,7 @@ class ListParser
         // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
         // checkbox nobody wrote (carve-php#657). Two characters were already
         // rejected; it was only the one-character case that was open.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[([ xX_>?-])\] +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[([ xX_>?-])\] +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -157,7 +158,7 @@ class ListParser
         // A marker is a list item only with non-empty content: a content-less
         // marker (bare or trailing whitespace only) is paragraph text, not a
         // list. Avoids a trailing space being load-bearing. See PART 9.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
@@ -169,7 +170,7 @@ class ListParser
         }
 
         // Ordered list: 1. or 1)
-        if (preg_match('/^(\d+)([.)]) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^(\d+)([.)]) +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => $matches[2],
@@ -181,7 +182,7 @@ class ListParser
         // Bare-dot ordered list: `. text` is shorthand for decimal-dot ordered
         // items starting at 1. Only the dot delimiter has this shorthand, and
         // it still requires a space and non-empty content.
-        if (preg_match('/^\. +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^\. +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => '.',
@@ -196,7 +197,7 @@ class ListParser
         // literal paragraph text. Carve uses the . and ) delimiters only.
 
         // Roman numeral ordered list
-        if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             $roman = $matches[1];
             $isLower = ctype_lower($roman[0]);
             $start = $this->romanToInt(strtoupper($roman));
@@ -220,7 +221,7 @@ class ListParser
         }
 
         // Alpha ordered list: a. or A. or a) or A)
-        if (preg_match('/^([a-zA-Z])([.)]) +(\S.*)$/', $line, $matches)) {
+        if (preg_match('/^([a-zA-Z])([.)]) +(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             $letter = $matches[1];
             $isLower = ctype_lower($letter);
             $start = ord(strtolower($letter)) - ord('a') + 1;
