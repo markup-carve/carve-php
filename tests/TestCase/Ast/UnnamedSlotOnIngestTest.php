@@ -277,10 +277,12 @@ class UnnamedSlotOnIngestTest extends TestCase
     }
 
     /**
-     * CONTROLS for the neighbouring questions markup-carve/carve#881 leaves
-     * open. §12(a) is scoped to a field being PRESENT and §11 to its NAME, so
-     * a field of the wrong TYPE and a field that is simply MISSING are ruled
-     * by neither, and this change must not have moved them.
+     * The neighbouring questions, RULED. §12(a) is scoped to a field being
+     * PRESENT and §11 to its NAME, so a field of the wrong TYPE and a field
+     * that is simply MISSING were left over - and markup-carve/carve#881 is the
+     * clause that closed them, by validating the whole payload against the
+     * schema at decode (§12(d)). All three are refused now, and each still says
+     * which rule it broke rather than being folded into §11's report.
      *
      * @return array<string, array{array<string, mixed>, bool}>
      */
@@ -289,7 +291,7 @@ class UnnamedSlotOnIngestTest extends TestCase
         return [
             'pos missing endOffset (missing, not unnamed)' => [
                 ['pos' => ['startOffset' => 0]],
-                true,
+                false,
             ],
             'attrs of the wrong type (a string)' => [
                 ['attrs' => 'x'],
@@ -297,7 +299,7 @@ class UnnamedSlotOnIngestTest extends TestCase
             ],
             'pos of the wrong type (a string)' => [
                 ['pos' => 'x'],
-                true,
+                false,
             ],
         ];
     }
@@ -311,9 +313,9 @@ class UnnamedSlotOnIngestTest extends TestCase
     {
         try {
             $this->codec->decode(self::payload($paragraphExtra));
-            $this->assertTrue($accepted, 'this payload was refused before this change and must stay refused');
+            $this->assertTrue($accepted, 'PART 12 §12(d) refuses this payload; it must not decode');
         } catch (Throwable $e) {
-            $this->assertFalse($accepted, 'this payload decoded before this change and must keep decoding');
+            $this->assertFalse($accepted, 'this payload satisfies the schema and must keep decoding');
             $this->assertStringNotContainsString(
                 'does not name',
                 $e->getMessage(),
@@ -323,14 +325,18 @@ class UnnamedSlotOnIngestTest extends TestCase
     }
 
     /**
-     * `text.value: 7` renders `<p>7</p>` here. That is a wrong-TYPE row, which
-     * §11 does not reach, so it is recorded rather than fixed - and pinned, so
-     * a later sweep of this file has to notice it is changing something no
-     * clause has ruled on yet (markup-carve/carve#881).
+     * `text.value: 7` used to render `<p>7</p>` here. It was a wrong-TYPE row
+     * that §11 does not reach, recorded rather than fixed and PINNED so that a
+     * later sweep would have to notice it was changing something no clause had
+     * ruled on. markup-carve/carve#881 ruled it, and the pin did its job: the
+     * number is refused now, and the schema is what says so.
      */
-    public function testAWrongTypedValueIsStillRenderedRatherThanRefused(): void
+    public function testAWrongTypedValueIsRefusedRatherThanRendered(): void
     {
-        $document = $this->codec->decode([
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('value is the number 7 where the schema requires string');
+
+        $this->codec->decode([
             'type' => 'document',
             'srcByteLength' => 1,
             'children' => [
@@ -340,8 +346,6 @@ class UnnamedSlotOnIngestTest extends TestCase
                 ],
             ],
         ]);
-
-        $this->assertSame("<p>7</p>\n", (new HtmlRenderer())->render($document));
     }
 
     /**

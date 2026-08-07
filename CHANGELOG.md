@@ -7,6 +7,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **An ingest validates the whole payload against the AST schema**
+  (carve-php#979, ruled on markup-carve/carve#881). PART 12 §12(d) makes
+  `resources/ast-schema.json` the contract at decode - types and required fields
+  together - and it is now vendored and consulted rather than described. Trees
+  this codec used to accept are refused with the typed `AstDecodeException`: a
+  root `srcByteLength` that is a string or negative, a `children` that is `null`
+  and was read as an empty document, a `text.value` that is the number 7 and
+  rendered `<p>7</p>`, a `pos` missing a field or carrying an extra one, and
+  `attrs` written as `{"class": "x"}`. Two shapes that used to escape as a bare
+  PHP `TypeError` - a child that is `null` and a child that is a string - are
+  refused as the same typed error, which §9(b) already required. Producers
+  should validate against the schema before sending. A node type registered with
+  `AstCodec::register()` is outside the schema by construction and is exempt, as
+  are the pre-§7 payload shapes this codec already documents as still decoding.
+  See docs/ast-json.md.
+
 ### Fixed
 
 - **A span begins at the construct's opening markup** (carve-php#978, ruled on
