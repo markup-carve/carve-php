@@ -1606,7 +1606,11 @@ class CarveRenderer implements RendererInterface
             return [];
         }
         $payload = substr($text, $open + 1, -1);
-        if (!AttributeParser::isValidPayload($payload)) {
+        // The INLINE surface, so the writer reads back what the parser reads:
+        // a trailing block whose interior holds a tab is literal text now, and
+        // treating it as attributes here would re-attach on the way out what
+        // the parser had just declined (PART 4, markup-carve/carve#906).
+        if (!AttributeParser::isValidInlinePayload($payload)) {
             return [];
         }
 

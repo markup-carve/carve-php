@@ -294,6 +294,87 @@ class AttributeParser
      * carve-rs and the inline attribute rule. A colon is still legal inside an
      * unquoted VALUE (`{k=a:b}`), which `unquoted_value` admits.
      */
+
+    /**
+     * PART 4: THE INLINE INTERIOR IS SPACE-ONLY (markup-carve/carve#906).
+     *
+     * Every whitespace slot of the INLINE attribute block is spelled `space`,
+     * which is one character: the run after `{`, the run between two
+     * attributes, the run before `}`, the boundary after an UNQUOTED value, and
+     * the blessed empty block `{ }`. All five sit AFTER the first non-whitespace
+     * character of their line, which is where PART 7's rule already says a tab
+     * is not syntax. A tab at any of them makes the block unrecognized, and its
+     * braces show.
+     *
+     * THE BLOCK-ATTRIBUTE LINE IS NOT NARROWED, and that distinction is the
+     * ruling rather than an omission: it is the one construct whose interior can
+     * hold a leading indentation run, because after a `continuation` the next
+     * line's leading whitespace IS indentation. So this is a separate test with
+     * its own name, applied at the inline call sites only - a fix that narrowed
+     * both surfaces at once fails on corpus category 273.
+     *
+     * INSIDE A QUOTED VALUE a tab is CONTENT and does not move, so the scan
+     * tracks quoting rather than looking for a byte.
+     *
+     * SPACE-ONLY, not tab-only. `whitespace` in the grammar is `' ' | '\t'` and
+     * `space` is `' '`, so a vertical tab or a form feed was never a separator
+     * under either spelling - this engine accepted them because PHP's `\s` did.
+     * Narrowing the slot to one character answers both at once.
+     */
+    public static function inlineInteriorIsSpaceOnly(string $attrStr): bool
+    {
+        $length = strlen($attrStr);
+        $quote = null;
+        for ($i = 0; $i < $length; $i++) {
+            $char = $attrStr[$i];
+            if ($quote !== null) {
+                // A backslash escape inside a quoted value takes the next
+                // character with it, so a quote it protects does not close.
+                if ($char === '\\') {
+                    $i++;
+
+                    continue;
+                }
+                if ($char === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+
+                continue;
+            }
+            if ($char !== ' ' && ctype_space($char)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * `isValidPayload()` plus PART 4's space-only interior.
+     *
+     * FIVE PRODUCTIONS ALIAS THE INLINE BLOCK, not one. The clause is written
+     * about "the inline attribute block", and `attributes` is also what
+     * `item_attributes`, `row_attributes`, `cell_attributes` and a reference
+     * definition's trailing slot resolve to. A tab-bearing block glued to a
+     * list marker, to a cell's opening pipe, to a row's closing pipe, or
+     * following a reference definition's destination reads the tab as a
+     * separator too, and all four are narrowed by this.
+     *
+     * A SEPARATE METHOD rather than a flag on `isValidPayload()`, so a call
+     * site added later has to say which surface it is on: `block_attributes`
+     * keeps `whitespace` at all three of its slots, and a fix that narrowed
+     * both at once fails on corpus category 273.
+     */
+    public static function isValidInlinePayload(string $attrStr): bool
+    {
+        return self::inlineInteriorIsSpaceOnly($attrStr) && self::isValidPayload($attrStr);
+    }
+
     public static function isValidPayload(string $attrStr): bool
     {
         // Quoted key=values first, so dots/braces/% inside quotes are protected.

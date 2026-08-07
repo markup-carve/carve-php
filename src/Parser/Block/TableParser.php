@@ -79,7 +79,7 @@ class TableParser
         // line a paragraph; without this gate the block was stripped whatever
         // it held and the row was built anyway.
         if (preg_match('/^(.*\|)\{([^{}]+)\}\s*$/', $line, $matches)) {
-            if (AttributeParser::isValidPayload($matches[2])) {
+            if (AttributeParser::isValidInlinePayload($matches[2])) {
                 return $matches[1];
             }
         }
@@ -103,7 +103,7 @@ class TableParser
         if (preg_match('/\|\{([^{}]+)\}\s*$/', $line, $matches)) {
             // Same §14 gate as stripRowAttributes: an invalid payload is not a
             // row-attribute block, so it contributes no attributes either.
-            if (!AttributeParser::isValidPayload($matches[1])) {
+            if (!AttributeParser::isValidInlinePayload($matches[1])) {
                 return [];
             }
 
@@ -401,7 +401,7 @@ class TableParser
                     if (
                         $inner !== ''
                         && !$this->isInlineMarker($inner)
-                        && AttributeParser::isValidPayload($inner)
+                        && AttributeParser::isValidInlinePayload($inner)
                     ) {
                         $attributes = $inner;
                         $rest = substr($cellContent, $end + 1);

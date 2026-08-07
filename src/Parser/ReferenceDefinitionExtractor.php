@@ -596,7 +596,9 @@ class ReferenceDefinitionExtractor
             // applied to a link in array order, so the hoist would reorder the
             // rendered attributes of every link resolving the label. The inline
             // path already preserves source order; this has to match it.
-            if ($this->inlineParser !== null && !$this->inlineParser->isValidAttrPayload($payload)) {
+            // `[space, attributes]` in the production is the INLINE block
+            // (PART 4, markup-carve/carve#906), not the attribute LINE.
+            if ($this->inlineParser !== null && !$this->inlineParser->isValidInlineAttrPayload($payload)) {
                 // One invalid name invalidates the whole block (§14), exactly as
                 // it does on a block-attribute line and inline - so `{.a\}b}`
                 // yields NO attributes rather than silently keeping the half
