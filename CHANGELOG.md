@@ -33,6 +33,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`whitespace` is a space or a tab everywhere a heading or a caption asks**
+  (carve-php#1038, tracked at markup-carve/carve#963). PART 1 defines
+  `whitespace = ' ' | '\t'` and every other invisible character is CONTENT, but
+  this engine spelled that one definition three ways. The heading's trailing
+  trim used PHP's default `rtrim` charlist, which is wider - it also takes a
+  VERTICAL TAB (U+000B) - so a heading was the one construct that dropped a
+  trailing U+000B where the identical paragraph kept it. The heading's and the
+  caption's emptiness gates spelled it as PCRE `\S`, which reads a vertical tab
+  AND a FORM FEED (U+000C) as whitespace, so `# ` or `^ ` followed by one of
+  them was refused outright and published as a paragraph - while corpus
+  `268-trailing-whitespace-on-a-content-line-is-dropped-7` already pins a form
+  feed as content on a paragraph line. All three now use the one definition, and
+  so do the eleven recognizer copies of those gates that decide whether a
+  heading or a caption starts at all (paragraph interruption, inside a div,
+  inside a block quote, the heading-id pre-scan, and the heading-id preservation
+  pass the Djot and Markdown converters run). A heading keeps a trailing
+  vertical tab and a form feed, still drops a trailing space and tab run, and a
+  heading or a caption whose whole content is one such character is a heading or
+  a caption. carve-rs reads every one of these documents the same way.
+
 - **A caption line drops its trailing whitespace, in the AST as well as in the
   HTML** (carve-php#1037, tracked at markup-carve/carve#963). PART 2 NO TRAILING
   WHITESPACE applies to every content line, and a caption line is one: corpus
