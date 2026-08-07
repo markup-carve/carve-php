@@ -73,6 +73,34 @@ class ContainerPrefix
     }
 
     /**
+     * The line, and then the line after each leading block-quote marker.
+     *
+     * `['> > x', '> x', 'x']`. The first entry is always the line itself, so a
+     * caller that needs the content at ITS own quote depth can index by depth
+     * rather than taking the fully stripped tail {@see self::stripQuoteMarkers()}
+     * returns.
+     *
+     * The loop is the same one `stripQuoteMarkers()` walks; the difference is
+     * only that the intermediate stages are kept. Spelled here rather than at
+     * the call site because the version there carried its own
+     * `$line[0] === '>'` test in front of the same {@see self::quoteContent()}
+     * call - a marker byte test that could disagree with the rule it guarded
+     * (markup-carve/carve-php#969).
+     *
+     * @return array<int, string>
+     */
+    public static function quoteStages(string $line): array
+    {
+        $stages = [$line];
+        while (($content = self::quoteContent($line)) !== null) {
+            $line = $content;
+            $stages[] = $line;
+        }
+
+        return $stages;
+    }
+
+    /**
      * The content after ONE block-quote marker whose space is optional, or null
      * when the line does not begin with `>`.
      *

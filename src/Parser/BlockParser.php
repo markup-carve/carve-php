@@ -1115,16 +1115,8 @@ class BlockParser
             // Each entry is the line with THAT many leading markers removed, so
             // a consumer can ask for the content at its own quote depth rather
             // than the fully stripped tail (the line block below needs that).
-            $quoteStages = [$line];
-            $fenceLine = $line;
-            while (($fenceLine[0] ?? '') === '>') {
-                $quoteContent = $this->blockQuoteLineContent($fenceLine);
-                if ($quoteContent === null) {
-                    break;
-                }
-                $fenceLine = $quoteContent;
-                $quoteStages[] = $fenceLine;
-            }
+            $quoteStages = ContainerPrefix::quoteStages($line);
+            $fenceLine = $quoteStages[count($quoteStages) - 1];
 
             if ($fence->isOpen()) {
                 // LEFT means the line dropped out of the blockquote the fence
@@ -8045,17 +8037,34 @@ class BlockParser
      *
      * `> > q` holds a paragraph; `> >` holds none, and PART 1 S4 then gives a
      * following column-0 line nothing to fold into.
+     *
+     * THE QUESTION IS EMPTINESS, not prefix stripping - but it was ANSWERED
+     * with a fourth open-coded copy of the marker walk, and the copy was looser
+     * than the rule the parser applies two functions away. Two shapes came out
+     * of that disagreement, and in both of them the parser BUILDS a paragraph
+     * while this said there was none, so a dedented line failed to fold into a
+     * paragraph that was right there (markup-carve/carve-php#969):
+     *
+     *  - `><SP><SP>>` - two spaces between the markers. The copy `ltrim`ed between
+     *    markers, so it read a second marker where {@see ContainerPrefix} reads
+     *    one marker and the content ` >`.
+     *  - `> <VT>` - the copy's `trim()` ran on the DEFAULT charlist,
+     *    `" \t\n\r\0\x0B"`, which holds a vertical tab. A blank line holds
+     *    spaces and tabs and nothing else (carve-php#967), so a vertical tab is
+     *    content: `> <FF>` folded and `> <VT>` did not, the two decided by a
+     *    charlist rather than by a rule.
+     *
+     * The walk is {@see ContainerPrefix}'s now, and the surrounding whitespace
+     * is the blank-line class rather than PHP's default.
      */
     protected function isEmptyQuoteLine(string $line): bool
     {
-        $rest = trim($line);
-        $sawQuote = false;
-        while ($rest === '>' || str_starts_with($rest, '> ')) {
-            $sawQuote = true;
-            $rest = $rest === '>' ? '' : ltrim(substr($rest, 2));
+        $rest = trim($line, " \t");
+        if (ContainerPrefix::quoteContent($rest) === null) {
+            return false;
         }
 
-        return $sawQuote && $rest === '';
+        return ContainerPrefix::stripQuoteMarkers($rest) === '';
     }
 
     /**
