@@ -248,8 +248,14 @@ class MarkdownRenderer implements RendererInterface
             if (!$child instanceof AbbreviationDefinition) {
                 continue;
             }
-            $lines[] = '*[' . $this->stripControls($child->getAbbr()) . ']: '
-                . $this->stripControls($child->getExpansion());
+            // The definition line goes through escapeHtml() for the same reason
+            // the `<abbr>` built from it does: an expansion is author content,
+            // and this target's contract is that embedded HTML cannot become
+            // live markup downstream. Writing the occurrence escaped and the
+            // definition raw made one output disagree with itself
+            // (carve-php#1063).
+            $lines[] = '*[' . $this->escapeHtml($this->stripControls($child->getAbbr())) . ']: '
+                . $this->escapeHtml($this->stripControls($child->getExpansion()));
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
@@ -448,7 +454,11 @@ class MarkdownRenderer implements RendererInterface
                 // is escaped like any other text landing in Markdown.
                 $node instanceof FootnoteRef && $node->isUnresolved()
                 => $this->escapeText($this->stripControls('[^' . $node->getLabel() . ']')),
-                $node instanceof FootnoteRef => '[^' . $this->stripControls($node->getLabel()) . ']',
+                // Escaped like the definition, so the pair still matches. The
+                // UNRESOLVED branch above already escapes, through escapeText()
+                // (carve-php#1063).
+                $node instanceof FootnoteRef
+                => '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof RawInline => $this->renderRawInline($node),
@@ -476,7 +486,13 @@ class MarkdownRenderer implements RendererInterface
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
         if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
-            return '</#' . $this->stripControls($target) . '>';
+            // The authored marker stays readable rather than being escaped into
+            // noise - a reader can still act on `</#nope>`. The TARGET inside it
+            // is author content and can hold a `<`, and `</#a<script>` is a
+            // complete opening tag once this Markdown is rendered, so the target
+            // takes the HTML pass while the writer's own delimiters stay literal
+            // (carve-php#1063).
+            return '</#' . $this->escapeHtml($this->stripControls($target)) . '>';
         }
 
         // A heading target gets a real `[label](#id)` link — renderHeading emits a
@@ -852,7 +868,10 @@ class MarkdownRenderer implements RendererInterface
     {
         $content = trim($this->renderChildren($node));
 
-        return '[^' . $this->stripControls($node->getLabel()) . ']: ' . $content . "\n";
+        // A label is author content, and it is reproduced verbatim in two
+        // places; both escape, so a reference still matches its definition
+        // (carve-php#1063).
+        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content . "\n";
     }
 
     protected function renderEmphasis(Emphasis $node): string
@@ -1038,7 +1057,19 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderMath(Math $node): string
     {
-        $content = $this->stripControls($node->getContent());
+        // Escaped, exactly as the HTML target escapes the same content: a
+        // consumer decodes the entity back to the character before its math
+        // renderer sees it, so `a < b` still reaches KaTeX as `a < b` while
+        // `<script>` cannot become a tag (carve-php#1063).
+        //
+        // That covers the ampersand too, which a LaTeX matrix uses as its
+        // alignment separator: `a & b` is emitted `a &amp; b` and a Markdown
+        // consumer hands `a & b` to the math renderer. Re-parsing the Markdown
+        // with CARVE instead does not decode it - but that is not this target's
+        // contract, the `carve` target is (PART 11 section 1), and it is exactly
+        // what escapeText() already does to every other text node here
+        // (raised by codex review).
+        $content = $this->escapeHtml($this->stripControls($node->getContent()));
 
         if ($node->isDisplay()) {
             return '$$' . $content . '$$';
