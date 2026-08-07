@@ -481,10 +481,13 @@ class PlainTextRenderer implements RendererInterface
                     $lastGenuine = $i;
                 }
             }
-            // Drop only SYNTHETIC trailing padding (non-string fillers a short/
-            // rowspan row lacks), but KEEP a genuine trailing empty cell the row
-            // authored (`| x || ` -> `x |`). Matches carve-rs.
-            $cells = array_slice($cells, 0, $lastGenuine + 1);
+            // Drop only SYNTHETIC trailing padding - columns this row does not
+            // reach - but KEEP every column the row AUTHORED: a genuine trailing
+            // empty cell (`| x || ` -> `x |`) and one a span CLAIMED alike. The
+            // `<` and `^` markers are cells the writer typed, so a row whose
+            // last column is covered by a span is not a short row, and cutting
+            // it back to `$lastGenuine` truncated it. Matches carve-rs.
+            $cells = array_slice($cells, 0, max($lastGenuine + 1, $row['authoredWidth']));
             $text .= implode($this->tableCellSeparator, $cells) . "\n";
         }
 

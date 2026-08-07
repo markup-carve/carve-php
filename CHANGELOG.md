@@ -27,6 +27,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ANSI target keeps a code block's verbatim content.** `AnsiRenderer`
+  split the block on `rtrim()`, which drops the terminating newline but also
+  takes the trailing space on the block's last line and every blank line at its
+  end. Both are content the author typed inside a fence, and this engine's HTML,
+  plain-text, Markdown and canonical writers all keep them - so one code block
+  rendered two ways depending on the target asked for. Only the terminator is
+  dropped now.
+
+- **A table column claimed by a `<` or `^` span survives on the plain-text and
+  ANSI targets.** `TableLayout::expand()` returns `null` both for a column a span
+  marker claimed and for padding that squares off a genuinely short row, and the
+  two text writers trimmed trailing `null`s without telling them apart. A row
+  whose last column was covered by a span lost it: the plain target wrote one
+  cell for a row spanning two, and the ANSI target drew a row narrower than its
+  own box border. A span marker is a cell the author typed, so the row is not
+  short.
+
 - **The published AST schema names every type and field the encoder emits**
   (carve-php#1015). `AstCodec::schema()` derives its map by reflecting over node
   properties, which sees the property walk in `encodeNode()` and nothing else -
