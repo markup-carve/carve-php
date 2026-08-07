@@ -24,12 +24,12 @@ use PHPUnit\Framework\TestCase;
  * narrows one and leaves the other reads as finished and is half done. Each
  * shape below names which slot it exercises.
  *
- * THE DEFINITION SURVIVES; ITS METADATA DOES NOT. This is what the failure looks
- * like WHILE the line still ends in a swallow-everything tail: the slot does not
- * match, so the title is not a title and the braces are not the definition's,
- * and what is left over is read as trailing junk rather than as prose.
- * markup-carve/carve#911 anchors the line at end of line and turns both into a
- * paragraph; the two compose, and the shapes here move again when it lands.
+ * THE WHOLE LINE IS PROSE. That is the second half of the composition, and it
+ * arrived one ticket later. While the line still ended in a swallow-everything
+ * tail these shapes stayed definitions and merely lost their metadata, which is
+ * the outcome PART 7 names as the one to avoid. markup-carve/carve#911 anchored
+ * the production at end of line, so what a failed slot rejects now reaches the
+ * anchor and the line falls back to prose visibly.
  *
  * THE ONE-SPACE FORMS ARE CONTROLS. The narrowing must not close the door on the
  * spelling the language actually uses, which is the whole point of the ruling.
@@ -49,20 +49,22 @@ class ReferenceDefinitionMetadataSlotsTakeOneSpaceTest extends TestCase
     public static function runFilledSlotProvider(): array
     {
         return [
-            'title slot, two spaces' => ["[a]: /u  \"T\"\n\n[a][]\n", '<p><a href="/u">a</a></p>'],
-            'title slot, three spaces' => ["[a]: /u   \"T\"\n\n[a][]\n", '<p><a href="/u">a</a></p>'],
-            'title slot, two spaces, single quotes' => ["[a]: /u  'T'\n\n[a][]\n", '<p><a href="/u">a</a></p>'],
-            'attributes slot, two spaces' => ["[a]: /u  {.c}\n\n[a][]\n", '<p><a href="/u">a</a></p>'],
-            'attributes slot, three spaces' => ["[a]: /u   {.c}\n\n[a][]\n", '<p><a href="/u">a</a></p>'],
+            'title slot, two spaces' => ["[a]: /u  \"T\"\n\n[a][]\n", "<p>[a]: /u  \u{201C}T\u{201D}</p>\n<p>[a][]</p>"],
+            'title slot, three spaces' => ["[a]: /u   \"T\"\n\n[a][]\n", "<p>[a]: /u   \u{201C}T\u{201D}</p>\n<p>[a][]</p>"],
+            'title slot, two spaces, single quotes' => ["[a]: /u  'T'\n\n[a][]\n", "<p>[a]: /u  \u{2018}T\u{2019}</p>\n<p>[a][]</p>"],
+            'attributes slot, two spaces' => ["[a]: /u  {.c}\n\n[a][]\n", "<p>[a]: /u  {.c}</p>\n<p>[a][]</p>"],
+            'attributes slot, three spaces' => ["[a]: /u   {.c}\n\n[a][]\n", "<p>[a]: /u   {.c}</p>\n<p>[a][]</p>"],
         ];
     }
 
     #[DataProvider('runFilledSlotProvider')]
     public function testARunFillsNeitherSlot(string $source, string $expected): void
     {
-        // The WHOLE rendering, so a definition that kept the destination and
-        // silently dropped the metadata is distinguishable from one that also
-        // lost the destination. Both are wrong; only one of them is this bug.
+        // The WHOLE rendering, and it now covers BOTH halves of the shape: the
+        // `[a][]` below the line has to stop resolving, which is the part a
+        // "the metadata is gone" assertion could not see. A definition that
+        // kept the destination and silently dropped the metadata still passed
+        // that weaker check.
         $this->assertSame($expected . "\n", $this->html($source));
     }
 
