@@ -289,6 +289,18 @@ class StoredPayloadUpgradeTest extends TestCase
     }
 
     /**
+     * AND EACH IS A PAYLOAD THE SCHEMA REFUSES, so "handed back unchanged"
+     * means it stays refused rather than that it was already fine.
+     *
+     * @param array<string, mixed> $payload
+     */
+    #[DataProvider('malformedRoots')]
+    public function testEveryMalformedRootIsOneTheSchemaRefuses(array $payload): void
+    {
+        $this->assertNotNull(AstSchema::firstViolation($payload));
+    }
+
+    /**
      * A payload that never carried one of the five is handed back unchanged,
      * so running the migration over a whole store is safe.
      */
@@ -455,6 +467,17 @@ class StoredPayloadUpgradeTest extends TestCase
                     'type' => 'document',
                     'srcByteLength' => 0,
                     'children' => 'x',
+                    'frontmatter' => $frontmatter,
+                ],
+            ],
+            // A JSON OBJECT, which decodes to an array in PHP and is the one
+            // shape `is_array()` alone reads as usable. Reindexing it would
+            // hand the decoder a list it accepts.
+            'children is a json object' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => ['p' => ['type' => 'paragraph', 'children' => []]],
                     'frontmatter' => $frontmatter,
                 ],
             ],

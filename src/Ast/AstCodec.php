@@ -805,7 +805,8 @@ class AstCodec
      */
     private static function refuseRetiredShapes(array $payload): void
     {
-        if (!is_array($payload['children'] ?? null)) {
+        $children = $payload['children'] ?? null;
+        if (!is_array($children) || !array_is_list($children)) {
             // A root with no usable `children` is refused by §12(a) or (d), and
             // the upgrade cannot place a node in something that is not a list -
             // so answering here would send a caller to a migration that returns

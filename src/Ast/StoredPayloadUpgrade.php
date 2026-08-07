@@ -159,11 +159,14 @@ final class StoredPayloadUpgrade
             return self::upgradeNodes($payload);
         }
 
-        if (!is_array($payload['children'] ?? null)) {
-            // NOT REPAIRED. A root whose `children` is missing or is not a list
-            // is refused by PART 12 §12(a) or (d) and always was, and supplying
-            // `[]` here would turn a truncated document into an empty one -
-            // which is the silent repair §12 exists to stop. This converts a
+        $stored = $payload['children'] ?? null;
+        if (!is_array($stored) || !array_is_list($stored)) {
+            // NOT REPAIRED. A root whose `children` is missing, is not an array,
+            // or is a JSON OBJECT rather than a list is refused by PART 12
+            // §12(a) or (d) and always was. Supplying `[]` would turn a
+            // truncated document into an empty one, and reindexing an object
+            // would turn `{"p": {...}}` into a list the schema accepts - both
+            // are the silent repair §12 exists to stop. This converts a
             // spelling; it does not mend a payload.
             return $payload;
         }
@@ -173,10 +176,10 @@ final class StoredPayloadUpgrade
         // walked where they are lifted rather than here: `abbreviations` is
         // keyed by the abbreviation, and a walk over it would read an expansion
         // map holding `type` as a node.
-        $children = array_values(array_map(
+        $children = array_map(
             static fn (mixed $child): mixed => is_array($child) ? self::upgradeNodes($child) : $child,
-            $payload['children'],
-        ));
+            $stored,
+        );
         $children = self::withFrontmatter($payload, $children);
         $children = self::withFootnoteDefs($payload, $children);
         $children = self::withAbbreviationDefs($payload, $children);
