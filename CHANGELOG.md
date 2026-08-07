@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A span begins at the construct's opening markup** (carve-php#978, ruled on
+  markup-carve/carve#913). PART 12 §4 puts the markup that OPENS a construct
+  inside its `pos`, so a span round-trips to the source that produced it.
+  Anything nested in a container was published starting at the CONTAINER's
+  prefix instead: a heading in a block quote began at the `>`, a fenced block in
+  a list item at the `-`, and a `- +` item - whose body is flush left - at the
+  table that is its body rather than at its own marker line. Over the spec
+  corpus this was 33 wrong spans across nine node types, now none. Positions are
+  an opt-in parse option, so nothing changes for a parse that does not request
+  them.
+
 - **A quoted attribute value stops at the newline on a block-attribute line**
   (carve-php#986). `quoted_value` excludes a newline in both of its
   alternatives, and `block_attributes` reads the same production, so a break
