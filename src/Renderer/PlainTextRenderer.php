@@ -52,6 +52,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 
 /**
@@ -65,6 +66,7 @@ use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
  */
 class PlainTextRenderer implements RendererInterface
 {
+    use AbbreviationBudgetTrait;
     use EventDispatcherTrait;
 
     /**
@@ -177,6 +179,7 @@ class PlainTextRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
+        $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $text = $this->renderChildren($document);
@@ -301,7 +304,17 @@ class PlainTextRenderer implements RendererInterface
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
 
-        return $label === null ? '</#' . $this->stripControls($target) . '>' : $this->stripControls($label);
+        if ($label === null) {
+            return '</#' . $this->stripControls($target) . '>';
+        }
+
+        // Same expansion budget the other targets spend on this label, degrading
+        // to the authored target (carve-php#1061). This target expands nothing
+        // else - an abbreviation renders as its key here - which is why it had
+        // no budget until the crossref needed one.
+        $rendered = $this->stripControls($label);
+
+        return $this->chargeExpansion($rendered) ? $rendered : $this->stripControls($target);
     }
 
     protected function renderChildren(Node $node): string
