@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\AstSchema;
 use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -211,6 +212,28 @@ class StoredPayloadUpgradeTest extends TestCase
         $this->expectExceptionMessage('written before PART 12 §7');
 
         $this->codec->decode($stored);
+    }
+
+    /**
+     * THE NAMED REFUSAL ADDS NO REJECTION OF ITS OWN.
+     *
+     * `decode()` asks about the five spellings before it validates, so the
+     * message can name the migration - but each of them is a shape §12(d)
+     * refuses anyway: a root field §7 does not name, a `footnote` missing
+     * `label`, a type the vocabulary does not hold. Measured rather than
+     * asserted in a docblock, because a check that IS the only thing refusing a
+     * payload is a very different check from one that only renames the report.
+     *
+     * @param array<string, mixed> $stored
+     * @param array<string, mixed> $expected
+     */
+    #[DataProvider('storedPayloads')]
+    public function testTheSchemaAlreadyRefusesEveryStoredPayload(array $stored, array $expected): void
+    {
+        $this->assertNotNull(
+            AstSchema::firstViolation($stored),
+            'the schema accepts a payload only the named pre-check was refusing',
+        );
     }
 
     /**
