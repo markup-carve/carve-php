@@ -3538,6 +3538,12 @@ class InlineParser
         // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
         // unrecognized content makes the whole `{...}` stay literal. Decline
         // so the caller emits `{` literally and re-parses the content.
+        // THE INLINE SURFACE, if this is ever wired up. `parseInlineAttributes`
+        // has NO caller in this package: Carve dropped bare-word attribute
+        // attachment, and `word{.a}` is literal text. Narrowing the gate here
+        // changes nothing today - a mutation removing it survives, and that is
+        // the reason rather than a gap in the tests - but leaving the BLOCK
+        // gate on an inline surface would be wrong the day someone calls it.
         if (!$this->isValidInlineAttrPayload($attrStr)) {
             return null;
         }
