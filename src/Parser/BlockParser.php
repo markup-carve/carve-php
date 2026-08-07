@@ -3735,6 +3735,17 @@ class BlockParser
         // §756 (NORMATIVE): strip the line's trailing whitespace (rtrim, ASCII
         // whitespace -- a trailing NBSP is content and survives). A leading tab
         // is preserved (see the extraction note above).
+        //
+        // NOT NARROWED TO SPACE AND TAB HERE. `whitespace = ' ' | '\t'` (PART 1),
+        // so PHP's default charlist is wider than the rule: it also takes a
+        // VERTICAL TAB, and a heading is the one construct in this engine that
+        // drops a trailing U+000B where the identical paragraph keeps it and
+        // carve-js keeps it in both. Narrowing the charlist ALONE would make the
+        // heading self-inconsistent instead, because `tryParseHeading`'s
+        // emptiness gate spells the same `whitespace` with PCRE `\S` - so `# `
+        // followed by a lone vertical tab would still not be a heading while a
+        // trailing one became content. Both spellings move together, tracked at
+        // markup-carve/carve-php#1038.
         $content = rtrim($content);
 
         // One source segment for the heading's single line.
@@ -8061,6 +8072,31 @@ class BlockParser
             }
             $captionLines[] = $nextLine;
             $i++;
+        }
+
+        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 NO TRAILING
+        // WHITESPACE; pinned by corpus 268). A caption line is a CONTENT LINE,
+        // so a `whitespace` run at its end is dropped - the same rule the
+        // paragraph collector applies a few thousand lines up, and for the same
+        // reason: it belongs to the SOURCE, because a renderer cannot tell an
+        // authored trailing space from one a construct legitimately produced.
+        //
+        // The caption path had no spelling of the rule at all. HTML looked
+        // right only because HtmlRenderer trimmed its own output, which is the
+        // very substitution the paragraph note warns against: it also ate the
+        // content of an all-space inline literal, so `^ x !` + backtick-space-
+        // space-backtick published `<caption>x</caption>` where the identical
+        // paragraph published `<p>x   </p>`. The published AST kept the space
+        // either way (markup-carve/carve#963).
+        //
+        // EVERY LINE, not just the first: a caption folds its continuation
+        // lines in here exactly as a paragraph does.
+        //
+        // Space and tab ONLY - `whitespace = ' ' | '\t'` (PART 1,
+        // markup-carve/carve#890). Every other invisible character is content
+        // and survives, which is what corpus 268-7 pins.
+        foreach ($captionLines as $captionIndex => $captionLine) {
+            $captionLines[$captionIndex] = rtrim($captionLine, " \t");
         }
 
         $captionText = implode("\n", $captionLines);
