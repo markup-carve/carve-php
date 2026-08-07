@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-definition-marker-s-separator-is-a-space-and-it-is-a-run',
         'a-reference-definition-is-anchored-at-end-of-line',
         'a-blank-line-holds-spaces-and-tabs-and-nothing-else',
         'a-code-fence-opener-takes-exactly-one-space',
