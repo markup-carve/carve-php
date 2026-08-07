@@ -1031,11 +1031,15 @@ class BlockParser
 
     protected function appendLinkReferenceDefinitions(Document $document): void
     {
+        // EVERY entry is authored now. This used to skip `$definition->fromHeading`,
+        // because a heading was seeded into `$this->references` beside the folded
+        // index; markup-carve/carve#742 stops that seeding, so the check can no
+        // longer fail and is removed rather than left reading as a guard. The
+        // observable it protected - no `link_reference_definition` node, and so no
+        // invented `[H]: #H` line from the canonical writer, for a document that
+        // only ever had a heading - is pinned in ImplicitHeadingReferenceTest.
         $authored = [];
         foreach ($this->references as $label => $definition) {
-            if ($definition->fromHeading) {
-                continue;
-            }
             // strval, because PHP turns an all-digit array key into an INT.
             // A reference label is any inline text, so `[5]: /u` keys the map
             // with 5 rather than "5", and the definition node's constructor
@@ -9310,13 +9314,16 @@ class BlockParser
      * The index is now built from the parsed tree by
      * HeadingReferenceCollector, which asks the question R1 actually asks:
      * does this heading have a blockquote ANCESTOR.
+     *
+     * ONE LOOKUP, NOT TWO (markup-carve/carve#742). A heading goes into the
+     * FOLDED index and nowhere else. `$this->references` is the linkDefs table
+     * and `getReference()` reads it for the EXPLICIT `[text][label]` form, so a
+     * heading seeded there made an explicit label reach the heading index - a
+     * shape R1's fallback does not offer, since the fallback is scoped to the
+     * collapsed `[text][]` and to nothing else.
      */
     protected function registerHeadingReference(string $label, ReferenceDefinition $reference): void
     {
-        if (!isset($this->references[$label])) {
-            $this->references[$label] = $reference;
-        }
-
         $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ??= $reference;
     }
 
@@ -9388,18 +9395,27 @@ class BlockParser
      * Heading references collected from the PARSED TREE, keyed by folded
      * heading text (PART 11 R1).
      *
-     * Seeds BOTH lookups. A heading is reachable by the collapsed `[text][]`
-     * form (folded, case-insensitive) and by the exact `[text][Label]` form,
-     * matching carve-js; a real link definition still wins either way,
-     * because the extract passes run first and these use `??=`.
+     * Seeds ONE lookup: the folded heading index, which only the COLLAPSED
+     * `[text][]` form reads. It used to seed the linkDefs table beside it, so
+     * an exact `[text][Label]` reached a heading too - and markup-carve/carve#742
+     * scopes R1's fallback to the collapsed form and to nothing else, at any
+     * spelling, folded or exact.
+     *
+     * THE ASYMMETRY IS THE ONE R1 ALREADY GIVES: a collapsed label is the author
+     * quoting prose from elsewhere in the document, which is why its matching is
+     * loose, and an explicit label is an identifier the author wrote twice and
+     * can keep identical, which is why its matching is exact. An identifier that
+     * names nothing names nothing; it is not retried as prose.
+     *
+     * A real link definition still wins, because `getCollapsedReference()` reads
+     * `$this->references` first and only falls back here.
      *
      * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $references
      */
     public function seedHeadingReferences(array $references): void
     {
-        foreach ($references as $folded => [$label, $reference]) {
+        foreach ($references as $folded => [, $reference]) {
             $this->headingReferencesByFoldedLabel[$folded] ??= $reference;
-            $this->references[$label] ??= $reference;
         }
     }
 

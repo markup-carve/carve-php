@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\ReferenceDefinition;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -67,12 +71,81 @@ class ImplicitHeadingReferenceTest extends TestCase
         $this->assertLiteral("> :::\n> # H\n> :::\n\nSee [H][].\n");
     }
 
-    public function testTheExplicitLabelFormFollowsTheSameRule(): void
+    public function testTheExplicitLabelFormDoesNotReachTheIndex(): void
     {
-        // `[text][Label]` resolves against headings too (matching carve-js),
-        // and had the same list-item hole.
-        $this->assertStringContainsString('href="#H"', $this->html("- # H\n\nSee [t][H].\n"));
-        $this->assertStringNotContainsString('href="#H"', $this->html("> # H\n\nSee [t][H].\n"));
+        // markup-carve/carve#742: R1's fallback is scoped to the COLLAPSED
+        // `[text][]` and to nothing else, at any spelling. So `[t][H]` is
+        // unresolved wherever the heading sits - the container question the
+        // blockquote row asks never arises for this form.
+        foreach (["- # H\n\nSee [t][H].\n", "> # H\n\nSee [t][H].\n", "# H\n\nSee [t][H].\n"] as $source) {
+            $html = $this->html($source);
+            $this->assertStringNotContainsString('href="#H"', $html);
+            // The bracketed run survives as literal source text rather than
+            // vanishing, which is the other half of "unresolved".
+            $this->assertStringContainsString('See [t][H].', $html);
+        }
+    }
+
+    /**
+     * THE SECOND PRODUCER, pinned directly because no document reaches it.
+     *
+     * A heading enters the index from two places: `registerHeadingReference()`,
+     * which the structure pass calls, and `seedHeadingReferences()`, which the
+     * RE-PARSE path calls when an unresolved collapsed reference was seen and
+     * the structure pass had missed the heading. Instrumented across the whole
+     * suite, the second one never fires: the structure pass runs on any document
+     * containing `][`, which is the only way an unresolved reference can exist,
+     * so the re-parse's own filter always empties its argument first.
+     *
+     * A mutation restoring the linkDefs seed there is therefore GREEN through
+     * every document-level case in this file - not because the rule is unpinned
+     * but because the clone is unreachable. Asked at the lookups instead, it
+     * fails properly: the folded index takes the heading and the linkDefs table
+     * does not, which is the whole of markup-carve/carve#742 at that producer.
+     */
+    public function testTheSeedProducerFeedsOnlyTheFoldedIndex(): void
+    {
+        $parser = new BlockParser();
+        $parser->seedHeadingReferences([
+            'getting started' => ['Getting Started', new ReferenceDefinition('#Getting-Started', [], 0, null, true)],
+        ]);
+
+        // The collapsed form's lookup finds it, folded.
+        $this->assertNotNull($parser->getCollapsedReference('Getting Started'));
+        $this->assertNotNull($parser->getCollapsedReference('getting started'));
+        // The explicit form's lookup does not, at either spelling.
+        $this->assertNull($parser->getReference('Getting Started'));
+        $this->assertNull($parser->getReference('getting started'));
+    }
+
+    /**
+     * A heading is not a `[label]: url` LINE, and must not become one.
+     *
+     * The heading index no longer reaches the linkDefs table, so the skip that
+     * kept a heading-derived entry out of `appendLinkReferenceDefinitions()`
+     * cannot fire any more and is gone. This pins the observable it protected:
+     * a document that only ever had a heading publishes no
+     * `link_reference_definition` node, and the canonical writer does not invent
+     * a `[H]: #H` line the author never typed.
+     */
+    public function testAHeadingPublishesNoReferenceDefinitionNode(): void
+    {
+        $source = "# H\n\nSee [H][].\n";
+        $document = (new BlockParser())->parse($source);
+        $json = (new AstCodec())->encodeJson($document);
+
+        $this->assertStringNotContainsString('link_reference_definition', $json);
+        $this->assertSame($source, (new CarveRenderer())->render($document));
+    }
+
+    public function testTheExplicitLabelFormStillResolvesARealDefinition(): void
+    {
+        // The CONTROL an over-eager fix breaks: keying on "unresolved" rather
+        // than on "collapsed" would take the linkDefs hit with it.
+        $this->assertStringContainsString(
+            '<a href="/u">t</a>',
+            $this->html("[H]: /u\n\n# H\n\nSee [t][H].\n"),
+        );
     }
 
     public function testMatchingFoldsCaseAndCollapsesWhitespace(): void
