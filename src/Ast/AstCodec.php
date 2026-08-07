@@ -574,6 +574,14 @@ class AstCodec
             ));
         }
 
+        // What the sender actually had to send, measured HERE and not further
+        // down: everything below rewrites `$data` - `liftAbbreviationDefs`
+        // moves definitions out of the root - so a later measurement would be
+        // asking what this method's own bookkeeping costs rather than what
+        // arrived. Used at the end of this method to bound the expansion
+        // budgets; see there.
+        $payloadBytes = PayloadSize::bytes($data, self::MAX_JSON_DEPTH);
+
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
             throw new AstDecodeException(sprintf(
@@ -663,6 +671,24 @@ class AstCodec
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
             throw new AstDecodeException('The payload root must be a document node');
+        }
+
+        // What the payload COST, recorded beside what it CLAIMS.
+        // `srcByteLength` is kept exactly as written - PART 12 §7 makes it a
+        // field of the payload, and a reader that rewrites it has silently
+        // repaired the record - but the expansion budgets may not be sized from
+        // it alone, because it arrives inside the payload and a hostile tree can
+        // claim any number it likes for the price of the digits
+        // (carve-php#1052). `Document::getExpansionBudgetLength()` takes the
+        // smaller of the two.
+        //
+        // Recorded ONLY where it binds, so that a document decoded from this
+        // engine's own output stays identical to the one that was encoded -
+        // `RootFieldsTest::testBothSurviveEncodeDecodeRoundTrip` pins that, and
+        // an encoded tree is several times the size of the source it came from,
+        // so an honest payload never reaches this branch.
+        if ($payloadBytes < $node->getSourceLength()) {
+            $node->setIngestPayloadLength($payloadBytes);
         }
 
         if ($abbreviations !== []) {

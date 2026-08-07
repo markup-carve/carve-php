@@ -454,7 +454,7 @@ class AnsiRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
-        $this->resetAbbreviationBudget($document->getSourceLength());
+        $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $output = $this->renderChildren($document);

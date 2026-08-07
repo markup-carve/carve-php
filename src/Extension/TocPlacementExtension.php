@@ -98,7 +98,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
         // (keyed by spl_object_id) returns the cached, dedup-aware ids.
         $this->document = $document;
         $this->emittedBytes = 0;
-        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getSourceLength());
+        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getExpansionBudgetLength());
 
         return $document;
     }

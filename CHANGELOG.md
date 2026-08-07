@@ -33,6 +33,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The expansion budgets are no longer sized from the payload's own
+  `srcByteLength`** (carve-php#1052). The abbreviation, table-of-contents and
+  index budgets are `max(floor, factor x source length)`. On the parse path that
+  length is measured, so a bigger budget costs a bigger document; on the
+  AST-ingest path it arrived inside the payload, which let the payload choose the
+  size of the guard meant to bound it. Rewriting one number to `1000000000` took
+  a 214 KB payload from 1.05 MB of HTML to 102 MB, 478x, for nine extra bytes. An
+  ingested document is now bounded by what its payload actually cost as well as
+  by what it claims, and the smaller of the two wins - so a bigger budget has to
+  be bought in bytes. `srcByteLength` itself is still read exactly as written and
+  re-encoded unchanged, because PART 12 §7 makes it a field of the payload and a
+  reader that rewrote it would have silently repaired the record; it is the
+  budget that stops trusting it. Renderers and extensions that size a budget
+  should read the new `Document::getExpansionBudgetLength()` rather than
+  `getSourceLength()`. Nothing on the parse path changes. **On the ingest path
+  the ceiling can also bind on legitimate input**, in one narrow shape: a
+  document whose encoded tree is SMALLER than the source it came from - a source
+  that is mostly blank lines or comments - and whose source is past about 125 KB,
+  where the budget's 1 MB floor stops covering it. Such a document renders with a
+  smaller expansion budget after a round trip than it does when parsed, so a
+  `::: toc` past the budget emits an empty nav. This is deliberate and cannot be
+  avoided: the bytes that would tell an honest large source apart from a claim
+  about one are exactly the bytes the AST does not carry, and sizing the budget
+  from what the sender actually sent is the point. No corpus document is affected
+  - the smallest encoded tree is still 2.25x its source.
+
 - **`StoredPayloadUpgrade`'s array entry points now apply the nesting bound its
   string one already applied** (carve-php#1051). `upgradeJson()` was bounded for
   free, because `json_decode` takes a depth argument. `upgrade()` and

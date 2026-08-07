@@ -223,7 +223,13 @@ final class ReferenceShape
         // definition line sat so the node built for it at serialization can
         // carry a position, and the reference has no field for it because it
         // never needed one - its definitions are already nodes.
-        'document' => ['abbreviationSpans'],
+        //
+        // `ingestPayloadLength` is internal for the same reason and more
+        // plainly: it records what the payload this document was decoded from
+        // cost, which is a fact about the ARRIVAL rather than about the
+        // document, and re-publishing it would put a reader's own measurement
+        // back on the wire where the next reader would read it as a claim.
+        'document' => ['abbreviationSpans', 'ingestPayloadLength'],
     ];
 
     /**

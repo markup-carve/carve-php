@@ -380,7 +380,7 @@ class CarveRenderer implements RendererInterface
             $out = ['__class' => $class];
             foreach ($ref->getProperties() as $property) {
                 $name = $property->getName();
-                if ($name === 'parent' || $name === 'sourceLength') {
+                if ($name === 'parent' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
                     continue;
                 }
                 $out[$name] = $this->canonicalizeAst($property->getValue($value));

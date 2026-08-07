@@ -48,12 +48,25 @@ class Document extends Node
     /**
      * Byte length of the original source the document was parsed from.
      *
-     * Used by renderers to size the abbreviation-expansion budget (a DoS
-     * guard against output amplification when an abbreviation with a huge
-     * definition occurs many times). 0 means "unknown" (document built
-     * programmatically rather than parsed).
+     * What the DOCUMENT says about itself. On the parse path the parser
+     * measured it; on the ingest path it is `srcByteLength`, read off the wire
+     * exactly as written, because PART 12 §7 makes it a field of the payload
+     * and a reader that rewrites it has silently repaired the record. 0 means
+     * "unknown" (document built programmatically rather than parsed).
+     *
+     * NOT what a budget may be sized from when the document was ingested. See
+     * `getExpansionBudgetLength()`.
      */
     protected int $sourceLength = 0;
+
+    /**
+     * Bytes the ingested payload actually cost, or 0 when none was ingested.
+     *
+     * Set by `AstCodec::decode()` and by nothing else. Internal: it is a fact
+     * about how this document ARRIVED, not about the document, so it is listed
+     * in `ReferenceShape::INTERNAL_ONLY` and never reaches the wire.
+     */
+    protected int $ingestPayloadLength = 0;
 
     public function getType(): string
     {
@@ -74,6 +87,44 @@ class Document extends Node
     public function setSourceLength(int $sourceLength): void
     {
         $this->sourceLength = $sourceLength;
+    }
+
+    /**
+     * Record what the payload this document was decoded from actually cost.
+     */
+    public function setIngestPayloadLength(int $ingestPayloadLength): void
+    {
+        $this->ingestPayloadLength = $ingestPayloadLength;
+    }
+
+    /**
+     * The length a per-render expansion budget may be sized from.
+     *
+     * The expansion budgets - abbreviations, the table of contents, the index -
+     * are `max(floor, factor x this)`. A cap has to be enforced against
+     * something the attacker does not supply, and on the parse path this is
+     * exactly that: the parser measured the input, so a bigger budget costs a
+     * bigger document.
+     *
+     * On the ingest path `sourceLength` is `srcByteLength`, which arrives
+     * INSIDE the payload. Left alone it let the payload choose the size of the
+     * guard meant to bound it: rewriting one number to `1000000000` took a
+     * 214 KB payload from 1.05 MB of HTML to 102 MB, 478x, for nine extra bytes
+     * (carve-php#1052). So an ingested document is bounded by what its payload
+     * actually cost as well as by what it claims, and the smaller wins.
+     *
+     * The claim is still honored where it is smaller, because a document that
+     * says it came from a short source is not made suspect by the AST for it
+     * being verbose - and an encoded tree is normally several times the size of
+     * the source it came from, so on an honest round trip this does not bind.
+     */
+    public function getExpansionBudgetLength(): int
+    {
+        if ($this->ingestPayloadLength <= 0) {
+            return $this->sourceLength;
+        }
+
+        return min($this->sourceLength, $this->ingestPayloadLength);
     }
 
     /**
