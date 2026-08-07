@@ -9,8 +9,14 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
+ * An underscore escape is kept only where it protects something.
+ *
  * CommonMark does not honour an intraword underscore, so escaping one protects
  * nothing and only litters identifiers in output meant to be read and searched.
+ * The same holds one step further out: emphasis needs an opener and a closer,
+ * so an underscore with no possible partner in its block emphasises nothing
+ * either, whatever its flanking says in isolation.
+ *
  * An asterisk is not symmetric here - `a*b*c` does emphasise - so `*` stays
  * escaped everywhere.
  */
@@ -35,10 +41,65 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($identifier, trim(CarveConverter::markdown()->convert($identifier)));
     }
 
-    public function testAnUnderscoreThatCouldOpenOrCloseEmphasisStaysEscaped(): void
+    /**
+     * Emphasis needs an opener AND a closer after it, so a lone underscore
+     * emphasises nothing whatever its flanking says in isolation. It used to
+     * keep an escape anyway, which cost the same identifier legibility the
+     * intraword rule above was introduced to recover.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function unpairableProvider(): array
     {
-        $this->assertSame('trailing\_', trim(CarveConverter::markdown()->convert('trailing_')));
-        $this->assertSame('\_leading', trim(CarveConverter::markdown()->convert('_leading')));
+        return [
+            'trailing' => ['trailing_', 'trailing_'],
+            'leading' => ['_leading', '_leading'],
+            'after an opening paren' => ['(_tab-nav) and text', '(_tab-nav) and text'],
+            'after a slash' => ['building_type/_l2 here', 'building_type/_l2 here'],
+            'a charset introducer' => ['_utf8mb4 default', '_utf8mb4 default'],
+            'two openers, no closer' => ['start _x and _y end', 'start _x and _y end'],
+            'an authored escape with no partner' => ['\_only', '_only'],
+        ];
+    }
+
+    #[DataProvider('unpairableProvider')]
+    public function testAnUnderscoreWithNothingToPairWithLosesItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
+     * The moment a partner exists the escape is load-bearing again: dropping it
+     * would let CommonMark read the pair as emphasis the author did not write.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function pairableProvider(): array
+    {
+        return [
+            'an authored pair' => ['\_a\_', '\_a\_'],
+            'an authored pair in a sentence' => ['x \_a\_ y', 'x \_a\_ y'],
+            'an authored strong pair' => ['\_\_a\_\_', '\_\_a\_\_'],
+            'a pair spanning words' => ['a \_b c\_ d', 'a \_b c\_ d'],
+        ];
+    }
+
+    #[DataProvider('pairableProvider')]
+    public function testAnUnderscoreThatCouldStillPairKeepsItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
+     * Emphasis does not span a blank line, so the two paragraphs are judged
+     * apart: neither underscore can reach the other and both come out bare.
+     */
+    public function testUnderscoresInSeparateBlocksDoNotPair(): void
+    {
+        $this->assertSame(
+            "_first\n\n_second",
+            trim(CarveConverter::markdown()->convert("\\_first\n\n\\_second")),
+        );
     }
 
     public function testAnAsteriskBetweenWordCharactersStaysEscaped(): void

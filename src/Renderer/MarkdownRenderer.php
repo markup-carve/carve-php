@@ -342,7 +342,150 @@ class MarkdownRenderer implements RendererInterface
             $markdown,
         ) ?? $markdown;
 
+        $markdown = $this->dropUnpairableUnderscoreEscapes($markdown);
+
         return str_replace(self::UNDERSCORE_ESCAPE, '\\_', $markdown);
+    }
+
+    /**
+     * Drop the backslash from an underscore that has nothing to pair with.
+     *
+     * The intraword rule above only reaches an underscore with a word
+     * character on both sides. One at a boundary - `_utf8mb4`, `(_tab-nav)`,
+     * `path/_leaf` - can open or close emphasis, so it kept its escape
+     * whatever else the document said. But emphasis needs BOTH an opener and a
+     * closer after it, so a run that has no possible partner in its block
+     * cannot emphasise anything and its escape protects nothing. It only
+     * litters the identifier, which is the same cost the intraword rule was
+     * removed to avoid.
+     *
+     * Scoped to the block because emphasis does not span a blank line, and
+     * decided on the resolved text (sentinels read as the underscores they
+     * stand for) so a run's flanking is judged against what the reader will
+     * actually see. When a partner does exist the block is left exactly as it
+     * was - this only ever removes an escape that could not have mattered.
+     */
+    private function dropUnpairableUnderscoreEscapes(string $markdown): string
+    {
+        if (!str_contains($markdown, self::UNDERSCORE_ESCAPE)) {
+            return $markdown;
+        }
+
+        $blocks = preg_split('/(\n[ \t]*\n)/', $markdown, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if ($blocks === false) {
+            return $markdown;
+        }
+
+        foreach ($blocks as $i => $block) {
+            if (!str_contains($block, self::UNDERSCORE_ESCAPE)) {
+                continue;
+            }
+
+            if (!$this->blockCanEmphasiseWithUnderscore($block)) {
+                $blocks[$i] = str_replace(self::UNDERSCORE_ESCAPE, '_', $block);
+            }
+        }
+
+        return implode('', $blocks);
+    }
+
+    /**
+     * Whether any underscore run in the block could open emphasis that a later
+     * run could close. Conservative by construction: anything it cannot rule
+     * out counts as pairable and the escapes stay.
+     */
+    private function blockCanEmphasiseWithUnderscore(string $block): bool
+    {
+        $text = str_replace(self::UNDERSCORE_ESCAPE, '_', $block);
+
+        if (preg_match_all('/_+/u', $text, $matches, PREG_OFFSET_CAPTURE) === false) {
+            return true;
+        }
+
+        $sawOpener = false;
+
+        foreach ($matches[0] as [$run, $offset]) {
+            $before = $this->characterBefore($text, $offset);
+            $after = $this->characterAfter($text, $offset + strlen($run));
+
+            $leftFlanking = $this->isLeftFlanking($before, $after);
+            $rightFlanking = $this->isRightFlanking($before, $after);
+
+            // CommonMark restricts `_` further than `*`: a run may only open
+            // when it is not also closing, or sits against punctuation.
+            $canOpen = $leftFlanking && (!$rightFlanking || $this->isPunctuation($before));
+            $canClose = $rightFlanking && (!$leftFlanking || $this->isPunctuation($after));
+
+            if ($sawOpener && $canClose) {
+                return true;
+            }
+
+            if ($canOpen) {
+                $sawOpener = true;
+            }
+        }
+
+        return false;
+    }
+
+    private function characterBefore(string $text, int $offset): string
+    {
+        if ($offset === 0) {
+            return '';
+        }
+
+        $head = substr($text, 0, $offset);
+        $chars = preg_split('//u', $head, -1, PREG_SPLIT_NO_EMPTY);
+
+        return $chars === false || $chars === [] ? '' : (string)end($chars);
+    }
+
+    private function characterAfter(string $text, int $offset): string
+    {
+        $tail = substr($text, $offset);
+
+        if ($tail === '') {
+            return '';
+        }
+
+        return preg_match('/^./us', $tail, $m) === 1 ? $m[0] : '';
+    }
+
+    /**
+     * An empty string stands for the start or end of the block, which counts
+     * as whitespace for flanking, exactly as a line ending would.
+     */
+    private function isWhitespace(string $char): bool
+    {
+        return $char === '' || preg_match('/^[\s\x{00A0}]$/u', $char) === 1;
+    }
+
+    private function isPunctuation(string $char): bool
+    {
+        return $char !== '' && preg_match('/^[\p{P}\p{S}]$/u', $char) === 1;
+    }
+
+    private function isLeftFlanking(string $before, string $after): bool
+    {
+        if ($this->isWhitespace($after)) {
+            return false;
+        }
+
+        return !$this->isPunctuation($after)
+            || $this->isWhitespace($before)
+            || $this->isPunctuation($before);
+    }
+
+    private function isRightFlanking(string $before, string $after): bool
+    {
+        if ($this->isWhitespace($before)) {
+            return false;
+        }
+
+        return !$this->isPunctuation($before)
+            || $this->isWhitespace($after)
+            || $this->isPunctuation($after);
     }
 
     protected function renderNode(Node $node): string
