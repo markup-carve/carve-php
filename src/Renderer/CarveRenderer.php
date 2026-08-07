@@ -1352,11 +1352,19 @@ class CarveRenderer implements RendererInterface
         return $out;
     }
 
+    /**
+     * The opener SPELLS THE FORMAT TOKEN OUT, `yaml` included
+     * (markup-carve/carve#961 ruling 2).
+     *
+     * The grammar uses the word "canonical" for the exact string `---yaml`, and
+     * this is the canonical writer. `yaml` used to be the one format written as
+     * a bare `---`, which made the default format the single case where the
+     * writer did not say what it had parsed; `---toml` and `---json` were
+     * already spelled out. One rule across formats replaces the special case.
+     */
     protected function renderFrontmatter(Frontmatter $node): string
     {
-        $open = $node->getFormat() === 'yaml' ? '---' : '---' . $this->escapeFormat($node->getFormat());
-
-        return $open . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
+        return '---' . $this->escapeFormat($node->getFormat()) . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
     }
 
     /**

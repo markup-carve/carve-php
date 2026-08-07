@@ -33,6 +33,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer spells the frontmatter format token out** (carve-php#1044,
+  PART 11 §6b, ruled in markup-carve/carve#961 and written in
+  markup-carve/carve#977). `carve fmt` now writes `---yaml` where it used to
+  write a bare `---`. `yaml` was the one format written without its token -
+  `---toml` and `---json` were already spelled out - so the DEFAULT format was
+  the single case where the writer did not say what it had parsed. The grammar
+  uses the word "canonical" for the exact string `---yaml`, and this is the
+  canonical writer. A bare `---` remains legal input and still opens `yaml`
+  frontmatter; only what the writer emits moves.
+
 - **The canonical writer puts a blank line where an empty container body would
   be** (carve-php#1042, ruled in markup-carve/carve#961). For every container
   shape, including the bare `:::` div, `carve fmt` now writes the opener, a

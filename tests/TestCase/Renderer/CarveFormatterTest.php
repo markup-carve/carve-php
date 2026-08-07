@@ -233,7 +233,11 @@ class CarveFormatterTest extends TestCase
             "```\ntrailing   \nalso\t\t\n```\n",
             "```\na\n\n\n\nb\n```\n",
             "```=html\n<pre>x   \n\n\n\ny</pre>\n```\n",
-            "---\ntitle: X\n\n\n\nnote: kept\n---\n\n%%%\nc   \n\n\n\nd\n%%%\n\nbody\n",
+            // `---yaml`, not `---`: the case asserts the source is ALREADY
+            // canonical, and the opener spells its format token out
+            // (PART 11 §6b). A bare `---` is legal input, it just is not the
+            // fixed point this case is about.
+            "---yaml\ntitle: X\n\n\n\nnote: kept\n---\n\n%%%\nc   \n\n\n\nd\n%%%\n\nbody\n",
         ];
         $converter = new CarveConverter();
         foreach ($cases as $src) {
