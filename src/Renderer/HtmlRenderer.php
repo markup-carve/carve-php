@@ -529,7 +529,7 @@ class HtmlRenderer implements RendererInterface
             $this->sharedRenderContext,
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
-                $this->resetAbbreviationBudget($document->getSourceLength());
+                $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
 
                 $html = $this->renderDocumentWithSections($document);
 

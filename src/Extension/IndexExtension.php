@@ -136,7 +136,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         $this->counts = [];
         $this->display = [];
         $this->emittedBytes = 0;
-        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getSourceLength());
+        $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getExpansionBudgetLength());
 
         // Only the body is indexed: skip Footnote subtrees (deferred content the
         // renderer may drop or reorder). A marker inside one stays uncounted and

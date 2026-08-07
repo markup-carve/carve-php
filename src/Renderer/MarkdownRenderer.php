@@ -258,7 +258,7 @@ class MarkdownRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
-        $this->resetAbbreviationBudget($document->getSourceLength());
+        $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
