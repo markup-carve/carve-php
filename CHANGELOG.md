@@ -216,6 +216,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown target neutralizes embedded HTML in five more slots**
+  (carve-php#1063). The writer's stated invariant is that `<`, `>` and `&` in
+  author content are escaped so Markdown re-rendered to HTML cannot execute, and
+  math content, the abbreviation definition line (key and expansion), the
+  footnote label in both positions and an unresolved cross-reference's target
+  all skipped it: a math span holding a `script` tag came out live, and an
+  `<abbr title="...">` built from an escaped expansion sat in the same output as
+  the unescaped `*[AB]:` line it came from. **Behavior change:** those slots now
+  escape like every other author-content slot on this target. A footnote label
+  escapes in both the reference and the definition, so the pair still matches;
+  escaping math is transparent to a consumer, which decodes the entity back to
+  the character before its math renderer sees it, exactly as the HTML target has
+  always relied on. An unresolved cross-reference keeps its authored
+  `</#target>` marker, which stays readable; only the target inside it is
+  escaped, because `</#a<script>` is a complete opening tag once the Markdown is
+  rendered.
+
 - **A cross-reference label is a budgeted expansion** (carve-php#1061).
   `</#slug>` republishes the target heading's whole display text while the
   reference costs only the slug, so a short slug on a long heading amplified
