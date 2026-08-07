@@ -551,6 +551,29 @@ class AstCodec
      */
     public function decode(array $data): Document
     {
+        // FIRST, ahead of every other question this method asks. `decodeJson`
+        // is bounded for free because `json_decode` takes a depth argument;
+        // this entry point is handed a structure somebody else decoded, and
+        // everything below here - `refuseRetiredShapes`, `verifyNoUnnamedSlots`,
+        // `AstSchema::firstViolation`, `decodeNode` - is plain recursion. A
+        // payload past the bound exhausts the C stack, and a segmentation fault
+        // is not a depth check failing, it is the absence of one.
+        //
+        // Ahead of the version envelope too, because a payload that cannot be
+        // walked cannot be diagnosed: reporting which spelling it uses means
+        // descending into it.
+        if (!PayloadDepth::within($data, self::MAX_JSON_DEPTH)) {
+            throw new AstDecodeException(sprintf(
+                'AST payload nests deeper than %d levels. The parser caps nesting at %d AST '
+                    . 'levels, whose deepest wire form stays well inside this bound, so a '
+                    . 'payload past it was not produced by parsing a document. This is the '
+                    . 'bound `decodeJson()` applies through `json_decode`; the array entry '
+                    . 'point applies it by hand because nothing else does.',
+                self::MAX_JSON_DEPTH,
+                self::MAX_PARSER_NESTING_DEPTH,
+            ));
+        }
+
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
             throw new AstDecodeException(sprintf(

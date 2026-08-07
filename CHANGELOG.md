@@ -33,6 +33,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Every array-taking AST ingest entry point now applies the nesting bound its
+  string sibling already applied** (carve-php#1050). `AstCodec::decodeJson()` and
+  `ProseMirrorToCarve::convertJson()` were bounded for free, because
+  `json_decode` takes a depth argument and refuses past it. The array entry
+  points beside them - `AstCodec::decode()`, `AstSchema::firstViolation()` and
+  `ProseMirrorToCarve::convert()` - were handed a structure somebody else had
+  decoded, and every walk under them is plain recursion, so a deep enough
+  payload exhausted the C stack: a segmentation fault rather than a catchable
+  exception. A host ingesting a stored tree, a bridge result, a cached tree or
+  a database row as an array had no bound at all. They now refuse past the same
+  number their string sibling passes to `json_decode`, with a message naming the
+  bound. **This changes behavior on legitimate deeply-nested input too**: an
+  array nesting 1216 or more containers (`AstCodec`), or 512 or more
+  (`ProseMirrorToCarve`), used to be accepted and is now refused, so a caller
+  that decoded its own JSON with a raised depth and passed the array in gets an
+  exception where it previously got a document. Nothing the parser or the
+  encoder produces comes anywhere near either bound.
+
 - **A list marker at the content column inside an open fence is code text**
   (carve-php#1007, corpus category 278 in markup-carve/carve#975, reference
   implementation markup-carve/carve-js#877). §24 S1 matches the item, so the

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
+use MarkupCarve\Carve\Ast\PayloadDepth;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -70,6 +71,17 @@ use RuntimeException;
 class ProseMirrorToCarve
 {
     /**
+     * How deeply an incoming ProseMirror payload may nest.
+     *
+     * `json_decode`'s own default, named rather than repeated: the string entry
+     * point and the array entry point beside it have to bound the same set of
+     * payloads, and a literal in one of them is how the two drift apart.
+     *
+     * @var int
+     */
+    public const MAX_JSON_DEPTH = 512;
+
+    /**
      * Carve types that hold their content as a string and take a ProseMirror
      * MARK rather than a node, so the text arrives on a text node and has to be
      * lifted back onto the Carve node.
@@ -98,6 +110,19 @@ class ProseMirrorToCarve
      */
     public function convert(array $document): Document
     {
+        // `convertJson()` is bounded by the depth argument it hands
+        // `json_decode`; this entry point takes a structure somebody else
+        // decoded, and `buildBlock` recurses through it, so the same bound has
+        // to be applied by hand or a deep enough payload exhausts the C stack.
+        // Asked before the root-type check, because a payload too deep to walk
+        // is refused for that and not for what it claims to be.
+        if (!PayloadDepth::within($document, self::MAX_JSON_DEPTH)) {
+            throw new RuntimeException(sprintf(
+                'The ProseMirror payload nests deeper than %d levels, the bound `convertJson()` applies.',
+                self::MAX_JSON_DEPTH,
+            ));
+        }
+
         $type = $document['type'] ?? null;
         if ($type !== 'doc') {
             throw new RuntimeException('The payload root must be a ProseMirror doc node');
@@ -227,7 +252,7 @@ class ProseMirrorToCarve
     public function convertJson(string $json): Document
     {
         /** @var array<string, mixed> $data */
-        $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode($json, true, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
 
         return $this->convert($data);
     }
