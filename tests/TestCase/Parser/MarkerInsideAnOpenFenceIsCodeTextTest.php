@@ -143,6 +143,32 @@ class MarkerInsideAnOpenFenceIsCodeTextTest extends TestCase
     }
 
     /**
+     * AND THE DIV SHAPE IS LEFT EXACTLY AS IT WAS, which is asserted rather
+     * than assumed: widening the guard to `inDiv` as well is a mutation that
+     * CHANGES this document, so it is not an equivalent one and the choice of
+     * `inFence` alone is load-bearing.
+     *
+     * A marker at the content column below a div opener that is not on the
+     * marker line severs the div here - an empty aside, the list beside it,
+     * and a spurious empty `div` for the closer. That looks wrong, and it is
+     * NOT this change's to settle: carve-js publishes the same shape for the
+     * same input, so it is a question for markup-carve/carve rather than a
+     * defect in one engine, and it is filed as such. The fence rows are what
+     * corpus 278 pins.
+     *
+     * If a ruling later moves this shape, this case is the one to delete - it
+     * records today's answer and the reason it was not changed here, not a
+     * belief that it is right.
+     */
+    public function testTheDivShapeIsUnchangedByTheFenceGuard(): void
+    {
+        $html = $this->html("- a\n  ::: note\n  - x\n  :::\n");
+
+        $this->assertStringContainsString('<li>x</li>', $html);
+        $this->assertStringContainsString('<div>', $html);
+    }
+
+    /**
      * And a marker OUTSIDE any fence still ends the item, which is the
      * behavior the guard must not reach.
      */
