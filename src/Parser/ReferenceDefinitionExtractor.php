@@ -503,14 +503,24 @@ class ReferenceDefinitionExtractor
 
         // `[space, attributes]`, the fourth of PART 7's exactly-one-space slots.
         //
-        // CONSUMED IS NOT THE SAME QUESTION AS VALID. A block that CLOSES at the
-        // end of the line is consumed whether or not its payload yields
-        // anything, so `[a]: /u {}` and `[a]: /u {.a\}b}` are definitions with
-        // NO attributes rather than paragraphs - §14's "one invalid name
-        // invalidates the whole block" empties the block, it does not unmake the
-        // line. A block that never closes, or one closed before the end of the
-        // line, is a different matter: it is not the definition's, what is left
-        // reaches the anchor, and the line is prose.
+        // AN INVALID BLOCK IS NOT `attributes`, SO THE LINE IS NOT A DEFINITION
+        // (markup-carve/carve#933). The slot names the `attributes` production,
+        // and a balanced `{...}` that production does not accept is not an
+        // instance of it: it is leftover content, and the anchor below disposes
+        // of it like any other leftover. So `[a]: /u {#}`, `[a]: /u { }` and
+        // `[a]: /u {=}` are paragraphs, and an `[a][]` under one of them does
+        // not resolve.
+        //
+        // The same characters already read this way one construct over: `x {#}`
+        // in a paragraph keeps its braces as text, because `attributes` rejects
+        // that block there too and inline content keeps what it cannot parse.
+        //
+        // THE OLD READING - "consumed is not the same question as valid" - made
+        // the anchor unable to SEE the failure. The block is peeled off by a
+        // balance scan before anything validates it, so a rejected block had
+        // already been consumed and DISCARDED and the line went on to define
+        // with the author's `{...}` gone from the page. That is the outcome
+        // PART 7 names as the one to avoid, and the reason this anchor exists.
         $attrs = [];
         if (($rest[0] ?? '') === ' ' && ($rest[1] ?? '') === '{') {
             $parsed = $this->readTrailingAttributes(substr($rest, 1));
@@ -543,19 +553,27 @@ class ReferenceDefinitionExtractor
      * `}` inside quotes, and a lazy `\{[^}]*\}` stops at that brace and drops
      * every attribute on the line silently. Only an UNQUOTED `}` closes it.
      *
-     * `null` means the block never CLOSES at the end of the line, so it is not
-     * the definition's and - under the end-of-line anchor - the whole line is
-     * prose. It used to mean "leave the braces in the destination", which is the
-     * shape PART 7 names as the one to avoid: metadata silently absorbed rather
-     * than a visible failure.
+     * `null` means the block is NOT this definition's `attributes`, so what the
+     * caller still holds is leftover content and the anchor makes the whole line
+     * prose. Three different findings share that answer, and they are three
+     * rather than two on purpose (markup-carve/carve#933): the block never
+     * CLOSES at the end of the line; the block closes but its payload is not
+     * `attributes`; the block closes and yields no attribute at all. The middle
+     * one used to return an EMPTY array, which is also what "there was nothing
+     * to take" looked like - and where a rejection and an absence are the same
+     * value, the rejection has nowhere to be observed and the block is silently
+     * eaten.
      *
-     * An EMPTY array is a different answer: the block closed and yielded
-     * nothing, which is what `{}` and an invalid payload both do. The line is
-     * still a definition.
+     * `attribute_list = attribute, {space+, attribute}` needs at least one
+     * attribute, so `{}` and `{ }` are not `attributes` here. The blessed EMPTY
+     * block is written for the inline span (`[text]{}`) and for
+     * `item_attributes` (`-{} text`), each with its own prose; this slot has
+     * none, and markup-carve/carve#933 names `[a]: /u { }` among the lines that
+     * stop defining.
      *
      * @param string $tail The line from its `{` to its end.
      *
-     * @return array<string, string>|null
+     * @return non-empty-array<string, string>|null
      */
     private function readTrailingAttributes(string $tail): ?array
     {
@@ -600,15 +618,18 @@ class ReferenceDefinitionExtractor
             // (PART 4, markup-carve/carve#906), not the attribute LINE.
             if ($this->inlineParser !== null && !$this->inlineParser->isValidInlineAttrPayload($payload)) {
                 // One invalid name invalidates the whole block (§14), exactly as
-                // it does on a block-attribute line and inline - so `{.a\}b}`
-                // yields NO attributes rather than silently keeping the half
-                // that parsed. The block is still CONSUMED.
-                return [];
+                // it does on a block-attribute line and inline - so `{#}` and
+                // `{.a\}b}` are not `attributes`. The block is handed BACK as
+                // content, and the anchor makes the line prose.
+                return null;
             }
             $parsed = AttributeParser::parseOrderedWithSlots($payload);
             $attrs = $parsed['attributes'];
             if ($attrs === []) {
-                return [];
+                // A payload that IS space-only, and so passes the check above,
+                // still yields no `attribute` - and `attribute_list` needs one.
+                // `{}` and `{ }` land here.
+                return null;
             }
             $ordered = [];
             foreach ($parsed['order'] as $slot) {

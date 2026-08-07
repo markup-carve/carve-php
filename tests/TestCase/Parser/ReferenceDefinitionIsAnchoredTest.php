@@ -115,31 +115,43 @@ class ReferenceDefinitionIsAnchoredTest extends TestCase
     }
 
     /**
-     * A block that CLOSES at the end of the line is consumed even when it yields
-     * nothing.
+     * A block that CLOSES at the end of the line but is not `attributes` is
+     * handed BACK as content, so the anchor makes the line prose.
      *
-     * §14's "one invalid name invalidates the whole block" empties the block; it
-     * does not unmake the line. Consumed and valid are separate questions, and
-     * collapsing them would turn two definitions into paragraphs. Measured
-     * against the executable spec, not asserted from the clause.
+     * THIS ANSWER MOVED with markup-carve/carve#933. It used to read "consumed
+     * and valid are separate questions", which made the anchor unable to see the
+     * failure: the balance scan peels the block off before anything validates
+     * it, so a rejected block was already discarded when the anchor looked at
+     * what was left, and the line defined with the author's braces gone from the
+     * page. The remedy is a THIRD outcome from the scan, distinct both from
+     * "there was no block" and from "the block was empty" - where those two are
+     * one value, the rejection has nowhere to be observed.
      *
      * @return array<string, array{0: string}>
      */
-    public static function emptyingAttributeBlockProvider(): array
+    public static function rejectedAttributeBlockProvider(): array
     {
         return [
+            // `attribute_list` needs at least one attribute; the blessed EMPTY
+            // block is the inline span's and `item_attributes`', not this slot's.
             'an empty block' => ['[a]: /u {}'],
+            'a space-only block' => ['[a]: /u { }'],
+            'no identifier after the hash' => ['[a]: /u {#}'],
+            'a bare equals' => ['[a]: /u {=}'],
             'a block with one invalid name' => ['[a]: /u {.a\\}b}'],
         ];
     }
 
-    #[DataProvider('emptyingAttributeBlockProvider')]
-    public function testAnEmptyingAttributeBlockLeavesTheDefinitionStanding(string $line): void
+    #[DataProvider('rejectedAttributeBlockProvider')]
+    public function testARejectedAttributeBlockUnmakesTheDefinition(string $line): void
     {
         $out = $this->html($line . "\n\n[a][]\n");
 
-        $this->assertStringContainsString('<a href="/u">a</a>', $out);
-        $this->assertStringNotContainsString('class=', $out);
+        $this->assertStringNotContainsString('<a href="/u">a</a>', $out);
+        // The braces survive on the page rather than being eaten: the whole
+        // point of handing the block back rather than swallowing it.
+        $this->assertStringContainsString('{', $out);
+        $this->assertStringContainsString('<p>[a][]</p>', $out);
     }
 
     public function testAnAttributedDefinitionStillInterruptsAParagraph(): void
@@ -199,7 +211,7 @@ class ReferenceDefinitionIsAnchoredTest extends TestCase
         // and nothing else here would fail.
         $this->assertCount(14, self::trailingContentProvider());
         $this->assertCount(9, self::legalFormProvider());
-        $this->assertCount(2, self::emptyingAttributeBlockProvider());
+        $this->assertCount(5, self::rejectedAttributeBlockProvider());
         $this->assertCount(5, self::containerProvider());
     }
 }

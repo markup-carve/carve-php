@@ -27,6 +27,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A reference definition whose trailing `{...}` block is not `attributes` is a
+  paragraph** (carve-php#1025, specified in markup-carve/carve#933).
+  `[a]: /u {#}`, `[a]: /u { }`, `[a]: /u {=}`, `[a]: /u {}` and
+  `[a]: /u {.a\}b}` no longer define, so an `[a][]` under one of them renders as
+  literal source text and the braces the author wrote stay on the page. The slot
+  names the `attributes` production, and a balanced block that production does
+  not accept is leftover content, which the end-of-line anchor turns into prose.
+  Previously the block was peeled off by a balance scan before anything
+  validated it, so a rejected block was discarded and the line still defined -
+  with the author's metadata gone from the output. A VALID block still defines
+  and still transfers its attributes. **Breaking:** a document relying on one of
+  these lines resolves one fewer reference.
+
 - **The ANSI target keeps a code block's verbatim content.** `AnsiRenderer`
   split the block on `rtrim()`, which drops the terminating newline but also
   takes the trailing space on the block's last line and every blank line at its
