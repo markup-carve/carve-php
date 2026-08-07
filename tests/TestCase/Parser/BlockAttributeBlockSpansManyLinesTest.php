@@ -46,10 +46,16 @@ use PHPUnit\Framework\TestCase;
  * `{.a` + `<SP><SP><SP>` + `.b}` was one block where `{.a` + `` + `.b}` was
  * not. Both are literal text now.
  *
- * NOT SWEPT IN: markup-carve/carve#888 tracks what a line break inside the
- * block becomes in the rendered attribute VALUE, where the two normative files
- * contradict each other and the engines split along the same line. The join is
- * left exactly as it was.
+ * A QUOTED VALUE STOPS AT THE NEWLINE, so the break can only ever fall BETWEEN
+ * two attributes. `quoted_value` excludes a newline in both of its alternatives
+ * (PART 4) and `block_attributes` reads the same production, so a break inside
+ * the quotes ends the production and the block is unrecognized. This engine
+ * used to accept the shape and COLLAPSE the newline to a space, which no
+ * production in either normative file describes - three engines improvising is
+ * what an unstated rule looks like (markup-carve/carve#888, carve-php#986).
+ * A first pass here read that contradiction the other way and EXEMPTED a quoted
+ * value from the per-line rule; the ruling settled it the opposite way, and the
+ * shapes pinned as ACCEPTING then are pinned as literal now.
  */
 class BlockAttributeBlockSpansManyLinesTest extends TestCase
 {
@@ -84,38 +90,10 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
             'a break at both ends' => ["{\n.a\n}\npara\n", 'class="a"'],
             'indented continuations still work' => ["{.a\n  .b\n  .c}\npara\n", 'class="a b c"'],
             'mixed kinds of attribute over lines' => ["{#i\n.c\nk=\"v\"}\npara\n", 'id="i"'],
-            // A LINE INSIDE A QUOTED VALUE IS NOT AN ATTRIBUTE. The per-line
-            // rule below applies BETWEEN attributes only; inside a quoted value
-            // a line break is part of the value, and its lines need not look
-            // like attributes. Applying the rule there narrowed this shape -
-            // which parsed before - to literal text, which is not what this
-            // ticket changes.
-            'a quoted value spanning three lines' => [
-                "{title=\"a\n  https://x\n  done\"}\npara\n",
-                'title="a https://x   done"',
-            ],
-            'a quoted value spanning lines, unindented' => [
-                "{title=\"a\nhttps://x\ndone\"}\npara\n",
-                'title="a https://x done"',
-            ],
-            // A BACKSLASH-ESCAPED QUOTE DOES NOT CLOSE THE VALUE, so the value
-            // is still open on the next line and that line is exempt from the
-            // per-line rule. Read the escape as an ordinary `"` and the value
-            // closes early, `# h` is measured as an attribute, and the whole
-            // block falls back to literal text - which is what this row
-            // separates.
-            // BOTH QUOTE CHARACTERS OPEN A VALUE. Carve takes single-quoted
-            // values as well as double-quoted ones, so a scanner that tracked
-            // only `\"` read `{title='a` as unquoted, measured the value's own
-            // lines as attributes, and narrowed this shape to literal text.
-            'a single-quoted value spanning three lines' => [
-                "{title='a\n  https://x\n  done'}\npara\n",
-                'title="a https://x   done"',
-            ],
-            'an escaped quote keeps the value open across lines' => [
-                "{t=\"a\\\" b\n# h\nz\"}\npara\n",
-                't="a&quot; b # h z"',
-            ],
+            // A QUOTED VALUE ON ONE LINE is untouched by any of this - the
+            // rule is about the line break, not about the quotes.
+            'a quoted value on one line' => ["{k=\"a b\"}\npara\n", 'k="a b"'],
+            'a single-quoted value on one line' => ["{k='a b'}\npara\n", 'k="a b"'],
         ];
     }
 
@@ -152,6 +130,41 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
             'an invalid name on the closing line' => ["{.a\n.b\n.1}\npara\n", '{.a'],
             // No closing brace at all.
             'never closed' => ["{.a\n.b\npara\n", '{.a'],
+            // A QUOTED VALUE STOPS AT THE NEWLINE (PART 4, and
+            // markup-carve/carve#888). `block_attributes` reads the same
+            // `quoted_value`, whose two alternatives both exclude a newline, so
+            // a break inside the quotes is neither content nor a separator: it
+            // ends the production and the block is unrecognized. This engine
+            // used to accept the shape and COLLAPSE the newline to a space,
+            // which no production in either normative file describes
+            // (carve-php#986).
+            'a break inside a quoted value' => ["{k=\"a\nb\"}\n\nparagraph\n", '{k='],
+            'a break inside a quoted value, three lines' => [
+                "{title=\"a\n  https://x\n  done\"}\npara\n",
+                '{title=',
+            ],
+            // Both quote characters open a value, so both refuse the break.
+            //
+            // THE INTERIOR LINES HAVE TO LOOK LIKE ATTRIBUTES for these two
+            // rows to test the quote rule at all. `https://x` is not a valid
+            // attribute list on its own, so the per-line rule refuses that
+            // block whether or not the quote is tracked - which is why these
+            // spell the value `a` / `b` / `c`, every line of which IS a valid
+            // boolean attribute. Track only the double quote and the
+            // single-quoted row is accepted as three attributes.
+            'a break inside a single-quoted value' => ["{k='a\nb\nc'}\npara\n", '{k='],
+            'a break inside a double-quoted value, valid-looking interior' => [
+                "{k=\"a\nb\nc\"}\npara\n",
+                '{k=',
+            ],
+            // A BACKSLASH-ESCAPED QUOTE DOES NOT CLOSE THE VALUE, so the value
+            // is still open at the line break and the block is refused. Read
+            // the escape as an ordinary closing quote and the payload looks
+            // balanced, and the block would be accepted across the break.
+            'an escaped quote leaves the value open at the break' => [
+                "{t=\"a\\\" b\nz\"}\npara\n",
+                '{t=',
+            ],
         ];
     }
 
@@ -174,6 +187,8 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
         $this->assertStringNotContainsString('class="a', $out);
         $this->assertStringNotContainsString('id="i"', $out);
         $this->assertStringNotContainsString('title="a', $out);
+        $this->assertStringNotContainsString('<p k=', $out);
+        $this->assertStringNotContainsString('<p t=', $out);
         // The braces are still on the page, which is what "literal" means.
         $this->assertStringContainsString($literal, $out);
     }
@@ -264,7 +279,7 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
     public function testEveryShapeIsStillCovered(): void
     {
         // A row silently dropped from a provider would take its reason with it.
-        $this->assertCount(14, self::multiLineProvider());
-        $this->assertCount(8, self::literalProvider());
+        $this->assertCount(12, self::multiLineProvider());
+        $this->assertCount(13, self::literalProvider());
     }
 }

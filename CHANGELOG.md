@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A quoted attribute value stops at the newline on a block-attribute line**
+  (carve-php#986). `quoted_value` excludes a newline in both of its
+  alternatives, and `block_attributes` reads the same production, so a break
+  inside the quotes is neither content nor a separator: it ends the production
+  and the whole block is unrecognized. `{k="a` + `b"}` is a paragraph now, where
+  this engine used to accept it and COLLAPSE the newline to a space - which no
+  production in either normative file describes. The inline form was already
+  correct here. A block attribute may still span lines: `continuation` admits a
+  break BETWEEN two attributes, so `{.a` + `.b}` is still one block, and a blank
+  line still ends the attempt.
+
 - **A dedented line folds into a quoted paragraph the parser actually built**
   (carve-php#969). The lazy-continuation tracker decided "this line holds no
   paragraph" with its own copy of the block-quote marker walk, and the copy was
