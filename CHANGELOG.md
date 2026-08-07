@@ -44,7 +44,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   frontmatter; only what the writer emits moves.
 
 - **The canonical writer puts a blank line where an empty container body would
-  be** (carve-php#1042, ruled in markup-carve/carve#961). For every container
+  be** (carve-php#1042, PART 11 §7a, ruled in markup-carve/carve#961 and written
+  in markup-carve/carve#977). For every container
   shape, including the bare `:::` div, `carve fmt` now writes the opener, a
   blank line and the closer where it used to glue the opener straight to the
   closer. PART 10 §4 settled the same question one layer out, for the HTML
