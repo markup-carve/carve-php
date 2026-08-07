@@ -5243,6 +5243,13 @@ class BlockParser
                 //  - lazy continuation: a flush-left line with no blank before
                 //    it that does not start an interrupting block folds into the
                 //    open paragraph (matching list items, block quotes and djot).
+                // Whether a FORM A line has been pushed since the last blank.
+                // Past-the-column laziness is about a line following the BODY'S
+                // OWN paragraph; once an indented block has been opened, the
+                // lines under it belong to that block and its own indentation
+                // governs them. Without this the second line of an indented list
+                // or fence was folded into the first.
+                $formABlockOpen = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -5281,9 +5288,72 @@ class BlockParser
                     // reader of five spellings, and the only one that made the
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
-                    $indent = IndentationHelper::getLeadingColumns($contLine, self::DEFINITION_CONTINUATION_COLUMN);
+                    $indent = IndentationHelper::getLeadingColumns($contLine, self::DEFINITION_CONTINUATION_COLUMN + 1);
+                    // PAST THE COLUMN IS LAZY TEXT, NOT A NESTED BLOCK
+                    // (markup-carve/carve#918). `definition_indent` REACHES the
+                    // body's column and does not measure how far past it a line
+                    // went, because there is nothing past that column for
+                    // indentation to mean. A line indented further therefore
+                    // continues the body's OPEN PARAGRAPH, and a paragraph
+                    // continuation carries inline content - so
+                    //
+                    //     :: t
+                    //     :  body
+                    //         > q
+                    //
+                    // gives `<dd>body\n&gt; q</dd>` rather than a nested quote.
+                    // The alternative reading makes indentation depth mean two
+                    // different things one line apart: lazy continuation already
+                    // governs the line above, folding it into the same
+                    // paragraph, and a stray four-space indent would silently
+                    // become a block quote.
+                    //
+                    // The line is APPENDED TO THE PREVIOUS BODY ENTRY rather
+                    // than pushed as a new one. `parseBlocks()` reads each entry
+                    // as a line, so a `>` at the front of its own entry opens a
+                    // quote however the entry was indented; inside an entry it
+                    // is inline content, which is what a paragraph continuation
+                    // is. An entry holding newlines is the shape a list item
+                    // already hands over.
+                    //
+                    // FORM A still works, because it goes through the blank-line
+                    // branch below first: that pushes an empty entry, the test
+                    // here sees it, and the next indented line opens a real
+                    // block. The blank is what separates the two readings.
+                    //
+                    // AN OPEN PARAGRAPH, not merely a non-empty entry. If the
+                    // body's own first line OPENS A BLOCK - `:  - x`, `:  ```` -
+                    // then there is no open paragraph for a past-the-column line
+                    // to continue, and the line belongs to that block's own
+                    // reading. Testing only for non-emptiness turned a nested
+                    // list into literal text.
+                    //
+                    // A LIST MARKER IS ASKED FOR SEPARATELY, because
+                    // `startsNewBlock()` answers the INTERRUPTION question and
+                    // PART 9 §10 says a bullet or ordered marker never
+                    // interrupts a paragraph - so it reports false for `- x`,
+                    // which does open a block when it is the body's first line.
+                    $lastBodyKey = $body === [] ? null : array_key_last($body);
+                    $lastBodyEntry = $lastBodyKey === null ? '' : $body[$lastBodyKey];
+                    $lastBodyOpener = strtok($lastBodyEntry, "\n");
+                    if (
+                        !IndentationHelper::isBlankLine($contLine)
+                        && $indent > self::DEFINITION_CONTINUATION_COLUMN
+                        && !$formABlockOpen
+                        && $lastBodyKey !== null
+                        && $lastBodyEntry !== ''
+                        && $lastBodyOpener !== false
+                        && !$this->startsNewBlock($lastBodyOpener)
+                        && $this->listParser->parseListItemMarker($lastBodyOpener) === null
+                    ) {
+                        $body[$lastBodyKey] .= "\n" . ltrim($contLine, " \t");
+                        $i++;
+
+                        continue;
+                    }
                     // Form A: an indented continuation line (no intervening blank).
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
+                        $formABlockOpen = true;
                         $body[] = ltrim($contLine, " \t");
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
@@ -5307,6 +5377,7 @@ class BlockParser
                         // without one.
                         $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, self::DEFINITION_CONTINUATION_COLUMN);
                         if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= self::DEFINITION_CONTINUATION_COLUMN) {
+                            $formABlockOpen = false;
                             for (; $i < $look; $i++) {
                                 $body[] = '';
                                 $bodyMap[] = $this->sourceLineFor($i);

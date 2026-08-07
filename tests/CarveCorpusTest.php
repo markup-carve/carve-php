@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-definition-body-continuation-indented-past-its-column-is-lazy-text',
         'trailing-whitespace-on-a-content-line-is-dropped',
         'a-definition-marker-s-separator-is-a-space-and-it-is-a-run',
         'a-reference-definition-is-anchored-at-end-of-line',
