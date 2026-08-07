@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\AstDecodeException;
 use PHPUnit\Framework\TestCase;
 
 /**
  * PART 12 §7 fixes the document root's fields: exactly `type`, `children`, and
  * `srcByteLength`. Frontmatter and footnote definitions are block nodes in the
- * tree, while older stored payloads with root fields remain readable.
+ * tree, and a payload stored under the old root form is REFUSED - converted
+ * once by `StoredPayloadUpgrade` rather than normalized on every ingest.
  */
 class RootFieldsTest extends TestCase
 {
@@ -68,9 +71,12 @@ class RootFieldsTest extends TestCase
         $this->assertSame('b', $encoded['children'][1]['label']);
     }
 
-    public function testOldRootFrontmatterAndFootnoteDefsStillDecode(): void
+    /**
+     * @return array<string, mixed>
+     */
+    private static function oldRootFieldPayload(): array
     {
-        $decoded = $this->codec->decode([
+        return [
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
@@ -88,18 +94,15 @@ class RootFieldsTest extends TestCase
                     ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'note']]],
                 ],
             ],
-            'srcByteLength' => 0,
-        ]);
-
-        $this->assertSame(
-            ['frontmatter', 'paragraph', 'footnote'],
-            array_map(static fn (object $child): string => $child->getType(), $decoded->getChildren()),
-        );
+        ];
     }
 
-    public function testOldFootnoteIdFieldStillDecodes(): void
+    /**
+     * @return array<string, mixed>
+     */
+    private static function oldFootnoteIdPayload(): array
     {
-        $decoded = $this->codec->decode([
+        return [
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
@@ -111,8 +114,62 @@ class RootFieldsTest extends TestCase
                     ],
                 ],
             ],
-            'srcByteLength' => 0,
-        ]);
+        ];
+    }
+
+    /**
+     * The root fields are RETIRED, not tolerated (carve-php#1002). §7 fixes the
+     * root at three fields and §12(d) judges the payload as written, so a
+     * spelling that predates it is refused rather than normalized on the way in.
+     */
+    public function testOldRootFrontmatterAndFootnoteDefsAreRefused(): void
+    {
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('a root `frontmatter` object, a root `footnoteDefs` map');
+
+        $this->codec->decode(self::oldRootFieldPayload());
+    }
+
+    /**
+     * And the refusal names the way out, or a stored payload becomes a document
+     * nobody can read - its source may be long gone.
+     */
+    public function testTheRefusalNamesTheUpgradeHelper(): void
+    {
+        try {
+            $this->codec->decode(self::oldRootFieldPayload());
+            $this->fail('the payload must be refused');
+        } catch (AstDecodeException $e) {
+            $this->assertStringContainsString(StoredPayloadUpgrade::class . '::upgrade()', $e->getMessage());
+        }
+    }
+
+    public function testTheUpgradeHelperConvertsTheOldRootFields(): void
+    {
+        $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::oldRootFieldPayload()));
+
+        $this->assertSame(
+            ['frontmatter', 'paragraph', 'footnote'],
+            array_map(static fn (object $child): string => $child->getType(), $decoded->getChildren()),
+        );
+        $this->assertSame(
+            (new CarveConverter())->convert("---\ntitle: x\n---\n\nx[^r]\n\n[^r]: note\n"),
+            (new CarveConverter())->render($decoded),
+            'the upgraded payload has to render what the stored one described',
+        );
+    }
+
+    public function testOldFootnoteIdFieldIsRefused(): void
+    {
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('a `footnote` node keyed `id` rather than `label`');
+
+        $this->codec->decode(self::oldFootnoteIdPayload());
+    }
+
+    public function testTheUpgradeHelperRekeysAFootnoteDefinition(): void
+    {
+        $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::oldFootnoteIdPayload()));
 
         $encoded = $this->codec->encode($decoded);
         $this->assertSame('stored', $encoded['children'][0]['label']);

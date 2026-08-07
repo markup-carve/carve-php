@@ -96,9 +96,45 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   PHP `TypeError` - a child that is `null` and a child that is a string - are
   refused as the same typed error, which §9(b) already required. Producers
   should validate against the schema before sending. A node type registered with
-  `AstCodec::register()` is outside the schema by construction and is exempt, as
-  are the pre-§7 payload shapes this codec already documents as still decoding.
+  `AstCodec::register()` is outside the schema by construction and is exempt.
   See docs/ast-json.md.
+
+### Removed
+
+- **BREAKING: the five pre-PART 12 §7 payload shapes no longer decode**
+  (carve-php#1002). `AstCodec::decode()` used to normalize five spellings that
+  predate §7 before judging the payload: a root `abbreviations` map with its
+  `abbreviationsBeforeBody` flag, a root `frontmatter` object, a root
+  `footnoteDefs` map, a `footnote` node keyed `id` rather than `label`, and this
+  engine's internal `raw_text` node. All five are refused now, with a typed
+  `AstDecodeException` naming the spelling it found. Neither carve-js nor
+  carve-rs ever accepted them, so tolerating them kept a cross-engine divergence
+  in what an ingest accepts, and every schema addition had to be reasoned about
+  twice - once per shape.
+
+  **Migration, and it ships in this same release:**
+  `MarkupCarve\Carve\Ast\StoredPayloadUpgrade::upgrade()` converts a stored
+  payload in any of the five shapes into the §7 shape, and
+  `::upgradeJson()` does the same JSON in, JSON out. Both work on the payload
+  alone - an application holding stored payloads may no longer have the Carve
+  they were parsed from. The conversion is idempotent and leaves a payload
+  already in the §7 shape untouched, so it is safe to run over a whole store,
+  and it converts the two node types below as well. One caveat: `raw_text`
+  becomes the `text` node the encoder already published it as, and a `text` node
+  is escaped when written back out. See docs/ast-json.md.
+
+- **BREAKING: `caption` and `section` are no longer encoded** (carve-php#1002).
+  `AstCodec` published two node types PART 12's vocabulary does not name, so a
+  document round-tripped through this engine's own codec produced a payload its
+  own decoder refused - reachable through the ProseMirror bridge, which builds
+  both. A `section` is now published as the `div` it wraps blocks as, and a
+  `caption` that reached the wire as a node - a figure's and a table's are
+  already published as the reference publishes them, an inline-content FIELD -
+  as the `paragraph` it holds inline content as. Both types also leave
+  `AstCodec::schema()`, so a consumer validating against it is no longer told
+  about types the published schema rejects. A payload already stored with either
+  never decoded - the engine that wrote it refused it - and
+  `StoredPayloadUpgrade::upgrade()` converts those too.
 
 ### Fixed
 
