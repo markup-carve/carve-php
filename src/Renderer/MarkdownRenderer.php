@@ -121,6 +121,15 @@ class MarkdownRenderer implements RendererInterface
      */
     private const UNDERSCORE_ESCAPE = "\u{E004}";
 
+    /**
+     * As UNDERSCORE_ESCAPE, for an asterisk. Deferred for the same reason:
+     * whether the escape protects anything depends on the rest of the block,
+     * which escapeText() cannot see.
+     *
+     * @var string
+     */
+    private const ASTERISK_ESCAPE = "\u{E005}";
+
     protected int $listDepth = 0;
 
     protected bool $inBlockQuote = false;
@@ -342,9 +351,14 @@ class MarkdownRenderer implements RendererInterface
             $markdown,
         ) ?? $markdown;
 
-        $markdown = $this->dropUnpairableUnderscoreEscapes($markdown);
+        $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::UNDERSCORE_ESCAPE, '_');
+        $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::ASTERISK_ESCAPE, '*');
 
-        return str_replace(self::UNDERSCORE_ESCAPE, '\\_', $markdown);
+        return str_replace(
+            [self::UNDERSCORE_ESCAPE, self::ASTERISK_ESCAPE],
+            ['\\_', '\\*'],
+            $markdown,
+        );
     }
 
     /**
@@ -365,9 +379,9 @@ class MarkdownRenderer implements RendererInterface
      * actually see. When a partner does exist the block is left exactly as it
      * was - this only ever removes an escape that could not have mattered.
      */
-    private function dropUnpairableUnderscoreEscapes(string $markdown): string
+    private function dropUnpairableEmphasisEscapes(string $markdown, string $sentinel, string $delimiter): string
     {
-        if (!str_contains($markdown, self::UNDERSCORE_ESCAPE)) {
+        if (!str_contains($markdown, $sentinel)) {
             return $markdown;
         }
 
@@ -378,12 +392,12 @@ class MarkdownRenderer implements RendererInterface
         }
 
         foreach ($blocks as $i => $block) {
-            if (!str_contains($block, self::UNDERSCORE_ESCAPE)) {
+            if (!str_contains($block, $sentinel)) {
                 continue;
             }
 
-            if (!$this->blockCanEmphasiseWithUnderscore($block)) {
-                $blocks[$i] = str_replace(self::UNDERSCORE_ESCAPE, '_', $block);
+            if (!$this->blockCanEmphasise($block, $sentinel, $delimiter)) {
+                $blocks[$i] = str_replace($sentinel, $delimiter, $block);
             }
         }
 
@@ -395,14 +409,16 @@ class MarkdownRenderer implements RendererInterface
      * run could close. Conservative by construction: anything it cannot rule
      * out counts as pairable and the escapes stay.
      */
-    private function blockCanEmphasiseWithUnderscore(string $block): bool
+    private function blockCanEmphasise(string $block, string $sentinel, string $delimiter): bool
     {
-        $text = str_replace(self::UNDERSCORE_ESCAPE, '_', $block);
+        $text = str_replace($sentinel, $delimiter, $block);
+        $pattern = '/' . preg_quote($delimiter, '/') . '+/u';
 
-        if (preg_match_all('/_+/u', $text, $matches, PREG_OFFSET_CAPTURE) === false) {
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) === false) {
             return true;
         }
 
+        $isUnderscore = $delimiter === '_';
         $sawOpener = false;
 
         foreach ($matches[0] as [$run, $offset]) {
@@ -412,10 +428,11 @@ class MarkdownRenderer implements RendererInterface
             $leftFlanking = $this->isLeftFlanking($before, $after);
             $rightFlanking = $this->isRightFlanking($before, $after);
 
-            // CommonMark restricts `_` further than `*`: a run may only open
-            // when it is not also closing, or sits against punctuation.
-            $canOpen = $leftFlanking && (!$rightFlanking || $this->isPunctuation($before));
-            $canClose = $rightFlanking && (!$leftFlanking || $this->isPunctuation($after));
+            // CommonMark restricts `_` further than `*`: an underscore run may
+            // only open when it is not also closing, or sits against
+            // punctuation. An asterisk run needs only to be flanking.
+            $canOpen = $leftFlanking && (!$isUnderscore || !$rightFlanking || $this->isPunctuation($before));
+            $canClose = $rightFlanking && (!$isUnderscore || !$leftFlanking || $this->isPunctuation($after));
 
             if ($sawOpener && $canClose) {
                 return true;
@@ -1279,7 +1296,11 @@ class MarkdownRenderer implements RendererInterface
         // See UNDERSCORE_ESCAPE.
         return preg_replace_callback(
             '/([\\\\`*_\[\]#])/',
-            static fn (array $m): string => $m[1] === '_' ? self::UNDERSCORE_ESCAPE : '\\' . $m[1],
+            static fn (array $m): string => match ($m[1]) {
+                '_' => self::UNDERSCORE_ESCAPE,
+                '*' => self::ASTERISK_ESCAPE,
+                default => '\\' . $m[1],
+            },
             $text,
         ) ?? $text;
     }
