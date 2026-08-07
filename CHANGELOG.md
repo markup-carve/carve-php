@@ -33,6 +33,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A caption line drops its trailing whitespace, in the AST as well as in the
+  HTML** (carve-php#1037, tracked at markup-carve/carve#963). PART 2 NO TRAILING
+  WHITESPACE applies to every content line, and a caption line is one: corpus
+  268 pins the rule for a paragraph, a heading, a list item, a block quote and a
+  definition, and its table-caption row is what caught this. The parser applied
+  the rule to the source for all of those and to nothing for a caption, so the
+  published AST carried `"Cap "` where carve-js and carve-rs carry `"Cap"`. The
+  rendered HTML looked right only because `HtmlRenderer` trimmed its own output
+  at the three places it writes a caption, which also ate the content of an
+  all-space inline literal - `^ x !` plus a backtick-space-space-backtick
+  published `<caption>x</caption>` where the identical paragraph published
+  `<p>x   </p>` - and swallowed the newline a trailing hard break emits. The
+  rule now applies once, to the caption's source text, so all four caption hosts
+  (table, image, code block, block quote) and every render target agree, an
+  all-space literal survives, and a hard break ends a caption exactly as it ends
+  a paragraph. Consumers reading `text.value` out of a caption see one fewer
+  trailing space; the caption's text span shrinks with it, so the span still
+  slices to the value.
+
 - **A numbered cross-reference label and a table-of-contents entry keep the
   target heading's source run** (carve-php#1033, specified in
   markup-carve/carve#957). PART 9R R4 binds every consumer that derives display

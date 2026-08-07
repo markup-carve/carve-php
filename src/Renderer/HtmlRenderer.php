@@ -1459,7 +1459,7 @@ class HtmlRenderer implements RendererInterface
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                $body .= '<figcaption>' . rtrim($this->renderChildren($child)) . "</figcaption>\n";
+                $body .= '<figcaption>' . $this->renderChildren($child) . "</figcaption>\n";
             } elseif ($child instanceof Image) {
                 $body .= $this->renderImage($child) . "\n";
             } else {
@@ -1474,7 +1474,7 @@ class HtmlRenderer implements RendererInterface
     {
         // Caption is usually rendered as part of figure or table
         // This is a fallback if caption appears standalone
-        return '<figcaption>' . rtrim($this->renderChildren($node)) . "</figcaption>\n";
+        return '<figcaption>' . $this->renderChildren($node) . "</figcaption>\n";
     }
 
     protected function renderTable(Table $node): string
@@ -1492,7 +1492,7 @@ class HtmlRenderer implements RendererInterface
         if ($node->hasCaption()) {
             /** @var \MarkupCarve\Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
-            $lines[] = '  <caption>' . rtrim($this->renderChildren($caption)) . '</caption>';
+            $lines[] = '  <caption>' . $this->renderChildren($caption) . '</caption>';
         }
 
         // Every row has a grid entry for every column, including a placeholder
