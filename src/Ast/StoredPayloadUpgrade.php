@@ -86,6 +86,11 @@ final class StoredPayloadUpgrade
      */
     public static function retiredShapesIn(array $payload): array
     {
+        // `scan()` recurses, and this method is public as well as being what
+        // the decoder calls to name a pre-§7 spelling. Same bound, applied for
+        // the same reason as in `upgrade()`.
+        self::assertDepthWithinBound($payload);
+
         $found = [];
         foreach (self::RETIRED_ROOT_FIELDS as $field => $description) {
             if (array_key_exists($field, $payload)) {
@@ -113,6 +118,33 @@ final class StoredPayloadUpgrade
         }
 
         return $found;
+    }
+
+    /**
+     * Refuse a payload this class cannot walk without exhausting the stack.
+     *
+     * `AstCodec::MAX_JSON_DEPTH` and not a number of this class's own: it is
+     * the bound `upgradeJson()` already hands `json_decode`, so the array entry
+     * points accept exactly the set the string one accepts. A migration that
+     * refused what the reader beside it accepts would strand records nobody
+     * could sweep.
+     *
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When the payload nests past the bound.
+     */
+    private static function assertDepthWithinBound(array $payload): void
+    {
+        if (PayloadDepth::within($payload, AstCodec::MAX_JSON_DEPTH)) {
+            return;
+        }
+
+        throw new AstDecodeException(sprintf(
+            'The stored payload nests deeper than %d levels, the bound `upgradeJson()` applies '
+                . 'through `json_decode`. A record past it was not written by encoding a parsed '
+                . 'document, and walking it would exhaust the stack rather than report anything.',
+            AstCodec::MAX_JSON_DEPTH,
+        ));
     }
 
     /**
@@ -153,6 +185,14 @@ final class StoredPayloadUpgrade
      */
     public static function upgrade(array $payload): array
     {
+        // FIRST, ahead of every other question. `upgradeJson()` is bounded for
+        // free because `json_decode` takes a depth argument; this entry point
+        // takes a structure somebody else decoded, and `upgradeNodes` and
+        // `scan` are plain recursion, so a deep enough payload exhausts the C
+        // stack. This class exists to accept ARBITRARY stored payloads, which
+        // makes it the least trusted input in the package.
+        self::assertDepthWithinBound($payload);
+
         if (($payload['type'] ?? null) !== 'document') {
             // Only the root carried the retired FIELDS. A subtree handed over on
             // its own still gets the node-level rewrites.

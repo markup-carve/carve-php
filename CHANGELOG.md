@@ -33,6 +33,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`StoredPayloadUpgrade`'s array entry points now apply the nesting bound its
+  string one already applied** (carve-php#1051). `upgradeJson()` was bounded for
+  free, because `json_decode` takes a depth argument. `upgrade()` and
+  `retiredShapesIn()` were handed a structure somebody else had decoded, and
+  `upgradeNodes()` and `scan()` are plain recursion, so a deep enough stored
+  record exhausted the C stack: a segmentation fault rather than a catchable
+  exception. This class exists to accept arbitrary stored payloads, which is
+  what makes it the least trusted input in the package - a sweep over a payload
+  store reads records nobody in the process wrote. Both now refuse past
+  `AstCodec::MAX_JSON_DEPTH`, the same number `upgradeJson()` passes to
+  `json_decode`, so the migration accepts exactly the set the reader beside it
+  accepts. **This changes behavior on legitimate deeply-nested input too**: an
+  array nesting 1216 or more containers used to be accepted and is now refused.
+  Nothing the encoder produces comes near that bound.
+
 - **Every array-taking AST ingest entry point now applies the nesting bound its
   string sibling already applied** (carve-php#1050). `AstCodec::decodeJson()` and
   `ProseMirrorToCarve::convertJson()` were bounded for free, because
