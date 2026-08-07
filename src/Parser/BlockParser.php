@@ -4495,9 +4495,19 @@ class BlockParser
                             // content ends in an OPEN paragraph; after a closed
                             // block (code/table/div) the dedented line ends the
                             // item (family-D rule, matching carve-js/carve-rs).
+                            //
+                            // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH, and it
+                            // does not extend the item's reach: §24's STEP walk
+                            // stops at the ITEM for a line that supplies no
+                            // indentation, so S2 FENCED BODY never fires and
+                            // S4's lazy branch has no paragraph to fold into
+                            // (markup-carve/carve#950). The plain-lead collector
+                            // states the same rule for a fence opened on the
+                            // MARKER line; this loop is the twin that collects
+                            // an item's POST-BLANK nested content, and the two
+                            // have to answer one question the same way.
                             if (
                                 !$subTrailingState['openParagraph']
-                                && !$subTrailingState['inFence']
                                 && !$subTrailingState['inDiv']
                             ) {
                                 break;
@@ -4514,6 +4524,17 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine, " \t");
+                            // AN OPEN FENCE ENDS THE ITEM HERE TOO. Between the
+                            // base column and the content column the line still
+                            // supplies less indentation than the item's prefix,
+                            // so §24's STEP walk stops at the ITEM exactly as it
+                            // does at column 0 and S4 finds no open paragraph to
+                            // fold into (markup-carve/carve#950, corpus row 2 -
+                            // written at column 1 precisely because the broken
+                            // readings differed between the two columns).
+                            if ($subTrailingState['inFence']) {
+                                break;
+                            }
                             // A block-shaped line HERE reaches neither the nested
                             // content column nor the outer item's, so under the
                             // strict content-column rule it opens nothing: with a
@@ -5031,9 +5052,23 @@ class BlockParser
             // and the shape was only reachable through the absorbed-fence latch
             // deleted above, which is why it surfaced with that (carve#891).
             //
-            // A code fence is different and stays: an unterminated one runs to
-            // end of input by §28, so the lines after it are its content.
-            if (!$trailingState['openParagraph'] && !$trailingState['inFence']) {
+            // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH EITHER, and this line is
+            // BELOW the item's content column. §24's STEP walk is driven by the
+            // indentation the line SUPPLIES: S1 stops at the first container
+            // whose prefix the line does not carry, which here is the ITEM, so
+            // the fenced body is never reached and S2 FENCED BODY never fires.
+            // S4 governs, and its lazy branch continues an open PARAGRAPH - a
+            // verbatim body is not one, so there is nothing to fold into. Close
+            // the item and let the residue re-parse outside it
+            // (markup-carve/carve#950, corpus 276).
+            //
+            // `inFence` used to keep collecting here on the reasoning that an
+            // unterminated fence runs to end of input by §28. It does - inside
+            // the container that opened it. The reach of a container is not
+            // extended by what its innermost block happens to be, and the BLOCK
+            // QUOTE spelling of this very shape already ends at the same line in
+            // every engine.
+            if (!$trailingState['openParagraph']) {
                 break;
             }
 
@@ -5070,9 +5105,13 @@ class BlockParser
             // elements claimed the same id (carve-php#783). Ending the item
             // lets the enclosing frame see the definition at column 0, where
             // the skip pass consumes it.
+            //
+            // The open-paragraph half of this test moved UP to the gate above,
+            // which now ends the item whenever no paragraph is open. Re-asking
+            // it here could no longer fail, and a check that cannot fail reads
+            // as a guard while guarding nothing.
             if (
                 $nextIndent === 0
-                && $trailingState['openParagraph']
                 && !$this->isBlockElementStart($nextTrimmed)
                 && !$this->startsNewBlock($nextTrimmed)
                 && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
@@ -5080,10 +5119,10 @@ class BlockParser
                 break;
             }
 
+            // Reached only with a paragraph open, for the same reason.
             $foldedAsText = false;
             if (
-                $trailingState['openParagraph']
-                && $itemLines !== []
+                $itemLines !== []
                 && !$opensUnclosedCommentFence
                 && (
                     $this->isBlockElementStart($nextTrimmed)
