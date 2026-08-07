@@ -71,6 +71,22 @@ class PresentationTargetVerbatimAndSpansTest extends TestCase
     }
 
     /**
+     * An EMPTIED code block still renders one line.
+     *
+     * The first attempt at the fix above tested the SPLIT rather than the
+     * content - "is the last element empty" - which cannot tell content `''`,
+     * whose one empty line is the block, from a terminator's leftover. It
+     * silently deleted the line for four corpus documents that reach an
+     * emptied fence through a list marker.
+     */
+    public function testAnEmptiedCodeBlockStillRendersItsLine(): void
+    {
+        $ansi = $this->ansi("- ```\nx\n```\n");
+
+        $this->assertStringContainsString("\x1b[97m  \x1b[0m", $ansi);
+    }
+
+    /**
      * A `<` marker is a cell the writer typed, so the row reaches that column
      * and is not short. Trimming it back drew a row narrower than its border.
      */

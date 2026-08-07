@@ -660,10 +660,16 @@ class AnsiRenderer implements RendererInterface
         // target dropped them, so the same code block rendered two ways out of
         // one engine (corpus 268-trailing-whitespace-on-a-content-line-is-
         // dropped-9).
-        // `explode` always returns at least one element, so the only question
-        // is whether the LAST one is the empty string the terminator leaves.
+        // The condition is on the CONTENT, not on the split. `explode` always
+        // returns at least one element, so testing whether the last one is
+        // empty cannot tell an emptied code block - content `''`, which splits
+        // to one empty line and must RENDER as one empty line, the way carve-js
+        // and carve-rs render it - from a block whose terminator left a
+        // trailing empty element. Only the second has a terminator to drop
+        // (corpus 276-a-fence-opened-on-a-list-marker-line-body-below-the-
+        // content-column and three siblings).
         $lines = explode("\n", $content);
-        if (end($lines) === '') {
+        if (str_ends_with($content, "\n")) {
             array_pop($lines);
         }
         $output = '';
