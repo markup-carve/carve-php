@@ -10,6 +10,7 @@ use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use MarkupCarve\Carve\ProseMirror\SchemaMap;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -39,9 +40,16 @@ class ProseMirrorCorpusTest extends TestCase
      * Rose to 344 when the span-placeholder walk stopped flattening a rowspan
      * that shared a row with a colspan (carve-php#565).
      *
+     * RAISED FROM 374 TO THE MEASUREMENT, 493 (carve-php#1018). At 374 against
+     * an actual 493 the floor sat 119 documents below the real value, so 119
+     * documents could stop round-tripping losslessly before it noticed - a
+     * ratchet that has slipped that far no longer ratchets. It was left behind
+     * by the improvements the comments above record; each raised the actual and
+     * none moved the floor.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 374;
+    private const MINIMUM_LOSSLESS = 493;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -59,9 +67,20 @@ class ProseMirrorCorpusTest extends TestCase
      * fidelity. Keep both: coverage is worth tracking too, just not as a proxy
      * for correctness.
      *
+     * RAISED FROM 419 TO THE MEASUREMENT, 631 (carve-php#1018). 212 documents
+     * below the actual, on the number this docblock itself calls "the one that
+     * guards fidelity" - so a fifth of the corpus could stop surviving the round
+     * trip and the gate would still be green.
+     *
+     * A FLOOR, deliberately, not an equality: this count is meant to rise as the
+     * bridge improves, and a gate that fails on improvement is its own defect.
+     * It is the POPULATION that gets an equality
+     * ({@see self::expectedCorpusSize()}), because that one may not drift at
+     * all.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 419;
+    private const MINIMUM_SURVIVING = 631;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
@@ -86,7 +105,21 @@ class ProseMirrorCorpusTest extends TestCase
     public function testTheCorpusSurvivesTheBridge(): void
     {
         $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($files), 'the corpus was not found');
+        // THE WHOLE CORPUS, not "enough of it". This was
+        // `assertGreaterThan(400, ...)` against an actual 810, so 410 documents
+        // could vanish and the sweep would still report success on the half that
+        // remained - and every count below it would fall with them while staying
+        // over its own floor. A population guard is the one number here that
+        // must not have slack: the sweep either ran on the corpus or it did not.
+        //
+        // DERIVED from the pinned spec rather than written down, because a
+        // literal goes stale the moment the submodule moves and the next bump
+        // would either fail for no reason or be widened back into a floor.
+        $this->assertSame(
+            self::expectedCorpusSize(),
+            count($files),
+            'the corpus is not the one tests/spec pins: run `git submodule update --init`',
+        );
 
         $renderer = new ProseMirrorRenderer();
         $converter = new ProseMirrorToCarve();
@@ -170,6 +203,52 @@ class ProseMirrorCorpusTest extends TestCase
                 implode(', ', array_slice($coveredButDiffering, 0, 8)),
             ),
         );
+    }
+
+    /**
+     * How many corpus documents the pinned spec should yield.
+     *
+     * The corpus is GENERATED from `docs/examples/*.md`: the spec's
+     * `scripts/generate-corpus.mjs` emits one `.crv` / `.html` pair per
+     * `::: compare` block, so the block count in that submodule's own examples
+     * is the population, and it moves with the pin instead of going stale
+     * against it.
+     *
+     * The two counts are read from opposite ends of the same generator - the
+     * blocks that go in, the files that come out - so a corpus that was
+     * generated short, checked out partially, or bumped without regenerating
+     * disagrees with its own source. Counting the files twice would agree with
+     * itself no matter what, which is the check that cannot fail (see
+     * markup-carve/carve#755).
+     *
+     * @throws \RuntimeException
+     */
+    private static function expectedCorpusSize(): int
+    {
+        $examples = glob(dirname(__DIR__, 3) . '/tests/spec/docs/examples/*.md') ?: [];
+        if ($examples === []) {
+            throw new RuntimeException(
+                'The spec submodule is missing its docs/examples, so the expected corpus size '
+                    . 'cannot be derived. Initialize it: git submodule update --init',
+            );
+        }
+
+        // The opener `generate-corpus.mjs` matches, modifiers and all
+        // (`::: compare no-render` still produces a pair).
+        $blocks = 0;
+        foreach ($examples as $path) {
+            foreach (explode("\n", (string)file_get_contents($path)) as $line) {
+                if (preg_match('/^:{3,}\s+compare(\s+\S.*)?$/', trim($line)) === 1) {
+                    $blocks++;
+                }
+            }
+        }
+
+        if ($blocks === 0) {
+            throw new RuntimeException('No `::: compare` block found in the spec examples.');
+        }
+
+        return $blocks;
     }
 
     public function testEveryAstTypeHasAMappedOrUnmappedDecision(): void
