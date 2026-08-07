@@ -2768,7 +2768,13 @@ class BlockParser
         // Try multi-line attributes: { on first line, } on a later line
         // Collect lines until we find the closing }
         $count = count($lines);
+
         $attrContent = substr($line, 1); // Remove opening {
+        // Which quote character, if any, the payload so far ends INSIDE. A
+        // line break inside a quoted value is part of the value, not a
+        // separator between attributes, so the per-line rule below does not
+        // apply to it.
+        $openQuote = $this->attrPayloadOpenQuote($attrContent, null);
         $i = $start + 1;
 
         while ($i < $count) {
@@ -2794,17 +2800,103 @@ class BlockParser
                 return $i - $start + 1;
             }
 
-            // Continuation line (must be indented)
-            if (preg_match('/^\s+(.*)$/', $nextLine, $contMatch)) {
-                $attrContent .= ' ' . $contMatch[1];
-                $i++;
-            } else {
-                // Not a valid continuation
+            // A BLANK LINE ENDS THE ATTEMPT (PART 15 A5, and `continuation`
+            // in the grammar says "NOT a blank line"): the text is then
+            // literal, not a block_attributes. A line of spaces or tabs is a
+            // blank line - it was previously accepted as interior padding
+            // because it matched the indent test below.
+            if (IndentationHelper::isBlankLine($nextLine)) {
                 return null;
             }
+
+            // CONTINUATION LINE, INDENTED OR NOT. `continuation = newline,
+            // opt_ws` puts the indentation in `opt_ws`, which is optional, and
+            // `attr_separator = (whitespace | continuation), opt_ws` admits one
+            // line break per separator with no cardinality limit - so a block
+            // may span any number of lines. Requiring an indent here capped the
+            // block at ONE line break: `{.a` + `.b}` worked because the second
+            // line matched the CLOSE branch above, and `{.a` + `.b` + `.c}`
+            // did not, because `.b` reached this test unindented.
+            //
+            // `opt_ws` is spaces and tabs, not PCRE `\s` - the charlist this
+            // engine keeps getting wrong. The difference is UNOBSERVABLE today,
+            // because the payload tokenizer splits on any whitespace and reads
+            // a leftover vertical tab as an attribute separator; it is spelled
+            // correctly here so a sweep of the indentation strips finds one
+            // charlist, not two.
+            // A LINE BREAK FALLS BETWEEN ATTRIBUTES, NEVER INSIDE ONE.
+            // `attr_separator = (whitespace | continuation), opt_ws` puts the
+            // break between two attributes, and `opt_pad` puts it at the ends;
+            // no production splits one attribute across lines. So a
+            // continuation line is a whole number of attributes, and one that
+            // is not a valid attribute list on its own can never become part of
+            // a valid block - `# h` never does, whatever follows it.
+            //
+            // Stopping HERE rather than at the closing brace is also what
+            // keeps the widened scan linear, and it is the ONLY bound needed. A
+            // `{` line is not a valid attribute list on its own, so a scan
+            // always stops at the next block start; a document of `{`-opening
+            // block starts therefore cannot re-walk the same run once per
+            // start. Without this the same document measured 6.4s at 4,000
+            // openers against 0.3s before the widening. A memo of ranges
+            // already known to hold no closing line was written first and then
+            // removed: with this bound in place nothing could reach it, and no
+            // mutation of it could be made to fail.
+            //
+            // EXCEPT INSIDE A QUOTED VALUE, where a line break is part of the
+            // value rather than a separator, so no line inside one has to look
+            // like an attribute. Without that exception this narrowed
+            // `{title="a` + `https://x` + `done"}` - which parsed before - to
+            // literal text, and that shape is not what this ticket changes.
+            // BOTH quote characters open a value: Carve takes single-quoted
+            // values too, and tracking only `"` regressed `{title='a` the same
+            // way.
+            $fragment = ltrim($nextLine, " \t");
+            if ($openQuote === null && !$this->inlineParser->isValidAttrPayload($fragment)) {
+                return null;
+            }
+
+            $attrContent .= ' ' . $fragment;
+            $openQuote = $this->attrPayloadOpenQuote($fragment, $openQuote);
+            $i++;
         }
 
         return null;
+    }
+
+    /**
+     * The quote character an attribute payload ends inside, or null.
+     *
+     * Follows the executable spec's brace scanner - a backslash escapes the
+     * next character only while a quote is open - with one deliberate
+     * difference: Carve accepts SINGLE-quoted values as well as double-quoted
+     * ones (a documented enhancement over djot), so both open a value here and
+     * only the matching character closes it. Tracking `"` alone read
+     * `{title='a` as unquoted and measured the value's own lines as attributes.
+     */
+    private function attrPayloadOpenQuote(string $chunk, ?string $openQuote): ?string
+    {
+        $length = strlen($chunk);
+        for ($k = 0; $k < $length; $k++) {
+            $char = $chunk[$k];
+            if ($char === '\\' && $openQuote !== null) {
+                $k++;
+
+                continue;
+            }
+            if ($openQuote === null) {
+                if ($char === '"' || $char === "'") {
+                    $openQuote = $char;
+                }
+
+                continue;
+            }
+            if ($char === $openQuote) {
+                $openQuote = null;
+            }
+        }
+
+        return $openQuote;
     }
 
     /**
