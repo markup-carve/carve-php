@@ -230,6 +230,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   documents are byte-identical. The Carve target reproduces the authored
   `</#slug>` and never expanded, so it is unchanged.
 
+- **The Markdown writer probes the destination it will actually emit**
+  (carve-php#1062). Its consumer decodes character references inside a link
+  destination, and the writer probed the authored form, so
+  `[t](&#106;avascript:alert1)` came out verbatim and decoded to a live scheme
+  one hop downstream. `&#x6A;`, `javascript&colon;` and `javascript&#58;` did
+  the same, the last two by hiding the colon so there was no scheme to find at
+  all. **Behavior change:** an ampersand that opens a character reference is now
+  emitted as `&amp;`, so a consumer decodes it back to the authored bytes
+  instead of into a scheme. An ampersand that opens nothing, such as the `&` in
+  a query string, is untouched. Percent-encoding the ampersand would have
+  corrupted every query string and was not done.
+
 - **Whitespace is a space or a tab, in every construct** (carve-php#1041, PART 7,
   markup-carve/carve#963, markup-carve/carve#977). Carve has exactly four
   whitespace characters - U+0020, U+0009, U+000A, U+000D - and every other
