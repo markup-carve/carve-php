@@ -54,13 +54,20 @@ class ConformanceDivergenceTest extends TestCase
     }
 
     /**
-     * A: the reference-definition destination ends at the first whitespace
-     * (the rest is ignored), so `[r]: a b c` registers `a` as the href.
+     * A: the reference-definition destination ends at the first whitespace, and
+     * the rest is NOT ignored - it makes the production fail.
+     *
+     * `reference_definition` ends in `newline` and always did, so `[r]: a b c`
+     * is not a definition at all and the `[r][r]` above it does not resolve.
+     * All three engines and the executable spec read it as a definition with
+     * trailing junk until markup-carve/carve#911, and nothing in the grammar
+     * authorized that reading. Corpus `16-reference-link-5` pinned the old
+     * answer and its golden moved with the ruling.
      */
-    public function testReferenceDefinitionDestinationStopsAtFirstWhitespace(): void
+    public function testTrailingJunkMakesTheDefinitionLineProse(): void
     {
         $this->assertSame(
-            '<p><a href="a">r</a></p>',
+            "<p>[r][r]</p>\n<p>[r]: a b c</p>",
             trim($this->converter->convert("[r][r]\n\n[r]: a b c\n")),
         );
     }

@@ -51,7 +51,14 @@ class MarkdownUrlDenylistTest extends TestCase
             'vbscript' => ['vbscript:msgbox(1)'],
             'data' => ['data:text/html,<script>x</script>'],
             'file' => ['file:///etc/passwd'],
-            'ms-msdt' => ['ms-msdt:/id PCWDiagnostic'],
+            // No SPACE in the fixture. It used to read `ms-msdt:/id
+            // PCWDiagnostic`, and the space is incidental to what this case is
+            // about - since markup-carve/carve#911 anchored the definition line
+            // at end of line, that form is not a definition at all and there is
+            // no destination to blank. Testing the denylist through a line that
+            // no longer parses would leave this scheme uncovered while still
+            // reading green, so the space moved to a case of its own below.
+            'ms-msdt' => ['ms-msdt:/id'],
             'search-ms' => ['search-ms:query=x'],
             'shell' => ['shell:startup'],
             'vscode' => ['vscode://x'],
@@ -64,6 +71,23 @@ class MarkdownUrlDenylistTest extends TestCase
     public function testADangerousSchemeIsBlanked(string $url): void
     {
         $this->assertSame('', $this->destinationOf($url));
+    }
+
+    /**
+     * A dangerous scheme carrying a SPACE never becomes a destination at all.
+     *
+     * Strictly stronger than blanking, and asserted separately so the two
+     * outcomes are not confused: there is no link node, so nothing reaches the
+     * denylist. The reference stays unresolved and prints as the bracket run
+     * the author typed.
+     */
+    public function testADangerousSchemeWithASpaceIsNotEvenADefinition(): void
+    {
+        $source = "[click][a]\n\n[a]: ms-msdt:/id PCWDiagnostic\n";
+        $out = (new CarveConverter())->convert($source);
+
+        $this->assertStringNotContainsString('<a', $out);
+        $this->assertStringContainsString('[click][a]', $out);
     }
 
     /**

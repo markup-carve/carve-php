@@ -9,8 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A link reference definition's destination is trimmed of UNICODE whitespace,
- * not just the ASCII that `trim()` knows.
+ * A link reference definition's destination is trimmed of UNICODE whitespace on
+ * its LEADING side, and the trailing side is the anchor's business instead.
  *
  * `[a]: <U+202F>javascript:alert(1)` kept the narrow no-break space in the
  * destination. HTML hid it - the scheme probe strips Unicode whitespace to see
@@ -18,8 +18,18 @@ use PHPUnit\Framework\TestCase;
  * destination to a terminal, and an invisible character there is the spoofing
  * shape the probe exists to catch (carve#352, carve#404).
  *
+ * THE TWO ENDS ANSWER DIFFERENTLY NOW, and the asymmetry is the ruling rather
+ * than an oversight. markup-carve/carve#911 anchors the production at end of
+ * line: a Unicode space BEFORE the destination is padding the separator did not
+ * name, while the same character AFTER it is content, and content after the
+ * production is exactly what the anchor rejects. So
+ * `[r]: https://e.com<NBSP>` is no longer a definition with a tidied href - it
+ * is an ordinary paragraph, which is also what the executable spec answers.
+ *
  * Zero-width characters are deliberately NOT whitespace and stay, matching
- * carve-rs, whose `str::trim` uses the Unicode White_Space property.
+ * carve-rs, whose `str::trim` uses the Unicode White_Space property. A TRAILING
+ * one therefore stays inside the destination and the line is still a definition
+ * - the one row where the two ends agree, and it agrees the other way.
  */
 class ReferenceDestinationWhitespaceTest extends TestCase
 {
@@ -37,32 +47,69 @@ class ReferenceDestinationWhitespaceTest extends TestCase
     }
 
     #[DataProvider('unicodeWhitespaceProvider')]
-    public function testItIsTrimmedFromBothEnds(string $space): void
+    public function testItIsTrimmedFromTheLeadingSide(string $space): void
     {
-        $converter = new CarveConverter();
-
         $this->assertStringContainsString(
             'href="https://e.com"',
-            $converter->convert("[x][r]\n\n[r]: {$space}https://e.com\n"),
-        );
-        $this->assertStringContainsString(
-            'href="https://e.com"',
-            $converter->convert("[x][r]\n\n[r]: https://e.com{$space}\n"),
+            (new CarveConverter())->convert("[x][r]\n\n[r]: {$space}https://e.com\n"),
         );
     }
 
     #[DataProvider('unicodeWhitespaceProvider')]
-    public function testTheDestinationEndsAtInteriorWhitespace(string $space): void
+    public function testTrailingUnicodeWhitespaceIsNotALineEnding(string $space): void
+    {
+        // The line ending is `whitespace` - a space or a tab - and nothing else
+        // (PART 1, markup-carve/carve#890). A Unicode space is CONTENT, content
+        // after the production is what the anchor rejects, and the line is
+        // therefore prose rather than a definition with a tidied href
+        // (markup-carve/carve#911).
+        $out = (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$space}\n");
+
+        $this->assertStringNotContainsString('<a', $out);
+        $this->assertStringContainsString('[r]: https://e.com', $out);
+    }
+
+    /**
+     * A space and a tab ARE the line ending, and the definition survives them.
+     *
+     * The control for the row above: implementing the ending as a Unicode
+     * whitespace PROPERTY reads all six characters the same way, and a tab
+     * fixture alone cannot see the difference because a tab is inside the
+     * property too (markup-carve/carve#888).
+     *
+     * @return array<string, array{string}>
+     */
+    public static function lineEndingProvider(): array
+    {
+        return [
+            'a space' => [' '],
+            'a tab' => ["\t"],
+            'a space, a tab and a space' => [" \t "],
+        ];
+    }
+
+    #[DataProvider('lineEndingProvider')]
+    public function testASpaceOrTabIsTheLineEnding(string $ending): void
+    {
+        $this->assertStringContainsString(
+            'href="https://e.com"',
+            (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$ending}\n"),
+        );
+    }
+
+    #[DataProvider('unicodeWhitespaceProvider')]
+    public function testInteriorWhitespaceEndsTheDestinationAndTheLine(string $space): void
     {
         // Not "trimmed at the ends, interior preserved" - that reads as the
         // friendlier rule and contradicts `link_destination`, which admits no
-        // whitespace at all. The destination ENDS there, and what follows is
-        // ignored unless it is a quoted title, exactly as a plain space behaves
-        // (PART 9 link_destination, carve#404).
-        $this->assertStringContainsString(
-            'href="https://e.com"',
-            (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$space}/path\n"),
-        );
+        // whitespace at all. The destination ENDS there (PART 9
+        // link_destination, carve#404) - and what follows is no longer IGNORED:
+        // it is neither a title nor an attribute block, so it reaches the anchor
+        // and the line is prose.
+        $out = (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$space}/path\n");
+
+        $this->assertStringNotContainsString('<a', $out);
+        $this->assertStringContainsString('[r]: https://e.com', $out);
     }
 
     #[DataProvider('unicodeWhitespaceProvider')]
@@ -91,6 +138,24 @@ class ReferenceDestinationWhitespaceTest extends TestCase
         $this->assertStringContainsString(
             'href="' . $char . 'https://e.com"',
             (new CarveConverter())->convert("[x][r]\n\n[r]: {$char}https://e.com\n"),
+        );
+    }
+
+    #[DataProvider('zeroWidthProvider')]
+    public function testATrailingZeroWidthCharacterStaysInsideTheDestination(string $char): void
+    {
+        // The row that separates "not whitespace" from "not a line ending". A
+        // zero-width character is neither, so it does not end the destination,
+        // nothing is left over, and the line is a definition carrying the
+        // character in its href. The executable spec answers the same way.
+        //
+        // markup-carve/carve#911's prose lists `[a]: /u<U+FEFF>` among the lines
+        // that are NOT definitions, which does not follow from its own premise
+        // and disagrees with corpus 240 and with the oracle. Pinned here as
+        // measured rather than as written.
+        $this->assertStringContainsString(
+            'href="https://e.com' . $char . '"',
+            (new CarveConverter())->convert("[x][r]\n\n[r]: https://e.com{$char}\n"),
         );
     }
 

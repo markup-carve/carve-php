@@ -393,12 +393,65 @@ class ReferenceDefinitionExtractor
         // the label `^` - which `reference_label` admits, being neither `]`
         // nor `@`. Excluding every `[^` left that line as paragraph text, where
         // carve-js and carve-rs both render nothing.
-        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches) !== 1) {
+        $matched = $this->matchDefinitionLine($line);
+        if ($matched === null) {
             return null;
         }
 
-        $url = self::trimUnicodeWhitespace($matches[2]);
-        if ($url === '') {
+        return [
+            'label' => $matched['label'],
+            'url' => $matched['url'],
+            'attrs' => $matched['attrs'],
+            'title' => $matched['title'],
+        ];
+    }
+
+    /**
+     * Read a line as a reference definition, ANCHORED AT END OF LINE.
+     *
+     * `reference_definition = '[', reference_label, ']', ':', space,
+     * link_destination, [link_title], [space, attributes], newline` ends in
+     * `newline` and always did. What follows the destination and the optional
+     * title is not ignored: it makes the production FAIL, and the line is then
+     * an ordinary paragraph (markup-carve/carve#911). This engine read the tail
+     * with a swallow-everything `(\S.*)$`, so `[a]: /u zzz` was a definition and
+     * a `[a][]` below it resolved.
+     *
+     * WHY THE TAIL WAS WORSE THAN UNTIDY. PART 7 promises that a slot which
+     * fails to match "falls back to prose rather than silently dropping
+     * metadata". At this line there was no prose to fall back to: the swallowing
+     * tail ate whatever a failed slot rejected, so the promised failure mode was
+     * unreachable here and every narrowing at this line dropped metadata
+     * instead of failing visibly.
+     *
+     * ONE SPELLING, THREE CALLERS. The line is also asked "is this a
+     * definition?" by the paragraph-interruption predicate and by the block
+     * parser's own consume pass. While the pattern ended in a swallow-everything
+     * tail those could test the RAW line and be right by accident, because
+     * `[a]: /u {.c}` matched it raw. Anchored, they cannot - so they call this
+     * rather than carrying a fourth and fifth spelling of the same question.
+     *
+     * THE LINE ENDING IS `[ \t]*`, NOT A UNICODE PROPERTY. `whitespace` is
+     * `' ' | '\t'` and nothing else (PART 1, markup-carve/carve#890), so
+     * `[a]: /u<SP>` and `[a]: /u<TAB>` are definitions while `[a]: /u<NBSP>`
+     * and `[a]: /u<U+2000>` are not. A tab fixture cannot tell the two
+     * spellings apart, because a tab is inside the Unicode property too
+     * (markup-carve/carve#888).
+     *
+     * @param string $line
+     *
+     * @return array{label: string, url: string, title: string|null, attrs: array<string, string>}|null
+     */
+    public function matchDefinitionLine(string $line): ?array
+    {
+        // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
+        // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
+        // is one-or-more characters, so an empty label never forms a footnote
+        // definition and the line falls through to a reference definition with
+        // the label `^` - which `reference_label` admits, being neither `]`
+        // nor `@`. Excluding every `[^` left that line as paragraph text, where
+        // carve-js and carve-rs both render nothing.
+        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(.*)$/s', $line, $matches) !== 1) {
             return null;
         }
 
@@ -409,141 +462,168 @@ class ReferenceDefinitionExtractor
         // was already exact. Neither trimmed nor collapsed: identical padding has
         // to keep matching, so `[ b]` resolves `[ b]`.
         $label = $matches[1];
-        // A trailing `{...}` block attributes the DEFINITION (PART 9 §16,
-        // `[space, attributes]`), and PART 9R R1 transfers those attributes to
-        // every link that resolves the label.
-        [$url, $attrsToUse] = $this->splitTrailingAttributes($url);
-        $title = null;
 
-        // EXACTLY ONE SPACE before the quoted title. This is `link_title`, the
-        // same production the inline form reads, and PART 7's cardinality
-        // paragraph names it among the four slots spelled `space` (carve#912).
-        // The slot read a RUN of Unicode whitespace, so `[a]: /u<SP><SP>"T"`
-        // and `[a]: /u<TAB>"T"` both carried a title. Neither is a title now:
-        // the slot does not match, and what is left is not the definition's.
+        // The LEADING side of the destination is trimmed and the trailing side
+        // is not, which is the anchor's whole point. A Unicode space before the
+        // destination is padding the separator did not name and the destination
+        // does not start with (corpus 121 pins `[a]: <U+202F>javascript:…`
+        // resolving, with the scheme probe emptying the href); the same
+        // character AFTER the destination is content, and content after the
+        // production is what the anchor rejects.
+        $tail = self::ltrimUnicodeWhitespace($matches[2]);
+
+        // `link_destination` reads to the first whitespace, and it reads the
+        // braces of `[a]: /u{.c}` along with everything else - which is why that
+        // line is still a definition with `href="/u{.c}"` and is a DIFFERENT
+        // SHAPE from `[a]: /u {.c}` rather than another spelling of it.
+        if (preg_match('/^([^\p{Z}\x{0009}-\x{000D}\x{0085}]+)(.*)$/us', $tail, $dm) !== 1) {
+            return null;
+        }
+        $url = $dm[1];
+        $rest = $dm[2];
+
+        // EXACTLY ONE SPACE before the quoted title, and it is a SPACE. This is
+        // `link_title`, the same production the inline form reads, and PART 7's
+        // cardinality paragraph names it among the four slots spelled `space`
+        // (markup-carve/carve#912). Both narrowings are visible only because the
+        // line is anchored: while the tail swallowed the remainder,
+        // `[a]: /u<TAB>"T"` merely lost its title instead of failing.
+        $title = null;
         if (
             preg_match(
-                '/^([^\p{Z}\x{0009}-\x{000D}\x{0085}]+)'
-                . '(?: '
-                . '(?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\'))?/u',
-                $url,
+                '/^ (?:"((?:\\\\.|[^"\\\\])*)"|\'((?:\\\\.|[^\'\\\\])*)\')(.*)$/s',
+                $rest,
                 $tm,
                 PREG_UNMATCHED_AS_NULL,
-            )
+            ) === 1
         ) {
-            $url = $tm[1];
-            if (($tm[2] ?? null) !== null) {
-                $title = AttributeParser::processEscapes($tm[2]);
-            } elseif (($tm[3] ?? null) !== null) {
-                $title = AttributeParser::processEscapes($tm[3]);
+            $title = AttributeParser::processEscapes(($tm[1] ?? null) !== null ? $tm[1] : (string)$tm[2]);
+            $rest = (string)$tm[3];
+        }
+
+        // `[space, attributes]`, the fourth of PART 7's exactly-one-space slots.
+        //
+        // CONSUMED IS NOT THE SAME QUESTION AS VALID. A block that CLOSES at the
+        // end of the line is consumed whether or not its payload yields
+        // anything, so `[a]: /u {}` and `[a]: /u {.a\}b}` are definitions with
+        // NO attributes rather than paragraphs - §14's "one invalid name
+        // invalidates the whole block" empties the block, it does not unmake the
+        // line. A block that never closes, or one closed before the end of the
+        // line, is a different matter: it is not the definition's, what is left
+        // reaches the anchor, and the line is prose.
+        $attrs = [];
+        if (($rest[0] ?? '') === ' ' && ($rest[1] ?? '') === '{') {
+            $parsed = $this->readTrailingAttributes(substr($rest, 1));
+            if ($parsed === null) {
+                return null;
             }
+            $attrs = $parsed;
+            $rest = '';
+        }
+
+        // THE ANCHOR. `whitespace` is a space or a tab, so anything else here -
+        // a word, a quote the title slot refused, a no-break space - fails the
+        // production and the line is an ordinary paragraph.
+        if (preg_match('/^[ \t]*$/', $rest) !== 1) {
+            return null;
         }
 
         return [
             'label' => $label,
-            'url' => trim($url),
-            'attrs' => $attrsToUse,
+            'url' => $url,
             'title' => $title,
+            'attrs' => $attrs,
         ];
     }
 
     /**
-     * Split a definition's tail into destination-plus-title and the trailing
-     * attribute block, if the line ends with one.
+     * Read the definition's trailing attribute block, which must end the line.
      *
      * The block is SCANNED, not regex-matched: an attribute value may hold a
      * `}` inside quotes, and a lazy `\{[^}]*\}` stops at that brace and drops
-     * every attribute on the line silently. Only an UNQUOTED `}` closes the
-     * block, it must be preceded by whitespace, and it must end the line - so
-     * `[a]: /u{.x}` keeps the braces in the destination, which is what
-     * `space, attributes` requires.
+     * every attribute on the line silently. Only an UNQUOTED `}` closes it.
      *
-     * @param string $tail
+     * `null` means the block never CLOSES at the end of the line, so it is not
+     * the definition's and - under the end-of-line anchor - the whole line is
+     * prose. It used to mean "leave the braces in the destination", which is the
+     * shape PART 7 names as the one to avoid: metadata silently absorbed rather
+     * than a visible failure.
      *
-     * @return array{0: string, 1: array<string, string>}
+     * An EMPTY array is a different answer: the block closed and yielded
+     * nothing, which is what `{}` and an invalid payload both do. The line is
+     * still a definition.
+     *
+     * @param string $tail The line from its `{` to its end.
+     *
+     * @return array<string, string>|null
      */
-    private function splitTrailingAttributes(string $tail): array
+    private function readTrailingAttributes(string $tail): ?array
     {
         $length = strlen($tail);
-        for ($i = 0; $i < $length; $i++) {
-            if ($tail[$i] !== '{' || $i === 0) {
+        $quote = null;
+        for ($j = 1; $j < $length; $j++) {
+            $char = $tail[$j];
+            if ($char === '\\' && $j + 1 < $length) {
+                $j++;
+
                 continue;
             }
-            // EXACTLY ONE SPACE, and it is the fourth of the four slots PART 7
-            // names as spelled `space` (carve#912). The slot admitted a tab and
-            // a run of either character, so `[a]: /u<SP><SP>{.c}` attributed the
-            // definition. It does not now: the braces are not the definition's,
-            // and the destination's own whitespace test then keeps them out of
-            // the href too.
-            if ($tail[$i - 1] !== ' ') {
+            if ($quote !== null) {
+                if ($char === $quote) {
+                    $quote = null;
+                }
+
                 continue;
             }
-            if ($i >= 2 && ($tail[$i - 2] === ' ' || $tail[$i - 2] === "\t")) {
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+
+                continue;
+            }
+            if ($char !== '}') {
                 continue;
             }
 
-            $quote = null;
-            for ($j = $i + 1; $j < $length; $j++) {
-                $char = $tail[$j];
-                if ($char === '\\' && $j + 1 < $length) {
-                    $j++;
-
-                    continue;
-                }
-                if ($quote !== null) {
-                    if ($char === $quote) {
-                        $quote = null;
-                    }
-
-                    continue;
-                }
-                if ($char === '"' || $char === "'") {
-                    $quote = $char;
-
-                    continue;
-                }
-                if ($char === '}') {
-                    if (trim(substr($tail, $j + 1)) !== '') {
-                        break;
-                    }
-                    $payload = substr($tail, $i + 1, $j - $i - 1);
-                    // The ORDERED parser: `parse()` hoists `class` to the front
-                    // regardless of where the author wrote it, and these
-                    // attributes are applied to a link in array order, so the
-                    // hoist would reorder the rendered attributes of every link
-                    // resolving the label. The inline path already preserves
-                    // source order; this has to match it.
-                    if ($this->inlineParser !== null && !$this->inlineParser->isValidAttrPayload($payload)) {
-                        // One invalid name invalidates the whole block (§14),
-                        // exactly as it does on a block-attribute line and
-                        // inline - so `{.a\}b}` yields NO attributes rather
-                        // than silently keeping the half that parsed.
-                        return [$tail, []];
-                    }
-                    $parsed = AttributeParser::parseOrderedWithSlots($payload);
-                    $attrs = $parsed['attributes'];
-                    if ($attrs === []) {
-                        return [$tail, []];
-                    }
-                    $ordered = [];
-                    foreach ($parsed['order'] as $slot) {
-                        $key = match ($slot) {
-                            '.class' => 'class',
-                            '#id' => 'id',
-                            default => $slot,
-                        };
-                        if (isset($attrs[$key])) {
-                            $ordered[$key] = $attrs[$key];
-                        }
-                    }
-                    $attrs = $ordered === [] ? $attrs : $ordered;
-
-                    return [rtrim(substr($tail, 0, $i)), $attrs];
+            // The block must END the line - only `whitespace` may follow it,
+            // which is the anchor applied one token early rather than a second
+            // rule.
+            if (preg_match('/^[ \t]*$/', substr($tail, $j + 1)) !== 1) {
+                return null;
+            }
+            $payload = substr($tail, 1, $j - 1);
+            // The ORDERED parser: `parse()` hoists `class` to the front
+            // regardless of where the author wrote it, and these attributes are
+            // applied to a link in array order, so the hoist would reorder the
+            // rendered attributes of every link resolving the label. The inline
+            // path already preserves source order; this has to match it.
+            if ($this->inlineParser !== null && !$this->inlineParser->isValidAttrPayload($payload)) {
+                // One invalid name invalidates the whole block (§14), exactly as
+                // it does on a block-attribute line and inline - so `{.a\}b}`
+                // yields NO attributes rather than silently keeping the half
+                // that parsed. The block is still CONSUMED.
+                return [];
+            }
+            $parsed = AttributeParser::parseOrderedWithSlots($payload);
+            $attrs = $parsed['attributes'];
+            if ($attrs === []) {
+                return [];
+            }
+            $ordered = [];
+            foreach ($parsed['order'] as $slot) {
+                $key = match ($slot) {
+                    '.class' => 'class',
+                    '#id' => 'id',
+                    default => $slot,
+                };
+                if (isset($attrs[$key])) {
+                    $ordered[$key] = $attrs[$key];
                 }
             }
+
+            return $ordered === [] ? $attrs : $ordered;
         }
 
-        return [$tail, []];
+        return null;
     }
 
     private function parseSingleLineBlockAttributePayload(string $line): ?string
@@ -607,14 +687,23 @@ class ReferenceDefinitionExtractor
         return null;
     }
 
-    private static function trimUnicodeWhitespace(string $value): string
+    /**
+     * Strip Unicode whitespace from the destination's LEADING side only.
+     *
+     * `trim()` only knows ASCII, which left invisible characters at the front
+     * of a link destination - the spoofing shape the scheme probe exists to
+     * catch (carve#352, carve#404). Zero-width characters (U+200B, U+FEFF) are
+     * not whitespace and are deliberately preserved.
+     *
+     * The TRAILING side used to be stripped by the same call and is not any
+     * more: after the destination a Unicode space is content, and content after
+     * the production is what the end-of-line anchor rejects
+     * (markup-carve/carve#911).
+     */
+    private static function ltrimUnicodeWhitespace(string $value): string
     {
-        $trimmed = preg_replace(
-            '/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+|[\p{Z}\x{0009}-\x{000D}\x{0085}]+$/u',
-            '',
-            $value,
-        );
+        $trimmed = preg_replace('/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+/u', '', $value);
 
-        return $trimmed ?? trim($value);
+        return $trimmed ?? ltrim($value);
     }
 }

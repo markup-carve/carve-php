@@ -6292,29 +6292,17 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // Match reference definition: [label]: url. The definition is
-        // single-line and the destination must be present (an empty `[r]:` is
-        // literal, not a definition), matching the first-pass collector and
-        // the canonical carve-js / carve-rs. No continuation gathering. The
-        // separator after `]:` must START with a literal SPACE; a tab-first
-        // separator (`[r]:\t/u`) does not form a definition (issue 288).
-        // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
-        // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
-        // is one-or-more characters, so an empty label never forms a footnote
-        // definition and the line falls through to a reference definition with
-        // the label `^` - which `reference_label` admits, being neither `]`
-        // nor `@`. Excluding every `[^` left that line as paragraph text, where
-        // carve-js and carve-rs both render nothing.
-        if (!preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(\S.*)$/', $line, $matches)) {
-            return null;
-        }
-
-        // `\S` is satisfied by a Unicode space, so a destination made only of
-        // those looks present here and is empty once trimmed. It has to stay
-        // literal like `[r]:` does, and the first-pass collector applies the
-        // same re-check - otherwise this pass would swallow a line the
-        // collector deliberately refused to register (carve#352).
-        if (self::trimUnicodeWhitespace($matches[2]) === '') {
+        // ONE SPELLING. This pass CONSUMES a line the first-pass collector
+        // registered, so it has to accept exactly what the collector accepts: a
+        // line it consumes and the collector refused renders nothing and
+        // resolves nothing, and a line it leaves behind reappears as visible
+        // prose beside a working reference. It carried its own copy of the
+        // pattern and the copy is what went stale, so it asks the collector
+        // instead (markup-carve/carve#911).
+        //
+        // The line is ANCHORED AT END OF LINE there: `[r]: a b c` is no longer a
+        // definition, and `[a]: /u {.c}` only is when the block parses.
+        if ($this->referenceDefinitionExtractor->matchDefinitionLine($line) === null) {
             return null;
         }
 
@@ -7381,7 +7369,18 @@ class BlockParser
         //
         // Precedence between the two definition kinds is decided where they are
         // REGISTERED, not here.
-        return preg_match('/^\[(?!@)[^\]]+\]: [ \t]*\S/', $line) === 1;
+        //
+        // ANCHORED, THROUGH THE COLLECTOR. This predicate is the INTERRUPTION
+        // side of the rule, and its docblock above already says it has to accept
+        // exactly what the definition parser accepts. While the parser's pattern
+        // ended in a swallow-everything tail, an open-coded copy here got the
+        // right answer by accident, because `[a]: /u {.c}` matched it raw. With
+        // the line anchored (markup-carve/carve#911) it cannot: a copy would
+        // have to split the trailing attribute block off before testing, and
+        // `[a]: /u {.c}` would stop interrupting a paragraph. So the copy is
+        // gone and the collector answers.
+        return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
+            || preg_match('/^\[\^[^\]]+\]: [ \t]*\S/', $line) === 1;
     }
 
     protected function paragraphHasUnclaimedColonFenceLine(string $content): bool
@@ -9077,23 +9076,5 @@ class BlockParser
     private function isPlainTableText(string $text): bool
     {
         return strpbrk($text, "\\`*_[{^~<\$:!\"'-\n/,=") === false;
-    }
-
-    /**
-     * Trim Unicode whitespace (the White_Space property) from both ends.
-     *
-     * `trim()` only knows ASCII, which left invisible characters at the edges
-     * of a link destination. Zero-width characters (U+200B, U+FEFF) are not
-     * whitespace and are deliberately preserved.
-     */
-    private static function trimUnicodeWhitespace(string $value): string
-    {
-        $trimmed = preg_replace(
-            '/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+|[\p{Z}\x{0009}-\x{000D}\x{0085}]+$/u',
-            '',
-            $value,
-        );
-
-        return $trimmed ?? trim($value);
     }
 }
