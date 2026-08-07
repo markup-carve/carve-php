@@ -216,13 +216,20 @@ class HeadingReferenceInContainersTest extends TestCase
     }
 
     /**
-     * The explicit form reads the same index.
+     * The explicit form does NOT read this index (markup-carve/carve#742).
+     *
+     * R1's fallback is scoped to the collapsed `[text][]`. An explicit label is
+     * an identifier the author wrote twice and can keep identical, and an
+     * identifier that names nothing names nothing - it is not retried as prose.
+     * The container question this file is about therefore never arises for the
+     * explicit form: it does not resolve at any nesting.
      */
-    public function testAnExplicitReferenceAlsoResolvesToAContainerHeading(): void
+    public function testAnExplicitReferenceDoesNotResolveToAContainerHeading(): void
     {
         $html = $this->html("- # H\n\n  See [the heading][H].");
 
-        $this->assertStringContainsString('<a href="#H">the heading</a>', $html);
+        $this->assertStringContainsString('See [the heading][H].', $html);
+        $this->assertStringNotContainsString('<a href="#H">', $html);
     }
 
     /**

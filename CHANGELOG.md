@@ -40,6 +40,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and still transfers its attributes. **Breaking:** a document relying on one of
   these lines resolves one fewer reference.
 
+- **An explicit `[text][label]` no longer reaches the heading index**
+  (carve-php#1029, specified in markup-carve/carve#742). PART 9R R1's implicit
+  heading fallback is scoped to the COLLAPSED `[text][]` and to nothing else, at
+  any spelling, folded or exact. So `[q][Getting Started]` under a
+  `# Getting Started` renders as literal source text instead of linking to
+  `#Getting-Started`. The asymmetry is the one R1 already states: a collapsed
+  label is the author quoting prose from elsewhere in the document, which is why
+  its matching is loose, and an explicit label is an identifier the author wrote
+  twice and can keep identical. An identifier that names nothing names nothing.
+  The collapsed form still reaches the index, and an explicit label naming a real
+  `[label]: url` definition still resolves. **Breaking:** a document whose
+  `[text][Some Heading]` resolves today renders the bracketed run literally.
+
 - **The ANSI target keeps a code block's verbatim content.** `AnsiRenderer`
   split the block on `rtrim()`, which drops the terminating newline but also
   takes the trailing space on the block's last line and every blank line at its
