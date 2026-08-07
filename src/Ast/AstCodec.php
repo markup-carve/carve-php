@@ -139,6 +139,50 @@ class AstCodec
     ];
 
     /**
+     * Wire type => the fields this encoder writes BY HAND, keyed by wire type.
+     *
+     * {@see self::schema()} derives its field lists by reflecting over node
+     * properties, which sees every field the property walk in `encodeNode()`
+     * publishes and NONE of the fields written outside it. Three code paths
+     * write outside it: {@see self::derivedFields()}, which computes a field
+     * from state this engine models differently (an admonition's `kind` is a
+     * class here, a mention's `user` is the text of a child); the shape passes
+     * at the end of `encodeNode()` (`listMarkerShape`, `figureShape`,
+     * `captionShape`, `spanShape`); and the retypes at the top of it, which are
+     * why `autolink`, `admonition` and `tag` have no node class to reflect over
+     * at all.
+     *
+     * So the schema under-reported eleven types and omitted three outright,
+     * while the encoder emitted all of them - a consumer validating a payload
+     * against the published map was told a field it had just been sent does not
+     * exist. Reflection missing a code path is a check that cannot fail, and
+     * naming the path is what lets one fail: `AstCodecSchemaTest` encodes the
+     * whole corpus and asserts that every field on the wire is a field the
+     * schema names, so a twelfth hand-written field breaks that test rather
+     * than quietly widening the gap.
+     *
+     * DECLARED, not derived, because the values are computed from a node's
+     * state and only a real encode can say which appear. The test does the
+     * deriving; this is what it checks against.
+     *
+     * @var array<string, array<string>>
+     */
+    public const HAND_WRITTEN_FIELDS = [
+        'abbreviation' => ['abbr'],
+        'admonition' => ['kind'],
+        'autolink' => ['text'],
+        'comment' => ['block'],
+        // `caption` is a FIELD holding inline content, not a child container -
+        // the schema requires it on every figure, beside `target`.
+        'figure' => ['target', 'caption'],
+        'list' => ['ordered', 'delim'],
+        'list_item' => ['checked'],
+        'mention' => ['user'],
+        'table_cell' => ['header'],
+        'tag' => ['name'],
+    ];
+
+    /**
      * Fields the reference publishes even when they hold this engine's default.
      *
      * @var array<string>
@@ -1179,12 +1223,37 @@ class AstCodec
      * declared property default nor a constructor parameter default - so there
      * is nothing to fall back on when it is omitted.
      *
+     * DERIVED OVER THE WIRE VOCABULARY, not over the class map. The class map is
+     * built by reflection and is keyed by `Node::getType()`, so it holds this
+     * engine's INTERNAL name for every node - and three wire types have no class
+     * of their own: `encodeNode()` narrows a bare-URL `Link` to `autolink`, a
+     * typed `Div` to `admonition`, and a `Mention` carrying the `tag` class to
+     * `tag`. Reflection cannot see a retype, so all three were emitted by the
+     * encoder and absent from the schema it published: a consumer validating
+     * against this map was told an `admonition` is not a node type, while its
+     * own copy of the encoder produced them (carve-php#1002 fixed the opposite
+     * direction, for `caption` and `section`).
+     *
+     * {@see \MarkupCarve\Carve\Ast\ReferenceShape::TYPE_ALIASES} is the ONE
+     * declaration of that narrowing, and both the encoder and this derivation
+     * read it, so a fourth alias cannot reach the wire without reaching the
+     * schema. Fields resolve under the WIRE name, exactly as `encodeNode()`
+     * resolves them, or an `autolink` would advertise `destination` where the
+     * encoder writes `href`.
+     *
      * @return array<string, array{fields: array<string>, required: array<string>}>
      */
     public static function schema(): array
     {
+        $classes = self::classMap();
+        foreach (ReferenceShape::TYPE_ALIASES as $wireType => $classType) {
+            if (isset($classes[$classType])) {
+                $classes[$wireType] = $classes[$classType];
+            }
+        }
+
         $schema = [];
-        foreach (self::classMap() as $type => $class) {
+        foreach ($classes as $type => $class) {
             if (isset(self::NOT_ON_THE_WIRE[$type])) {
                 continue;
             }
@@ -1202,6 +1271,15 @@ class AstCodec
                 $fields[] = $field;
                 if (!self::defaultFor($reflection, $property)['has']) {
                     $required[] = $field;
+                }
+            }
+            // The fields written outside the property walk. None is REQUIRED:
+            // each is computed from state the node already carries, so a
+            // payload that omits it is repaired from that state rather than
+            // being incomplete.
+            foreach (self::HAND_WRITTEN_FIELDS[$type] ?? [] as $field) {
+                if (!in_array($field, $fields, true)) {
+                    $fields[] = $field;
                 }
             }
             $schema[$type] = ['fields' => $fields, 'required' => $required];

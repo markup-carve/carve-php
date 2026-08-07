@@ -1,7 +1,8 @@
 {
     "abbreviation": {
         "fields": [
-            "expansion"
+            "expansion",
+            "abbr"
         ],
         "required": [
             "expansion"
@@ -11,6 +12,22 @@
         "fields": [
             "abbr",
             "expansion"
+        ],
+        "required": []
+    },
+    "admonition": {
+        "fields": [
+            "label",
+            "title",
+            "kind"
+        ],
+        "required": []
+    },
+    "autolink": {
+        "fields": [
+            "rawReferenceLabel",
+            "href",
+            "text"
         ],
         "required": []
     },
@@ -52,7 +69,8 @@
     },
     "comment": {
         "fields": [
-            "content"
+            "content",
+            "block"
         ],
         "required": []
     },
@@ -105,7 +123,10 @@
         "required": []
     },
     "figure": {
-        "fields": [],
+        "fields": [
+            "target",
+            "caption"
+        ],
         "required": []
     },
     "footnote": {
@@ -206,12 +227,16 @@
             "tight",
             "bulletChar",
             "olType",
-            "bareMarker"
+            "bareMarker",
+            "ordered",
+            "delim"
         ],
         "required": []
     },
     "list_item": {
-        "fields": [],
+        "fields": [
+            "checked"
+        ],
         "required": []
     },
     "literal_inline": {
@@ -228,7 +253,9 @@
         "required": []
     },
     "mention": {
-        "fields": [],
+        "fields": [
+            "user"
+        ],
         "required": []
     },
     "paragraph": {
@@ -305,12 +332,19 @@
     "table_cell": {
         "fields": [
             "align",
-            "span"
+            "span",
+            "header"
         ],
         "required": []
     },
     "table_row": {
         "fields": [],
+        "required": []
+    },
+    "tag": {
+        "fields": [
+            "name"
+        ],
         "required": []
     },
     "text": {

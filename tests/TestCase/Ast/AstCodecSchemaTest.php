@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstSchema;
+use MarkupCarve\Carve\Ast\ReferenceShape;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
@@ -81,7 +82,14 @@ class AstCodecSchemaTest extends TestCase
             $node = self::isInline($type)
                 ? $decoded->getChildren()[0]->getChildren()[0]
                 : $decoded->getChildren()[0];
-            $this->assertSame($type, $node->getType());
+            // The CLASS the wire type resolves to. Three wire types are a
+            // narrowing of a broader class rather than a class of their own -
+            // an `autolink` is a `Link`, an `admonition` a `Div`, a `tag` a
+            // `Mention` - so what comes back reports the class type, and the
+            // narrowing is restored from the field that carries it. Comparing
+            // the wire name to `getType()` only held while the schema named no
+            // alias, which is the bug that put them there.
+            $this->assertSame(ReferenceShape::classTypeFor($type), $node->getType());
         }
 
         // PINNED, not tolerated. `caption` and `section` used to sit here too:
@@ -92,6 +100,245 @@ class AstCodecSchemaTest extends TestCase
         sort($outsideTheVocabulary);
         $this->assertSame(['document'], $outsideTheVocabulary);
     }
+
+    /**
+     * EVERY TYPE AND FIELD THE ENCODER ACTUALLY EMITS IS ONE THE SCHEMA NAMES,
+     * measured by encoding the corpus rather than by reading the derivation.
+     *
+     * `AstCodec::schema()` reflects over node properties. That sees the property
+     * walk in `encodeNode()` and nothing else, and three code paths write
+     * outside it: the retypes at the top (a bare-URL `Link` is published as
+     * `autolink`, a typed `Div` as `admonition`, a `#tag` `Mention` as `tag`),
+     * `derivedFields()`, and the shape passes at the end. So the schema omitted
+     * three types outright and under-reported the fields of eleven, while the
+     * encoder emitted all of them.
+     *
+     * A reflection that misses a code path is a check that cannot fail. This one
+     * can: it compares the published map against real output, so a new
+     * hand-written field or a fourth retype breaks it instead of silently
+     * widening the gap.
+     */
+    public function testTheSchemaNamesEveryTypeAndFieldTheEncoderEmits(): void
+    {
+        $schema = AstCodec::schema();
+        $emitted = self::emittedShape();
+
+        $this->assertNotSame([], $emitted, 'the corpus produced no nodes, so this test checked nothing');
+        // The retyped three really are reached, or the corpus walk would prove
+        // nothing about the code path that omitted them.
+        foreach (['autolink', 'admonition', 'tag'] as $retyped) {
+            $this->assertArrayHasKey($retyped, $emitted, $retyped . ' was never emitted by the sample documents');
+        }
+
+        $undeclared = [];
+        foreach ($emitted as $type => $fields) {
+            if (!isset($schema[$type])) {
+                $undeclared[$type] = ['THE TYPE ITSELF'];
+
+                continue;
+            }
+            $missing = array_values(array_diff($fields, $schema[$type]['fields']));
+            if ($missing !== []) {
+                $undeclared[$type] = $missing;
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $undeclared,
+            'the encoder emits types or fields the published schema does not name: '
+                . json_encode($undeclared, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * AND EACH RETYPED WIRE NAME SURVIVES A ROUND TRIP under it.
+     *
+     * The assertion above relaxes `testEveryNodeTypeInTheSchemaCanBeDecoded` to
+     * compare against the CLASS a wire type resolves to, so on its own it would
+     * pass even if `admonition` came back as a plain `div` and re-encoded as
+     * one. What makes the narrowing real is that the field carrying it survives:
+     * encode, decode, encode again, and the wire type is still the narrow one.
+     */
+    public function testARetypedWireNameSurvivesTheRoundTrip(): void
+    {
+        $codec = new AstCodec();
+
+        foreach (
+            [
+                'autolink' => "<https://example.com>\n",
+                'admonition' => "::: note\nbody\n:::\n",
+                'tag' => "#tag\n",
+            ] as $wireType => $source
+        ) {
+            $once = $codec->encode((new CarveConverter())->parse($source));
+
+            $this->assertContains(
+                $wireType,
+                array_keys(self::emittedShapeOf($once)),
+                $wireType . ' was not emitted at all, so the round trip proves nothing',
+            );
+            $this->assertSame($once, $codec->encode($codec->decode($once)));
+        }
+    }
+
+    /**
+     * And nothing is DECLARED as hand-written that the encoder never writes, so
+     * the list cannot be padded to make the test above pass.
+     */
+    public function testEveryHandWrittenFieldIsOneTheEncoderEmits(): void
+    {
+        $emitted = self::emittedShape();
+
+        $unproduced = [];
+        foreach (AstCodec::HAND_WRITTEN_FIELDS as $type => $fields) {
+            foreach ($fields as $field) {
+                if (!in_array($field, $emitted[$type] ?? [], true)) {
+                    $unproduced[] = $type . '.' . $field;
+                }
+            }
+        }
+
+        $this->assertSame([], $unproduced);
+    }
+
+    /**
+     * Every `type => list<field>` the encoder produces over the spec corpus plus
+     * a handful of documents for shapes the corpus does not carry.
+     *
+     * Structural keys are excluded: they are the payload's frame (PART 12 §7),
+     * not fields of a node type, and the schema does not list them. The CHILD
+     * container is one of them and is resolved per type rather than by a fixed
+     * list - `inline_extension` publishes its children under `content`, a list
+     * under `items`, a table under `rows` - so excluding a fixed set both
+     * hides a real field on one type and reports a container as a missing
+     * field on another.
+     *
+     * @return array<string, array<string>>
+     */
+    private static function emittedShape(): array
+    {
+        $frame = ['type', 'attrs', 'pos', 'srcByteLength'];
+
+        $sources = array_map(
+            static fn (string $path): string => (string)file_get_contents($path),
+            glob(__DIR__ . '/../../spec/tests/corpus/*.crv') ?: [],
+        );
+        foreach (self::SHAPES_THE_CORPUS_DOES_NOT_CARRY as $source) {
+            $sources[] = $source;
+        }
+
+        $seen = [];
+        $codec = new AstCodec();
+        $walk = static function (array $node) use (&$walk, &$seen, $frame): void {
+            $type = $node['type'] ?? null;
+            if (is_string($type)) {
+                $skip = array_merge($frame, [ReferenceShape::containerFor($type)]);
+                foreach ($node as $key => $value) {
+                    if (is_string($key) && !in_array($key, $skip, true)) {
+                        $seen[$type][$key] = true;
+                    }
+                }
+            }
+            foreach ($node as $value) {
+                if (!is_array($value)) {
+                    continue;
+                }
+                if (isset($value['type'])) {
+                    $walk($value);
+
+                    continue;
+                }
+                foreach ($value as $child) {
+                    if (is_array($child) && isset($child['type'])) {
+                        $walk($child);
+                    }
+                }
+            }
+        };
+
+        foreach ($sources as $source) {
+            $walk($codec->encode((new CarveConverter())->parse($source)));
+        }
+
+        return self::sortedShape($seen);
+    }
+
+    /**
+     * The same harvest over ONE already-encoded payload.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, array<string>>
+     */
+    private static function emittedShapeOf(array $payload): array
+    {
+        $frame = ['type', 'attrs', 'pos', 'srcByteLength'];
+        $seen = [];
+        $walk = static function (array $node) use (&$walk, &$seen, $frame): void {
+            $type = $node['type'] ?? null;
+            if (is_string($type)) {
+                $skip = array_merge($frame, [ReferenceShape::containerFor($type)]);
+                foreach ($node as $key => $value) {
+                    if (is_string($key) && !in_array($key, $skip, true)) {
+                        $seen[$type][$key] = true;
+                    }
+                }
+            }
+            foreach ($node as $value) {
+                if (!is_array($value)) {
+                    continue;
+                }
+                if (isset($value['type'])) {
+                    $walk($value);
+
+                    continue;
+                }
+                foreach ($value as $child) {
+                    if (is_array($child) && isset($child['type'])) {
+                        $walk($child);
+                    }
+                }
+            }
+        };
+        $walk($payload);
+
+        return self::sortedShape($seen);
+    }
+
+    /**
+     * @param array<string, array<string, bool>> $seen
+     *
+     * @return array<string, array<string>>
+     */
+    private static function sortedShape(array $seen): array
+    {
+        $shape = [];
+        foreach ($seen as $type => $fields) {
+            $names = array_keys($fields);
+            sort($names);
+            $shape[$type] = $names;
+        }
+        ksort($shape);
+
+        return $shape;
+    }
+
+    /**
+     * @var array<string>
+     */
+    private const SHAPES_THE_CORPUS_DOES_NOT_CARRY = [
+        "<https://example.com>\n",
+        "::: note \"Heads up\"\nbody\n:::\n",
+        "::: sidebar\nbody\n:::\n",
+        "#tag and @user\n",
+        "- [ ] a\n- [x] b\n",
+        "1. a\n",
+        "%%% c\n%%%\n",
+        "%% inline\n",
+        "*[HTML]: HyperText\n\nHTML\n",
+        "| a | b |\n|---|---|\n| 1 | 2 |\n",
+    ];
 
     public function testOmittingARequiredFieldIsRejected(): void
     {

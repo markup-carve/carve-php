@@ -27,6 +27,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The published AST schema names every type and field the encoder emits**
+  (carve-php#1015). `AstCodec::schema()` derives its map by reflecting over node
+  properties, which sees the property walk in `encodeNode()` and nothing else -
+  so three code paths that write outside it were invisible to it. The retypes at
+  the top of `encodeNode()` publish a bare-URL link as `autolink`, a typed div as
+  `admonition` and a `#tag` mention as `tag`, none of which has a node class to
+  reflect over, so all three were emitted and absent from the schema entirely.
+  `derivedFields()` and the shape passes at the end write another ten fields the
+  map did not list, among them an admonition's `kind`, a mention's `user`, a
+  list's `ordered` and a table cell's `header`. An application validating a
+  payload against `AstCodec::schema()` was therefore told that a type or a field
+  it had just been sent does not exist. The map now covers all of them, derived
+  from `ReferenceShape::TYPE_ALIASES` and a new `AstCodec::HAND_WRITTEN_FIELDS`
+  so the encoder and the schema read one declaration. No encoder output changed;
+  the schema caught up with it. The opposite direction, types the schema named
+  that its own decoder refused, was closed for `caption` and `section` in
+  carve-php#1002 and no longer has any entry.
+
 - **A block-quote marker with no space after it defines nothing** (carve-php#961).
   The definition prepasses and the prepass fence tracker read a LOOSER
   block-quote marker rule than the block parser: theirs made the space after `>`
