@@ -805,6 +805,15 @@ class AstCodec
      */
     private static function refuseRetiredShapes(array $payload): void
     {
+        if (!is_array($payload['children'] ?? null)) {
+            // A root with no usable `children` is refused by §12(a) or (d), and
+            // the upgrade cannot place a node in something that is not a list -
+            // so answering here would send a caller to a migration that returns
+            // the payload unchanged, and the second decode would say the same
+            // thing again. Let the clause that can be acted on answer.
+            return;
+        }
+
         $found = StoredPayloadUpgrade::retiredShapesIn($payload);
         if ($found === []) {
             return;

@@ -389,6 +389,78 @@ class StoredPayloadUpgradeTest extends TestCase
         );
     }
 
+    /**
+     * A MIGRATION CONVERTS A SPELLING; IT DOES NOT MEND A PAYLOAD.
+     *
+     * Supplying `[]` for a `children` that is missing or `null` would turn a
+     * truncated document into an empty one and hand the decoder something it
+     * would then accept - the silent repair PART 12 §12 exists to stop, run by
+     * the very tool a store is swept with.
+     *
+     * @param array<string, mixed> $payload
+     */
+    #[DataProvider('malformedRoots')]
+    public function testAMalformedRootIsHandedBackUnchanged(array $payload): void
+    {
+        $this->assertSame($payload, StoredPayloadUpgrade::upgrade($payload));
+    }
+
+    /**
+     * And the decode says what is actually wrong with it, rather than sending
+     * the caller to a migration that would return the payload unchanged and
+     * report the same thing on the next attempt.
+     *
+     * @param array<string, mixed> $payload
+     */
+    #[DataProvider('malformedRoots')]
+    public function testAMalformedRootIsReportedAsTheStructureItIs(array $payload): void
+    {
+        try {
+            $this->codec->decode($payload);
+            $this->fail('the payload must be refused');
+        } catch (AstDecodeException $e) {
+            $this->assertStringNotContainsString('::upgrade()', $e->getMessage());
+            $this->assertStringContainsString('children', $e->getMessage());
+        }
+    }
+
+    /**
+     * Each one ALSO carries a retired root field, or the assertions above would
+     * hold on a payload the migration was never asked about.
+     *
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function malformedRoots(): array
+    {
+        $frontmatter = ['format' => 'yaml', 'content' => 'a: 1'];
+
+        return [
+            'children is null' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => null,
+                    'frontmatter' => $frontmatter,
+                ],
+            ],
+            'children is absent' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'frontmatter' => $frontmatter,
+                ],
+            ],
+            'children is a string' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => 'x',
+                    'frontmatter' => $frontmatter,
+                ],
+            ],
+        ];
+    }
+
     public function testJsonInAndJsonOut(): void
     {
         $upgraded = StoredPayloadUpgrade::upgradeJson(
