@@ -103,7 +103,7 @@ class ListParser
             // mixing a good class with an unrecognized name (`{.ok xml:lang=en}`,
             // `{.ok .1}`) used to open a list carrying the good half, where
             // carve-js and carve-rs leave the line a paragraph.
-            if (($parsed !== [] && AttributeParser::isValidPayload($body)) || $body === '') {
+            if (($parsed !== [] && AttributeParser::isValidInlinePayload($body)) || $body === '') {
                 $itemAttributes = $parsed;
                 $line = $am[1] . $am[3];
             }

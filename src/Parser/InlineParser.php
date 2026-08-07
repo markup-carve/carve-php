@@ -2389,7 +2389,7 @@ class InlineParser
             $attrEnd = $this->findAttributeEnd($text, $afterBracket);
             if ($attrEnd !== null) {
                 $attrStr = substr($text, $afterBracket + 1, $attrEnd - $afterBracket - 1);
-                if ($this->isValidAttrPayload($attrStr)) {
+                if ($this->isValidInlineAttrPayload($attrStr)) {
                     $span = new Span();
                     // The gating block is valid (real attributes or an
                     // empty/whitespace-only block). Apply and consume it here,
@@ -3538,7 +3538,13 @@ class InlineParser
         // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
         // unrecognized content makes the whole `{...}` stay literal. Decline
         // so the caller emits `{` literally and re-parses the content.
-        if (!$this->isValidAttrPayload($attrStr)) {
+        // THE INLINE SURFACE, if this is ever wired up. `parseInlineAttributes`
+        // has NO caller in this package: Carve dropped bare-word attribute
+        // attachment, and `word{.a}` is literal text. Narrowing the gate here
+        // changes nothing today - a mutation removing it survives, and that is
+        // the reason rather than a gap in the tests - but leaving the BLOCK
+        // gate on an inline surface would be wrong the day someone calls it.
+        if (!$this->isValidInlineAttrPayload($attrStr)) {
             return null;
         }
 
@@ -3626,6 +3632,21 @@ class InlineParser
      * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
      * so the whole bracketed run stays literal text (PART 9 §14).
      */
+
+    /**
+     * Whether a `{...}` payload is a valid INLINE attribute block.
+     *
+     * The same oracle as `isValidAttrPayload()` plus PART 4's space-only
+     * interior (markup-carve/carve#906). A SEPARATE METHOD rather than a flag,
+     * so a call site added later has to say which surface it is on: the
+     * block-attribute LINE keeps `whitespace` at all three of its slots, and a
+     * fix that narrowed both at once fails on corpus category 273.
+     */
+    public function isValidInlineAttrPayload(string $attrStr): bool
+    {
+        return AttributeParser::inlineInteriorIsSpaceOnly($attrStr) && $this->isValidAttrPayload($attrStr);
+    }
+
     public function isValidAttrPayload(string $attrStr): bool
     {
         // Strip every RECOGNIZED token; if anything non-whitespace remains the
@@ -4066,7 +4087,7 @@ class InlineParser
             // `word{.c % n %}` (and carve-js / carve-rs). The inline-span branch
             // in parseLink() handles a leading empty/whitespace block explicitly
             // before delegating here.
-            if (AttributeParser::parse($attrStr) === [] || !$this->isValidAttrPayload($attrStr)) {
+            if (AttributeParser::parse($attrStr) === [] || !$this->isValidInlineAttrPayload($attrStr)) {
                 break;
             }
             $this->applyAttributesToNode($node, $attrStr);

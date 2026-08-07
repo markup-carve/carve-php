@@ -7,6 +7,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An inline attribute block's interior is space-only** (carve-php#985, ruled
+  on markup-carve/carve#906). PART 4 spells every whitespace slot of the INLINE
+  attribute block `space`, which is one character: the run after `{`, the run
+  between two attributes, the run before `}`, the boundary after an unquoted
+  value, and the blessed empty block `{ }`. All five sit after the first
+  non-whitespace character of their line, which is where PART 7's rule already
+  says a tab is not syntax. A tab at any of them makes the block unrecognized
+  and its braces show, so `*x*{.a` + TAB + `.b}` is literal text now. A tab
+  inside a QUOTED value is content and does not move. The block-attribute LINE
+  is deliberately not narrowed - it is the one construct whose interior can hold
+  a leading indentation run - so `{` + TAB + `.a` + TAB + `.b` + TAB + `}` and a
+  tab-indented continuation line both still work.
+
 ### Changed
 
 - **An ingest validates the whole payload against the AST schema**
