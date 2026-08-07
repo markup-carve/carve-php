@@ -226,6 +226,45 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
                 },
                 'keyValues.foo is the number 7 where the schema requires string',
             ],
+            // `describe()` has to name a boolean and a list, and the report is
+            // the thing a producer acts on, so both are exercised by a real
+            // shape rather than left to a branch nothing reaches.
+            'a text value that is a boolean' => [
+                static function (array $d): array {
+                    $d['children'][0]['children'][0]['value'] = true;
+
+                    return $d;
+                },
+                'value is true where the schema requires string',
+            ],
+            'a pos written as a list' => [
+                static function (array $d): array {
+                    $d['children'][0]['pos'] = [1, 2, 3];
+
+                    return $d;
+                },
+                'pos is an array where the schema requires object',
+                // §11 gets there first: a list's indices are properties `pos`
+                // does not name.
+                'the AST schema does not name: ',
+            ],
+            // A `oneOf` that NO branch satisfies. `figure.target` is one of an
+            // image, a quote, a table, a code block or a paragraph; a heading
+            // is none of them, and the report has to say something rather than
+            // fall through as a match.
+            'a figure target that is none of its alternatives' => [
+                static function (array $d): array {
+                    $d['children'][0] = [
+                        'type' => 'figure',
+                        'pos' => $d['children'][0]['pos'],
+                        'target' => ['type' => 'heading', 'level' => 1, 'children' => []],
+                        'caption' => [],
+                    ];
+
+                    return $d;
+                },
+                'target',
+            ],
             'a type the vocabulary does not hold' => [
                 static function (array $d): array {
                     $d['children'][0]['type'] = 'not_a_type';
@@ -382,6 +421,155 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
             }
             if (is_array($value) && in_array($key, ['items', 'if', 'then', 'additionalProperties'], true)) {
                 self::collectKeywords($value, $unsupported);
+            }
+        }
+    }
+
+    /**
+     * THE SHAPE ASSUMPTIONS THE VALIDATOR IS ALLOWED TO MAKE, asserted here so
+     * they are not defended against in code no input reaches.
+     *
+     * Each one replaced a branch that could not be exercised: a `type` written
+     * as a LIST of names, a composition branch that is not a schema, a bounded
+     * field with no declared type, and a `$ref` that does not resolve. A guard
+     * for a case that cannot arise cannot be wrong and cannot be right either -
+     * and the ones here are the assumptions whose violation would make the
+     * validator silently accept rather than loudly fail.
+     */
+    public function testTheSchemaSpellsEveryTypeAsOneSupportedName(): void
+    {
+        $supported = ['object', 'array', 'string', 'integer', 'boolean'];
+        $wrong = [];
+        self::walk(AstSchema::schema(), static function (array $node) use ($supported, &$wrong): void {
+            if (!array_key_exists('type', $node) || is_array($node['type'])) {
+                if (is_array($node['type'] ?? null)) {
+                    $wrong[] = 'a type written as a list';
+                }
+
+                return;
+            }
+            if (!is_string($node['type']) || !in_array($node['type'], $supported, true)) {
+                $wrong[] = (string)json_encode($node['type']);
+            }
+        });
+
+        $this->assertSame([], $wrong);
+    }
+
+    public function testEveryCompositionBranchIsASchema(): void
+    {
+        $wrong = [];
+        self::walk(AstSchema::schema(), static function (array $node) use (&$wrong): void {
+            foreach (['allOf', 'anyOf', 'oneOf'] as $keyword) {
+                if (!array_key_exists($keyword, $node)) {
+                    continue;
+                }
+                if (!is_array($node[$keyword]) || $node[$keyword] === []) {
+                    $wrong[] = $keyword . ' is not a non-empty list';
+
+                    continue;
+                }
+                foreach ($node[$keyword] as $branch) {
+                    if (!is_array($branch)) {
+                        $wrong[] = $keyword . ' holds a branch that is not a schema';
+                    }
+                }
+            }
+        });
+
+        $this->assertSame([], $wrong);
+    }
+
+    public function testEveryBoundedFieldAlsoDeclaresItsType(): void
+    {
+        $wrong = [];
+        self::walk(AstSchema::schema(), static function (array $node) use (&$wrong): void {
+            foreach (['minimum', 'maximum'] as $keyword) {
+                if (array_key_exists($keyword, $node) && ($node['type'] ?? null) !== 'integer') {
+                    $wrong[] = $keyword . ' without an integer type';
+                }
+            }
+        });
+
+        $this->assertSame([], $wrong);
+        // And the walk found some, or this proves nothing.
+        $bounded = 0;
+        self::walk(AstSchema::schema(), static function (array $node) use (&$bounded): void {
+            if (array_key_exists('minimum', $node) || array_key_exists('maximum', $node)) {
+                $bounded++;
+            }
+        });
+        $this->assertGreaterThan(0, $bounded, 'no bounded field was examined');
+    }
+
+    public function testARefThatCannotResolveConstrainsNothing(): void
+    {
+        // The two ways `resolve()` gives up. It returns an empty schema rather
+        // than throwing, so a schema mistake cannot turn into a runtime failure
+        // on a payload that has done nothing wrong - and the test above is what
+        // says this schema contains no such ref.
+        $this->assertSame([], AstSchema::resolve('https://example.com/schema', AstSchema::schema()));
+        $this->assertSame([], AstSchema::resolve('#/$defs/not_a_definition', AstSchema::schema()));
+    }
+
+    public function testEveryRefInTheSchemaResolves(): void
+    {
+        $schema = AstSchema::schema();
+        $unresolved = [];
+        $seen = 0;
+        self::walk($schema, static function (array $node) use ($schema, &$unresolved, &$seen): void {
+            if (!is_string($node['$ref'] ?? null)) {
+                return;
+            }
+            $seen++;
+            if (AstSchema::resolve($node['$ref'], $schema) === []) {
+                $unresolved[] = $node['$ref'];
+            }
+        });
+
+        $this->assertSame([], $unresolved);
+        $this->assertGreaterThan(0, $seen, 'no ref was examined');
+    }
+
+    /**
+     * Every SCHEMA OBJECT in the tree.
+     *
+     * `properties` and `$defs` are keyed by NAME, not by keyword, so their
+     * members are schemas while the maps themselves are not - and a property
+     * legitimately named `type` is not a `type` keyword. Descending blindly
+     * reported six of those as violations, which is the walk being wrong rather
+     * than the schema.
+     *
+     * @param array<mixed> $node
+     * @param callable(array<mixed>): void $visit
+     */
+    private static function walk(array $node, callable $visit): void
+    {
+        $visit($node);
+        foreach ($node as $key => $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+            if ($key === 'properties' || $key === '$defs') {
+                foreach ($value as $subschema) {
+                    if (is_array($subschema)) {
+                        self::walk($subschema, $visit);
+                    }
+                }
+
+                continue;
+            }
+            if (in_array($key, ['allOf', 'anyOf', 'oneOf'], true)) {
+                foreach ($value as $branch) {
+                    if (is_array($branch)) {
+                        self::walk($branch, $visit);
+                    }
+                }
+
+                continue;
+            }
+            if (in_array($key, ['items', 'if', 'then', 'additionalProperties'], true)) {
+                self::walk($value, $visit);
             }
         }
     }

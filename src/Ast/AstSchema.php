@@ -155,8 +155,6 @@ final class AstSchema
      * @param string $path
      * @param list<string> $exempt
      *
-     * @throws \RuntimeException
-     *
      * @return string|null
      */
     private static function check(mixed $value, array $schema, array $root, string $path, array $exempt): ?string
@@ -165,13 +163,11 @@ final class AstSchema
             return null;
         }
 
+        // EVERY REF RESOLVES, asserted by `testEveryRefInTheSchemaResolves`.
+        // A ref that did not would otherwise validate NOTHING at that node,
+        // which is the silent-acceptance failure this clause exists to end.
         if (isset($schema['$ref']) && is_string($schema['$ref'])) {
-            $resolved = self::resolve($schema['$ref'], $root);
-            if ($resolved === null) {
-                throw new RuntimeException(sprintf('The AST schema has an unresolvable ref %s', $schema['$ref']));
-            }
-
-            return self::check($value, $resolved, $root, $path, $exempt);
+            return self::check($value, self::resolve($schema['$ref'], $root), $root, $path, $exempt);
         }
 
         foreach (
@@ -219,11 +215,13 @@ final class AstSchema
      */
     private static function checkComposition(mixed $value, array $schema, array $root, string $path, array $exempt): ?string
     {
+        // EVERY BRANCH IS AN OBJECT, asserted by
+        // `testEveryCompositionBranchIsASchema` rather than defended against
+        // here: a `continue` for a branch that cannot occur silently skips a
+        // constraint if it ever does.
         if (isset($schema['allOf']) && is_array($schema['allOf'])) {
             foreach ($schema['allOf'] as $branch) {
-                if (!is_array($branch)) {
-                    continue;
-                }
+                /** @var array<mixed> $branch */
                 $failure = self::check($value, $branch, $root, $path, $exempt);
                 if ($failure !== null) {
                     return $failure;
@@ -238,9 +236,7 @@ final class AstSchema
             $matched = 0;
             $first = null;
             foreach ($schema[$keyword] as $branch) {
-                if (!is_array($branch)) {
-                    continue;
-                }
+                /** @var array<mixed> $branch */
                 $failure = self::check($value, $branch, $root, $path, $exempt);
                 if ($failure === null) {
                     $matched++;
@@ -249,8 +245,10 @@ final class AstSchema
                 }
                 $first ??= $failure;
             }
-            if ($matched === 0) {
-                return $first ?? sprintf('%s matches no branch of `%s`', $path, $keyword);
+            // A branch list is never EMPTY here - same assertion - so a failure
+            // was recorded whenever none matched.
+            if ($matched === 0 && $first !== null) {
+                return $first;
             }
         }
 
@@ -342,25 +340,25 @@ final class AstSchema
      */
     private static function checkType(mixed $value, mixed $expected, string $path): ?string
     {
-        $names = is_array($expected) ? $expected : [$expected];
-        foreach ($names as $name) {
-            if (is_string($name) && self::isOfType($value, $name)) {
-                return null;
-            }
+        // A SINGLE NAME, never a list. JSON Schema allows `type` to be an
+        // array of names and this schema never writes one, so handling that
+        // form here would be a branch no input reaches - and a branch no input
+        // reaches is indistinguishable from one that is wrong. The assumption
+        // is checked instead, by `testTheSchemaSpellsEveryTypeAsOneSupportedName`.
+        if (!is_string($expected) || self::isOfType($value, $expected)) {
+            return null;
         }
 
-        return sprintf(
-            '%s is %s where the schema requires %s',
-            $path,
-            self::describe($value),
-            is_array($expected)
-                ? 'one of ' . implode('/', array_map(static fn (mixed $name): string => (string)(is_string($name) ? $name : ''), $expected))
-                : (is_string($expected) ? $expected : get_debug_type($expected)),
-        );
+        return sprintf('%s is %s where the schema requires %s', $path, self::describe($value), $expected);
     }
 
     private static function isOfType(mixed $value, string $name): bool
     {
+        // THE FIVE NAMES THIS SCHEMA USES, and no more, for the reason
+        // `checkType` gives: `number` and `null` are legal JSON Schema and do
+        // not appear here, so supporting them would add two branches nothing
+        // exercises. `default => false` is what an unsupported name gets, and
+        // a test says the schema contains none.
         return match ($name) {
             // An empty PHP array is both an empty object and an empty list;
             // `properties`/`items` decide which one was meant.
@@ -370,9 +368,7 @@ final class AstSchema
             // `true` and `false` are not integers here, though PHP will happily
             // compare them as such.
             'integer' => is_int($value),
-            'number' => is_int($value) || is_float($value),
             'boolean' => is_bool($value),
-            'null' => $value === null,
             default => false,
         };
     }
@@ -400,7 +396,7 @@ final class AstSchema
      */
     private static function checkEnum(mixed $value, mixed $allowed, string $path): ?string
     {
-        if (!is_array($allowed) || in_array($value, $allowed, true)) {
+        if (in_array($value, is_array($allowed) ? $allowed : [], true)) {
             return null;
         }
 
@@ -416,11 +412,15 @@ final class AstSchema
      */
     private static function checkMinimum(mixed $value, mixed $bound, string $path): ?string
     {
-        if ((!is_int($value) && !is_float($value)) || (!is_int($bound) && !is_float($bound))) {
-            return null;
-        }
-
-        return $value >= $bound ? null : sprintf('%s is %s, below the schema minimum %s', $path, (string)$value, (string)$bound);
+        // NO TYPE GUARD. Every bounded field in this schema also declares
+        // `type: integer`, and `check()` runs `type` before `minimum` and
+        // returns on its failure, so a non-numeric value never reaches here.
+        // The pairing is asserted by `testEveryBoundedFieldAlsoDeclaresItsType`
+        // rather than guarded against, because a guard for a case that cannot
+        // arise cannot be wrong and cannot be right either.
+        return $value >= $bound
+            ? null
+            : sprintf('%s is %s, below the schema minimum %s', $path, self::number($value), self::number($bound));
     }
 
     /**
@@ -432,11 +432,10 @@ final class AstSchema
      */
     private static function checkMaximum(mixed $value, mixed $bound, string $path): ?string
     {
-        if ((!is_int($value) && !is_float($value)) || (!is_int($bound) && !is_float($bound))) {
-            return null;
-        }
-
-        return $value <= $bound ? null : sprintf('%s is %s, above the schema maximum %s', $path, (string)$value, (string)$bound);
+        // See `checkMinimum`.
+        return $value <= $bound
+            ? null
+            : sprintf('%s is %s, above the schema maximum %s', $path, self::number($value), self::number($bound));
     }
 
     /**
@@ -448,13 +447,18 @@ final class AstSchema
      */
     private static function checkRequired(mixed $value, mixed $names, string $path): ?string
     {
-        if (!is_array($value) || !is_array($names)) {
+        // A GUARD RATHER THAN AN ASSERTION, unlike the bounds above. `required`
+        // does NOT always sit beside `type: object`: it also appears on the
+        // `if` half of every `allOf` dispatch, whose own schema constrains only
+        // `type`. Nothing reaches here with a non-array today because the
+        // enclosing `blockNode`/`inlineNode` declares the object type and
+        // `check()` returns on its failure - but that is a property of where
+        // the dispatch sits, not of this keyword.
+        if (!is_array($value)) {
             return null;
         }
-        foreach ($names as $name) {
-            if (!is_string($name)) {
-                continue;
-            }
+        foreach (is_array($names) ? $names : [] as $name) {
+            /** @var string $name */
             if (!array_key_exists($name, $value)) {
                 return sprintf('%s is missing `%s`, which the schema requires', $path, $name);
             }
@@ -464,24 +468,28 @@ final class AstSchema
     }
 
     /**
+     * A LOCAL ref, which is the only kind this schema writes.
+     *
+     * Returns an empty schema - which constrains nothing - for a ref that does
+     * not resolve, and `testEveryRefInTheSchemaResolves` says there is none.
+     * The alternative was throwing, which turned a schema mistake into a
+     * runtime failure on a payload that had done nothing wrong.
+     *
      * @param string $ref
      * @param array<string, mixed> $root
      *
-     * @return array<string, mixed>|null
+     * @return array<string, mixed>
      */
-    private static function resolve(string $ref, array $root): ?array
+    public static function resolve(string $ref, array $root): array
     {
         if (!str_starts_with($ref, '#/')) {
-            return null;
+            return [];
         }
         $node = $root;
         foreach (explode('/', substr($ref, 2)) as $step) {
             $step = str_replace(['~1', '~0'], ['/', '~'], $step);
-            if (!array_key_exists($step, $node)) {
-                return null;
-            }
-            if (!is_array($node[$step])) {
-                return null;
+            if (!array_key_exists($step, $node) || !is_array($node[$step])) {
+                return [];
             }
             /** @var array<string, mixed> $child */
             $child = $node[$step];
@@ -489,6 +497,16 @@ final class AstSchema
         }
 
         return $node;
+    }
+
+    /**
+     * A schema bound as text. Not `(string)` on the raw value: the bound comes
+     * out of decoded JSON, so its static type is `mixed` even where the schema
+     * only ever writes an integer.
+     */
+    private static function number(mixed $bound): string
+    {
+        return is_int($bound) || is_float($bound) ? (string)$bound : get_debug_type($bound);
     }
 
     private static function describe(mixed $value): string
@@ -505,10 +523,9 @@ final class AstSchema
         if (is_int($value) || is_float($value)) {
             return sprintf('the number %s', (string)$value);
         }
-        if (is_array($value)) {
-            return array_is_list($value) ? 'an array' : 'an object';
-        }
 
-        return get_debug_type($value);
+        // A DECODED JSON VALUE is a string, a number, a boolean, null or an
+        // array - there is no sixth case to fall through to.
+        return is_array($value) && array_is_list($value) && $value !== [] ? 'an array' : 'an object';
     }
 }
