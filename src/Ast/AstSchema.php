@@ -114,6 +114,18 @@ final class AstSchema
      */
     public static function firstViolation(array $payload, array $exemptTypes = []): ?string
     {
+        // `check()` recurses, and this method is public: a caller reaching it
+        // without going through `AstCodec::decode()` gets no other bound. Too
+        // deep is reported as the violation it is rather than crashing the
+        // process, and it is asked first because every other answer requires
+        // descending into the payload.
+        if (!PayloadDepth::within($payload, AstCodec::MAX_JSON_DEPTH)) {
+            return sprintf(
+                '$: payload nests deeper than %d levels, the bound the AST reader applies.',
+                AstCodec::MAX_JSON_DEPTH,
+            );
+        }
+
         $schema = self::schema();
 
         return self::check($payload, $schema, $schema, '$', $exemptTypes);
