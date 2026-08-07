@@ -130,6 +130,15 @@ class MarkdownRenderer implements RendererInterface
      */
     private const ASTERISK_ESCAPE = "\u{E005}";
 
+    /**
+     * As UNDERSCORE_ESCAPE, for a hash. Deferred because a hash is only special
+     * at the start of a line, and escapeText() does not know where in the
+     * assembled line its text will land.
+     *
+     * @var string
+     */
+    private const HASH_ESCAPE = "\u{E006}";
+
     protected int $listDepth = 0;
 
     protected bool $inBlockQuote = false;
@@ -353,6 +362,7 @@ class MarkdownRenderer implements RendererInterface
 
         $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::UNDERSCORE_ESCAPE, '_');
         $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::ASTERISK_ESCAPE, '*');
+        $markdown = $this->resolveHashEscapes($markdown);
 
         return str_replace(
             [self::UNDERSCORE_ESCAPE, self::ASTERISK_ESCAPE],
@@ -379,6 +389,49 @@ class MarkdownRenderer implements RendererInterface
      * actually see. When a partner does exist the block is left exactly as it
      * was - this only ever removes an escape that could not have mattered.
      */
+
+    /**
+     * Keep a hash escape only where a hash means something.
+     *
+     * `#` is special in two places in this target's output. It opens an ATX
+     * heading at the start of a line - up to three spaces of indentation, one
+     * to six hashes, then a space or the line end. And it opens the `{#id}`
+     * attribute this renderer emits on a heading a crossref points at, so a
+     * literal `{#...}` in text has to stay distinguishable from one.
+     *
+     * Everywhere else it is an ordinary character. `C#`, `issue #123` and a
+     * `can_#` suffix carried a backslash that protected nothing and broke
+     * exact-match search on the identifier, which is the cost #417, #1011 and
+     * #1014 removed for the underscore and the asterisk.
+     */
+    private function resolveHashEscapes(string $markdown): string
+    {
+        if (!str_contains($markdown, self::HASH_ESCAPE)) {
+            return $markdown;
+        }
+
+        $sentinel = preg_quote(self::HASH_ESCAPE, '/');
+        $width = strlen(self::HASH_ESCAPE);
+
+        // An ATX heading opener.
+        $markdown = preg_replace_callback(
+            '/^([ ]{0,3})(' . $sentinel . '{1,6})(?=[ \t]|$)/mu',
+            static fn (array $m): string => $m[1] . str_repeat('\\#', (int)(strlen($m[2]) / $width)),
+            $markdown,
+        ) ?? $markdown;
+
+        // An attribute block: `{` then the hash. Kept whatever follows, because
+        // what makes the id invalid is a detail of the id grammar and not
+        // something this pass should be re-deciding.
+        $markdown = preg_replace(
+            '/(?<=\{)' . $sentinel . '/u',
+            '\\#',
+            $markdown,
+        ) ?? $markdown;
+
+        return str_replace(self::HASH_ESCAPE, '#', $markdown);
+    }
+
     private function dropUnpairableEmphasisEscapes(string $markdown, string $sentinel, string $delimiter): string
     {
         if (!str_contains($markdown, $sentinel)) {
@@ -1299,6 +1352,7 @@ class MarkdownRenderer implements RendererInterface
             static fn (array $m): string => match ($m[1]) {
                 '_' => self::UNDERSCORE_ESCAPE,
                 '*' => self::ASTERISK_ESCAPE,
+                '#' => self::HASH_ESCAPE,
                 default => '\\' . $m[1],
             },
             $text,

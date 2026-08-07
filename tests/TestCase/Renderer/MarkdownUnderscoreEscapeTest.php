@@ -144,6 +144,40 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame('a \*b\* c', trim(CarveConverter::markdown()->convert('a \*b\* c')));
     }
 
+    /**
+     * A hash is special at the start of a line, where it opens an ATX heading,
+     * and after a `{`, where it opens the attribute block this renderer emits
+     * on a heading a crossref points at. Anywhere else it is an ordinary
+     * character and the backslash only breaks search on the identifier.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function inertHashProvider(): array
+    {
+        return [
+            'a language name' => ['C# and F#', 'C# and F#'],
+            'an issue reference' => ['issue #123 here', 'issue #123 here'],
+            'a bare hash mid-line' => ['text # mid', 'text # mid'],
+            'a tag' => ['a #tag b', 'a #tag b'],
+            'no space after the hash' => ['#hashtag', '#hashtag'],
+        ];
+    }
+
+    #[DataProvider('inertHashProvider')]
+    public function testAHashThatCannotOpenAnythingLosesItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
+     * The attribute-block spelling stays escaped so a literal `{#...}` in text
+     * cannot be read as the `{#id}` anchor this renderer writes for real.
+     */
+    public function testAHashOpeningAnAttributeBlockKeepsItsEscape(): void
+    {
+        $this->assertSame('{\#foo)} literal', trim(CarveConverter::markdown()->convert('{#foo)} literal')));
+    }
+
     public function testCodeSpansAreUntouched(): void
     {
         $this->assertSame('`code_span`', trim(CarveConverter::markdown()->convert('`code_span`')));
