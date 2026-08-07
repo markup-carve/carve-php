@@ -59,6 +59,16 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
             // The `+` item's body is FLUSH LEFT, so a span derived from the
             // children began at the table and skipped the marker line entirely.
             'continuation-marker item' => ["- +\n| a | b |\n|---|---|\n| c | d |\n", 'children.0.items.0', 0, '-'],
+            // THE COLUMN IS TAKEN ONLY FROM A SUFFIX. This item's stream is
+            // RE-JOINED into one line, so the built text is neither the source
+            // line nor its tail; measuring the width by length alone puts the
+            // sub-list two characters left of its own marker, on a space.
+            'sub-list in a re-joined item stream' => [
+                "-   x\n    - a\n  - b\n",
+                'children.0.items.0.children.1',
+                10,
+                '-',
+            ],
             // CONTROLS. Nothing outside a container moves, and a list item
             // still opens at its own marker rather than at its content.
             'heading at top level' => ["# h\n", 'children.0', 0, '#'],
@@ -146,6 +156,33 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
 
         $this->assertSame('> x', $slice);
         $this->assertSame('> x', $paragraph['children'][0]['value'] ?? null);
+    }
+
+    /**
+     * TRAILING WHITESPACE IS DROPPED FROM A CONTENT LINE, which makes the
+     * built text shorter than its source line WITHOUT being its tail.
+     *
+     * The other half of the suffix guard, and the one that cannot be spelled as
+     * an opening character: `definition_description` opens with no markup of
+     * its own, so only the SLICE says where it starts. Taking the width from
+     * the length difference alone lands one character into the word.
+     */
+    public function testAWidthIsNotTakenFromALineWhoseTailWasTrimmed(): void
+    {
+        $source = ":: term \n:  def \n";
+        $description = $this->at($this->parseWithPositions($source), 'children.0.items.1');
+
+        $this->assertSame('definition_description', $description['type'] ?? null);
+        $this->assertArrayHasKey('pos', $description, 'the description carries no position');
+
+        $codepoints = preg_split('//u', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $slice = implode('', array_slice(
+            $codepoints,
+            $description['pos']['startOffset'],
+            $description['pos']['endOffset'] - $description['pos']['startOffset'],
+        ));
+
+        $this->assertSame('def', $slice);
     }
 
     /**
