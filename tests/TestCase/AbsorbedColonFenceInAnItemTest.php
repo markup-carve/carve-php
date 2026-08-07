@@ -161,13 +161,90 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         );
     }
 
-    public function testAnUnterminatedDivDoesNotSwallowTheFlushLeftLine(): void
+    /**
+     * An UNTERMINATED div holding a paragraph DOES take the flush-left line.
+     *
+     * THIS EXPECTATION FLIPPED, and its premise was ruled away rather than
+     * getting in the way. carve#891 read "an open div is not an open paragraph"
+     * as a property of the DIV; markup-carve/carve#909 reads S4 as a question
+     * about the OPEN STACK, so what decides is the div's OWN trailing block. A
+     * div holding `body` has an open paragraph and the line folds in; an EMPTY
+     * or CLOSED one has none and the line is a sibling. Corpus 270 pins all
+     * three, and the empty and closed shapes are asserted below unchanged.
+     */
+    public function testAnUnterminatedDivHoldingAParagraphTakesTheFlushLeftLine(): void
     {
-        // The third change, on its own shape: an open div is not an open
-        // paragraph, so the item ends and the line belongs to the document.
+        $this->assertSame(
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body\ntail</p>\n    </aside>\n  </li>\n</ul>",
+            $this->html("- item\n  ::: note\n  body\ntail\n"),
+        );
+    }
+
+    public function testAnEmptyDivDoesNotTakeTheFlushLeftLine(): void
+    {
+        // The control the flip must not reach: an opener is the last thing on
+        // the stack, so there is no paragraph and the line is the document's.
+        $this->assertSame(
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            $this->html("- item\n  ::: note\ntail\n"),
+        );
+    }
+
+    /**
+     * A NESTED opener is still an opener, in either container kind.
+     *
+     * S4 asks about the INNERMOST open container, so a `:::: tip` as the last
+     * line inside a `::: note` leaves an EMPTY container on the stack and no
+     * paragraph - the same answer the outer opener gets one level up. A tracker
+     * that read "any non-blank line inside a div is paragraph-bearing" swallowed
+     * the flush-left line into the nested div. Found in review and measured
+     * against the executable spec, which puts `tail` at the top level for both.
+     */
+    public function testANestedOpenerDoesNotTakeTheFlushLeftLine(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <aside class=\"admonition tip\">\n\n      </aside>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            $this->html("- item\n  ::: note\n  :::: tip\ntail\n"),
+        );
+        $this->assertSame(
+            "<blockquote>\n  <p>quote</p>\n  <aside class=\"admonition note\">\n    <aside class=\"admonition tip\">\n\n    </aside>\n  </aside>\n</blockquote>\n<p>tail</p>",
+            $this->html("> quote\n> ::: note\n> :::: tip\ntail\n"),
+        );
+    }
+
+    /**
+     * A BOUNDED BLOCK inside the div, and the one row where the two container
+     * kinds answer differently.
+     *
+     * A heading, a thematic break and a table row end at their own boundary and
+     * leave no open paragraph - inside a div as outside one. The exception is
+     * measured rather than tidy: the executable spec puts the flush-left line
+     * INSIDE the div after `- item` / `::: note` / `# h`, and at the TOP LEVEL
+     * for the same shape in a block quote. Both are reproduced as measured, and
+     * pinned here so that neither can be quietly "made consistent".
+     */
+    public function testABoundedBlockInsideTheDivEndsLazyContinuation(): void
+    {
+        $this->assertStringEndsWith(
+            "</ul>\n<p>tail</p>",
+            $this->html("- item\n  ::: note\n  | a |\ntail\n"),
+        );
+        $this->assertStringEndsWith(
+            "</blockquote>\n<p>tail</p>",
+            $this->html("> quote\n> ::: note\n> # h\ntail\n"),
+        );
+        // The measured exception: a heading in a LIST-ITEM div keeps the line.
+        $this->assertStringContainsString(
+            "<h1 id=\"h\">h</h1>\n      <p>tail</p>",
+            $this->html("- item\n  ::: note\n  # h\ntail\n"),
+        );
+    }
+
+    public function testAClosedDivDoesNotTakeTheFlushLeftLine(): void
+    {
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  body\ntail\n"),
+            $this->html("- item\n  ::: note\n  body\n  :::\ntail\n"),
         );
     }
 }
