@@ -2576,24 +2576,71 @@ class InlineParser
     /**
      * The non-ASCII characters carrying the Unicode White_Space property.
      *
-     * The ASCII ones (`\t`, `\n`, `\v`, `\f`, `\r`, space) are already excluded
-     * by the `\s` in the body pattern, which is a byte test.
-     *
      * ENUMERATED rather than written `\s` with the `u` modifier, because PCRE's
      * Unicode `\s` is not this property: it additionally matches U+180E
      * MONGOLIAN VOWEL SEPARATOR, which Unicode 6.3.0 removed from White_Space.
-     * U+180E is a NON-whitespace non-ASCII character, so it belongs to the open
-     * question in markup-carve/carve#860 rather than to this rule, and matching
-     * it here would answer that question by accident.
+     * Spelling either half of `url_char` as `\s` decides part of the rule by
+     * accident - and in the other direction JavaScript's `\s` matches U+FEFF
+     * and misses U+0085, which is how carve-js and this engine reached opposite
+     * answers on the byte order mark for reasons neither had chosen
+     * (markup-carve/carve#860, carve-php#957).
      *
-     * Zero-width characters are deliberately absent: U+200B and U+FEFF are not
-     * White_Space, and grammar.ebnf says so outright -- "the test is the Unicode
-     * White_Space property, not 'is invisible'".
+     * U+180E is still not a `url_char`, but as a FORMAT character rather than
+     * as whitespace - which is the rule saying so rather than the host
+     * language's character class saying it by accident.
      *
      * @var string
      */
-    private const NON_ASCII_WHITESPACE_RE = '/[\x{0085}\x{00a0}\x{1680}\x{2000}-\x{200a}'
-        . '\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]/u';
+    private const NON_ASCII_WHITESPACE_CLASS = '\x{0085}\x{00a0}\x{1680}\x{2000}-\x{200a}'
+        . '\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}';
+
+    /**
+     * `url_char`, ASCII half - the enumeration in `resources/grammar.ebnf`.
+     *
+     * Written as what it ADMITS rather than as what it excludes, which is how
+     * the grammar writes it. The two spellings agree on every printable
+     * character - the nine punctuation exclusions stay out either way - and
+     * they part on the CONTROL characters, which a negated class admits
+     * because PHP's `\s` is not `\p{Cc}`. That is why a body carrying U+0001
+     * used to link.
+     *
+     * @var string
+     */
+    private const URL_CHAR_ASCII_CLASS = "A-Za-z0-9\\-._~:\\/?#\\[\\]@!$&'()*+,;=%";
+
+    /**
+     * A `url_autolink` body: `scheme, ':', {url_char}+`.
+     *
+     * The SCHEME IS ASCII and does not move (`letter, {letter | digit | '+' |
+     * '-' | '.'}`); only the body admits non-ASCII.
+     *
+     * OUTSIDE ASCII a `url_char` is any character that is not whitespace, not a
+     * format character (General_Category Cf) and not a control character (Cc).
+     * The control term is not redundant with the ASCII enumeration, which is
+     * the trap it is written around: the C1 block U+0080-U+009F is non-ASCII
+     * and non-whitespace apart from U+0085, so a rule spelled "non-ASCII and
+     * not Cf" silently admits fourteen control characters while excluding
+     * every C0 one.
+     *
+     * @var string
+     */
+    private const URL_AUTOLINK_RE = '/^[A-Za-z][A-Za-z0-9+.\-]*:'
+        . '(?:[' . self::URL_CHAR_ASCII_CLASS . ']'
+        . '|(?![\p{Cf}\p{Cc}' . self::NON_ASCII_WHITESPACE_CLASS . '])[^\x{00}-\x{7F}])+$/u';
+
+    /**
+     * The same production read as BYTES, for a subject that is not valid UTF-8.
+     *
+     * A rule stated in Unicode general categories cannot judge bytes that are
+     * not characters, and refusing an autolink on that basis would decide a
+     * malformed-input case no clause covers. So the ASCII half is applied as
+     * written and every high byte is admitted - which is what this engine did
+     * before, and is only ever reached when the pattern above could not run.
+     *
+     * @var string
+     */
+    private const URL_AUTOLINK_BYTES_RE = '/^[A-Za-z][A-Za-z0-9+.\-]*:'
+        . '(?:[' . self::URL_CHAR_ASCII_CLASS . ']|[\x80-\xFF])+$/';
 
     /**
      * Whether the run between `<` and `>` is a `url_autolink` body.
@@ -2602,30 +2649,40 @@ class InlineParser
      * `findAutolinkEnd()`. The two carried independent copies of the same
      * pattern, so a change to one silently disagreed with the other.
      *
-     * WHITESPACE IS UNICODE WHITESPACE. `url_char` (`resources/grammar.ebnf`)
-     * enumerates ASCII, and `unicode_url_char` -- the only production admitting
-     * anything outside it -- is "any NON-WHITESPACE, non-ASCII Unicode
-     * character", with a normative note that this means the Unicode White_Space
-     * property. So a NO-BREAK SPACE inside the body ends it under either reading
-     * of markup-carve/carve#860, and `<https://e<U+00A0>.com/>` is literal text,
-     * not a link whose href carries an invisible character (the same defect as
-     * markup-carve/carve#404, one production over).
+     * PART 3, AN AUTOLINK BODY ADMITS NON-ASCII AND EXCLUDES FORMAT CHARACTERS
+     * (markup-carve/carve#844, markup-carve/carve#860). An internationalized
+     * domain, an accented host, a non-ASCII path and a non-ASCII character that
+     * is not a LETTER are all `url_char`s. The deciding argument is the
+     * asymmetry with the inline form: `[t](https://<IDN>/)` links in all three
+     * engines already, because `link_destination` admits `unicode_url_char`,
+     * and one destination cannot answer differently on the character set
+     * depending on the spelling.
      *
-     * Whether a non-whitespace non-ASCII character (an IDN host, U+200B, U+FEFF)
-     * may appear here at all is the open question on that ticket, and this
-     * engine's answer to it is deliberately unchanged.
+     * A FORMAT CHARACTER DOES NOT. It is invisible by definition, so a host
+     * carrying one renders as the host WITHOUT it and links somewhere else.
+     * That is a spoofing surface rather than an authoring convenience.
+     *
+     * `link_destination` is a DIFFERENT production and is unchanged: a format
+     * character in an inline destination or a reference definition is still an
+     * ordinary destination character.
      */
     private static function isUrlAutolinkBody(string $content): bool
     {
-        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"\\\\`{}|^]+$/', $content) !== 1) {
-            return false;
+        if (preg_match(self::URL_AUTOLINK_RE, $content) === 1) {
+            return true;
         }
 
-        // A subject that is not valid UTF-8 makes this return false rather than
-        // 0, which leaves the body exactly as the byte pattern above judged it.
-        // Refusing an autolink on the strength of a failed match would decide a
-        // malformed-input case this clause says nothing about.
-        return preg_match(self::NON_ASCII_WHITESPACE_RE, $content) !== 1;
+        // A subject that is not valid UTF-8 makes `preg_match()` return FALSE
+        // rather than 0, and the two are different answers: the rule is stated
+        // in Unicode general categories, which say nothing about bytes that are
+        // not characters. Judging such a body by the byte reading keeps this
+        // engine's existing answer for malformed input rather than deciding a
+        // case no clause covers.
+        if (preg_last_error() === PREG_BAD_UTF8_ERROR) {
+            return preg_match(self::URL_AUTOLINK_BYTES_RE, $content) === 1;
+        }
+
+        return false;
     }
 
     /**
