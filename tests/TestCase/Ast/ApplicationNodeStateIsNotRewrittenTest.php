@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\Node\Document;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * An application node's own state is DATA, not a subtree to rewrite.
@@ -31,6 +32,18 @@ use PHPUnit\Framework\TestCase;
  */
 class ApplicationNodeStateIsNotRewrittenTest extends TestCase
 {
+    /**
+     * `register()` writes statics this package never clears, so the one test
+     * below that calls it puts them back rather than changing what
+     * `AstCodec::schema()` reports for every test after it.
+     */
+    protected function tearDown(): void
+    {
+        foreach (['registered' => [], 'classMap' => null, 'packageTypes' => null] as $name => $value) {
+            (new ReflectionProperty(AstCodec::class, $name))->setValue(null, $value);
+        }
+    }
+
     public function testAnApplicationFieldSpelledLikeANodeSurvivesEncoding(): void
     {
         $document = new Document();
@@ -85,6 +98,27 @@ class ApplicationNodeStateIsNotRewrittenTest extends TestCase
             StoredPayloadUpgrade::upgrade($payload)['children'][0]['children'][0]['type'],
         );
         $this->assertSame(['a `raw_text` node'], StoredPayloadUpgrade::retiredShapesIn($payload));
+    }
+
+    /**
+     * REGISTERING THE CLASS DOES NOT MAKE IT THIS PACKAGE'S OWN. `register()`
+     * teaches the DECODER to build the node; it says nothing about who chose
+     * the keys of its state, which is the question these passes ask - and the
+     * repro that found this bug used a registered node.
+     */
+    public function testRegisteringTheClassDoesNotMoveTheBoundary(): void
+    {
+        AstCodec::register(ApplicationNodeWithNodeShapedState::class);
+
+        $this->assertTrue(AstCodec::isApplicationType('app_node_with_node_shaped_state'));
+
+        $document = new Document();
+        $document->appendChild(new ApplicationNodeWithNodeShapedState());
+
+        $this->assertSame(
+            ['type' => 'section', 'content' => 'x'],
+            (new AstCodec())->encode($document)['children'][0]['data'],
+        );
     }
 
     /**
