@@ -46,6 +46,8 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\HeadingReferenceCollector;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use ReflectionClass;
 use ReflectionNamedType;
 use RuntimeException;
@@ -107,6 +109,20 @@ class ProseMirrorToCarve
         foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
             $carveDocument->appendChild($node);
         }
+
+        // After the tree is final, not while it is being built. A link mark
+        // spans one text run per mark set, so `[*bold* heading][]` arrives as
+        // two link wrappers that mergeAdjacentMarks() joins later; asked any
+        // earlier, the check would see the label's first fragment and reject
+        // every reference whose label carries markup at all.
+        //
+        // The index is the RESOLVER's own, built from the tree that is about to
+        // be written, so the question asked is the one resolution will ask
+        // rather than a re-derivation of it.
+        $this->confirmHeadingReferences(
+            $carveDocument,
+            (new HeadingReferenceCollector(new HeadingIdTracker()))->collect($carveDocument),
+        );
 
         // Restore document-level abbreviation definitions (carve-php#519). See
         // the note in ProseMirrorRenderer::render(): without these the marks
@@ -777,6 +793,93 @@ class ProseMirrorToCarve
     }
 
     /**
+     * Keep the heading-reference spelling only while the link still resolves by it.
+     *
+     * Same hazard as confirmAutolink(), one attribute over. A collapsed
+     * `[text][]` resolves against the heading whose RENDERED TEXT equals the
+     * label, and `ref` holds exactly that text. An editor that retypes the
+     * visible text has changed which heading the reference would find, so
+     * writing the authored `[old text][]` back would publish a reference to a
+     * heading the document no longer names - and silently discard the edit.
+     * The flag is therefore a HINT to be re-derived, not truth: when the text
+     * no longer matches, the link falls back to its inline form, which always
+     * renders correctly.
+     *
+     * The bound this leaves is deliberate rather than overlooked. An edit that
+     * changes only the MARKUP inside the label - unbolding `[*bold* heading][]`
+     * - keeps the rendered text, so the reference still resolves to the same
+     * heading and the authored markup is restored with it. That is a real loss
+     * of the edit, and it is the lesser of the two available ones: the
+     * alternative is writing `[bold heading](#bold-heading)`, which bakes a
+     * generated id into the source on every pass, which is the loss
+     * `Link::$fromHeadingReference` exists to prevent.
+     */
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $headings
+     */
+    protected function confirmHeadingReferences(Node $node, array $headings): void
+    {
+        if ($node instanceof Link) {
+            $this->confirmHeadingReference($node, $headings);
+        }
+
+        foreach ($node->getChildren() as $child) {
+            $this->confirmHeadingReferences($child, $headings);
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\Link $link
+     * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $headings
+     */
+    protected function confirmHeadingReference(Link $link, array $headings): void
+    {
+        if (!$link->isFromHeadingReference()) {
+            return;
+        }
+
+        $label = $this->headingReferenceLabel($link);
+        foreach ($headings as [$headingLabel, $definition]) {
+            // BOTH halves, because either one alone leaves an edit to the other
+            // silently discarded. Text-only would keep the spelling after the
+            // destination was repointed, and the writer emits the reference
+            // rather than the href - so `[plain heading][]` came back and the
+            // new URL was gone, which is carve-php#516 arriving through the
+            // editor. Destination-only would keep it after the text changed,
+            // which republishes a reference to a heading the document no longer
+            // names.
+            if ($headingLabel === $label && $definition->url === $link->getDestination()) {
+                return;
+            }
+        }
+
+        $this->setState($link, 'fromHeadingReference', false);
+        $this->setState($link, 'referenceLabel', null);
+        $this->setState($link, 'rawReferenceLabel', null);
+    }
+
+    /**
+     * The label a collapsed reference over this text would resolve by.
+     *
+     * Deliberately the RESOLVER's own two steps rather than a second spelling
+     * of them: HeadingReferenceCollector registers a heading under
+     * `HeadingIdTracker::getPlainText()` collapsed to single spaces, so asking
+     * the same pair here is what makes this check agree with resolution by
+     * construction. A local text walk would have to re-derive, among other
+     * things, that a code span's text lives on the node instead of in children
+     * - which it would get wrong, and the check would then reject every
+     * reference whose label holds one.
+     */
+    protected function headingReferenceLabel(Link $link): string
+    {
+        $plainText = (new HeadingIdTracker())->getPlainText($link);
+
+        return preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param mixed $marks
      */
@@ -928,6 +1031,19 @@ class ProseMirrorToCarve
                 $node instanceof Image && $key === 'alt' => $this->setState($node, 'alt', self::asString($value)),
                 $node instanceof Link && $key === 'href' => $this->setState($node, 'destination', self::asString($value)),
                 $node instanceof Link && $key === 'carveAutolink' => $this->setState($node, 'isAutolink', self::asBool($value)),
+                // The reference spelling, restored to the construct rather than
+                // left in the author attribute map - where it would come back
+                // as a stray `{carveRawRef="[x][]"}` beside a destination the
+                // author never wrote. The renderer emits these three together
+                // and only for a heading reference, so each one restores the
+                // field the canonical writer reads (carve-php#1006).
+                $node instanceof Link && $key === 'carveHeadingRef' => $this->setState(
+                    $node,
+                    'fromHeadingReference',
+                    self::asBool($value),
+                ),
+                $node instanceof Link && $key === 'carveRef' => $this->setState($node, 'referenceLabel', self::asString($value)),
+                $node instanceof Link && $key === 'carveRawRef' => $this->setState($node, 'rawReferenceLabel', self::asString($value)),
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
