@@ -565,7 +565,7 @@ class AnsiRenderer implements RendererInterface
         $target = $node->getTargetId();
         // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
         if ($label === null) {
             return '</#' . $this->stripControls($target) . '>';
         }

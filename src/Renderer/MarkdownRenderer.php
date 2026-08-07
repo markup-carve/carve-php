@@ -473,7 +473,7 @@ class MarkdownRenderer implements RendererInterface
         // `</#getting-started>` resolves to a case-preserved id and the emitted
         // href uses the ACTUAL id (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
         if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
             return '</#' . $this->stripControls($target) . '>';

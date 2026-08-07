@@ -211,7 +211,7 @@ class CrossReferenceResolver
                     // anchor. Flatten it to the resolved heading text (or the
                     // literal `</#id>` source when the target is unresolved),
                     // matching how an unresolved cross-reference already renders.
-                    $node->replaceChildNode($child, $this->headingRefToText($child, $tracker));
+                    $node->replaceChildWithMany($child, $this->headingRefToLabel($child, $tracker));
                 }
 
                 continue;
@@ -235,20 +235,43 @@ class CrossReferenceResolver
     }
 
     /**
-     * Resolve a `</#id>` cross-reference to a plain Text node carrying the
-     * target heading's display text, or its literal source text when the
-     * target is unresolved (mirrors HtmlRenderer::renderHeadingRef()).
+     * Resolve a `</#id>` cross-reference to the target heading's display label
+     * as NODES, or to its literal source text when the target is unresolved
+     * (mirrors HtmlRenderer::renderHeadingRef()).
+     *
+     * NODES, not the rendered string, and this is the second producer of a
+     * cross-reference label: the FIRST one is the renderer, which asks the
+     * tracker at render time and can therefore apply its own smart-typography
+     * mode. This one runs BEFORE any renderer - a cross-reference inside a link
+     * would render as a nested anchor, so it is rewritten here - and it mutates
+     * the document. Materializing a string here would answer the mode question
+     * on this path permanently, at whichever mode happened to render first: the
+     * same parsed document would then render its heading with curly quotes and
+     * its label with the typed ones. The label sequence is flat (see
+     * HeadingIdTracker::getLabelNodesForId()), so what a renderer still gets to
+     * decide is exactly the glyph-or-source-run question and nothing else
+     * (markup-carve/carve#952).
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    protected function headingRefToText(HeadingRef $node, HeadingIdTracker $tracker): Text
+    protected function headingRefToLabel(HeadingRef $node, HeadingIdTracker $tracker): array
     {
         $target = $node->getTargetId();
         $id = $tracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $tracker->getTextForId($id);
-        if ($id === null || $label === null) {
-            return new Text('</#' . $target . '>');
+        if ($id === null) {
+            return [new Text('</#' . $target . '>')];
         }
 
-        return new Text($label);
+        $nodes = $tracker->getLabelNodesForId($id);
+        if ($nodes !== null) {
+            return $nodes;
+        }
+
+        // No heading behind the id: a numbered caption registers its label as an
+        // already-composed string ("Figure 2"), which has no nodes to keep.
+        $label = $tracker->getTextForId($id);
+
+        return [new Text($label ?? '</#' . $target . '>')];
     }
 
     /**
