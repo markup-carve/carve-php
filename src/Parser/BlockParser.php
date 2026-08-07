@@ -209,14 +209,14 @@ class BlockParser
     /**
      * @var string
      */
-    protected const DEFINITION_TERM_PATTERN = '/^::(?!:) [ \t]*(?=\S)(.+)$/';
+    protected const DEFINITION_TERM_PATTERN = '/^::(?!:) [ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')(.+)$/';
 
     /**
      * A definition term, tested rather than captured.
      *
      * @var string
      */
-    protected const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) [ \t]*\S/';
+    protected const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) [ \t]*' . StringUtil::NON_WHITESPACE_CLASS . '/';
 
     /**
      * A definition-term MARKER, where the caller checks only that the line
@@ -1320,7 +1320,7 @@ class BlockParser
             if (($bare[0] ?? '') === '[' && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $bare, $matches)) {
                 $label = $matches[1];
                 $content = $matches[2];
-                if (trim($content) === '') {
+                if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
                     $i++;
 
                     continue;
@@ -1364,7 +1364,7 @@ class BlockParser
                         || IndentationHelper::isBlankLine($lines[$i - 1])
                         || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
                         || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
-                    if ($opensBlock && trim($content) !== '' && !isset($this->footnotes[$label])) {
+                    if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$label])) {
                         $footnote = new Footnote($label);
                         if ($this->trackSourceLines) {
                             $footnote->setAttribute('data-source-line', (string)($i + 1));
@@ -1420,7 +1420,7 @@ class BlockParser
                 // (2 spaces or a tab); see the continuation regex below.
                 $contentLines = [];
                 $contentLineMap = [];
-                if (trim($content) !== '') {
+                if (trim($content, StringUtil::WHITESPACE_CHARS) !== '') {
                     $contentLines[] = $content;
                     $contentLineMap[] = $i;
                 }
@@ -1623,7 +1623,7 @@ class BlockParser
             // while the block parser emptied the entry anyway
             // (markup-carve/carve#840).
             $afterTerm = ReferenceDefinitionExtractor::opensDefinitionEntry($previousLine);
-            if ($afterTerm && preg_match('/^[ \t]*:[ \t]\s*(?=\S)/', $rest, $descMatch) === 1) {
+            if ($afterTerm && preg_match('/^[ \t]*:[ \t][ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1) {
                 $rest = substr($rest, strlen($descMatch[0]));
                 $stripped = true;
             }
@@ -4943,10 +4943,18 @@ class BlockParser
      * stripped here: the block-quote form requires column 0 and the list form
      * checks its own base indent, so each caller passes a line whose indentation
      * it has already accounted for.
+     *
+     * THE CHARLIST IS `whitespace`, not PHP's default. The default is
+     * `" \t\n\r\0\x0B"`, which also takes a VERTICAL TAB - so a line holding
+     * `+` and one U+000B was a marker here while the spelling this docblock
+     * quotes says it is not. `continuation_marker = '+', newline` spells NO
+     * RUN AT ALL (PART 7), so any character between the `+` and the line end
+     * is content. The predicate was unified across seven sites by
+     * carve-php#929; the DEFINITION was not (carve-php#1041).
      */
     protected function isContinuationMarker(string $line): bool
     {
-        return rtrim($line) === '+';
+        return rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
     }
 
     /**
@@ -5445,7 +5453,7 @@ class BlockParser
             // An entry: one or more terms, then one or more definitions.
             while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
                 $termStart = $i;
-                $termText = trim($m[1]);
+                $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
                 $termLines = [$termText];
                 $i++;
                 // A term folds a following plain line like a heading (soft
@@ -5524,7 +5532,7 @@ class BlockParser
                 // sole content is a lone `+`, the body is the FOLLOWING
                 // flush-left block, with no indentation. `:  \+` is a literal `+`.
                 $bodyMap = [];
-                if (preg_match('/^\+[ \t]*$/', trim($m[1]))) {
+                if (preg_match('/^\+[ \t]*$/', trim($m[1], StringUtil::WHITESPACE_CHARS))) {
                     $body = [];
                     while ($i < $count) {
                         $a = $lines[$i];
@@ -5541,7 +5549,7 @@ class BlockParser
                         $i++;
                     }
                 } else {
-                    $body = [trim($m[1])];
+                    $body = [trim($m[1], StringUtil::WHITESPACE_CHARS)];
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
                 // A definition body continues like a list item (SS17):
@@ -9196,13 +9204,13 @@ class BlockParser
         // text, not a block start), matching ListParser::parseListItemMarker.
         // Bullet lists: - or * followed by space + content (`+` is not a bullet
         // in Carve -- it is the list-continuation marker).
-        if (preg_match('/^[-*] +\S/', $line)) {
+        if (preg_match('/^[-*] +' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return true;
         }
 
         // Ordered lists: digit(s) or letter plus delimiter, or the bare-dot
         // shorthand, followed by space + content.
-        if (preg_match('/^(?:\.|(\d+|[a-zA-Z])[.)]) +\S/', $line)) {
+        if (preg_match('/^(?:\.|(\d+|[a-zA-Z])[.)]) +' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return true;
         }
 

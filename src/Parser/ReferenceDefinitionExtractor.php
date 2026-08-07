@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceDefinitionExtractor
 {
@@ -330,7 +331,7 @@ class ReferenceDefinitionExtractor
         while (true) {
             $before = $trimmed;
             $trimmed = ContainerPrefix::quoteContent($trimmed) ?? $trimmed;
-            $trimmed = preg_replace('/^(?:[-*]|[0-9]+[.)]) +(?=\S)/', '', $trimmed) ?? $trimmed;
+            $trimmed = preg_replace('/^(?:[-*]|[0-9]+[.)]) +(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', '', $trimmed) ?? $trimmed;
             $trimmed = ltrim($trimmed, " \t");
             if ($trimmed === $before) {
                 break;
@@ -364,7 +365,7 @@ class ReferenceDefinitionExtractor
         $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
 
         return preg_replace(
-            '/^[ \t]*(?:' . $descriptionMarker . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=\S)/',
+            '/^[ \t]*(?:' . $descriptionMarker . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/',
             '',
             $line,
         ) ?? $line;

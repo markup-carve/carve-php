@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Block;
 
+use MarkupCarve\Carve\Util\StringUtil;
+
 /**
  * Parser utilities for fenced blocks (code blocks, divs, raw blocks).
  *
@@ -59,7 +61,7 @@ class FencedBlockParser
         // (carve#912). What is left over then reaches the info string, where
         // `language_info` cannot match a space, and the opener falls back to an
         // inline verbatim span in a paragraph.
-        $info = rtrim($matches[2]);
+        $info = rtrim($matches[2], StringUtil::WHITESPACE_CHARS);
         if (($info[0] ?? '') === ' ') {
             $info = substr($info, 1);
         }

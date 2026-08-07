@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * The content column of the innermost list item a line-based prepass is inside.
@@ -74,7 +75,7 @@ class ListContentColumns
             ) === 1
         ) {
             $markerWidth = strlen($markerMatch[0]);
-            if (preg_match('/\S/', substr($rest, $markerWidth)) !== 1) {
+            if (preg_match('/' . StringUtil::NON_WHITESPACE_CLASS . '/', substr($rest, $markerWidth)) !== 1) {
                 break;
             }
             $this->popDeeperThan($consumed + strlen($markerMatch[1]));
@@ -99,7 +100,7 @@ class ListContentColumns
         // `::` is the TERM marker and must not match: the character after the
         // first colon is a colon there, not whitespace, so the pattern below
         // already excludes it - as it excludes a `:::` fence opener.
-        if (preg_match('/^([ \t]*):\s\s+(?=\S)/', $line, $descMatch) === 1) {
+        if (preg_match('/^([ \t]*):[ \t][ \t]+(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $line, $descMatch) === 1) {
             $this->popDeeperThan(strlen($descMatch[1]));
             $this->columns[] = strlen($descMatch[0]);
 
