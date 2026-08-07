@@ -27,6 +27,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A fence opened on a `:  ` definition-body marker line no longer swallows
+  lines below the body's content column** (carve-php#1031, specified in
+  markup-carve/carve#956). `:: t` / `` :  ``` `` / `body` / `` ``` `` gave a `dd`
+  holding a code block with `body` in it. The line supplies none of the body's
+  indentation, so PART 9 section 24's walk stops at the definition entry, the
+  fenced body is never reached, and S4's lazy branch has no open PARAGRAPH to
+  fold into - a verbatim body is not one. The containers close, the `dd` holds an
+  EMPTY code block, and the tail re-parses at document level, byte for byte the
+  answer the list and block-quote spellings already gave. A line AT or past the
+  body's column is still the fence's content, and a fence that has CLOSED still
+  takes a lazy line into the reopened paragraph. A CLOSED fence with no paragraph
+  after it now ends the body too, which is the same rule stated once: S4's lazy
+  branch wants an open paragraph, and a finished code block is not one either.
+
 - **A reference definition whose trailing `{...}` block is not `attributes` is a
   paragraph** (carve-php#1025, specified in markup-carve/carve#933).
   `[a]: /u {#}`, `[a]: /u { }`, `[a]: /u {=}`, `[a]: /u {}` and

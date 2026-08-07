@@ -5522,6 +5522,18 @@ class BlockParser
                 // governs them. Without this the second line of an indented list
                 // or fence was folded into the first.
                 $formABlockOpen = false;
+                // A DEFINITION BODY IS AN INDENTED-BLOCK COLLECTOR LIKE THE
+                // OTHER TWO (markup-carve/carve#956), so it owes the same answer
+                // about an OPEN FENCE that a list item and a block quote already
+                // give. This loop tracked no fence state at all, which is why it
+                // was the last collector still folding a below-column line into
+                // one. Advanced one body ENTRY at a time because `parseBlocks()`
+                // reads an entry as a line - an entry that grew a `"\n"` from a
+                // past-the-column append is still one line to it, so only the
+                // entry's first line decides block structure and the cursor below
+                // stays correct when the last entry is appended to in place.
+                $bodyState = self::INITIAL_TRAILING_BLOCK_STATE;
+                $bodyStateCursor = 0;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -5662,6 +5674,37 @@ class BlockParser
                     // A new term/definition marker ends this definition (the
                     // outer loop picks it up).
                     if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $contLine)) {
+                        break;
+                    }
+                    // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH, so nothing folds
+                    // into it (markup-carve/carve#956). §24's STEP walk is driven
+                    // by the indentation a line SUPPLIES: this line supplies less
+                    // than the body's content column, so S1 MATCH PREFIXES stops
+                    // at the DEFINITION ENTRY, the fenced body is never reached
+                    // and S2 FENCED BODY never fires. S4 governs, and its lazy
+                    // branch continues an open PARAGRAPH - "fold in as lazy
+                    // paragraph text" has no meaning inside content that is not
+                    // markup. So the containers close, the `dd` holds an EMPTY
+                    // code block, and the line re-parses at document level.
+                    //
+                    // THE QUESTION IS "IS A PARAGRAPH OPEN NOW", not "did the
+                    // marker line open a fence". Once the body has collected a
+                    // line AT the content column the fence may have closed and a
+                    // paragraph reopened, and then the below-column line folds in
+                    // as it always did. Asking about the open PARAGRAPH is also
+                    // what makes a CLOSED fence with nothing after it end the
+                    // body: a finished code block is no more an open paragraph
+                    // than an unfinished one, and the list and block-quote
+                    // spellings both put that line at document level. This is
+                    // byte for byte the guard `collectPlainListItemContinuation()`
+                    // carries for the list spelling (carve-php#1003).
+                    for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
+                        $bodyState = $this->advanceTrailingBlockState(
+                            $bodyState,
+                            explode("\n", $body[$bodyStateCursor], 2)[0],
+                        );
+                    }
+                    if (!$bodyState['openParagraph']) {
                         break;
                     }
                     // Lazy continuation: a flush-left line with no blank before it
