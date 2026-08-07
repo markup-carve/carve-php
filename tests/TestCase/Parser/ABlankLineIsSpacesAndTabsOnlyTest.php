@@ -117,6 +117,79 @@ class ABlankLineIsSpacesAndTabsOnlyTest extends TestCase
     }
 
     /**
+     * The definition body's Form A branch: a leading vertical tab on a
+     * CONTINUATION line is content, not indentation.
+     *
+     * `indent = whitespace, {whitespace}` names a space and a tab, so the strip
+     * that removes a continuation line's indentation carries those two and
+     * stops at anything else. Spelled `ltrim($contLine)` it carried PHP's
+     * default charlist as well, and the vertical tab was deleted from the line.
+     *
+     * NOT COVERED BY THE SHAPES ABOVE, which put the probed character ALONE on
+     * a line: alone it is not blank, so it never reaches this strip. Reaching it
+     * needs a line that is a valid continuation - indented to the body column -
+     * and then carries the character as its first content byte
+     * (markup-carve/carve-php#970).
+     */
+    public function testALeadingVerticalTabSurvivesADefinitionContinuation(): void
+    {
+        $vertical = $this->html(":: t\n:  a\n   " . self::VT . "b\n");
+        $form = $this->html(":: t\n:  a\n   " . self::FF . "b\n");
+
+        // The character is still the first byte of the folded line.
+        $this->assertStringContainsString('<dd>a' . "\n" . self::VT . 'b</dd>', $vertical, $vertical);
+        // And it renders exactly as the form feed does, which was already
+        // content here - same position, same production, same answer.
+        $this->assertSame(str_replace(self::FF, self::VT, $form), $vertical);
+    }
+
+    /**
+     * The definition body's blank-line LOOKAHEAD: a line of spaces then a
+     * vertical tab CONTINUES the body rather than ending it.
+     *
+     * After a blank line the parser looks ahead to decide whether the blank is
+     * an internal paragraph break or the end of the body. That predicate is the
+     * blank-line rule again, in a second place and with a different job.
+     * Spelled `trim($after) !== ''` it read a line of spaces and a vertical tab
+     * as blank, so the body ENDED and the line became a top-level paragraph
+     * after the list.
+     *
+     * THE CHECK IS LIVE, NOT DEAD, which is what makes this reachable at all:
+     * the loop that skips the blank run uses the same rule, so a line holding a
+     * vertical tab is NOT skipped and does reach the lookahead.
+     *
+     * THE ASSERTIONS ARE STRUCTURAL ONLY - nothing follows the `</dl>` - and
+     * that is deliberate, because it is what ISOLATES this predicate from the
+     * strip pinned above. Reverting the strip keeps the paragraph inside the
+     * `<dd>` and only empties it, so a structural assertion still passes;
+     * reverting this predicate moves the paragraph out of the list entirely.
+     * Asserting here that the vertical tab survives into the output would fail
+     * under BOTH reverts and would pin neither of them on its own - it is the
+     * other test's job, in the other position.
+     */
+    public function testALineOfSpacesAndAVerticalTabContinuesADefinitionBody(): void
+    {
+        $vertical = $this->html(":: t\n:  a\n\n   " . self::VT . "\n   c\n");
+
+        $this->assertStringEndsWith("</dl>\n", $vertical, $vertical);
+        $this->assertStringNotContainsString("</dl>\n<p>", $vertical, $vertical);
+
+        // The control, one character over: a form feed was already content in
+        // this position and continued the body, so the two must agree on where
+        // the body ends.
+        $form = $this->html(":: t\n:  a\n\n   " . self::FF . "\n   c\n");
+        $this->assertStringEndsWith("</dl>\n", $form, $form);
+        $this->assertStringNotContainsString("</dl>\n<p>", $form, $form);
+
+        // And the boundary the predicate still has to hold. A run of spaces
+        // with nothing else IS blank, so it is skipped and the decision falls
+        // to the line after it: at column 0 that ends the body, and the
+        // paragraph lands outside the list.
+        $spaces = $this->html(":: t\n:  a\n\n   \nc\n");
+        $this->assertStringContainsString("</dl>\n<p>c</p>", $spaces, $spaces);
+    }
+
+    /**
      * @return array<string, array{0: string, 1: bool}>
      */
     public static function blankProvider(): array
