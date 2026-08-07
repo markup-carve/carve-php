@@ -240,6 +240,13 @@ or, staying in JSON:
 $stored = StoredPayloadUpgrade::upgradeJson($stored);
 ```
 
+`upgradeJson()` returns a payload that needs no conversion **unchanged**, byte
+for byte - PHP reads an empty JSON object and an empty array as the same value,
+so re-encoding one that needed nothing would rewrite `"attrs": {}` as
+`"attrs": []`. A payload that does need converting is re-encoded, and an empty
+JSON object in it is written as `[]`; decode it yourself and call `upgrade()` if
+that distinction matters to a consumer of yours.
+
 It is idempotent and leaves a payload already in the §7 shape untouched, so it
 is safe to run over a whole store, and safe to run again if a migration is
 interrupted. Decoding a payload that still carries one of these reports which

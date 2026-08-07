@@ -497,6 +497,23 @@ class StoredPayloadUpgradeTest extends TestCase
         $this->assertSame([], (new AstCodec())->decode((array)json_decode($upgraded, true))->getChildren()[0]->getChildren());
     }
 
+    /**
+     * A payload needing no conversion comes back BYTE FOR BYTE.
+     *
+     * PHP reads `{}` and `[]` as the same empty array, so re-encoding a payload
+     * that needed nothing would rewrite an empty JSON object as an empty list -
+     * a shape a consumer validating against the published schema refuses. The
+     * whole-store sweep is the case this protects: most of a store is already
+     * current, and none of it should come back rewritten.
+     */
+    public function testAPayloadNeedingNoConversionComesBackByteForByte(): void
+    {
+        $json = '{"type":"document","srcByteLength":1,"children":['
+            . '{"type":"paragraph","attrs":{},"children":[{"type":"text","value":"x"}]}]}';
+
+        $this->assertSame($json, StoredPayloadUpgrade::upgradeJson($json));
+    }
+
     public function testMalformedJsonIsRefusedWithTheTypedError(): void
     {
         $this->expectException(AstDecodeException::class);

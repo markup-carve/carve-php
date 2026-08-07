@@ -193,6 +193,18 @@ final class StoredPayloadUpgrade
     }
 
     /**
+     * The same conversion, JSON in and JSON out.
+     *
+     * A payload that needs no conversion is returned UNCHANGED rather than
+     * re-encoded, because PHP cannot tell an empty JSON object from an empty
+     * array and would write `"attrs": {}` back as `"attrs": []`.
+     *
+     * A payload that DOES need converting is re-encoded, and an empty JSON
+     * object anywhere in it - an application node's own state, most plausibly,
+     * since no engine publishes an empty `attrs` - is written as `[]`. Decode
+     * it yourself and call `upgrade()` if that distinction matters to a
+     * consumer of yours.
+     *
      * @param string $json
      * @param int $flags Passed through to `json_encode`.
      *
@@ -212,8 +224,20 @@ final class StoredPayloadUpgrade
             ));
         }
 
+        $upgraded = self::upgrade($decoded);
+        if ($upgraded === $decoded) {
+            // BYTE FOR BYTE, and not a re-encode of an identical structure.
+            // PHP reads a JSON object as an array, so `{}` and `[]` arrive the
+            // same and `json_encode` writes both as `[]` - re-encoding a
+            // payload that needed nothing would rewrite `"attrs": {}` into
+            // `"attrs": []`, which a consumer validating against the published
+            // schema refuses. A store swept with this is untouched where it was
+            // already current.
+            return $json;
+        }
+
         return (string)json_encode(
-            self::upgrade($decoded),
+            $upgraded,
             $flags | JSON_THROW_ON_ERROR,
             AstCodec::MAX_JSON_DEPTH,
         );
