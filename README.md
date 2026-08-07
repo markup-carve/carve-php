@@ -289,6 +289,21 @@ governs which constructs are allowed at all (four presets, per-feature reasons,
 length caps) and pairs with `LinkPolicy` for destinations. Full recipe, defaults
 table and checklist: [`docs/security.md`](docs/security.md).
 
+## Linting
+
+`carve lint` reports constructs that parse cleanly but do not mean what the
+author intended - Markdown habits such as `**bold**` that render as literal
+asterisks, and, per host and off by default, the at-word and hash-number tokens
+a platform re-linkifies out of published output:
+
+```sh
+carve lint doc.crv
+carve lint --platform github doc.crv
+```
+
+Rules, options and what each one does and does not read:
+[`docs/lint.md`](docs/lint.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

@@ -133,6 +133,46 @@ class CliTest extends TestCase
         $this->assertSame(0, $this->runCliInput(['--stamp-check'], $current)['exit']);
     }
 
+    public function testLintPlatformReportsGithubAutolinks(): void
+    {
+        $result = $this->runCliInput(['lint', '--platform', 'github'], "See @param and #42\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('-:1:5 platform-mention-token', $result['out']);
+        $this->assertStringContainsString('-:1:16 platform-issue-reference', $result['out']);
+    }
+
+    /**
+     * The CLI half of the default-off invariant. `carve lint` on the same
+     * document that reports two findings with the flag must report none
+     * without it, and exit clean.
+     */
+    public function testLintWithoutPlatformReportsNoHostAutolinks(): void
+    {
+        $result = $this->runCliInput(['lint'], "See @param and #42\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringNotContainsString('platform-', $result['out']);
+    }
+
+    public function testLintPlatformEqualsFormReportsGithubAutolinks(): void
+    {
+        $result = $this->runCliInput(['lint', '--platform=github'], "See #42\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('platform-issue-reference', $result['out']);
+    }
+
+    public function testLintRejectsUnknownPlatform(): void
+    {
+        $result = $this->runCliInput(['lint', '--platform', 'gihub'], "See #42\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertSame('', $result['out']);
+        $this->assertStringContainsString('--platform', $result['err']);
+        $this->assertStringContainsString('github', $result['err']);
+    }
+
     public function testHelpListsFormatFlags(): void
     {
         $out = $this->runCli(['--help']);
@@ -141,6 +181,7 @@ class CliTest extends TestCase
         $this->assertStringContainsString('--json', $out);
         $this->assertStringContainsString('--from-json', $out);
         $this->assertStringContainsString('--stamp-check', $out);
+        $this->assertStringContainsString('--platform', $out);
     }
 
     public function testJsonEmitsTheEncodedAst(): void

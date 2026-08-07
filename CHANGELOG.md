@@ -7,7 +7,36 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Two platform autolink lint rules, off by default** (carve-php#1005,
+  specified in markup-carve/carve#959, reference implementation
+  markup-carve/carve-js#856). `MarkdownHabitLinter::lint()` takes a second
+  argument, `['platforms' => ['github']]`, and `carve lint` takes a repeatable
+  `--platform` flag. With a host named, the linter reports the at-word and
+  hash-number tokens that host re-linkifies out of published output - a mention
+  that notifies an uninvolved person, an issue reference that posts a backlink
+  on something unrelated - under the ids `platform-mention-token` and
+  `platform-issue-reference`. Neither can fire unless a host is named, and an
+  unknown name is ignored on the API but refused on the command line, because a
+  misspelt flag reporting nothing looks exactly like a clean document. They read
+  prose and inline code spans, and never read fenced code blocks, raw blocks,
+  comments, frontmatter, link reference and abbreviation definitions, an
+  unreferenced footnote definition, or a link destination. See
+  [`docs/lint.md`](docs/lint.md).
+
 ### Fixed
+
+- **A collapsed heading reference keeps its spelling through the ProseMirror
+  bridge** (carve-php#1006). The `link` mark carried the destination and nothing
+  about the reference, so `[*bold* heading][]` came back as
+  `[*bold* heading](#bold-heading)`, baking a generated id into the source on
+  every pass. The mark now carries the reference and the writer restores it,
+  re-derived against the document's own heading index so an editor that retypes
+  the link text or repoints its destination keeps that edit. A `[text][label]`
+  reference is deliberately not carried - it resolves against a definition the
+  editor model does not hold - and is reported through `degradedTypes()`
+  instead.
 
 - **A resolved cross-reference keeps the target heading's source run**
   (carve-php#994, ruled on markup-carve/carve#952). PART 9R R4 makes the label
