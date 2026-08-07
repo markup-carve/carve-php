@@ -9,6 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A fence opened on a list marker line does not reach past the item's content
+  column** (carve-php#991, ruled on markup-carve/carve#950). PART 9 §24's STEP
+  walk is driven by the indentation a line SUPPLIES: for `- ` + a code fence
+  opener followed by a flush-left line, S1 stops at the ITEM, so S2 FENCED BODY
+  never fires and S4 governs - and its lazy branch continues an open PARAGRAPH,
+  which a verbatim body is not. The item therefore holds an EMPTY code block and
+  the residue re-parses at document level, which is the answer the BLOCK QUOTE
+  spelling of the same shape already got here. This engine used to keep
+  collecting into the fence on the reasoning that an unterminated fence runs to
+  end of input by §28 - which it does, inside the container that opened it. A
+  body AT the content column is unchanged. A tilde fence, a body one column in,
+  a body that already collected a line at the content column, a fence opened on
+  a CONTINUATION line, and an item's post-blank nested content all follow the
+  same rule.
+
 - **An inline attribute block's interior is space-only** (carve-php#985, ruled
   on markup-carve/carve#906). PART 4 spells every whitespace slot of the INLINE
   attribute block `space`, which is one character: the run after `{`, the run
