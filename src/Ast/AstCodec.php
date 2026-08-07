@@ -787,15 +787,17 @@ class AstCodec
 
     /**
      * PART 12 §7's shape, and only it: refuse the five pre-§7 spellings this
-     * codec used to normalize on the way in.
+     * codec used to normalize on the way in, and the node types this engine
+     * used to publish that the vocabulary has never held.
      *
-     * Each of them is refused by the schema too - §7 fixes the root at three
-     * fields, `label` is required on a `footnote`, and `raw_text` is not in the
-     * vocabulary - so this adds no NEW refusal. What it adds is the report: the
-     * spelling by name, and the one command that converts a stored payload.
-     * Told only that a payload "does not satisfy the AST schema", an application
-     * holding documents written by an older version of this package would have
-     * to work out for itself that the fix is a rewrite rather than a re-parse.
+     * Every one of them is refused by the schema too - §7 fixes the root at
+     * three fields, `label` is required on a `footnote`, and `raw_text`,
+     * `caption` and `section` are types it does not list - so this adds no NEW
+     * refusal. What it adds is the report: the spelling by name, and the one
+     * command that converts a stored payload. Told only that a payload "does
+     * not satisfy the AST schema", an application holding documents written by
+     * an older version of this package would have to work out for itself that
+     * the fix is a rewrite rather than a re-parse.
      *
      * @param array<mixed> $payload
      *
@@ -809,13 +811,13 @@ class AstCodec
         }
 
         throw new AstDecodeException(sprintf(
-            'The payload was written before PART 12 §7 and carries %s. This engine used to '
-                . 'normalize %s on the way in; it no longer does, because §12(d) validates the '
-                . 'payload as written and neither sibling engine accepts the pre-§7 spelling. '
-                . 'Convert a stored payload once with %s::upgrade(), which needs the payload '
-                . 'only and not the source it was parsed from.',
+            'The payload carries %s, which this engine no longer reads. PART 12 §7 fixes the '
+                . 'wire shape and §12(d) validates a payload as written, so a spelling that '
+                . 'predates §7 is refused rather than normalized on the way in, and a node type '
+                . 'the vocabulary has never held is refused rather than read back. Convert a '
+                . 'stored payload once with %s::upgrade(), which needs the payload only and not '
+                . 'the source it was parsed from.',
             implode(', ', $found),
-            count($found) === 1 ? 'it' : 'them',
             StoredPayloadUpgrade::class,
         ));
     }

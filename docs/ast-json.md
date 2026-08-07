@@ -184,7 +184,8 @@ What that turns from accepted into refused:
 - `"attrs": {"class": "x"}` - the rendered HTML calls it `class`, the wire shape
   calls it `classes`, and the schema names only the second
 - a `type` outside the vocabulary
-- the five spellings that predate PART 12 §7 - see below
+- the five spellings that predate PART 12 §7, and the two node types this
+  package used to encode that the vocabulary has never held - see below
 
 If you produce Carve AST JSON, validate against `resources/ast-schema.json`
 before sending it. Every future addition to the schema is a potential rejection
@@ -204,7 +205,12 @@ PART 12 §7, neither carve-js nor carve-rs ever accepted them, and normalizing
 them on every ingest meant reasoning about every future schema addition twice,
 once for each shape.
 
-The five, and what each becomes:
+Two more shapes never decoded at all: `caption` and `section` are node types
+this package used to ENCODE and the vocabulary has never held, so a payload
+carrying one was refused by the engine that wrote it. They are off the wire now,
+and the same helper converts them.
+
+What each becomes:
 
 | Stored shape | PART 12 §7 shape |
 | --- | --- |
@@ -213,6 +219,8 @@ The five, and what each becomes:
 | a root `footnoteDefs` map | trailing `footnote` block nodes, one per label |
 | a `footnote` node keyed `id` | the same node keyed `label` |
 | a `raw_text` node | the `text` node the encoder already published it as |
+| a `caption` node | the `paragraph` it holds inline content as |
+| a `section` node | the `div` it wraps blocks as |
 
 Convert each stored payload **once**, with the helper that ships alongside the
 removal. It works on the payload alone, so an application that no longer has the
@@ -234,8 +242,10 @@ $stored = StoredPayloadUpgrade::upgradeJson($stored);
 
 It is idempotent and leaves a payload already in the §7 shape untouched, so it
 is safe to run over a whole store, and safe to run again if a migration is
-interrupted. Decoding a payload that still carries one of the five reports which
-spelling it found and names this helper.
+interrupted. Decoding a payload that still carries one of these reports which
+spelling it found and names this helper. An application node type registered
+with `AstCodec::register()` is left alone, subtree included - register the class
+before running the migration, or its own fields are read as nodes.
 
 One caveat, and only one. `raw_text` existed so the writer could reproduce
 markup the parser declined, verbatim; it becomes a `text` node, and a `text`

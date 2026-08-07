@@ -19,10 +19,16 @@ use PHPUnit\Framework\TestCase;
  * conversion has to produce what the OLD decoder would have produced, or the
  * removal is a data-loss event for anyone who serialized before it.
  *
- * THE EXPECTATIONS BELOW WERE MEASURED, NOT WRITTEN. Each is
+ * THE EXPECTATIONS FOR THE FIVE WERE MEASURED, NOT WRITTEN. Each is
  * `encode(decode($legacy))` taken from the commit before the inlets were
  * removed, so a green run says the upgraded payload lands on the same tree the
  * inlet used to build rather than on a shape that merely looks plausible.
+ *
+ * The last two cases have no such reference: `caption` and `section` are types
+ * the OLD encoder published and the OLD decoder already refused, so those
+ * payloads never had a round trip to reproduce. Their expectation is the shape
+ * a fresh encode produces for the same content, which is the shape the mapping
+ * in `AstCodec::NOT_ON_THE_WIRE` names.
  */
 class StoredPayloadUpgradeTest extends TestCase
 {
@@ -141,6 +147,40 @@ class StoredPayloadUpgradeTest extends TestCase
                     'children' => [$paragraph('[a][]')],
                 ],
             ],
+            // The two node types the OLD encoder put on the wire and the OLD
+            // decoder already refused. They never had a working round trip;
+            // they have a migration now, so a payload saved through the
+            // ProseMirror bridge is readable rather than stranded.
+            'a section node the old encoder published' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => [
+                        ['type' => 'section', 'children' => [$paragraph('body')]],
+                    ],
+                ],
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => [
+                        ['type' => 'div', 'children' => [$paragraph('body')]],
+                    ],
+                ],
+            ],
+            'a caption node the old encoder published' => [
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => [
+                        ['type' => 'caption', 'children' => [['type' => 'text', 'value' => 'cap']]],
+                    ],
+                ],
+                [
+                    'type' => 'document',
+                    'srcByteLength' => 0,
+                    'children' => [$paragraph('cap')],
+                ],
+            ],
             // All five in one payload, because each of the five used to be
             // handled by its own branch and nothing pinned them running
             // together.
@@ -209,7 +249,7 @@ class StoredPayloadUpgradeTest extends TestCase
     public function testEveryStoredPayloadIsRefusedWithoutTheUpgrade(array $stored, array $expected): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('written before PART 12 §7');
+        $this->expectExceptionMessage('which this engine no longer reads');
 
         $this->codec->decode($stored);
     }

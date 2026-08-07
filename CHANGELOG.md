@@ -118,10 +118,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `::upgradeJson()` does the same JSON in, JSON out. Both work on the payload
   alone - an application holding stored payloads may no longer have the Carve
   they were parsed from. The conversion is idempotent and leaves a payload
-  already in the §7 shape untouched, so it is safe to run over a whole store.
-  One caveat: `raw_text` becomes the `text` node the encoder already published
-  it as, and a `text` node is escaped when written back out. See
-  docs/ast-json.md.
+  already in the §7 shape untouched, so it is safe to run over a whole store,
+  and it converts the two node types below as well. One caveat: `raw_text`
+  becomes the `text` node the encoder already published it as, and a `text` node
+  is escaped when written back out. See docs/ast-json.md.
 
 - **BREAKING: `caption` and `section` are no longer encoded** (carve-php#1002).
   `AstCodec` published two node types PART 12's vocabulary does not name, so a
@@ -132,7 +132,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already published as the reference publishes them, an inline-content FIELD -
   as the `paragraph` it holds inline content as. Both types also leave
   `AstCodec::schema()`, so a consumer validating against it is no longer told
-  about types the published schema rejects.
+  about types the published schema rejects. A payload already stored with either
+  never decoded - the engine that wrote it refused it - and
+  `StoredPayloadUpgrade::upgrade()` converts those too.
 
 ### Fixed
 

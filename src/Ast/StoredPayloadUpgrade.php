@@ -60,12 +60,17 @@ final class StoredPayloadUpgrade
     ];
 
     /**
-     * Node types that were only ever this engine's own.
+     * Field renames a retired node type needs beyond its `type`.
      *
-     * @var array<string, string>
+     * The types themselves are `AstCodec::NOT_ON_THE_WIRE`, so a type leaving
+     * the wire cannot leave this migration behind. Only `raw_text` has any
+     * state: `Caption` and `Section` declare no properties of their own, so
+     * mapping the type is the whole conversion for those two.
+     *
+     * @var array<string, array<string, string>>
      */
-    public const RETIRED_NODE_TYPES = [
-        'raw_text' => 'a `raw_text` node',
+    private const RETIRED_NODE_FIELDS = [
+        'raw_text' => ['content' => 'value'],
     ];
 
     /**
@@ -98,9 +103,9 @@ final class StoredPayloadUpgrade
                 self::scan($payload[$field], $types, $labels);
             }
         }
-        foreach (self::RETIRED_NODE_TYPES as $type => $description) {
+        foreach (array_keys(AstCodec::NOT_ON_THE_WIRE) as $type) {
             if (isset($types[$type])) {
-                $found[] = $description;
+                $found[] = sprintf('a `%s` node', $type);
             }
         }
         if ($labels) {
@@ -122,7 +127,7 @@ final class StoredPayloadUpgrade
             return;
         }
         if (is_string($type)) {
-            if (isset(self::RETIRED_NODE_TYPES[$type])) {
+            if (isset(AstCodec::NOT_ON_THE_WIRE[$type])) {
                 $types[$type] = true;
             }
             if ($type === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
@@ -347,11 +352,16 @@ final class StoredPayloadUpgrade
             }
             $node = $rebuilt;
         }
-        if ($type === 'raw_text') {
-            $content = $node['content'] ?? null;
-            unset($node['content']);
-            $node['type'] = 'text';
-            $node['value'] = is_string($content) ? $content : '';
+        if (is_string($type) && isset(AstCodec::NOT_ON_THE_WIRE[$type])) {
+            // A type the vocabulary has never held, published under the name it
+            // maps to - the same map the encoder uses, so a stored payload
+            // lands on the shape a fresh encode would produce.
+            foreach (self::RETIRED_NODE_FIELDS[$type] ?? [] as $from => $to) {
+                $value = $node[$from] ?? null;
+                unset($node[$from]);
+                $node[$to] = is_string($value) ? $value : '';
+            }
+            $node['type'] = AstCodec::NOT_ON_THE_WIRE[$type];
         }
 
         foreach ($node as $key => $value) {
