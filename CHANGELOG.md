@@ -33,6 +33,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer puts a blank line where an empty container body would
+  be** (carve-php#1042, ruled in markup-carve/carve#961). For every container
+  shape, including the bare `:::` div, `carve fmt` now writes the opener, a
+  blank line and the closer where it used to glue the opener straight to the
+  closer. PART 10 §4 settled the same question one layer out, for the HTML
+  target, and chose the blank line; §4's bare-div exception is deliberately not
+  imported, because that clause says in its own words that the exception "has no
+  principle behind it". carve-js and carve-rs already wrote the blank line, so
+  this closes seven of the nine remaining `carve`-target divergences between the
+  three engines.
+
+  The glue was a workaround for a parser defect one layer down, fixed with it: a
+  blank line inside an OPEN `:::` div ended the enclosing list item's
+  collection, so the closer below it read as a fresh bare-div opener and
+
+  ```
+  - item
+    ::: note
+
+    :::
+  ```
+
+  published a spurious empty `<div>` beside the aside. A blank line inside an
+  open CODE fence was already read correctly; only the div was short of the
+  case. Rendered HTML is unchanged for all 830 corpus documents.
+
 - **`whitespace` is a space or a tab everywhere a heading or a caption asks**
   (carve-php#1038, tracked at markup-carve/carve#963). PART 1 defines
   `whitespace = ' ' | '\t'` and every other invisible character is CONTENT, but

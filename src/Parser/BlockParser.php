@@ -5017,9 +5017,28 @@ class BlockParser
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                if ($trailingState['inFence']) {
+                // A BLANK LINE INSIDE AN OPEN CONTAINER DOES NOT END THE ITEM.
+                // The code fence has always been read that way here; the `:::`
+                // div was not, so `- item` / `  ::: note` / blank / `  :::`
+                // severed the div at the blank and the closer below read as a
+                // fresh bare-div OPENER, publishing a spurious `<div></div>`
+                // beside the aside. carve-js publishes one aside. The state
+                // this asks is already tracked - `advanceTrailingBlockState()`
+                // maintains `inDiv` right beside `inFence` - and only the gate
+                // was short of the case.
+                //
+                // The blank is a COLLECTED LINE and advances the tracker like
+                // any other. Inside a code fence that changes nothing -
+                // `openParagraph` is already false for the whole fence - but
+                // inside a div the line above the blank may well have been
+                // prose, and leaving the tracker at that line's answer let a
+                // flush-left line below fold into a paragraph the blank had
+                // closed: `- item` / `  ::: note` / `  a` / blank / `tail` put
+                // `tail` inside the aside, where it is a top-level paragraph.
+                if ($trailingState['inFence'] || $trailingState['inDiv']) {
                     $itemLines[] = '';
                     $itemLineMap[] = $this->sourceLineFor($i);
+                    $trailingState = $this->advanceTrailingBlockState($trailingState, '');
                     $i++;
 
                     continue;
