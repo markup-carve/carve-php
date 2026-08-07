@@ -158,6 +158,46 @@ class OneWhitespaceDefinitionInEveryConstructTest extends TestCase
     }
 
     /**
+     * A CODE FENCE'S INFO STRING, which is not in the provider because the
+     * output carries no copy of the character to assert on: a non-identifier
+     * info string refuses the fence outright, so what has to be pinned is that
+     * the two characters REACH the info string at all and are refused there
+     * together.
+     *
+     * The trailing trim on that slot used PHP's default charlist, so a vertical
+     * tab was eaten and the fence opened with an EMPTY info string - a code
+     * block where a form feed, an exclamation mark and every other
+     * non-identifier character in the same slot produced an inline verbatim
+     * span in a paragraph.
+     */
+    public function testAControlCharacterInAnInfoStringIsRefusedLikeAnyOtherNonIdentifier(): void
+    {
+        $fence = str_repeat('`', 3);
+        $reference = $this->html($fence . "!\nx\n" . $fence . "\n");
+
+        foreach ([self::VERTICAL_TAB, self::FORM_FEED] as $character) {
+            $this->assertSame(
+                $reference,
+                str_replace($character, '!', $this->html($fence . $character . "\nx\n" . $fence . "\n")),
+                'an info string of one control character opened a code block',
+            );
+        }
+    }
+
+    /**
+     * The slot itself still takes real whitespace: an EMPTY info string opens a
+     * plain code block, and one space before a language still names it.
+     */
+    public function testTheInfoStringSlotStillTakesRealWhitespace(): void
+    {
+        $fence = str_repeat('`', 3);
+
+        $this->assertStringContainsString('<pre><code>x', $this->html($fence . "\nx\n" . $fence . "\n"));
+        $this->assertStringContainsString('language-php', $this->html($fence . " php\nx\n" . $fence . "\n"));
+        $this->assertStringContainsString('<pre><code>x', $this->html($fence . " \nx\n" . $fence . "\n"));
+    }
+
+    /**
      * A trailing run of REAL whitespace is still whitespace, and the marker
      * gates still refuse a marker whose content is only that. Narrowing the
      * definition must not widen what counts as content.
