@@ -878,18 +878,18 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Join a colon fence's body to its closer, without inventing a blank line.
+     * Join a colon fence's body to its closer.
      *
-     * An EMPTY div has no body, and writing `\n` + `` + `\n` put a BLANK LINE
-     * between opener and closer. Inside a list item that blank ends the item's
-     * current block, so the closer below it read as a fresh bare-div OPENER and
-     * the document came back with a spurious `<div></div>` beside the aside -
-     * `to_html(fmt(x)) == to_html(x)` failed on corpus 270-2. Glued, the empty
-     * div round-trips.
+     * An EMPTY body is written as a BLANK LINE, for every container shape
+     * including the bare `:::` div (markup-carve/carve#961 ruling 1). PART 10
+     * §4 already settled the same question for the HTML target and chose the
+     * blank line; this follows that sibling clause rather than inventing a
+     * second rule, and deliberately does NOT import §4's bare-div exception,
+     * which §4 itself says "has no principle behind it".
      */
     private static function fencedDivBody(string $body): string
     {
-        return $body === '' ? "\n" : "\n" . $body . "\n";
+        return $body === '' ? "\n\n" : "\n" . $body . "\n";
     }
 
     protected function renderDiv(Div $node): string
