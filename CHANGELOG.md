@@ -48,6 +48,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   separator around them are still the extension's own, and a heading's markup is
   still stripped rather than spliced into the label.
 
+- **A definition-body line indented one or two columns ends the body instead of
+  folding in as lazy text** (carve-php#1035, specified in
+  markup-carve/carve#932). `definition_indent` puts the body's content column at
+  3, and BELOW that column the body ENDS and the line is classified in the
+  surviving context - the same thing "below the content column" means for a list
+  item and for a footnote body. So `:: t` / `:  body` / ` > q` now closes the
+  `dl` and renders `<p>&gt; q</p>` rather than `<dd>body\n&gt; q</dd>`. Folding
+  such a line in gave a sub-column indent the PAST-the-column band's meaning,
+  which made indentation depth mean two different things one column apart.
+  Column 0 is unchanged, because `lazy_continuation_line` is written for a
+  flush-left line and still picks a non-opener up there; column 3 still opens a
+  block inside the `dd`; column 4 and beyond is still lazy text. **Breaking:** a
+  document indenting a definition continuation by one or two spaces gets a
+  separate block instead of a folded line.
+
 - **A fence opened on a `:  ` definition-body marker line no longer swallows
   lines below the body's content column** (carve-php#1031, specified in
   markup-carve/carve#956). `:: t` / `` :  ``` `` / `body` / `` ``` `` gave a `dd`
