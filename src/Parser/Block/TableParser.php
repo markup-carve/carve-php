@@ -103,6 +103,12 @@ class TableParser
         if (preg_match('/\|\{([^{}]+)\}\s*$/', $line, $matches)) {
             // Same §14 gate as stripRowAttributes: an invalid payload is not a
             // row-attribute block, so it contributes no attributes either.
+            //
+            // THE PAIR IS WHAT DECIDES. `stripRowAttributes` runs first, and a
+            // payload it refuses leaves the line not ending in `|` - so the
+            // line is not a row at all and this never runs. Mutating either
+            // gate alone therefore survives; mutating both fails. The pairing
+            // is the rule, and it is stated here so the survivor is explained.
             if (!AttributeParser::isValidInlinePayload($matches[1])) {
                 return [];
             }

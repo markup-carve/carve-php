@@ -1610,6 +1610,14 @@ class CarveRenderer implements RendererInterface
         // a trailing block whose interior holds a tab is literal text now, and
         // treating it as attributes here would re-attach on the way out what
         // the parser had just declined (PART 4, markup-carve/carve#906).
+        //
+        // NOT DEMONSTRABLE FROM SOURCE, and that is stated rather than hidden.
+        // The only caller needs a reference IMAGE that already carries
+        // attributes, and after the parser change a tab-bearing block yields
+        // none - so this branch never sees a payload the parser accepted, and a
+        // mutation putting the general gate back survives. It is kept because
+        // the two surfaces have to agree, and a tree reaching the writer from
+        // the AST codec rather than from source is not bound by the parser.
         if (!AttributeParser::isValidInlinePayload($payload)) {
             return [];
         }
