@@ -9,6 +9,22 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A resolved cross-reference keeps the target heading's source run**
+  (carve-php#994, ruled on markup-carve/carve#952). PART 9R R4 makes the label
+  of a `</#id>` the target heading's inline NODES cloned, and the difference
+  from a rendered string is the whole point: a node carries the run the author
+  typed, a string does not. This engine flattened the heading to a glyph string
+  at id-tracking time, so smart typography's SOURCE mode could not recover it on
+  the plain-text, Markdown or ANSI target - and no renderer change could reach
+  it, because the label was already gone before any renderer ran. `# The
+  "quoted" -- heading` with a cross-reference to it now emits the typed quotes
+  and double hyphen in source mode on every target, and the glyphs at the
+  default. The HEADING ID is unchanged: it is still slugged from the glyph, so
+  `Don't` keeps giving `Don-t`. A cross-reference INSIDE a link, which is
+  rewritten before any renderer sees it, carries the label as nodes for the same
+  reason, so rendering one parsed document at both modes gives each render its
+  own answer.
+
 - **A fence opened on a list marker line does not reach past the item's content
   column** (carve-php#991, ruled on markup-carve/carve#950). PART 9 §24's STEP
   walk is driven by the indentation a line SUPPLIES: for `- ` + a code fence

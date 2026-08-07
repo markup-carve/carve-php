@@ -299,7 +299,7 @@ class PlainTextRenderer implements RendererInterface
         $target = $node->getTargetId();
         // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id);
+        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
 
         return $label === null ? '</#' . $this->stripControls($target) . '>' : $this->stripControls($label);
     }

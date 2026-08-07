@@ -161,6 +161,21 @@ class OptionalCorpusTest extends TestCase
             'markdown-typography-source' => $renderer instanceof MarkdownRenderer
                 ? new CarveConverter(renderer: $renderer->setSmartTypography(SmartTypographyMode::Source))
                 : null,
+            // The plain-text and ANSI targets carry the mode too (carve#560).
+            // Each is confined to its own renderer for the same reason the
+            // Markdown one is: the mode is a renderer setting, so a case named
+            // for one target must not quietly pass on another.
+            'plain-typography-source' => $renderer instanceof PlainTextRenderer
+                ? new CarveConverter(renderer: $renderer->setSmartTypography(SmartTypographyMode::Source))
+                : null,
+            'ansi-typography-source' => $renderer instanceof AnsiRenderer
+                ? new CarveConverter(renderer: $renderer->setSmartTypography(SmartTypographyMode::Source))
+                : null,
+            // The DEFAULT mode, named as a feature so a case can pin it. Its
+            // job is to be the control a source-mode case needs: without it a
+            // source-mode expectation also passes an engine that never applies
+            // typography to that construct in either mode.
+            'smart-typography-default' => new CarveConverter(renderer: $renderer),
             default => null,
         };
     }

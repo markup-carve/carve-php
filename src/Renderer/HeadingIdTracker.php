@@ -71,6 +71,30 @@ class HeadingIdTracker
     protected array $textById = [];
 
     /**
+     * Resolved heading id => a CLONE of the heading's inline nodes.
+     *
+     * PART 9R R4 says the label of a resolved cross-reference is the target
+     * heading's inline NODES cloned, and the difference from a rendered string
+     * is the whole point: a node carries its SOURCE RUN, a string does not.
+     * Flattening here - which is what this class used to do, keeping only
+     * `textById` - discarded the run before any renderer existed, so smart
+     * typography's SOURCE mode could not recover it on any target and no
+     * renderer change could reach it (markup-carve/carve#952).
+     *
+     * A CLONE rather than the live children, for the same reason `resolvedTexts`
+     * is captured eagerly: an extension may append to the heading afterwards
+     * (HeadingPermalinksExtension adds a permalink symbol), and the label is the
+     * heading as the author wrote it. `Node::__clone()` is already deep.
+     *
+     * Only HEADING ids get an entry. A numbered caption registers its label
+     * through `setTextForId()` as an already-composed string ("Figure 2"), which
+     * has no nodes behind it, so those ids keep the string path.
+     *
+     * @var array<string, list<\MarkupCarve\Carve\Node\Node>>
+     */
+    protected array $nodesById = [];
+
+    /**
      * Folded id => first registered id, for case-insensitive cross-reference
      * lookup without refolding every known id for each reference.
      *
@@ -123,6 +147,7 @@ class HeadingIdTracker
         $this->resolvedIds[$objectId] = $id;
         if (!isset($this->textById[$id])) {
             $this->textById[$id] = $this->getPlainText($node);
+            $this->nodesById[$id] = array_values((clone $node)->getChildren());
             $this->registerFoldedId($id);
         }
 
@@ -184,10 +209,28 @@ class HeadingIdTracker
     }
 
     /**
-     * Plain text of the heading owning $id, for </#id> cross-references.
+     * Display text of the heading owning $id, for </#id> cross-references.
+     *
+     * In SOURCE mode the text is re-derived from the heading's cloned NODES, so
+     * a smart-typography substitution comes back as the run the author typed.
+     * The `</#id>` label is a FLATTENED string on every target - corpus
+     * `118-cyclic-cross-reference-resolves-to-one-level` pins `<a href="#B">B
+     * </a>` for a heading that itself holds a cross-reference - so this walks
+     * the nodes with the same reader the glyph path uses rather than handing
+     * them to a renderer. What changes is which half of a SmartPunctuation node
+     * is read, which is exactly the difference the mode names.
      */
-    public function getTextForId(string $id): ?string
+    public function getTextForId(string $id, SmartTypographyMode $mode = SmartTypographyMode::Glyph): ?string
     {
+        if ($mode === SmartTypographyMode::Source && isset($this->nodesById[$id])) {
+            $text = '';
+            foreach ($this->nodesById[$id] as $child) {
+                $text .= $this->extractPlainTextFrom($child, true);
+            }
+
+            return $text;
+        }
+
         return $this->textById[$id] ?? null;
     }
 
@@ -365,55 +408,173 @@ class HeadingIdTracker
 
     /**
      * Recursively extract plain text from a node tree
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param bool $sourceRuns Read a smart-typography node's SOURCE RUN instead
+     *   of its glyph. Only ever true for a cross-reference LABEL: a heading id
+     *   is slugged from the glyph and must not move (see the branch below).
      */
-    protected function extractPlainText(Node $node): string
+    protected function extractPlainText(Node $node, bool $sourceRuns = false): string
     {
         $text = '';
         foreach ($node->getChildren() as $child) {
-            if ($child instanceof InlineExtension && $child->getExtensionType() === 'index') {
-                // An `:index[term]` marker is invisible (§8.1): it emits no
-                // visible text, so its term must not feed the heading-id slug.
-                // Matches carve-js / carve-rs.
-                continue;
-            }
-            if ($child instanceof Span && $child->hasClass('section-number')) {
-                // The HeadingNumbers extension (Tier-3, #198) injects a
-                // `<span class="section-number">` into the heading. It is
-                // presentational only and must not feed the heading-id slug
-                // (otherwise the number would pollute the auto id).
-                continue;
-            }
-            if ($child instanceof Text) {
-                $text .= $child->getContent();
-            } elseif ($child instanceof SmartPunctuation) {
-                // The visible glyph, not the source run: a heading id has always
-                // been slugified from the rendered character (`Don't` -> `Don-t`),
-                // and moving the substitution into a node must not change that.
-                $text .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
-            } elseif ($child instanceof EscapedText) {
-                $text .= $child->getContent();
-            } elseif ($child instanceof CaptionNumber) {
-                $text .= $child->getNumber() === null ? '' : (string)$child->getNumber();
-            } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
-                $text .= ' ';
-            } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
-                // An inline literal renders as visible prose (§27), so it
-                // contributes its content to the heading text -- otherwise
-                // `` # !`Cat` `` would slug to the empty fallback and a
-                // `</#cat>` crossref could never resolve.
-                $text .= $child->getContent();
-            } elseif ($child instanceof Symbol) {
-                $text .= ':' . $child->getName() . ':';
-            } elseif ($child instanceof RawInline) {
-                // Format-specific raw HTML is excluded from heading
-                // text/id (matches PlainTextRenderer behaviour).
-                continue;
-            } elseif ($child instanceof Node) {
-                $text .= $this->extractPlainText($child);
-            }
+            $text .= $this->extractPlainTextFrom($child, $sourceRuns);
         }
 
         return $text;
+    }
+
+    /**
+     * The plain text ONE inline node contributes.
+     *
+     * Split out of the loop above so a caller holding a node LIST - the cloned
+     * heading children a cross-reference label is built from - reads it through
+     * the same rules rather than through a second copy of them. The two used to
+     * be one function, and a label derived anywhere else would have been a
+     * second spelling of every branch here.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $child
+     * @param bool $sourceRuns See extractPlainText().
+     */
+    protected function extractPlainTextFrom(Node $child, bool $sourceRuns = false): string
+    {
+        return $this->inlineTextLeaf($child, $sourceRuns) ?? $this->extractPlainText($child, $sourceRuns);
+    }
+
+    /**
+     * The text a node contributes ON ITS OWN, or null when it contributes only
+     * through its children.
+     *
+     * The LEAF RULES live here and nowhere else. Three callers need them - the
+     * id slug, a cross-reference label as text, and a cross-reference label as
+     * NODES - and a second copy would be a second answer to "does an
+     * `:index[]` marker count".
+     *
+     * @param \MarkupCarve\Carve\Node\Node $child
+     * @param bool $sourceRuns See extractPlainText().
+     */
+    protected function inlineTextLeaf(Node $child, bool $sourceRuns = false): ?string
+    {
+        if ($child instanceof InlineExtension && $child->getExtensionType() === 'index') {
+            // An `:index[term]` marker is invisible (§8.1): it emits no
+            // visible text, so its term must not feed the heading-id slug.
+            // Matches carve-js / carve-rs.
+            return '';
+        }
+        if ($child instanceof Span && $child->hasClass('section-number')) {
+            // The HeadingNumbers extension (Tier-3, #198) injects a
+            // `<span class="section-number">` into the heading. It is
+            // presentational only and must not feed the heading-id slug
+            // (otherwise the number would pollute the auto id).
+            return '';
+        }
+        if ($child instanceof Text) {
+            return $child->getContent();
+        }
+        if ($child instanceof SmartPunctuation) {
+            // THE ONLY BRANCH THE MODE REACHES, and the reason it takes a flag
+            // rather than being decided by the caller's type: a heading id has
+            // always been slugified from the RENDERED character (`Don't` ->
+            // `Don-t`), so the id path stays on the glyph whatever a renderer
+            // asks for. A cross-reference LABEL is presentation, not identity,
+            // and PART 9R R4 gives it the heading's nodes precisely so the run
+            // survives (markup-carve/carve#952).
+            if ($sourceRuns) {
+                return $child->getContent();
+            }
+
+            return $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
+        }
+        if ($child instanceof EscapedText) {
+            return $child->getContent();
+        }
+        if ($child instanceof CaptionNumber) {
+            return $child->getNumber() === null ? '' : (string)$child->getNumber();
+        }
+        if ($child instanceof SoftBreak || $child instanceof HardBreak) {
+            return ' ';
+        }
+        if ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
+            // An inline literal renders as visible prose (§27), so it
+            // contributes its content to the heading text -- otherwise
+            // `` # !`Cat` `` would slug to the empty fallback and a
+            // `</#cat>` crossref could never resolve.
+            return $child->getContent();
+        }
+        if ($child instanceof Symbol) {
+            return ':' . $child->getName() . ':';
+        }
+        if ($child instanceof RawInline) {
+            // Format-specific raw HTML is excluded from heading
+            // text/id (matches PlainTextRenderer behaviour).
+            return '';
+        }
+
+        return null;
+    }
+
+    /**
+     * The label of the heading owning $id, as NODES a renderer can still make
+     * its own choices about.
+     *
+     * Returns null for an id that has no heading behind it (a numbered caption
+     * registers a composed string), which is the caller's signal to keep the
+     * string path.
+     *
+     * The sequence is FLAT - Text runs with the smart-typography nodes left
+     * standing between them - because a `</#id>` label renders as plain text on
+     * every target: corpus `118-cyclic-cross-reference-resolves-to-one-level`
+     * pins `<a href="#B">B </a>` for a heading that itself holds a
+     * cross-reference, so splicing the heading's own markup in would change what
+     * the label IS, not just how it reads. What the nodes buy is that the one
+     * decision a renderer legitimately owns - glyph or source run - is still
+     * open when the renderer runs, instead of being answered here.
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>|null
+     */
+    public function getLabelNodesForId(string $id): ?array
+    {
+        if (!isset($this->nodesById[$id])) {
+            return null;
+        }
+
+        $nodes = [];
+        $buffer = '';
+        $this->collectLabelNodes($this->nodesById[$id], $nodes, $buffer);
+        if ($buffer !== '') {
+            $nodes[] = new Text($buffer);
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param string $buffer
+     */
+    protected function collectLabelNodes(array $children, array &$nodes, string &$buffer): void
+    {
+        foreach ($children as $child) {
+            if ($child instanceof SmartPunctuation) {
+                if ($buffer !== '') {
+                    $nodes[] = new Text($buffer);
+                    $buffer = '';
+                }
+                $nodes[] = clone $child;
+
+                continue;
+            }
+
+            $leaf = $this->inlineTextLeaf($child);
+            if ($leaf !== null) {
+                $buffer .= $leaf;
+
+                continue;
+            }
+
+            $this->collectLabelNodes(array_values($child->getChildren()), $nodes, $buffer);
+        }
     }
 
     /**
@@ -426,6 +587,7 @@ class HeadingIdTracker
         $this->resolvedIds = [];
         $this->resolvedTexts = [];
         $this->textById = [];
+        $this->nodesById = [];
         $this->idByFoldedId = [];
     }
 

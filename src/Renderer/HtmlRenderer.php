@@ -1810,7 +1810,7 @@ class HtmlRenderer implements RendererInterface
         // a lowercase `</#getting-started>` resolves to a case-preserved
         // `Getting-Started` id. The emitted href uses the ACTUAL id.
         $id = $tracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $tracker->getTextForId($id);
+        $label = $id === null ? null : $tracker->getTextForId($id, $this->smartTypography);
         if ($id === null || $label === null) {
             // An unresolved </#id> renders as its literal source text,
             // not a dangling self-link (matches the spec and carve-js).
