@@ -265,14 +265,14 @@ class ReferenceDefinitionExtractor
             // The dedent is taken only when a MARKER sits at that column, and
             // whether one does is {@see ContainerPrefix}'s question, not a byte
             // test's. This was the third open-coded marker test outside that
-            // class - markup-carve/carve-php#969 named two - and the loose rule
-            // is the right one here because the strip below is the loose one:
-            // the two must admit the same lines or a `>text` at an item's
-            // column would be dedented and then not stripped.
-            if ($atColumn !== null && ContainerPrefix::looseQuoteContent($atColumn) !== null) {
+            // class - markup-carve/carve-php#969 named two. It has to be the
+            // SAME rule the strip below applies, or a shape one admits and the
+            // other refuses gets dedented and then not stripped; there is now
+            // only one rule to ask.
+            if ($atColumn !== null && ContainerPrefix::quoteContent($atColumn) !== null) {
                 $bare = $atColumn;
             }
-            $quoteContent = ContainerPrefix::looseQuoteContent($bare);
+            $quoteContent = ContainerPrefix::quoteContent($bare);
             if ($quoteContent !== null) {
                 $inQuote = true;
                 $bare = $quoteContent;
@@ -329,7 +329,7 @@ class ReferenceDefinitionExtractor
         $trimmed = ltrim($previousLine, " \t");
         while (true) {
             $before = $trimmed;
-            $trimmed = ContainerPrefix::looseQuoteContent($trimmed) ?? $trimmed;
+            $trimmed = ContainerPrefix::quoteContent($trimmed) ?? $trimmed;
             $trimmed = preg_replace('/^(?:[-*]|[0-9]+[.)]) +(?=\S)/', '', $trimmed) ?? $trimmed;
             $trimmed = ltrim($trimmed, " \t");
             if ($trimmed === $before) {

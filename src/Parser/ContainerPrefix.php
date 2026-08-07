@@ -16,20 +16,28 @@ namespace MarkupCarve\Carve\Parser;
  * markup-carve/tree-sitter-carve#115 both came back with, so the rule lives
  * here and the callers ask.
  *
- * TWO rules are spelled, deliberately, because the engine really does apply
- * two:
+ * ONE rule is spelled. {@see self::quoteContent()} is the LANGUAGE rule
+ * (PART 9 §11): the marker is `>` followed by a literal space, or a lone `>`.
+ * `>text` and `>\t` open no quote, and that answer is the same one whether the
+ * block parser, a definition prepass, the heading-reference pre-scan or the
+ * prepass fence tracker is asking.
  *
- *  - {@see self::quoteContent()} is the LANGUAGE rule (PART 9 §11): the marker
- *    is `>` followed by a literal space, or a lone `>`. `>text` and `>\t` open
- *    no quote.
- *  - {@see self::looseQuoteContent()} treats the space as optional. Only the
- *    line-based prepasses use it, and only to decide which region a line sits
- *    in - never to decide what a line IS.
+ * A second, LOOSE spelling used to live here that treated the space as
+ * optional, on the grounds that the line-based prepasses only decide which
+ * REGION a line sits in and never what a line IS. That distinction did not
+ * survive contact: the prepasses harvest definitions out of the regions they
+ * find, so a shape only the loose rule admitted was collected as a definition
+ * while the block parser - reading the strict rule - left it as prose. The
+ * document then printed the definition AND resolved a link off it:
  *
- * They disagree on exactly one input shape, `>text`, and the disagreement is
- * pre-existing rather than introduced here: see markup-carve/carve-php#961 for
- * the measurement. Collapsing the two into one is a behavior change and is
- * deliberately not made here.
+ *     >[r]: /u
+ *
+ *     [link][r]
+ *
+ * rendered `<p>&gt;[r]: /u</p>` next to `<p><a href="/u">link</a></p>`. One
+ * rule cannot disagree with itself, so the loose spelling is gone
+ * (markup-carve/carve-php#961 measured the split; collapsing it moves no
+ * corpus document).
  */
 class ContainerPrefix
 {
@@ -98,24 +106,6 @@ class ContainerPrefix
         }
 
         return $stages;
-    }
-
-    /**
-     * The content after ONE block-quote marker whose space is optional, or null
-     * when the line does not begin with `>`.
-     *
-     * Byte-equivalent to `preg_replace('/^> ?/', '', $line)` guarded by a
-     * `$line[0] === '>'` test - which is how all four prepass callers spelled
-     * it, each re-testing `/^> ?/` afterwards even though that pattern matches
-     * every string the byte test already admitted.
-     */
-    public static function looseQuoteContent(string $line): ?string
-    {
-        if (($line[0] ?? '') !== '>') {
-            return null;
-        }
-
-        return substr($line, ($line[1] ?? '') === ' ' ? 2 : 1);
     }
 
     /**
