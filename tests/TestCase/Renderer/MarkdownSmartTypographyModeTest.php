@@ -55,7 +55,11 @@ class MarkdownSmartTypographyModeTest extends TestCase
     {
         // Escaping is a separate concern with its own security rationale, and
         // this mode deliberately leaves it alone.
-        $this->assertSame('a \* b', trim($this->source()->convert('a * b')));
+        // `a*b*c` emphasises in CommonMark, so both asterisks keep their
+        // escape. A lone `a * b` does not and no longer carries one, which is
+        // an escaping rule rather than a typography one - this mode leaves
+        // both alone.
+        $this->assertSame('a\*b\*c', trim($this->source()->convert('a*b*c')));
         $this->assertSame('a &amp; b', trim($this->source()->convert('a & b')));
 
         // An intraword underscore is NOT escaped: it needs no escape, and

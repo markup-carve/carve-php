@@ -108,6 +108,42 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame('a\*b\*c', trim(CarveConverter::markdown()->convert('a*b*c')));
     }
 
+    /**
+     * The asterisk needs a partner as much as the underscore does; it just
+     * finds one more often, because CommonMark lets it emphasise intraword.
+     * Where no run in the block can close what another opened, the escape
+     * protects nothing - `can_*`, `weights.*.weight`, a multiplication sign.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function unpairableAsteriskProvider(): array
+    {
+        return [
+            'a wildcard suffix' => ['can_* Familie', 'can_* Familie'],
+            'a wildcard in a path' => ['aiFiles.* file', 'aiFiles.* file'],
+            'a wildcard between words' => ['weights.*.weight required', 'weights.*.weight required'],
+            'a multiplication sign' => ['fee_net * quantity', 'fee_net * quantity'],
+            'two openers, no closer' => ['start *x and *y end', 'start *x and *y end'],
+        ];
+    }
+
+    #[DataProvider('unpairableAsteriskProvider')]
+    public function testAnAsteriskWithNothingToPairWithLosesItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
+     * Real emphasis is untouched: Carve's own `*strong*` still renders, and an
+     * asterisk pair the author escaped keeps both escapes.
+     */
+    public function testAsteriskEmphasisAndAuthoredPairsAreUntouched(): void
+    {
+        $this->assertSame('**bold**', trim(CarveConverter::markdown()->convert('*bold*')));
+        $this->assertSame('x **y** z', trim(CarveConverter::markdown()->convert('x *y* z')));
+        $this->assertSame('a \*b\* c', trim(CarveConverter::markdown()->convert('a \*b\* c')));
+    }
+
     public function testCodeSpansAreUntouched(): void
     {
         $this->assertSame('`code_span`', trim(CarveConverter::markdown()->convert('`code_span`')));
