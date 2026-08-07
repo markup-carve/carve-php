@@ -2711,9 +2711,13 @@ class BlockParser
             // span helper currently happens to win.
             $trimmedSource = rtrim($source, " \t");
             $trimmedText = rtrim($text, " \t");
-            $width = strlen($trimmedSource) - strlen($trimmedText);
-            if ($width > 0 && str_ends_with($trimmedSource, $trimmedText)) {
-                $columns[$sourceLine] = $width;
+            // NO WIDTH TEST. A suffix is never longer than what it is a suffix
+            // of, so the difference cannot be negative here, and a zero width
+            // records a zero column - which is the same answer as recording
+            // nothing. A `$width > 0` guard alongside this survived being
+            // mutated away for exactly that reason.
+            if (str_ends_with($trimmedSource, $trimmedText)) {
+                $columns[$sourceLine] = strlen($trimmedSource) - strlen($trimmedText);
             }
         }
 
