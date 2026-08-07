@@ -171,6 +171,8 @@ final class StoredPayloadUpgrade
             return $payload;
         }
 
+        self::refuseUnconvertibleRootFields($payload);
+
         // The tree first, so `withFootnoteDefs` can tell which labels are
         // already defined there by the name §7 gives them. The root fields are
         // walked where they are lifted rather than here: `abbreviations` is
@@ -244,6 +246,40 @@ final class StoredPayloadUpgrade
             $flags | JSON_THROW_ON_ERROR,
             AstCodec::MAX_JSON_DEPTH,
         );
+    }
+
+    /**
+     * A retired root field whose VALUE cannot become the nodes it names.
+     *
+     * `"frontmatter": "oops"` names nothing that can be placed in the tree, and
+     * dropping it would turn a corrupt record into a valid document while
+     * discarding whatever it held - the same silent repair the missing-children
+     * case refuses one method up, arriving through the field the migration was
+     * written for. A migration that cannot convert a record says so; it does
+     * not tidy it away.
+     *
+     * A WRONG TYPE ONLY. A field the tree already carries the canonical form of
+     * is a stale duplicate rather than an unconvertible value, and is dropped -
+     * which is what the encoder itself does with one.
+     *
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
+     */
+    private static function refuseUnconvertibleRootFields(array $payload): void
+    {
+        foreach (['abbreviations', 'frontmatter', 'footnoteDefs'] as $field) {
+            if (array_key_exists($field, $payload) && !is_array($payload[$field])) {
+                throw new AstDecodeException(sprintf(
+                    'The payload carries a root `%s` holding %s, which names nothing this '
+                        . 'migration can place in the tree. Dropping it would turn a corrupt '
+                        . 'record into a valid document and discard whatever it held, so the '
+                        . 'record is left for you to decide about.',
+                    $field,
+                    get_debug_type($payload[$field]),
+                ));
+            }
+        }
     }
 
     /**

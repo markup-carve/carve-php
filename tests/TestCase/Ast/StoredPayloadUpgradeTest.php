@@ -484,6 +484,47 @@ class StoredPayloadUpgradeTest extends TestCase
         ];
     }
 
+    /**
+     * A MIGRATION THAT CANNOT CONVERT A RECORD SAYS SO.
+     *
+     * `"frontmatter": "oops"` names nothing that can be placed in the tree, and
+     * dropping the field would turn a corrupt record into a valid document
+     * while discarding whatever it held - the same silent repair the
+     * malformed-root cases refuse, arriving through the field the migration was
+     * written for.
+     *
+     * @param string $field
+     */
+    #[DataProvider('unconvertibleRootFields')]
+    public function testAnUnconvertibleRootFieldIsRefusedRatherThanDropped(string $field): void
+    {
+        $payload = [
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]]],
+            $field => 'oops',
+        ];
+
+        try {
+            StoredPayloadUpgrade::upgrade($payload);
+            $this->fail('the record must not be tidied away');
+        } catch (AstDecodeException $e) {
+            $this->assertStringContainsString($field, $e->getMessage());
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function unconvertibleRootFields(): array
+    {
+        return [
+            'abbreviations' => ['abbreviations'],
+            'frontmatter' => ['frontmatter'],
+            'footnoteDefs' => ['footnoteDefs'],
+        ];
+    }
+
     public function testJsonInAndJsonOut(): void
     {
         $upgraded = StoredPayloadUpgrade::upgradeJson(
