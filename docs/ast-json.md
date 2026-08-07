@@ -162,6 +162,40 @@ AstCodec::schema();
 Five types currently have required fields: `abbreviation`, `citation_group`,
 `heading_ref`, `inline_extension`, `mention`.
 
+## What an ingest refuses
+
+Decoding validates the **whole payload** against the AST schema
+(`resources/ast-schema.json`, vendored from the spec repo) - types and required
+fields together, before anything is built. A payload that does not satisfy it is
+refused with `AstDecodeException`; nothing is defaulted, dropped, or
+reinterpreted. This is PART 12 §12(d), ruled on
+[carve#881](https://github.com/markup-carve/carve/issues/881).
+
+What that turns from accepted into refused:
+
+- a root `srcByteLength` that is not a non-negative integer
+- a root `children` that is not an array, including `null` - a reader that
+  supplies a default has turned a truncated document into an empty one
+- a node missing a field the schema requires (`text` without `value`, a
+  `paragraph` without `children`, a `pos` without `endOffset`)
+- a field of the wrong type: `"value": 7` used to render `<p>7</p>`
+- a child that is `null` or a string, which used to surface as a bare PHP
+  `TypeError`
+- `"attrs": {"class": "x"}` - the rendered HTML calls it `class`, the wire shape
+  calls it `classes`, and the schema names only the second
+- a `type` outside the vocabulary
+
+If you produce Carve AST JSON, validate against `resources/ast-schema.json`
+before sending it. Every future addition to the schema is a potential rejection
+for a producer that has not caught up; that is what makes the schema the
+contract rather than a description of one.
+
+Two things it deliberately does not do. A registered application node type (see
+below) and its subtree are outside the schema by construction, so the rule has
+nothing to say about them. And a `srcByteLength` that is present but WRONG stays
+accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
+about presence while (d) is about type and sign.
+
 ## Application node types
 
 Extensions and applications define their own node classes. Register them so the

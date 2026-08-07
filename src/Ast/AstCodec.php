@@ -484,6 +484,26 @@ class AstCodec
         // does not have is refused rather than half-read.
         self::verifyNoUnnamedSlots($data);
 
+        // PART 12 §12(d): the WHOLE payload against `resources/ast-schema.json`,
+        // types and required fields together, refused with the same typed error
+        // (a), (b) and (c) already require (markup-carve/carve#881).
+        //
+        // ON THE PAYLOAD AS THE CALLER WROTE IT, for the reason §11's pass gives
+        // one line up: everything below rewrites `$data`. LAST of the three, so
+        // the clauses with a message of their own - a version envelope, a root
+        // missing one of §7's fields, an unnamed slot - still answer first and
+        // say which rule the payload broke rather than where in the schema it
+        // stopped matching.
+        //
+        // AND ONLY ONCE THE ROOT CLAIMS TO BE A CARVE DOCUMENT, which is how
+        // §12(a) scopes itself one block up and for the same reason: a
+        // ProseMirror `doc` fails the schema at `$` for want of `children`, and
+        // reporting that would tell a foreign payload about a field it was
+        // never going to carry instead of telling it that it is foreign.
+        if (($data['type'] ?? null) === 'document') {
+            self::verifySchema($data);
+        }
+
         // Read BEFORE the walk: the definitions drive expansion, which is
         // engine state on the document rather than anything the block nodes
         // carry. The nodes themselves stay in `children` and decode like any
@@ -833,6 +853,120 @@ class AstCodec
         'attrs' => ['id', 'classes', 'keyValues', 'order'],
         'pos' => ['startLine', 'endLine', 'startColumn', 'endColumn', 'startOffset', 'endOffset'],
     ];
+
+    /**
+     * PART 12 §12(d): refuse a payload the AST schema does not describe.
+     *
+     * The schema is the list. Every row this closes was divergent only because
+     * nothing consulted it: a `srcByteLength` that was a string, a `children`
+     * that was null and read as an empty document, a `text.value` that was the
+     * number 7 and rendered `<p>7</p>`, and a child that was `null` or a string
+     * and came back as a bare `TypeError` - untyped, which §9(b) forbids.
+     *
+     * AN APPLICATION TYPE REGISTERED WITH `register()` IS EXEMPT. The schema
+     * names the types PART 9 §8 makes spec surface, and cannot name one this
+     * package has never heard of, so §12(d) has nothing to decide about it -
+     * see `AstSchema::firstViolation()`. The exemption is by name and only for
+     * types actually registered, so a core type cannot be smuggled through it.
+     *
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
+     */
+    private static function verifySchema(array $payload): void
+    {
+        $exempt = array_merge(array_keys(self::$registered), self::NOT_ON_THE_WIRE);
+        $violation = AstSchema::firstViolation(self::withoutLegacyRootFields($payload), $exempt);
+        if ($violation === null) {
+            return;
+        }
+
+        // A TYPE THE SCHEMA DOES NOT LIST keeps the guidance the dedicated
+        // check used to carry: the vocabulary is spec surface (PART 9 §8), so
+        // the answer for an application's own node is to register the class,
+        // not to relax the schema.
+        $hint = str_contains($violation, '.type is the string')
+            ? sprintf(' Application node types must be registered with %s::register().', self::class)
+            : '';
+
+        throw new AstDecodeException(sprintf(
+            'The payload does not satisfy the AST schema: %s. PART 12 §12(d) validates the whole '
+                . 'payload against `resources/ast-schema.json` - types and required fields together '
+                . '- at decode, because a reader that supplies a default has silently repaired the '
+                . 'payload and one that reads a wrong type has silently reinterpreted it.%s',
+            $violation,
+            $hint,
+        ));
+    }
+
+    /**
+     * The payload as §12(d) judges it: the pre-PART 12 §7 inlets this codec
+     * ALREADY declares it reads, put into the §7 shape first.
+     *
+     * NOT a leniency point, and not a set that grows. Each entry is a shape
+     * this package documents and tests as still decoding, written before §7
+     * moved frontmatter and the definition maps into `children` and renamed a
+     * footnote's `id` to `label`. Validating the payload as literally given
+     * would refuse all of them, which is a deprecation this clause does not
+     * ask for and did not name - so the copy handed to the schema is the one
+     * the codec is about to read, and every OTHER field is judged as written.
+     *
+     * Whether those inlets should be retired outright is its own question, and
+     * is raised on carve-php#979 rather than settled by a side effect here.
+     *
+     * @param array<mixed> $payload
+     *
+     * @return array<mixed>
+     */
+    private static function withoutLegacyRootFields(array $payload): array
+    {
+        // Adopted into the tree further down `decode()`, so the payload the
+        // decoder actually reads no longer carries them.
+        unset(
+            $payload['abbreviations'],
+            $payload['abbreviationsBeforeBody'],
+            $payload['frontmatter'],
+            $payload['footnoteDefs'],
+        );
+
+        $children = $payload['children'] ?? null;
+        if (is_array($children)) {
+            $payload['children'] = array_map(
+                static fn (mixed $child): mixed => is_array($child) ? self::withLabelledFootnotes($child) : $child,
+                $children,
+            );
+        }
+
+        return $payload;
+    }
+
+    /**
+     * PART 12 §7 renamed a footnote definition's `id` to `label`; a stored tree
+     * may still carry the old name, and `decodeNode()` still reads it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return array<mixed>
+     */
+    private static function withLabelledFootnotes(array $node): array
+    {
+        if (($node['type'] ?? null) === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
+            $node['label'] = $node['id'];
+            unset($node['id']);
+        }
+
+        foreach ($node as $key => $value) {
+            if ($key === 'pos' || $key === 'attrs' || !is_array($value)) {
+                continue;
+            }
+            $node[$key] = array_map(
+                static fn (mixed $child): mixed => is_array($child) ? self::withLabelledFootnotes($child) : $child,
+                $value,
+            );
+        }
+
+        return $node;
+    }
 
     /**
      * PART 12 §11: refuse a property the schema does not name, saying which one

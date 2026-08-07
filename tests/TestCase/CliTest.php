@@ -183,8 +183,15 @@ class CliTest extends TestCase
             [
                 '{"ast": 99, "type": "document"}' => 'AST encoding version',
                 '{not json' => 'Syntax error',
+                // PART 12 §12(d): the schema enumerates the vocabulary, so an
+                // unlisted type is a schema violation and reaches the user with
+                // the way to register one of an application's own.
                 '{"type": "document", "srcByteLength": 0, "children": [{"type": "nope"}]}'
-                    => 'Unknown node type',
+                    => 'the schema does not list',
+                // §12(d) again, on a type this time rather than a name.
+                '{"type": "document", "srcByteLength": 0, "children": [{"type": "paragraph", '
+                . '"children": [{"type": "text", "value": 7}]}]}'
+                    => 'where the schema requires string',
                 // PART 12 §12(a). The refusal has to reach the user as a
                 // documented failure, like every other one in this list.
                 '{"type": "document", "children": []}' => 'missing `srcByteLength`',

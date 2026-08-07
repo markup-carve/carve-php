@@ -83,8 +83,12 @@ class AstCodecTest extends TestCase
         // read `content`, unrecognized keys were ignored and a missing content
         // field defaulted to '' - so every text node came back EMPTY and the
         // process exited 0.
+        // PART 12 §12(d) now answers first, and says the same thing about the
+        // same node: a `text` carrying `content` has no `value`, which the
+        // schema requires. The loss comparison is still what catches a field
+        // the schema PERMITS and the decoder drops.
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Decoding lost 1 field');
+        $this->expectExceptionMessage('is missing `value`, which the schema requires');
 
         $this->codec->decode([
 
@@ -98,8 +102,22 @@ class AstCodecTest extends TestCase
 
     public function testAConformantTreeCarryingPositionsStillDecodes(): void
     {
-        // This engine cannot emit `pos` yet (PART 12 §4), but it must not refuse
-        // a tree from an engine that can, or conformance would be a trap.
+        // A tree from an engine that emits `pos` must not be refused, or
+        // conformance would be a trap.
+        //
+        // WITH THE WHOLE SPAN. `pos` is `{startLine, endLine, startColumn,
+        // endColumn, startOffset, endOffset}` and the schema requires all six,
+        // so PART 12 §12(d) refuses a partial one - which is the row this
+        // fixture used to carry, passing only because nothing consulted the
+        // schema (markup-carve/carve#881).
+        $span = [
+            'startLine' => 1,
+            'endLine' => 1,
+            'startColumn' => 1,
+            'endColumn' => 5,
+            'startOffset' => 0,
+            'endOffset' => 4,
+        ];
         $document = $this->codec->decode([
 
             'type' => 'document',
@@ -108,11 +126,9 @@ class AstCodecTest extends TestCase
                 [
 
                     'type' => 'paragraph',
-                    'pos' => [
-                        'startLine' => 1,
-                    ],
+                    'pos' => $span,
                     'children' => [
-                        ['type' => 'text', 'value' => 'Text', 'pos' => ['startLine' => 1]],
+                        ['type' => 'text', 'value' => 'Text', 'pos' => $span],
                     ],
                 ],
             ],
@@ -245,8 +261,19 @@ class AstCodecTest extends TestCase
 
     public function testDecodeRejectsAnUnknownNodeType(): void
     {
+        // PART 12 §12(d) reports it, because the schema ENUMERATES the
+        // vocabulary (PART 9 §8) - and it keeps the answer the dedicated check
+        // carried, which is the one thing a caller can act on.
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Unknown node type: not_a_node');
+        $this->expectExceptionMessage('$.children[0].type is the string "not_a_node", which the schema does not list');
+
+        $this->codec->decode(['type' => 'document', 'srcByteLength' => 0, 'children' => [['type' => 'not_a_node']]]);
+    }
+
+    public function testAnUnknownNodeTypeStillNamesTheWayToRegisterOne(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('must be registered with');
 
         $this->codec->decode(['type' => 'document', 'srcByteLength' => 0, 'children' => [['type' => 'not_a_node']]]);
     }
