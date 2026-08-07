@@ -53,7 +53,12 @@ class BareDotOrderedMarkerTest extends TestCase
         $this->assertInstanceOf(Paragraph::class, (new CarveConverter())->parse(".x\n")->getChildren()[0]);
         $this->assertInstanceOf(Paragraph::class, (new CarveConverter())->parse(".. text\n")->getChildren()[0]);
 
-        $this->assertSame("<p>.\n.   \n.x\n.. text</p>\n", $this->html(".\n.   \n.x\n.. text\n"));
+        // The `.   ` line stays paragraph text and loses its trailing run: a
+        // `whitespace` run at the end of a CONTENT LINE is dropped, on every
+        // line and not just a paragraph's last (markup-carve/carve#926). What
+        // this case is about - a bare marker not opening a list - is unchanged,
+        // and the four `assertInstanceOf` rows above say so directly.
+        $this->assertSame("<p>.\n.\n.x\n.. text</p>\n", $this->html(".\n.   \n.x\n.. text\n"));
     }
 
     public function testBareDotDoesNotInterruptParagraph(): void

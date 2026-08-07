@@ -5636,6 +5636,17 @@ class BlockParser
                 continue;
             }
 
+            // A ONE-COLUMN run at the END of the line is TRAILING WHITESPACE and
+            // is dropped like anywhere else (PART 2, markup-carve/carve#926).
+            // The order is what makes this reachable: §23 converts an inner or
+            // trailing run of TWO OR MORE columns into NBSP CONTENT above, and
+            // content is not whitespace - so the rule never reaches that run.
+            // What is left here is §23's one-column case, and at the end of a
+            // line it is the only kind of whitespace still standing.
+            if ($offset >= $length) {
+                break;
+            }
+
             $text .= ' ';
         }
 
@@ -6490,29 +6501,49 @@ class BlockParser
 
         $content = implode("\n", $contentParts);
 
-        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 paragraph rule; pinned
-        // by corpus 102). Whitespace at the end of the paragraph's FINAL line is
-        // stripped BEFORE rendering. It is applied here, to the SOURCE, rather
+        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 NO TRAILING WHITESPACE;
+        // pinned by corpus 102 and 268). A `whitespace` run at the end of a
+        // CONTENT LINE is DROPPED. It is applied here, to the SOURCE, rather
         // than to rendered output: a renderer cannot tell authored trailing
         // whitespace from spaces a construct legitimately produced, so trimming
         // the output ate the content of an all-space inline literal
         // (`` !`  ` `` alone rendered `<p></p>` instead of `<p>  </p>`).
-        // Only the final line is affected - interior lines are followed by a
-        // newline, so this rtrim cannot reach them. Space and tab only, matching
-        // carve-rs; a trailing NBSP is content everywhere and must survive.
-        $trimmedContent = rtrim($content, " \t");
-        if ($trimmedContent !== $content) {
-            $last = count($contentLines) - 1;
-            $shrink = strlen($content) - strlen($trimmedContent);
-            [$lineIndex, $column, $length, $lineText] = $contentLines[$last];
-            $contentLines[$last] = [
+        //
+        // EVERY LINE, not just the paragraph's last. The rule was written down
+        // for the final line and implemented as a single `rtrim($content)`,
+        // which by construction could not reach an interior line - so
+        // `abc<SP>` + newline + `def` and `abc` + newline + `def` were
+        // different documents. They are the same document
+        // (markup-carve/carve#926), and PART 12 §7 asserted the opposite until
+        // it was corrected. This loop is the whole of the fix for a paragraph, a
+        // list item, a block quote line and a footnote body line, because all
+        // four fold through here.
+        //
+        // Space and tab ONLY. `whitespace = ' ' | '\t'` (PART 1,
+        // markup-carve/carve#890) and every other invisible character is
+        // content: an implementation that strips with a Unicode whitespace
+        // property, or a language's legacy `\s`, fails seven of the nine rows
+        // corpus 268-7 pins, and a plain-space fixture cannot see it.
+        $physicalLines = explode("\n", $content);
+        foreach ($physicalLines as $index => $physicalLine) {
+            $trimmedLine = rtrim($physicalLine, " \t");
+            if ($trimmedLine === $physicalLine) {
+                continue;
+            }
+            $physicalLines[$index] = $trimmedLine;
+            if (!isset($contentLines[$index])) {
+                continue;
+            }
+            $shrink = strlen($physicalLine) - strlen($trimmedLine);
+            [$lineIndex, $column, $length, $lineText] = $contentLines[$index];
+            $contentLines[$index] = [
                 $lineIndex,
                 $column,
-                $length - $shrink,
+                max(0, $length - $shrink),
                 substr($lineText, 0, max(0, strlen($lineText) - $shrink)),
             ];
         }
-        $content = $trimmedContent;
+        $content = implode("\n", $physicalLines);
 
         $paragraph = new Paragraph();
         // Set here rather than leaving it to the block-loop stamp, which spans

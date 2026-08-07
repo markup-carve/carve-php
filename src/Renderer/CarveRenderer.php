@@ -2150,7 +2150,22 @@ class CarveRenderer implements RendererInterface
         $text = implode("\n", $lines);
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
 
-        return $this->restoreVerbatim($this->trimNonNbsp($text)) . "\n";
+        $out = $this->restoreVerbatim($this->trimNonNbsp($text));
+
+        // A DOCUMENT MAY NOT BEGIN WITH U+FEFF, because the parser reads a BOM
+        // at byte 0 as the file's encoding mark and removes it (PART 12). A
+        // paragraph whose first character is a BOM is ordinary content - it
+        // only reaches byte 0 because the writer dropped the indentation run in
+        // front of it - so writing it bare turns `<p>&#65279;</p>` into an
+        // empty document on the next read. One leading SPACE restores the
+        // distinction: it is an indentation run the parser strips again, and it
+        // keeps the BOM off byte 0. There is no escape for U+FEFF to reach for
+        // instead.
+        if (str_starts_with($out, "\u{FEFF}")) {
+            $out = ' ' . $out;
+        }
+
+        return $out . "\n";
     }
 
     /**
@@ -2230,14 +2245,26 @@ class CarveRenderer implements RendererInterface
         return $this->trimNonNbsp((string)$collapsed);
     }
 
+    /**
+     * Trim the document's own leading and trailing whitespace.
+     *
+     * `whitespace` is a space or a tab (PART 1, markup-carve/carve#890), plus
+     * the line endings this is trimming at a document boundary. Every other
+     * invisible character is CONTENT: the class was `[^\S<NBSP>]` under `/u`,
+     * i.e. the Unicode property with NBSP carved out by name, and it ate a
+     * trailing U+000C, U+0085, U+1680, U+2000 or U+2028 off the end of the
+     * document - so `fmt` deleted the last character of a document that ended
+     * in one. Excluding NBSP by name was the tell; NBSP was only the member
+     * anybody had noticed.
+     */
     protected function trimNonNbsp(string $text): string
     {
-        return (string)preg_replace('/^[^\S' . "\u{00A0}" . ']+|[^\S' . "\u{00A0}" . ']+$/u', '', $text);
+        return trim($text, " \t\n\r");
     }
 
     protected function trimEndNonNbsp(string $text): string
     {
-        return (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $text);
+        return rtrim($text, " \t\n\r");
     }
 
     protected function safeFence(string $content, int $min): string
