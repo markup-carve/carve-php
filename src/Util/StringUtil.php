@@ -12,6 +12,32 @@ use Normalizer;
 final class StringUtil
 {
     /**
+     * PART 1 `whitespace = ' ' | '\t'` as a PCRE class: ONE character that is
+     * not `whitespace`, spelled for a test that runs against a single LINE.
+     *
+     * NOT `\S`, which is what the emptiness gates used to say. PCRE reads both
+     * a VERTICAL TAB (U+000B) and a FORM FEED (U+000C) as `\s`, so `\S` called
+     * a heading whose whole content was one of them EMPTY - while corpus
+     * `268-trailing-whitespace-on-a-content-line-is-dropped-7` pins a form
+     * feed as content on a paragraph line, and carve-rs reads both as content
+     * everywhere (markup-carve/carve-php#1038).
+     *
+     * The line terminators stay in the class because these gates run on one
+     * line: `\S` did not match a newline either, and `[^ \t]` alone would -
+     * which would let `# ` followed by a line break look like a heading with
+     * content.
+     *
+     * DELIBERATELY NOT a `/u` pattern. This is a BYTE-level class: the leading
+     * byte of any multi-byte character is neither a space nor a tab, so it
+     * matches without Unicode mode, and turning the mode on would make
+     * preg_match() return false outright on invalid UTF-8 input instead of
+     * answering the question.
+     *
+     * @var string
+     */
+    public const NON_WHITESPACE_CLASS = '[^ \t\r\n]';
+
+    /**
      * Unicode bidirectional override and isolate format controls
      * (U+202A-U+202E LRE/RLE/PDF/LRO/RLO and U+2066-U+2069
      * LRI/RLI/FSI/PDI). These are the "Trojan Source" reordering controls:

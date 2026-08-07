@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter\HeadingId;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use function array_splice;
 use function array_values;
@@ -153,7 +154,17 @@ trait PreservesHeadingIds
 
                 continue;
             }
-            if (preg_match('/^' . self::LINE_PREFIX . '#{1,6} +.*\S.*$/', $line) === 1) {
+            // The same emptiness gate the parser applies, so this pass sees a
+            // heading exactly when the parser will. `whitespace` is a space or
+            // a tab and nothing else (PART 1): a line whose content is a lone
+            // NBSP, VERTICAL TAB or FORM FEED is a heading, and `\S` used to
+            // read the last two as empty (markup-carve/carve-php#1038).
+            if (
+                preg_match(
+                    '/^' . self::LINE_PREFIX . '#{1,6} +.*' . StringUtil::NON_WHITESPACE_CLASS . '.*$/',
+                    $line,
+                ) === 1
+            ) {
                 $headingLines[] = $index;
             }
         }

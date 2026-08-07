@@ -2031,10 +2031,16 @@ class BlockParser
             // The marker MUST start at column 0 (no leading indent): an indented `#`-line is a
             // paragraph, matching carve-js / carve-rs and the spec grammar (heading_first_line =
             // heading_marker, space, ...).
-            if (($contentLine[0] ?? '') === '#' && preg_match('/^(#{1,6}) +(.*\S.*)$/', $contentLine, $matches)) {
+            if (
+                ($contentLine[0] ?? '') === '#'
+                && preg_match('/^(#{1,6}) +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $contentLine, $matches)
+            ) {
                 // Content required (same rule as tryParseHeading): a bare
                 // `#` / `# ` is not a heading and must not consume a slug here.
-                $headingText = trim($matches[2]);
+                // The charlist is tryParseHeading's too - a pre-scan that trims
+                // a character the parser keeps derives its slug from a text the
+                // rendered heading does not have (markup-carve/carve-php#1038).
+                $headingText = trim($matches[2], " \t");
                 $headingParts = [[$i, $headingText]];
                 $level = strlen($matches[1]);
 
@@ -3704,8 +3710,12 @@ class BlockParser
         // `#`-line is a paragraph, matching carve-js / carve-rs and the spec.
         // Requiring content in the pattern itself means a bare `#`, `##`, or `# `
         // is ordinary paragraph text. `# \tx` (content after a tab) is still a
-        // heading: `.*\S.*` only requires a non-whitespace char after the space.
-        if (!preg_match('/^(#{1,6}) +(.*\S.*)$/', $line, $matches)) {
+        // heading: the class only requires one non-`whitespace` char after the
+        // space, and `whitespace` is a space or a tab and nothing else (PART 1)
+        // - a lone NBSP, VERTICAL TAB or FORM FEED is content, so `# ` followed
+        // by one of them IS a heading. This gate is the reason the trailing trim
+        // below cannot narrow on its own (markup-carve/carve-php#1038).
+        if (!preg_match('/^(#{1,6}) +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -3732,21 +3742,20 @@ class BlockParser
         // the full literal text. Attributes attach via a PRECEDING
         // block-attribute line (applyPendingAttributes below, PART 9 §15).
         //
-        // §756 (NORMATIVE): strip the line's trailing whitespace (rtrim, ASCII
-        // whitespace -- a trailing NBSP is content and survives). A leading tab
+        // §756 (NORMATIVE): strip the line's trailing whitespace. A leading tab
         // is preserved (see the extraction note above).
         //
-        // NOT NARROWED TO SPACE AND TAB HERE. `whitespace = ' ' | '\t'` (PART 1),
-        // so PHP's default charlist is wider than the rule: it also takes a
-        // VERTICAL TAB, and a heading is the one construct in this engine that
-        // drops a trailing U+000B where the identical paragraph keeps it and
-        // carve-js keeps it in both. Narrowing the charlist ALONE would make the
-        // heading self-inconsistent instead, because `tryParseHeading`'s
-        // emptiness gate spells the same `whitespace` with PCRE `\S` - so `# `
-        // followed by a lone vertical tab would still not be a heading while a
-        // trailing one became content. Both spellings move together, tracked at
-        // markup-carve/carve-php#1038.
-        $content = rtrim($content);
+        // SPACE AND TAB ONLY, the same charlist the paragraph collector and the
+        // caption use. `whitespace = ' ' | '\t'` (PART 1), so a trailing NBSP -
+        // or a VERTICAL TAB, or a FORM FEED - is content and survives. PHP's
+        // DEFAULT charlist stood here and is wider: it takes U+000B, which made
+        // a heading the one construct in this engine that dropped a trailing
+        // vertical tab where the identical paragraph kept it. The emptiness gate
+        // above moved with it, because narrowing this charlist alone would have
+        // left the heading accepting a TRAILING vertical tab as content while
+        // still refusing a heading whose WHOLE content was one
+        // (markup-carve/carve-php#1038).
+        $content = rtrim($content, " \t");
 
         // One source segment for the heading's single line.
         $headingLines = [];
@@ -4087,7 +4096,7 @@ class BlockParser
             // are reproduced as measured rather than made consistent.
             $trimmedInDiv = ltrim($content, " \t");
             if (
-                preg_match('/^#{1,6} .*\S/', $trimmedInDiv) === 1
+                preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
                 || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
                 || $this->tableParser->isTableRow($trimmedInDiv)
             ) {
@@ -4166,7 +4175,7 @@ class BlockParser
         // inside it. carve-rs closes it; the distinction between the two flags
         // was the bug (carve-php#652).
         $trimmed = ltrim($content, " \t");
-        $isHeading = preg_match('/^#{1,6} .*\S/', $trimmed) === 1;
+        $isHeading = preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
         $isThematicBreak = preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
         $isTableRow = $this->tableParser->isTableRow($trimmed);
         // A definition TERM is bounded like a heading: it holds inline content,
@@ -7706,7 +7715,7 @@ class BlockParser
     ): bool {
         $line = $lines[$i];
 
-        if (preg_match('/^\^ +.*\S/', $line)) {
+        if (preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
@@ -8038,9 +8047,12 @@ class BlockParser
 
         // Caption syntax: `^ caption text` (caret followed by space)
         // Mirror tryParseHeading: `^` + one-or-more spaces (a space, not a tab) +
-        // content with at least one non-space char. `^ ` alone (or `^\t…`) is
-        // not a caption, exactly as `# ` / `#\t…` is not a heading.
-        if (!preg_match('/^\^ +(.*\S.*)$/', $line, $matches)) {
+        // content holding at least one character that is not `whitespace`. `^ `
+        // alone (or `^\t…`) is not a caption, exactly as `# ` / `#\t…` is not a
+        // heading - but `whitespace` is a space or a tab and NOTHING else
+        // (PART 1), so a lone NBSP, VERTICAL TAB or FORM FEED is content and
+        // does make a caption (markup-carve/carve-php#1038).
+        if (!preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -8373,7 +8385,7 @@ class BlockParser
 
         // Caption `^ text` can always interrupt paragraphs (special case for figure captions)
         // Quick first-char check before regex
-        if (preg_match('/^\^ +.*\S/', $line)) {
+        if (preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return true;
         }
 
@@ -8411,7 +8423,7 @@ class BlockParser
             case '#':
                 // Headings: #{1,6}, a space, then non-empty content (a bare
                 // `#` / `# ` is not a heading).
-                return preg_match('/^#{1,6} .*\S/', $line) === 1;
+                return preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line) === 1;
             case '-':
             case '*':
                 // A bullet does NOT interrupt a paragraph (symmetric with ordered
@@ -8827,7 +8839,7 @@ class BlockParser
         // tracked separately: after `:::note` + `# h`, the bare `:::` below is a
         // real div opener, exactly as it is at the top level.
         $trimmedForBoundary = ltrim($line, " \t");
-        $endsTheParagraph = preg_match('/^#{1,6} .*\S/', $trimmedForBoundary) === 1
+        $endsTheParagraph = preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedForBoundary) === 1
             || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedForBoundary) === 1;
         $state['absorbingFence'] = $wasAbsorbing && !$endsTheParagraph;
         $state['openParagraph'] = true;
@@ -9095,7 +9107,7 @@ class BlockParser
     {
         // Headings: #{1,6}, a space, then non-empty content (a bare `#` / `# `
         // is not a heading).
-        if (preg_match('/^#{1,6} .*\S/', $line)) {
+        if (preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return true;
         }
 
