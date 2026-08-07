@@ -87,6 +87,13 @@ trait ScalingGuardTrait
      * @param string $fragment Repeated to build both samples.
      * @param string $suffix Appended once to each sample.
      * @param string $label Identifies the shape in failure output.
+     * @param int|null $smallRepeats Overrides the small sample's repeat count;
+     *   the large sample keeps the same 4x multiple. A BLOCK-level shape is
+     *   several lines per repeat, so the inline default builds a document two
+     *   orders of magnitude larger than the shape needs to separate linear from
+     *   quadratic. Everything else about the measurement stays shared - a
+     *   second spelling of the timing is exactly what this trait exists to
+     *   prevent.
      *
      * @return void
      */
@@ -95,9 +102,12 @@ trait ScalingGuardTrait
         string $fragment,
         string $suffix = '',
         string $label = '',
+        ?int $smallRepeats = null,
     ): void {
-        $small = str_repeat($fragment, self::SCALE_SMALL_REPEATS) . $suffix;
-        $large = str_repeat($fragment, self::SCALE_LARGE_REPEATS) . $suffix;
+        $smallRepeats ??= self::SCALE_SMALL_REPEATS;
+        $largeRepeats = $smallRepeats * intdiv(self::SCALE_LARGE_REPEATS, self::SCALE_SMALL_REPEATS);
+        $small = str_repeat($fragment, $smallRepeats) . $suffix;
+        $large = str_repeat($fragment, $largeRepeats) . $suffix;
 
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
@@ -140,19 +150,19 @@ trait ScalingGuardTrait
         $this->assertLessThan(
             self::SCALE_MAX_SECONDS,
             $worstSmall,
-            sprintf('%dx %s took %.3fs (quadratic regression?)', self::SCALE_SMALL_REPEATS, $shape, $worstSmall),
+            sprintf('%dx %s took %.3fs (quadratic regression?)', $smallRepeats, $shape, $worstSmall),
         );
         $this->assertLessThan(
             self::SCALE_MAX_SECONDS,
             $worstLarge,
-            sprintf('%dx %s took %.3fs (quadratic regression?)', self::SCALE_LARGE_REPEATS, $shape, $worstLarge),
+            sprintf('%dx %s took %.3fs (quadratic regression?)', $largeRepeats, $shape, $worstLarge),
         );
 
         $medianSmall = $this->median($smallPerByte);
         $medianLarge = $this->median($largePerByte);
 
         $ratio = $medianLarge / max($medianSmall, PHP_FLOAT_EPSILON);
-        $multiple = self::SCALE_LARGE_REPEATS / self::SCALE_SMALL_REPEATS;
+        $multiple = intdiv($largeRepeats, $smallRepeats);
 
         $this->assertLessThan(
             self::SCALE_MAX_PER_BYTE_RATIO,

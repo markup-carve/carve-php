@@ -323,6 +323,12 @@ class CarveCorpusTest extends TestCase
         'a-footnote-body-s-own-column-is-two-and-a-third-column-is-its-text',
         'a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text',
         'a-definition-past-a-footnote-body-s-column-is-the-body-s-own-text',
+        'a-quoted-attribute-value-stops-at-the-newline',
+        'a-collapsed-reference-reaches-a-heading-by-the-heading-s-rendered-text',
+        'a-fence-opened-on-a-list-marker-line-body-below-the-content-column',
+        'a-below-column-marker-after-a-comment-where-no-paragraph-is-open',
+        'a-list-marker-at-the-content-column-inside-an-open-fence',
+        'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
     ];
 
     /**

@@ -470,6 +470,14 @@ class BlockParser
     protected ?array $commentFenceLastIndex = null;
 
     /**
+     * Where a closer of each fence shape LAST occurs in the current line set,
+     * built once by fenceCloserIndex().
+     *
+     * @var array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}|null
+     */
+    private ?array $fenceCloserIndexCache = null;
+
+    /**
      * Optional slug transform mirrored onto the parse-time heading-id
      * tracker so implicit `[Heading][]` references agree with the
      * render-time ids (set by AsciiHeadingIdsExtension).
@@ -1442,21 +1450,14 @@ class BlockParser
                     // next footnote definition.
                     if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                         $j++;
-                        $attached = [];
-                        $attachedLineMap = [];
-                        while ($j < $count) {
-                            $a = $lines[$j];
-                            if (
-                                IndentationHelper::isBlankLine($a)
+                        [$j, $attached, $attachedLineMap] = $this->collectAttachedBlock(
+                            $lines,
+                            $j,
+                            $count,
+                            static fn (string $a): bool => IndentationHelper::isBlankLine($a)
                                 || preg_match('/^\+[ \t]*$/', $a)
-                                || preg_match('/^\[\^[^\]]+\]:/', $a)
-                            ) {
-                                break;
-                            }
-                            $attached[] = $a;
-                            $attachedLineMap[] = $j;
-                            $j++;
-                        }
+                                || preg_match('/^\[\^[^\]]+\]:/', $a),
+                        );
                         if ($attached) {
                             $contentLines[] = '';
                             $contentLineMap[] = -1;
@@ -2310,15 +2311,18 @@ class BlockParser
         $previousLineMap = $this->currentLineMap;
         $previousContentColumns = $this->currentContentColumns;
         $previousCommentFenceLastIndex = $this->commentFenceLastIndex;
+        $previousFenceCloserIndexCache = $this->fenceCloserIndexCache;
         $this->currentLineMap = $lineMap;
         $this->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
         $this->commentFenceLastIndex = null;
+        $this->fenceCloserIndexCache = null;
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
         } finally {
             $this->currentLineMap = $previousLineMap;
             $this->currentContentColumns = $previousContentColumns;
             $this->commentFenceLastIndex = $previousCommentFenceLastIndex;
+            $this->fenceCloserIndexCache = $previousFenceCloserIndexCache;
             $this->nestingDepth--;
         }
     }
@@ -3883,24 +3887,15 @@ class BlockParser
             // instead of folding into the preceding quoted paragraph.
             if ($this->isContinuationMarker($currentLine)) {
                 $i++; // consume the `+` marker
-                /** @var array<string> $attached */
-                $attached = [];
-                $attachedLineMap = [];
-                while ($i < $count) {
-                    $line = $lines[$i];
-                    if (IndentationHelper::isBlankLine($line)) {
-                        break;
-                    }
-                    if ($this->blockQuoteLineContent($line) !== null) {
-                        break; // a `>` line resumes the quote normally
-                    }
-                    if ($this->isContinuationMarker($line)) {
-                        break; // a further `+` starts the next attached block
-                    }
-                    $attached[] = $line;
-                    $attachedLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-                }
+                [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
+                    $lines,
+                    $i,
+                    $count,
+                    fn (string $line): bool => IndentationHelper::isBlankLine($line)
+                        || $this->blockQuoteLineContent($line) !== null
+                        || $this->isContinuationMarker($line),
+                );
+                $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
                     // $innerLines always holds the quote's first content line, so
                     // a leading blank separates the attached block from it.
@@ -4958,6 +4953,326 @@ class BlockParser
     }
 
     /**
+     * Where a closer of each fence shape LAST occurs in $lines.
+     *
+     * PERMISSIVE ON PURPOSE. A caller may read a DEDENTED view of these lines,
+     * where MORE lines are closer-shaped than in the raw text, so the patterns
+     * tolerate a leading indentation run. The index is therefore a SUPERSET of
+     * what any view can match, and "no closer ahead" holds for every view. It only
+     * ever refutes; a positive answer sends the caller to the real scan.
+     *
+     * @param array<string> $lines
+     *
+     * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
+     */
+    private function fenceCloserIndex(array $lines): array
+    {
+        if ($this->fenceCloserIndexCache === null) {
+            $comment = [];
+            $colon = [];
+            $code = [];
+            foreach ($lines as $i => $line) {
+                $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
+                if ($info !== null) {
+                    $comment[$info['length']] = $i;
+                }
+                // THE TRAILING RUN IS `\s`, matching `isDivFenceCloser()` and
+                // `isCodeFenceCloser()` exactly. A narrower `[ \t]*` here is a
+                // FALSE NEGATIVE rather than a stricter reading: those two
+                // accept a closer padded with a vertical tab or a form feed, so
+                // an index that does not see one refutes a fence that really
+                // does close, and the collector falls back to the boundary set
+                // and splits the body it was meant to keep. The invariant this
+                // index owes its callers is that it is a SUPERSET of what they
+                // can match - narrowing it is only safe once the closers
+                // themselves narrow. Raised by codex review.
+                if (preg_match('/^[ \t]*(:{3,})\s*$/', $line, $m) === 1) {
+                    $colon[strlen($m[1])] = $i;
+                }
+                if (preg_match('/^[ \t]*([`~]{3,})\s*$/', $line, $m) === 1) {
+                    $code[$m[1][0]][strlen($m[1])] = $i;
+                }
+            }
+            // A CODE closer matches at the opener's length OR LONGER, so the
+            // answer for length L is the largest last-index over every recorded
+            // run >= L. Precomputed as a suffix maximum over the ascending
+            // runs, then binary-searched: scanning the recorded runs per query
+            // is itself quadratic on the shape this index exists to refute - a
+            // document of openers with DISTINCT widths, where no width repeats
+            // and every query walks the whole table.
+            $codeRuns = [];
+            foreach ($code as $char => $byRun) {
+                ksort($byRun);
+                $runs = array_keys($byRun);
+                $lastAtLeast = [];
+                $best = -1;
+                for ($k = count($runs) - 1; $k >= 0; $k--) {
+                    $best = max($best, $byRun[$runs[$k]]);
+                    $lastAtLeast[$k] = $best;
+                }
+                ksort($lastAtLeast);
+                $codeRuns[$char] = ['runs' => $runs, 'lastAtLeast' => $lastAtLeast];
+            }
+            $this->fenceCloserIndexCache = [
+                'comment' => $comment,
+                'colon' => $colon,
+                'code' => $codeRuns,
+            ];
+        }
+
+        return $this->fenceCloserIndexCache;
+    }
+
+    /**
+     * Refute an exact-width closer without rescanning the document.
+     *
+     * @param array<int, int> $last
+     * @param int $after
+     * @param int $length
+     */
+    private function exactCloserPossible(array $last, int $length, int $after): bool
+    {
+        return ($last[$length] ?? -1) > $after;
+    }
+
+    /**
+     * Refute a code/raw closer without rescanning the document; those closers
+     * may be the opener width or wider.
+     *
+     * @param array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}> $index
+     * @param int $after
+     * @param int $length
+     * @param string $char
+     */
+    private function codeCloserPossible(array $index, string $char, int $length, int $after): bool
+    {
+        $entry = $index[$char] ?? null;
+        if ($entry === null) {
+            return false;
+        }
+        // The first recorded run >= $length; its suffix maximum is the last
+        // index of any run that could close this fence.
+        $runs = $entry['runs'];
+        $lo = 0;
+        $hi = count($runs);
+        while ($lo < $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if ($runs[$mid] < $length) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+
+        return $lo < count($runs) && $entry['lastAtLeast'][$lo] > $after;
+    }
+
+    /**
+     * Find the end of a code/raw or comment fence, whose body is opaque to all
+     * other attached-block boundaries and fence shapes.
+     *
+     * @param array<string> $lines
+     * @param callable|null $transform
+     * @param int $count
+     * @param int $i
+     */
+    private function opaqueSpanEnd(array $lines, int $i, int $count, ?callable $transform): int
+    {
+        // Past the end reads as empty, which opens nothing. See
+        // `attachedFencedBlockEnd()` on why this is a value and not a branch.
+        $view = $lines[$i] ?? '';
+        $view = $transform === null ? $view : $transform($view);
+        $opener = $this->fencedBlockParser->parseCodeFenceOpener($view)
+            ?? $this->fencedBlockParser->parseRawBlockOpener($view);
+        if ($opener !== null) {
+            $index = $this->fenceCloserIndex($lines);
+            if (!$this->codeCloserPossible($index['code'], $opener['char'] ?? $opener['fence'][0], $opener['length'], $i)) {
+                return -1;
+            }
+            $char = $opener['char'] ?? $opener['fence'][0];
+            for ($j = $i + 1; $j < $count; $j++) {
+                $candidate = $transform === null ? $lines[$j] : $transform($lines[$j]);
+                if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $char, $opener['length'])) {
+                    return $j;
+                }
+            }
+
+            return -1;
+        }
+
+        $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($view);
+        if ($comment === null) {
+            return -1;
+        }
+        $index = $this->fenceCloserIndex($lines);
+        if (!$this->exactCloserPossible($index['comment'], $comment['length'], $i)) {
+            return -1;
+        }
+        for ($j = $i + 1; $j < $count; $j++) {
+            $candidate = $transform === null ? $lines[$j] : $transform($lines[$j]);
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($candidate, $comment['length'])) {
+                return $j;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Find the exact-width closer of a colon fence while treating nested fence
+     * widths as a stack and code/comment bodies as opaque.
+     *
+     * @param array<string> $lines
+     * @param callable|null $transform
+     * @param int $count
+     * @param int $length
+     * @param int $openIdx
+     */
+    private function colonFenceEnd(array $lines, int $openIdx, int $length, int $count, ?callable $transform): int
+    {
+        $index = $this->fenceCloserIndex($lines);
+        if (!$this->exactCloserPossible($index['colon'], $length, $openIdx)) {
+            return -1;
+        }
+        $stack = [$length];
+        for ($j = $openIdx + 1; $j < $count; $j++) {
+            $span = $this->opaqueSpanEnd($lines, $j, $count, $transform);
+            if ($span !== -1) {
+                $j = $span;
+
+                continue;
+            }
+            $view = $transform === null ? $lines[$j] : $transform($lines[$j]);
+            $top = $stack[count($stack) - 1];
+            if ($this->fencedBlockParser->isDivFenceCloser($view, $top)) {
+                array_pop($stack);
+                if ($stack === []) {
+                    return $j;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(:{3,})[ \t]*$/', $view, $m) === 1 && strlen($m[1]) !== $top) {
+                $stack[] = strlen($m[1]);
+
+                continue;
+            }
+            $opener = $this->fencedBlockParser->parseDivFenceOpener($view);
+            if ($opener !== null) {
+                $stack[] = $opener['length'];
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Return the last line of a fenced block only when the attached block's
+     * first line opens one; otherwise ordinary container boundaries decide.
+     *
+     * @param array<string> $lines
+     * @param callable|null $transform
+     * @param int $count
+     * @param int $i
+     */
+    private function attachedFencedBlockEnd(array $lines, int $i, int $count, ?callable $transform): int
+    {
+        $opaque = $this->opaqueSpanEnd($lines, $i, $count, $transform);
+        if ($opaque !== -1) {
+            return $opaque;
+        }
+        // PAST THE END READS AS EMPTY rather than as a guarded branch. A `+` on
+        // the last line reaches here with nothing after it, and an `$i >=
+        // $count` test for it is a check no caller can fire: every spelling of
+        // a trailing `+` was measured and none reaches it. A value fallback
+        // opens nothing and needs no such claim.
+        $view = $lines[$i] ?? '';
+        $view = $transform === null ? $view : $transform($view);
+        $opener = $this->fencedBlockParser->parseDivFenceOpener($view);
+
+        return $opener === null
+            ? -1
+            : $this->colonFenceEnd($lines, $i, $opener['length'], $count, $transform);
+    }
+
+    /**
+     * Collect the ONE flush-left block a `+` continuation marker attaches
+     * (PART 9 §17 L3). The boundary remains container-specific, while a fence
+     * opened by the first line makes its complete body opaque everywhere.
+     *
+     * An unterminated fence falls back to the caller's existing boundaries:
+     * without a closer there is no complete fenced block to take as one unit.
+     *
+     * @param array<string> $lines
+     * @param callable|null $transform
+     * @param callable $isBoundary
+     * @param int $count
+     * @param int $i
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int, int>}
+     */
+    private function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
+    {
+        $fenced = $this->attachedFencedBlockEnd($lines, $i, $count, $transform);
+        if ($fenced !== -1) {
+            $take = $fenced - $i + 1;
+        } else {
+            $take = 0;
+            while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
+                $take++;
+            }
+        }
+        $collected = [];
+        $rawLineMap = [];
+        for ($j = 0; $j < $take; $j++) {
+            $rawIndex = $i + $j;
+            $collected[] = $transform === null ? $lines[$rawIndex] : $transform($lines[$rawIndex]);
+            $rawLineMap[] = $rawIndex;
+        }
+
+        return [$i + $take, $collected, $rawLineMap];
+    }
+
+    /**
+     * Advance a list item's own comment-fence tracker over ONE collected line.
+     *
+     * Null means no comment fence is open; an int is the EXACT delimiter width
+     * that closes the open one, because a longer opener nests shorter fences
+     * (PART 9 §28).
+     *
+     * AN OPENER WITH NO CLOSER AHEAD OPENS NOTHING and must not latch this
+     * tracker: §28 gives it no block, and latching it would run the item to end
+     * of input. That is the whole reason this lives beside
+     * `advanceTrailingBlockState()` instead of inside it - the shared tracker
+     * sees one line and cannot ask the question. `lastCommentFenceIndex()`
+     * answers it from a width -> last-index map built once per line set, so a
+     * document full of unclosable openers with DISTINCT widths costs one pass
+     * rather than one scan per opener.
+     *
+     * @param int|null $openLength The width currently open, or null.
+     * @param string $line The collected line, already dedented.
+     * @param array<string> $lines The raw line set, for the closer lookahead.
+     * @param int $index The RAW index this line sits at.
+     */
+    protected function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index): ?int
+    {
+        if ($openLength !== null) {
+            return $this->fencedBlockParser->isFencedCommentCloserAnyColumn($line, $openLength) ? null : $openLength;
+        }
+
+        $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
+        // STRICTLY AFTER. The opener is itself a line of its own width, so a
+        // `>=` here lets it count as its own closer and every unterminated
+        // `%%% x` opens a span that runs to end of input - which is the exact
+        // latch this lookahead exists to prevent.
+        if ($info === null || $this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
+            return null;
+        }
+
+        return $info['length'];
+    }
+
+    /**
      * Collect the flush-left block attached by a list continuation marker.
      *
      * @param array<string> $lines All lines being parsed.
@@ -4969,8 +5284,6 @@ class BlockParser
      */
     protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
     {
-        $attached = [];
-        $attachedLineMap = [];
         // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
         // collector tracked no block state at all, so a `- x` line in the
         // attached block's fenced body ended the block and severed the body -
@@ -4981,30 +5294,30 @@ class BlockParser
         // The state is local because the attached block starts fresh at column
         // 0 below the marker: nothing the item collected above it is open.
         $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+        [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
+            $lines,
+            $i,
+            $count,
+            function (string $line) use (&$trailingState, $baseIndent): bool {
+                $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
+                $trimmed = ltrim($line, " \t");
+                if (
+                    IndentationHelper::isBlankLine($line)
+                    || $lineIndent < $baseIndent
+                    || ($lineIndent === $baseIndent
+                        && !$trailingState['inFence']
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
+                ) {
+                    return true;
+                }
+                $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+                $trailingState = $this->advanceTrailingBlockState($trailingState, $content);
 
-        while ($i < $count) {
-            $line = $lines[$i];
-            if (IndentationHelper::isBlankLine($line)) {
-                break;
-            }
-            $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
-            if ($lineIndent < $baseIndent) {
-                break;
-            }
-            $trimmed = ltrim($line, " \t");
-            if (
-                $lineIndent === $baseIndent
-                && !$trailingState['inFence']
-                && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
-            ) {
-                break;
-            }
-            $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
-            $attached[] = $content;
-            $attachedLineMap[] = $this->sourceLineFor($i);
-            $trailingState = $this->advanceTrailingBlockState($trailingState, $content);
-            $i++;
-        }
+                return false;
+            },
+            static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $baseIndent),
+        );
+        $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
 
         return [$i, $attached, $attachedLineMap];
     }
@@ -5034,6 +5347,30 @@ class BlockParser
         array $trailingState,
     ): array {
         $sawIndentedUnclaimedColonFence = false;
+        // A COMMENT FENCE'S BODY IS OPAQUE AT THE CONTENT COLUMN TOO (PART 9
+        // §28, §24 C3, corpus category 279). The shared trailing-block tracker
+        // carries no comment state, while `trackBlockQuoteLazyState()` - the
+        // mirror its own docblock names - has carried it since carve-php#800.
+        // One question about one construct, answered two ways depending on the
+        // container: a blank line inside an item's own `%%%` body ended the
+        // item, so the span leaked out as two paragraphs AND the blank loosened
+        // the item that held it (markup-carve/carve#985).
+        //
+        // Tracked HERE rather than in `advanceTrailingBlockState()` because
+        // opening the span needs a CLOSER AHEAD. An opener with none opens no
+        // block (§28) and must not latch this scan - latching it would swallow
+        // the rest of the document into the item - and the shared tracker
+        // cannot answer that without the line set. It is the same condition
+        // `commentFenceSpanEnd()` applies for the below-column spelling below,
+        // so the two columns now give one answer.
+        // The seeded lines are the item's lead, which ends at the line before
+        // this collector's first, so `$i - 1` is the index the last of them
+        // sits at - the one a marker-line `- %%%` opener needs the lookahead to
+        // start from.
+        $openCommentLength = null;
+        foreach ($itemLines as $seedLine) {
+            $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
+        }
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -5056,7 +5393,11 @@ class BlockParser
                 // flush-left line below fold into a paragraph the blank had
                 // closed: `- item` / `  ::: note` / `  a` / blank / `tail` put
                 // `tail` inside the aside, where it is a top-level paragraph.
-                if ($trailingState['inFence'] || $trailingState['inDiv']) {
+                //
+                // AND THE COMMENT FENCE IS THE THIRD KIND, on the same reading:
+                // §28 makes its body verbatim, so the blank is that body's
+                // content and neither ends the item nor loosens it.
+                if ($trailingState['inFence'] || $trailingState['inDiv'] || $openCommentLength !== null) {
                     $itemLines[] = '';
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingBlockState($trailingState, '');
@@ -5104,16 +5445,33 @@ class BlockParser
                 // content-column-3`) has always been code. A marker CHARACTER
                 // decided whether a verbatim body was verbatim.
                 //
-                // Only `inFence`. A `:::` div body is ordinary blocks, so a
-                // marker in one IS a list and must still end the item here;
-                // the fence is the only container whose body is code text.
+                // ALL THREE FENCE KINDS, not just `inFence`. The reasoning that
+                // stood here - "a `:::` div body is ordinary blocks, so a
+                // marker in one IS a list" - answers a different question than
+                // the one this gate asks. This gate decides whether the line
+                // ends the ITEM, and §24 S1/S2 place a line by the column it
+                // reaches, never by its first character: a marker at the body's
+                // own column is inside the open container either way. Whether
+                // it then opens a list is the BODY'S question, and the div body
+                // answers it exactly as the top level does - `:::` / `a` /
+                // `- m` / `b` / `:::` is one paragraph there too, because a
+                // marker does not interrupt an open paragraph.
+                //
+                // So `- x` / `  :::` / `  a` / `  - m` / `  b` / `  :::` split
+                // the div in two around a nested list and published a spurious
+                // empty `<div>` (corpus category 279 row 5). A COMMENT body is
+                // verbatim on the same reading (§28).
                 if (
                     !$trailingState['inFence']
+                    && !$trailingState['inDiv']
+                    && $trailingState['divDepth'] === 0
+                    && $openCommentLength === null
                     && $this->listParser->parseListItemMarker($nextTrimmed) !== null
                 ) {
                     break;
                 }
                 $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
                 if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
                     $sawIndentedUnclaimedColonFence = true;
                 }
@@ -5563,21 +5921,16 @@ class BlockParser
                 // flush-left block, with no indentation. `:  \+` is a literal `+`.
                 $bodyMap = [];
                 if (preg_match('/^\+[ \t]*$/', trim($m[1], StringUtil::WHITESPACE_CHARS))) {
-                    $body = [];
-                    while ($i < $count) {
-                        $a = $lines[$i];
-                        if (
-                            IndentationHelper::isBlankLine($a)
+                    [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
+                        $lines,
+                        $i,
+                        $count,
+                        static fn (string $a): bool => IndentationHelper::isBlankLine($a)
                             || preg_match('/^\+[ \t]*$/', $a)
                             || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
-                            || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
-                        ) {
-                            break;
-                        }
-                        $body[] = $a;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-                    }
+                            || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a),
+                    );
+                    $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
                 } else {
                     $body = [trim($m[1], StringUtil::WHITESPACE_CHARS)];
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
@@ -5616,22 +5969,16 @@ class BlockParser
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;
-                        $attached = [];
-                        $attachedLineMap = [];
-                        while ($i < $count) {
-                            $a = $lines[$i];
-                            if (
-                                IndentationHelper::isBlankLine($a)
+                        [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
+                            $lines,
+                            $i,
+                            $count,
+                            static fn (string $a): bool => IndentationHelper::isBlankLine($a)
                                 || preg_match('/^\+[ \t]*$/', $a)
                                 || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
-                                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a)
-                            ) {
-                                break;
-                            }
-                            $attached[] = $a;
-                            $attachedLineMap[] = $this->sourceLineFor($i);
-                            $i++;
-                        }
+                                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a),
+                        );
+                        $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                         if ($attached) {
                             $body[] = '';
                             $bodyMap[] = -1;
@@ -6797,17 +7144,14 @@ class BlockParser
             // definition) - mirror extractFootnotes exactly.
             if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                 $i++;
-                while ($i < $count) {
-                    $a = $lines[$i];
-                    if (
-                        IndentationHelper::isBlankLine($a)
+                [$i] = $this->collectAttachedBlock(
+                    $lines,
+                    $i,
+                    $count,
+                    static fn (string $a): bool => IndentationHelper::isBlankLine($a)
                         || preg_match('/^\+[ \t]*$/', $a)
-                        || preg_match('/^\[\^[^\]]+\]:/', $a)
-                    ) {
-                        break;
-                    }
-                    $i++;
-                }
+                        || preg_match('/^\[\^[^\]]+\]:/', $a),
+                );
 
                 continue;
             }

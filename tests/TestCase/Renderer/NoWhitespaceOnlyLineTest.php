@@ -40,6 +40,22 @@ class NoWhitespaceOnlyLineTest extends TestCase
      */
     private const KNOWN_REMAINING = [
         '73-list-nesting-and-looseness-5.crv:3',
+        // The SAME site one container in: a footnote body and a `dd` indent a
+        // fenced block the same way an item does, and the line whose verbatim
+        // content is empty keeps that structural indent.
+        //
+        // PRE-EXISTING and reachable without a `+` marker at all - Form A
+        // spells both of these, `[^f]: n` / `  ``` ` / `  a` / blank / `  b` /
+        // `  ``` ` and the `:  d` analogue, and both emit the same line today
+        // on `main`. What corpus category 279 changed is only that the corpus
+        // now REACHES the site: before it, a blank inside a `+`-attached fence
+        // severed the fence, so no corpus document ever put a blank inside a
+        // code block nested in one of these two containers.
+        //
+        // Listed rather than filtered so it stays visible, exactly as the list
+        // spelling above is.
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2.crv:7',
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3.crv:6',
     ];
 
     /**
