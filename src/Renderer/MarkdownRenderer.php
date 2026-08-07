@@ -139,6 +139,20 @@ class MarkdownRenderer implements RendererInterface
      */
     private const HASH_ESCAPE = "\u{E006}";
 
+    /**
+     * As UNDERSCORE_ESCAPE, for the two brackets. Deferred because a bracket
+     * only means anything in company: what follows the closing one, or a
+     * reference definition somewhere else in the document.
+     *
+     * @var string
+     */
+    private const BRACKET_OPEN_ESCAPE = "\u{E007}";
+
+    /**
+     * @var string
+     */
+    private const BRACKET_CLOSE_ESCAPE = "\u{E008}";
+
     protected int $listDepth = 0;
 
     protected bool $inBlockQuote = false;
@@ -363,10 +377,11 @@ class MarkdownRenderer implements RendererInterface
         $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::UNDERSCORE_ESCAPE, '_');
         $markdown = $this->dropUnpairableEmphasisEscapes($markdown, self::ASTERISK_ESCAPE, '*');
         $markdown = $this->resolveHashEscapes($markdown);
+        $markdown = $this->resolveBracketEscapes($markdown);
 
         return str_replace(
-            [self::UNDERSCORE_ESCAPE, self::ASTERISK_ESCAPE],
-            ['\\_', '\\*'],
+            [self::UNDERSCORE_ESCAPE, self::ASTERISK_ESCAPE, self::BRACKET_OPEN_ESCAPE, self::BRACKET_CLOSE_ESCAPE],
+            ['\\_', '\\*', '\\[', '\\]'],
             $markdown,
         );
     }
@@ -430,6 +445,98 @@ class MarkdownRenderer implements RendererInterface
         ) ?? $markdown;
 
         return str_replace(self::HASH_ESCAPE, '#', $markdown);
+    }
+
+    /**
+     * Keep a bracket escape only where a link could form from it.
+     *
+     * A bracket is not a delimiter that pairs with itself the way `_` and `*`
+     * do - it is inert until something else agrees to make it a link. Three
+     * things can: a `(` after the closing bracket (an inline link or image), a
+     * `[` after it (a reference link), or a definition elsewhere in the
+     * document that a shortcut reference could resolve against.
+     *
+     * Without any of those, `array[0]`, `[not a link]` and `[^fn]` are ordinary
+     * text, and the backslashes only break exact-match search - the cost #1011,
+     * #1014 and #1017 removed for the other delimiters.
+     *
+     * Deliberately blunt where it matters: a single pair in the block that
+     * could become a link keeps EVERY bracket escape in that block, and a
+     * document carrying any reference or footnote definition keeps all of them
+     * everywhere. A shortcut reference resolves against a definition the block
+     * cannot see, so nothing narrower would be safe.
+     */
+    private function resolveBracketEscapes(string $markdown): string
+    {
+        if (!str_contains($markdown, self::BRACKET_OPEN_ESCAPE) && !str_contains($markdown, self::BRACKET_CLOSE_ESCAPE)) {
+            return $markdown;
+        }
+
+        // Any link reference or footnote definition, real or escaped, puts every
+        // shortcut reference in the document back in play.
+        $open = preg_quote(self::BRACKET_OPEN_ESCAPE, '/');
+        $close = preg_quote(self::BRACKET_CLOSE_ESCAPE, '/');
+
+        if (preg_match('/^[ ]{0,3}(?:\[|' . $open . ')[^\n]*(?:\]|' . $close . '):/mu', $markdown) === 1) {
+            return $markdown;
+        }
+
+        $blocks = preg_split('/(\n[ \t]*\n)/', $markdown, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if ($blocks === false) {
+            return $markdown;
+        }
+
+        foreach ($blocks as $i => $block) {
+            if (!str_contains($block, self::BRACKET_OPEN_ESCAPE)) {
+                continue;
+            }
+
+            if (!$this->blockCanFormLink($block)) {
+                $blocks[$i] = str_replace(
+                    [self::BRACKET_OPEN_ESCAPE, self::BRACKET_CLOSE_ESCAPE],
+                    ['[', ']'],
+                    $block,
+                );
+            }
+        }
+
+        return implode('', $blocks);
+    }
+
+    /**
+     * Whether any bracket pair in the block is followed by the `(` or `[` that
+     * would turn it into a link. Conservative: an unmatched opener, or anything
+     * this cannot read, counts as a link and the escapes stay.
+     */
+    private function blockCanFormLink(string $block): bool
+    {
+        $text = str_replace(
+            [self::BRACKET_OPEN_ESCAPE, self::BRACKET_CLOSE_ESCAPE],
+            ['[', ']'],
+            $block,
+        );
+
+        $offset = 0;
+
+        while (($open = strpos($text, '[', $offset)) !== false) {
+            $close = strpos($text, ']', $open + 1);
+
+            if ($close === false) {
+                // An opener with no closer cannot become a link on its own.
+                return false;
+            }
+
+            $next = substr($text, $close + 1, 1);
+
+            if ($next === '(' || $next === '[') {
+                return true;
+            }
+
+            $offset = $close + 1;
+        }
+
+        return false;
     }
 
     private function dropUnpairableEmphasisEscapes(string $markdown, string $sentinel, string $delimiter): string
@@ -1353,6 +1460,8 @@ class MarkdownRenderer implements RendererInterface
                 '_' => self::UNDERSCORE_ESCAPE,
                 '*' => self::ASTERISK_ESCAPE,
                 '#' => self::HASH_ESCAPE,
+                '[' => self::BRACKET_OPEN_ESCAPE,
+                ']' => self::BRACKET_CLOSE_ESCAPE,
                 default => '\\' . $m[1],
             },
             $text,

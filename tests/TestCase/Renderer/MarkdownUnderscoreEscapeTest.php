@@ -170,12 +170,83 @@ class MarkdownUnderscoreEscapeTest extends TestCase
     }
 
     /**
+     * A bracket does not pair with itself the way `_` and `*` do - it is inert
+     * until something else agrees to make it a link. Nothing here does.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function inertBracketProvider(): array
+    {
+        return [
+            'an array subscript' => ['array[0] and array[1]', 'array[0] and array[1]'],
+            'a bracketed aside' => ['text [not a link] here', 'text [not a link] here'],
+            'an undefined footnote' => ['[^fn] alone', '[^fn] alone'],
+            'an unclosed bracket' => ['[unclosed here', '[unclosed here'],
+        ];
+    }
+
+    #[DataProvider('inertBracketProvider')]
+    public function testABracketThatCannotFormALinkLosesItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
      * The attribute-block spelling stays escaped so a literal `{#...}` in text
      * cannot be read as the `{#id}` anchor this renderer writes for real.
      */
     public function testAHashOpeningAnAttributeBlockKeepsItsEscape(): void
     {
         $this->assertSame('{\#foo)} literal', trim(CarveConverter::markdown()->convert('{#foo)} literal')));
+    }
+
+    /**
+     * The three things that can make a bracket live: a `(` after the closing
+     * one, a `[` after it, or a definition a shortcut reference resolves
+     * against. The last cannot be seen from the block, so a document carrying
+     * any definition keeps its escapes everywhere.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function liveBracketProvider(): array
+    {
+        return [
+            'a reference link' => ['[a][b]', '\[a\]\[b\]'],
+            'an authored inline link' => ['\[a\](b)', '\[a\](b)'],
+            'one link makes the block cautious' => ['see [x] and [y](z)', 'see \[x\] and [y](z)'],
+        ];
+    }
+
+    #[DataProvider('liveBracketProvider')]
+    public function testABracketThatCouldFormALinkKeepsItsEscape(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
+    }
+
+    /**
+     * A definition anywhere in the document is what a shortcut reference
+     * resolves against, and no block can see it from where it sits - so one
+     * definition keeps every bracket escape in the document, including the
+     * subscript in a paragraph that has nothing to do with it.
+     */
+    public function testADefinitionInTheDocumentKeepsEveryBracketEscape(): void
+    {
+        $this->assertSame(
+            "Text with array\\[0\\].\n\n[^a]: the note",
+            trim(CarveConverter::markdown()->convert("Text with array[0].\n\n[^a]: the note\n")),
+        );
+    }
+
+    /**
+     * Blocks without a bracket are passed over untouched, and each block is
+     * judged on its own.
+     */
+    public function testOnlyTheBlocksHoldingBracketsAreConsidered(): void
+    {
+        $this->assertSame(
+            "text\n\narray[0] here\n\nplain paragraph",
+            trim(CarveConverter::markdown()->convert("text\n\narray[0] here\n\nplain paragraph\n")),
+        );
     }
 
     public function testCodeSpansAreUntouched(): void
