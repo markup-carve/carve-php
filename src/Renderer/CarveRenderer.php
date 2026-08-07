@@ -877,13 +877,28 @@ class CarveRenderer implements RendererInterface
         return $out === '' ? 'I' : $out;
     }
 
+    /**
+     * Join a colon fence's body to its closer, without inventing a blank line.
+     *
+     * An EMPTY div has no body, and writing `\n` + `` + `\n` put a BLANK LINE
+     * between opener and closer. Inside a list item that blank ends the item's
+     * current block, so the closer below it read as a fresh bare-div OPENER and
+     * the document came back with a spurious `<div></div>` beside the aside -
+     * `to_html(fmt(x)) == to_html(x)` failed on corpus 270-2. Glued, the empty
+     * div round-trips.
+     */
+    private static function fencedDivBody(string $body): string
+    {
+        return $body === '' ? "\n" : "\n" . $body . "\n";
+    }
+
     protected function renderDiv(Div $node): string
     {
         $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
-        return $fence . $label . "\n" . $body . "\n" . $fence;
+        return $fence . $label . self::fencedDivBody($body) . $fence;
     }
 
     protected function canRenderTypedDiv(Div $node): bool
@@ -905,7 +920,7 @@ class CarveRenderer implements RendererInterface
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
-        return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
+        return $fence . ' ' . $kind . $titlePart . $label . self::fencedDivBody($body) . $fence;
     }
 
     protected function renderAdmonition(Div $node): string
@@ -917,7 +932,7 @@ class CarveRenderer implements RendererInterface
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
-        return $fence . ' ' . $kind . $titlePart . $label . "\n" . $body . "\n" . $fence;
+        return $fence . ' ' . $kind . $titlePart . $label . self::fencedDivBody($body) . $fence;
     }
 
     protected function admonitionKind(Div $node): ?string

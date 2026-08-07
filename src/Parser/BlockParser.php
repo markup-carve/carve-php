@@ -3721,6 +3721,10 @@ class BlockParser
             'commentLength' => 0,
             'paragraphOpen' => false,
             'paragraphTextOpen' => false,
+            'inDiv' => false,
+            'divFenceLength' => 0,
+            'divDepth' => 0,
+            'absorbingFence' => false,
         ];
 
         $innerLines[] = $content;
@@ -3843,13 +3847,20 @@ class BlockParser
      * marker folds into a paragraph but never into a heading.
      *
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool,paragraphTextOpen:bool} $state
+     * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool,paragraphTextOpen:bool,inDiv:bool,divFenceLength:int,divDepth:int,absorbingFence:bool} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
      */
     private function trackBlockQuoteLazyState(string $content, array &$state, array $sourceLines, int $sourceIndex): void
     {
+        // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
+        // wherever that paragraph does. Cleared here and re-armed only in the
+        // branches that continue the same paragraph, exactly as the list-item
+        // tracker does it.
+        $wasAbsorbing = $state['absorbingFence'];
+        $state['absorbingFence'] = false;
+
         if ($state['inComment']) {
             if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
                 $state['inComment'] = false;
@@ -3905,14 +3916,114 @@ class BlockParser
 
                 return;
             }
+        }
 
-            if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
-                // Div opener/closer line is structural; it opens no paragraph itself.
+        // A DIV IS A CONTAINER ON THE OPEN STACK, and S4 asks what that stack
+        // holds - not which container kind is on it. This branch used to sit
+        // inside the `!paragraphOpen` guard above, so `> quote` + `> ::: note`
+        // never reached it: the opener left the QUOTE's paragraph flag standing
+        // and a flush-left line folded into the div. The identical shape in a
+        // list item already answered correctly, and one construct answering S4
+        // two ways is a bug in one of the two paths
+        // (markup-carve/carve#920, corpus 271).
+        if ($state['inDiv']) {
+            if ($this->fencedBlockParser->isDivFenceCloser($content, $state['divFenceLength'])) {
+                // A CLOSED container holds no open paragraph either.
+                $state['divDepth']--;
+                $state['inDiv'] = $state['divDepth'] > 0;
                 $state['paragraphOpen'] = false;
                 $state['paragraphTextOpen'] = false;
 
                 return;
             }
+
+            // A NESTED OPENER IS STILL AN OPENER. S4 asks about the INNERMOST
+            // open container, so a `:::: tip` as the last line inside a `:::
+            // note` leaves an EMPTY container on the stack and no paragraph -
+            // the same answer the outer opener gets one level up. A code fence
+            // opener leaves none either.
+            if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
+                $state['divDepth']++;
+                $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
+
+                return;
+            }
+            if ($this->fencedBlockParser->parseCodeFenceOpener($content) !== null) {
+                $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
+
+                return;
+            }
+
+            // A BOUNDED BLOCK inside the div leaves no open paragraph either,
+            // for the same reason it does not outside one: a heading, a
+            // thematic break and a table row all end at their own boundary.
+            // Measured against the executable spec rather than assumed - the
+            // list-item path answers the HEADING row the other way, and both
+            // are reproduced as measured rather than made consistent.
+            $trimmedInDiv = ltrim($content, " \t");
+            if (
+                preg_match('/^#{1,6} .*\S/', $trimmedInDiv) === 1
+                || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                || $this->tableParser->isTableRow($trimmedInDiv)
+            ) {
+                $state['paragraphOpen'] = false;
+                $state['paragraphTextOpen'] = false;
+
+                return;
+            }
+
+            // An UNTERMINATED div's own trailing block decides: a line of body
+            // text in it IS an open paragraph, which is what folds the
+            // flush-left line into a real div rather than ending the quote. A
+            // BLANK line never reaches here - the branch above it returns first
+            // and leaves `inDiv` standing - so every line that does is body.
+            $state['paragraphOpen'] = true;
+            $state['paragraphTextOpen'] = true;
+
+            return;
+        }
+
+        $bareFence = preg_match('/^:{3,}[ \t]*$/', ltrim($content, " \t")) === 1;
+        $divOpener = $this->fencedBlockParser->parseDivFenceOpener($content);
+        if ($divOpener !== null) {
+            // ...unless the paragraph above already absorbed a MALFORMED fence
+            // and this is a BARE run, in which case §12 takes it as text too and
+            // the paragraph stays open (corpus 260). Not width-tagged: after a
+            // malformed `:::note` a following `::::` is absorbed as readily as a
+            // `:::`.
+            if ($wasAbsorbing && $bareFence) {
+                $state['absorbingFence'] = true;
+                $state['paragraphOpen'] = true;
+                $state['paragraphTextOpen'] = true;
+
+                return;
+            }
+            // A container a quoted line has just opened is EMPTY and holds no
+            // open paragraph, so a flush-left line after it closes the quote
+            // instead of folding in.
+            /** @var int $divFenceLength */
+            $divFenceLength = $divOpener['length'];
+            $state['inDiv'] = true;
+            $state['divFenceLength'] = $divFenceLength;
+            $state['divDepth'] = 1;
+            $state['paragraphOpen'] = false;
+            $state['paragraphTextOpen'] = false;
+
+            return;
+        }
+
+        // A fence-shaped line that is NOT a valid opener is ordinary paragraph
+        // text, and from here the paragraph absorbs the next fence-shaped line
+        // as well. `:::note` fails §12's opener test because a type word must be
+        // separated from the fence by a space.
+        if (preg_match('/^:{3,}/', ltrim($content, " \t")) === 1) {
+            $state['absorbingFence'] = true;
+            $state['paragraphOpen'] = true;
+            $state['paragraphTextOpen'] = true;
+
+            return;
         }
 
         // Any other non-blank line is paragraph-ish content (plain text, an open
@@ -3957,6 +4068,9 @@ class BlockParser
             || $isDefinitionTerm
             || $isDefinitionLine;
 
+        // An absorption already under way survives PROSE, because that is the
+        // same paragraph - but not a heading or a thematic break, which end it.
+        $state['absorbingFence'] = $wasAbsorbing && !$leavesNoParagraph;
         $state['paragraphOpen'] = !$leavesNoParagraph;
         // A list marker folds only into an open PLAIN paragraph, so the same
         // set clears this too. Mirrors the top-level rule: `text\n- item`
@@ -8282,8 +8396,60 @@ class BlockParser
                 if ($state['divDepth'] > 0) {
                     $state['divDepth']--;
                 }
+                // A CLOSED div holds no open paragraph either. S4 is about the
+                // OPEN STACK, and a closed container is not on it.
+                $state['openParagraph'] = false;
+
+                return $state;
             }
-            $state['openParagraph'] = false;
+
+            // AN UNTERMINATED DIV'S OWN TRAILING BLOCK DECIDES
+            // (markup-carve/carve#909, corpus 270 and 271). PART 1 S4 asks
+            // whether an open paragraph is on the stack, not which container
+            // kind is; a div the flush-left line can still reach has its own
+            // last block, and a line of body text in it IS an open paragraph.
+            // Forcing false here answered "no" for every line inside the div
+            // alike, so `- item` / `::: note` / `body` / `tail` ended the item
+            // where the corpus folds `tail` into the div's paragraph. The EMPTY
+            // case - a div whose opener is the last thing on the stack - is
+            // decided by the opener branch below, which sets false and is what
+            // keeps `::: note` / `tail` a sibling.
+            //
+            // A NESTED OPENER IS STILL AN OPENER, and leaves an EMPTY container
+            // on the stack rather than a paragraph - the same answer the outer
+            // opener gets one level up. A code fence opener leaves none either.
+            if ($this->fencedBlockParser->parseDivFenceOpener($line) !== null) {
+                $state['divDepth']++;
+                $state['openParagraph'] = false;
+
+                return $state;
+            }
+            if ($this->fencedBlockParser->parseCodeFenceOpener($line) !== null) {
+                $state['openParagraph'] = false;
+
+                return $state;
+            }
+
+            // A TABLE and a THEMATIC BREAK inside the div leave no open
+            // paragraph, exactly as they do outside one. A HEADING does NOT go
+            // with them here, and that is measured rather than tidy: the
+            // executable spec puts the flush-left line INSIDE the div after
+            // `- item` / `::: note` / `# h`, while it puts it at the top level
+            // for the same shape in a block quote. Both are reproduced as
+            // measured.
+            $trimmedInDiv = ltrim($line, " \t");
+            if (
+                preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                || $this->tableParser->isTableRow($trimmedInDiv)
+            ) {
+                $state['openParagraph'] = false;
+
+                return $state;
+            }
+
+            // Deliberately as narrow as the rest of this tracker: any other
+            // non-blank line inside the div counts as paragraph-bearing.
+            $state['openParagraph'] = !IndentationHelper::isBlankLine($line);
 
             return $state;
         }
