@@ -1214,9 +1214,20 @@ class MarkdownRenderer implements RendererInterface
         return $this->attributeSerializer ??= new HtmlRenderer();
     }
 
+    /**
+     * Encode a destination for the Markdown output, refusing a denied scheme.
+     *
+     * The order is the point. This writer NORMALIZES the destination before it
+     * emits it - it drops control characters, and its consumer decodes
+     * character references - so the probe has to run on the normalized form.
+     * The control-character half is already right here (`blankDangerousScheme()`
+     * strips `\p{Cc}` inside the probe, which is why carve-js and carve-rs let
+     * `java<DEL>script:` through and this engine did not); the character
+     * references were not (carve-php#1062).
+     */
     protected function encodeMarkdownDestination(string $url): string
     {
-        $url = $this->sanitizeUrl($url);
+        $url = $this->sanitizeUrl($this->stripControls($url));
         $url = strtr($url, [
             ' ' => '%20',
             '(' => '%28',
@@ -1225,7 +1236,45 @@ class MarkdownRenderer implements RendererInterface
             '>' => '%3E',
         ]);
 
-        return $this->stripControls($url);
+        return $this->neutralizeCharacterReferences($url);
+    }
+
+    /**
+     * Escape every ampersand that OPENS an HTML character reference.
+     *
+     * A CommonMark consumer decodes character references inside a link
+     * destination, so `&#106;avascript:alert1` reaches the browser as
+     * `javascript:alert1` - a scheme the probe never saw, because the probe
+     * reads the authored bytes. `&#x6A;` and `javascript&colon;alert1` are the
+     * same trick (the second hides the colon, so there is no scheme to find at
+     * all).
+     *
+     * Escaping the ampersand rather than percent-encoding it is what keeps this
+     * honest: percent-encoding `&` would corrupt every legitimate query string,
+     * while `&amp;` decodes back to `&` in the consumer, so the URL it resolves
+     * is byte-for-byte the one probed here. It also stops the consumer from
+     * silently rewriting an authored `&#106;` into `j`. An ampersand that opens
+     * nothing (`?a=1&b=2`) is left exactly as authored.
+     *
+     * The three forms a consumer decodes are `&#DIGITS;`, `&#xHEXDIGITS;` and
+     * `&NAME;`. An unknown NAME counts too - a consumer leaves it alone either
+     * way, so escaping it changes nothing a reader sees, and guessing which
+     * names are known would be a second denylist to keep in step with three
+     * engines.
+     *
+     * The digit bound is 8, one more than the 7 CommonMark allows, so every
+     * reference a conformant consumer decodes is covered. It is deliberately
+     * the same number carve-js and carve-rs use: the emitted bytes of this
+     * target are cross-engine pinned, and a wider bound in one engine would
+     * show up as a divergence on an input with a longer digit run.
+     */
+    protected function neutralizeCharacterReferences(string $url): string
+    {
+        return (string)preg_replace(
+            '/&(?=#[0-9]{1,8};|#[xX][0-9a-fA-F]{1,8};|[a-zA-Z][a-zA-Z0-9]{0,31};)/',
+            '&amp;',
+            $url,
+        );
     }
 
     /**
