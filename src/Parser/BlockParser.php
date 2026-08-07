@@ -4971,6 +4971,16 @@ class BlockParser
     {
         $attached = [];
         $attachedLineMap = [];
+        // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
+        // collector tracked no block state at all, so a `- x` line in the
+        // attached block's fenced body ended the block and severed the body -
+        // the same defect as in collectPlainListItemContinuation(), reached by
+        // a different door. It serves BOTH `+` paths, the first-block form
+        // (`- +`) and the mid-item form, so the two are one fix here.
+        //
+        // The state is local because the attached block starts fresh at column
+        // 0 below the marker: nothing the item collected above it is open.
+        $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -4984,12 +4994,15 @@ class BlockParser
             $trimmed = ltrim($line, " \t");
             if (
                 $lineIndent === $baseIndent
+                && !$trailingState['inFence']
                 && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
             ) {
                 break;
             }
-            $attached[] = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+            $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+            $attached[] = $content;
             $attachedLineMap[] = $this->sourceLineFor($i);
+            $trailingState = $this->advanceTrailingBlockState($trailingState, $content);
             $i++;
         }
 
@@ -5080,7 +5093,24 @@ class BlockParser
             // for every other block kind.
 
             if ($nextIndent >= $contentIndent) {
-                if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
+                // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT, not a marker.
+                // §24 S1 matches the item, so the innermost MATCHED container
+                // is the FENCED BODY and S2 makes the line code text. This
+                // test asked about the marker before it asked about the fence,
+                // so `- ``` ` / `  - x` / `  ``` ` ended the item at `  - x`
+                // and published a sublist beside an empty code block - while
+                // the plain-text sibling at the same column
+                // (`276-a-fence-opened-on-a-list-marker-line-body-below-the-
+                // content-column-3`) has always been code. A marker CHARACTER
+                // decided whether a verbatim body was verbatim.
+                //
+                // Only `inFence`. A `:::` div body is ordinary blocks, so a
+                // marker in one IS a list and must still end the item here;
+                // the fence is the only container whose body is code text.
+                if (
+                    !$trailingState['inFence']
+                    && $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                ) {
                     break;
                 }
                 $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);

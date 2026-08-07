@@ -33,6 +33,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A list marker at the content column inside an open fence is code text**
+  (carve-php#1007, corpus category 278 in markup-carve/carve#975, reference
+  implementation markup-carve/carve-js#877). §24 S1 matches the item, so the
+  innermost matched container is the FENCED BODY and S2 makes the line code
+  text. Two collectors asked about the marker before they asked about the
+  fence, so a fence opened on a list-marker line whose body held a marker line
+  published a sublist beside an EMPTY code block, while the plain-text sibling
+  at the same column had always been code. A marker character decided whether a
+  verbatim body was verbatim. Every marker shape is affected - bullet, ordered,
+  bare-dot, roman, alpha and task - and so is the block attached to a `+`
+  continuation marker, in both its first-block and its mid-item form. A marker
+  inside a `:::` div is still a list, because a div body is ordinary blocks
+  rather than code text.
+
 - **One whitespace definition, in every construct** (carve-php#1041, PART 7,
   ruled in markup-carve/carve#963 and written in markup-carve/carve#977). The
   whitespace characters Carve has are exactly four - U+0020, U+0009, U+000A and
