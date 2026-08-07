@@ -520,6 +520,28 @@ class BlockParser
      */
     protected ?array $currentLineMap = null;
 
+    /**
+     * Where THIS level's content begins on each source line, in bytes.
+     *
+     * PART 12 §4: a span begins at the construct's OPENING MARKUP (carve#913).
+     * A block inside a container is parsed from lines the container prefix has
+     * already been cut off, so `lineStartOffsets` - which records the start of
+     * the whole source line - places a heading inside a block quote at the `>`
+     * that opens the QUOTE, not at the `#` that opens the heading. The cut is
+     * the only thing that knows how wide the prefix was, so the width is
+     * recorded where the cut is still visible: the built line is a SUFFIX of
+     * the source line, and the difference in length is the column.
+     *
+     * Keyed by SOURCE line and scoped exactly like `currentLineMap`, because a
+     * deeper container cuts more and the outer level must not see it. A line
+     * whose built text is not a suffix of its source (an item stream re-joined
+     * into one line, a tab re-indented) records nothing and falls back to the
+     * line start, which is where every span began before this existed.
+     *
+     * @var array<int, int>
+     */
+    protected array $currentContentColumns = [];
+
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
@@ -2242,36 +2264,50 @@ class BlockParser
             // is only swapped in below the cap check. Publishing no position
             // read as compliant (§4 permits it on a REASSEMBLED node) while
             // this node is nothing of the kind (carve-php#945, carve#534).
+            // AND SO IS THE CONTENT COLUMN, for the same reason: the swap
+            // below the cap check never happens on this path, so without this
+            // the degraded paragraph is placed at the column of the level
+            // ABOVE it - two hundred quote markers deep, at the second-to-last
+            // `>` rather than at the text (PART 12 §4, carve#913).
             $group = [];
             $groupStart = null;
-            foreach ($lines as $offset => $line) {
-                $index = (int)$offset;
-                if (IndentationHelper::isBlankLine($line)) {
-                    $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, $index - 1);
-                    $group = [];
-                    $groupStart = null;
+            $previousContentColumns = $this->currentContentColumns;
+            $this->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
+            try {
+                foreach ($lines as $offset => $line) {
+                    $index = (int)$offset;
+                    if (IndentationHelper::isBlankLine($line)) {
+                        $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, $index - 1);
+                        $group = [];
+                        $groupStart = null;
 
-                    continue;
+                        continue;
+                    }
+                    if ($groupStart === null) {
+                        $groupStart = $index;
+                    }
+                    $group[] = $line;
                 }
-                if ($groupStart === null) {
-                    $groupStart = $index;
-                }
-                $group[] = $line;
+                $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, count($lines) - 1);
+            } finally {
+                $this->currentContentColumns = $previousContentColumns;
             }
-            $this->appendDegradedParagraph($parent, $group, $lineMap, $groupStart, count($lines) - 1);
 
             return;
         }
 
         $this->nestingDepth++;
         $previousLineMap = $this->currentLineMap;
+        $previousContentColumns = $this->currentContentColumns;
         $previousCommentFenceLastIndex = $this->commentFenceLastIndex;
         $this->currentLineMap = $lineMap;
+        $this->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
         $this->commentFenceLastIndex = null;
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
         } finally {
             $this->currentLineMap = $previousLineMap;
+            $this->currentContentColumns = $previousContentColumns;
             $this->commentFenceLastIndex = $previousCommentFenceLastIndex;
             $this->nestingDepth--;
         }
@@ -2627,6 +2663,68 @@ class BlockParser
     }
 
     /**
+     * The width of the container prefix cut from each of `$lines`.
+     *
+     * See `$currentContentColumns`. Only the SUFFIX relation is trusted: a
+     * built line that is not the tail of the source line it maps to says the
+     * text was rewritten rather than merely un-prefixed, and PART 12 §4 rates
+     * an absent adjustment above a guessed one.
+     *
+     * @param array<string> $lines
+     * @param array<int, int>|null $lineMap
+     *
+     * @return array<int, int>
+     */
+    private function contentColumnsFor(array $lines, ?array $lineMap): array
+    {
+        if (!$this->trackPositions) {
+            return [];
+        }
+
+        $columns = [];
+        foreach ($lines as $index => $text) {
+            $sourceLine = $lineMap[$index] ?? ($lineMap === null ? (int)$index : -1);
+            if ($sourceLine < 0) {
+                continue;
+            }
+            $source = $this->sourceLines[$sourceLine] ?? null;
+            if ($source === null) {
+                continue;
+            }
+            // THE TAIL IS TRIMMED ON BOTH SIDES, and the width is measured
+            // between the trimmed forms. A trailing run does not survive to
+            // the same place on both: a definition body arrives with it gone
+            // (`:  # h  ` as `# h`) and a quoted line arrives with it kept
+            // (`> # h ` as `# h `). Either mismatch alone makes the built text
+            // a non-suffix of its source line, and declining the column there
+            // is what put the heading back on the `:` and on the `>`. What is
+            // being measured is the PREFIX, so the tail is not evidence about
+            // it in either direction.
+            //
+            // THE SUFFIX TEST IS DEFENSIVE AND SAYS SO. Its one remaining
+            // input is an item stream RE-JOINED into a single line, and every
+            // block built from such a line is a paragraph, which is placed by
+            // `foldedLinesSpan` and never reads this map - so removing the
+            // test changes no published span in the corpus. It is kept because
+            // what it prevents is the MAP recording a width the line does not
+            // support, and that is a property of the map rather than of which
+            // span helper currently happens to win.
+            $trimmedSource = rtrim($source, " \t");
+            $trimmedText = rtrim($text, " \t");
+            // NO WIDTH TEST. A suffix is never longer than what it is a suffix
+            // of, so the difference cannot be negative here, and a zero width
+            // records a zero column - which is the same answer as recording
+            // nothing. A `$width > 0` guard alongside this survived being
+            // mutated away for exactly that reason.
+            if (str_ends_with($trimmedSource, $trimmedText)) {
+                $columns[$sourceLine] = strlen($trimmedSource) - strlen($trimmedText);
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
      * Stamp `data-source-line` on any children appended to $parent since
      * $childrenBefore, using the 1-based source line the block started on.
      * No-op unless source-line tracking is enabled (childrenBefore === -1).
@@ -2681,7 +2779,17 @@ class BlockParser
         }
 
         $endOffset = $end + strlen($this->sourceLines[$endLine] ?? '');
-        $node->setPos($this->positionIndex?->span($start, $endOffset, $startLine + 1, $endLine + 1, $start, $end));
+        // PART 12 §4: begin at the markup that opens THIS block, not at the
+        // container prefix that carried its line (carve#913).
+        $opening = $start + ($this->currentContentColumns[$startLine] ?? 0);
+        $node->setPos($this->positionIndex?->span(
+            min($opening, $endOffset),
+            $endOffset,
+            $startLine + 1,
+            $endLine + 1,
+            $start,
+            $end,
+        ));
     }
 
     private function stampNodeSourceLine(Node $node, int $sourceLine): void
@@ -4580,6 +4688,13 @@ class BlockParser
             // start directly with a table, code block, quote or div at column 0.
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                // PART 12 §4: the item begins at its MARKER (carve#913). This
+                // item's body is flush left, so leaving the span to be derived
+                // from the children started it at the attached block - `- +`
+                // followed by a table gave the item the table's offset, past
+                // its own marker line entirely. `deriveContainerSpans` unions
+                // this with the body, so the extent still reaches the end.
+                $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
                 if ($attached !== []) {
                     $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
                 }
@@ -6825,9 +6940,12 @@ class BlockParser
         }
 
         $lastLength = strlen($this->sourceLines[$last] ?? '');
+        // PART 12 §4, as in `stampBlockSpan`: an item nested in a container
+        // begins at its own marker, not at the container prefix (carve#913).
+        $opening = $start + ($this->currentContentColumns[$first] ?? 0);
 
         return $this->positionIndex?->span(
-            $start,
+            min($opening, $lastStart + $lastLength),
             $lastStart + $lastLength,
             $first + 1,
             $last + 1,
