@@ -18,8 +18,14 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkdownEscapesEmbeddedHtmlTest extends TestCase
 {
+    /**
+     * @var string
+     */
     protected const PAYLOAD = '<script>alert(1)</script>';
 
+    /**
+     * @var string
+     */
     protected const ESCAPED = '&lt;script&gt;alert(1)&lt;/script&gt;';
 
     protected function markdown(string $source): string
