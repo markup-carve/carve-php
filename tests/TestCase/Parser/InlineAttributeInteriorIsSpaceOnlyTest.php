@@ -230,6 +230,49 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
     }
 
     /**
+     * A REJECTED TRAILING BLOCK ON A REFERENCE DEFINITION DROPS THE
+     * ATTRIBUTES; the definition still resolves.
+     *
+     * Raised by `codex review` as a regression, on the reading that
+     * `reference_definition` is ANCHORED AT END OF LINE, so trailing source the
+     * production does not consume should make the line prose - `[r]: /u zzz` is
+     * a paragraph, and a rejected attribute block leaves trailing source in the
+     * same way.
+     *
+     * MEASURED AGAINST THE EXECUTABLE SPEC and dismissed. Over
+     * `scripts/spec/layout.mjs` plus `scripts/spec/html.mjs` at the pinned
+     * revision, `[r]: /u {.a<TAB>.b}` resolves WITHOUT the attributes, which is
+     * what this engine now does; only `zzz` makes the line prose. It is also
+     * not a change this clause made: an invalid payload of any other kind -
+     * `{.1}`, a digit-first name - already behaved this way here and in the
+     * oracle. Pinned so the dismissal is a fact rather than a memory, and so
+     * that if the anchoring rule is later read the other way, this file is
+     * where the two answers meet.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function definitionTrailerProvider(): array
+    {
+        return [
+            'a valid block applies' => ["[r]: /u {.a .b}\n\n[t][r]\n", "<p><a href=\"/u\" class=\"a b\">t</a></p>\n"],
+            'a tab-bearing block is dropped' => ["[r]: /u {.a\t.b}\n\n[t][r]\n", "<p><a href=\"/u\">t</a></p>\n"],
+            'an invalid NAME was already dropped' => ["[r]: /u {.1}\n\n[t][r]\n", "<p><a href=\"/u\">t</a></p>\n"],
+            'trailing prose is not a definition at all'
+                => ["[r]: /u zzz\n\n[t][r]\n", "<p>[r]: /u zzz</p>\n<p>[t][r]</p>\n"],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $expected
+     */
+    #[DataProvider('definitionTrailerProvider')]
+    public function testARejectedDefinitionTrailerMatchesTheExecutableSpec(string $source, string $expected): void
+    {
+        $this->assertSame($expected, $this->converter->convert($source));
+    }
+
+    /**
      * THE BLOCK-ATTRIBUTE LINE IS NOT NARROWED. Both forms the ruling names
      * stay valid, and each is the counterpart of an inline case above.
      *
