@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -74,5 +76,27 @@ class FrontmatterOpenerSpellsItsFormatTest extends TestCase
     public function testABareOpenerIsStillReadAsYamlFrontmatter(): void
     {
         $this->assertStringNotContainsString('<hr', (new CarveConverter())->convert("---\ntitle: T\n---\n\nbody\n"));
+    }
+
+    /**
+     * The format token is written on an OPENER LINE, so anything in it that is
+     * not a word character has to go: a newline there would end the opener and
+     * write the rest of the string into the document as structure.
+     *
+     * The parser cannot build such a node - `--- ya ml` is a paragraph, not
+     * frontmatter - so the only way in is a programmatic tree or an ingested
+     * one, which is exactly why nothing pinned it. Found by a mutation of
+     * `escapeFormat()` off this path that survived the whole suite.
+     */
+    public function testAHostileFormatStringCannotOpenALineOfItsOwn(): void
+    {
+        $document = (new CarveConverter())->parse("body\n");
+        $document->prependChild(new Frontmatter('title: T', "yaml\n---\n\n# INJECTED\n\n---"));
+
+        $written = (new CarveRenderer())->render($document);
+
+        $this->assertStringStartsWith('---', $written);
+        $this->assertStringNotContainsString('# INJECTED', $written);
+        $this->assertSame(0, substr_count(explode("\n", $written)[0], ' '));
     }
 }
