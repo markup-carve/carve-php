@@ -2763,13 +2763,29 @@ class BlockParser
 
         $attrContent = substr($line, 1); // Remove opening {
         // Which quote character, if any, the payload so far ends INSIDE. A
-        // line break inside a quoted value is part of the value, not a
-        // separator between attributes, so the per-line rule below does not
-        // apply to it.
+        // QUOTED VALUE STOPS AT THE NEWLINE (PART 4), so this is what refuses
+        // the block at the line boundary below.
         $openQuote = $this->attrPayloadOpenQuote($attrContent, null);
         $i = $start + 1;
 
         while ($i < $count) {
+            // A QUOTED VALUE STOPS AT THE NEWLINE. `quoted_value` excludes a
+            // newline in both of its alternatives (PART 4, A QUOTED VALUE STOPS
+            // AT THE NEWLINE), and `block_attributes` reads the same
+            // production - so a break inside the quotes is neither content nor
+            // a separator. It ends the production, and the whole block is
+            // unrecognized (markup-carve/carve#888, carve-php#986).
+            //
+            // Tested BEFORE the closing branch, not after: `{k="a` + `b"}` has
+            // its closing brace on the second line, so a check that ran after
+            // the close was matched would accept exactly the shape this
+            // refuses. Collapsing that newline to a space is what this engine
+            // used to do, and no production in either normative file describes
+            // it.
+            if ($openQuote !== null) {
+                return null;
+            }
+
             $nextLine = $lines[$i];
 
             // Check if this line ends the attribute block
@@ -2835,16 +2851,12 @@ class BlockParser
             // removed: with this bound in place nothing could reach it, and no
             // mutation of it could be made to fail.
             //
-            // EXCEPT INSIDE A QUOTED VALUE, where a line break is part of the
-            // value rather than a separator, so no line inside one has to look
-            // like an attribute. Without that exception this narrowed
-            // `{title="a` + `https://x` + `done"}` - which parsed before - to
-            // literal text, and that shape is not what this ticket changes.
-            // BOTH quote characters open a value: Carve takes single-quoted
-            // values too, and tracking only `"` regressed `{title='a` the same
-            // way.
+            // No exception for a quoted value: a line break can never be
+            // inside one, because the check at the top of this loop has already
+            // refused the block when the payload reached the boundary with a
+            // quote open.
             $fragment = ltrim($nextLine, " \t");
-            if ($openQuote === null && !$this->inlineParser->isValidAttrPayload($fragment)) {
+            if (!$this->inlineParser->isValidAttrPayload($fragment)) {
                 return null;
             }
 
@@ -2863,8 +2875,10 @@ class BlockParser
      * next character only while a quote is open - with one deliberate
      * difference: Carve accepts SINGLE-quoted values as well as double-quoted
      * ones (a documented enhancement over djot), so both open a value here and
-     * only the matching character closes it. Tracking `"` alone read
-     * `{title='a` as unquoted and measured the value's own lines as attributes.
+     * only the matching character closes it. Tracking `"` alone would let
+     * `{k='a` + `b'}` through the newline rule that `{k="a` + `b"}` is refused
+     * by, and the escape matters for the same reason: read `\\"` as an ordinary
+     * closing quote and `{k="a\\" b` looks balanced when it is not.
      */
     private function attrPayloadOpenQuote(string $chunk, ?string $openQuote): ?string
     {
