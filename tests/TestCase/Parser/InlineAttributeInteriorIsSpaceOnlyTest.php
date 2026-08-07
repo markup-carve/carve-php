@@ -230,24 +230,22 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
     }
 
     /**
-     * A REJECTED TRAILING BLOCK ON A REFERENCE DEFINITION DROPS THE
-     * ATTRIBUTES; the definition still resolves.
+     * A REJECTED TRAILING BLOCK ON A REFERENCE DEFINITION MAKES THE LINE PROSE.
      *
-     * Raised by `codex review` as a regression, on the reading that
-     * `reference_definition` is ANCHORED AT END OF LINE, so trailing source the
-     * production does not consume should make the line prose - `[r]: /u zzz` is
-     * a paragraph, and a rejected attribute block leaves trailing source in the
-     * same way.
+     * THE ANSWER HERE MOVED, and this docblock keeps both halves because the
+     * file was written to be where they meet. It first recorded a `codex
+     * review` finding - that `reference_definition` is ANCHORED AT END OF LINE,
+     * so a rejected attribute block leaves trailing source the way `[r]: /u zzz`
+     * does and should make the line prose - and DISMISSED it, on a measurement
+     * against the executable spec at the then-pinned revision, where
+     * `[r]: /u {.a<TAB>.b}` still resolved without its attributes.
      *
-     * MEASURED AGAINST THE EXECUTABLE SPEC and dismissed. Over
-     * `scripts/spec/layout.mjs` plus `scripts/spec/html.mjs` at the pinned
-     * revision, `[r]: /u {.a<TAB>.b}` resolves WITHOUT the attributes, which is
-     * what this engine now does; only `zzz` makes the line prose. It is also
-     * not a change this clause made: an invalid payload of any other kind -
-     * `{.1}`, a digit-first name - already behaved this way here and in the
-     * oracle. Pinned so the dismissal is a fact rather than a memory, and so
-     * that if the anchoring rule is later read the other way, this file is
-     * where the two answers meet.
+     * markup-carve/carve#933 has since ruled for the finding: `[space,
+     * attributes]` names the `attributes` production, a balanced `{...}` that
+     * production does not accept is not an instance of it, and the anchor
+     * disposes of the leftover like any other. So every rejected trailer below
+     * is a paragraph now. The reviewer was right and the measurement was of a
+     * reader, which is what PART 0 says a measurement is.
      *
      * @return array<string, array{string, string}>
      */
@@ -255,8 +253,9 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
     {
         return [
             'a valid block applies' => ["[r]: /u {.a .b}\n\n[t][r]\n", "<p><a href=\"/u\" class=\"a b\">t</a></p>\n"],
-            'a tab-bearing block is dropped' => ["[r]: /u {.a\t.b}\n\n[t][r]\n", "<p><a href=\"/u\">t</a></p>\n"],
-            'an invalid NAME was already dropped' => ["[r]: /u {.1}\n\n[t][r]\n", "<p><a href=\"/u\">t</a></p>\n"],
+            'a tab-bearing block is prose'
+                => ["[r]: /u {.a\t.b}\n\n[t][r]\n", "<p>[r]: /u {.a\t.b}</p>\n<p>[t][r]</p>\n"],
+            'an invalid NAME is prose' => ["[r]: /u {.1}\n\n[t][r]\n", "<p>[r]: /u {.1}</p>\n<p>[t][r]</p>\n"],
             'trailing prose is not a definition at all'
                 => ["[r]: /u zzz\n\n[t][r]\n", "<p>[r]: /u zzz</p>\n<p>[t][r]</p>\n"],
         ];
@@ -267,7 +266,7 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
      * @param string $expected
      */
     #[DataProvider('definitionTrailerProvider')]
-    public function testARejectedDefinitionTrailerMatchesTheExecutableSpec(string $source, string $expected): void
+    public function testARejectedDefinitionTrailerIsProse(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->converter->convert($source));
     }

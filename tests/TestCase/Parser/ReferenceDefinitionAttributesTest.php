@@ -106,30 +106,38 @@ class ReferenceDefinitionAttributesTest extends TestCase
         $this->assertStringNotContainsString('class="a a"', $html);
     }
 
-    public function testOneInvalidNameInvalidatesTheWholeBlock(): void
+    public function testOneInvalidNameUnmakesTheDefinition(): void
     {
         // §14's rule, the same one a block-attribute line and an inline block
-        // follow: a single bad name drops the whole block rather than keeping
-        // the half that parsed.
+        // follow: a single bad name rejects the whole block rather than keeping
+        // the half that parsed. markup-carve/carve#933 then says what a REJECTED
+        // block leaves behind - leftover content, which the end-of-line anchor
+        // turns into prose.
         $html = $this->converter->convert("[r]: /u {.123}\n\nsee [E][r]");
 
-        $this->assertStringContainsString('<a href="/u">E</a>', $html);
-        $this->assertStringNotContainsString('class=', $html);
+        $this->assertStringContainsString('<p>[r]: /u {.123}</p>', $html);
+        $this->assertStringNotContainsString('<a href="/u">', $html);
     }
 
-    public function testAnEscapedBraceInsideTheBlockDoesNotHalfParse(): void
+    public function testAnEscapedBraceInsideTheBlockUnmakesTheDefinition(): void
     {
+        // The block CLOSES at the final brace - the escaped one does not close
+        // it - and `.a\}b` is not an `attribute`, so the line is prose.
         $html = $this->converter->convert("[r]: /u {.a\\}b}\n\nsee [E][r]");
 
-        $this->assertStringContainsString('<a href="/u">E</a>', $html);
-        $this->assertStringNotContainsString('class="a"', $html);
+        $this->assertStringContainsString('<p>[r]: /u {.a}b}</p>', $html);
+        $this->assertStringNotContainsString('<a href="/u">', $html);
     }
 
-    public function testAnEmptyBlockAttributesNothing(): void
+    public function testAnEmptyBlockUnmakesTheDefinition(): void
     {
+        // `attribute_list = attribute, {space+, attribute}` needs one attribute.
+        // The blessed EMPTY block belongs to the inline span and to
+        // `item_attributes`, each with its own prose; this slot has none.
         $html = $this->converter->convert("[r]: /u {}\n\nsee [E][r]");
 
-        $this->assertStringContainsString('<a href="/u">E</a>', $html);
+        $this->assertStringContainsString('<p>[r]: /u {}</p>', $html);
+        $this->assertStringNotContainsString('<a href="/u">', $html);
     }
 
     public function testADefinitionWithoutAttributesIsUnchanged(): void
