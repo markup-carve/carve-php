@@ -2691,14 +2691,19 @@ class BlockParser
             if ($source === null) {
                 continue;
             }
-            // The TAIL IS TRIMMED on both sides of the comparison, because
-            // trailing whitespace on a content line is dropped before the line
-            // reaches here: `:  # h  ` arrives as `# h`, which is not a suffix
-            // of what it came from, and an untrimmed test declines the column
-            // and puts the heading back on the definition marker.
-            $trimmed = rtrim($source, " \t");
-            $width = strlen($trimmed) - strlen($text);
-            if ($width > 0 && str_ends_with($trimmed, $text)) {
+            // THE TAIL IS TRIMMED ON BOTH SIDES, and the width is measured
+            // between the trimmed forms. A trailing run does not survive to
+            // the same place on both: a definition body arrives with it gone
+            // (`:  # h  ` as `# h`) and a quoted line arrives with it kept
+            // (`> # h ` as `# h `). Either mismatch alone makes the built text
+            // a non-suffix of its source line, and declining the column there
+            // is what put the heading back on the `:` and on the `>`. What is
+            // being measured is the PREFIX, so the tail is not evidence about
+            // it in either direction.
+            $trimmedSource = rtrim($source, " \t");
+            $trimmedText = rtrim($text, " \t");
+            $width = strlen($trimmedSource) - strlen($trimmedText);
+            if ($width > 0 && str_ends_with($trimmedSource, $trimmedText)) {
                 $columns[$sourceLine] = $width;
             }
         }

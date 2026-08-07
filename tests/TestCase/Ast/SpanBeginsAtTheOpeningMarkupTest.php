@@ -81,6 +81,23 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
                 9,
                 '#',
             ],
+            // A TRAILING RUN IS NOT EVIDENCE ABOUT THE PREFIX, and it does not
+            // survive to the same place on both paths: a quoted line arrives
+            // with it KEPT where a definition body arrives with it GONE. Both
+            // spellings put the heading back on the container's own marker
+            // until the width was measured between the trimmed forms.
+            'heading in a quote with a trailing run' => [
+                "> # h\x20\n",
+                'children.0.children.0',
+                2,
+                '#',
+            ],
+            'heading in an item with a trailing run' => [
+                "- # h\x20\n",
+                'children.0.items.0.children.0',
+                2,
+                '#',
+            ],
             // CONTROLS. Nothing outside a container moves, and a list item
             // still opens at its own marker rather than at its content.
             'heading at top level' => ["# h\n", 'children.0', 0, '#'],
