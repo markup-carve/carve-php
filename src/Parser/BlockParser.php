@@ -5707,11 +5707,42 @@ class BlockParser
                     if (!$bodyState['openParagraph']) {
                         break;
                     }
-                    // Lazy continuation: a flush-left line with no blank before it
-                    // that does not start an interrupting block folds into the
+                    // Lazy continuation: a FLUSH-LEFT line with no blank before
+                    // it that does not start an interrupting block folds into the
                     // open paragraph (the same rule list items and block quotes
                     // use; djot-compatible). A block opener ends the definition.
-                    if (!IndentationHelper::isBlankLine($contLine) && !$this->startsInterruptingBlock($contLine, $lines, $i)) {
+                    //
+                    // FLUSH-LEFT IS PART OF THE PRODUCTION, not an accident of
+                    // how the indent is measured (markup-carve/carve#932).
+                    // `definition_indent` states the body's content column, and
+                    // BELOW that column the body ENDS and the line is classified
+                    // in the surviving context - the same thing "below the content
+                    // column" means for a list item and for a footnote body.
+                    // Column 0 is not a special case of that, it is the ordinary
+                    // case: the body ends there too, and `lazy_continuation_line`
+                    // then picks the line up because that production is written
+                    // for a flush-left line.
+                    //
+                    // One or two columns of indentation reach neither. Folding
+                    // such a line in as lazy text gave a SUB-COLUMN indent the
+                    // PAST-the-column band's meaning, which is the third meaning
+                    // the clause refuses: it would make indentation depth mean
+                    // two different things one column apart. So
+                    //
+                    //     :: t
+                    //     :  body
+                    //      > q
+                    //
+                    // ends the body, and `> q` is classified where it now sits -
+                    // at document level, where an indented `>` is a paragraph
+                    // under the strict column-0 opener rule. At column 0 the same
+                    // rule opens a quote, and at column 3 the quote opens INSIDE
+                    // the `dd`; both are pinned as controls beside this.
+                    if (
+                        $indent === 0
+                        && !IndentationHelper::isBlankLine($contLine)
+                        && !$this->startsInterruptingBlock($contLine, $lines, $i)
+                    ) {
                         $body[] = $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
