@@ -6,7 +6,10 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use JsonException;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\AstDecodeException;
+use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -388,17 +391,11 @@ class AstCodecTest extends TestCase
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [];
 
     /**
-     * Reading one back still works, because this engine wrote them.
-     *
-     * §5 governs what is PUBLISHED, and nothing produces `raw_text` since §3a.
-     * A payload that names the node was produced by an earlier version of this
-     * codec, and a stored document cannot be recalled - rejecting it, or
-     * silently turning it into something else, would make the fix a data-loss
-     * event for anyone who serialized before it.
+     * @return array<string, mixed>
      */
-    public function testAStoredPayloadNamingTheInternalNodeStillDecodes(): void
+    private static function storedRawTextPayload(): array
     {
-        $stored = [
+        return [
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
@@ -408,40 +405,74 @@ class AstCodecTest extends TestCase
                 ],
             ],
         ];
-
-        $decoded = $this->codec->decode($stored);
-
-        $paragraph = $decoded->getChildren()[0];
-        $this->assertSame('raw_text', $paragraph->getChildren()[0]->getType());
-        // And it writes back as the source it holds, which is the whole reason
-        // the node exists.
-        $this->assertSame("[a][]\n", (new CarveRenderer())->render($decoded));
     }
 
     /**
-     * Saving that document again must not put the internal type back on the
-     * wire. `raw_text` is not in the vocabulary, so re-encoding it verbatim
-     * would turn a stored document schema-invalid on the round trip that was
-     * supposed to preserve it - PART 12 §1 maps internals on the way out.
+     * A payload naming the formatter-internal node is REFUSED (carve-php#1002).
+     *
+     * §5 governs what is PUBLISHED, and nothing produces `raw_text` since §3a.
+     * The decoder used to read it back anyway, on the grounds that this engine
+     * had written such payloads and a stored document cannot be recalled - but
+     * the node is not in the vocabulary, neither sibling engine accepts it, and
+     * the shape's own test docblock already said re-encoding it verbatim "would
+     * turn a stored document schema-invalid". So it is refused like any other
+     * unlisted type, and the stored document is converted once instead.
      */
-    public function testAStoredPayloadNamingTheInternalNodeReencodesAsText(): void
+    public function testAStoredPayloadNamingTheInternalNodeIsRefused(): void
     {
-        $stored = [
-            'type' => 'document',
-            'srcByteLength' => 0,
-            'children' => [
-                [
-                    'type' => 'paragraph',
-                    'children' => [['type' => 'raw_text', 'content' => '[a][]']],
-                ],
-            ],
-        ];
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('a `raw_text` node');
 
-        $encoded = $this->codec->encode($this->codec->decode($stored));
-        $inlines = $encoded['children'][0]['children'];
+        $this->codec->decode(self::storedRawTextPayload());
+    }
 
+    /**
+     * And the upgrade produces the `text` node the ENCODER already mapped it
+     * to, which is what makes it lossless against the shape a stored document
+     * was going to end up in anyway: `raw_text` never survived being saved
+     * again, because publishing it verbatim would have made the payload
+     * schema-invalid.
+     */
+    public function testTheUpgradeHelperTurnsTheInternalNodeIntoText(): void
+    {
+        $upgraded = StoredPayloadUpgrade::upgrade(self::storedRawTextPayload());
+        $decoded = $this->codec->decode($upgraded);
+
+        $inlines = $this->codec->encode($decoded)['children'][0]['children'];
         $this->assertSame(['text'], array_column($inlines, 'type'));
         $this->assertSame('[a][]', $inlines[0]['value']);
+    }
+
+    /**
+     * THE ONE THING THE UPGRADE DOES NOT CARRY OVER, stated rather than left to
+     * be discovered: the node existed so the writer could reproduce declined
+     * markup verbatim, and a `text` node is escaped on the way out.
+     *
+     * It is not a loss this change introduces. The node was already off the
+     * wire, so the second save of such a document produced a `text` node and
+     * this same escaping - the upgrade only brings that forward by one hop.
+     */
+    public function testTheDeclinedMarkupIsWrittenEscapedAfterTheUpgrade(): void
+    {
+        $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::storedRawTextPayload()));
+
+        $this->assertSame("\\[a\\]\\[\\]\n", (new CarveRenderer())->render($decoded));
+    }
+
+    /**
+     * The node class is public, so an application can still build one - and the
+     * encoder must not put an internal type on the wire when it does.
+     */
+    public function testANodeBuiltByHandIsStillPublishedAsText(): void
+    {
+        $document = $this->converter->parse('x');
+        $paragraph = $document->getChildren()[0];
+        $paragraph->appendChild(new RawText('[a][]'));
+
+        $inlines = $this->codec->encode($document)['children'][0]['children'];
+
+        $this->assertSame(['text'], array_column($inlines, 'type'));
+        $this->assertSame('x[a][]', $inlines[0]['value']);
     }
 
     public function testAnUnresolvedReferencePublishesAsALink(): void
@@ -606,9 +637,12 @@ class AstCodecTest extends TestCase
         }
     }
 
-    public function testAnOldRootAbbreviationsMapStillDecodes(): void
+    /**
+     * @return array<string, mixed>
+     */
+    private static function oldRootAbbreviationsPayload(): array
     {
-        $decoded = $this->codec->decode([
+        return [
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
@@ -616,10 +650,54 @@ class AstCodecTest extends TestCase
             ],
             'abbreviations' => ['HTML' => 'HyperText'],
             'abbreviationsBeforeBody' => true,
-        ]);
+        ];
+    }
 
+    public function testAnOldRootAbbreviationsMapIsRefused(): void
+    {
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('a root `abbreviations` map');
+
+        $this->codec->decode(self::oldRootAbbreviationsPayload());
+    }
+
+    /**
+     * The expansions and the placement both survive the upgrade: the map
+     * becomes `abbreviation_def` nodes, and the flag becomes WHERE they sit -
+     * which is how the encoder reads it back.
+     */
+    public function testTheUpgradeHelperTurnsTheRootMapIntoDefinitionNodes(): void
+    {
+        $upgraded = StoredPayloadUpgrade::upgrade(self::oldRootAbbreviationsPayload());
+        $this->assertSame(
+            ['abbreviation_def', 'paragraph'],
+            array_column($upgraded['children'], 'type'),
+        );
+
+        $decoded = $this->codec->decode($upgraded);
         $this->assertSame(['HTML' => 'HyperText'], $decoded->getAbbreviations());
         $this->assertTrue($decoded->hasAbbreviationsBeforeBody());
+    }
+
+    /**
+     * CONTROL for the flag: a map recorded as sitting AFTER the body upgrades
+     * to definitions after the body, and the flag comes back false. Without it
+     * the assertion above would pass on a helper that always prepends.
+     */
+    public function testTheUpgradeHelperKeepsDefinitionsAfterTheBodyWhenTheFlagSaidSo(): void
+    {
+        $payload = self::oldRootAbbreviationsPayload();
+        $payload['abbreviationsBeforeBody'] = false;
+
+        $upgraded = StoredPayloadUpgrade::upgrade($payload);
+        $this->assertSame(
+            ['paragraph', 'abbreviation_def'],
+            array_column($upgraded['children'], 'type'),
+        );
+
+        $decoded = $this->codec->decode($upgraded);
+        $this->assertSame(['HTML' => 'HyperText'], $decoded->getAbbreviations());
+        $this->assertFalse($decoded->hasAbbreviationsBeforeBody());
     }
 
     public function testAnInlineExtensionUsesTheReferenceFieldNames(): void

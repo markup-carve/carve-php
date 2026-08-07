@@ -7,7 +7,6 @@ namespace MarkupCarve\Carve\Ast;
 use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
-use MarkupCarve\Carve\Extension\Frontmatter as FrontmatterBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
@@ -66,8 +65,10 @@ use SplFileInfo;
  * definitions out of `children` onto document-level fields. That matched the
  * old PART 12 §2 root form, but PART 12 §7 replaced it: the root now carries
  * exactly `type`, `children`, and `srcByteLength`, with frontmatter and
- * footnote definitions published as block nodes in the tree. The decoder still
- * adopts the old root fields so stored payloads remain readable.
+ * footnote definitions published as block nodes in the tree. The decoder used
+ * to adopt the old root fields as well; it does not any more (carve-php#1002).
+ * There is one wire shape, and a payload stored under the old one is converted
+ * once by {@see \MarkupCarve\Carve\Ast\StoredPayloadUpgrade}.
  *
  * Field names are derived by reflection over properties declared on the node
  * class itself (the base class bookkeeping - parent, children, attributes,
@@ -97,26 +98,45 @@ class AstCodec
     public const VERSION = 3;
 
     /**
-     * Node types this engine has and the wire does not (PART 12 §5).
+     * Node types this engine has and the wire does not, and what each PUBLISHES
+     * as instead (PART 12 §1 and §5).
      *
      * The class map is built by reflection, so a node class is publishable the
      * day it is added - which is what keeps the codec complete, and what makes
-     * an internal one leak by default. `raw_text` is the case §5 names: markup
-     * the parser declined, kept so the writer can reproduce it verbatim.
+     * an internal one leak by default. All three of these leaked: the published
+     * schema advertised them, and two of them REACHED THE WIRE, so this engine
+     * encoded types its own decoder refuses and a round trip through its own
+     * codec produced a payload it could not read back (carve-php#1002).
      *
-     * Encoding maps it to `text` (see `encodeNode`); this list keeps it out of
-     * the PUBLISHED schema as well, so a consumer validating against
-     * {@see self::schema()} is not told about a type the encoder cannot produce
-     * and the spec's own schema rejects.
+     * - `raw_text` is the case §5 names: markup the parser declined, kept so the
+     *   writer can reproduce it verbatim. Nothing has produced it since §3a.
+     * - `caption` is this engine's wrapper for a figure's or a table's caption.
+     *   In both of those positions the encoder already publishes the caption as
+     *   the reference does, a FIELD holding inline content, so the node itself
+     *   only ever survives the shape passes somewhere the reference has no
+     *   caption at all - and there it is a block of inline content, which is a
+     *   paragraph.
+     * - `section` is a rendering wrapper the parser never builds; the ProseMirror
+     *   bridge does. It holds blocks and says nothing else, so the published
+     *   container is what it maps to.
      *
-     * DECODING still accepts it. This engine emitted `raw_text` payloads until
-     * now, a stored document cannot be recalled, and reading one back as the
-     * node it names loses nothing - it is only the publishing side that §5
-     * governs.
+     * The mapping happens after the whole tree is encoded, not in `encodeNode`,
+     * because `figureShape` and `captionShape` still have to recognise a caption
+     * node while they are turning the legitimate ones into fields. `raw_text` is
+     * the exception and maps in `encodeNode`: its `content` has to resolve
+     * against `text` to be published as `value`.
      *
-     * @var array<string>
+     * DECODING accepts none of them. Each is refused as a type the vocabulary
+     * does not hold, and a payload naming one is upgraded by
+     * {@see \MarkupCarve\Carve\Ast\StoredPayloadUpgrade}.
+     *
+     * @var array<string, string>
      */
-    public const NOT_ON_THE_WIRE = ['raw_text'];
+    public const NOT_ON_THE_WIRE = [
+        'caption' => 'paragraph',
+        'raw_text' => 'text',
+        'section' => 'div',
+    ];
 
     /**
      * Fields the reference publishes even when they hold this engine's default.
@@ -271,10 +291,44 @@ class AstCodec
         // The spans come from the Document rather than the encoded array: they
         // are internal, so `ReferenceShape` keeps them off the wire and the
         // encoder never puts them there.
-        return self::publishAbbreviationDefs(
+        return self::mapInternalTypes(self::publishAbbreviationDefs(
             $this->encodeNode($document),
             $document->getAbbreviationSpans(),
-        );
+        ));
+    }
+
+    /**
+     * Publish the internal types under the names the vocabulary has (§1, §5).
+     *
+     * LAST, over the finished tree, because `figureShape` and `captionShape`
+     * still have to recognise a `caption` node while they turn the legitimate
+     * ones into the inline-content FIELD the reference publishes. By the time
+     * this runs, every caption in a position the reference names is a field, so
+     * a `caption` node reaching here is one the reference has no home for.
+     *
+     * `attrs` and `pos` hold named slots rather than nodes, and a `keyValues`
+     * entry can be spelled `type` - descending into them would rename an
+     * attribute.
+     *
+     * @param array<mixed> $encoded
+     *
+     * @return array<mixed>
+     */
+    private static function mapInternalTypes(array $encoded): array
+    {
+        $type = $encoded['type'] ?? null;
+        if (is_string($type) && isset(self::NOT_ON_THE_WIRE[$type])) {
+            $encoded['type'] = self::NOT_ON_THE_WIRE[$type];
+        }
+
+        foreach ($encoded as $key => $value) {
+            if ($key === 'attrs' || $key === 'pos' || !is_array($value)) {
+                continue;
+            }
+            $encoded[$key] = self::mapInternalTypes($value);
+        }
+
+        return $encoded;
     }
 
     /**
@@ -449,10 +503,9 @@ class AstCodec
 
         // PART 12 §12(a): a root missing any of §7's three fields is refused,
         // not defaulted. Checked HERE and not further down, because everything
-        // below rewrites `$data` - `adoptFrontmatter` CREATES `children` when a
-        // legacy root carried none, and `liftAbbreviationDefs` rewrites it - so
-        // a later check would be asking about a payload this method wrote rather
-        // than the one the caller handed over.
+        // below rewrites `$data` - `liftAbbreviationDefs` rewrites `children` -
+        // so a later check would be asking about a payload this method wrote
+        // rather than the one the caller handed over.
         //
         // AFTER the version envelope and only when the root already claims to be
         // a `document`. A version-1 payload and a ProseMirror `doc` are both
@@ -476,6 +529,19 @@ class AstCodec
                 }
             }
         }
+
+        // The five pre-PART 12 §7 spellings this codec used to normalize on the
+        // way in (carve-php#1002). They are refused now, and each one is a
+        // shape the schema would refuse anyway - a root field §7 does not name,
+        // a `footnote` missing `label`, a type the vocabulary does not hold. It
+        // is asked FIRST so the answer names the spelling and the one-shot
+        // migration rather than reporting the same payload as an anonymous
+        // schema violation a reader cannot act on.
+        //
+        // None of the sixteen rows §12(d) tabulates carries one of these, so
+        // this cannot answer in their place - PayloadIsValidatedAgainstTheSchema
+        // Test measures that rather than assuming it.
+        self::refuseRetiredShapes($data);
 
         // PART 12 §11, and on the payload as the CALLER wrote it: everything
         // below rewrites `$data`, and a check asking afterwards would be asking
@@ -519,44 +585,6 @@ class AstCodec
             $node->setAbbreviations($abbreviations);
             $node->setAbbreviationDefinitions($authoredAbbreviations);
             $node->setAbbreviationsBeforeBody($beforeBody);
-        }
-
-        // A root-level map is what this engine published before §7; stored
-        // payloads carry it, and it is not a second canonical spelling.
-        $storedAbbreviations = $data['abbreviations'] ?? null;
-        if ($abbreviations === [] && is_array($storedAbbreviations) && $storedAbbreviations !== []) {
-            $map = [];
-            foreach ($storedAbbreviations as $abbr => $expansion) {
-                $map[(string)$abbr] = is_scalar($expansion) ? (string)$expansion : '';
-            }
-            $node->setAbbreviations($map);
-            $node->setAbbreviationsBeforeBody(($data['abbreviationsBeforeBody'] ?? false) === true);
-        }
-        unset($data['abbreviations'], $data['abbreviationsBeforeBody']);
-
-        // Compatibility with trees written before PART 12 §7 replaced the old
-        // §2 root fields: stored payloads may still carry frontmatter and
-        // footnote definitions on the document root. Adopt them into the tree
-        // form; do not treat these as a second canonical spelling.
-        if ($this->adoptFrontmatter($data, $node)) {
-            $frontmatter = is_array($data['frontmatter'] ?? null) ? $data['frontmatter'] : [];
-            if (!is_array($data['children'] ?? null)) {
-                $data['children'] = [];
-            }
-            array_unshift($data['children'], [
-                'type' => 'frontmatter',
-                'format' => is_string($frontmatter['format'] ?? null) ? $frontmatter['format'] : 'yaml',
-                'content' => is_string($frontmatter['content'] ?? null) ? $frontmatter['content'] : '',
-            ]);
-            unset($data['frontmatter']);
-        }
-
-        if ($this->adoptFootnoteDefs($data, $node)) {
-            // Adopted, so it is not lost - the definitions are in the tree now.
-            // The loss check compares the payload against a RE-ENCODE, and this
-            // engine encodes definitions as nodes, so leaving the map in the
-            // comparison would report the very field that was just honored.
-            unset($data['footnoteDefs']);
         }
 
         $this->verifyNothingWasLost($data, $node);
@@ -741,79 +769,38 @@ class AstCodec
      */
 
     /**
-     * Rebuild the frontmatter block from the root field old stored payloads
-     * carried.
+     * PART 12 §7's shape, and only it: refuse the five pre-§7 spellings this
+     * codec used to normalize on the way in.
      *
-     * @param array<string, mixed> $data
-     * @param \MarkupCarve\Carve\Node\Document $document
+     * Each of them is refused by the schema too - §7 fixes the root at three
+     * fields, `label` is required on a `footnote`, and `raw_text` is not in the
+     * vocabulary - so this adds no NEW refusal. What it adds is the report: the
+     * spelling by name, and the one command that converts a stored payload.
+     * Told only that a payload "does not satisfy the AST schema", an application
+     * holding documents written by an older version of this package would have
+     * to work out for itself that the fix is a rewrite rather than a re-parse.
+     *
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
      */
-    private function adoptFrontmatter(array $data, Document $document): bool
+    private static function refuseRetiredShapes(array $payload): void
     {
-        $frontmatter = $data['frontmatter'] ?? null;
-        if (!is_array($frontmatter)) {
-            return false;
-        }
-        foreach ($document->getChildren() as $child) {
-            if ($child instanceof FrontmatterBlock) {
-                return false;
-            }
+        $found = StoredPayloadUpgrade::retiredShapesIn($payload);
+        if ($found === []) {
+            return;
         }
 
-        $content = $frontmatter['content'] ?? '';
-        $format = $frontmatter['format'] ?? 'yaml';
-        $document->prependChild(new FrontmatterBlock(
-            is_string($content) ? $content : '',
-            is_string($format) ? $format : 'yaml',
+        throw new AstDecodeException(sprintf(
+            'The payload was written before PART 12 §7 and carries %s. This engine used to '
+                . 'normalize %s on the way in; it no longer does, because §12(d) validates the '
+                . 'payload as written and neither sibling engine accepts the pre-§7 spelling. '
+                . 'Convert a stored payload once with %s::upgrade(), which needs the payload '
+                . 'only and not the source it was parsed from.',
+            implode(', ', $found),
+            count($found) === 1 ? 'it' : 'them',
+            StoredPayloadUpgrade::class,
         ));
-
-        return true;
-    }
-
-    /**
-     * Turn an old root-level `footnoteDefs` map into the block nodes this
-     * engine uses.
-     *
-     * Appended at the end, which is where they render from regardless of where
-     * they were written - a definition's position is not content.
-     *
-     * @param array<string, mixed> $data
-     * @param \MarkupCarve\Carve\Node\Document $document
-     *
-     * @return bool Whether the payload carried a map.
-     */
-    private function adoptFootnoteDefs(array $data, Document $document): bool
-    {
-        $defs = $data['footnoteDefs'] ?? null;
-        if (!is_array($defs)) {
-            return false;
-        }
-
-        $existing = [];
-        foreach ($document->getChildren() as $child) {
-            if ($child instanceof FootnoteBlock) {
-                $existing[$child->getLabel()] = true;
-            }
-        }
-
-        foreach ($defs as $label => $blocks) {
-            if (isset($existing[(string)$label]) || !is_array($blocks)) {
-                continue;
-            }
-
-            $footnote = new FootnoteBlock((string)$label);
-            foreach ($blocks as $block) {
-                if (!is_array($block)) {
-                    continue;
-                }
-
-                /** @var array<string, mixed> $decoded */
-                $decoded = $block;
-                $footnote->appendChild($this->decodeNode($decoded));
-            }
-            $document->appendChild($footnote);
-        }
-
-        return true;
     }
 
     /**
@@ -875,8 +862,11 @@ class AstCodec
      */
     private static function verifySchema(array $payload): void
     {
-        $exempt = array_merge(array_keys(self::$registered), self::NOT_ON_THE_WIRE);
-        $violation = AstSchema::firstViolation(self::withoutLegacyRootFields($payload), $exempt);
+        // REGISTERED APPLICATION TYPES ONLY. `NOT_ON_THE_WIRE` used to be exempt
+        // here as well, which is what let a `raw_text` payload through §12(d);
+        // the node is this engine's own and the wire has never had it, so an
+        // ingest refuses it like any other unlisted type (carve-php#1002).
+        $violation = AstSchema::firstViolation($payload, array_keys(self::$registered));
         if ($violation === null) {
             return;
         }
@@ -900,75 +890,6 @@ class AstCodec
     }
 
     /**
-     * The payload as §12(d) judges it: the pre-PART 12 §7 inlets this codec
-     * ALREADY declares it reads, put into the §7 shape first.
-     *
-     * NOT a leniency point, and not a set that grows. Each entry is a shape
-     * this package documents and tests as still decoding, written before §7
-     * moved frontmatter and the definition maps into `children` and renamed a
-     * footnote's `id` to `label`. Validating the payload as literally given
-     * would refuse all of them, which is a deprecation this clause does not
-     * ask for and did not name - so the copy handed to the schema is the one
-     * the codec is about to read, and every OTHER field is judged as written.
-     *
-     * Whether those inlets should be retired outright is its own question, and
-     * is raised on carve-php#979 rather than settled by a side effect here.
-     *
-     * @param array<mixed> $payload
-     *
-     * @return array<mixed>
-     */
-    private static function withoutLegacyRootFields(array $payload): array
-    {
-        // Adopted into the tree further down `decode()`, so the payload the
-        // decoder actually reads no longer carries them.
-        unset(
-            $payload['abbreviations'],
-            $payload['abbreviationsBeforeBody'],
-            $payload['frontmatter'],
-            $payload['footnoteDefs'],
-        );
-
-        $children = $payload['children'] ?? null;
-        if (is_array($children)) {
-            $payload['children'] = array_map(
-                static fn (mixed $child): mixed => is_array($child) ? self::withLabelledFootnotes($child) : $child,
-                $children,
-            );
-        }
-
-        return $payload;
-    }
-
-    /**
-     * PART 12 §7 renamed a footnote definition's `id` to `label`; a stored tree
-     * may still carry the old name, and `decodeNode()` still reads it.
-     *
-     * @param array<mixed> $node
-     *
-     * @return array<mixed>
-     */
-    private static function withLabelledFootnotes(array $node): array
-    {
-        if (($node['type'] ?? null) === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
-            $node['label'] = $node['id'];
-            unset($node['id']);
-        }
-
-        foreach ($node as $key => $value) {
-            if ($key === 'pos' || $key === 'attrs' || !is_array($value)) {
-                continue;
-            }
-            $node[$key] = array_map(
-                static fn (mixed $child): mixed => is_array($child) ? self::withLabelledFootnotes($child) : $child,
-                $value,
-            );
-        }
-
-        return $node;
-    }
-
-    /**
      * PART 12 §11: refuse a property the schema does not name, saying which one
      * and where.
      *
@@ -981,10 +902,8 @@ class AstCodec
      * (markup-carve/carve#881). Names are therefore checked BY NAME.
      *
      * Walks the payload the CALLER handed over, before `decode()` rewrites it -
-     * so the legacy `footnoteDefs` map, whose blocks are adopted into the tree
-     * and then dropped from the comparison, is covered by the same pass. There
-     * is one producer of this finding, because the row reachable through that
-     * door is the row the schema names.
+     * `liftAbbreviationDefs` rebuilds `children`, and a pass asking afterwards
+     * would be asking about a payload this class wrote.
      *
      * @param array<mixed> $payload
      *
@@ -1058,23 +977,12 @@ class AstCodec
                 // Envelope, and a field this engine cannot yet produce (§4).
                 continue;
             }
-            if ($type === 'footnote' && $key === 'id' && ($roundTripped['label'] ?? null) === $value) {
-                // Compatibility path for stored trees written before PART 12 §7:
-                // `id` was consumed as the definition label and is not a second
-                // published spelling.
-                continue;
-            }
-
-            if ($key !== 'children' && in_array($type, self::NOT_ON_THE_WIRE, true)) {
-                // A payload naming a node the wire does not have was written by
-                // an earlier version of this codec. It still DECODES - a stored
-                // document cannot be recalled - but re-encoding publishes it
-                // under its mapped type, so its own fields have no counterpart
-                // by design. That is §5's stated outcome, not a lost field, and
-                // reporting it would make the check cry wolf on the one case it
-                // is documented to allow. Children are still compared.
-                continue;
-            }
+            // NOTHING HERE EXCUSES A PRE-§7 SPELLING ANY MORE. Two branches
+            // used to: a `footnote` keyed `id`, whose re-encode carries `label`
+            // instead, and a node type the wire does not have, whose fields
+            // have no counterpart once the encoder maps it. Both payloads are
+            // refused up front now (carve-php#1002), so both branches had become
+            // conditions no input could satisfy.
 
             if (!array_key_exists($key, $roundTripped)) {
                 // The encoder omits a field holding the node's own default, so a
@@ -1225,7 +1133,7 @@ class AstCodec
     {
         $schema = [];
         foreach (self::classMap() as $type => $class) {
-            if (in_array($type, self::NOT_ON_THE_WIRE, true)) {
+            if (isset(self::NOT_ON_THE_WIRE[$type])) {
                 continue;
             }
             $reflection = new ReflectionClass($class);
@@ -1556,14 +1464,17 @@ class AstCodec
         }
         if ($node instanceof RawText) {
             // Nothing PRODUCES this node since §3a - an unresolved reference is
-            // a link now - but a tree decoded from a payload an older version of
-            // this codec wrote still holds one, and re-encoding it must not put
-            // an internal type back on the wire: `raw_text` is not in the
-            // vocabulary, so a stored document would become schema-invalid the
-            // moment it was saved again. PART 12 §5 excludes the node, §1
-            // licenses the mapping ("an implementation whose internals differ
-            // MAPS on the way out"), and `text` is what it maps to.
-            $type = 'text';
+            // a link now - but the class is public, so an application or an
+            // extension can still build one, and publishing it would put an
+            // internal type on the wire: `raw_text` is not in the vocabulary,
+            // so the document would be schema-invalid the moment it was saved.
+            // PART 12 §5 excludes the node, §1 licenses the mapping ("an
+            // implementation whose internals differ MAPS on the way out").
+            //
+            // HERE rather than in the pass over the finished tree, unlike the
+            // other two internal types: the field walk below resolves `content`
+            // against the type, and only `text` renames it to `value`.
+            $type = self::NOT_ON_THE_WIRE['raw_text'];
         }
         $encoded = ['type' => $type];
         $reflection = new ReflectionClass($node);
@@ -2314,16 +2225,6 @@ class AstCodec
 
         foreach (self::stateProperties($reflection) as $property) {
             $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
-            if (
-                $type === 'footnote'
-                && $property->getName() === 'label'
-                && !array_key_exists($name, $data)
-                && array_key_exists('id', $data)
-            ) {
-                // Compatibility path for stored trees written before PART 12 §7
-                // renamed footnote definitions from `id` to `label`.
-                $name = 'id';
-            }
             if (!array_key_exists($name, $data)) {
                 // Omission means "the default". The constructor was bypassed, so
                 // a typed property without a declared default would otherwise stay

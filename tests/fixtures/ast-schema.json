@@ -18,10 +18,6 @@
         "fields": [],
         "required": []
     },
-    "caption": {
-        "fields": [],
-        "required": []
-    },
     "caption_number": {
         "fields": [
             "n"
@@ -251,10 +247,6 @@
             "content",
             "format"
         ],
-        "required": []
-    },
-    "section": {
-        "fields": [],
         "required": []
     },
     "smart_punctuation": {

@@ -59,8 +59,8 @@ a field the reference does not have. The published schema is available at
 The document root carries exactly `type`, `children`, and `srcByteLength`.
 Document content stays in the tree: leading frontmatter is the first child when
 present, and footnote definitions are `footnote` block children of the document.
-Older payloads with root-level `frontmatter` or `footnoteDefs` are still accepted
-by the decoder for compatibility, but the encoder no longer publishes that form.
+Payloads stored under the older root form are no longer accepted - see
+[Upgrading a stored payload](#upgrading-a-stored-payload).
 
 Any node:
 
@@ -184,6 +184,7 @@ What that turns from accepted into refused:
 - `"attrs": {"class": "x"}` - the rendered HTML calls it `class`, the wire shape
   calls it `classes`, and the schema names only the second
 - a `type` outside the vocabulary
+- the five spellings that predate PART 12 §7 - see below
 
 If you produce Carve AST JSON, validate against `resources/ast-schema.json`
 before sending it. Every future addition to the schema is a potential rejection
@@ -195,6 +196,52 @@ below) and its subtree are outside the schema by construction, so the rule has
 nothing to say about them. And a `srcByteLength` that is present but WRONG stays
 accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
 about presence while (d) is about type and sign.
+
+## Upgrading a stored payload
+
+Five payload shapes this package used to read no longer decode. They predate
+PART 12 §7, neither carve-js nor carve-rs ever accepted them, and normalizing
+them on every ingest meant reasoning about every future schema addition twice,
+once for each shape.
+
+The five, and what each becomes:
+
+| Stored shape | PART 12 §7 shape |
+| --- | --- |
+| a root `abbreviations` map, with `abbreviationsBeforeBody` | `abbreviation_def` block nodes, before the body or after it as the flag said |
+| a root `frontmatter` object | a leading `frontmatter` block node |
+| a root `footnoteDefs` map | trailing `footnote` block nodes, one per label |
+| a `footnote` node keyed `id` | the same node keyed `label` |
+| a `raw_text` node | the `text` node the encoder already published it as |
+
+Convert each stored payload **once**, with the helper that ships alongside the
+removal. It works on the payload alone, so an application that no longer has the
+Carve source a payload was parsed from can still migrate:
+
+```php
+use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
+
+$payload = StoredPayloadUpgrade::upgrade(json_decode($stored, true));
+$document = (new AstCodec())->decode($payload);
+```
+
+or, staying in JSON:
+
+```php
+$stored = StoredPayloadUpgrade::upgradeJson($stored);
+```
+
+It is idempotent and leaves a payload already in the §7 shape untouched, so it
+is safe to run over a whole store, and safe to run again if a migration is
+interrupted. Decoding a payload that still carries one of the five reports which
+spelling it found and names this helper.
+
+One caveat, and only one. `raw_text` existed so the writer could reproduce
+markup the parser declined, verbatim; it becomes a `text` node, and a `text`
+node is escaped on the way back out. That is not a loss the upgrade introduces -
+the node was already off the wire, so the second save of such a document
+produced the same `text` node. The upgrade brings it forward by one hop.
 
 ## Application node types
 
@@ -256,13 +303,11 @@ does. An unregistered type fails loudly rather than silently dropping content.
   note to stderr saying the output is not conformant. Tracked in
   [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); position
   tracking is a parser change, not a codec one.
-- **One structural divergence remains.** Abbreviation definitions live in a
+- **Abbreviation definitions are nodes.** They used to live in an
   `abbreviations` field on the document here, where the reference emits
-  `abbreviation_def` nodes among the document's children - so their POSITION is
-  structural there and a field here. The definitions themselves are exported
-  either way, and a companion flag records whether they preceded the body, so
-  nothing is lost in a carve-php round trip; a consumer written against the
-  reference will not find them where it expects.
+  `abbreviation_def` nodes among the document's children. They are nodes here
+  too now, placed where they were written, so their position is structural in
+  both.
 - **A foreign tree is rejected, not decoded wrongly.** The decoder re-encodes what
   it built and compares against the input, so a field it did not understand is an
   error naming the field rather than silent loss. Every such refusal throws
