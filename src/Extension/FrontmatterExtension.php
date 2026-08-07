@@ -99,13 +99,20 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
      * followed by ordinary lines. The trailing `\s*$` is not a slot in the
      * grammar and stays as tolerant as it was (carve-php#951).
      *
+     * EXACTLY ONE, so ` ?` and not ` *`. PART 7's cardinality paragraph names
+     * this among the four slots spelled `space`, and holds the production right
+     * against the four artifacts that accepted a run (carve#912). With two
+     * spaces `frontmatter_format = (letter | digit)+` cannot match, so the line
+     * is not a typed opener; it is not a thematic break either, and the
+     * metadata lines fold into an ordinary paragraph.
+     *
      * The pattern was spelled out twice, once to register the matcher and once
      * to re-read the captured format. One rule gets one spelling, so a future
      * correction cannot land on one of them and miss the other.
      *
      * @var string
      */
-    protected const OPEN_PATTERN = '/^--- *(\w*)\s*$/';
+    protected const OPEN_PATTERN = '/^--- ?(\w*)\s*$/';
 
     protected ?Frontmatter $frontmatter = null;
 

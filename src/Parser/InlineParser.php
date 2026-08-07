@@ -2152,11 +2152,25 @@ class InlineParser
                 // decision D). This escape applies to inline-link titles
                 // only -- reference-definition titles deliberately do not
                 // honor it (see ref-def parsing / grammar known divergence).
+                // EXACTLY ONE SPACE, not a run. `link_title = space, ('"' …)`
+                // spells the slot `space`, and PART 7's cardinality paragraph
+                // holds the production right against the four artifacts that
+                // accepted a run (carve#912): a second space at this slot is
+                // not padding. The slot does not match, the quoted run is left
+                // unconsumed, the destination then carries a space and fails
+                // its own `unicode_url_char` test below - so `[t](/u  "T")` is
+                // not a link at all and every character survives as text.
+                //
+                // `([\s\S]*?)` is lazy and would otherwise absorb the extra
+                // space itself, which is why narrowing ` +` to ` ` is enough
+                // here only in company with the destination's whitespace
+                // check: the run has to end up INSIDE the destination for the
+                // link to fail.
                 $title = null;
                 if (
-                    preg_match('/^([\s\S]*?) +"((?:\\\\"|[^"])*)"$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?) +\'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?) +\(([^()]*)\)$/', $raw, $tm)
+                    preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)"$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
+                    || preg_match('/^([\s\S]*?) \(([^()]*)\)$/', $raw, $tm)
                 ) {
                     $raw = $tm[1];
                     // Unescape any backslash + ASCII-punctuation inside the

@@ -2131,11 +2131,21 @@ class CarveRenderer implements RendererInterface
 
                 continue;
             }
+            // THE RUN IS `whitespace`, A SPACE OR A TAB, AND NOTHING ELSE.
+            // `\S` under `/u` is the Unicode property, so `[^\S<NBSP>]` reached
+            // U+000B, U+000C, U+0085, U+1680, U+2000, U+2009, U+200A, U+202F,
+            // U+205F and U+2028 - every one of them CONTENT under carve#890,
+            // where `whitespace = ' ' | '\t'`. The writer DELETED them, so a
+            // paragraph whose lines carry an invisible character came back a
+            // character short and `to_html(fmt(x)) == to_html(x)` failed on it.
+            // Excluding NBSP by name was the tell: the class was wide enough to
+            // need an exception carved out of it, and NBSP was only the member
+            // anybody had noticed.
             $next = $lines[$i + 1] ?? null;
             if ($next !== null && preg_replace('/[\s\x{00A0}]+/u', '', $next) !== '') {
                 continue;
             }
-            $lines[$i] = (string)preg_replace('/[^\S' . "\u{00A0}" . ']+$/u', '', $line);
+            $lines[$i] = (string)preg_replace('/[ \t]+$/', '', $line);
         }
         $text = implode("\n", $lines);
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
@@ -2298,7 +2308,20 @@ class CarveRenderer implements RendererInterface
 
     protected function escapeText(string $text, bool $opensBlockLine = false): string
     {
-        $text = (string)preg_replace('/[\x00-\x08\x0B-\x1F\x7F-\x9F]/u', '', $text);
+        // ONLY WHAT WOULD CHANGE THE RE-PARSE. The class here was every C0
+        // control but tab and newline, plus DEL and the whole C1 block - a
+        // blanket sanitizer, and the writer was the only artifact applying it.
+        // The parser keeps those characters, the AST carries them, and the HTML
+        // renderer emits them (corpus 261), so `fmt` was the one place an
+        // author's byte disappeared: `to_html(fmt(x)) == to_html(x)` failed on
+        // any document holding a vertical tab, a form feed or a C1 character.
+        //
+        // `\r` is the exception and keeps being stripped, because it is not
+        // inert: `newline = '\n' | '\r\n' | '\r'`, so emitting one would end
+        // the line and re-parse the rest of the text node as a following block.
+        // A parse never produces one - line endings are normalized first - but
+        // PART 12 lets an ingested tree carry any string at all.
+        $text = str_replace("\r", '', $text);
         if (preg_match('/^\[\^[^\]\n]+\]$/u', $text) === 1) {
             return $text;
         }
