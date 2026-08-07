@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A dedented line folds into a quoted paragraph the parser actually built**
+  (carve-php#969). The lazy-continuation tracker decided "this line holds no
+  paragraph" with its own copy of the block-quote marker walk, and the copy was
+  looser than the rule the parser applies two functions away. Two shapes came
+  out of the disagreement, and in both the parser builds a paragraph while the
+  tracker reported none, so a following column-0 line failed to fold into a
+  paragraph that was right there: `><SP><SP>>` (two spaces between the markers, which
+  is ONE marker and the content `>`), and `> <VT>` - the copy trimmed on PHP's
+  default charlist, which holds a vertical tab and not a form feed, so two lines
+  of the same shape got opposite answers. A blank line holds spaces and tabs and
+  nothing else, so neither character is padding here. `>` and `> >` with any
+  amount of space or tab padding still hold no paragraph and still do not fold.
+
 - **A block-attribute block spans any number of lines** (carve-php#954). Both
   normative files admit one line break per attribute separator with no limit -
   `attr_separator = (whitespace | continuation), opt_ws` in

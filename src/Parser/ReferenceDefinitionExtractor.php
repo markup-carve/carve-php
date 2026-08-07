@@ -262,7 +262,14 @@ class ReferenceDefinitionExtractor
             // rather than a quote (tests/BlockquoteRefDefTest) - and then read
             // the marker (carve-php#788).
             $atColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
-            if ($atColumn !== null && ($atColumn[0] ?? '') === '>') {
+            // The dedent is taken only when a MARKER sits at that column, and
+            // whether one does is {@see ContainerPrefix}'s question, not a byte
+            // test's. This was the third open-coded marker test outside that
+            // class - markup-carve/carve-php#969 named two - and the loose rule
+            // is the right one here because the strip below is the loose one:
+            // the two must admit the same lines or a `>text` at an item's
+            // column would be dedented and then not stripped.
+            if ($atColumn !== null && ContainerPrefix::looseQuoteContent($atColumn) !== null) {
                 $bare = $atColumn;
             }
             $quoteContent = ContainerPrefix::looseQuoteContent($bare);
