@@ -454,7 +454,7 @@ class AnsiRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
-        $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
+        $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         $output = $this->renderChildren($document);
@@ -570,7 +570,14 @@ class AnsiRenderer implements RendererInterface
             return '</#' . $this->stripControls($target) . '>';
         }
 
-        return $this->style($this->stripControls($label), self::UNDERLINE . self::FG_BLUE);
+        // Same expansion budget the abbreviation arm spends, degrading to the
+        // authored target (carve-php#1061). See AbbreviationBudgetTrait.
+        $rendered = $this->stripControls($label);
+        if (!$this->chargeExpansion($rendered)) {
+            $rendered = $this->stripControls($target);
+        }
+
+        return $this->style($rendered, self::UNDERLINE . self::FG_BLUE);
     }
 
     protected function renderChildren(Node $node): string

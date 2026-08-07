@@ -258,7 +258,7 @@ class MarkdownRenderer implements RendererInterface
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
-        $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
+        $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
@@ -483,11 +483,18 @@ class MarkdownRenderer implements RendererInterface
         // matching `{#id}` anchor for it. A non-heading target (a numbered
         // figure/table caption) has no markdown anchor to point at, so its label
         // renders as plain text.
-        if (isset($this->headingIds[$id])) {
-            return '[' . $this->escapeText($label) . '](' . $this->markdownFragmentDestination($id) . ')';
+        // Same expansion budget the abbreviation arm spends, degrading to the
+        // authored target (carve-php#1061). See AbbreviationBudgetTrait.
+        $rendered = $this->escapeText($label);
+        if (!$this->chargeExpansion($rendered)) {
+            $rendered = $this->escapeText($target);
         }
 
-        return $this->escapeText($label);
+        if (isset($this->headingIds[$id])) {
+            return '[' . $rendered . '](' . $this->markdownFragmentDestination($id) . ')';
+        }
+
+        return $rendered;
     }
 
     /**

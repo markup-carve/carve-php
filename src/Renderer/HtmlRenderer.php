@@ -529,7 +529,7 @@ class HtmlRenderer implements RendererInterface
             $this->sharedRenderContext,
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
-                $this->resetAbbreviationBudget($document->getExpansionBudgetLength());
+                $this->resetExpansionBudgetForDocument($document);
 
                 $html = $this->renderDocumentWithSections($document);
 
@@ -1817,8 +1817,17 @@ class HtmlRenderer implements RendererInterface
             return $this->escape('</#' . $target . '>');
         }
 
-        return '<a href="#' . $this->escapeAttribute($id) . '">'
-            . $this->escape($label) . '</a>';
+        // Derived-text expansion (DoS guard): a crossref republishes the
+        // target's full display text while the reference costs only the slug,
+        // so K references to one long heading amplify output K x heading_len.
+        // Charge the SAME per-render budget an abbreviation charges and degrade
+        // the way that one does - to the text the author typed (carve-php#1061).
+        $rendered = $this->escape($label);
+        if (!$this->chargeExpansion($rendered)) {
+            $rendered = $this->escape($target);
+        }
+
+        return '<a href="#' . $this->escapeAttribute($id) . '">' . $rendered . '</a>';
     }
 
     protected function renderCaptionNumber(CaptionNumber $node): string
