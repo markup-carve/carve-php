@@ -7,6 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\Parser\ContainerPrefix;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
+use ReflectionMethod;
+use function array_map;
+use function in_array;
+use function preg_match;
+use function preg_replace;
+use function sort;
 
 /**
  * The container prefix rule used to be spelled once per caller, so this pins
@@ -81,16 +88,6 @@ class ContainerPrefixTest extends TestCase
         );
     }
 
-    #[DataProvider('lineProvider')]
-    public function testTheLooseRuleMatchesTheRegexItReplaced(string $line): void
-    {
-        $expected = ($line[0] ?? '') === '>'
-            ? preg_replace('/^> ?/', '', $line)
-            : null;
-
-        $this->assertSame($expected, ContainerPrefix::looseQuoteContent($line));
-    }
-
     /**
      * The `preg_match('/^> ?/', $line)` re-test the four prepass gates ran
      * after their own `$line[0] === '>'` byte test could not fail: the pattern
@@ -110,21 +107,53 @@ class ContainerPrefixTest extends TestCase
     }
 
     /**
-     * The two rules are kept apart on purpose. `>text` is the ONLY shape they
-     * answer differently, and the split is pre-existing - the strict rule is
-     * the language's, the loose one is what the line-based prepasses have
-     * always applied when deciding which region a line is in.
+     * The retired LOOSE spelling - `preg_replace('/^> ?/', ...)` behind a
+     * `$line[0] === '>'` test - admitted these shapes as block-quote markers
+     * while the block parser, reading the strict rule, refused them. Refusing
+     * them everywhere is the whole of the behavior change: a prepass can no
+     * longer harvest a definition out of a line the block parser prints as
+     * prose (markup-carve/carve-php#961).
+     *
+     * Pinned as a list rather than as a count, so re-widening the prepass rule
+     * has to edit this on purpose.
      */
-    public function testTheTwoRulesDisagreeOnlyOnAMarkerWithNoSpace(): void
+    #[DataProvider('lineProvider')]
+    public function testEveryShapeTheRetiredLooseRuleAdmittedIsNowRefused(string $line): void
     {
-        $disagreements = [];
-        foreach (self::lineProvider() as [$line]) {
-            if (ContainerPrefix::quoteContent($line) !== ContainerPrefix::looseQuoteContent($line)) {
-                $disagreements[] = $line;
-            }
+        $looselyAdmitted = ['>a', ">\t", ">\ta", '>>', '>> a', '>> ', '>```'];
+
+        $looseContent = ($line[0] ?? '') === '>'
+            ? preg_replace('/^> ?/', '', $line)
+            : null;
+
+        if (!in_array($line, $looselyAdmitted, true)) {
+            // A CONTROL: the two spellings always agreed here, and still do.
+            $this->assertSame($looseContent, ContainerPrefix::quoteContent($line));
+
+            return;
         }
 
-        $this->assertSame(['>a', ">\t", ">\ta", '>>', '>> a', '>> ', '>```'], $disagreements);
+        $this->assertNotNull($looseContent);
+        $this->assertNull(ContainerPrefix::quoteContent($line));
+    }
+
+    /**
+     * There is exactly ONE marker rule to ask. A second public spelling on this
+     * class is what let the prepasses and the block parser answer differently
+     * in the first place, so its absence is asserted rather than assumed.
+     */
+    public function testTheClassSpellsTheMarkerRuleOnce(): void
+    {
+        $methods = array_map(
+            static fn (ReflectionMethod $m): string => $m->getName(),
+            (new ReflectionClass(ContainerPrefix::class))->getMethods(ReflectionMethod::IS_PUBLIC),
+        );
+        sort($methods);
+
+        $this->assertSame(
+            ['atContentColumn', 'quoteContent', 'quoteStages', 'stripQuoteMarkers'],
+            $methods,
+        );
     }
 
     public function testTheContentColumnViewIsMeasuredInBytes(): void

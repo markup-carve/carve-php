@@ -27,6 +27,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block-quote marker with no space after it defines nothing** (carve-php#961).
+  The definition prepasses and the prepass fence tracker read a LOOSER
+  block-quote marker rule than the block parser: theirs made the space after `>`
+  optional, the block parser's requires it, and `blockquote_line = '>',
+  (newline | (space, inline_content, newline))` in the grammar says the block
+  parser was right. So the two disagreed about which lines are quoted, and a
+  definition harvested by one and refused by the other went both ways at once.
+  `>[r]: /u` printed as a paragraph AND resolved `[link][r]` off it; `>> [r]: /u`
+  did the same. The mirror also happened: the tracker counted `> >``` ` as a
+  fence two quotes deep, so `> > [r]: /u` under it was skipped as fenced content
+  while the block parser emptied the line as a real quoted definition, and the
+  document showed neither the definition nor the link. There is now one rule.
+  A nested quote is written `> > `, and a fence inside one `> > ``` `. No
+  document in the 810-file spec corpus renders differently.
+
 - **A collapsed heading reference keeps its spelling through the ProseMirror
   bridge** (carve-php#1006). The `link` mark carried the destination and nothing
   about the reference, so `[*bold* heading][]` came back as

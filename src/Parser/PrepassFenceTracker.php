@@ -96,7 +96,7 @@ class PrepassFenceTracker
     {
         $rest = $line;
         for ($depth = 0; $depth < $this->quoteDepth; $depth++) {
-            $content = ContainerPrefix::looseQuoteContent($rest);
+            $content = ContainerPrefix::quoteContent($rest);
             if ($content === null) {
                 return null;
             }
@@ -148,7 +148,7 @@ class PrepassFenceTracker
         $quoteDepth = 0;
         do {
             $previousFenceLine = $fenceLine;
-            $quoteContent = ContainerPrefix::looseQuoteContent($fenceLine);
+            $quoteContent = ContainerPrefix::quoteContent($fenceLine);
             if ($quoteContent !== null) {
                 $fenceLine = $quoteContent;
                 $quoteDepth++;
