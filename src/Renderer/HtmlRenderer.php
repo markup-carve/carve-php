@@ -2280,8 +2280,7 @@ class HtmlRenderer implements RendererInterface
         // ENT_QUOTES: Escape both single and double quotes for attribute values
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // Convert escaped space placeholder (U+E000) and literal NBSP to &nbsp;.
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+        return str_replace("\u{E000}", '&nbsp;', $escaped);
     }
 
     /**

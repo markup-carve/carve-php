@@ -94,9 +94,43 @@ class BlockParser
     private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) /';
 
     /**
+     * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
+     *
+     * THE SEPARATOR IS A RUN OF ASCII SPACES, and the first character that is
+     * not one ENDS the separator and BEGINS the content
+     * (markup-carve/carve#892). Both halves are in the pattern:
+     *
+     * - `]: +` - a literal SPACE first, so `*[HTML]:<TAB>x` is still a
+     *   paragraph. Widening the run is not widening the terminal.
+     * - `([^ ]…)` - the run is MAXIMAL, so a no-break space or a tab after it is
+     *   the expansion's first character rather than more separator. The
+     *   expansion used to be `trim()`ed, which ate both.
+     * - `(?![ \t]*$)` - MARKER REQUIRES CONTENT still applies AFTER the run. A
+     *   line of `whitespace` is blank (PART 1), so `*[HTML]:` followed by spaces
+     *   and nothing else is a paragraph. Implemented as "eat spaces then take
+     *   the rest", a spaces-only line defines an empty abbreviation.
+     *
      * @var string
      */
-    private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: (.+)$/';
+    private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/';
+
+    /**
+     * `footnote_definition = "[^", label, "]:", space+, inline_content, …`.
+     *
+     * The same three halves as {@see self::ABBREVIATION_DEFINITION_PATTERN},
+     * against the other marker. It was spelled `\]: +\S` in four places, and
+     * `\S` is a whitespace test rather than a space test: it refused a TAB after
+     * the run, which is content.
+     *
+     * The two markers answer differently one step downstream, and the reason is
+     * not in the separator: an `abbreviation_expansion` is a raw string, so a
+     * leading tab survives into the `title`, while a footnote's `inline_content`
+     * is parsed as blocks and a leading tab is that body's own indentation run
+     * (PART 9 §24 C1), so it does not appear in the body.
+     *
+     * @var string
+     */
+    private const FOOTNOTE_DEFINITION_PATTERN = '/^\[\^([^\]]+)\]: +(?![ \t]*$)([^ ].*)$/';
 
     /**
      * Maximum block-container nesting depth. Every level of blockquote / div /
@@ -1257,7 +1291,7 @@ class BlockParser
             // `"]:", space, inline_content`); a bare `[^label]:` is an
             // ordinary paragraph line, and a following indented line folds
             // into it as paragraph text.
-            if (($bare[0] ?? '') === '[' && preg_match('/^\[\^([^\]]+)\]: +(.*)$/', $bare, $matches)) {
+            if (($bare[0] ?? '') === '[' && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $bare, $matches)) {
                 $label = $matches[1];
                 $content = $matches[2];
                 if (trim($content) === '') {
@@ -1674,7 +1708,7 @@ class BlockParser
             ) {
                 $firstAbbreviationLine ??= $i;
                 $abbr = $matches[1];
-                $definition = trim($matches[2]);
+                $definition = rtrim($matches[2], " \t");
 
                 // Collect continuation lines (indented)
                 $j = $i + 1;
@@ -6225,7 +6259,7 @@ class BlockParser
         // pre-pass collector exactly (literal space separator, PART 9 §16):
         // a bare `[^label]:` - or a tab-separated body the collector does not
         // accept - is never skipped here; it parses as a paragraph.
-        if (!preg_match('/^\[\^([^\]]+)\]: +\S/', $line)) {
+        if (!preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line)) {
             return null;
         }
 
@@ -6377,7 +6411,7 @@ class BlockParser
         // expansions are collected separately by extractAbbreviations(); this
         // carries the AUTHORED line (markup-carve/carve-php#708).
         if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
-            $node = new AbbreviationDefinition($m[1], trim($m[2]));
+            $node = new AbbreviationDefinition($m[1], rtrim($m[2], " \t"));
             $parent->appendChild($node);
         }
 
@@ -7307,7 +7341,7 @@ class BlockParser
     protected function isDefinitionLineForEnclosingItem(string $line): bool
     {
         return $this->isReferenceDefinitionLine($line)
-            || preg_match('/^\\[\\^[^\\]]+\\]: +\\S/', $line) === 1;
+            || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
     }
 
     /**
@@ -7380,7 +7414,7 @@ class BlockParser
         // `[a]: /u {.c}` would stop interrupting a paragraph. So the copy is
         // gone and the collector answers.
         return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
-            || preg_match('/^\[\^[^\]]+\]: [ \t]*\S/', $line) === 1;
+            || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
     }
 
     protected function paragraphHasUnclaimedColonFenceLine(string $content): bool
