@@ -616,6 +616,37 @@ class ProseMirrorRenderer
             if ($node->isAutolink()) {
                 $attrs['carveAutolink'] = true;
             }
+            // The reference SPELLING, for the one reference class the editor
+            // model can resolve on its own.
+            //
+            // `href` alone is what a link renders by, not what it was written
+            // as, so a collapsed `[text][]` came back as `[text](#some-id)` -
+            // a generated id baked into the source on every pass through the
+            // bridge, which is exactly what `fromHeadingReference` exists to
+            // prevent in the canonical writer (carve-php#1006).
+            //
+            // Only the HEADING class is carried, and that is the deciding
+            // asymmetry rather than a shortcut: a heading reference resolves
+            // against a `heading` node the bridge DOES carry, so writing the
+            // reference back reproduces the same link. A `[text][label]`
+            // reference resolves against a `link_reference_definition`, which
+            // the schema map declares unmapped, so the definition is gone by
+            // the time the writer runs - and `[text][label]` with no definition
+            // is not a link at all, it is the literal text `[text][label]`.
+            // Carrying the spelling there would turn a working link into
+            // prose; that loss is declared in noteUnrepresentableState()
+            // instead.
+            if ($node->isFromHeadingReference()) {
+                $attrs['carveHeadingRef'] = true;
+                $referenceLabel = $node->getReferenceLabel();
+                if ($referenceLabel !== null) {
+                    $attrs['carveRef'] = $referenceLabel;
+                }
+                $rawReferenceLabel = $node->getRawReferenceLabel();
+                if ($rawReferenceLabel !== null) {
+                    $attrs['carveRawRef'] = $rawReferenceLabel;
+                }
+            }
         } elseif ($node instanceof Math) {
             $attrs['src'] = $node->getContent();
             $attrs['display'] = $node->isDisplay();
@@ -696,6 +727,22 @@ class ProseMirrorRenderer
                 // attribute had gone (carve-php#519).
                 $this->degraded['link'] = 'an authored href attribute is not carried, because promoting it '
                     . 'would change the link destination; it is dropped rather than round-tripped';
+            }
+            if (!$node->isFromHeadingReference() && $node->getReferenceLabel() !== null) {
+                // A `[text][label]` reference, whose spelling the bridge cannot
+                // carry. Its `link_reference_definition` is unmapped, so the
+                // definition is gone, and `[text][label]` without one is the
+                // literal text rather than a link - writing the reference back
+                // would lose the link itself. The destination is kept and the
+                // inline form written instead, which renders identically.
+                //
+                // A document reaching the bridge from source always drops the
+                // definition too, so it is already outside the covered set; one
+                // decoded from AST JSON need not carry a definition at all, and
+                // there this is the only record that a reference was flattened
+                // (carve-php#1006).
+                $this->degraded['link'] = 'a reference link resolved through a `[label]: url` definition is '
+                    . 'written as its inline form, because the definition it points at is not carried';
             }
         }
 

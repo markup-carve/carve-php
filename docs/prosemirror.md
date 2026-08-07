@@ -90,9 +90,10 @@ Current state, and both numbers are ratchets:
 
 | | count |
 |---|---|
-| corpus documents | 501 |
-| fully covered, byte-identical HTML | 336 |
-| fully covered but differing (each one a bug worth fixing) | 29 |
+| corpus documents | 810 |
+| fully covered, byte-identical HTML | 493 |
+| surviving the round trip, covered or not | 631 |
+| fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
 
 ## Application node types
@@ -124,6 +125,27 @@ to know the name, so a genuinely new editor node belongs in carve-grammars first
   so it travels as a leading `carveCaption` node.
 - **Lists.** Looseness is content, not styling: without carrying `tight`, a loose
   list comes back tight and its items lose their paragraphs.
+- **Reference links.** A link mark carries `href`, which is what a link renders
+  by rather than what it was written as. For a collapsed reference that reaches
+  a heading the mark also carries `carveHeadingRef`, `carveRef` and
+  `carveRawRef`, so this:
+
+  ```
+  # *bold* heading
+
+  [*bold* heading][]
+  ```
+
+  comes back spelled as it was written instead of as
+  `[*bold* heading](#bold-heading)`, which would bake a generated id into the
+  source on every pass. The spelling is re-derived on the way back, not trusted:
+  a reference resolves by the heading's rendered text, so an editor that retypes
+  the visible text gets its edit kept and the link falls back to the inline
+  form. A `[text][label]` reference is **not** carried, because it resolves
+  against a `[label]: url` definition the editor model does not hold - written
+  back without one it would be literal text, not a link - so it is written
+  inline and reported in `degradedTypes()`.
+
 - **Mention labels.** Tiptap's mention extension stores a display name, and a
   mention name is ASCII with interior dots and nothing else - so a label an
   editor produced (`Mark Scherer`, `o'brien`) is written as the link form,

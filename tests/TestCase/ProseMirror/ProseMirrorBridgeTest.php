@@ -987,7 +987,170 @@ class ProseMirrorBridgeTest extends TestCase
             'parenthesis delimiter' => ["1) one\n"],
             'asterisk bullet' => ["* a\n"],
             'bare dot ordered list' => [". first\n. second\n"],
+            // A collapsed reference that reaches a heading. `href` alone is
+            // what it renders by, not what it was written as, so carrying only
+            // that baked the generated id into the source (carve-php#1006).
+            // Corpus 275 rows 1 and 2 are these two spellings; a label holding
+            // markup is the whole difficulty, since the check that keeps the
+            // reference has to read the label the way the resolver does.
+            'collapsed heading reference' => ["# plain heading\n\n[plain heading][]\n"],
+            'collapsed heading reference with a bold label' => ["# *bold* heading\n\n[*bold* heading][]\n"],
+            'collapsed heading reference with a code label' => ["# `code()` heading\n\n[`code()` heading][]\n"],
         ];
+    }
+
+    /**
+     * The reference SPELLING reaches the editor model.
+     *
+     * The round-trip cases above pass whenever the writer produces the right
+     * source, which it could in principle do from state restored by luck. This
+     * reads the payload itself, so it fails if the attributes stop being
+     * emitted even while something downstream compensates.
+     */
+    public function testACollapsedHeadingReferenceCarriesItsSpellingOnTheMark(): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse("# *bold* heading\n\n[*bold* heading][]\n"));
+        $mark = $pm['content'][1]['content'][0]['marks'][0];
+
+        $this->assertSame('link', $mark['type']);
+        $this->assertSame('#bold-heading', $mark['attrs']['href']);
+        $this->assertTrue($mark['attrs']['carveHeadingRef']);
+        $this->assertSame('bold heading', $mark['attrs']['carveRef']);
+        $this->assertSame('[*bold* heading][]', $mark['attrs']['carveRawRef']);
+    }
+
+    /**
+     * CONTROL. An inline link is not a reference and must carry none of it, or
+     * the writer would respell `[text](/u)` as a reference to a label that does
+     * not exist.
+     *
+     * @param string $source
+     */
+    #[DataProvider('nonReferenceLinkProvider')]
+    public function testALinkThatIsNotAHeadingReferenceCarriesNoSpelling(string $source): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+        $attrs = $pm['content'][0]['content'][0]['marks'][0]['attrs'];
+
+        $this->assertArrayNotHasKey('carveHeadingRef', $attrs);
+        $this->assertArrayNotHasKey('carveRef', $attrs);
+        $this->assertArrayNotHasKey('carveRawRef', $attrs);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function nonReferenceLinkProvider(): array
+    {
+        return [
+            'inline link' => ["[text](https://example.com)\n"],
+            'autolink' => ["<https://example.com>\n"],
+        ];
+    }
+
+    /**
+     * The same lesson as testAnEditedAutolinkKeepsItsDestination, one attribute
+     * over.
+     *
+     * A collapsed reference resolves by the heading's RENDERED TEXT, so an
+     * editor that retypes the visible text has changed which heading it would
+     * find. Restoring the authored `[old text][]` there would both point at a
+     * heading the document no longer names and discard the edit without a word.
+     * The spelling is a hint to be re-derived; when it no longer holds, the
+     * link falls back to its inline form, which always renders correctly.
+     */
+    public function testAnEditedHeadingReferenceKeepsTheEdit(): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse("# plain heading\n\n[plain heading][]\n"));
+        $pm['content'][1]['content'][0]['text'] = 'changed text';
+
+        $this->assertSame(
+            "# plain heading\n\n[changed text](#plain-heading)\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
+    }
+
+    /**
+     * The other half of the same edit, and it needs its own check because the
+     * text one passes without it.
+     *
+     * The writer emits the REFERENCE, not the href, so a spelling kept after
+     * the destination was repointed does not merely respell the link - it
+     * republishes the old destination and the edit is gone. Editors update a
+     * mark's attrs while leaving the rest in place, so this arrives with
+     * `carveRawRef` intact and only `href` changed.
+     *
+     * @param string $href
+     * @param string $expected
+     */
+    #[DataProvider('retargetedHeadingReferenceProvider')]
+    public function testARetargetedHeadingReferenceKeepsItsNewDestination(string $href, string $expected): void
+    {
+        $pm = $this->renderer->render((new CarveConverter())->parse("# plain heading\n\n[plain heading][]\n"));
+        $pm['content'][1]['content'][0]['marks'][0]['attrs']['href'] = $href;
+
+        $this->assertSame($expected, CarveConverter::carve()->render($this->converter->convert($pm)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function retargetedHeadingReferenceProvider(): array
+    {
+        return [
+            'off the document' => [
+                'https://example.com',
+                "# plain heading\n\n[plain heading](https://example.com)\n",
+            ],
+            // Still a fragment, so a check for "does it look like an anchor"
+            // would pass this one and lose the edit anyway.
+            'to another fragment' => ['#other', "# plain heading\n\n[plain heading](#other)\n"],
+        ];
+    }
+
+    /**
+     * A `[text][label]` reference is a DIFFERENT case, and the asymmetry is the
+     * reason only the heading class is carried.
+     *
+     * A heading reference resolves against a `heading` node the bridge carries.
+     * A label reference resolves against a `link_reference_definition`, which
+     * the schema map declares unmapped - so by the time the writer runs the
+     * definition is gone, and `[text][label]` without one is the literal text
+     * rather than a link. Respelling it would turn a working link into prose,
+     * so the inline form is written and the loss is reported instead.
+     */
+    public function testALabelReferenceIsReportedRatherThanRespelled(): void
+    {
+        $document = (new CarveConverter())->parse("[text][label]\n\n[label]: https://example.com\n");
+        $pm = $this->renderer->render($document);
+
+        $this->assertArrayHasKey('link', $this->renderer->degradedTypes());
+        $this->assertStringContainsString('definition it points at is not carried', $this->renderer->degradedTypes()['link']);
+        $this->assertSame(
+            "[text](https://example.com)\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
+    }
+
+    /**
+     * And the report is the ONLY record when the definition never existed as a
+     * node to begin with. A document decoded from AST JSON can hold a resolved
+     * reference with no definition beside it, so the "the dropped definition
+     * already says so" reasoning does not cover this door.
+     */
+    public function testALabelReferenceWithNoDefinitionNodeIsStillReported(): void
+    {
+        $document = (new CarveConverter())->parse("[text](https://example.com)\n");
+        $paragraph = $document->getChildren()[0];
+        /** @var \MarkupCarve\Carve\Node\Inline\Link $link */
+        $link = $paragraph->getChildren()[0];
+        $link->setReferenceLabel('label');
+        $link->setRawReferenceLabel('[text][label]');
+
+        $this->renderer->render($document);
+
+        $this->assertArrayHasKey('link', $this->renderer->degradedTypes());
+        $this->assertStringContainsString('definition it points at is not carried', $this->renderer->degradedTypes()['link']);
     }
 
     /**
