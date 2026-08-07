@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,8 +34,14 @@ use PHPUnit\Framework\TestCase;
  */
 class WhitespaceIsSpaceAndTabOnlyTest extends TestCase
 {
+    /**
+     * @var string
+     */
     protected const VT = "\x0B";
 
+    /**
+     * @var string
+     */
     protected const FF = "\x0C";
 
     protected CarveConverter $converter;
@@ -189,6 +198,96 @@ class WhitespaceIsSpaceAndTabOnlyTest extends TestCase
             "<table>\n  <caption>Cap" . self::FF . "</caption>\n  <tbody>\n"
                 . "    <tr><td>a</td></tr>\n  </tbody>\n</table>\n",
             $this->converter->convert("| a |\n^ Cap" . self::FF),
+        );
+    }
+
+    public function testAVerticalTabHeadingEndsAQuotesOpenParagraph(): void
+    {
+        // A heading is bounded, so it leaves no open paragraph and the
+        // flush-left line below it is not a lazy continuation of the quote
+        // (carve-php#652). The state machine that tracks the open paragraph
+        // asks the heading question with its own copy of the gate, so a copy
+        // still reading a vertical tab as whitespace pulls `b` into the quote.
+        $this->assertSame(
+            "<blockquote>\n  <p>p</p>\n  <h1 id=\"s\">" . self::VT . "</h1>\n"
+                . "</blockquote>\n<p>b</p>\n",
+            $this->converter->convert("> p\n> # " . self::VT . "\nb\n"),
+        );
+    }
+
+    public function testAVerticalTabHeadingEndsAnOpenParagraphInsideADiv(): void
+    {
+        // Same rule, the copy of the gate that runs while a div is open. Only
+        // the last line is asserted: whether `> ::: note` opens a div at all is
+        // a separate container question this engine and carve-rs answer
+        // differently, and it answers the same for a plain `# h` heading.
+        $this->assertStringEndsWith(
+            "</blockquote>\n<p>b</p>\n",
+            $this->converter->convert("> ::: note\n> # " . self::VT . "\nb\n"),
+        );
+    }
+
+    public function testAVerticalTabCaptionDoesNotInterruptAnOpenParagraph(): void
+    {
+        // A caption attaches to a captionable BLOCK, and an open paragraph is
+        // not one, so the line stays paragraph text. The recognizer that
+        // answers "is this line caption-shaped" has to read the vertical tab as
+        // content to get there: reading it as whitespace makes the line
+        // caption-shaped-but-unattachable and splits the paragraph in two.
+        $this->assertSame(
+            '<p>p' . "\n" . '^ ' . self::VT . "</p>\n",
+            $this->converter->convert("p\n^ " . self::VT . "\n"),
+        );
+    }
+
+    public function testAVerticalTabCaptionCaptionsABlockQuote(): void
+    {
+        $this->assertSame(
+            "<figure>\n  <blockquote><p>q</p></blockquote>\n  <figcaption>"
+                . self::VT . "</figcaption>\n</figure>\n",
+            $this->converter->convert("> q\n^ " . self::VT . "\n"),
+        );
+    }
+
+    public function testAVerticalTabHeadingKeepsAListItemTight(): void
+    {
+        // The looseness scan asks whether the line after an item's internal
+        // blank is a BLOCK. A heading is one, so the item stays tight and its
+        // first line is not wrapped in a paragraph. This is the copy of the
+        // gate the container paths reach, and it is the only observable
+        // consequence of that copy.
+        $this->assertSame(
+            "<ul>\n  <li>p\n    <h1 id=\"s\">" . self::VT . "</h1>\n  </li>\n</ul>\n",
+            $this->converter->convert("- p\n\n  # " . self::VT . "\n"),
+        );
+    }
+
+    public function testHeadingIdPreservationSeesAVerticalTabHeading(): void
+    {
+        // The source-to-source converters scan their own output for heading
+        // lines and pair them positionally with the live ids. A scan that reads
+        // a vertical tab as whitespace finds no heading, so the pairing throws
+        // on a count mismatch instead of pinning the published id.
+        $source = new class implements HeadingIdSource {
+            /**
+             * @return array<int, string>
+             */
+            public function idsInOrder(string $djotSource): array
+            {
+                return ['live-id'];
+            }
+        };
+
+        $djot = (new DjotToCarve())->preserveHeadingIds($source);
+        $this->assertSame(
+            '{#live-id}' . "\n" . '# ' . self::VT . "\n\nbody\n",
+            $djot->convert('# ' . self::VT . "\n\nbody\n"),
+        );
+
+        $markdown = (new MarkdownToCarve())->preserveHeadingIds($source);
+        $this->assertSame(
+            '{#live-id}' . "\n" . '# ' . self::VT . "\n\nbody\n",
+            $markdown->convert('# ' . self::VT . "\n\nbody\n"),
         );
     }
 }
