@@ -4409,7 +4409,12 @@ class InlineParser
      */
     protected function parseSymbol(string $text, int $pos): ?array
     {
-        $previous = $text[$pos - 1] ?? '';
+        // PHP accepts negative string offsets, so `$text[-1]` is the FINAL
+        // byte rather than an absent byte. At position zero that made the
+        // symbol's left boundary depend on how the whole inline run ended:
+        // `:ok:` parsed, while `:ok: heading` did not because its final `g`
+        // was mistaken for the byte before the opening colon.
+        $previous = $pos > 0 ? $text[$pos - 1] : '';
         if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
             return null;
         }
