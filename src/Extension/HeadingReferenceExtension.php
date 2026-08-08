@@ -134,7 +134,7 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
         $this->headingTargetCounts = [];
     }
 
-    public function beforeRender(Document $document): Document
+    public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         $this->rebuildPlaceholdersForDocument($document);
 

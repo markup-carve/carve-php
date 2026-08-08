@@ -102,6 +102,19 @@ class PlainTextRenderer implements RendererInterface
         return $this;
     }
 
+    /**
+     * The configured smart-typography mode.
+     *
+     * Read by {@see \MarkupCarve\Carve\Extension\BeforeRenderContext} so a `beforeRender` hook on this target sees what
+     * the caller configured rather than a default. Smart typography is not an
+     * HTML-only option - it reaches every renderer - so every renderer answers
+     * for it.
+     */
+    public function getSmartTypography(): SmartTypographyMode
+    {
+        return $this->smartTypography;
+    }
+
     protected string $listItemPrefix = '- ';
 
     protected string $orderedListItemPrefix = '. ';

@@ -8,6 +8,7 @@ use Closure;
 use LengthException;
 use LogicException;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
+use MarkupCarve\Carve\Extension\BeforeRenderContext;
 use MarkupCarve\Carve\Extension\BeforeRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Extension\FrontmatterExtension;
@@ -556,9 +557,19 @@ class CarveConverter
             }
         }
 
+        // ONE context for the whole phase, built from the renderer this render
+        // will run through. A hook runs before the render starts, so it has
+        // nothing to inherit: with the document alone in hand a hook that
+        // produces output of its own produces it with DEFAULTS, and a table-of-
+        // contents entry then disagrees with the heading it was cloned from as
+        // soon as a render option reaches inline rendering (carve#1007).
+        //
+        // It hands out VALUES, not this renderer: the renderer's setters are a
+        // write grant the clause withholds, and the guards run after the hooks.
+        $context = BeforeRenderContext::forRenderer($this->renderer);
         foreach ($this->extensions as $extension) {
             if ($extension instanceof BeforeRenderExtensionInterface) {
-                $document = $extension->beforeRender($document);
+                $document = $extension->beforeRender($document, $context);
             }
         }
 

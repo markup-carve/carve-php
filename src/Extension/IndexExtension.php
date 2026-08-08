@@ -141,7 +141,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         });
     }
 
-    public function beforeRender(Document $document): Document
+    public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         $renderDocument = clone $document;
         $this->counts = [];
