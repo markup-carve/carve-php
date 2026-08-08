@@ -417,13 +417,15 @@ class MarkdownRendererTest extends TestCase
         $this->assertSame("Text <del>a</del><ins>b</ins> here\n", $result);
     }
 
-    public function testSubstitutionStripsControlCharacters(): void
+    public function testSubstitutionEmitsControlCharacters(): void
     {
+        // PART 9 §29 T2: the non-whitespace C0 controls are CONTENT and this
+        // target emits them. carve-rs cdac42c publishes the same bytes.
         $djot = "Text {~a\x1bx~>b\x1by~} here";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertSame("Text <del>ax</del><ins>by</ins> here\n", $result);
+        $this->assertSame("Text <del>a\x1bx</del><ins>b\x1by</ins> here\n", $result);
     }
 
     public function testInsert(): void

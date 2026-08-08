@@ -224,20 +224,22 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     }
 
     /**
-     * CONTROL for the P1 the spec side caught, and the reason the sentinel guard
-     * is `\p{Cc}` rather than a hand-written "non-whitespace C0 control" class.
+     * CONTROL for the P1 the spec side caught. The guard is now a hand-written
+     * class rather than `\p{Cc}`, because PART 9 §29 T2 has this target EMIT the
+     * non-whitespace C0 controls - so U+0001 has moved out of this list and into
+     * MarkdownAndPlainEmitTheC0ControlsTest.
      *
-     * Cc is C0 *and* C1, so DEL (U+007F) and U+0080-U+009F go with it. CSI
+     * What the narrowing must NOT reach is DEL (U+007F) and U+0080-U+009F. CSI
      * (U+009B) and OSC (U+009D) are SINGLE-CHARACTER forms of the very sequences
-     * PART 9 §25's terminal rule exists to stop, so a guard narrowed to C0 would
-     * let them through this target. Nothing §25 blocks becomes emittable through
-     * §8a.
+     * PART 9 §25's terminal rule exists to stop, and §29 T5 puts them outside
+     * that section on purpose. Nothing §25 blocks becomes emittable through §8a
+     * or through §29.
      *
      * @return void
      */
     public function testNothingSection25BlocksBecomesEmittableControl(): void
     {
-        foreach (["\u{009B}", "\u{009D}", "\u{007F}", "\u{0080}", "\u{0001}"] as $control) {
+        foreach (["\u{009B}", "\u{009D}", "\u{007F}", "\u{0080}", "\u{009F}"] as $control) {
             $rendered = CarveConverter::markdown()->convert('a' . $control . 'b');
 
             $this->assertStringNotContainsString($control, $rendered);

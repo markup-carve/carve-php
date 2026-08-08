@@ -120,6 +120,20 @@ class NonHtmlRendererSecurityTest extends TestCase
         $this->assertStringNotContainsString('](url)![', $markdown);
     }
 
+    /**
+     * PART 9 §29 splits this by TARGET. The terminal is the one consumer that
+     * ACTS on the character - ESC introduces a sequence that moves the cursor,
+     * rewrites earlier output or reaches the clipboard - so it strips, and the
+     * assertion below is the one that stayed. Markdown and plain text EMIT the
+     * non-whitespace C0 controls (§29 T2, T3): they are read by a parser and by
+     * a text serialization, not by a device, and deleting content there makes
+     * this engine the lossy party.
+     *
+     * DEL and the C1 controls are NOT §29's subject and stay refused on all
+     * three, this engine's own strictness: CSI (U+009B) and OSC (U+009D) are
+     * single-character forms of the sequences §25 exists to stop. Measured
+     * today, carve-rs cdac42c refuses them on Markdown and plain as well.
+     */
     public function testNonHtmlRenderersStripControlBytesFromAuthorLeafFields(): void
     {
         $doc = new Document();
@@ -147,8 +161,26 @@ class NonHtmlRendererSecurityTest extends TestCase
         $plain = (new PlainTextRenderer())->render($doc);
         $ansi = (new AnsiRenderer(useColors: false))->render($doc);
 
-        foreach ([$markdown, $plain, $ansi] as $out) {
-            $this->assertStringNotContainsString("\x1b", $out);
+        // The device target, unchanged.
+        $this->assertStringNotContainsString("\x1b", $ansi);
+
+        // The two serialization targets keep what the author wrote - once per
+        // leaf field the fixture put one in, so this also says the emission is
+        // not confined to a paragraph's text.
+        foreach ([$markdown, $plain] as $out) {
+            $this->assertStringContainsString("\x1b", $out);
+        }
+
+        // And none of the three lets DEL or a C1 control out.
+        $c1 = new Document();
+        $c1Para = new Paragraph();
+        $c1Para->appendChild(new Text("a\u{007F}b\u{0080}c\u{009B}d\u{009D}e"));
+        $c1->appendChild($c1Para);
+        foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            $out = $renderer->render($c1);
+            foreach (["\u{007F}", "\u{0080}", "\u{009B}", "\u{009D}"] as $blocked) {
+                $this->assertStringNotContainsString($blocked, $out);
+            }
         }
     }
 

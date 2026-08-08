@@ -55,6 +55,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Renders AST to plain text
@@ -204,7 +205,7 @@ class PlainTextRenderer implements RendererInterface
         // content: a table row ending in an empty cell renders `x | ` and that
         // space is an artifact of the separator. rtrim's default character list
         // leaves a non-breaking space alone, which is what we want.
-        $text = rtrim(ltrim($text, "\n")) . "\n";
+        $text = rtrim(ltrim($text, "\n"), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
 
         // The internal non-breaking-space placeholder (U+E000) collapses to an
         // ordinary space in plain text. Done after trimming so placeholder-derived
@@ -406,7 +407,7 @@ class PlainTextRenderer implements RendererInterface
         $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                $output = rtrim($output, "\n") . $sep . trim($this->renderChildren($child)) . "\n\n";
+                $output = rtrim($output, "\n") . $sep . trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
             } else {
                 $output .= $this->renderNode($child);
             }
@@ -416,9 +417,29 @@ class PlainTextRenderer implements RendererInterface
     }
 
     /**
-     * Strip Unicode control characters (keeping tab and newline) from author
-     * content so attacker text cannot inject terminal escape sequences into
-     * plain-text output displayed in a terminal.
+     * Drop the control characters this target does NOT emit.
+     *
+     * PART 9 §29 C0 CONTROLS ON THE RENDER TARGETS: after
+     * markup-carve/carve#963 the whitespace of the language is exactly U+0020,
+     * U+0009, U+000A and U+000D, and every OTHER C0 control - U+0000..U+0008,
+     * U+000B, U+000C, U+000E..U+001F - is ordinary CONTENT. PART 9 §29 T3 has the plain-text target EMIT the class, following the Markdown target: plain text is a text SERIALIZATION rather than a terminal format, so it takes the fidelity answer and not the device answer (§29 T3 records that half as a judgement rather than a measurement). A target that
+     * deletes it is lossy in the way markup-carve/carve#817 rejected for the
+     * wire, and the reason first offered for the strip - that a Markdown reader
+     * reclassifies these characters as whitespace - was measured against the
+     * CommonMark reference implementation and markdown-it in three modes and did
+     * not hold: all four keep them, and `-<VT>item` opens no list in any of them.
+     *
+     * WHAT STILL GOES. U+000D is WHITESPACE, not content, so it is stripped like
+     * the other whitespace this writer normalizes. DEL (U+007F) and the C1
+     * controls U+0080..U+009F stay stripped too: §29 T5 puts them outside that
+     * section, and this engine is deliberately the strict one there - CSI
+     * (U+009B) and OSC (U+009D) are single-character forms of the sequences §25
+     * exists to stop.
+     *
+     * The terminal target keeps its own broad strip; see
+     * AnsiRenderer::stripControls(). Narrowing THAT one would be a security
+     * regression, which is why the three targets spell this separately rather
+     * than sharing one function.
      */
 
     /**
@@ -434,12 +455,12 @@ class PlainTextRenderer implements RendererInterface
 
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
+        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         return $this->blockQuotePrefix . $content . $this->blockQuoteSuffix . "\n\n";
     }
@@ -457,7 +478,7 @@ class PlainTextRenderer implements RendererInterface
                 } else {
                     $text .= $this->listItemPrefix;
                 }
-                $text .= trim($this->renderChildren($child)) . "\n";
+                $text .= trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
             }
         }
 
@@ -481,7 +502,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        return '  ' . trim($this->renderChildren($node)) . "\n";
+        return '  ' . trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
     }
 
     protected function renderThematicBreak(): string
@@ -494,7 +515,7 @@ class PlainTextRenderer implements RendererInterface
         $text = '';
         $layout = TableLayout::expand(
             $node,
-            fn (TableCell $cell): string => trim($this->renderChildren($cell)),
+            fn (TableCell $cell): string => trim($this->renderChildren($cell), StringUtil::TRIMMABLE_WHITESPACE),
         );
 
         foreach ($layout['rows'] as $row) {
@@ -520,7 +541,7 @@ class PlainTextRenderer implements RendererInterface
             /** @var \MarkupCarve\Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
             $text .= $this->renderChildren($caption);
-            $text = rtrim($text) . "\n";
+            $text = rtrim($text, StringUtil::TRIMMABLE_WHITESPACE) . "\n";
         }
 
         return $text . "\n";
@@ -531,7 +552,7 @@ class PlainTextRenderer implements RendererInterface
         $cells = [];
         foreach ($node->getChildren() as $child) {
             if ($child instanceof TableCell) {
-                $cells[] = trim($this->renderChildren($child));
+                $cells[] = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
             }
         }
 
@@ -552,7 +573,7 @@ class PlainTextRenderer implements RendererInterface
         // separated -- that is the line block's whole point.
         $stanzas = [];
         foreach ($node->getChildren() as $child) {
-            $stanzas[] = trim($this->renderNode($child));
+            $stanzas[] = trim($this->renderNode($child), StringUtil::TRIMMABLE_WHITESPACE);
         }
 
         return implode("\n\n", $stanzas) . "\n\n";
@@ -564,7 +585,7 @@ class PlainTextRenderer implements RendererInterface
         // definition, so emitting one where the author wrote a footnote
         // definition turns it into a different construct on the way back.
         return '[^' . $this->stripControls($node->getLabel()) . ']: '
-            . trim($this->renderChildren($node)) . "\n";
+            . trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
     }
 
     protected function renderMention(Mention $node): string
