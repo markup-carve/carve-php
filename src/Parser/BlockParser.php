@@ -496,19 +496,26 @@ class BlockParser
      * Held rather than rebuilt per reference: the extraction is stateless, and
      * a document quoting the same heading a hundred times should not construct
      * a hundred trackers to ask them all the same question.
+     *
+     * UNCONFIGURED, deliberately. headingIdTrackerForReferences() mirrors the
+     * slug transform and the lowercase flag because it hands out IDS; this one
+     * is only ever asked for PLAIN TEXT, which neither setting touches. It was
+     * built through that helper and invalidated from both setters at first,
+     * which made the two setters look like they could move a label key they
+     * cannot: one of the two invalidations was unreachable by any test, and the
+     * other only looked reachable. Taking the configuration out is what makes
+     * the invalidation unnecessary rather than merely unexercised.
      */
     protected ?HeadingIdTracker $referenceLabelTracker = null;
 
     public function setHeadingIdTransformer(?Closure $headingIdTransformer): void
     {
         $this->headingIdTransformer = $headingIdTransformer;
-        $this->referenceLabelTracker = null;
     }
 
     public function setHeadingIdLowercase(bool $lowercase): void
     {
         $this->headingIdLowercase = $lowercase;
-        $this->referenceLabelTracker = null;
     }
 
     /**
@@ -9863,7 +9870,7 @@ class BlockParser
      */
     public function headingIndexKey(Node $label): string
     {
-        $this->referenceLabelTracker ??= $this->headingIdTrackerForReferences();
+        $this->referenceLabelTracker ??= new HeadingIdTracker();
         $plainText = $this->referenceLabelTracker->getPlainText($label);
 
         return trim(preg_replace('/\s+/', ' ', $plainText) ?? $plainText);

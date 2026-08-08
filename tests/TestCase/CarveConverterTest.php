@@ -770,6 +770,19 @@ DJOT;
         $this->assertStringContainsString(':heart:', $result);
     }
 
+    /**
+     * THE ID DOES NOT MOVE WITH THE SYMBOLS MAP. syntax.md section 4.1 step 1
+     * excludes a `:name:` symbol from a heading's rendered plain text by
+     * CONSTRUCT, so the three headings below carry the same id whether `ok` is
+     * mapped or not.
+     *
+     * These rows read `ok-h`, `x-ok-y` and `h-ok` until
+     * markup-carve/carve#1011: the id was keyed on the shortcode NAME, which
+     * with a map configured names neither the source the author typed nor the
+     * `OK` the reader sees. An id is assigned in the parse pass, and a symbol
+     * resolves through renderer configuration - so any id that reads the symbol
+     * at all moves when a host adds a map.
+     */
     public function testMappedSymbolAtEveryInlinePositionAndContainer(): void
     {
         $converter = new CarveConverter(symbols: ['ok' => 'OK']);
