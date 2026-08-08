@@ -731,7 +731,7 @@ class CarveRenderer implements RendererInterface
                     //
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
-                    $blank = $line === '' || $line === $this->verbatimSentinels[2];
+                    $blank = $this->isBlankContinuationLine($line);
                     if (!$blank && str_starts_with($line, self::MARKER_COLUMN)) {
                         // The continuation marker and the block it attaches sit
                         // at the ITEM's marker column, not its content column
@@ -752,6 +752,52 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->listDepth--;
         }
+    }
+
+    /**
+     * A continuation line is BLANK when it has no content of its own.
+     *
+     * Two spellings reach a writer and both mean the same thing. `''` is an
+     * ordinary blank line. The SENTINEL form is the one that actually bites: a
+     * blank line inside a fenced code block, a raw block or a block comment is
+     * VERBATIM content, so protectVerbatim() encodes it to keep the
+     * document-wide trim off it, and restoreVerbatim() maps it back to nothing
+     * at the very end - after every container has already prefixed it with its
+     * own indent. What is left is a line holding the indent and nothing else.
+     *
+     * A verbatim line that genuinely holds spaces arrives as those spaces under
+     * a DIFFERENT sentinel and still indents; only the empty one is blank.
+     */
+    protected function isBlankContinuationLine(string $line): bool
+    {
+        return $line === '' || $line === $this->verbatimSentinels[2];
+    }
+
+    /**
+     * `$line` at `$indent`, except a blank one, which stays blank.
+     *
+     * PART 11 §7: the writer never emits a line whose only content is space or
+     * tab. Such a line is not stable - editors that strip trailing whitespace on
+     * save, `git apply --whitespace=fix` and CI whitespace checks all rewrite
+     * it, so the formatter produces output ordinary tooling changes behind it
+     * (markup-carve/carve#375).
+     *
+     * SHARED because three writers indent a block body and each one had to know
+     * this: the list writer knew it and the footnote and definition writers did
+     * not, which is the whole of carve-php#1068. Measured as four verbatim
+     * constructs crossed with ten container contexts: 15 of the 40 rows emitted
+     * a whitespace-only line, every one of them through those two writers.
+     *
+     * The blank line is returned AS IT IS rather than as an empty string, and
+     * the difference is not observable today: restoreVerbatim() maps the
+     * sentinel to nothing at the end, so both spellings reach the same byte and
+     * a mutation returning the empty string survives the whole suite. Keeping
+     * the sentinel is the conservative half all the same - holding the
+     * document-wide trim off the line is the reason it exists.
+     */
+    protected function indentContinuationLine(string $line, string $indent): string
+    {
+        return $this->isBlankContinuationLine($line) ? $line : $indent . $line;
     }
 
     /**
@@ -1192,7 +1238,7 @@ class CarveRenderer implements RendererInterface
                 $lines = explode("\n", $this->trimNonNbsp($body));
                 $out[] = ':  ' . array_shift($lines);
                 foreach ($lines as $line) {
-                    $out[] = '   ' . $line;
+                    $out[] = $this->indentContinuationLine($line, '   ');
                 }
             }
         }
@@ -1457,7 +1503,7 @@ class CarveRenderer implements RendererInterface
             // legal continuation but puts the body's blocks at a relative column
             // above zero, and an indented block opener does not open a block - so
             // a table or list written at three came back as a paragraph.
-            $out .= "\n  " . $line;
+            $out .= "\n" . $this->indentContinuationLine($line, '  ');
         }
 
         return $out;
