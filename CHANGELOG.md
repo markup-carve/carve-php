@@ -269,6 +269,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`fmt` emits a blank inside an indented verbatim block as an empty line**
+  (carve-php#1068, PART 11 section 7). A blank line inside a fenced code block,
+  a raw block or a block comment nested in a FOOTNOTE BODY or a DEFINITION BODY
+  came back as a line holding the container's indent and nothing else. A
+  whitespace-only line is not stable - editors that strip trailing whitespace on
+  save, `git apply --whitespace=fix` and CI whitespace checks all rewrite it -
+  so the formatter produced output that ordinary tooling changes behind it. The
+  equivalent list spelling was already correct; the three writers that indent a
+  block body share the rule now. The blank line itself is unchanged: it is
+  content, and it is still there.
+
 - **A tabs label derived from a heading keeps a code span's text**
   (carve-php#1075). `TabsExtension` derived a tab's label with a walk of its
   own, handling text and smart punctuation and recursing into everything else -
