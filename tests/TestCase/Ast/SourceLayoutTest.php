@@ -17,6 +17,7 @@ final class SourceLayoutTest extends TestCase
         self::assertArrayNotHasKey('sourceLayout', $result['ast']);
         self::assertSame('crlf', $result['layout']['lineEndings']);
         self::assertTrue($result['layout']['bom']);
+        self::assertNotEmpty($result['layout']['nodes']);
         self::assertSame(strlen($source), $result['ast']['srcByteLength']);
         foreach ($result['layout']['nodes'] as $node) {
             self::assertLessThanOrEqual(strlen($source), $node['endByte']);

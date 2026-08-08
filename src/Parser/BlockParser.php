@@ -585,6 +585,13 @@ class BlockParser
         $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor($this->inlineParser);
     }
 
+    public function enablePositionTracking(): self
+    {
+        $this->trackPositions = true;
+
+        return $this;
+    }
+
     /**
      * Register a custom block pattern
      *
