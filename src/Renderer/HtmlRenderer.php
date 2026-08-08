@@ -1822,7 +1822,18 @@ class HtmlRenderer implements RendererInterface
         // so K references to one long heading amplify output K x heading_len.
         // Charge the SAME per-render budget an abbreviation charges and degrade
         // the way that one does - to the text the author typed (carve-php#1061).
-        $rendered = $this->escape($label);
+        //
+        // THE LABEL IS THE HEADING'S INLINE NODES, rendered here (PART 9R R4,
+        // markup-carve/carve#957). Rendered rather than flattened because a node
+        // carries the code span, the emphasis and the escape the author wrote,
+        // and a string does not - and rendered HERE because that is what leaves
+        // the glyph-or-source-run decision, the symbols map and the raw-HTML
+        // policy with the renderer that is running. A caption id has no heading
+        // behind it and keeps the composed string ("Figure 1").
+        $nodes = $tracker->getLabelNodesForId($id);
+        $rendered = $nodes === null
+            ? $this->escape($label)
+            : $this->renderInlineNodesFragment($nodes);
         if (!$this->chargeExpansion($rendered)) {
             $rendered = $this->escape($target);
         }

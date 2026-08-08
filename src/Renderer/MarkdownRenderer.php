@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -93,6 +94,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 class MarkdownRenderer implements RendererInterface
 {
     use AbbreviationBudgetTrait;
+    use DerivedLabelTrait;
 
     use EventDispatcherTrait;
 
@@ -599,7 +601,15 @@ class MarkdownRenderer implements RendererInterface
         // renders as plain text.
         // Same expansion budget the abbreviation arm spends, degrading to the
         // authored target (carve-php#1061). See AbbreviationBudgetTrait.
-        $rendered = $this->escapeText($label);
+        //
+        // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
+        // (PART 9R R4, markup-carve/carve#957): a heading holding a code span
+        // comes back as a Markdown code span rather than as its bare content.
+        // A caption id has no heading behind it and keeps the composed string.
+        $nodes = $this->headingIdTracker->getLabelNodesForId($id);
+        $rendered = $nodes === null
+            ? $this->escapeText($label)
+            : $this->renderDerivedLabel($nodes);
         if (!$this->chargeExpansion($rendered)) {
             $rendered = $this->escapeText($target);
         }

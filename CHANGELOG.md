@@ -269,6 +269,40 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Every derived display text clones the heading's nodes** (PART 9R R4, DERIVED
+  DISPLAY TEXT CLONES THE SAME NODES, markup-carve/carve#957; carve-php#1073).
+  A node carries the author's code span, emphasis and source run and a string
+  does not, so flattening at the derivation site destroyed them before any
+  renderer was invoked. For `` # `code()` and *bold* heading ``, a `</#id>` to
+  it published `code() and bold heading` and now publishes
+  `<code>code()</code> and <strong>bold</strong> heading` - and each target
+  spells the same nodes its own way, so the Markdown writer emits
+  ``[`code()` and **bold** h](#id)`` and the terminal target emits its own bold.
+  Five sites moved: the core cross-reference through both of its producers (the
+  renderer and the in-link resolver), the numbered cross-reference's title, the
+  injected table of contents, the `::: toc` placement directive, and an index
+  term's display. The glossary term reference already rendered its nodes and is
+  unchanged.
+
+  A derived label is the heading's AUTHORED content, so nothing a later stage
+  added appears in one: not a `section-number` span, not a permalink anchor, not
+  a footnote reference (a second copy would publish a duplicate `fnref` id), not
+  an invisible `:index[term]` marker, and not an abbreviation's expansion - the
+  author's short form goes back in its place. A link in the heading unwraps
+  inside the label's own anchor, and a mention with it (PART 12 §3a).
+
+- **An inline footnote's BODY no longer leaks into a cross-reference label.**
+  `^[note body]` in a heading has a body that renders once, in the endnotes; the
+  flatten had no arm for the node, recursed into the body, and published
+  `See h note body x` where the heading itself shows a footnote marker. The
+  pointer is now dropped, which is what the `[^label]` reference beside it
+  already got.
+
+  A table-of-contents entry is now escaped ONCE, by the renderer that renders
+  its nodes: a `"` in a heading reaches the entry as `"` rather than `&quot;`,
+  matching the heading itself and carve-js. The entry also follows the caller's
+  symbols map and raw-HTML policy, as it already followed the typography mode.
+
 - **The Markdown target neutralizes embedded HTML in five more slots**
   (carve-php#1063). The writer's stated invariant is that `<`, `>` and `&` in
   author content are escaped so Markdown re-rendered to HTML cannot execute, and

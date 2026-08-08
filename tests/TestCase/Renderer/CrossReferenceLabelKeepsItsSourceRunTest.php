@@ -235,18 +235,19 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
 
     /**
      * The same heading reached through the IN-LINK producer, which walks the
-     * cloned nodes rather than the string. The label stays FLAT - the emphasis
-     * does not come with it - because a cross-reference label is plain text on
-     * every target.
+     * cloned nodes rather than the string. The emphasis COMES WITH the label
+     * (PART 9R R4, markup-carve/carve#957): what the outer link forbids is a
+     * nested ANCHOR, not the heading's own markup. carve-js publishes the same
+     * `<strong>` here.
      */
-    public function testANestedContainerFlattensOnTheInLinkPath(): void
+    public function testANestedContainerKeepsItsMarkupOnTheInLinkPath(): void
     {
         $source = "# A *bold -- run* heading\n\nSee [</#A-bold-run-heading>](/u)\n";
 
         $this->assertSame(
             "<section id=\"A-bold-run-heading\">\n"
             . "  <h1>A <strong>bold \u{2013} run</strong> heading</h1>\n"
-            . "  <p>See <a href=\"/u\">A bold \u{2013} run heading</a></p>\n"
+            . "  <p>See <a href=\"/u\">A <strong>bold \u{2013} run</strong> heading</a></p>\n"
             . "</section>\n",
             (new CarveConverter())->convert($source),
         );

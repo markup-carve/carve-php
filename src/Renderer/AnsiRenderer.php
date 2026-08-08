@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -73,6 +74,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 class AnsiRenderer implements RendererInterface
 {
     use AbbreviationBudgetTrait;
+    use DerivedLabelTrait;
 
     /**
      * Presentation renderers emit the resolved glyph; the Carve renderer emits
@@ -566,13 +568,21 @@ class AnsiRenderer implements RendererInterface
         // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
-        if ($label === null) {
+        if ($id === null || $label === null) {
             return '</#' . $this->stripControls($target) . '>';
         }
 
         // Same expansion budget the abbreviation arm spends, degrading to the
         // authored target (carve-php#1061). See AbbreviationBudgetTrait.
-        $rendered = $this->stripControls($label);
+        //
+        // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
+        // (PART 9R R4, markup-carve/carve#957), so a heading's emphasis reaches
+        // the label as this target's own styling rather than as bare text. A
+        // caption id has no heading behind it and keeps the composed string.
+        $nodes = $this->headingIdTracker->getLabelNodesForId($id);
+        $rendered = $nodes === null
+            ? $this->stripControls($label)
+            : $this->renderDerivedLabel($nodes);
         if (!$this->chargeExpansion($rendered)) {
             $rendered = $this->stripControls($target);
         }
