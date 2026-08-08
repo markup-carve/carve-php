@@ -420,19 +420,28 @@ class HeadingIdTracker
         return $this->extractPlainText($node);
     }
 
+    public function getDisplayText(Node $node): string
+    {
+        return $this->extractPlainText($node, false, true);
+    }
+
     /**
      * Recursively extract plain text from a node tree
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param bool $sourceRuns Read a smart-typography node's SOURCE RUN instead
+     * @param bool $includeSymbols
      *   of its glyph. Only ever true for a cross-reference LABEL: a heading id
      *   is slugged from the glyph and must not move (see the branch below).
      */
-    protected function extractPlainText(Node $node, bool $sourceRuns = false): string
-    {
+    protected function extractPlainText(
+        Node $node,
+        bool $sourceRuns = false,
+        bool $includeSymbols = false,
+    ): string {
         $text = '';
         foreach ($node->getChildren() as $child) {
-            $text .= $this->extractPlainTextFrom($child, $sourceRuns);
+            $text .= $this->extractPlainTextFrom($child, $sourceRuns, $includeSymbols);
         }
 
         return $text;
@@ -449,10 +458,15 @@ class HeadingIdTracker
      *
      * @param \MarkupCarve\Carve\Node\Node $child
      * @param bool $sourceRuns See extractPlainText().
+     * @param bool $includeSymbols
      */
-    protected function extractPlainTextFrom(Node $child, bool $sourceRuns = false): string
-    {
-        return $this->inlineTextLeaf($child, $sourceRuns) ?? $this->extractPlainText($child, $sourceRuns);
+    protected function extractPlainTextFrom(
+        Node $child,
+        bool $sourceRuns = false,
+        bool $includeSymbols = false,
+    ): string {
+        return $this->inlineTextLeaf($child, $sourceRuns, $includeSymbols)
+            ?? $this->extractPlainText($child, $sourceRuns, $includeSymbols);
     }
 
     /**
@@ -466,9 +480,13 @@ class HeadingIdTracker
      *
      * @param \MarkupCarve\Carve\Node\Node $child
      * @param bool $sourceRuns See extractPlainText().
+     * @param bool $includeSymbols
      */
-    protected function inlineTextLeaf(Node $child, bool $sourceRuns = false): ?string
-    {
+    protected function inlineTextLeaf(
+        Node $child,
+        bool $sourceRuns = false,
+        bool $includeSymbols = false,
+    ): ?string {
         if ($child instanceof InlineExtension && $child->getExtensionType() === 'index') {
             // An `:index[term]` marker is invisible (§8.1): it emits no
             // visible text, so its term must not feed the heading-id slug.
@@ -516,6 +534,10 @@ class HeadingIdTracker
             return $child->getContent();
         }
         if ($child instanceof Symbol) {
+            if ($includeSymbols) {
+                return ':' . $child->getName() . ':';
+            }
+
             // A SYMBOL CONTRIBUTES NOTHING TO DERIVED TEXT. syntax.md section
             // 4.1 step 1 takes the heading's rendered plain text "(inline
             // markup removed; symbols `:name:` and footnote references

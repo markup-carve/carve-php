@@ -312,6 +312,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Keep authored symbols in derived display text such as automatic tab labels,
+  while continuing to exclude them from heading IDs and other identity text.
+
 - **A collapsed `[text][]` whose label holds emphasis, an escape, a nested link
   or a smart apostrophe now reaches the heading** (markup-carve/carve#1011,
   PART 9R R1). The label was reduced to the heading index's key by a character
