@@ -269,6 +269,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A tabs label derived from a heading keeps a code span's text**
+  (carve-php#1075). `TabsExtension` derived a tab's label with a walk of its
+  own, handling text and smart punctuation and recursing into everything else -
+  and a code span, a math span or an inline literal has no children, so its
+  content never contributed. A tab headed `` ### `code()` and *bold* ``
+  produced the label ` and bold`: the code span's text was gone and its leading
+  space stranded, and since the heading is consumed by the label, nothing else
+  in the output carried the text. Math, an inline literal, escaped text and an
+  `:index[]` marker were wrong the same way, five rows in all, measured against
+  carve-js. The label now reads the same leaf rules the heading id does.
+
+  A numbered heading's label loses the number with it: those rules contribute
+  nothing for a section-number span. carve-js keeps the number, and which is
+  right is open.
+
 - **A caption detaches across two blank lines** (carve-php#1078, PART 9 section
   4). `caption_slot = [blank_line], caption` carries ONE optional blank line and
   section 4 says the same thing in words: a `^ ` caption attaches to the

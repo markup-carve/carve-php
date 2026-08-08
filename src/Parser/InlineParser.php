@@ -2560,20 +2560,6 @@ class InlineParser
         ];
     }
 
-    protected function extractText(Node $node): string
-    {
-        $text = '';
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Text) {
-                $text .= $child->getContent();
-            } else {
-                $text .= $this->extractText($child);
-            }
-        }
-
-        return $text;
-    }
-
     /**
      * The non-ASCII characters carrying the Unicode White_Space property.
      *
