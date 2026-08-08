@@ -521,6 +521,7 @@ class CarveConverter
      */
     public function parseWithSourceLayout(string $source): array
     {
+        $this->parser->enablePositionTracking();
         $ast = (new AstCodec())->encode($this->parse($source));
 
         return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
