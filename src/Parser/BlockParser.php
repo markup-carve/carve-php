@@ -5666,14 +5666,51 @@ class BlockParser
         return $nextIndent < $baseIndent
             && (
                 $this->listParser->parseListItemMarker($nextTrimmed) !== null
-                || (
-                    $nextIndent === 0
-                    && (
-                        $this->isBlockElementStart($nextTrimmed, $lines, $index)
-                        || $this->startsNewBlock($nextTrimmed, $lines, $index)
-                    )
-                )
+                || ($nextIndent === 0 && $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index))
             );
+    }
+
+    /**
+     * Does a line at the list's own column end the item's continuation?
+     *
+     * The two gates below ask this at their own columns, so it is written once:
+     * a second spelling of one rule is a second place for it to drift, and the
+     * arm this method exists for was missing from BOTH.
+     *
+     * A BLOCK-ATTRIBUTE LINE ENDS IT (PART 9 §10 I5, markup-carve/carve#1028).
+     * I5 lists the invisible constructs that interrupt an open paragraph and are
+     * consumed - a reference definition, a comment, "and a block-attribute line
+     * (`{…}` alone on a line, §15)" - and I6 applies the relation to EVERY open
+     * paragraph, an item's included. Neither predicate below could see one:
+     * `isBlockElementStart()` enumerates the VISIBLE openers and
+     * `startsInterruptingBlock()` has no `{` arm at all, so the top level got
+     * I5 right (through `paragraphInterruptedBy()`, which asks
+     * `isInvisibleOrAttributeLine()` as well) and the list path did not.
+     *
+     * What that cost: `- item` / `{.cls}` / `> quote` kept the attribute line
+     * inside the item, where it is below the content column and renders as
+     * LITERAL TEXT - so the author saw `{.cls}` printed in the `<li>` and the
+     * quote it was written for carried no class. PART 2's LIST-ITEM ATTRIBUTES
+     * clause names that reading and REJECTS it: "The lazy-continuation accident
+     * - a trailing `{…}` line folded onto a tight item, which carve-php attached
+     * to the `<li>` and carve-js dropped - is REJECTED as the mechanism".
+     *
+     * A reference definition at the same column already ended the item here, and
+     * I5 names the two kinds in one breath, so this also removes an asymmetry
+     * inside this engine.
+     *
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function flushLineEndsListContinuation(string $line, ?array $lines = null, ?int $index = null): bool
+    {
+        if ($this->isBlockAttributeLine($line)) {
+            return true;
+        }
+
+        return $this->isBlockElementStart($line, $lines, $index)
+            || $this->startsNewBlock($line, $lines, $index);
     }
 
     /**
@@ -5699,10 +5736,7 @@ class BlockParser
         }
 
         return $baseIndent === 0
-            && (
-                $this->isBlockElementStart($nextTrimmed, $lines, $index)
-                || $this->startsNewBlock($nextTrimmed, $lines, $index)
-            );
+            && $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index);
     }
 
     /**
@@ -5890,7 +5924,7 @@ class BlockParser
                         IndentationHelper::isBlankLine($nextLine)
                         || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                         || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                        || $this->endsHeadingOrQuote($nextLine, $lines, $i)
+                        || $this->endsDefinitionTerm($nextLine, $lines, $i)
                         // A construct that renders nothing is not term text. The
                         // term was folding a comment, a reference / footnote /
                         // abbreviation definition and a block-attribute line in
@@ -8821,6 +8855,56 @@ class BlockParser
     }
 
     /**
+     * Whether a line ENDS an open definition term.
+     *
+     * The term's own rule (PART 2, `definition_term`): "A term folds a following
+     * plain line as a soft break; a blank line, a new `::`/`: ` marker, or a
+     * BLOCK OPENER ends it."
+     *
+     * A `^ ` CAPTION LINE IS NOT ONE HERE (markup-carve/carve#1028). PART 9 §4
+     * gives a caption exactly five hosts - an image paragraph, a code block, a
+     * block quote, a table and a standalone display-math block - and a
+     * definition term is none of them. PART 2's `caption_slot` note draws the
+     * conclusion: "A `^ ` line that follows neither a slot-carrying host nor one
+     * of those two is ordinary inline/paragraph content." Ordinary inline
+     * content is precisely what `term_continuation_line` folds, and §10's two
+     * enumerations of what OPENS a block - I1's visible openers and I5's
+     * invisible ones - name no caption line in either. So `:: term` / `^ cap`
+     * is one `<dt>` holding both lines.
+     *
+     * This engine already read it that way for an open PARAGRAPH: `para` /
+     * `^ cap` is one paragraph here, as it is in carve-js and carve-rs. Only the
+     * term disagreed, because it reaches the decision through
+     * `startsNewBlock()`, whose caption arm was written for the block quote -
+     * where a caption really does end the fold, because it ATTACHES to the quote
+     * (PART 2, LAZY CONTINUATION: "not a caption ('^ ' ...), which attaches to
+     * the blockquote instead"). That arm stays where it is; it just does not
+     * reach a host that cannot take a caption.
+     *
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    protected function endsDefinitionTerm(string $line, ?array $lines = null, ?int $index = null): bool
+    {
+        if ($this->isCaptionLine($line)) {
+            return false;
+        }
+
+        return $this->endsHeadingOrQuote($line, $lines, $index);
+    }
+
+    /**
+     * A `^ ` caption line, in the one spelling every caller reads it by.
+     *
+     * @param string $line
+     */
+    protected function isCaptionLine(string $line): bool
+    {
+        return preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line) === 1;
+    }
+
+    /**
      * Whether a non-">" line ENDS an open block quote (and starts a sibling
      * block) during lazy continuation. A list marker (bullet OR ordered) ends
      * the quote UNLESS an open plain paragraph precedes it: when one does, the
@@ -8852,11 +8936,28 @@ class BlockParser
 
         // This line is a flush-left lazy candidate by construction, so it is at
         // DOCUMENT level - where an abbreviation definition is a definition
-        // (PART 12 §7). A definition is invisible and interrupts, so it ends
-        // the quote rather than folding into it. `startsNewBlock` cannot answer
-        // this: it is also asked about lines inside containers, where the same
+        // (PART 12 §7). An INVISIBLE CONSTRUCT interrupts, so it ends the quote
+        // rather than folding into it. `startsNewBlock` cannot answer this: it
+        // is also asked about lines inside containers, where the abbreviation
         // shape is ordinary paragraph text.
-        if ($this->isAbbreviationDefinitionLine($line)) {
+        //
+        // ALL FOUR INVISIBLE KINDS, not the abbreviation alone
+        // (markup-carve/carve#1028). PART 2's LAZY CONTINUATION clause names
+        // them in one breath - a line continues the quote provided it is "not a
+        // block-opener: a heading, table, fenced code, `:::` div, thematic
+        // break, OR an 'invisible' reference / footnote / abbreviation
+        // definition OR COMMENT -- each ends the blockquote and starts that
+        // block OUTSIDE it" - and PART 9 §10 I5 adds the block-attribute line to
+        // the same set, with I6 applying the relation to "EVERY open paragraph,
+        // including a blockquote's lazy continuation".
+        //
+        // Only one of the four was here, so this engine ended the quote on a
+        // reference definition and kept it open across a `%%` comment and a
+        // `{…}` line. That is not cosmetic: `> quote` / `%% c` / `more` put
+        // `more` INSIDE the quote as a second paragraph, where carve-js and
+        // carve-rs make it a sibling paragraph of the document - one line of the
+        // author's prose, attributed to a quotation they did not write it in.
+        if ($this->isInvisibleOrAttributeLine($line)) {
             return true;
         }
 
@@ -8875,9 +8976,11 @@ class BlockParser
             return false;
         }
 
-        // Caption `^ text` can always interrupt paragraphs (special case for figure captions)
-        // Quick first-char check before regex
-        if (preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
+        // Caption `^ text` ends an open fold, because it ATTACHES to the block
+        // above it (PART 2, LAZY CONTINUATION: "not a caption ('^ ' ...), which
+        // attaches to the blockquote instead"). A host that cannot TAKE a
+        // caption asks {@see self::endsDefinitionTerm()} instead.
+        if ($this->isCaptionLine($line)) {
             return true;
         }
 

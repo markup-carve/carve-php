@@ -102,9 +102,28 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
 
     public function testCommentStillEndsTheQuote(): void
     {
+        // THE EXPECTATION CONTRADICTED THE NAME (markup-carve/carve#1028). It
+        // read `<blockquote>\n  <p>quoted</p>\n</blockquote>` - the LOOSE shape,
+        // which is what the renderer emits when the quote holds more than a lone
+        // paragraph. The comment was still inside it; the quote had not ended at
+        // all. The reference-definition case one method up already expected the
+        // tight shape, and PART 2's LAZY CONTINUATION clause names the two kinds
+        // in one breath.
         $this->assertSame(
-            "<blockquote>\n  <p>quoted</p>\n</blockquote>\n",
+            "<blockquote><p>quoted</p></blockquote>\n",
             $this->converter->convert("> quoted\n%% c"),
+        );
+    }
+
+    public function testALineAfterACommentIsNotQUOTEDPROSE(): void
+    {
+        // What the shape above cost, made visible: with the comment inside the
+        // quote, the line below it became the quote's SECOND paragraph - a line
+        // of the author's prose attributed to a quotation they did not write it
+        // in.
+        $this->assertSame(
+            "<blockquote><p>quoted</p></blockquote>\n<p>more</p>\n",
+            $this->converter->convert("> quoted\n%% c\nmore"),
         );
     }
 
