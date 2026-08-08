@@ -245,7 +245,112 @@ class CarveRenderer implements RendererInterface
         return $this->escapingIsRedundant($minimal, $conservative) ? $minimal : $conservative;
     }
 
+    /**
+     * The spelling a thematic break is written with.
+     *
+     * `---` IS THE CANONICAL BREAK, INCLUDING ON LINE 1. PART 11 section 6a says
+     * the writer emits three hyphens whatever the author wrote, and states no
+     * exception. One is taken in renderWithEscapeMode() below, because PART 11
+     * section 1 is the stronger clause: `to_html(fmt(x)) == to_html(x)`.
+     */
+    protected string $thematicBreakMarker = '---';
+
+    /**
+     * Render, and fall back to a break spelling that cannot be read as
+     * frontmatter when the finished bytes would be.
+     *
+     * THE WRITER MANUFACTURED FRONTMATTER. A frontmatter block is an opening
+     * fence at byte 0 plus a bare `---` CLOSER anywhere below it, so the
+     * collision is a property of the whole emitted document rather than of its
+     * first line, and a first-line test answers a different question. Two
+     * unrelated writer decisions reach it:
+     *
+     * - section 6a normalizes `***` and `___` to `---`, so a break that opens
+     *   the document gains a closer from any later break. `***` / blank / `a` /
+     *   blank / `---` / blank / `b` came back as `<p>b</p>` alone: the rule and
+     *   the paragraph above it became frontmatter content.
+     * - renderDocumentParts() writes a hoisted link or footnote definition after
+     *   the body, promoting whatever stood second to byte 0. Nothing is
+     *   respelled there - the `---` was already in the source - so fixing the
+     *   first cause does not fix this one.
+     *
+     * And a THIRD shape the ticket does not name falls out of the same check: a
+     * hoisted definition can promote a PARAGRAPH whose first line is
+     * `---yaml`-shaped, which no head-of-document respelling can repair, because
+     * the paragraph's text is not the writer's to change. That document is saved
+     * by respelling the CLOSER instead - which is why the fallback moves every
+     * break in the document rather than the one at the head.
+     *
+     * So the FINISHED bytes are handed to the PARSER'S own opener test, twice:
+     * once to ask whether the canonical spelling is misread, and once to confirm
+     * the fallback is not. A document still misread with `***` - a `---` closer
+     * that came from somewhere other than a break, such as the inside of a
+     * fenced block - keeps the canonical spelling rather than paying a
+     * respelling that buys nothing.
+     *
+     * A leading break with nothing below it to close a block keeps `---`, which
+     * is what carve-js and carve-rs write and what the corpus asks for. It is a
+     * CONTROL: no mutation of this fallback moves it.
+     */
     protected function renderWithEscapeMode(Document $document, string $escapeMode): string
+    {
+        $canonical = $this->renderOnePass($document, $escapeMode);
+        // The frontmatter arm is a COST GATE, not a correctness one, and saying
+        // so is the honest reading: a document that really carries frontmatter
+        // has it written by renderFrontmatter(), whose closer is not a break, so
+        // the fallback pass would open frontmatter too and the canonical form
+        // would be returned anyway. Removing the arm changes no output, only the
+        // number of renders paid by every document with frontmatter.
+        if ($this->documentOpensFrontmatter($document) || !$this->opensFrontmatter($canonical)) {
+            return $canonical;
+        }
+
+        $previousMarker = $this->thematicBreakMarker;
+        $this->thematicBreakMarker = '***';
+        try {
+            $fallback = $this->renderOnePass($document, $escapeMode);
+
+            return $this->opensFrontmatter($fallback) ? $canonical : $fallback;
+        } finally {
+            $this->thematicBreakMarker = $previousMarker;
+        }
+    }
+
+    /**
+     * Whether the AST itself carries frontmatter, which the writer emits as
+     * frontmatter rather than manufacturing.
+     */
+    protected function documentOpensFrontmatter(Document $document): bool
+    {
+        return ($document->getChildren()[0] ?? null) instanceof Frontmatter;
+    }
+
+    /**
+     * Whether `$text` would be READ AS OPENING A FRONTMATTER BLOCK.
+     *
+     * "Would this be read as frontmatter" is a question only the parser can
+     * answer here, and it is spread across six sites in two files: the opener
+     * pattern, the first-production guard and the closer search live in
+     * FrontmatterExtension, behind BlockParser's first-refusal hand-off for a
+     * bare `---` on line 1. A pattern match in the writer would be a seventh
+     * spelling of that rule, and this org keeps finding one rule spelled N times
+     * with N larger than anyone claimed - so the bytes are parsed instead, by
+     * the same default converter escapingIsRedundant() already trusts to
+     * decide the escape mode.
+     */
+    protected function opensFrontmatter(string $text): bool
+    {
+        // Frontmatter is document-leading, so nothing that does not start with
+        // the fence can open one. The gate keeps a whole parse off the path
+        // every ordinary document takes.
+        if (!str_starts_with($text, '---')) {
+            return false;
+        }
+
+        return $this->documentOpensFrontmatter((new CarveConverter())->parse($text));
+    }
+
+    protected function renderOnePass(Document $document, string $escapeMode): string
     {
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceDepth = $this->colonFenceDepth;
@@ -547,7 +652,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
             $node instanceof ListBlock => $withAttrs($this->renderList($node)),
             $node instanceof ListItem => $this->renderListItem($node),
-            $node instanceof ThematicBreak => $withAttrs('---'),
+            $node instanceof ThematicBreak => $withAttrs($this->thematicBreakMarker),
             $node instanceof Table => $withAttrs($this->renderTable($node)),
             $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassList()[0] ?? ''], $this->renderTypedDiv($node)),
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),

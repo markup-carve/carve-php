@@ -269,6 +269,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`fmt` no longer manufactures a frontmatter block that swallows the document**
+  (carve-php#1069, PART 11 §1). A frontmatter block is a `---` fence at byte 0
+  plus a bare `---` closer anywhere below it, and two writer decisions put one
+  there. PART 11 §6a normalizes `***` and `___` to `---`, so a break that opened
+  the document gained a closer from any later break: `***` / blank / `a` / blank
+  / `---` / blank / `b` came back as `<p>b</p>` alone, and the minimal pair
+  rendered nothing at all. Separately, a hoisted link or footnote definition is
+  written after the body, so whatever stood second was promoted to byte 0 - and
+  if that block was a `---`, or a paragraph whose first line was `---yaml`-shaped,
+  the whole document became frontmatter content and rendered empty.
+
+  **Behavior change:** when the emitted bytes would be read as opening
+  frontmatter the document does not have, `fmt` writes every thematic break as
+  `***` instead of `---`. That is a deviation from §6a, taken because §1's
+  `to_html(fmt(x)) == to_html(x)` is the stronger clause; a document that is not
+  misread keeps the canonical `---`, including a leading break with no later
+  break.
+
 - **The Markdown and plain targets emit the non-whitespace C0 controls**
   (PART 9 §29 C0 CONTROLS ON THE RENDER TARGETS, markup-carve/carve#979;
   carve-php#1060). After markup-carve/carve#963 the whitespace of the language
