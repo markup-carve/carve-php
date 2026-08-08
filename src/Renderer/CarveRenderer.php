@@ -67,6 +67,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use ReflectionObject;
 use Throwable;
 
@@ -140,56 +141,14 @@ class CarveRenderer implements RendererInterface
     /**
      * Every string in the tree, joined.
      *
-     * ITERATIVE on purpose. `json_encode()` would be one line and it recurses,
-     * so on a document deeper than its nesting limit it fails - and this renderer
-     * has a documented §25 depth REFUSAL that has to be what fires instead. The
-     * `(array)` cast reaches protected and private properties, so no node type
-     * needs to know about this.
+     * The walk itself lives in DocumentSentinels, because the HTML target needs
+     * the same one to keep an authored U+0001 out of its soft-break guard
+     * (carve-php#1077), and two copies of a collision rule is how one rule
+     * acquires two answers.
      */
     protected function collectStrings(object $root): string
     {
-        $parts = [];
-        $stack = [$root];
-        // Nodes carry a PARENT reference, so the tree is a cyclic graph and an
-        // unguarded walk never terminates. Visiting each object once is what
-        // makes this linear rather than infinite.
-        $seen = [];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            if (is_string($node)) {
-                $parts[] = $node;
-
-                continue;
-            }
-            if (is_array($node)) {
-                foreach ($node as $key => $value) {
-                    // KEYS carry authored text too. A document's abbreviations
-                    // are keyed by the TERM, and the term is written back out -
-                    // so a values-only walk missed it and the writer rewrote
-                    // the author's character in `*[term]: expansion` while
-                    // getting every code block right.
-                    if (is_string($key)) {
-                        $parts[] = $key;
-                    }
-                    $stack[] = $value;
-                }
-
-                continue;
-            }
-            if (!is_object($node)) {
-                continue;
-            }
-            $id = spl_object_id($node);
-            if (isset($seen[$id])) {
-                continue;
-            }
-            $seen[$id] = true;
-            foreach ((array)$node as $value) {
-                $stack[] = $value;
-            }
-        }
-
-        return implode("\0", $parts);
+        return DocumentSentinels::collectStrings($root);
     }
 
     /**
@@ -197,39 +156,10 @@ class CarveRenderer implements RendererInterface
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        $defaults = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}"];
-        $collides = static function (array $candidates) use ($text): bool {
-            foreach ($candidates as $candidate) {
-                if (str_contains($text, $candidate)) {
-                    return true;
-                }
-            }
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string} $picked */
+        $picked = DocumentSentinels::pick($text, 5, 0xE001);
 
-            return false;
-        };
-
-        // The common case: none of the defaults occur, so keep them and skip the
-        // search entirely.
-        if (!$collides($defaults)) {
-            return $defaults;
-        }
-
-        for ($base = 0xE006; $base <= 0xF8FB; $base += 5) {
-            $quartet = [
-                mb_chr($base, 'UTF-8'),
-                mb_chr($base + 1, 'UTF-8'),
-                mb_chr($base + 2, 'UTF-8'),
-                mb_chr($base + 3, 'UTF-8'),
-                mb_chr($base + 4, 'UTF-8'),
-            ];
-            if (!$collides($quartet)) {
-                return $quartet;
-            }
-        }
-
-        // Unreachable for any real document; keep the old behavior rather than
-        // throw.
-        return $defaults;
+        return $picked;
     }
 
     public function render(Document $document): string
