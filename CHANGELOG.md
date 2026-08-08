@@ -9,6 +9,42 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **Three folds now end where the grammar says they end**
+  (markup-carve/carve#1028). Each was an enumerated set with one member missing,
+  and each changes what an existing document renders to.
+
+  A COMMENT AND A BLOCK-ATTRIBUTE LINE END A BLOCK QUOTE'S LAZY CONTINUATION.
+  PART 2's LAZY CONTINUATION clause lists what a line may not be to continue the
+  quote - "a heading, table, fenced code, `:::` div, thematic break, OR an
+  'invisible' reference / footnote / abbreviation definition OR COMMENT -- each
+  ends the blockquote and starts that block OUTSIDE it" - and PART 9 §10 I5 adds
+  the block-attribute line. Only the abbreviation was tested for, so
+
+  ```
+  > quote
+  %% c
+  more
+  ```
+
+  put `more` INSIDE the quote as a second paragraph. It is now a sibling
+  paragraph of the document, and a `{…}` line in the same position attributes it
+  instead of being swallowed.
+
+  A BLOCK-ATTRIBUTE LINE ENDS A LIST ITEM. §10 I5 again, with I6 applying the
+  relation to every open paragraph. `- item` / `{.cls}` / `> quote` kept the line
+  inside the item, below its content column, where it rendered as the literal
+  text `{.cls}` while the quote carried no class. PART 2's LIST-ITEM ATTRIBUTES
+  clause names that reading and rejects it. An INDENTED attribute line is
+  unaffected.
+
+  A CAPTION LINE DOES NOT END A DEFINITION TERM. The reverse direction: `::
+  term` / `^ cap` ended the term and started a paragraph. PART 9 §4 gives a
+  caption five hosts and a definition term is none of them, so PART 2's
+  `caption_slot` note makes the line "ordinary inline/paragraph content" - which
+  `term_continuation_line` folds. This engine already folded a caption line into
+  an open paragraph; only the term disagreed. A caption after a block quote still
+  attaches, because a quote IS one of the five hosts.
+
 - **The AST now publishes `thematic_break.marker` and the Carve writer
   reproduces it** (markup-carve/carve#976). Parsed `***` and `___` carry `*`
   and `_` respectively; the default `---` leaves the optional field absent.
