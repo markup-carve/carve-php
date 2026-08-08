@@ -353,6 +353,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A footnote definition with an EMPTY body now carries a position**
+  (markup-carve/carve#1023, PART 12 §4). A definition's extent was derived from
+  its body, and `[^f]: {empty}` parses to no blocks - so nothing was there to
+  measure and the node went out with no `pos` at all. §4 permits omitting a
+  position only for a node that cannot be placed; this one is written on a line
+  of its own, so its extent is that line, which is what the reference publishes.
+  A definition that HAS content keeps the extent its body gives it.
+
+  The same gap moved a definition, not just its span: §7 orders collected
+  definitions by source position, and one with no position sorted last - so
+  `[^a]: {empty}` written above `[^b]: x` was published below it.
+
 - Keep adjacent mergeable block openers separate when formatting a tight
   `+`-attached run, instead of collapsing two quotes or tables into one block.
 
