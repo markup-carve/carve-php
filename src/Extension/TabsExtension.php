@@ -16,7 +16,6 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -315,7 +314,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 continue;
             }
 
-            $label = $this->extractLabel($child);
+            $label = $this->extractLabel($child, $renderer);
             $selected = $child->hasAttribute('selected');
             $id = $child->hasAttribute('id') ? (string)$child->getAttribute('id') : null;
 
@@ -340,9 +339,23 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     }
 
     /**
-     * Extract tab label from heading or attribute
+     * Extract tab label from heading or attribute.
+     *
+     * The heading arm reads its text through HeadingIdTracker, which owns the
+     * INLINE LEAF RULES. This used to be a second walk with arms for `Text` and
+     * `SmartPunctuation` alone, recursing into everything else - and a `Code`,
+     * `Math` or `LiteralInline` node has no children, so its content lived on
+     * the node and the walk contributed nothing for it. A tab headed
+     * `` ### `code()` and *bold* `` produced the label ` and bold`, with the
+     * code span's text gone and its leading space stranded. The heading is
+     * consumed by the label, so nothing else in the output carried the text
+     * (markup-carve/carve-php#1075).
+     *
+     * The tracker's docblock says the leaf rules live there and nowhere else,
+     * precisely so a second walk cannot answer them differently. This was that
+     * second walk.
      */
-    protected function extractLabel(Div $tab): string
+    protected function extractLabel(Div $tab, HtmlRenderer $renderer): string
     {
         // Priority 1: opener `[label]` (canonical, inert node metadata)
         $label = $tab->getLabel();
@@ -359,7 +372,16 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Priority 3: First heading
         foreach ($tab->getChildren() as $child) {
             if ($child instanceof Heading) {
-                return $this->getTextContent($child);
+                // TRIMMED, and the reason is not cosmetic. The leaf reader
+                // contributes '' for a `section-number` span, so a heading the
+                // HeadingNumbers extension has numbered leaves the SEPARATOR
+                // behind and the label would read ` Title`. Whether a derived
+                // label should carry the number at all is a question for the
+                // leaf rules, not for this extension - carve-js keeps it - and
+                // is recorded on carve-php#1075 rather than answered here.
+                // Trimming a plain-text panel NAME is this caller's own
+                // business either way.
+                return trim($renderer->getHeadingIdTracker()->getPlainText($child));
             }
         }
 
@@ -405,26 +427,6 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         }
 
         return $html;
-    }
-
-    /**
-     * Get plain text content from a node
-     */
-    protected function getTextContent(Node $node): string
-    {
-        $text = '';
-
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Text) {
-                $text .= $child->getContent();
-            } elseif ($child instanceof SmartPunctuation) {
-                $text .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
-            } else {
-                $text .= $this->getTextContent($child);
-            }
-        }
-
-        return $text;
     }
 
     /**
