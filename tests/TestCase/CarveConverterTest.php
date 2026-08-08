@@ -774,9 +774,9 @@ DJOT;
     {
         $converter = new CarveConverter(symbols: ['ok' => 'OK']);
         $cases = [
-            "# :ok: h\n" => "<section id=\"ok-h\">\n  <h1>OK h</h1>\n</section>\n",
-            "# x :ok: y\n" => "<section id=\"x-ok-y\">\n  <h1>x OK y</h1>\n</section>\n",
-            "# h :ok:\n" => "<section id=\"h-ok\">\n  <h1>h OK</h1>\n</section>\n",
+            "# :ok: h\n" => "<section id=\"h\">\n  <h1>OK h</h1>\n</section>\n",
+            "# x :ok: y\n" => "<section id=\"x-y\">\n  <h1>x OK y</h1>\n</section>\n",
+            "# h :ok:\n" => "<section id=\"h\">\n  <h1>h OK</h1>\n</section>\n",
             ":ok: h\n" => "<p>OK h</p>\n",
             "- :ok: h\n" => "<ul>\n  <li>OK h</li>\n</ul>\n",
             "> :ok: h\n" => "<blockquote><p>OK h</p></blockquote>\n",
