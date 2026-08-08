@@ -22,7 +22,6 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
-use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
@@ -471,25 +470,23 @@ class CarveConverter
             }
         }
 
-        // Links never nest, and the grammar calls that a property of the
-        // DOCUMENT - so it binds the parsed tree, not only what a renderer emits.
-        // After the extensions, because an autolink matcher inside a link label is
-        // one of the ways an inner link appears, and BEFORE the coalescer, because
-        // unwrapping splices an inner link's text in beside its neighbours and
-        // leaves adjacent runs behind (carve-php#859).
-        // NOT ON THE CARVE PATH. The unwrap is right for the document a
-        // consumer reads, and wrong for the source a writer gives back: it
-        // drops the inner destination, so `[[x](y)](z)` came back as `[x](z)`
-        // and `[pre <http://h> post](/u)` lost the autolink's brackets. Both
-        // re-render to the same HTML, which is why PART 11 §1's invariant held
-        // and nothing caught it (carve#787).
+        // NO UNWRAP HERE. "Links never nest" is a RENDERING rule, so it binds
+        // the renderer and not the encoder (PART 12 §3a, A NESTED LINK AND AN
+        // AUTOLINK STAY NODES). A link or an autolink inside a link's label
+        // reaches the parsed tree as the node the author wrote, and each of the
+        // four render targets unwraps it at its own render seam - every one of
+        // them runs CrossReferenceResolver::resolve(), which is where
+        // enforceLinksNeverNest() lives - so rendered output is unaffected.
         //
-        // carve-rs reaches the same place by parsing in a mode that skips its
-        // resolution passes; this is that mode, chosen by the renderer that
-        // asked for the parse.
-        if (!$this->renderer instanceof CarveRenderer) {
-            (new CrossReferenceResolver())->unwrapNestedLinks($document);
-        }
+        // This used to unwrap for every renderer but CarveRenderer, on the
+        // reading that the rule binds the document (carve-php#859). It is
+        // strictly lossier than the case §3a opens with: flattening drops the
+        // inner destination entirely, so `[[x](y)](z)` published a link to `z`
+        // whose only child was the text `x`, `fmt` on the parsed document wrote
+        // `[[x](y)](z)` back while `fmt` through the AST wrote `[x](z)`, and an
+        // autolink came back as a bare URL, which is a different document. HTML
+        // is byte-identical either way, which is why PART 11 §1's invariant held
+        // and nothing caught it (carve#817).
 
         // A PROFILE FILTERS WHAT IS PUBLISHED, not only what is rendered.
         // Filtering used to happen on the render path alone, so a host that
