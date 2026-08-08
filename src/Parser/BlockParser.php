@@ -10064,10 +10064,31 @@ class BlockParser
      */
     public function headingIndexKey(Node $label): string
     {
-        $this->referenceLabelTracker ??= new HeadingIdTracker();
-        $plainText = $this->referenceLabelTracker->getPlainText($label);
+        return trim(preg_replace('/\s+/', ' ', $this->headingIndexLabel($label)) ?? '');
+    }
 
-        return trim(preg_replace('/\s+/', ' ', $plainText) ?? $plainText);
+    /**
+     * The label's DERIVED TEXT: the same extraction headingIndexKey() matches
+     * on, before the trim-and-collapse that only the MATCH needs.
+     *
+     * Two different strings, and PART 12 §3a publishes this one. `ref` is the
+     * resolution key in the sense markup-carve/carve#962 ruled - markup stripped, so
+     * `` [`code()` heading][] `` publishes `code() heading` and not its
+     * backticks, while `rawRef` keeps the authored spelling. It is NOT the
+     * lookup key: PART 9R R1 matches the heading index looser than it matches a
+     * definition, trimming, collapsing whitespace, NFC-normalizing and folding
+     * CASE, and no engine publishes a case-folded `ref`. Publishing the
+     * half-normalized middle - collapsed but not folded - names a string that
+     * appears nowhere in the resolution, and dropped an authored double space
+     * that carve-js and carve-rs both keep (markup-carve/carve#1023).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $label The label's PARSED inline nodes.
+     */
+    public function headingIndexLabel(Node $label): string
+    {
+        $this->referenceLabelTracker ??= new HeadingIdTracker();
+
+        return $this->referenceLabelTracker->getPlainText($label);
     }
 
     /**

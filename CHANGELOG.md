@@ -353,6 +353,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A collapsed reference resolving through a heading publishes its label's
+  whitespace** (markup-carve/carve#1023, PART 12 §3a). `ref` carries the derived
+  text - the label with its markup stripped, per the markup-carve/carve#962 ruling - and this
+  engine was publishing the LOOKUP key instead, which PART 9R R1 additionally
+  trims and collapses. So `[My  Heading][]` went out as `My  Heading` from
+  carve-js and carve-rs and as `My Heading` here, and a label padded inside its
+  brackets lost the padding.
+
+  The lookup was never the published value's business: R1 also folds case, and
+  no engine publishes a case-folded `ref`, so the collapsed-but-not-folded
+  string named nothing in the resolution. Matching still trims and collapses, so
+  nothing that resolved before stops resolving. A reference resolving through an
+  authored `[label]: url` definition was already exact and is unchanged.
+
 - **A footnote definition with an EMPTY body now carries a position**
   (markup-carve/carve#1023, PART 12 §4). A definition's extent was derived from
   its body, and `[^f]: {empty}` parses to no blocks - so nothing was there to
