@@ -57,7 +57,7 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
         $this->converter = $converter;
     }
 
-    public function beforeRender(Document $document): Document
+    public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         // HTML-only: section numbering needs heading-id resolution.
         if ($this->converter === null || !$this->converter->getRenderer() instanceof HtmlRenderer) {

@@ -9,6 +9,49 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **BREAKING: `beforeRender` takes a read-only context**
+  (markup-carve/carve#1007). `BeforeRenderExtensionInterface::beforeRender()` is
+  now `beforeRender(Document $document, BeforeRenderContext $context): Document`.
+  Every implementer of that interface has to accept the second parameter - PHP
+  requires an implementation to match the declared signature, so this breaks even
+  a hook that ignores it.
+
+  THE REFERENCE FRAME, stated because it is not carve-js's. There the same ruling
+  breaks only a hook written against the `beforeRender(doc, opts)` shape that
+  landed hours earlier, since a JavaScript function of fewer parameters is
+  assignable and a hook written for the released version still compiles. PHP
+  grants no such allowance and this engine never had the intermediate shape, so
+  the break here is against the released line: a hook written as
+  `beforeRender(Document $document): Document` is a fatal signature
+  incompatibility until it takes the context.
+
+  The hook runs BEFORE the render starts, so it had nothing to inherit from: a
+  hook that produces output of its own produced it with DEFAULTS, and an entry
+  cloned from a heading disagreed with that heading as soon as a render option
+  reached inline rendering - the same nodes, two answers. The new
+  `MarkupCarve\Carve\Extension\BeforeRenderContext` carries what the spec's
+  extension contract requires (docs/extensions.md §2.2): the render options
+  (`symbols()`, `smartTypography()`, `safeMode()`, `staticRenderer()`), the
+  effective `mode()` with `isStatic()`, and `targetIsHtml()`.
+
+  `targetIsHtml()` is the accessor a bare options parameter had no answer for: an
+  extension that emits HTML in the hook reads it to skip its transform on a
+  non-HTML target and leave the source node for that renderer to emit as source.
+  `mode()` is the EFFECTIVE mode, which is `interactive` on every non-HTML target
+  whatever the caller configured, because static rendering is an HTML-only
+  concern.
+
+  The context is READ-ONLY as a matter of contract, not convention: the guards
+  run after the hooks, so a hook handed live options could clear the field a
+  guard measures. It therefore hands out VALUES rather than the renderer that
+  holds them, and PHP's copy-on-assign arrays make the maps genuinely the hook's
+  own.
+
+  `HtmlRenderer::getSymbols()` and `HtmlRenderer::getStaticRenderers()` are new,
+  and `getSmartTypography()` now exists on the Markdown, plain-text and ANSI
+  renderers as well as the HTML one, so the context answers for a non-HTML target
+  with what the caller configured rather than a default.
+
 - **The Markdown target's escaping narrows on the line** (markup-carve/carve#970,
   PART 11 §8a). `_`, `#` and `[` are escaped IF AND ONLY IF the character is
   adjacent on the emitted line to an unescaped delimiter of the same character.

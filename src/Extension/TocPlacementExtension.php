@@ -92,7 +92,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
      */
     protected int $budget = self::BUDGET_BASE;
 
-    public function beforeRender(Document $document): Document
+    public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         // Keep the same instance the renderer pre-resolves, so getIdForHeading()
         // (keyed by spl_object_id) returns the cached, dedup-aware ids.

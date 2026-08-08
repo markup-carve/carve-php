@@ -49,7 +49,7 @@ class HeadingLevelShiftExtension implements BeforeRenderExtensionInterface
     /**
      * Return a shifted copy of the document for rendering.
      */
-    public function beforeRender(Document $document): Document
+    public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         if ($this->shift === 0) {
             return $document;

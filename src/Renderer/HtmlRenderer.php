@@ -420,6 +420,34 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
+     * Get the whole build-time renderer map.
+     *
+     * Read by {@see \MarkupCarve\Carve\Extension\BeforeRenderContext}, which has to hand a hook a copy of the map rather
+     * than this renderer.
+     *
+     * @return array<string, \Closure(string): string>
+     */
+    public function getStaticRenderers(): array
+    {
+        return $this->staticRenderers;
+    }
+
+    /**
+     * Get the trusted symbol replacements this renderer was built with.
+     *
+     * A `beforeRender` hook that renders inline nodes of its own needs the map
+     * the heading will be rendered with, or its output disagrees with the
+     * document one line below it (carve#1007). PHP copies the array on return,
+     * so the hook cannot write the renderer's own map through it.
+     *
+     * @return array<string, string>
+     */
+    public function getSymbols(): array
+    {
+        return $this->symbols;
+    }
+
+    /**
      * Register an extension that offers a static-HTML render path.
      *
      * Consulted in registration order before the ordinary render-event
