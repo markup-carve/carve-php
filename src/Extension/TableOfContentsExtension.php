@@ -124,15 +124,18 @@ class TableOfContentsExtension implements ResettableExtensionInterface
             // The label excludes the presentational section-number span but
             // leaves the space that preceded the title, so a numbered heading
             // yields " Alpha"; trim it to the bare title (matches carve-js/rs).
+            //
+            // The `?? []` is the RETURN TYPE's demand and not a case: the id
+            // was just registered from a heading, so the tracker holds that
+            // heading's nodes. Written as a branch it would be a check that
+            // cannot fail.
             $text = trim($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '');
-            $nodes = $tracker->getLabelNodesForId($id);
+            $nodes = $tracker->getLabelNodesForId($id) ?? [];
 
             $this->toc[] = [
                 'level' => $level,
                 'text' => $text,
-                'html' => $nodes === null
-                    ? StringUtil::escapeHtml($text)
-                    : trim($renderer->renderInlineNodesFragment($nodes)),
+                'html' => trim($renderer->renderInlineNodesFragment($nodes)),
                 'id' => $id,
             ];
         });

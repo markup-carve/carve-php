@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\TableOfContentsExtension;
 use MarkupCarve\Carve\Extension\TocPlacementExtension;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -337,6 +338,57 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
             . "</section>\n",
             $this->html("# h [a](/u) x\n\n[see </#h-a-x>](/o)\n"),
         );
+    }
+
+    public function testAnUnresolvedReferenceInTheHeadingKeepsItsAuthoredSource(): void
+    {
+        // An UNRESOLVED reference is a Link node (PART 12 §3a) that never
+        // renders as an anchor: every writer emits its literal source. Unwrapped
+        // to its label it would print `x` where the author wrote
+        // `[x][missing]`, so inside the label's own anchor it becomes that
+        // source instead. carve-js `76dadb6` publishes the same bytes, through
+        // the plain path and the in-link path alike.
+        $source = "# h [x][missing] y\n\nSee </#h-x-y>.\n";
+
+        $this->assertSame(
+            "<section id=\"h-x-y\">\n"
+            . "  <h1>h [x][missing] y</h1>\n"
+            . "  <p>See <a href=\"#h-x-y\">h [x][missing] y</a>.</p>\n"
+            . "</section>\n",
+            $this->html($source),
+        );
+
+        $this->assertStringContainsString(
+            '<p><a href="/u">see h [x][missing] y</a></p>',
+            $this->html("# h [x][missing] y\n\n[see </#h-x-y>](/u)\n"),
+        );
+    }
+
+    public function testTheDerivationHasACeiling(): void
+    {
+        // The walk descends a heading's inline nesting, and the ceiling is the
+        // one CrossReferenceResolver applies to the tree it reads from. Asserted
+        // on the seam: the parser bounds its own inline nesting well below 512,
+        // so no document reaches this - which is exactly why an unexercised
+        // ceiling is worth an assertion rather than an assumption.
+        $tracker = new HeadingIdTracker();
+        $leaf = new Text('deep');
+        $node = $leaf;
+        for ($i = 0; $i < 600; $i++) {
+            $wrapper = new Strong();
+            $wrapper->appendChild($node);
+            $node = $wrapper;
+        }
+
+        $derived = $tracker->deriveDisplayNodes([$node], false);
+
+        $depth = 0;
+        $cursor = $derived[0] ?? null;
+        while ($cursor !== null && $cursor->hasChildren()) {
+            $depth++;
+            $cursor = $cursor->getChildren()[0] ?? null;
+        }
+        $this->assertSame(511, $depth);
     }
 
     private function html(string $source, object ...$extensions): string

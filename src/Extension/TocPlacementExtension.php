@@ -172,17 +172,19 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             //
             // The label excludes the presentational section-number span but
             // keeps the space before the title; trim to the bare title (matches
-            // carve-js / carve-rs). stripBidi still runs: the renderer already
-            // strips the reordering controls from text it escapes, and the
-            // string fallback below has no renderer behind it.
-            $nodes = $tracker->getLabelNodesForId($id);
-            $entryHtml = $nodes === null
-                ? StringUtil::escapeHtml(trim($this->stripBidi($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '')))
-                : trim($this->stripBidi($renderer->renderInlineNodesFragment($nodes)));
+            // carve-js / carve-rs). stripBidi still runs as defence in depth -
+            // the renderer already strips the reordering controls from the text
+            // it escapes.
+            //
+            // The `?? []` is the RETURN TYPE's demand and not a case: the id was
+            // just registered from a heading, so the tracker holds that
+            // heading's nodes. Written as a branch it would be a check that
+            // cannot fail.
+            $nodes = $tracker->getLabelNodesForId($id) ?? [];
 
             $entries[] = [
                 'level' => $level,
-                'html' => $entryHtml,
+                'html' => trim($this->stripBidi($renderer->renderInlineNodesFragment($nodes))),
                 'id' => $id,
             ];
         }
