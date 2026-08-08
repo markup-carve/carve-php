@@ -66,6 +66,33 @@ final class StringUtil
     public const NON_WHITESPACE_CLASS = '[^ \t\r\n]';
 
     /**
+     * PART 7's `whitespace` terminal, as a test on ONE character.
+     *
+     * NOT `ctype_space()`, which is what the delimiter-flanking gates and the
+     * attribute separator used to ask. PHP's `ctype_space()` takes a VERTICAL
+     * TAB (U+000B) and a FORM FEED (U+000C) on top of these four, so `/<VT>a/`
+     * was not emphasis while `/!a/` was - one class deciding two ways on which
+     * character the author typed (markup-carve/carve#963).
+     *
+     * The three classes PHP offers are wrong in DIFFERENT directions, which is
+     * why fixing one spelling does not fix the next: `ctype_space()` and PCRE
+     * `\s` both take the vertical tab AND the form feed, while PHP's default
+     * `trim()` charlist takes the vertical tab and NOT the form feed.
+     *
+     * BYTE-level on purpose, like NON_WHITESPACE_CLASS above: it is handed one
+     * byte at a time by scanners walking a string with `$text[$i]`, and no
+     * continuation byte of a multi-byte character equals any of the four.
+     *
+     * @param string $char
+     *
+     * @return bool
+     */
+    public static function isWhitespaceChar(string $char): bool
+    {
+        return $char === ' ' || $char === "\t" || $char === "\r" || $char === "\n";
+    }
+
+    /**
      * Unicode bidirectional override and isolate format controls
      * (U+202A-U+202E LRE/RLE/PDF/LRO/RLO and U+2066-U+2069
      * LRI/RLI/FSI/PDI). These are the "Trojan Source" reordering controls:

@@ -73,7 +73,12 @@ class PrepassFenceTracker
         $deIndentedCloseLine = ContainerPrefix::atContentColumn($closeLine, $this->contentColumn) ?? $closeLine;
 
         if (
-            preg_match('/^([`~]{3,})\s*$/', $deIndentedCloseLine, $closeMatch) !== 1
+            // The closer INDEX and the closer TESTS spell the same class, so the
+            // index stays a superset of what the tests match - by being EQUAL to
+            // them rather than wider. Both are PART 7's four characters: a VERTICAL
+            // TAB after a fence is CONTENT, so the line is not a closer here or
+            // there (markup-carve/carve#963).
+            preg_match('/^([`~]{3,})[ \t]*$/', $deIndentedCloseLine, $closeMatch) !== 1
             || $closeMatch[1][0] !== $this->char
             || strlen($closeMatch[1]) < $this->length
         ) {

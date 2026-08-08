@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Utility;
 
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Shared utility for parsing djot attribute strings.
@@ -43,7 +44,7 @@ class AttributeParser
         $strippedForShorthand = preg_replace("/'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
         // Strip unquoted key=value tokens entirely (up to whitespace) to prevent
         // invalid chars like slashes from being misinterpreted as shorthand
-        $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^\s]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
+        $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^ \t\r\n]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
 
         // Parse .class -- the class name is a grammar identifier and may not
         // start with a digit (a `class="123"` is also invalid CSS), so a
@@ -75,9 +76,9 @@ class AttributeParser
         // legal inside an unquoted VALUE (`k=a:b`), per `unquoted_value`.
         // Refusing a digit-first key also avoids a numeric string key being
         // cast to int when used as an array key.
-        $kvPattern = '/(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
-            . '|(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)/';
+        $kvPattern = '/(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
+            . '|(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)/';
 
         $kvMatches = [];
         if (self::safeMatchAll($kvPattern, $attrStr, $kvMatches)) {
@@ -97,12 +98,12 @@ class AttributeParser
 
         // Parse boolean attributes (bare words like "reversed", "hidden")
         // First, strip out quoted values and key=value pairs to avoid matching words inside them
-        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+="[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
-        $strippedAttr = preg_replace("/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+='[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedAttr) ?? $strippedAttr;
-        $strippedAttr = preg_replace('/(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s"\'{}]+/', '', $strippedAttr) ?? $strippedAttr;
+        $strippedAttr = preg_replace('/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+="[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
+        $strippedAttr = preg_replace("/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+='[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedAttr) ?? $strippedAttr;
+        $strippedAttr = preg_replace('/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n"\'{}]+/', '', $strippedAttr) ?? $strippedAttr;
 
         // Now match bare words (must not start with . or #)
-        if (preg_match_all('/(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|$)/', $strippedAttr, $boolMatches)) {
+        if (preg_match_all('/(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|$)/', $strippedAttr, $boolMatches)) {
             foreach ($boolMatches[1] as $boolAttr) {
                 $attributes[$boolAttr] = '';
             }
@@ -145,19 +146,19 @@ class AttributeParser
         // the block yields no such attribute and stays literal (§14).
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
-            . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
+            . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
             . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
             . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
-            . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
+            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)'
             . '/';
 
         $matches = [];
@@ -240,20 +241,20 @@ class AttributeParser
         // also prevents a numeric key being cast to int and crashing escape().
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=\s)|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s"\'{}]+)(?=\s|}|$)|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)|'
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
-            . '(?:(?<=\s)|^)[a-zA-Z0-9_:-]+=[^\s}]+|'
+            . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
             . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
             . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
-            . '(?:^|\s)([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|}|$)'
+            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)'
             . '/';
 
         $matches = [];
@@ -346,7 +347,10 @@ class AttributeParser
 
                 continue;
             }
-            if ($char !== ' ' && ctype_space($char)) {
+            // PART 7's four characters. `ctype_space()` also takes a VERTICAL TAB
+            // and a FORM FEED, so `{k=v<VT>w}` was read as TWO attributes where
+            // `{k=v!w}` is one (markup-carve/carve#963).
+            if ($char !== ' ' && StringUtil::isWhitespaceChar($char)) {
                 return false;
             }
         }
@@ -379,26 +383,28 @@ class AttributeParser
     {
         // Quoted key=values first, so dots/braces/% inside quotes are protected.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $attrStr,
         ) ?? $attrStr;
         $rest = self::removeComments($rest);
-        if (trim($rest) === '') {
+        // See isValidAttrPayload(): PART 7's four characters, not PHP's default
+        // trim charlist (markup-carve/carve#963).
+        if (trim($rest, StringUtil::WHITESPACE_CHARS) === '') {
             return true;
         }
         $patterns = [
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^\s"\'{}]+/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'{}]+/',
             '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
             '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
-            '/\s+/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',
+            '/[ \t\r\n]+/',
         ];
         foreach ($patterns as $pattern) {
             $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
         }
 
-        return trim($rest) === '';
+        return trim($rest, StringUtil::WHITESPACE_CHARS) === '';
     }
 
     /**

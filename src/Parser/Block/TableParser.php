@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser\Block;
 
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Parser for table blocks.
@@ -78,7 +79,7 @@ class TableParser
         // `|` and is not a table row at all. carve-js and carve-rs leave such a
         // line a paragraph; without this gate the block was stripped whatever
         // it held and the row was built anyway.
-        if (preg_match('/^(.*\|)\{([^{}]+)\}\s*$/', $line, $matches)) {
+        if (preg_match('/^(.*\|)\{([^{}]+)\}[ \t]*$/', $line, $matches)) {
             if (AttributeParser::isValidInlinePayload($matches[2])) {
                 return $matches[1];
             }
@@ -100,7 +101,7 @@ class TableParser
             return [];
         }
 
-        if (preg_match('/\|\{([^{}]+)\}\s*$/', $line, $matches)) {
+        if (preg_match('/\|\{([^{}]+)\}[ \t]*$/', $line, $matches)) {
             // Same §14 gate as stripRowAttributes: an invalid payload is not a
             // row-attribute block, so it contributes no attributes either.
             //
@@ -638,7 +639,7 @@ class TableParser
      */
     public function isPotentialTableRowWithUnclosedCodeSpan(string $line): bool
     {
-        $trimmed = trim($line);
+        $trimmed = trim($line, StringUtil::WHITESPACE_CHARS);
         if ($trimmed === '' || $trimmed[0] !== '|') {
             return false;
         }
@@ -763,7 +764,10 @@ class TableParser
         }
 
         // Check if it ends with | (even if inside "code span")
-        $trimmed = rtrim($line);
+        // PHP's default charlist takes a VERTICAL TAB and not a FORM FEED, so a
+        // continuation row ending in one folded into the cell above while the same
+        // row ending in the other became a paragraph between two tables.
+        $trimmed = rtrim($line, StringUtil::WHITESPACE_CHARS);
 
         return str_ends_with($trimmed, '|');
     }

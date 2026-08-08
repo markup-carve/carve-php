@@ -1682,7 +1682,7 @@ class BlockParser
 
             if ($fenceChar !== null) {
                 if (
-                    preg_match('/^([`~]{3,})\s*$/', $line, $fm)
+                    preg_match('/^([`~]{3,})[ \t]*$/', $line, $fm)
                     && $fm[1][0] === $fenceChar
                     && strlen($fm[1]) >= $fenceLen
                 ) {
@@ -1694,7 +1694,7 @@ class BlockParser
                 continue;
             }
             if ($verseFence > 0) {
-                if (preg_match('/^(:{3,})\s*$/', $line, $vm) && strlen($vm[1]) >= $verseFence) {
+                if (preg_match('/^(:{3,})[ \t]*$/', $line, $vm) && strlen($vm[1]) >= $verseFence) {
                     $verseFence = 0;
                 }
                 $i++;
@@ -2226,7 +2226,7 @@ class BlockParser
         $i = $start + 1;
         while ($i < $count) {
             $nextLine = $lines[$i];
-            if (preg_match('/^(.*)\}\s*$/', $nextLine, $closeMatch)) {
+            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
                 $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
                 if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
@@ -2393,7 +2393,7 @@ class BlockParser
         ?int $lastIndex = null,
     ): void {
         $text = rtrim(implode("\n", $group), "\n");
-        if (trim($text) === '') {
+        if (trim($text, StringUtil::WHITESPACE_CHARS) === '') {
             return;
         }
 
@@ -2592,7 +2592,7 @@ class BlockParser
             // exact `---` opener so core-first still holds for every other line and
             // every other thematic-break shape (***, ___, ----); a lone `---` with
             // no closing fence is declined, leaving it a thematic break.
-            if ($topLevel && !$parent->hasChildren() && preg_match('/^---\s*$/', $line) === 1) {
+            if ($topLevel && !$parent->hasChildren() && preg_match('/^---[ \t]*$/', $line) === 1) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
                     $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
@@ -2945,7 +2945,7 @@ class BlockParser
             $nextLine = $lines[$i];
 
             // Check if this line ends the attribute block
-            if (preg_match('/^(.*)\}\s*$/', $nextLine, $closeMatch)) {
+            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
                 $attrContent .= ' ' . $closeMatch[1];
                 $attrStr = trim($attrContent);
 
@@ -3660,7 +3660,7 @@ class BlockParser
 
     protected function isBareColonFence(string $line, ?int &$length = null): bool
     {
-        if (preg_match('/^(:+)\s*$/', $line, $m) !== 1 || strlen($m[1]) < 3) {
+        if (preg_match('/^(:+)[ \t]*$/', $line, $m) !== 1 || strlen($m[1]) < 3) {
             return false;
         }
 
@@ -4986,10 +4986,10 @@ class BlockParser
                 // index owes its callers is that it is a SUPERSET of what they
                 // can match - narrowing it is only safe once the closers
                 // themselves narrow. Raised by codex review.
-                if (preg_match('/^[ \t]*(:{3,})\s*$/', $line, $m) === 1) {
+                if (preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
                     $colon[strlen($m[1])] = $i;
                 }
-                if (preg_match('/^[ \t]*([`~]{3,})\s*$/', $line, $m) === 1) {
+                if (preg_match('/^[ \t]*([`~]{3,})[ \t]*$/', $line, $m) === 1) {
                     $code[$m[1][0]][strlen($m[1])] = $i;
                 }
             }
@@ -6284,7 +6284,7 @@ class BlockParser
 
         if (
             preg_match(
-                '/^\|(?:\s*(?<attrs>\{.*\}))?\s*$/s',
+                '/^\|(?:[ \t]*(?<attrs>\{.*\}))?[ \t]*$/s',
                 $divInfo['className'],
                 $openerMatches,
                 PREG_UNMATCHED_AS_NULL,

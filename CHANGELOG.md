@@ -9,6 +9,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **Whitespace is a space, a tab, a CR or an LF in fifteen further constructs**
+  (markup-carve/carve#963, markup-carve/carve#977, PART 7). A VERTICAL TAB
+  (U+000B) and a FORM FEED (U+000C) are CONTENT everywhere, so they no longer
+  pad a line or separate a marker from what follows it. A fence closer, a div
+  and verse fence opener, a raw-block fence, a frontmatter opener, a table row's
+  attribute block, a table continuation row and a multiline attribute block all
+  end at a real whitespace run rather than at one of these characters; `{k=v<VT>w}`
+  is ONE attribute whose value holds the character; `{#a<VT>.b}` is not an
+  attribute block at all; `/<VT>a/` is literal text rather than emphasis, and
+  the same for `*` and `/*`; `x^[<VT>]` is an inline footnote holding the
+  character; a cross-reference id keeps one; and a straight quote after one
+  CLOSES, because the character before it is content.
+
+  The frontmatter opener is the severe one: it runs to the next bare three-dash
+  line, so reading the character as padding did not mislabel one line, it
+  swallowed the document down to the closer.
+
+  Two slots stay deliberately wider and are unchanged: a link destination ends
+  at UNICODE whitespace (PART 3), and a quote after a NO-BREAK SPACE still
+  opens.
+
 - **A nested link and an autolink stay nodes in the published AST**
   (markup-carve/carve#817). "Links never nest" is a rendering rule, so it binds
   the renderer and not the encoder: a `link` or an `autolink` inside a link's
