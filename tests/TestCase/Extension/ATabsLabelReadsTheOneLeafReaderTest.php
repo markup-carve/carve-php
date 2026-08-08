@@ -100,16 +100,10 @@ class ATabsLabelReadsTheOneLeafReaderTest extends TestCase
 
     public function testASymbolIsSpelledTheWayTheLeafReaderSpellsIt(): void
     {
-        // The row that USED to be the one place this engine and carve-js
-        // disagreed on what a leaf contributes: the leaf reader wrote a symbol
-        // back as `:name:` while carve-js contributed nothing. That was a
-        // question about the leaf rules rather than about this extension, and
-        // markup-carve/carve#1011 settled it against the leaf reader - a symbol
-        // is excluded from derived TEXT (syntax.md section 4.1 step 1). Routing
-        // the label through the leaf rules still does not change the answer
-        // either way; the answer itself moved, and this label moved with it.
+        // A visible tab label preserves the authored symbol spelling. Identity
+        // text such as a heading ID still excludes symbols.
         $this->assertSame(
-            'and x',
+            ':smile: and x',
             $this->label(':smile: and x', [], [':smile:' => '<img alt="smile">']),
         );
     }
