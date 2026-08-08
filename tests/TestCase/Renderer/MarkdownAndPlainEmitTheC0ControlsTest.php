@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
@@ -201,13 +203,24 @@ class MarkdownAndPlainEmitTheC0ControlsTest extends TestCase
     {
         // The other half, from the other side: PCRE's `\s` matches the form feed
         // and the vertical tab, so a pattern standing in for "whitespace" ate a
-        // character the language calls content. The heading folder is the site
-        // it reached - `/\s*\n\s*/` collapsing a soft wrap.
+        // character the language calls content. The site is the Markdown heading
+        // folder, which collapses a soft wrap with `/\s*\n\s*/`.
+        //
+        // Built as a NODE, and the character sits ADJACENT to the break. Neither
+        // detail is decoration: after markup-carve/carve#451 a heading ends at
+        // the newline, so a PARSED heading never spans lines and the folder is
+        // unreachable from source at all; and a character away from the break is
+        // not what `\s*` is looking at. A probe that parsed `# a<FF>\nb` and put
+        // the character anywhere else passed with the pattern restored.
         foreach (["\u{000C}", "\u{000B}"] as $char) {
-            $this->assertStringContainsString(
-                $char,
-                CarveConverter::markdown()->convert(sprintf("# a%s\nb\n", $char)),
-            );
+            $document = new Document();
+            $heading = new Heading(1);
+            $heading->appendChild(new Text('a'));
+            $heading->appendChild(new SoftBreak());
+            $heading->appendChild(new Text($char . 'b'));
+            $document->appendChild($heading);
+
+            $this->assertStringContainsString($char, (new MarkdownRenderer())->render($document));
         }
     }
 }
