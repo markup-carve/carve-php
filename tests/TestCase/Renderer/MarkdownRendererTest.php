@@ -140,7 +140,11 @@ class MarkdownRendererTest extends TestCase
     {
         $document = $this->converter->parse('![x](https://e.com/a <b>)');
 
-        $this->assertSame("!\\[x\\](https://e.com/a &lt;b&gt;)\n", $this->renderer->render($document));
+        // The `[` goes bare under PART 11 section 8a M1b - it is not adjacent to
+        // another `[` - while `]` keeps M1 (M1c). The label still cannot close, so
+        // nothing breaks out; what this case is about, the destination's `<b>`
+        // being neutralized, is unchanged.
+        $this->assertSame("![x\\](https://e.com/a &lt;b&gt;)\n", $this->renderer->render($document));
     }
 
     public function testLinkWithTitle(): void

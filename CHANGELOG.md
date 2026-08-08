@@ -9,6 +9,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **The Markdown target's escaping narrows on the line** (markup-carve/carve#970,
+  PART 11 §8a). `_`, `#` and `[` are escaped IF AND ONLY IF the character is
+  adjacent on the emitted line to an unescaped delimiter of the same character.
+  So `company_id`, `C#` and `issue #123` are written as the author typed them,
+  where they used to come out `company\_id`, `C\#` and `issue \#123` - a
+  backslash inside an identifier breaks exact-match search in the published
+  document and protects nothing. `a __b` keeps both escapes, because dropping
+  them would merge the two into one run.
+
+  **The asterisk is exempt and keeps M1 unconditionally.** This writer spells
+  emphasis with `*`, so a literal asterisk can merge with a delimiter the writer
+  itself wrote: emphasis containing two asterisks is `*\*\**`, and unescaped it
+  is `****`, which a CommonMark reader publishes as a thematic break.
+
+  **An escape the author wrote is unaffected** and is still emitted as an escape
+  (§8 M2), so `a\_b` stays `a\_b`. It used to lose its backslash to the old
+  intraword rule, which made `a\_b` and `a_b` one document on this target; they
+  are two now.
+
 - **Whitespace is a space, a tab, a CR or an LF in fifteen further constructs**
   (markup-carve/carve#963, markup-carve/carve#977, PART 7). A VERTICAL TAB
   (U+000B) and a FORM FEED (U+000C) are CONTENT everywhere, so they no longer

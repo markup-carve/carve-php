@@ -54,7 +54,8 @@ class UnresolvedFootnoteAttributesTest extends TestCase
         // The node changed; the OUTPUT must not. An unresolved reference has no
         // number, no backlink and no attributes to apply - it is literal source.
         $this->assertStringContainsString('<p>Text[^a].</p>', (new CarveConverter())->convert(self::SOURCE));
-        $this->assertStringContainsString('Text\[^a\].', CarveConverter::markdown()->convert(self::SOURCE));
+        // `[` goes bare under PART 11 section 8a M1b; `]` keeps M1 (M1c).
+        $this->assertStringContainsString('Text[^a\].', CarveConverter::markdown()->convert(self::SOURCE));
         $this->assertStringContainsString('Text[^a].', CarveConverter::plainText()->convert(self::SOURCE));
     }
 
