@@ -516,7 +516,27 @@ class HeadingIdTracker
             return $child->getContent();
         }
         if ($child instanceof Symbol) {
-            return ':' . $child->getName() . ':';
+            // A SYMBOL CONTRIBUTES NOTHING TO DERIVED TEXT. syntax.md section
+            // 4.1 step 1 takes the heading's rendered plain text "(inline
+            // markup removed; symbols `:name:` and footnote references
+            // excluded)", and the exclusion is by CONSTRUCT, not by whatever
+            // the symbol happens to render as.
+            //
+            // It has to be, because a symbol's rendering is processor
+            // configuration (PART 3: an inline-renderer handler, else the
+            // `symbols` map, else the literal `:name:`) while an id is assigned
+            // in the parse pass that no renderer option reaches. Feeding the
+            // construct in makes the id a function of that configuration:
+            // returning the NAME published `a-smile-b` for `# a :smile: b` even
+            // with `smile` mapped to an emoji, so the id named a spelling the
+            // document never rendered, and returning the RESOLVED value would
+            // have moved every such id the first time a host configured a map.
+            // Excluding it is the only answer that holds still
+            // (markup-carve/carve#1011).
+            //
+            // Scoped to derived TEXT: contributesNothingToDisplay() keeps the
+            // symbol in a derived display label, where it is visible content.
+            return '';
         }
         if ($child instanceof RawInline) {
             // Format-specific raw HTML is excluded from heading
@@ -709,6 +729,16 @@ class HeadingIdTracker
     {
         if ($child instanceof FootnoteRef || $child instanceof InlineFootnote) {
             return true;
+        }
+
+        // A SYMBOL IS VISIBLE CONTENT and stays in a derived display label,
+        // even though inlineTextLeaf() drops it: only the ID SLUG excludes it
+        // (syntax.md section 4.1 step 1), and all three engines already render
+        // `</#id>` against a heading holding one with the symbol in place. The
+        // list above is derived-text policy; this is the one entry where the
+        // text form and the display form part.
+        if ($child instanceof Symbol) {
+            return false;
         }
 
         return $this->inlineTextLeaf($child) === '';
