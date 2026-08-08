@@ -312,6 +312,23 @@ class BlockParser
     protected array $footnotes = [];
 
     /**
+     * Where each footnote definition LINE was written, keyed by label.
+     *
+     * Kept beside the definitions because a definition's extent is otherwise
+     * derived from its body, and `[^f]: {empty}` has no body to derive from -
+     * so that node reached the wire with no `pos` at all, the one node in the
+     * spec corpus PART 12 §4 requires to carry one and this engine did not
+     * publish (markup-carve/carve#1023). Recorded for every definition and
+     * READ only for a childless one, so a definition with content keeps the
+     * extent its body already gives it.
+     *
+     * Empty unless position tracking is on: §4 makes positions opt-in.
+     *
+     * @var array<string, \MarkupCarve\Carve\Ast\SourceSpan>
+     */
+    protected array $footnoteDefinitionSpans = [];
+
+    /**
      * Abbreviation definitions: maps abbreviation text to its definition
      *
      * @var array<string, string>
@@ -914,7 +931,20 @@ class BlockParser
         }
 
         // Append footnotes section if any
-        foreach ($this->footnotes as $footnote) {
+        foreach ($this->footnotes as $label => $footnote) {
+            // A definition's extent is derived from its body by
+            // `deriveContainerSpans`, and a definition with NO BLOCKS has no
+            // body to derive it from: `[^f]: {empty}` reached the wire with no
+            // `pos`, which §4 permits only for a node that CANNOT be placed.
+            // This one can - it is written on a line of its own - so the
+            // definition line is its extent, which is what the reference
+            // publishes (markup-carve/carve#1023).
+            //
+            // Only when there are no children, so a definition that has content
+            // keeps the extent its body already gives it.
+            if ($footnote->getChildren() === [] && $footnote->getPos() === null) {
+                $footnote->setPos($this->footnoteDefinitionSpans[$label] ?? null);
+            }
             $document->appendChild($footnote);
         }
 
@@ -1413,6 +1443,7 @@ class BlockParser
                         if ($this->trackSourceLines) {
                             $footnote->setAttribute('data-source-line', (string)($i + 1));
                         }
+                        $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
                         $this->footnotes[$label] = $footnote;
                         $bodyLines = [$content];
                         $bodyLineMap = [$i];
@@ -1539,6 +1570,7 @@ class BlockParser
                     if ($this->trackSourceLines) {
                         $footnote->setAttribute('data-source-line', (string)($i + 1));
                     }
+                    $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
                     $this->footnotes[$label] = $footnote;
                     if ($contentLines) {
                         $deferredBodies[$label] = [
@@ -1977,6 +2009,7 @@ class BlockParser
         $this->references = [];
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
+        $this->footnoteDefinitionSpans = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
@@ -7814,6 +7847,57 @@ class BlockParser
         ));
     }
 
+    /**
+     * Record where a footnote definition was WRITTEN, for the one case its body
+     * cannot answer.
+     *
+     * PART 12 §4 puts a span's start at the markup that opens the construct -
+     * for a definition, the `[` of `[^label]:` and not the container prefix that
+     * carried the line. The prefix is measured by taking the stripped line off
+     * the end of the raw one rather than by re-deriving a column, so a tab or a
+     * quote marker is counted here exactly as the strip that produced `$bare`
+     * counted it.
+     *
+     * FIRST definition of a label wins, matching `$this->footnotes`.
+     *
+     * @param string $label
+     * @param int $index
+     * @param string $raw The line as written, container prefix included.
+     * @param string $bare The same line with that prefix stripped.
+     */
+    private function recordFootnoteDefinitionSpan(
+        string $label,
+        int $index,
+        string $raw,
+        string $bare,
+    ): void {
+        if (!$this->trackPositions || isset($this->footnoteDefinitionSpans[$label])) {
+            return;
+        }
+        // Every caller strips from the FRONT, so this holds; a caller that ever
+        // stopped doing so would record nothing rather than a wrong column,
+        // which is the answer §4 asks for.
+        if (!str_ends_with($raw, $bare)) {
+            return;
+        }
+        $start = $this->lineStartOffsets[$index] ?? null;
+        if ($start === null) {
+            return;
+        }
+
+        $span = $this->positionIndex?->span(
+            $start + strlen($raw) - strlen($bare),
+            $start + strlen($raw),
+            $index + 1,
+            $index + 1,
+            $start,
+            $start,
+        );
+        if ($span !== null) {
+            $this->footnoteDefinitionSpans[$label] = $span;
+        }
+    }
+
     private function wholeLineSpan(int $index): ?SourceSpan
     {
         if (!$this->trackPositions) {
@@ -10006,6 +10090,7 @@ class BlockParser
         $this->references = [];
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
+        $this->footnoteDefinitionSpans = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
