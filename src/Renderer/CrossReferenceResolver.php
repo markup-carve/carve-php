@@ -155,29 +155,17 @@ class CrossReferenceResolver
     }
 
     /**
-     * The LINK half of the rule, for the parse path.
+     * There is no parse-path counterpart to this walk, deliberately.
      *
-     * The grammar calls links-never-nest "a property of the DOCUMENT", so the
-     * parsed tree must not carry a link inside a link either - and PART 12 §6
-     * requires it to happen in parse() rather than in serialization, the same
-     * argument `TextRunCoalescer` is placed by (carve-php#623). Doing it only on
-     * the render path is what went wrong here: the published tree kept the inner
-     * node while the renderer unwrapped it, so a consumer read a structure no
-     * renderer emits (carve-php#859).
-     *
-     * WITHOUT a tracker, which is what excludes the cross-reference half: a
-     * `</#id>` is not resolved at parse time, so flattening it here would splice
-     * in its literal source instead of the heading text. It is also not needed -
-     * carve-js and carve-rs both publish a `heading_ref` node inside the link for
-     * `[see </#H>](/outer)`, and this engine now agrees with them. That half stays
-     * on the render path, where the id is known.
+     * PART 12 §3a (A NESTED LINK AND AN AUTOLINK STAY NODES) makes
+     * links-never-nest a RENDERING rule that binds the renderer and not the
+     * encoder, so the parsed tree keeps the node the author wrote and only the
+     * render seam unwraps it. An earlier reading ran this walk from
+     * CarveConverter::parse() as well (carve-php#859); that flattened the inner
+     * destination out of the published tree, which is the fold §3a forbids
+     * (carve#817).
      */
-    public function unwrapNestedLinks(Node $node): void
-    {
-        $this->enforceNoNesting($node, null, false);
-    }
-
-    protected function enforceNoNesting(Node $node, ?HeadingIdTracker $tracker, bool $insideLink, int $depth = 0): void
+    protected function enforceNoNesting(Node $node, HeadingIdTracker $tracker, bool $insideLink, int $depth = 0): void
     {
         if ($depth >= self::MAX_RESOLVE_DEPTH) {
             return;
@@ -204,9 +192,7 @@ class CrossReferenceResolver
             }
 
             if ($child instanceof HeadingRef) {
-                // No tracker means the parse path, where the id is not resolved
-                // yet - see unwrapNestedLinks().
-                if ($insideLink && $tracker !== null) {
+                if ($insideLink) {
                     // A cross-reference inside a link would render as a nested
                     // anchor. Flatten it to the resolved heading text (or the
                     // literal `</#id>` source when the target is unresolved),

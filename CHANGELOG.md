@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **A nested link and an autolink stay nodes in the published AST**
+  (markup-carve/carve#817). "Links never nest" is a rendering rule, so it binds
+  the renderer and not the encoder: a `link` or an `autolink` inside a link's
+  label now reaches the tree as the node the author wrote, where it used to be
+  flattened into its display text. `[[x](y)](z)` publishes the inner
+  `link` to `y` again, and `[pre <http://h> post](/u)` publishes the
+  `autolink`. A consumer walking a link's `children` must expect a `link` or an
+  `autolink` there and must not emit a nested anchor for it, exactly as it
+  already does for a nested `heading_ref`. Rendered HTML, Markdown, plain text
+  and ANSI are unchanged - every target unwraps at its own render seam - but
+  `fmt` through the AST now returns the inner destination instead of dropping
+  it, which is PART 11 §6's round trip.
+
 - **A heading ends at the newline** (markup-carve/carve#451,
   markup-carve/carve#434). Nothing folds into a heading, so `# Title` with prose
   beneath is a heading plus a paragraph, and its id comes from the heading line
