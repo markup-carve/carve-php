@@ -253,7 +253,9 @@ $profiles = [
     'full' => Profile::full(),
     'article' => Profile::article(),
     'comment' => Profile::comment(),
-    'minimal' => Profile::minimal(),
+    // Compare filtering memory on the shared 17 KB fixture rather than
+    // exercising the preset's separate 10 KB input-limit policy.
+    'minimal' => Profile::minimal()->setMaxLength(0),
 ];
 
 $content = $fixtures['gen_medium'];

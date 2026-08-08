@@ -392,7 +392,11 @@ $profiles = [
     'full' => Profile::full(),
     'article' => Profile::article(),
     'comment' => Profile::comment(),
-    'minimal' => Profile::minimal(),
+    // This section measures profile filtering overhead on the same medium
+    // fixture. The preset's production 10 KB input ceiling would reject that
+    // 56 KB fixture before parsing and abort the complete benchmark suite, so
+    // disable only the size policy for this performance comparison.
+    'minimal' => Profile::minimal()->setMaxLength(0),
 ];
 
 $mediumContent = $fixtures['medium'];
