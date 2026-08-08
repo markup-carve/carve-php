@@ -278,6 +278,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   maximal ill-formed subsequence, so `hello <bad byte> world` keeps both words on
   every target. Neighbouring paragraphs were never affected and still are not.
 
+- **Four more reserved characters no longer corrupt a document that contains
+  them** (carve-php#1087). Each renderer that marks a position inside a string it
+  is still building now chooses that marker per render from code points the
+  document does not contain, the shape carve#678 settled, instead of reserving a
+  fixed one:
+
+  - The canonical writer (`fmt`, `toCarve()`) ate an authored U+E010 opening a
+    list item's continuation line **and wrote the paragraph back at column 0**,
+    outside the item - a change to block structure, not to one character.
+  - The Markdown target deleted an authored U+E004, U+E005 or U+E006 outright.
+    PART 7 makes those content and PART 9 section 29 has this target emit content
+    rather than delete it, which is the same clause that settled the C0 controls.
+  - The HTML target turned a host-built node containing its internal
+    `::: footnotes` marker into a footnotes `div` in the middle of a paragraph.
+    Not reachable from `.crv` source, only through the node API.
+  - `BbcodeToCarve` substituted an unrelated span of the same post for an
+    authored `NUL B <n> NUL`, and **raised an uncaught `TypeError` for an index
+    past the end of its stash** - a crash from ordinary untrusted forum input.
+
+  None of these is a security issue and none is likely in ordinary prose. They
+  matter because "no document contains this" is an assumption about source, and
+  the node API lets a caller supply any string.
+
+  The chooser itself was widened in the same pass: it advanced a whole run at a
+  time, so a document holding one character from each aligned run - about a
+  thousand of them, not the whole private-use area its comment claimed - ran the
+  search out and got the colliding preferred run back.
+
 - **`fmt` emits a blank inside an indented verbatim block as an empty line**
   (carve-php#1068, PART 11 section 7). A blank line inside a fenced code block,
   a raw block or a block comment nested in a FOOTNOTE BODY or a DEFINITION BODY

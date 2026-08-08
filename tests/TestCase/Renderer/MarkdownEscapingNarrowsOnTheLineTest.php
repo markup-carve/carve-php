@@ -248,19 +248,45 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     }
 
     /**
-     * CONTROL. The sentinels this renderer uses to defer the decision must never
-     * survive into the output, and author content carrying one must not be read
-     * as an escape the renderer emitted.
+     * The sentinels this renderer uses to defer the decision must never survive
+     * into the output, and AUTHOR CONTENT AT THOSE CODE POINTS MUST.
+     *
+     * This row used to say the opposite, and it was pinning the defect rather
+     * than the rule: the sentinels were the fixed U+E004..U+E006 and author
+     * content was kept off them by DELETING the range on the way in, so `a`
+     * U+E004 `b` came out `ab`. PART 7 makes those characters content and PART 9
+     * section 29 says this target emits content it did not expect rather than
+     * deleting it, so the deletion was the lossy answer that section rejects
+     * (markup-carve/carve-php#1087).
+     *
+     * The sentinels are chosen per document now, so both halves hold at once:
+     * whatever run the renderer picked is absent from the output BECAUSE it is
+     * absent from the document, and the author's own character is emitted. The
+     * `_b_` is there so a run that abandoned the sentinel mechanism entirely
+     * could not pass: the underline still has to be decided on the line, and it
+     * decides DIFFERENTLY with the character present - `a_b_` is intraword and
+     * stays literal, while `a<U+E004>_b_` is not and becomes `<u>`. A renderer
+     * that swallowed the character would emit the control row's answer.
      *
      * @return void
      */
-    public function testTheSentinelsNeverReachTheOutputControl(): void
+    public function testAnAuthoredSentinelCodePointSurvivesAndTheEscapeStillDecides(): void
     {
-        foreach (["\u{E004}", "\u{E005}", "\u{E006}"] as $sentinel) {
-            $rendered = CarveConverter::markdown()->convert('a' . $sentinel . '_b_');
+        foreach (["\u{E004}", "\u{E005}", "\u{E006}"] as $character) {
+            $rendered = CarveConverter::markdown()->convert('a' . $character . '_b_');
 
-            $this->assertStringNotContainsString($sentinel, $rendered);
+            $this->assertSame('a' . $character . "<u>b</u>\n", $rendered);
         }
+    }
+
+    /**
+     * CONTROL for the row above: the same documents with the character removed.
+     *
+     * @return void
+     */
+    public function testTheSameDocumentWithoutTheCharacterIsUnchangedControl(): void
+    {
+        $this->assertSame("a_b_\n", CarveConverter::markdown()->convert('a_b_'));
     }
 
     /**

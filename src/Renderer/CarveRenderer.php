@@ -134,9 +134,24 @@ class CarveRenderer implements RendererInterface
      * not a replacement for the marker: restoreVerbatim() puts the character
      * back.
      *
-     * @var array{0: string, 1: string, 2: string, 3: string, 4: string}
+     * SLOT 5 IS THE MARKER-COLUMN TAG, and it is in this run rather than beside
+     * it. It used to be the fixed U+E010, on the reasoning that a tag inside the
+     * re-picked run would be rewritten underneath itself - which is true, and is
+     * why it belongs IN the run instead of next to it. Outside it, the tag was
+     * a fixed sentinel with exactly the collision this array exists to remove:
+     * an authored U+E010 opening a list item's continuation line was eaten AND
+     * the paragraph was written back at column 0, out of the item it was in.
+     * That is worse than the four carve#678 found, because it changes the
+     * document's BLOCK STRUCTURE rather than a character
+     * (markup-carve/carve-php#1087).
+     *
+     * A run of six also cannot collide with itself: the picker returns six
+     * DISTINCT consecutive code points, so the tag differs from every carrier by
+     * construction rather than by being parked at a hopefully-unused address.
+     *
+     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
      */
-    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}"];
+    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}", "\u{E006}"];
 
     /**
      * Every string in the tree, joined.
@@ -152,12 +167,12 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string, 4: string}
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string} $picked */
-        $picked = DocumentSentinels::pick($text, 5, 0xE001);
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string} $picked */
+        $picked = DocumentSentinels::pick($text, 6, 0xE001);
 
         return $picked;
     }
@@ -732,12 +747,12 @@ class CarveRenderer implements RendererInterface
                     // A code line that genuinely holds spaces arrives as those
                     // spaces (U+E001), not as this placeholder, and still indents.
                     $blank = $this->isBlankContinuationLine($line);
-                    if (!$blank && str_starts_with($line, self::MARKER_COLUMN)) {
+                    if (!$blank && str_starts_with($line, $this->markerColumn())) {
                         // The continuation marker and the block it attaches sit
                         // at the ITEM's marker column, not its content column
                         // (§17 L3). Indenting either is what made the attached
                         // paragraph fold (carve#861).
-                        $out .= substr($line, strlen(self::MARKER_COLUMN)) . "\n";
+                        $out .= substr($line, strlen($this->markerColumn())) . "\n";
 
                         continue;
                     }
@@ -809,13 +824,24 @@ class CarveRenderer implements RendererInterface
      * inside the item body where the prefix is not yet known - so they are
      * tagged here and the prefix loop honours the tag.
      *
-     * Deliberately OUTSIDE the U+E001..U+E005 run `$verbatimSentinels` uses:
-     * those are re-picked per document when the source contains one, and a tag
-     * that collided with a verbatim sentinel would be rewritten underneath it.
+     * SLOT 5 of the run `$verbatimSentinels` picks per document, so an authored
+     * occurrence cannot exist: the run moves off any code point the document
+     * writes. It used to be the FIXED U+E010, parked outside the run on the
+     * reasoning that a re-picked run would rewrite it - which is a reason to
+     * put it IN the run, not beside it (markup-carve/carve-php#1087).
      *
-     * @var string
+     * WHICH slot it is, is INTENT rather than a load-bearing constraint, and the
+     * difference was measured rather than assumed: pointing this at slot 0
+     * instead passes the whole suite, because protectVerbatim() only ever
+     * encodes TRAILING whitespace and whole blank lines, so no line reaching the
+     * continuation loop can BEGIN with the trailing-space carrier. A slot of its
+     * own keeps the next reader from redoing that reasoning, and keeps the two
+     * independent if protectVerbatim() ever learns to encode a leading run.
      */
-    protected const MARKER_COLUMN = "\u{e010}";
+    protected function markerColumn(): string
+    {
+        return $this->verbatimSentinels[5];
+    }
 
     /**
      * Whether `$node`'s canonical source is a bare inline run on its own line,
@@ -835,7 +861,7 @@ class CarveRenderer implements RendererInterface
     protected function atMarkerColumn(string $text): string
     {
         return implode("\n", array_map(
-            static fn (string $line): string => self::MARKER_COLUMN . $line,
+            fn (string $line): string => $this->markerColumn() . $line,
             explode("\n", $text),
         ));
     }

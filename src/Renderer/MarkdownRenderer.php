@@ -63,6 +63,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -112,12 +113,8 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
-     * Sentinels standing in for the escapes PART 11 §8a decides on the LINE.
-     *
-     * One per narrowed character. U+E000 is the NBSP sentinel and the Carve
-     * writer claims U+E001..U+E003; this extends the scheme. Author content
-     * never carries one: stripControls() drops the whole range on the way in,
-     * and every path to the output runs through stripControls().
+     * The characters PART 11 §8a M1b decides on the LINE, in the order the
+     * sentinel run is assigned to them.
      *
      * THE ASTERISK IS NOT HERE, and that is M1a rather than an omission. This
      * writer spells emphasis with `*`, so a literal asterisk is not a character
@@ -125,22 +122,54 @@ class MarkdownRenderer implements RendererInterface
      * is made of. `*\*\**` unescaped to `****`, and a CommonMark reader
      * publishes emphasis-containing-two-asterisks as a thematic break.
      *
+     * @var list<string>
+     */
+    private const NARROWED_CHARACTERS = ['_', '#', '['];
+
+    /**
+     * The first code point of the run picked for the narrowed-escape sentinels.
+     *
+     * @var int
+     */
+    protected const NARROWED_SENTINEL_FIRST = 0xE004;
+
+    /**
+     * Sentinels standing in for the escapes PART 11 §8a decides on the LINE,
+     * one per narrowed character, CHOSEN PER DOCUMENT from code points the
+     * document does not contain.
+     *
+     * They used to be the fixed U+E004..U+E006, and the way author content was
+     * kept away from them was to DELETE the whole range in stripControls() on
+     * the way in. That is the collision, not a defense against it: PART 7 makes
+     * every character that is not one of the four whitespace characters
+     * CONTENT, and PART 9 §29 already answered what this target does with
+     * content it did not expect - it EMITS it, because "a target that silently
+     * deletes content is lossy rather than safe". The strip was the same
+     * decision §29 rejected for the C0 controls, applied to three private-use
+     * code points instead, so `a<U+E004>b` came out `ab`
+     * (markup-carve/carve-php#1087).
+     *
+     * Picking instead of stripping removes both halves at once: the sentinels
+     * cannot be authored, so nothing has to be deleted to protect them.
+     *
      * @var array<string, string>
      */
-    private const NARROWED_SENTINEL = [
+    protected array $narrowedSentinels = [
         '_' => "\u{E004}",
         '#' => "\u{E005}",
         '[' => "\u{E006}",
     ];
 
     /**
-     * The whole sentinel range, for stripping author content and for the final
-     * resolve. Spelled as a class so a character added above cannot be forgotten
-     * here without the range moving with it.
+     * The picked run as a PCRE class, for the final resolve.
+     *
+     * The run is contiguous by construction, so the class is its two ends. Built
+     * with the run rather than written out, so a fourth narrowed character
+     * cannot be added above without the class moving with it.
      *
      * @var string
      */
-    private const NARROWED_SENTINEL_CLASS = '[\x{E004}-\x{E006}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E006}]';
 
     protected int $listDepth = 0;
 
@@ -284,6 +313,7 @@ class MarkdownRenderer implements RendererInterface
 
     public function render(Document $document): string
     {
+        $this->pickNarrowedSentinels($document);
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
@@ -339,6 +369,26 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
+     * Choose sentinels this document does not contain.
+     *
+     * Called from render() only. The run has to be fixed before the first node
+     * is rendered, because escapeText() inserts sentinels while the document is
+     * still being assembled and resolveNarrowedEscapes() reads them back at the
+     * end - both passes have to agree on which characters they are.
+     */
+    protected function pickNarrowedSentinels(Document $document): void
+    {
+        $run = DocumentSentinels::pick(
+            DocumentSentinels::collectStrings($document),
+            count(self::NARROWED_CHARACTERS),
+            self::NARROWED_SENTINEL_FIRST,
+        );
+
+        $this->narrowedSentinels = array_combine(self::NARROWED_CHARACTERS, $run);
+        $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
+    }
+
+    /**
      * Resolve the narrowed escapes: PART 11 §8a, M1b.
      *
      * `_`, `#` and `[` are escaped IF AND ONLY IF the character is ADJACENT on
@@ -370,13 +420,13 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function resolveNarrowedEscapes(string $markdown): string
     {
-        $pattern = '/' . self::NARROWED_SENTINEL_CLASS . '/u';
+        $pattern = '/' . $this->narrowedSentinelClass . '/u';
 
         if (preg_match_all($pattern, $markdown, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return $markdown;
         }
 
-        $character = array_flip(self::NARROWED_SENTINEL);
+        $character = array_flip($this->narrowedSentinels);
 
         // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
         // resolved to its BARE character first, so a neighbour that is itself a
@@ -1285,7 +1335,7 @@ class MarkdownRenderer implements RendererInterface
         // and every other metacharacter keeps M1 as written (M1c).
         return preg_replace_callback(
             '/([\\\\`*_\[\]#])/',
-            static fn (array $m): string => self::NARROWED_SENTINEL[$m[1]] ?? '\\' . $m[1],
+            fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
             $text,
         ) ?? $text;
     }
@@ -1439,8 +1489,11 @@ class MarkdownRenderer implements RendererInterface
      * (U+009B) and OSC (U+009D) are single-character forms of the sequences §25
      * exists to stop.
      *
-     * The narrowed-escape sentinels go too, as they always did: author content that
-     * carried one would otherwise be read as an escape this renderer emitted.
+     * THE NARROWED-ESCAPE SENTINELS USED TO GO HERE TOO, and no longer do.
+     * They are chosen per document now, so no author content can carry one, and
+     * deleting three private-use code points to protect a fixed marker was the
+     * same lossy strip this section rejects for the C0 class
+     * (markup-carve/carve-php#1087).
      *
      * The terminal target keeps its own broad strip; see
      * AnsiRenderer::stripControls(). Narrowing THAT one would be a security
@@ -1449,8 +1502,6 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function stripControls(string $text): string
     {
-        $text = (string)preg_replace('/' . self::NARROWED_SENTINEL_CLASS . '/u', '', $text);
-
         return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
     }
 }
