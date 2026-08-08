@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-empty-footnote-body-is-written-with-the-empty-sentinel',
         'a-caption-attaches-across-one-blank-line',
         'a-container-a-lazy-line-folded-into-is-still-open',
         'two-blank-lines-detach-a-caption',
