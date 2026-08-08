@@ -8,7 +8,9 @@ final class SourceLayout
 {
     /**
      * @param string $source
-@param array<string, mixed> $ast @return array<string, mixed>
+     * @param array<string, mixed> $ast
+     *
+     * @return array{version: 1, encoding: 'utf-8', source: string, lineEndings: string, bom: bool, nodes: list<array{path: string, startByte: int, endByte: int}>}
      */
     public static function build(string $source, array $ast): array
     {
@@ -35,10 +37,10 @@ final class SourceLayout
     }
 
     /**
-     * @param mixed $value @param callable(int): int $byteAt @param list<array<string, int|string>> $nodes
-     * @param array $nodes
-     * @param callable $byteAt
+     * @param mixed $value
      * @param string $path
+     * @param callable(int): int $byteAt
+     * @param list<array{path: string, startByte: int, endByte: int}> $nodes
      */
     private static function walk(mixed $value, string $path, callable $byteAt, array &$nodes): void
     {
