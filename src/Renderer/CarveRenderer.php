@@ -1519,9 +1519,29 @@ class CarveRenderer implements RendererInterface
         return $out;
     }
 
+    /**
+     * A body holding NO blocks takes the SENTINEL `{empty}` (PART 11 §7b).
+     *
+     * `[^f]:` with nothing after the colon is not a definition at all - MARKER
+     * REQUIRES CONTENT (PART 2) - so writing it degrades the definition to a
+     * paragraph and every reference to it to literal text. PART 11 §1a is why
+     * the writer may depart from the per-construct spelling here: the emitted
+     * bytes have to re-parse to the tree they came from.
+     *
+     * The sentinel has to be a VALID ATTRIBUTE BLOCK, which is why it is not
+     * `{ }` or `{}`: a block-attribute line requires at least one attribute,
+     * so both of those stay literal text inside the note. `{empty}` is a
+     * boolean attribute, collected on the definition line and discarded with
+     * the rest of the body's pending attributes, so it reaches neither the
+     * endnote item nor anything after it.
+     */
     protected function renderFootnote(Footnote $node): string
     {
         $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
+        if ($body === '') {
+            return '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: {empty}';
+        }
+
         $lines = explode("\n", $body);
         $out = '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: ' . array_shift($lines);
         foreach ($lines as $line) {
