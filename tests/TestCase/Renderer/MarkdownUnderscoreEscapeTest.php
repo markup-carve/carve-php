@@ -35,10 +35,20 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($identifier, trim(CarveConverter::markdown()->convert($identifier)));
     }
 
-    public function testAnUnderscoreThatCouldOpenOrCloseEmphasisStaysEscaped(): void
+    /**
+     * PART 11 section 8a M1b is an IF AND ONLY IF, not a floor: a lone underscore
+     * is not adjacent to another one, so its escape protects nothing under any
+     * reader this target answers to and it is emitted bare.
+     *
+     * This case used to assert the opposite, from the older intraword-only rule.
+     * A run of two is the shape that still keeps its escapes, and it is asserted
+     * here so the narrowing is bounded rather than open.
+     */
+    public function testALoneUnderscoreIsBareAndARunKeepsItsEscapes(): void
     {
-        $this->assertSame('trailing\_', trim(CarveConverter::markdown()->convert('trailing_')));
-        $this->assertSame('\_leading', trim(CarveConverter::markdown()->convert('_leading')));
+        $this->assertSame('trailing_', trim(CarveConverter::markdown()->convert('trailing_')));
+        $this->assertSame('_leading', trim(CarveConverter::markdown()->convert('_leading')));
+        $this->assertSame('a \_\_b', trim(CarveConverter::markdown()->convert('a __b')));
     }
 
     public function testAnAsteriskBetweenWordCharactersStaysEscaped(): void
@@ -77,11 +87,22 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($expected, trim(CarveConverter::markdown()->convert($source)));
     }
 
-    public function testAnAuthoredEscapeIsDeEscapedWhenIntraword(): void
+    /**
+     * PART 11 section 8 M2: an `escaped_text` node is emitted AS AN ESCAPE,
+     * whatever the character. section 8a is explicit that M1 - and therefore the
+     * line test - governs a character that reached the writer inside a TEXT
+     * node, which this is not: the author said which reading they meant.
+     *
+     * So `a\_b` and `a_b` are NOT two spellings of one document on this target
+     * any more, and this case asserts the pair rather than their sameness. The
+     * underscore used to run through the sentinel here and lose its backslash to
+     * the intraword rule, which was the line test deciding a node M1 never
+     * governed.
+     */
+    public function testAnAuthoredEscapeIsKeptAsAnEscape(): void
     {
-        // `a\_b` and `a_b` are two spellings of the same document, so they have
-        // to render the same - the escape the author wrote is still an escape.
-        $this->assertSame('a_b', trim(CarveConverter::markdown()->convert('a\_b')));
+        $this->assertSame('a\_b', trim(CarveConverter::markdown()->convert('a\_b')));
+        $this->assertSame('a_b', trim(CarveConverter::markdown()->convert('a_b')));
     }
 
     public function testUnderlineEmphasisStillRenders(): void

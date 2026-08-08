@@ -78,7 +78,9 @@ class MarkdownCrossRefLinkTest extends TestCase
         // so the crossref does not resolve.
         $out = $this->md("{#foo)}\n# Title\n\nSee </#foo)>.\n");
 
-        $this->assertStringContainsString('{\\#foo)}', $out);
+        // `#` goes bare under PART 11 section 8a M1b: it is not adjacent to another
+        // `#` on the emitted line.
+        $this->assertStringContainsString('{#foo)}', $out);
         $this->assertStringNotContainsString('[Title]', $out);
     }
 

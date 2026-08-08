@@ -110,16 +110,35 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
-     * Sentinel standing in for an underscore escape this renderer emitted, so
-     * the final pass can tell those apart from a backslash the author wrote.
-     * U+E000 is the NBSP sentinel and the Carve writer claims U+E001..U+E003;
-     * this extends the scheme. Author content never carries it: stripControls()
-     * drops it on the way in, and every path to the output runs through
-     * stripControls().
+     * Sentinels standing in for the escapes PART 11 §8a decides on the LINE.
+     *
+     * One per narrowed character. U+E000 is the NBSP sentinel and the Carve
+     * writer claims U+E001..U+E003; this extends the scheme. Author content
+     * never carries one: stripControls() drops the whole range on the way in,
+     * and every path to the output runs through stripControls().
+     *
+     * THE ASTERISK IS NOT HERE, and that is M1a rather than an omission. This
+     * writer spells emphasis with `*`, so a literal asterisk is not a character
+     * that MIGHT meet markup on the line - it is the character the line's markup
+     * is made of. `*\*\**` unescaped to `****`, and a CommonMark reader
+     * publishes emphasis-containing-two-asterisks as a thematic break.
+     *
+     * @var array<string, string>
+     */
+    private const NARROWED_SENTINEL = [
+        '_' => "\u{E004}",
+        '#' => "\u{E005}",
+        '[' => "\u{E006}",
+    ];
+
+    /**
+     * The whole sentinel range, for stripping author content and for the final
+     * resolve. Spelled as a class so a character added above cannot be forgotten
+     * here without the range moving with it.
      *
      * @var string
      */
-    private const UNDERSCORE_ESCAPE = "\u{E004}";
+    private const NARROWED_SENTINEL_CLASS = '[\x{E004}-\x{E006}]';
 
     protected int $listDepth = 0;
 
@@ -288,7 +307,7 @@ class MarkdownRenderer implements RendererInterface
 
         $markdown = trim($markdown) . "\n";
 
-        $markdown = $this->resolveUnderscoreEscapes($markdown);
+        $markdown = $this->resolveNarrowedEscapes($markdown);
 
         // The internal non-breaking-space placeholder (U+E000) becomes a literal
         // non-breaking space (U+00A0). Markdown is a re-parseable round-trip
@@ -300,37 +319,46 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
-     * An escape the author wrote, kept as an escape - but an underscore goes
-     * through the same sentinel as escapeText() so resolveUnderscoreEscapes()
-     * can drop the backslash when it turns out to be intraword. Without that
-     * the two spellings of the same document diverge: `a\_b` would stay
-     * escaped while `a_b` came out bare.
+     * An escape the author wrote, kept as an escape (PART 11 §8 M2).
+     *
+     * NO SENTINEL HERE, and §8a says why. M1 - and therefore M1b - governs a
+     * character that reached this writer inside a TEXT node, one the Carve
+     * grammar did not read as an opener and the author did not mark. This is the
+     * other case: the author said which reading they meant, M2 gives it back
+     * whatever the character, and the line test never sees it.
+     *
+     * The underscore used to take the sentinel here and could then lose its
+     * backslash to the old intraword rule, which was the line test deciding a
+     * node M1 never governed.
      */
     protected function renderEscapedText(EscapedText $node): string
     {
-        $content = $this->stripControls($node->getContent());
-
-        if ($content === '_') {
-            return self::UNDERSCORE_ESCAPE;
-        }
-
-        return '\\' . $content;
+        return '\\' . $this->stripControls($node->getContent());
     }
 
     /**
-     * Drop the backslash from an intraword underscore.
+     * Resolve the narrowed escapes: PART 11 §8a, M1b.
      *
-     * CommonMark does not honour an intraword underscore, so `company_id`
-     * renders literally with or without the escape - the backslash only
-     * litters identifiers in output meant to be read and searched. An
-     * asterisk is NOT symmetric here (`a*b*c` does emphasise), so this
-     * applies to `_` alone.
+     * `_`, `#` and `[` are escaped IF AND ONLY IF the character is ADJACENT on
+     * the emitted line to an UNESCAPED DELIMITER OF THE SAME CHARACTER.
      *
-     * Runs on the assembled output rather than in escapeText() because
-     * whether an underscore is intraword is a property of the rendered
-     * stream, not of one node: the parser splits `company_id` into the text
-     * nodes `company` and `_id`, so at escape time the underscore looks
-     * like it starts a word.
+     * Adjacent, and unescaping would MERGE THE TWO INTO ONE RUN, which every
+     * Markdown reader this target answers to resolves by run length - so the
+     * escape is holding a run boundary apart under all of them at once, and it
+     * is kept. Not adjacent, and the escape protects nothing under any of them:
+     * `company_id`, `C#` and `issue #123` are written as the author typed them,
+     * and a backslash inside an identifier no longer breaks exact-match search
+     * in the published document.
+     *
+     * IF AND ONLY IF, NOT A FLOOR. An escape this drops is dropped and an escape
+     * it keeps is kept. §8a is explicit that it is not a minimum to build a
+     * wider narrowing on, because a permissive reading yields three outputs from
+     * three engines - which is the failure the question came out of.
+     *
+     * Runs on the assembled output rather than in escapeText() because the test
+     * is a property of the LINE, not of one node: the parser splits `company_id`
+     * into the text nodes `company` and `_id`, so at escape time the underscore
+     * looks like it starts a word.
      *
      * It decides on the sentinel rather than on `\_` because the assembled
      * document also contains regions this renderer must reproduce byte-exact -
@@ -338,17 +366,87 @@ class MarkdownRenderer implements RendererInterface
      * backslash there is content, not an escape. Matching `\_` rewrote those
      * too (carve-js issue 400).
      */
-    protected function resolveUnderscoreEscapes(string $markdown): string
+    protected function resolveNarrowedEscapes(string $markdown): string
     {
-        $sentinel = preg_quote(self::UNDERSCORE_ESCAPE, '/');
+        $pattern = '/' . self::NARROWED_SENTINEL_CLASS . '/u';
 
-        $markdown = preg_replace(
-            '/(?<=[\p{L}\p{N}])' . $sentinel . '(?=[\p{L}\p{N}])/u',
-            '_',
+        if (preg_match_all($pattern, $markdown, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $markdown;
+        }
+
+        $character = array_flip(self::NARROWED_SENTINEL);
+
+        // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
+        // resolved to its BARE character first, so a neighbour that is itself a
+        // candidate is compared as the character it stands for. Deciding
+        // candidates left to right against a half-rewritten line would make the
+        // answer depend on the order they were visited: in `a __b` the second
+        // underscore would see a backslash the first one had just put there.
+        $line = (string)preg_replace_callback(
+            $pattern,
+            static fn (array $m): string => $character[$m[0]],
             $markdown,
-        ) ?? $markdown;
+        );
 
-        return str_replace(self::UNDERSCORE_ESCAPE, '\\_', $markdown);
+        // OFFSETS DO NOT CARRY ACROSS, which is the trap in spelling this on
+        // bytes. Each sentinel is a U+E00x code point, three bytes in UTF-8,
+        // and it stands for a one-byte character - so every sentinel before a
+        // candidate shifts its position in `$line` two bytes left. carve-js can
+        // reuse the offset directly because its sentinel is one UTF-16 unit
+        // exactly like the character it replaces; here it cannot.
+        $out = '';
+        $read = 0;
+        foreach ($matches[0] as $index => [$sentinel, $offset]) {
+            $offset = (int)$offset;
+            $char = $character[$sentinel];
+
+            $out .= substr($markdown, $read, $offset - $read);
+            $out .= $this->adjacentToLiveDelimiter($line, $offset - 2 * $index, $char)
+                ? '\\' . $char
+                : $char;
+            $read = $offset + strlen($sentinel);
+        }
+
+        return $out . substr($markdown, $read);
+    }
+
+    /**
+     * Whether the candidate at `$offset` is adjacent to an unescaped delimiter
+     * of the same character, on the line the writer is building (§8a M1b).
+     *
+     * `$line` is the assembled output with every candidate resolved to its BARE
+     * character. "On the emitted line" needs no line splitting: a neighbour
+     * across a newline IS a newline, which is never the same character.
+     *
+     * A neighbour BEFORE the candidate counts only if it is not itself behind a
+     * backslash - the clause's "not behind a backslash" - so the run of
+     * backslashes in front of it is counted and an odd run disqualifies it. A
+     * neighbour AFTER never can be: the character in front of it is the
+     * candidate itself.
+     *
+     * @param string $line
+     * @param int $offset
+     * @param string $char
+     *
+     * @return bool
+     */
+    protected function adjacentToLiveDelimiter(string $line, int $offset, string $char): bool
+    {
+        $width = strlen($char);
+
+        if (substr($line, $offset + $width, $width) === $char) {
+            return true;
+        }
+        if ($offset < $width || substr($line, $offset - $width, $width) !== $char) {
+            return false;
+        }
+
+        $backslashes = 0;
+        for ($i = $offset - $width - 1; $i >= 0 && $line[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 0;
     }
 
     protected function renderNode(Node $node): string
@@ -1165,16 +1263,16 @@ class MarkdownRenderer implements RendererInterface
         // inert `&lt;img …&gt;`). `&` first so the entities are not re-escaped.
         $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
 
-        // Escape special Markdown characters in text (be careful not to
-        // over-escape). None overlap with the HTML chars escaped above.
+        // Escape special Markdown characters in text. None overlap with the HTML
+        // chars escaped above.
         //
-        // The underscore escape is emitted as a sentinel rather than a
-        // backslash: whether it survives depends on its neighbours in the
-        // assembled document, which only resolveUnderscoreEscapes() can see.
-        // See UNDERSCORE_ESCAPE.
+        // `_`, `#` and `[` are emitted as SENTINELS rather than as backslashes:
+        // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
+        // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
+        // and every other metacharacter keeps M1 as written (M1c).
         return preg_replace_callback(
             '/([\\\\`*_\[\]#])/',
-            static fn (array $m): string => $m[1] === '_' ? self::UNDERSCORE_ESCAPE : '\\' . $m[1],
+            static fn (array $m): string => self::NARROWED_SENTINEL[$m[1]] ?? '\\' . $m[1],
             $text,
         ) ?? $text;
     }
@@ -1316,8 +1414,13 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function stripControls(string $text): string
     {
-        $text = str_replace(self::UNDERSCORE_ESCAPE, '', $text);
+        $text = (string)preg_replace('/' . self::NARROWED_SENTINEL_CLASS . '/u', '', $text);
 
+        // `\p{Cc}` and NOT a hand-written "non-whitespace C0 control" class.
+        // Cc is C0 *and* C1, so DEL (U+007F) and U+0080-U+009F go too - and CSI
+        // (U+009B) and OSC (U+009D) are single-character forms of the very
+        // sequences PART 9 §25's terminal rule exists to stop. Narrowing this
+        // guard to C0 would let them through.
         return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
     }
 }
