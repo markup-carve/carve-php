@@ -100,14 +100,16 @@ class ATabsLabelReadsTheOneLeafReaderTest extends TestCase
 
     public function testASymbolIsSpelledTheWayTheLeafReaderSpellsIt(): void
     {
-        // A row that did NOT move, kept because it is the one place this engine
-        // and carve-js disagree on what a leaf contributes: the leaf reader
-        // writes a symbol back as `:name:` while carve-js contributes nothing.
-        // That is a question about the leaf rules, not about this extension,
-        // and routing the label through them did not change the answer either
-        // way.
+        // The row that USED to be the one place this engine and carve-js
+        // disagreed on what a leaf contributes: the leaf reader wrote a symbol
+        // back as `:name:` while carve-js contributed nothing. That was a
+        // question about the leaf rules rather than about this extension, and
+        // markup-carve/carve#1011 settled it against the leaf reader - a symbol
+        // is excluded from derived TEXT (syntax.md section 4.1 step 1). Routing
+        // the label through the leaf rules still does not change the answer
+        // either way; the answer itself moved, and this label moved with it.
         $this->assertSame(
-            ':smile: and x',
+            'and x',
             $this->label(':smile: and x', [], [':smile:' => '<img alt="smile">']),
         );
     }
