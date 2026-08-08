@@ -220,6 +220,44 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         $this->assertSame(1, substr_count($html, 'idx-t-'));
     }
 
+    public function testASectionNumberSpanIsDroppedFromTheLabelWHOEVERWroteIt(): void
+    {
+        // The injected span is kept out of the label by ORDERING - HeadingNumbers
+        // resolves every id, and so takes the snapshot, before it prepends the
+        // span - so the class-keyed rule below would be a check that cannot fail
+        // if this case did not exist. It fires on an AUTHORED
+        // `[v1]{.section-number}`, which this engine has always excluded from the
+        // heading's derived text: the drop and the id slug read one rule
+        // (HeadingIdTracker::inlineTextLeaf), so a label and the id it points at
+        // cannot disagree about what the heading says.
+        //
+        // KNOWN DIVERGENCE, measured against carve-js `76dadb6`: carve-js keeps
+        // an authored span in BOTH the id (`h-v1-x`) and the label. That is the
+        // id rule's divergence and predates R4 - it is recorded here because
+        // this is where it becomes visible, not introduced here.
+        $this->assertSame(
+            "<section id=\"h-x\">\n"
+            . "  <h1>h <span class=\"section-number\">v1</span> x</h1>\n"
+            . "  <p>See <a href=\"#h-x\">h  x</a>.</p>\n"
+            . "</section>\n",
+            $this->html("# h [v1]{.section-number} x\n\nSee </#h-x>.\n"),
+        );
+    }
+
+    public function testRawInlineHtmlInTheHeadingNeverReachesTheLabel(): void
+    {
+        // Format-specific raw inline is excluded from a heading's derived text on
+        // every target, which is also what keeps a permalink anchor emitted as
+        // raw HTML out of a label.
+        $this->assertSame(
+            "<section id=\"h-x\">\n"
+            . "  <h1>h <b>z</b> x</h1>\n"
+            . "  <p>See <a href=\"#h-x\">h  x</a>.</p>\n"
+            . "</section>\n",
+            $this->html("# h `<b>z</b>`{=html} x\n\nSee </#h-x>.\n"),
+        );
+    }
+
     public function testALinkInTheHeadingOpensNoAnchorInsideTheCrossReferences(): void
     {
         // LINKS NEVER NEST (PART 12 §3a). The label is placed inside an `<a>`,
