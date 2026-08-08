@@ -225,7 +225,7 @@ class InlineParserTest extends TestCase
             $this->assertFalse($this->containsNodeOfType($para, Symbol::class), $source);
         }
 
-        foreach (['(:tada:)' => 'tada', 'start :rocket:' => 'rocket', ':1up:' => '1up', ':+1:' => '+1', ':-1:' => '-1', ':+-:' => '+-'] as $source => $name) {
+        foreach (['(:tada:)' => 'tada', 'start :rocket:' => 'rocket', ':rocket: tail' => 'rocket', ':1up:' => '1up', ':+1:' => '+1', ':-1:' => '-1', ':+-:' => '+-'] as $source => $name) {
             $para = $this->parseInline($source);
 
             $this->assertTrue($this->containsNodeOfType($para, Symbol::class), $source);
