@@ -46,9 +46,11 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'adjacent-block-openers-in-an-attached-run-stay-separate',
         'an-empty-footnote-body-is-written-with-the-empty-sentinel',
         'a-caption-attaches-across-one-blank-line',
         'a-container-a-lazy-line-folded-into-is-still-open',
+        'a-ragged-table-keeps-each-row-s-cell-count',
         'two-blank-lines-detach-a-caption',
         'the-inline-attribute-interior-is-space-only-the-attribute-line-is-not',
         'an-autolink-body-admits-non-ascii-and-excludes-format-characters',
