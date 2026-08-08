@@ -291,6 +291,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   author's short form goes back in its place. A link in the heading unwraps
   inside the label's own anchor, and a mention with it (PART 12 §3a).
 
+- **An inline footnote's BODY no longer leaks into a cross-reference label.**
+  `^[note body]` in a heading has a body that renders once, in the endnotes; the
+  flatten had no arm for the node, recursed into the body, and published
+  `See h note body x` where the heading itself shows a footnote marker. The
+  pointer is now dropped, which is what the `[^label]` reference beside it
+  already got.
+
   A table-of-contents entry is now escaped ONCE, by the renderer that renders
   its nodes: a `"` in a heading reaches the entry as `"` rather than `&quot;`,
   matching the heading itself and carve-js. The entry also follows the caller's

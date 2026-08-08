@@ -66,14 +66,30 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         );
     }
 
-    public function testTheCrossReferenceKeepsTheCodeSpansContentOnThePlainTarget(): void
+    public function testTheCodeSpanHeadingIsUNCHANGEDOnThePlainTarget(): void
     {
-        // Plain text spells no markup, so what this pins is the CONTENT: the
-        // label reads through the same node the heading did.
+        // CONTROL, named as one: plain text spells no markup and the flattened
+        // string already carried a code span's CONTENT, so this document is
+        // byte-identical before and after. It cannot distinguish the two
+        // behaviors; the next test can.
         $this->assertSame(
             "code() and bold h\n\nSee code() and bold h.\n",
             CarveConverter::plainText()->convert(self::SOURCE),
         );
+    }
+
+    public function testAnInlineFootnotesBODYNoLongerLeaksIntoTheLabel(): void
+    {
+        // The discriminator on this target, and a defect the ticket did not
+        // name. An inline footnote's body is DEFERRED content: it renders once,
+        // in the endnotes. The flatten had no arm for the node, so it recursed
+        // into the body and republished it as the label - `See h note body x`
+        // where the heading itself shows a footnote MARKER. Dropping the pointer
+        // is what the footnote reference beside it already got.
+        $source = "{#h}\n# h ^[note body] x\n\nSee </#h>.\n";
+
+        $this->assertSame("h (note body) x\n\nSee h  x.\n", CarveConverter::plainText()->convert($source));
+        $this->assertStringContainsString('<p>See <a href="#h">h  x</a>.</p>', $this->html($source));
     }
 
     public function testTheCrossReferenceStylesTheHeadingsEmphasisOnTheAnsiTarget(): void
