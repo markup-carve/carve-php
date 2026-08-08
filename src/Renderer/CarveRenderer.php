@@ -65,6 +65,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use ReflectionObject;
 use Throwable;
@@ -1417,6 +1418,31 @@ class CarveRenderer implements RendererInterface
             $this->tableCellDepth--;
         }
 
+        // A PREFIXED CELL IS WRITTEN TIGHT, so the first character of the
+        // content is the character the parser's alignment scan reads. That scan
+        // runs at the position right after `|` or `|=` and consumes exactly one
+        // of `< > ~`, so a header cell whose content OPENS with one lost it:
+        // `| ~x~ |` was written `|=~x~|`, which reads back as CENTER alignment
+        // with the text `x~` - the strikethrough gone, and every cell in the
+        // column centered by a marker the author never wrote. `| <https://e.com> |`
+        // lost its anchor the same way through the LEFT marker
+        // (carve-php#1069 cause 5).
+        //
+        // ONE SPACE IS THE WHOLE FIX, and it is the same argument the span
+        // marker one branch above already carries (carve#710): the scan fires
+        // only on a GLUED sigil, and the content is trimmed once the prefix is
+        // consumed, so `|= ~x~|` is a header cell holding `~x~` again.
+        //
+        // The sigil set is read off the parser rather than listed again here.
+        // The three cases the scan is NOT live in are left alone: a cell
+        // carrying an attribute block has no tight marker at all (the parser
+        // says so where it calls parseTableCellMarker), a prefix that already
+        // ENDS in an alignment marker has spent the scan, and an unprefixed
+        // cell is padded, so the scan reads its space.
+        if ($this->headerMarkerWouldReadAsAlignment($prefix, $align, $attrs, $content)) {
+            return ['text' => $prefix . ' ' . $content, 'tight' => true];
+        }
+
         return ['text' => $prefix . $content, 'tight' => $prefix !== ''];
     }
 
@@ -2513,14 +2539,28 @@ class CarveRenderer implements RendererInterface
         return $out;
     }
 
+    /**
+     * The sigil for an alignment, read off the parser's own set so the writer
+     * and the reader cannot drift.
+     */
     protected function alignMarker(string $align): string
     {
-        return match ($align) {
-            TableCell::ALIGN_LEFT => '<',
-            TableCell::ALIGN_RIGHT => '>',
-            TableCell::ALIGN_CENTER => '~',
-            default => '',
-        };
+        $marker = array_search($align, BlockParser::TABLE_ALIGNMENT_MARKERS, true);
+
+        return $marker === false ? '' : $marker;
+    }
+
+    /**
+     * Whether the emitted cell prefix would leave the parser's alignment scan
+     * live at the first character of `$content`, with that character being one
+     * the scan consumes.
+     */
+    protected function headerMarkerWouldReadAsAlignment(string $prefix, string $align, string $attrs, string $content): bool
+    {
+        return $prefix !== ''
+            && $attrs === ''
+            && $align === ''
+            && isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$content[0] ?? '']);
     }
 
     protected function escapeText(string $text, bool $opensBlockLine = false): string

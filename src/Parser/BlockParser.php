@@ -6502,6 +6502,26 @@ class BlockParser
     }
 
     /**
+     * The characters a table cell reads as an ALIGNMENT MARKER, glued to `|` or
+     * `|=`, mapped to the alignment each one means.
+     *
+     * Public so the Carve writer can read the set OFF THE PARSER instead of
+     * carrying a second copy of it. The writer must not emit a header marker
+     * immediately followed by one of these, because the next parse eats it as
+     * alignment and keeps the rest of the cell as text (carve-php#1069 cause 5).
+     * A guard built from a hand-listed set would be a second spelling of this
+     * rule, and this repository keeps finding one rule spelled N times with N
+     * larger than anyone claimed.
+     *
+     * @var array<string, string>
+     */
+    public const TABLE_ALIGNMENT_MARKERS = [
+        '>' => TableCell::ALIGN_RIGHT,
+        '<' => TableCell::ALIGN_LEFT,
+        '~' => TableCell::ALIGN_CENTER,
+    ];
+
+    /**
      * Parse a Carve table cell's tight alignment/header marker (written
      * tight against the pipe): optional `=` (header) then optional one of
      * `< > ~` (left/right/center). Returns the flags plus the content with
@@ -6525,12 +6545,7 @@ class BlockParser
             $header = true;
             $rest = substr($rest, 1);
         }
-        $align = match ($rest[0] ?? '') {
-            '>' => TableCell::ALIGN_RIGHT,
-            '<' => TableCell::ALIGN_LEFT,
-            '~' => TableCell::ALIGN_CENTER,
-            default => null,
-        };
+        $align = self::TABLE_ALIGNMENT_MARKERS[$rest[0] ?? ''] ?? null;
         if ($align !== null) {
             $rest = substr($rest, 1);
         }

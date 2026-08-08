@@ -269,6 +269,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A header marker is not glued to a character that reads as alignment**
+  (carve-php#1069, PART 11 §1). The parser's alignment scan runs at the
+  character right after `|` or `|=` and consumes exactly one of `< > ~`, and a
+  prefixed cell is written tight - so a header cell whose content opened with
+  one of those lost it. `| ~x~ |` was written `|=~x~|`, which re-reads as
+  centered with the text `x~`, dropping the strikethrough and centering every
+  cell in the column by a marker the author never wrote; `| <https://e.com> |`
+  lost its anchor the same way through the left marker. One space between the
+  marker and the content is the fix, and the content is trimmed once the prefix
+  is consumed, so `|= ~x~|` is a header cell holding `~x~` again. Body cells,
+  cells carrying an attribute block and row attributes were measured and are
+  unaffected.
+
 - **A continuation marker attaches every block in its run** (carve-php#1069,
   PART 9 §17, PART 11 §1). The writer converted a `+` attachment into
   indentation for everything except a paragraph after a paragraph, on the stated
