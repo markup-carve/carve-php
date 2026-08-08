@@ -170,7 +170,11 @@ class FencedBlockParser
      */
     public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
     {
-        $pattern = '/^(' . preg_quote($fenceChar, '/') . '+)\s*$/';
+        // LINE PADDING, so PART 7's four characters and not `\s`. PCRE reads a
+        // VERTICAL TAB and a FORM FEED as `\s`, so a fence followed by one closed
+        // while the same fence followed by any other content character did not
+        // (markup-carve/carve#963).
+        $pattern = '/^(' . preg_quote($fenceChar, '/') . '+)[ \t]*$/';
         if (preg_match($pattern, $line, $m) !== 1) {
             return false;
         }
@@ -230,7 +234,7 @@ class FencedBlockParser
             // stripped a tab that followed it, so `:::<SP><TAB>note` still
             // opened an admonition. Trailing whitespace is not a slot in the
             // grammar and stays as tolerant as it was.
-            $rest = rtrim(ltrim($tail, ' '));
+            $rest = rtrim(ltrim($tail, ' '), StringUtil::WHITESPACE_CHARS);
         } else {
             return null;
         }
@@ -293,7 +297,7 @@ class FencedBlockParser
      */
     public function isDivFenceCloser(string $line, int $fenceLength): bool
     {
-        if (preg_match('/^(:+)\s*$/', $line, $m) !== 1) {
+        if (preg_match('/^(:+)[ \t]*$/', $line, $m) !== 1) {
             return false;
         }
 
@@ -330,7 +334,7 @@ class FencedBlockParser
         // three fence-adjacent slots in this engine: a tab, a form feed AND a
         // vertical tab all opened a raw block. The trailing `\s*$` is not a
         // slot in the grammar and stays as tolerant as it was (carve-php#951).
-        if (!preg_match('/^([`~]{3,}) *=([a-zA-Z][\w-]*)\s*$/', $line, $matches)) {
+        if (!preg_match('/^([`~]{3,}) *=([a-zA-Z][\w-]*)[ \t]*$/', $line, $matches)) {
             return null;
         }
 
@@ -449,7 +453,7 @@ class FencedBlockParser
      */
     public function removeIndent(string $line, int $indentLen): string
     {
-        if ($indentLen > 0 && preg_match('/^(\s{0,' . $indentLen . '})(.*)$/', $line, $lineMatch)) {
+        if ($indentLen > 0 && preg_match('/^([ \t]{0,' . $indentLen . '})(.*)$/', $line, $lineMatch)) {
             return $lineMatch[2];
         }
 

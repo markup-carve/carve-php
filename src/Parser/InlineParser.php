@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Inline parser for Djot
@@ -919,7 +920,7 @@ class InlineParser
 
             // Heading cross-reference: </#id> (before autolink)
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
-                if (preg_match('/\G<\/#([^>\s]+)>/u', $text, $hm, 0, $pos)) {
+                if (preg_match('/\G<\/#([^> \t\r\n]+)>/u', $text, $hm, 0, $pos)) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
                     $headingRef = new HeadingRef($hm[1]);
@@ -2777,8 +2778,11 @@ class InlineParser
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
         $nextChar = $text[$pos + 1] ?? ' ';
 
-        // Can't open if followed by whitespace
-        if (ctype_space($nextChar)) {
+        // Can't open if followed by whitespace. PART 7's four characters, not
+        // `ctype_space()`, which also takes a VERTICAL TAB and a FORM FEED - so
+        // `/<VT>a/` was left as literal text while `/!a/` was emphasis
+        // (markup-carve/carve#963).
+        if (StringUtil::isWhitespaceChar($nextChar)) {
             return null;
         }
 
@@ -2908,7 +2912,7 @@ class InlineParser
             if ($char === $delimiter) {
                 // Check if this can be a closer (not preceded by whitespace)
                 $beforeClose = $searchPos > 0 ? $text[$searchPos - 1] : ' ';
-                if (!ctype_space($beforeClose)) {
+                if (!StringUtil::isWhitespaceChar($beforeClose)) {
                     // A braced closer (like _} or *}) can only close a braced opener
                     // Since we're looking for a non-braced closer, skip if followed by }
                     $afterClose = $text[$searchPos + 1] ?? '';
@@ -2991,7 +2995,7 @@ class InlineParser
         $length = strlen($text);
         $start = $pos + 2; // skip '/*'
 
-        if ($start >= $length || ctype_space($text[$start])) {
+        if ($start >= $length || StringUtil::isWhitespaceChar($text[$start])) {
             return null;
         }
 
@@ -3019,7 +3023,7 @@ class InlineParser
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
                 $content = substr($text, $start, $searchPos - $start);
-                if ($content === '' || ctype_space($content[strlen($content) - 1])) {
+                if ($content === '' || StringUtil::isWhitespaceChar($content[strlen($content) - 1])) {
                     $searchPos++;
 
                     continue;
@@ -3366,7 +3370,7 @@ class InlineParser
         // treats a flushed buffer at a soft break as word context, not start).
         if (
             strlen($prevConverted) === 1
-            && ctype_space($prevConverted)
+            && StringUtil::isWhitespaceChar($prevConverted)
             && $prevConverted !== "\n"
             && $prevConverted !== "\r"
         ) {
@@ -3524,7 +3528,7 @@ class InlineParser
         // block), matching carve-js / carve-rs. The one place an empty block is
         // meaningful, the `[text]{}` span form, is handled by the bracket path
         // before this standalone-attribute handler runs.
-        if (trim($attrStr) === '') {
+        if (trim($attrStr, StringUtil::WHITESPACE_CHARS) === '') {
             return null;
         }
 
@@ -3662,30 +3666,35 @@ class InlineParser
         // Quoted key=values first, so `%`, dots and braces inside quotes are
         // protected from the shorthand patterns.
         $rest = preg_replace(
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
             ' ',
             $rest,
         ) ?? $rest;
-        if (trim($rest) === '') {
+        // PART 7's four characters, not PHP's default trim charlist, which takes a
+        // VERTICAL TAB and not a FORM FEED. `{#a<VT>.b}` left the character behind
+        // after the shorthand patterns and the trim ate it, so the block validated
+        // as TWO attributes where `{#a!.b}` - an ordinary content character in the
+        // same position - is rejected (markup-carve/carve#963).
+        if (trim($rest, StringUtil::WHITESPACE_CHARS) === '') {
             return true;
         }
         $patterns = [
             // unquoted key=value (the key is an identifier; the value is
             // tolerant like carve-js's `\S+`, so an invalid value is skipped)
-            '/(?:(?<=\s)|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^\s}]+/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+/',
             // The possessive `*+` plus `(?!:)` stops a colon-bearing shorthand
             // from being stripped in PART: `.a:b` must leave `.a:b` behind, not
             // a bare `:b`, so the whole block is judged invalid on the NAME.
             '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
             '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/(?:(?<=\s)|^)[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/',
-            '/\s+/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',
+            '/[ \t\r\n]+/',
         ];
         foreach ($patterns as $pattern) {
             $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
         }
 
-        return trim($rest) === '';
+        return trim($rest, StringUtil::WHITESPACE_CHARS) === '';
     }
 
     /**
@@ -4115,7 +4124,11 @@ class InlineParser
         }
 
         $content = substr($text, $pos + 2, $close - $pos - 2);
-        if (trim($content) === '') {
+        // PART 7's four characters. PHP's default charlist takes a VERTICAL TAB
+        // and not a FORM FEED, so `x^[<VT>]` was literal text while `x^[<FF>]`
+        // was a footnote whose body held the character - one emptiness test
+        // answering two ways (markup-carve/carve#963).
+        if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
             return null;
         }
 

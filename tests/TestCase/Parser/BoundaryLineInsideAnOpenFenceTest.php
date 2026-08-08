@@ -552,23 +552,59 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
 
     /**
      * THE CLOSER INDEX IS A SUPERSET OF WHAT THE CLOSER TESTS MATCH, which is
-     * the invariant that lets it REFUTE. `isCodeFenceCloser()` and
-     * `isDivFenceCloser()` both allow a `\s*` tail, so a closer padded with a
-     * vertical tab still closes; an index spelled `[ \t]*` misses that line,
-     * declares the fence unterminated and hands the body back to the boundary
-     * set, which splits it. Raised by codex review on this change.
+     * the invariant that lets it REFUTE. An index NARROWER than the tests misses
+     * a line the tests would close on, declares the fence unterminated and hands
+     * the body back to the boundary set, which splits it. Raised by codex review
+     * when the index was spelled `[ \t]*` against `\s*` tests.
+     *
+     * Both are now PART 7's four characters, which keeps the invariant by making
+     * them EQUAL rather than by making the index wider. The `\v` row moved with
+     * that: under ONE WHITESPACE DEFINITION, IN EVERY CONSTRUCT a VERTICAL TAB is
+     * CONTENT, so ```` ```<VT> ```` is not a closer at all and the fence is
+     * genuinely unterminated (markup-carve/carve#963).
+     *
+     * The pairing is what the case is for. A vertical tab and an ordinary
+     * content character must produce the SAME document; if only the closer tests
+     * narrow and the index does not, the two rows still agree here, so the
+     * padded-with-a-space row below is what holds the index to the tests.
      *
      * @return void
      */
-    public function testACloserPaddedWithOtherWhitespaceStillClosesTheAttachedFence(): void
+    public function testACloserPaddedWithAVerticalTabDoesNotCloseTheAttachedFence(): void
     {
+        // html() collapses a whitespace run, which erases the probe character
+        // from the OUTPUT, so the two documents are compared by shape rather
+        // than by folding the character to a sentinel.
         $this->assertSame(
+            '<ul><li>x <pre><code>a </code></pre></li></ul><p>b <code></code></p><p>z</p>',
+            $this->html("- x\n+\n```\na\n\nb\n```\v\n\nz\n"),
+        );
+        $this->assertNotSame(
             '<ul><li>x ' . self::CODE_HTML . '</li></ul><p>z</p>',
             $this->html("- x\n+\n```\na\n\nb\n```\v\n\nz\n"),
         );
-        $this->assertSame(
+        $this->assertNotSame(
             '<ul><li>x ' . self::COLON_HTML . '</li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\na\n\nb\n:::\v\n\nz\n"),
+        );
+    }
+
+    /**
+     * The other half of the invariant, and the one that still exercises it: a
+     * closer padded with real whitespace DOES close, so the index must reach it.
+     * Narrow the index below the tests and this splits.
+     *
+     * @return void
+     */
+    public function testACloserPaddedWithASpaceOrTabStillClosesTheAttachedFence(): void
+    {
+        $this->assertSame(
+            '<ul><li>x ' . self::CODE_HTML . '</li></ul><p>z</p>',
+            $this->html("- x\n+\n```\na\n\nb\n```  \n\nz\n"),
+        );
+        $this->assertSame(
+            '<ul><li>x ' . self::COLON_HTML . '</li></ul><p>z</p>',
+            $this->html("- x\n+\n::: note\na\n\nb\n:::\t\n\nz\n"),
         );
     }
 

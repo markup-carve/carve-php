@@ -112,7 +112,15 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
      *
      * @var string
      */
-    protected const OPEN_PATTERN = '/^--- ?(\w*)\s*$/';
+    // LINE PADDING, so PART 7's four characters and not `\s`. A VERTICAL TAB or a
+    // FORM FEED after the opener is CONTENT, so `---<VT>` is not a frontmatter
+    // opener. Reading it as one is the SEVERE shape of this defect: the opener
+    // runs to the next bare three-dash line, so a wide class does not mislabel one
+    // line, it swallows the document down to the closer (markup-carve/carve#963).
+    /**
+     * @var string
+     */
+    protected const OPEN_PATTERN = '/^--- ?(\w*)[ \t]*$/';
 
     protected ?Frontmatter $frontmatter = null;
 
@@ -173,7 +181,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
                 while ($i < $count) {
                     $line = $lines[$i];
                     // Closing delimiter is just ---
-                    if (preg_match('/^---\s*$/', $line)) {
+                    if (preg_match('/^---[ \t]*$/', $line)) {
                         $i++;
                         $closed = true;
 

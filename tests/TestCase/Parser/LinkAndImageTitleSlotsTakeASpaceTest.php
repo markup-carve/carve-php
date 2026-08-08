@@ -95,13 +95,23 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     {
         $rows = [];
         foreach (self::NON_SPACE_RUNS as $runName => $run) {
+            // WHICH WAY THE FIRST QUOTE CURLS FOLLOWS THE SMART-QUOTE CONTEXT
+            // TEST, and that test reads PART 7's whitespace (markup-carve/carve#963).
+            // A tab is whitespace, so the quote after it OPENS. A VERTICAL TAB
+            // and a FORM FEED are CONTENT, so the quote after one is
+            // word-adjacent and CLOSES, exactly as it would after a letter.
+            // The literal fallback this case is really about - no title, the run
+            // still there where it was typed - is the same either way.
+            $opens = !str_contains($run, "\v") && !str_contains($run, "\f");
+            $open = $opens ? "\u{201C}" : "\u{201D}";
+
             $rows["link title slot, {$runName}"] = [
                 "[t](/u{$run}\"T\")",
-                "<p>[t](/u{$run}\u{201C}T\u{201D})</p>\n",
+                "<p>[t](/u{$run}{$open}T\u{201D})</p>\n",
             ];
             $rows["image title slot, {$runName}"] = [
                 "![a](/p.png{$run}\"T\")",
-                "<p>![a](/p.png{$run}\u{201C}T\u{201D})</p>\n",
+                "<p>![a](/p.png{$run}{$open}T\u{201D})</p>\n",
             ];
         }
 
