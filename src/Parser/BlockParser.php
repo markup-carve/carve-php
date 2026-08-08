@@ -490,14 +490,25 @@ class BlockParser
      */
     protected bool $headingIdLowercase = false;
 
+    /**
+     * The tracker headingIndexKey() reduces a reference LABEL through.
+     *
+     * Held rather than rebuilt per reference: the extraction is stateless, and
+     * a document quoting the same heading a hundred times should not construct
+     * a hundred trackers to ask them all the same question.
+     */
+    protected ?HeadingIdTracker $referenceLabelTracker = null;
+
     public function setHeadingIdTransformer(?Closure $headingIdTransformer): void
     {
         $this->headingIdTransformer = $headingIdTransformer;
+        $this->referenceLabelTracker = null;
     }
 
     public function setHeadingIdLowercase(bool $lowercase): void
     {
         $this->headingIdLowercase = $lowercase;
+        $this->referenceLabelTracker = null;
     }
 
     /**
@@ -9834,6 +9845,28 @@ class BlockParser
         $tracker->setLowercase($this->headingIdLowercase);
 
         return $tracker;
+    }
+
+    /**
+     * The key `$label` enters the implicit heading index under (PART 9R R1).
+     *
+     * ONE DERIVATION FOR BOTH SIDES. The index is keyed by a heading's rendered
+     * plain text, and R1's "ON THIS PATH THE LABEL ENTERS AS ITS RENDERED PLAIN
+     * TEXT, the same string kind the heading side already enters as" makes that
+     * a single routine rather than two that have to be kept in step: this is
+     * HeadingReferenceCollector::register()'s own trim-and-collapse over
+     * HeadingIdTracker::getPlainText(), reached from the reference site instead
+     * of the heading. A second spelling here is what let `# an /em/ heading` go
+     * unreachable by `[an /em/ heading][]` (markup-carve/carve#1011).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $label The label's PARSED inline nodes.
+     */
+    public function headingIndexKey(Node $label): string
+    {
+        $this->referenceLabelTracker ??= $this->headingIdTrackerForReferences();
+        $plainText = $this->referenceLabelTracker->getPlainText($label);
+
+        return trim(preg_replace('/\s+/', ' ', $plainText) ?? $plainText);
     }
 
     /**

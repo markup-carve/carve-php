@@ -312,6 +312,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A collapsed `[text][]` whose label holds emphasis, an escape, a nested link
+  or a smart apostrophe now reaches the heading** (markup-carve/carve#1011,
+  PART 9R R1). The label was reduced to the heading index's key by a character
+  class over its source, so it answered only for the delimiters that class
+  listed: `# an /em/ heading` was unreachable by `[an /em/ heading][]` (Carve's
+  emphasis delimiter is a slash, which no such class can carry), `# a\_b
+  heading` met at neither spelling, `# a [x](/y) b` left the destination behind,
+  and `# it's a heading` holds the curly glyph where the label holds the typed
+  apostrophe. Each of those rendered the bracketed run as literal source. R1
+  says the label enters as its RENDERED PLAIN TEXT, "the same string kind the
+  heading side already enters as", so the reduction is now that same extraction
+  over the parsed label and needs no list of delimiters. An authored
+  `[label]: url` definition is still matched by the label AS WRITTEN, and still
+  wins the tie against a same-named heading.
+
+- **A `:name:` symbol no longer feeds a heading id** (markup-carve/carve#1011,
+  syntax.md section 4.1 step 1). `# a :smile: b` published `<section
+  id="a-smile-b">`, keying the id on the shortcode NAME - a spelling the
+  document never renders, and with `smile` mapped to an emoji it named neither
+  the source nor the output. The slug rule excludes symbols by construct, which
+  it has to: a symbol's rendering is processor configuration and an id is
+  assigned in the parse pass no renderer option reaches. The id is now `a-b`
+  with or without a symbols map, matching carve-js and carve-rs. The symbol is
+  still visible in a derived display label such as a `</#id>` cross-reference;
+  only the id excludes it. Consequently a heading whose ENTIRE text is a symbol
+  now has no rendered text to be indexed by, so `[:smile:][]` against
+  `# :smile:` stays literal source.
+
 - **A malformed UTF-8 byte no longer empties the text around it**
   (carve-php#1082, PART 1). One ill-formed byte in a paragraph rendered `<p></p>`
   on the HTML target and a bare newline on the Markdown, plain and ANSI targets,

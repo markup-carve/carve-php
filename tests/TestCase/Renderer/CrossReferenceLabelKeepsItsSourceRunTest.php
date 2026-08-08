@@ -285,8 +285,8 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
      * The LEAF TABLE itself, through the public entry point every label and
      * every id slug goes through. Each row is a separate decision - an
      * `:index[]` marker and a section-number span contribute nothing, a raw
-     * inline is excluded, a caption number contributes its digits - and they
-     * are asserted together because they are one table.
+     * inline is excluded, a SYMBOL is excluded, a caption number contributes
+     * its digits - and they are asserted together because they are one table.
      */
     public function testThePlainTextLeafTableCoversEveryInlineKind(): void
     {
@@ -321,7 +321,10 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
             $heading->appendChild($child);
         }
 
-        $this->assertSame('a*7 c:rocket:deep', (new HeadingIdTracker())->getPlainText($heading));
+        // The symbol contributes nothing: syntax.md section 4.1 step 1 excludes
+        // `:name:` from a heading's rendered plain text, so the row that used
+        // to read `:rocket:` here is gone (markup-carve/carve#1011).
+        $this->assertSame('a*7 cdeep', (new HeadingIdTracker())->getPlainText($heading));
     }
 
     /**
