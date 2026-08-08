@@ -65,6 +65,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -467,17 +468,94 @@ class HtmlRenderer implements RendererInterface
      * Sentinels marking inline line boundaries. The neutral guard keeps hard
      * breaks and already-rendered inline newlines out of block indentation; the
      * soft guard is replaced according to SoftBreakMode at public render exits.
-     * Control bytes never appear in escaped HTML output, so the round-trip is
-     * safe.
      *
-     * @var string
+     * PICKED PER DOCUMENT, from the code points the document does not contain.
+     * They used to be the fixed control bytes U+0000 and U+0001, on the claim
+     * that "control bytes never appear in escaped HTML output", and that claim
+     * was false for U+0001: PART 9 section 29 T1 says this target does not
+     * strip a non-whitespace C0 control, so an author's U+0001 reaches the
+     * output, collided with the soft guard, and came back out as whatever
+     * SoftBreakMode replaces - a newline by default, a `<br>` in Break mode.
+     * The reader saw a line break the author did not write
+     * (markup-carve/carve-php#1077).
+     *
+     * U+0000 escaped the same fate only by accident: the parser rewrites an
+     * input NUL to U+FFFD, so nothing authored could ever reach the neutral
+     * guard. Both are picked now anyway, because a guard that is safe by
+     * accident is one parser change away from being unsafe.
+     *
+     * @var list<string>
      */
-    protected const INLINE_BREAK_GUARD = "\x00";
+    protected array $breakGuards = ["\u{E001}", "\u{E002}"];
 
     /**
-     * @var string
+     * The first code point of the run picked for the break guards.
+     *
+     * U+E000 is left out because it already means something else here: it is
+     * the parser's in-band carrier for a non-breaking space, which renderNbsp()
+     * rewrites.
+     *
+     * That is INTENT, not a load-bearing constraint, and the difference was
+     * measured rather than assumed: starting the run at U+E000 instead passes
+     * the whole suite, because the carrier is a string in the tree, so the scan
+     * moves the run off it in exactly the documents that have one - and a
+     * document without one has nothing to corrupt. The two spellings are
+     * byte-identical. Starting at U+E001 keeps a reader from having to redo
+     * that reasoning.
+     *
+     * @var int
      */
-    protected const SOFT_BREAK_GUARD = "\x01";
+    protected const BREAK_GUARD_FIRST = 0xE001;
+
+    /**
+     * The guard keeping already-rendered inline newlines out of block
+     * indentation.
+     */
+    protected function inlineBreakGuard(): string
+    {
+        return $this->breakGuards[0];
+    }
+
+    /**
+     * The guard standing for a soft break until SoftBreakMode is applied.
+     */
+    protected function softBreakGuard(): string
+    {
+        return $this->breakGuards[1];
+    }
+
+    /**
+     * Choose guards this document does not contain.
+     *
+     * Called at every TOP-LEVEL render entry and nowhere else: a fragment
+     * rendered mid-render must keep the outer render's guards, or the outer
+     * restore pass would not recognize the fragment's own.
+     *
+     * @param object|array<mixed> $root
+     */
+    protected function pickBreakGuards(object|array $root): void
+    {
+        $this->breakGuards = DocumentSentinels::pick(
+            DocumentSentinels::collectStrings($root),
+            2,
+            self::BREAK_GUARD_FIRST,
+        );
+    }
+
+    /**
+     * Pick guards for a fragment rendered on its own, and leave them alone for
+     * one rendered inside an active render.
+     *
+     * @param object|array<mixed> $root
+     */
+    protected function pickBreakGuardsIfTopLevel(object|array $root): void
+    {
+        if ($this->activeRenderContext !== null) {
+            return;
+        }
+
+        $this->pickBreakGuards($root);
+    }
 
     protected function softBreakReplacement(): string
     {
@@ -498,13 +576,13 @@ class HtmlRenderer implements RendererInterface
      */
     protected function guardVerbatimNewlines(string $content): string
     {
-        return str_replace("\n", self::INLINE_BREAK_GUARD, $content);
+        return str_replace("\n", $this->inlineBreakGuard(), $content);
     }
 
     protected function restoreSoftBreakGuards(string $html): string
     {
         return str_replace(
-            [self::INLINE_BREAK_GUARD, self::SOFT_BREAK_GUARD],
+            [$this->inlineBreakGuard(), $this->softBreakGuard()],
             ["\n", $this->softBreakReplacement()],
             $html,
         );
@@ -525,6 +603,8 @@ class HtmlRenderer implements RendererInterface
 
     public function render(Document $document): string
     {
+        $this->pickBreakGuards($document);
+
         return $this->restoreSoftBreakGuards($this->withRenderContext(
             $this->sharedRenderContext,
             function () use ($document): string {
@@ -575,6 +655,8 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderNodeFragment(Node $node): string
     {
+        $this->pickBreakGuardsIfTopLevel($node);
+
         return $this->restoreSoftBreakGuardsIfTopLevel(
             $this->withFragmentContext(fn (): string => $this->renderNode($node)),
         );
@@ -587,6 +669,8 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderInlineNodesFragment(array $nodes): string
     {
+        $this->pickBreakGuardsIfTopLevel($nodes);
+
         return $this->restoreSoftBreakGuardsIfTopLevel(
             $this->withFragmentContext(function () use ($nodes): string {
                 $html = '';
@@ -607,6 +691,8 @@ class HtmlRenderer implements RendererInterface
      */
     public function renderDocumentFragment(Document $document): string
     {
+        $this->pickBreakGuardsIfTopLevel($document);
+
         return $this->restoreSoftBreakGuardsIfTopLevel(
             $this->withFragmentContext(fn (): string => $this->renderDocumentWithSections($document)),
         );
@@ -1272,7 +1358,7 @@ class HtmlRenderer implements RendererInterface
                 // A tight paragraph after a closed block renders bare, with its
                 // inline soft breaks guarded so the list's block indentation
                 // leaves the continuation lines flush.
-                $restParts[] = str_replace("\n", self::INLINE_BREAK_GUARD, $pm[2]);
+                $restParts[] = str_replace("\n", $this->inlineBreakGuard(), $pm[2]);
 
                 continue;
             }
@@ -1287,7 +1373,7 @@ class HtmlRenderer implements RendererInterface
         // carve-js/carve-rs/djot. Guard them so indentBlock() leaves them alone;
         // render() restores the newlines. Nested blocks ($rest) keep real
         // newlines and are indented normally.
-        $lead = str_replace("\n", self::INLINE_BREAK_GUARD, $lead);
+        $lead = str_replace("\n", $this->inlineBreakGuard(), $lead);
 
         if ($node->isTask()) {
             $checked = $node->getChecked() ? ' checked' : '';
@@ -1747,12 +1833,12 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSoftBreak(): string
     {
-        return self::SOFT_BREAK_GUARD;
+        return $this->softBreakGuard();
     }
 
     protected function renderHardBreak(): string
     {
-        return ($this->xhtml ? '<br />' : '<br>') . self::INLINE_BREAK_GUARD;
+        return ($this->xhtml ? '<br />' : '<br>') . $this->inlineBreakGuard();
     }
 
     protected function renderSpan(Span $node): string
@@ -2378,7 +2464,7 @@ class HtmlRenderer implements RendererInterface
      */
     protected function guardInteriorNewlines(string $content): string
     {
-        return str_replace("\n", self::INLINE_BREAK_GUARD, $content);
+        return str_replace("\n", $this->inlineBreakGuard(), $content);
     }
 
     protected function renderLiteralInline(LiteralInline $node): string

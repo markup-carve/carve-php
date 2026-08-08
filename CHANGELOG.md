@@ -269,6 +269,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML target keeps an author's U+0001** (carve-php#1077, PART 9 section
+  29 T1). The renderer marked inline line boundaries with the fixed control
+  bytes U+0000 and U+0001, on the claim that a control byte never reaches
+  escaped HTML output. It does: section 29 T1 says this target does not strip a
+  non-whitespace C0 control, so an author's U+0001 collided with the soft-break
+  guard and came back out as whatever the soft-break mode replaces - a newline
+  by default, a `<br>` in break mode. The reader saw a line break the author
+  never wrote, in all 29 constructs measured, while carve-js and carve-rs both
+  emitted the character unchanged. The character was SUBSTITUTED rather than
+  dropped, which is why nothing noticed.
+
+  The guards are now chosen per render from private-use code points the
+  document does not contain, the shape the canonical writer already used
+  (markup-carve/carve#678), so they cannot collide by construction. U+0000 is
+  covered by the same change: the parser rewrites an input NUL, so no PARSED
+  document could reach that guard, but a tree built through the node API skips
+  that rewrite and did.
+
+  The remaining 27 non-whitespace C0 controls were swept across the same 29
+  constructs and were already correct, before and after.
+
 - **A header marker is not glued to a character that reads as alignment**
   (carve-php#1069, PART 11 §1). The parser's alignment scan runs at the
   character right after `|` or `|=` and consumes exactly one of `< > ~`, and a
