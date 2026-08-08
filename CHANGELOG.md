@@ -306,6 +306,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   thousand of them, not the whole private-use area its comment claimed - ran the
   search out and got the colliding preferred run back.
 
+- **`fmt` writes a footnote definition with no blocks as `[^f]: {empty}`**
+  (carve-php#1069, PART 11 §7b). The body empties whenever the definition
+  line's whole body is a block-attribute run, which the line collects as
+  attributes and discards. The writer emitted `[^f]:` with nothing after the
+  colon, and that line is not a definition at all, so formatting the document
+  lost BOTH halves: the definition came back as a paragraph and the reference
+  to it came back as literal text. The sentinel is a valid attribute block,
+  collected and discarded on the same line, so the note renders empty and the
+  reference still resolves. `{ }` and `{}` would not do - a block-attribute
+  line needs at least one attribute, so both stay literal text inside the note
+  - and the spelling is pinned by the spec rather than chosen here, so all
+  three engines write the same bytes.
+
 - **`fmt` emits a blank inside an indented verbatim block as an empty line**
   (carve-php#1068, PART 11 section 7). A blank line inside a fenced code block,
   a raw block or a block comment nested in a FOOTNOTE BODY or a DEFINITION BODY
