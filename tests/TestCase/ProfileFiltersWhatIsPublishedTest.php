@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * A profile filters what this engine PUBLISHES, not only what it renders.
@@ -113,6 +114,24 @@ class ProfileFiltersWhatIsPublishedTest extends TestCase
         $converter->parse(self::WITH_CODE);
 
         $this->assertTrue($converter->hasProfileViolations());
+    }
+
+    public function testParsedDocumentsAreNotRetainedByTheConverter(): void
+    {
+        $converter = CarveConverter::create(profile: $this->strictProfile());
+        $document = $converter->parse(self::WITH_CODE);
+
+        $property = new ReflectionProperty($converter, 'filteredDocuments');
+        /** @var \WeakMap<\MarkupCarve\Carve\Node\Document, true> $filteredDocuments */
+        $filteredDocuments = $property->getValue($converter);
+        $this->assertCount(1, $filteredDocuments);
+
+        $nextDocument = $converter->parse("still here\n");
+        unset($document);
+        gc_collect_cycles();
+
+        $this->assertCount(1, $filteredDocuments, 'a reusable converter retained its previous AST');
+        $this->assertTrue(isset($filteredDocuments[$nextDocument]));
     }
 
     public function testAForeignDocumentIsStillFiltered(): void

@@ -34,7 +34,7 @@ use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use RuntimeException;
-use SplObjectStorage;
+use WeakMap;
 
 /**
  * Main Djot to HTML converter
@@ -74,9 +74,13 @@ class CarveConverter
      * Keyed by object identity rather than by a flag on the Document, which
      * would be transient state on a node type PART 12 pins the shape of.
      *
-     * @var \SplObjectStorage<\MarkupCarve\Carve\Node\Document, null>
+     * A weak-key map is essential here: a long-lived converter must not keep
+     * every document it has ever parsed alive merely to remember this
+     * transient fact.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Document, true>
      */
-    protected SplObjectStorage $filteredDocuments;
+    protected WeakMap $filteredDocuments;
 
     /**
      * Registered extensions
@@ -220,7 +224,7 @@ class CarveConverter
     ) {
         $this->collectWarnings = $warnings;
         $this->strictMode = $strict;
-        $this->filteredDocuments = new SplObjectStorage();
+        $this->filteredDocuments = new WeakMap();
 
         // Use provided parser or create one from parameters
         if ($parser !== null) {
@@ -500,8 +504,7 @@ class CarveConverter
         // with Text, which can leave two runs adjacent, and §1a is about the
         // tree that gets published.
         $document = $this->applyProfile($document);
-        // offsetSet, not attach(): attach/contains are deprecated as of PHP 8.5.
-        $this->filteredDocuments->offsetSet($document, null);
+        $this->filteredDocuments[$document] = true;
 
         // Last, so it also covers runs an extension left behind. PART 12 §1a is
         // about the tree that gets published, whoever produced it - and §6
@@ -870,7 +873,7 @@ class CarveConverter
         //
         // A document from anywhere ELSE - hand-built, decoded from JSON, handed
         // straight to `render()` - has not been filtered, and still is.
-        if ($this->filteredDocuments->offsetExists($document)) {
+        if (isset($this->filteredDocuments[$document])) {
             return $document;
         }
 
