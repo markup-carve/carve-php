@@ -9,6 +9,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
+- **A literal footnote reference escapes BOTH brackets on the Markdown target**
+  (markup-carve/carve#1040). A reference nothing defines degrades to literal
+  text, and this renderer sent it through the ordinary text escaper - which
+  applies the PART 11 §8a M1b narrowing, so `[` came back bare and only `]` kept
+  its backslash. M1b governs a character that reached the writer inside a TEXT
+  node, "one the Carve grammar did not read as an opener"; the grammar did read
+  this one. The half-escaped `[^a\]:` is read as a footnote DEFINITION by a
+  Markdown reader with footnotes enabled, so a document that degraded the
+  construct published a footnote section it never had. `Text[^a].` now writes
+  `Text\[^a\].`, and a RESOLVED reference still writes `[^a]` bare.
+
+- **A ragged table keeps each row's own cell count on the Markdown target**
+  (markup-carve/carve#1040). PART 11 §10b: the writer "MUST NOT append empty
+  cells to make every row as wide as the widest row in the table", and a missing
+  trailing cell is not an empty one. The Carve writer already followed it; this
+  renderer padded from the expanded grid, so `| ~x~ |` over `| a | b |` came out
+  `| ~~x~~ |  |` and the re-parsed table gained a `<td>`. An authored EMPTY
+  trailing cell now survives instead of being popped off the header row. The
+  delimiter row is unchanged and still spans the whole table, which §10b also
+  rules on - all three engines emit it that way, so it is filed rather than
+  changed here.
+
 - **Three folds now end where the grammar says they end**
   (markup-carve/carve#1028). Each was an enumerated set with one member missing,
   and each changes what an existing document renders to.

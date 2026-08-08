@@ -614,9 +614,30 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
                 // Unresolved: the reference never formed, so the literal source
-                // is escaped like any other text landing in Markdown.
+                // is what is emitted -- and BOTH brackets are escaped, not just
+                // the closer.
+                //
+                // This used to run the whole run through escapeText(), which
+                // applies the section 8a M1b narrowing: `[` is escaped only when
+                // it is adjacent on the emitted line to another `[`, so the
+                // opener came back bare and only the `]` kept its backslash.
+                // M1b is a rule about a character that reached this writer
+                // inside a TEXT node, one "the Carve grammar did not read as an
+                // opener"; the grammar DID read this one, which is why there is
+                // a FootnoteRef node here at all. What the writer emits is a
+                // whole construct opener, and section 8a is explicit that
+                // dropping an escape "is an argument owed once per reader"
+                // while the adjacency case "owes none".
+                //
+                // The argument is owed and it fails. Under python-markdown's
+                // footnotes extension `[^a\]:` is read as a footnote DEFINITION
+                // whose label is `a\`, so a document that degraded the construct
+                // to literal text published a footnote section it never had -
+                // and the half-escaped run is what section 2 calls "a shape that
+                // happens to work rather than one that says what it means"
+                // (markup-carve/carve#1040).
                 $node instanceof FootnoteRef && $node->isUnresolved()
-                => $this->escapeText($this->stripControls('[^' . $node->getLabel() . ']')),
+                => '\\[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . '\\]',
                 // Escaped like the definition, so the pair still matches. The
                 // UNRESOLVED branch above already escapes, through escapeText()
                 // (carve-php#1063).
@@ -978,6 +999,15 @@ class MarkdownRenderer implements RendererInterface
         foreach ($layout['rows'] as $row) {
             $cells = [];
             foreach ($row['cells'] as $index => $cell) {
+                // A ROW KEEPS ITS OWN CELL COUNT. TableLayout::expand pads every
+                // row out to the widest one so a renderer with no colspan can
+                // draw a rectangle; this target re-parses, so the padding would
+                // become cells. `authoredWidth` is the count before that padding
+                // - a column a span CLAIMED is authored and stays, a column the
+                // row never reached is dropped.
+                if ($index >= $row['authoredWidth']) {
+                    break;
+                }
                 if (is_array($cell) && isset($cell['content']) && is_string($cell['content'])) {
                     $cells[] = $cell['content'];
                     if (!$row['isHeader'] && !isset($alignments[$index])) {
@@ -991,9 +1021,9 @@ class MarkdownRenderer implements RendererInterface
             }
 
             if ($row['isHeader'] && $headerCells === null) {
-                while ($cells !== [] && end($cells) === '') {
-                    array_pop($cells);
-                }
+                // No trailing-empty pop here: an EMPTY authored cell is a cell,
+                // and `authoredWidth` above already removed the padding that
+                // pop was aimed at.
                 $headerCells = $cells;
             } else {
                 $bodyRows[] = '| ' . implode(' | ', $cells) . ' |';
@@ -1004,7 +1034,18 @@ class MarkdownRenderer implements RendererInterface
         if ($headerCells !== null) {
             $output .= '| ' . implode(' | ', $headerCells) . ' |' . "\n";
 
-            // Generate separator row with alignments
+            // Generate separator row with alignments.
+            //
+            // NOT NARROWED TO THE HEADER'S OWN CELL COUNT HERE, though PART 11
+            // §10b says a delimiter "carries exactly one cell for each cell in
+            // the HEADER ROW, not one for each column reached by a wider body
+            // row" - and a reader agrees with the clause rather than with the
+            // code: `| A |` over `| --- | --- |` is not a table at all to
+            // python-markdown or to marked, so the whole thing publishes as a
+            // paragraph of pipes. All three engines emit the wider row today,
+            // so narrowing it in this one would put a shape the corpus currently
+            // agrees on into disagreement. It is a real defect and it is filed
+            // rather than fixed here (markup-carve/carve#1040).
             $separators = [];
             for ($index = 0; $index < $layout['columnCount']; $index++) {
                 $align = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
