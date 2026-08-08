@@ -110,6 +110,86 @@ class CollapsedReferenceLabelIsRenderedTextTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function whitespaceProvider(): array
+    {
+        return [
+            // No markup at all: the double space is the author's, and nothing
+            // in the derivation has licence to touch it.
+            'an authored double space' => ['# My  Heading', '[My  Heading][]', 'My  Heading'],
+            // The symbol contributes nothing to the derived text, so the space
+            // on each side of it survives into the key as a run of two.
+            'the gap a symbol leaves' => ['# a :smile: b', '[a :smile: b][]', 'a  b'],
+            'a symbol beside emphasis' => ['# a :smile: /b/ c', '[a :smile: /b/ c][]', 'a  b c'],
+            // R1 trims at MATCH time, on both sides. Trimming the published
+            // value as well would lose padding the author wrote.
+            'padding inside the brackets' => ['# a b', '[ a b ][]', ' a b '],
+        ];
+    }
+
+    /**
+     * `ref` IS NOT THE LOOKUP KEY. R1 matches the heading index looser than it
+     * matches a definition - trim, collapse whitespace, NFC, fold CASE - and
+     * that normalization belongs to the MATCH. The published value is the
+     * derived text before it, which is why the first row below keeps both its
+     * capital letters and its double space: an engine collapsing whitespace while
+     * preserving the case publishes a string that appears nowhere in the
+     * resolution, and carve-js and carve-rs publish neither
+     * (markup-carve/carve#1023).
+     */
+    #[DataProvider('whitespaceProvider')]
+    public function testTheDerivedTextKeepsItsWhitespace(
+        string $heading,
+        string $reference,
+        string $ref,
+    ): void {
+        $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
+        $json = (new AstCodec())->encode($converter->parse($heading . "\n\n" . $reference . "\n"));
+        $link = $json['children'][1]['children'][0];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertArrayHasKey('ref', $link);
+        $this->assertSame($ref, $link['ref']);
+        $this->assertSame($reference, $link['rawRef']);
+    }
+
+    /**
+     * The other half of the same rule: the LOOKUP still trims and collapses, so
+     * widening the published value must not narrow what resolves. Each label
+     * above differs from the heading's derived text only in whitespace.
+     */
+    #[DataProvider('whitespaceProvider')]
+    public function testTheLookupStillFoldsWhitespace(
+        string $heading,
+        string $reference,
+        string $ref,
+    ): void {
+        unset($ref);
+
+        $this->assertStringContainsString(
+            '<a href="#',
+            $this->html($heading . "\n\n" . $reference . "\n"),
+        );
+    }
+
+    /**
+     * A reference resolving through a DEFINITION keeps the label exactly as
+     * written - the path that was already right, re-asserted so a shared
+     * derivation cannot regress it while the heading path is widened.
+     */
+    public function testADefinitionKeepsTheLabelExactly(): void
+    {
+        $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
+        $json = (new AstCodec())->encode($converter->parse("see [ b  c][]\n\n[ b  c]: /u\n"));
+        $link = $json['children'][0]['children'][1];
+
+        $this->assertSame('link', $link['type']);
+        $this->assertSame(' b  c', $link['ref']);
+        $this->assertSame('/u', $link['href']);
+    }
+
+    /**
      * THE STRIP IS SCOPED TO THE HEADING INDEX (R1). An authored
      * `[label]: url` line is matched by the label AS WRITTEN, so widening the
      * label reduction must not reach it in either direction.

@@ -2274,6 +2274,11 @@ class InlineParser
                 $label = new Span();
                 $this->parseInlinesAt($label, $linkText, $pos + 1);
 
+                // Set only where the heading retry below resolves the
+                // reference, which is the one path where the label the author
+                // wrote and the string PART 12 §3a publishes differ.
+                $derivedRef = null;
+
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
@@ -2307,6 +2312,16 @@ class InlineParser
                         if ($headingDef !== null && $headingDef->fromHeading) {
                             $refDef = $headingDef;
                             $ref = $plain;
+                            // WHAT RESOLVED IT AND WHAT IT PUBLISHES ARE TWO
+                            // STRINGS. `$ref` stays the index key, because that
+                            // is what the definition was registered under and
+                            // what markReferenceUsed() has to find it by. PART
+                            // 12 §3a's `ref` is the DERIVED text - the same
+                            // extraction without R1's match-time trim and
+                            // collapse - so an authored `[My  Heading][]` keeps
+                            // its double space the way carve-js and carve-rs
+                            // keep it (markup-carve/carve#1023).
+                            $derivedRef = $this->blockParser->headingIndexLabel($label);
                         }
                     }
                 }
@@ -2320,7 +2335,9 @@ class InlineParser
                     // result. The label is the one the author wrote - the same
                     // spelling the unresolved branch below stores - rather than
                     // `''` for the collapsed form, which lost it (carve#597).
-                    $link->setReferenceLabel($originalRefBracket === '' ? $ref : $originalRefBracket);
+                    $link->setReferenceLabel(
+                        $originalRefBracket === '' ? ($derivedRef ?? $ref) : $originalRefBracket,
+                    );
                     // Whether the definition was DERIVED from a heading
                     // (PART 11 R1) rather than written as a `[label]: url`
                     // line. Only the canonical writer reads it, and only to
