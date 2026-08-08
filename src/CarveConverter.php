@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve;
 use Closure;
 use LengthException;
 use LogicException;
+use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\SourceLayout;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\Extension\BeforeRenderContext;
 use MarkupCarve\Carve\Extension\BeforeRenderExtensionInterface;
@@ -512,6 +514,16 @@ class CarveConverter
         TextRunCoalescer::apply($document);
 
         return $document;
+    }
+
+    /**
+     * @return array{ast: array<string, mixed>, layout: array<string, mixed>}
+     */
+    public function parseWithSourceLayout(string $source): array
+    {
+        $ast = (new AstCodec())->encode($this->parse($source));
+
+        return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
     }
 
     /**
