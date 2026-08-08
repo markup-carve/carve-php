@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 
 /**
@@ -67,6 +68,7 @@ use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 class PlainTextRenderer implements RendererInterface
 {
     use AbbreviationBudgetTrait;
+    use DerivedLabelTrait;
     use EventDispatcherTrait;
 
     /**
@@ -304,7 +306,7 @@ class PlainTextRenderer implements RendererInterface
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
 
-        if ($label === null) {
+        if ($id === null || $label === null) {
             return '</#' . $this->stripControls($target) . '>';
         }
 
@@ -312,7 +314,17 @@ class PlainTextRenderer implements RendererInterface
         // to the authored target (carve-php#1061). This target expands nothing
         // else - an abbreviation renders as its key here - which is why it had
         // no budget until the crossref needed one.
-        $rendered = $this->stripControls($label);
+        //
+        // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
+        // (PART 9R R4, markup-carve/carve#957). Plain text spells no markup, so
+        // what changes here is not the delimiters but the CONTENT a node
+        // carries: an inline literal and a symbol reach the label through the
+        // same reader the heading itself used. A caption id has no heading
+        // behind it and keeps the composed string.
+        $nodes = $this->headingIdTracker->getLabelNodesForId($id);
+        $rendered = $nodes === null
+            ? $this->stripControls($label)
+            : $this->renderDerivedLabel($nodes);
 
         return $this->chargeExpansion($rendered) ? $rendered : $this->stripControls($target);
     }

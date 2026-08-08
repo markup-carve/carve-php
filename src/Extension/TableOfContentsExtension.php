@@ -28,7 +28,7 @@ use MarkupCarve\Carve\Util\StringUtil;
  *
  * // Or get raw TOC data for custom rendering
  * $tocData = $tocExtension->getToc();
- * // Returns: [['level' => 1, 'text' => 'Intro', 'id' => 'Intro'], ...]
+ * // Returns: [['level' => 1, 'text' => 'Intro', 'html' => 'Intro', 'id' => 'Intro'], ...]
  * ```
  *
  * Configuration:
@@ -50,7 +50,11 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     /**
      * Collected TOC entries from last parse
      *
-     * @var list<array{level: int, text: string, id: string}>
+     * `text` is the entry's FLATTENED text, kept for a host reading the TOC as
+     * data; `html` is what the extension emits - the heading's inline nodes
+     * rendered by the renderer that collected them (PART 9R R4).
+     *
+     * @var list<array{level: int, text: string, html: string, id: string}>
      */
     protected array $toc = [];
 
@@ -104,22 +108,31 @@ class TableOfContentsExtension implements ResettableExtensionInterface
 
             $id = $tracker->getIdForHeading($node);
             // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R R4
-            // reaches it (markup-carve/carve#957): it is built from the heading's
-            // inline nodes and the glyph-or-source-run decision belongs to the
-            // RENDERER. Asked here with the renderer's own mode, the entry and
-            // the heading it points at read the same way; composed as glyphs of
-            // its own, a TOC in source mode showed curly quotes one line above a
-            // heading showing the typed ones.
+            // reaches it (markup-carve/carve#957): it is the heading's inline
+            // NODES, rendered by the renderer that is running. Rendered rather
+            // than flattened because a node carries the code span and the
+            // emphasis the author wrote; rendered by THIS renderer because the
+            // glyph-or-source-run decision, the symbols map and the raw-HTML
+            // policy are its to make. Composed as glyphs of its own, a TOC in
+            // source mode showed curly quotes one line above a heading showing
+            // the typed ones.
             //
-            // The tracker's label excludes the presentational section-number
-            // span but leaves the space that preceded the title, so a numbered
-            // heading yields " Alpha"; trim it to the bare title (matches
-            // carve-js/rs).
+            // INSIDE AN ANCHOR: the entry is written into an `<a href="#id">`
+            // this extension emits, so a link in the heading unwraps rather than
+            // opening an anchor inside that one (PART 12 §3a).
+            //
+            // The label excludes the presentational section-number span but
+            // leaves the space that preceded the title, so a numbered heading
+            // yields " Alpha"; trim it to the bare title (matches carve-js/rs).
             $text = trim($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '');
+            $nodes = $tracker->getLabelNodesForId($id);
 
             $this->toc[] = [
                 'level' => $level,
                 'text' => $text,
+                'html' => $nodes === null
+                    ? StringUtil::escapeHtml($text)
+                    : trim($renderer->renderInlineNodesFragment($nodes)),
                 'id' => $id,
             ];
         });
@@ -144,7 +157,7 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     /**
      * Get the table of contents as structured data
      *
-     * @return list<array{level: int, text: string, id: string}>
+     * @return list<array{level: int, text: string, html: string, id: string}>
      */
     public function getToc(): array
     {
@@ -184,7 +197,7 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     /**
      * Render TOC as nested HTML list
      *
-     * @param list<array{level: int, text: string, id: string}> $headings
+     * @param list<array{level: int, text: string, html: string, id: string}> $headings
      */
     protected function renderTocHtml(array $headings): string
     {
@@ -212,7 +225,7 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     /**
      * Render the nested list structure
      *
-     * @param list<array{level: int, text: string, id: string}> $headings
+     * @param list<array{level: int, text: string, html: string, id: string}> $headings
      */
     protected function renderTocList(array $headings): string
     {
@@ -251,7 +264,11 @@ class TableOfContentsExtension implements ResettableExtensionInterface
 
             $html .= '<li>';
             $html .= '<a href="#' . StringUtil::escapeHtml($heading['id']) . '">';
-            $html .= StringUtil::escapeHtml($heading['text']);
+            // Already escaped: the entry is rendered HTML from the heading's own
+            // nodes, escaped ONCE by the renderer that produced it. Escaping it
+            // again emitted `&quot;` where the heading emitted `"` (PART 10 §2:
+            // text content escapes `&`, `<` and `>`, not quotes).
+            $html .= $heading['html'];
             $html .= '</a>';
             $hasOpenItem = true;
         }

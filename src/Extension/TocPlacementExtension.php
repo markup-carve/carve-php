@@ -159,18 +159,30 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
                 continue;
             }
             $id = $tracker->getIdForHeading($heading);
+            // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R R4
+            // reaches it (markup-carve/carve#957): it is the heading's inline
+            // NODES, rendered by the renderer that is running, so the entry
+            // keeps the code span and the emphasis the author wrote and the
+            // glyph-or-source-run decision, the symbols map and the raw-HTML
+            // policy all stay the RENDERER's.
+            //
+            // INSIDE AN ANCHOR: the entry is written into an `<a href="#id">`
+            // this extension emits, so a link in the heading unwraps rather than
+            // opening an anchor inside that one (PART 12 §3a).
+            //
+            // The label excludes the presentational section-number span but
+            // keeps the space before the title; trim to the bare title (matches
+            // carve-js / carve-rs). stripBidi still runs: the renderer already
+            // strips the reordering controls from text it escapes, and the
+            // string fallback below has no renderer behind it.
+            $nodes = $tracker->getLabelNodesForId($id);
+            $entryHtml = $nodes === null
+                ? StringUtil::escapeHtml(trim($this->stripBidi($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '')))
+                : trim($this->stripBidi($renderer->renderInlineNodesFragment($nodes)));
+
             $entries[] = [
                 'level' => $level,
-                // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R
-                // R4 reaches it (markup-carve/carve#957) and the
-                // glyph-or-source-run decision stays the RENDERER's. Asked with
-                // the renderer's own mode, this entry and the heading it points
-                // at read the same way.
-                //
-                // The tracker's label excludes the presentational section-number
-                // span but keeps the space before the title; trim to the bare
-                // title (matches carve-js / carve-rs).
-                'text' => trim($this->stripBidi($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '')),
+                'html' => $entryHtml,
                 'id' => $id,
             ];
         }
@@ -290,7 +302,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
      * injector and carve-js: one tag per line, a heading deeper than its
      * predecessor's predecessor stays a sibling in the same nested list.
      *
-     * @param list<array{level: int, text: string, id: string}> $headings
+     * @param list<array{level: int, html: string, id: string}> $headings
      */
     protected function renderTocList(array $headings): string
     {
@@ -328,7 +340,11 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             }
 
             $html .= '<li><a href="#' . StringUtil::escapeHtml($heading['id']) . '">';
-            $html .= StringUtil::escapeHtml($heading['text']);
+            // Already escaped: the entry is rendered HTML from the heading's own
+            // nodes, escaped ONCE by the renderer that produced it. Escaping it
+            // again emitted `&quot;` where the heading emitted `"` (PART 10 §2:
+            // text content escapes `&`, `<` and `>`, not quotes).
+            $html .= $heading['html'];
             $html .= '</a>';
             $hasOpenItem = true;
         }

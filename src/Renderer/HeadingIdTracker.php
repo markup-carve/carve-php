@@ -6,11 +6,17 @@ namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
@@ -33,6 +39,14 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 class HeadingIdTracker
 {
+    /**
+     * Recursion ceiling for the derived-display walk, matching the one
+     * CrossReferenceResolver applies to the tree the walk reads from.
+     *
+     * @var int
+     */
+    protected const MAX_DISPLAY_DEPTH = 512;
+
     /**
      * Tracks used IDs for deduplication
      *
@@ -514,67 +528,208 @@ class HeadingIdTracker
     }
 
     /**
-     * The label of the heading owning $id, as NODES a renderer can still make
-     * its own choices about.
+     * The label of the heading owning $id, as the heading's own inline NODES.
      *
      * Returns null for an id that has no heading behind it (a numbered caption
      * registers a composed string), which is the caller's signal to keep the
      * string path.
      *
-     * The sequence is FLAT - Text runs with the smart-typography nodes left
-     * standing between them - because a `</#id>` label renders as plain text on
-     * every target: corpus `118-cyclic-cross-reference-resolves-to-one-level`
-     * pins `<a href="#B">B </a>` for a heading that itself holds a
-     * cross-reference, so splicing the heading's own markup in would change what
-     * the label IS, not just how it reads. What the nodes buy is that the one
-     * decision a renderer legitimately owns - glyph or source run - is still
-     * open when the renderer runs, instead of being answered here.
+     * @param string $id
+     * @param bool $insideLink See deriveDisplayNodes().
      *
      * @return list<\MarkupCarve\Carve\Node\Node>|null
      */
-    public function getLabelNodesForId(string $id): ?array
+    public function getLabelNodesForId(string $id, bool $insideLink = true): ?array
     {
         if (!isset($this->nodesById[$id])) {
             return null;
         }
 
+        return $this->deriveDisplayNodes($this->nodesById[$id], $insideLink);
+    }
+
+    /**
+     * The one derivation every consumer of a heading's display text goes
+     * through (PART 9R R4, DERIVED DISPLAY TEXT CLONES THE SAME NODES,
+     * markup-carve/carve#957).
+     *
+     * R4 binds every such consumer, not the core cross-reference alone, and
+     * names three - a numbered cross-reference label, an index term's display,
+     * a table-of-contents entry. Each answering the follow-on questions on its
+     * own is how one rule acquires four readings, so they all call this.
+     *
+     * WHAT COMES BACK IS NODES, NOT A STRING. A node carries the author's
+     * source run and a string does not, so flattening here destroys the code
+     * span, the emphasis and the escape before any renderer is invoked, and no
+     * renderer change can reach the loss - the label was materialized in the
+     * wrong subsystem. The sequence used to be flat, with only the
+     * smart-typography nodes left standing so a renderer could still pick
+     * glyph-or-source-run; that answered R4's `</#id>` half and left the
+     * markup half unanswered.
+     *
+     * The run is a DEEP COPY (the stored snapshot is deep-cloned again per
+     * call), so the label and the heading are two trees: a caller that rewrites
+     * one in place - the no-nesting unwrap in CrossReferenceResolver does
+     * exactly that - does not rewrite the other.
+     *
+     * `insideLink` is the CALLER's context rather than a fact about the nodes:
+     * a cross-reference label and a table-of-contents entry are placed inside
+     * an `<a>` and pass true, while an index list item is not an anchor - only
+     * the backrefs after the display are - and passes false, so an authored
+     * link in the term survives.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param bool $insideLink
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    public function deriveDisplayNodes(array $children, bool $insideLink): array
+    {
         $nodes = [];
-        $buffer = '';
-        $this->collectLabelNodes($this->nodesById[$id], $nodes, $buffer);
-        if ($buffer !== '') {
-            $nodes[] = new Text($buffer);
-        }
+        $this->collectDisplayNodes($children, $insideLink, $nodes, 0);
 
         return $nodes;
     }
 
     /**
      * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param bool $insideLink
      * @param list<\MarkupCarve\Carve\Node\Node> $nodes
-     * @param string $buffer
+     * @param int $depth
      */
-    protected function collectLabelNodes(array $children, array &$nodes, string &$buffer): void
+    protected function collectDisplayNodes(array $children, bool $insideLink, array &$nodes, int $depth): void
     {
-        foreach ($children as $child) {
-            if ($child instanceof SmartPunctuation) {
-                if ($buffer !== '') {
-                    $nodes[] = new Text($buffer);
-                    $buffer = '';
-                }
-                $nodes[] = clone $child;
-
-                continue;
-            }
-
-            $leaf = $this->inlineTextLeaf($child);
-            if ($leaf !== null) {
-                $buffer .= $leaf;
-
-                continue;
-            }
-
-            $this->collectLabelNodes(array_values($child->getChildren()), $nodes, $buffer);
+        if ($depth >= self::MAX_DISPLAY_DEPTH) {
+            return;
         }
+
+        foreach ($children as $child) {
+            // THE LABEL IS THE HEADING'S AUTHORED CONTENT (PART 9R R4). What a
+            // render-stage transform added, and what a resolution pass left
+            // behind, contributes nothing - which is what inlineTextLeaf()
+            // already decided for the text form, so no construct moves by being
+            // dropped here.
+            if ($this->contributesNothingToDisplay($child)) {
+                continue;
+            }
+
+            // Resolution is ONE LEVEL (R4): a cloned label is never re-expanded,
+            // so a `</#id>` inside the heading contributes nothing rather than
+            // resolving again. Corpus
+            // `118-cyclic-cross-reference-resolves-to-one-level` pins
+            // `<a href="#B">B </a>` for a heading that itself holds one.
+            if ($child instanceof HeadingRef) {
+                continue;
+            }
+
+            // A RESOLUTION RESULT REDUCES TO WHAT THE AUTHOR WROTE. The author
+            // typed the short form and R3 replaced it with an `<abbr>` carrying
+            // the expansion; cloning that republishes the whole expansion once
+            // per derived site, an amplification the body renderer bounds with a
+            // budget this path cannot reach. A citation group is the other one a
+            // heading can carry: it renders as an anchor into the references
+            // list and, with a bibliography pool active, a per-use `cite-` id -
+            // so a second copy nests an anchor inside the label's own anchor and
+            // publishes a duplicate DOM id. Both keep their children, which is
+            // the author's own run and what the flatten produced.
+            if ($child instanceof Abbreviation || $child instanceof CitationGroup) {
+                $this->collectDisplayNodes(
+                    array_values($child->getChildren()),
+                    $insideLink,
+                    $nodes,
+                    $depth + 1,
+                );
+
+                continue;
+            }
+
+            // LINKS NEVER NEST (PART 12 section 3a). A derived label rendered
+            // inside an anchor may not carry one, so a link unwraps to its
+            // display content - and a Mention is a Link, so a mention and a tag
+            // unwrap here too, which is the answer this engine already gives for
+            // `[see @bob](/u)`. An UNRESOLVED reference is not a link the reader
+            // ever sees: it is literal source, so it keeps that source rather
+            // than printing its label.
+            if ($insideLink && $child instanceof Link) {
+                if ($this->isUnresolvedReferenceLink($child)) {
+                    $nodes[] = new Text($child->getRawReferenceLabel() ?? '');
+
+                    continue;
+                }
+
+                $this->collectDisplayNodes(
+                    array_values($child->getChildren()),
+                    true,
+                    $nodes,
+                    $depth + 1,
+                );
+
+                continue;
+            }
+
+            $clone = clone $child;
+            if ($clone->hasChildren()) {
+                $inner = [];
+                $this->collectDisplayNodes(
+                    array_values($clone->getChildren()),
+                    $insideLink || $clone instanceof Link,
+                    $inner,
+                    $depth + 1,
+                );
+                $clone->setChildren($inner);
+            }
+            $nodes[] = $clone;
+        }
+    }
+
+    /**
+     * A node that contributes NOTHING to a heading's display text.
+     *
+     * The three cases inlineTextLeaf() answers with the empty string, plus the
+     * footnote apparatus it answers with the empty string by having no children
+     * to recurse into:
+     *
+     * - an `:index[term]` MARKER is invisible (PART 9 §8.1) - it emits no
+     *   visible text, so it is not display text anywhere it is derived, and its
+     *   `idx-` anchor id is published exactly once;
+     * - a `section-number` SPAN is injected by HeadingNumbers (§9) and is named
+     *   by R4 as not part of the label - the class is the discriminator this
+     *   engine and carve-js both use, and it is the same one the id slug uses;
+     * - a RAW INLINE is excluded from heading text on every target, and the
+     *   permalink anchor HeadingPermalinks injects is a render-event addition
+     *   that never reaches the snapshot at all;
+     * - a FOOTNOTE REFERENCE is a pointer into the endnotes rather than display
+     *   text: a second copy publishes a duplicate `fnref` id inside an anchor of
+     *   its own and points the backlink at whichever rendered last. An inline
+     *   footnote is the same pointer with its body attached.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $child
+     */
+    protected function contributesNothingToDisplay(Node $child): bool
+    {
+        if ($child instanceof FootnoteRef || $child instanceof InlineFootnote) {
+            return true;
+        }
+
+        return $this->inlineTextLeaf($child) === '';
+    }
+
+    /**
+     * A Link node standing for a reference the document never resolved: it
+     * carries authored source and no destination (PART 12 §3a keeps `ref` and
+     * `rawRef` on a RESOLVED reference too, so the authored source stopped
+     * answering this on its own). Mirrors
+     * CrossReferenceResolver::isUnresolvedReference().
+     */
+    protected function isUnresolvedReferenceLink(Link $child): bool
+    {
+        if ($child->getRawReferenceLabel() === null) {
+            return false;
+        }
+
+        $destination = $child->getDestination();
+
+        return $destination === null || $destination === '';
     }
 
     /**

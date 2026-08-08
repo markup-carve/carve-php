@@ -61,8 +61,13 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
 
     public function testATableOfContentsEntryKeepsTheSourceRun(): void
     {
+        // The entry is ESCAPED ONCE, by the renderer that renders its nodes, so
+        // a `"` in a heading reaches the entry bare - PART 10 §2 escapes `&`,
+        // `<` and `>` in text content and not quotes. It used to be escaped a
+        // second time by the list builder, which published `&quot;` where the
+        // heading published `"`; carve-js emits the bare quote.
         $this->assertSame(
-            "<nav class=\"toc\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The &quot;quoted&quot; -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n",
+            "<nav class=\"toc\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The \"quoted\" -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n",
             $this->html(
                 "::: toc\n:::\n\n# The \"quoted\" -- heading\n",
                 SmartTypographyMode::Source,
@@ -79,7 +84,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
             new TableOfContentsExtension(position: 'top'),
         );
 
-        $this->assertStringContainsString('The &quot;quoted&quot; -- heading', $html);
+        $this->assertStringContainsString('The "quoted" -- heading', $html);
         $this->assertStringNotContainsString("The \u{201C}quoted\u{201D} \u{2013} heading", $html);
     }
 
@@ -100,13 +105,16 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         );
     }
 
-    public function testAHeadingsInlineMarkupIsStrippedNotSpliced(): void
+    public function testAHeadingsInlineMarkupIsClonedNotFlattened(): void
     {
-        // The label sequence stays FLAT - the heading's own markup is not
-        // spliced in, only its text runs and any smart-typography nodes between
-        // them. A `</#id>` label renders as plain text on every target.
+        // DERIVED DISPLAY TEXT CLONES THE SAME NODES (PART 9R R4,
+        // markup-carve/carve#957). The heading's own markup comes with the
+        // label: a code span reaches the anchor as a code span, not as its bare
+        // content. The label used to stay FLAT here, which answered R4's
+        // source-run half and left its markup half unanswered - and it is the
+        // node that carries both, so one seam settles them together.
         $this->assertSame(
-            "<section id=\"The-code-heading\">\n  <h1><span class=\"section-number\">1</span> The <code>code</code> heading</h1>\n  <p>See <a href=\"#The-code-heading\">The code heading</a></p>\n</section>\n",
+            "<section id=\"The-code-heading\">\n  <h1><span class=\"section-number\">1</span> The <code>code</code> heading</h1>\n  <p>See <a href=\"#The-code-heading\">The <code>code</code> heading</a></p>\n</section>\n",
             $this->html(
                 "# The `code` heading\n\nSee </#The-code-heading>\n",
                 SmartTypographyMode::Glyph,

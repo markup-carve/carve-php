@@ -75,9 +75,20 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
     protected array $counts = [];
 
     /**
-     * First occurrence's display text per slug.
+     * The first occurrence's display per slug, as NODES (PART 9R R4, DERIVED
+     * DISPLAY TEXT CLONES THE SAME NODES, markup-carve/carve#957).
      *
-     * @var array<string, string>
+     * Not a string: `:index[*bold* `c`]` published `bold c`, with the emphasis,
+     * the code span, the escape and the author's source run all destroyed at the
+     * derivation site, where no renderer downstream can recover them. They are
+     * rendered at render time by the renderer that is running, so the entry also
+     * follows that renderer's typography mode, symbols map and raw-HTML policy.
+     *
+     * Derived with `insideLink` FALSE: an index list item is not an anchor -
+     * only the backrefs after the display are - so an authored link in the term
+     * survives.
+     *
+     * @var array<string, list<\MarkupCarve\Carve\Node\Node>>
      */
     protected array $display = [];
 
@@ -147,7 +158,10 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
             $this->counts[$slug] = $occurrence;
             $marker->setAttribute(self::OCC_ATTR, (string)$occurrence);
             if (!isset($this->display[$slug])) {
-                $this->display[$slug] = $this->slugger->getPlainText($marker);
+                $this->display[$slug] = $this->slugger->deriveDisplayNodes(
+                    array_values($marker->getChildren()),
+                    false,
+                );
             }
         });
 
@@ -185,7 +199,9 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         // the output nor the transient string-building work exceeds the budget.
         // The budget is far above any real document, so output is byte-identical.
         foreach ($slugs as $slug) {
-            $prefix = '  <li>' . $this->escapeHtml($this->display[$slug]);
+            // Rendered, not escaped: the display is the term's own NODES and the
+            // renderer escapes the text in them exactly once (PART 10 §2).
+            $prefix = '  <li>' . $renderer->renderInlineNodesFragment($this->display[$slug]);
             if (!$this->charge($prefix)) {
                 break;
             }
@@ -242,13 +258,6 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         $this->emittedBytes += $cost;
 
         return true;
-    }
-
-    protected function escapeHtml(string $text): string
-    {
-        $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
-
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
     }
 
     protected function slug(Node $node): string
