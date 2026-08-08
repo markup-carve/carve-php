@@ -2267,21 +2267,41 @@ class InlineParser
                 // Store original bracket content before normalization
                 $originalRefBracket = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
+                // THE LABEL IS PARSED ONCE, HERE. Both branches below need the
+                // bracket text as inline nodes, and the heading-index retry
+                // needs the plain text those nodes render to - deriving either
+                // one twice is how the label acquires two spellings.
+                $label = new Span();
+                $this->parseInlinesAt($label, $linkText, $pos + 1);
+
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
                 if ($refDef === null && $originalRefBracket === '') {
                     // A HEADING-derived definition (PART 11 R1) is keyed by
-                    // the heading's TEXT, so a label carrying inline markup
-                    // cannot match it as written: a heading holding a code
-                    // span registers the span's content, not its backticks.
-                    // Retry once with the markup characters removed, and
-                    // accept the result only when it came from a heading - an
-                    // authored definition line is matched by the label the
-                    // author wrote, nothing else. carve-rs resolves both
-                    // shapes this way; carve-js resolves neither.
-                    $plain = preg_replace('/[_*~^+={}`\\[\\]]/', '', $ref) ?? $ref;
-                    $plain = trim(preg_replace('/\\s+/', ' ', $plain) ?? $plain);
+                    // the heading's RENDERED PLAIN TEXT, so a label carrying
+                    // inline markup cannot match it as written: a heading
+                    // holding a code span registers the span's content, not its
+                    // backticks. Retry once with the label reduced to the same
+                    // string kind, and accept the result only when it came from
+                    // a heading - an authored definition line is matched by the
+                    // label the author wrote, nothing else.
+                    //
+                    // R1 SAYS "THE SAME STRING KIND THE HEADING SIDE ALREADY
+                    // ENTERS AS", so the reduction is the heading side's own
+                    // extraction over the PARSED label rather than a character
+                    // class over its source. A character class answers only for
+                    // the delimiters someone remembered to list: it left `/em/`
+                    // (Carve's emphasis is the slash), `\_` (the escape
+                    // survives as a backslash the heading text does not carry),
+                    // `[x](/y)` (the destination stays behind) and a smart
+                    // apostrophe (the heading holds the glyph, the label the
+                    // typed `'`) all unmatchable, so no heading containing them
+                    // was reachable by its collapsed spelling at all
+                    // (markup-carve/carve#1011). Running the extraction instead
+                    // needs no list: whatever the heading contributes, the
+                    // label contributes too.
+                    $plain = $this->blockParser->headingIndexKey($label);
                     if ($plain !== $ref && $plain !== '') {
                         $headingDef = $this->blockParser->getCollapsedReference($plain);
                         if ($headingDef !== null && $headingDef->fromHeading) {
@@ -2308,7 +2328,7 @@ class InlineParser
                     // a heading has no definition line, so `[text][]` is the
                     // only record of it (carve#478).
                     $link->setFromHeadingReference($refDef->fromHeading);
-                    $this->parseInlinesAt($link, $linkText, $pos + 1);
+                    $link->setChildren($label->getChildren());
 
                     // Track anchor links for validation
                     if (preg_match('/^#(.+)$/', $refDef->url, $anchorMatch)) {
@@ -2354,7 +2374,7 @@ class InlineParser
                 // the collapsed form instead, which the canonical writer reads;
                 // that spelling is markup-carve/carve#524.
                 $link->setReferenceLabel($originalRefBracket === '' ? $ref : $originalRefBracket);
-                $this->parseInlinesAt($link, $linkText, $pos + 1);
+                $link->setChildren($label->getChildren());
 
                 // Either form may still land on a heading - collapsed
                 // `[text][]` case-insensitively, explicit `[text][Label]`
@@ -4409,7 +4429,12 @@ class InlineParser
      */
     protected function parseSymbol(string $text, int $pos): ?array
     {
-        $previous = $text[$pos - 1] ?? '';
+        // PHP accepts negative string offsets, so `$text[-1]` is the FINAL
+        // byte rather than an absent byte. At position zero that made the
+        // symbol's left boundary depend on how the whole inline run ended:
+        // `:ok:` parsed, while `:ok: heading` did not because its final `g`
+        // was mistaken for the byte before the opening colon.
+        $previous = $pos > 0 ? $text[$pos - 1] : '';
         if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
             return null;
         }

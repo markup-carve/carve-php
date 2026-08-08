@@ -490,6 +490,24 @@ class BlockParser
      */
     protected bool $headingIdLowercase = false;
 
+    /**
+     * The tracker headingIndexKey() reduces a reference LABEL through.
+     *
+     * Held rather than rebuilt per reference: the extraction is stateless, and
+     * a document quoting the same heading a hundred times should not construct
+     * a hundred trackers to ask them all the same question.
+     *
+     * UNCONFIGURED, deliberately. headingIdTrackerForReferences() mirrors the
+     * slug transform and the lowercase flag because it hands out IDS; this one
+     * is only ever asked for PLAIN TEXT, which neither setting touches. It was
+     * built through that helper and invalidated from both setters at first,
+     * which made the two setters look like they could move a label key they
+     * cannot: one of the two invalidations was unreachable by any test, and the
+     * other only looked reachable. Taking the configuration out is what makes
+     * the invalidation unnecessary rather than merely unexercised.
+     */
+    protected ?HeadingIdTracker $referenceLabelTracker = null;
+
     public function setHeadingIdTransformer(?Closure $headingIdTransformer): void
     {
         $this->headingIdTransformer = $headingIdTransformer;
@@ -9834,6 +9852,28 @@ class BlockParser
         $tracker->setLowercase($this->headingIdLowercase);
 
         return $tracker;
+    }
+
+    /**
+     * The key `$label` enters the implicit heading index under (PART 9R R1).
+     *
+     * ONE DERIVATION FOR BOTH SIDES. The index is keyed by a heading's rendered
+     * plain text, and R1's "ON THIS PATH THE LABEL ENTERS AS ITS RENDERED PLAIN
+     * TEXT, the same string kind the heading side already enters as" makes that
+     * a single routine rather than two that have to be kept in step: this is
+     * HeadingReferenceCollector::register()'s own trim-and-collapse over
+     * HeadingIdTracker::getPlainText(), reached from the reference site instead
+     * of the heading. A second spelling here is what let `# an /em/ heading` go
+     * unreachable by `[an /em/ heading][]` (markup-carve/carve#1011).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $label The label's PARSED inline nodes.
+     */
+    public function headingIndexKey(Node $label): string
+    {
+        $this->referenceLabelTracker ??= new HeadingIdTracker();
+        $plainText = $this->referenceLabelTracker->getPlainText($label);
+
+        return trim(preg_replace('/\s+/', ' ', $plainText) ?? $plainText);
     }
 
     /**
