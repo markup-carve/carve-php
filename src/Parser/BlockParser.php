@@ -793,6 +793,17 @@ class BlockParser
         // Capture the original source byte length before any normalization so
         // renderers can size the abbreviation-expansion budget (DoS guard).
         $sourceLength = strlen($input);
+        // Decode the source as UTF-8 the way PART 1 says it is encoded, and
+        // substitute U+FFFD for anything that is not (carve-php#1082). Ahead
+        // of everything else in this method so the rest of the parser - and
+        // the ORIGINAL SOURCE the position table slices with mb_substr() -
+        // only ever sees well-formed UTF-8.
+        //
+        // Measured before the budget above deliberately: substitution only
+        // ever LENGTHENS the input (one byte becomes three), so charging the
+        // pre-substitution length keeps the abbreviation-expansion guard on
+        // the smaller of the two numbers.
+        $input = StringUtil::toValidUtf8($input);
         $this->resetParseState();
         $document = new Document();
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
