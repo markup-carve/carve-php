@@ -840,6 +840,21 @@ class CarveRenderer implements RendererInterface
      */
     protected const MARKER_COLUMN = "\u{e010}";
 
+    /**
+     * Whether `$node`'s canonical source is a bare inline run on its own line,
+     * so at a container's content column it CONTINUES an open paragraph instead
+     * of opening a block of its own.
+     *
+     * Derived by sweeping twenty-two block constructs rather than by reasoning
+     * about them: a `figure` is an image line plus a caption line and an `image`
+     * is the image line alone, which is why both read as paragraph text one
+     * column in.
+     */
+    protected function foldsIntoAnOpenParagraph(Node $node): bool
+    {
+        return $node instanceof Paragraph || $node instanceof Image || $node instanceof Figure;
+    }
+
     protected function atMarkerColumn(string $text): string
     {
         return implode("\n", array_map(
@@ -870,6 +885,10 @@ class CarveRenderer implements RendererInterface
         try {
             $out = '';
             $previous = null;
+            // Whether any child so far was written at the item's MARKER column,
+            // which is column 0. Everything after it has to sit there too - see
+            // below - so this only ever latches on.
+            $atMarkerColumn = false;
             foreach ($children as $child) {
                 // A definition the author wrote BETWEEN these two blocks was
                 // collected out of the item, and the gap it left is what split
@@ -895,20 +914,51 @@ class CarveRenderer implements RendererInterface
                 if ($out !== '') {
                     $out .= "\n";
                 }
-                // §17 L3: a PARAGRAPH after a paragraph needs its continuation
-                // marker written back. Indented under the item it is a lazy
-                // continuation of the paragraph above (§10 I2), so the item
-                // comes back holding ONE block where the author wrote two
-                // (carve#861). Only a paragraph reaches this - no other
-                // attached kind can fold into an open paragraph, which is why
-                // the corpus, pinning a fence and a quote, never saw it.
+                // §17 L3: a block that FOLDS INTO AN OPEN PARAGRAPH needs its
+                // continuation marker written back. Indented under the item it
+                // is a lazy continuation of the paragraph above (§10 I2), so
+                // the item comes back holding ONE block where the author wrote
+                // two (carve#861).
+                //
+                // WHICH BLOCKS FOLD. The claim this condition used to carry -
+                // "only a paragraph reaches this, no other attached kind can
+                // fold into an open paragraph" - was a premise in the code, and
+                // measuring it across twenty-two constructs refuted it for two:
+                // a standalone `image` and a `figure` are both written as a
+                // bare inline run on their own line (`![a](i.png)`, plus a
+                // `^ cap` line), so at the item's content column they are lazy
+                // continuation exactly as a paragraph is. `- x` / `+` /
+                // `![a](i.png)` / `^ cap` came back as ONE paragraph holding an
+                // inline image and the literal text `^ cap`, with the
+                // `<figure>` and its `<figcaption>` gone (carve-php#1069 cause
+                // 3). Every other construct measured - fence, quote, heading,
+                // table, break, div, list, definition list, admonition, verse,
+                // line block, math, raw block, comment, abbreviation
+                // definition, link definition, footnote definition - either
+                // opens its own block at that column or never reaches the item
+                // as its own node, and is unaffected.
+                //
+                // AND ONCE ONE CHILD IS AT THE MARKER COLUMN, EVERY LATER ONE
+                // MUST BE. The marker column is column 0, so a following child
+                // written at the item's CONTENT column is indented relative to
+                // the block above it and becomes that block's lazy
+                // continuation. `- x` / `+` / `---yaml` / `k: v` / `---` wrote
+                // the paragraph flush and the thematic break at two columns,
+                // and the break was absorbed into the paragraph and folded to
+                // an em dash where the input rendered a rule (cause 4). Mixed
+                // indentation inside one attached run is not a form any reader
+                // round-trips, whichever indentation was intended, so it is not
+                // written.
                 //
                 // A definition written back in the gap already ended the
                 // paragraph above, so the marker would be redundant there and
-                // would change corpus 228's canonical form.
-                if (!$separated && $previous instanceof Paragraph && $child instanceof Paragraph) {
+                // would change corpus 228's canonical form. It does not release
+                // a run that is already at the marker column, because the
+                // column, not the paragraph, is what the later child continues.
+                if ($atMarkerColumn || (!$separated && $previous instanceof Paragraph && $this->foldsIntoAnOpenParagraph($child))) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
+                    $atMarkerColumn = true;
 
                     continue;
                 }

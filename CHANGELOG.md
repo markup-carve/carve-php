@@ -269,6 +269,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A continuation marker attaches every block in its run** (carve-php#1069,
+  PART 9 §17, PART 11 §1). The writer converted a `+` attachment into
+  indentation for everything except a paragraph after a paragraph, on the stated
+  ground that no other construct can fold into an open paragraph. Measured
+  across twenty-two constructs that is wrong for two: a standalone image and a
+  figure are written as a bare inline run on their own line, so at the item's
+  content column they are lazy continuation exactly as a paragraph is. `- x` /
+  `+` / `![a](i.png)` / `^ cap` came back as one paragraph holding an inline
+  image and the literal text `^ cap`, with the `<figure>` and its
+  `<figcaption>` gone. Both now keep the marker.
+
+  Separately, once one child of an item is written at the marker column - which
+  is column 0 - every later child must be too, or it is indented relative to the
+  block above it and absorbed as that block's lazy continuation. `- x` / `+` /
+  `---yaml` / `k: v` / `---` indented only the final line, and the thematic
+  break folded into the paragraph above it as an em dash where the input
+  rendered a rule.
+
 - **`fmt` no longer manufactures a frontmatter block that swallows the document**
   (carve-php#1069, PART 11 §1). A frontmatter block is a `---` fence at byte 0
   plus a bare `---` closer anywhere below it, and two writer decisions put one
