@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
@@ -522,6 +523,8 @@ class ProseMirrorRenderer
 
         if ($node instanceof Heading) {
             $attrs['level'] = $node->getLevel();
+        } elseif ($node instanceof ThematicBreak) {
+            $attrs['carveMarker'] = $node->char;
         } elseif ($node instanceof CodeBlock) {
             // An empty info string is not a language: emitting it would render
             // class="language-".

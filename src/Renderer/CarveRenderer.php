@@ -194,10 +194,9 @@ class CarveRenderer implements RendererInterface
     /**
      * The spelling a thematic break is written with.
      *
-     * `---` IS THE CANONICAL BREAK, INCLUDING ON LINE 1. PART 11 section 6a says
-     * the writer emits three hyphens whatever the author wrote, and states no
-     * exception. One is taken in renderWithEscapeMode() below, because PART 11
-     * section 1 is the stronger clause: `to_html(fmt(x)) == to_html(x)`.
+     * The document-wide fallback spelling for a break that would otherwise
+     * open manufactured frontmatter. PART 11 section 1 requires
+     * `to_html(fmt(x)) == to_html(x)`.
      */
     protected string $thematicBreakMarker = '---';
 
@@ -211,10 +210,8 @@ class CarveRenderer implements RendererInterface
      * first line, and a first-line test answers a different question. Two
      * unrelated writer decisions reach it:
      *
-     * - section 6a normalizes `***` and `___` to `---`, so a break that opens
-     *   the document gains a closer from any later break. `***` / blank / `a` /
-     *   blank / `---` / blank / `b` came back as `<p>b</p>` alone: the rule and
-     *   the paragraph above it became frontmatter content.
+     * - an authored `---` break can open the document and gain a closer from
+     *   any later break.
      * - renderDocumentParts() writes a hoisted link or footnote definition after
      *   the body, promoting whatever stood second to byte 0. Nothing is
      *   respelled there - the `---` was already in the source - so fixing the
@@ -598,7 +595,9 @@ class CarveRenderer implements RendererInterface
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
             $node instanceof ListBlock => $withAttrs($this->renderList($node)),
             $node instanceof ListItem => $this->renderListItem($node),
-            $node instanceof ThematicBreak => $withAttrs($this->thematicBreakMarker),
+            $node instanceof ThematicBreak => $withAttrs(
+                $this->thematicBreakMarker === '---' ? str_repeat($node->char, 3) : $this->thematicBreakMarker,
+            ),
             $node instanceof Table => $withAttrs($this->renderTable($node)),
             $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassList()[0] ?? ''], $this->renderTypedDiv($node)),
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),

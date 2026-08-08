@@ -41,7 +41,8 @@
     },
     "thematic_break": {
       "kind": "node",
-      "pm": "horizontalRule"
+      "pm": "horizontalRule",
+      "notes": "carveMarker carries the authored thematic-break character"
     },
     "list": {
       "kind": "node",

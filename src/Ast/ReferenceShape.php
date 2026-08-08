@@ -88,7 +88,7 @@ final class ReferenceShape
         // no glyph of its own - came back as `"value": null` and the source run
         // leaked under its internal name beside it.
         'smart_punctuation' => ['kind' => 'kind', 'content' => 'value', 'glyph' => 'glyph'],
-        'thematic_break' => [],
+        'thematic_break' => ['char' => 'marker'],
         'document' => ['sourceLength' => 'srcByteLength'],
         // The reference shows an autolink's target twice - `href` is the
         // resolved target (a bare mail address gains `mailto:`), `text` is what
@@ -205,7 +205,7 @@ final class ReferenceShape
         // reference has no such field there, so that one stays internal.
         'code_block' => [],
         'link' => ['isAutolink', 'fromHeadingReference'],
-        'thematic_break' => ['char'],
+        'thematic_break' => [],
         // Fence WIDTH is a writer's concern, recomputed when formatting; the
         // wire carries `block`, which is the question a consumer asks (derived
         // in AstCodec).
