@@ -317,6 +317,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Preserve each row's cell count when formatting a ragged table instead of
+  manufacturing empty cells to make the table rectangular.
+
 - Keep authored symbols in derived display text such as automatic tab labels,
   while continuing to exclude them from heading IDs and other identity text.
 

@@ -1279,13 +1279,6 @@ class CarveRenderer implements RendererInterface
         // placeholder for each `^`/`<` span marker (carve-php#527), so the
         // column count and each row's own cells are read directly - no more
         // reconstructing covered columns from a colspan/rowspan count.
-        $columns = 0;
-        foreach ($tableRows as $row) {
-            $columns = max($columns, count(array_filter(
-                $row->getChildren(),
-                static fn (Node $child): bool => $child instanceof TableCell,
-            )));
-        }
         // Tables prefer the NATIVE header form: an `=` on each header cell plus
         // the per-cell alignment markers. The GFM delimiter row is an accepted
         // alias on input, but it says something the AST does not - its alignment
@@ -1352,18 +1345,14 @@ class CarveRenderer implements RendererInterface
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
                 $column++;
             }
-            // Pad a row that genuinely has fewer cells than the widest row (an
-            // AST built by hand rather than parsed) with blank cells, matching
-            // the previous fallback for a missing source cell.
-            $cellCount = count($cells);
-            while ($cellCount < $columns) {
-                $cells[] = ['text' => '', 'tight' => false];
-                $cellCount++;
-            }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
         }
         if ($needsDelimiter) {
-            array_splice($rows, 1, 0, '|' . implode('|', array_fill(0, max(1, $columns), '---')) . '|');
+            $headerCells = count(array_filter(
+                $tableRows[0]->getChildren(),
+                static fn (Node $child): bool => $child instanceof TableCell,
+            ));
+            array_splice($rows, 1, 0, '|' . implode('|', array_fill(0, max(1, $headerCells), '---')) . '|');
         }
         if ($node->hasCaption()) {
             $caption = $node->getCaption();
