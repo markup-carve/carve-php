@@ -46,6 +46,9 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-caption-attaches-across-one-blank-line',
+        'a-container-a-lazy-line-folded-into-is-still-open',
+        'two-blank-lines-detach-a-caption',
         'the-inline-attribute-interior-is-space-only-the-attribute-line-is-not',
         'an-autolink-body-admits-non-ascii-and-excludes-format-characters',
         'a-real-div-in-a-container-and-the-flush-left-line-after-it',
