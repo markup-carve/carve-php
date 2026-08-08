@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -19,8 +25,8 @@ use PHPUnit\Framework\TestCase;
  *
  * THE SUBJECT IS A CLASS, NOT TWO CHARACTERS. The ticket named the vertical tab
  * and the form feed because those are the two the whitespace clause happens to
- * mention; the class is 29 characters wide and every one of them is asserted
- * here, built from an escape and compared on bytes.
+ * mention; the class is 28 characters wide once NUL is set aside, and every one of
+ * them is asserted here, built from an escape and compared on bytes.
  *
  * Expectations are carve-rs `cdac42c` (which landed §29 as carve-rs#822),
  * measured construct by construct. carve-js `76dadb6` still strips on all three
@@ -138,11 +144,22 @@ class MarkdownAndPlainEmitTheC0ControlsTest extends TestCase
     public function testTheCarriageReturnIsWHITESPACEAndStaysStripped(): void
     {
         // CONTROL against over-reach. U+000D is not in the class: carve#963 made
-        // it whitespace, so §29 excludes it and the two targets normalize it the
-        // way they normalize the rest of the whitespace they are handed. The
-        // narrowing was written so this could not be swept in with the others.
-        foreach ([CarveConverter::markdown(), CarveConverter::plainText(), CarveConverter::ansi()] as $converter) {
-            $this->assertStringNotContainsString("\r", $converter->convert("a\rb\n"));
+        // it whitespace, so §29 excludes it and the narrowing was written so it
+        // could not be swept in with the others.
+        //
+        // Built as a NODE, not parsed. The parser normalizes line endings, so a
+        // carriage return in SOURCE is a newline long before a renderer sees it
+        // - which means a parse-based probe passes whether or not the strip
+        // covers it, and a mutation removing U+000D survived one. The reachable
+        // door is the one a host uses: a tree built through the API, which is how
+        // NonHtmlRendererSecurityTest reaches every other leaf field too.
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Text("a\rb"));
+        $document->appendChild($paragraph);
+
+        foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            $this->assertStringNotContainsString("\r", $renderer->render($document));
         }
     }
 
