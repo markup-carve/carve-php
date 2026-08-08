@@ -269,6 +269,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A caption detaches across two blank lines** (carve-php#1078, PART 9 section
+  4). `caption_slot = [blank_line], caption` carries ONE optional blank line and
+  section 4 says the same thing in words: a `^ ` caption attaches to the
+  immediately preceding captionable block when it is adjacent or one blank line
+  below, and two blank lines DETACH, leaving the line an ordinary paragraph.
+  This parser attached across any number of blank lines, on all five captionable
+  hosts - a table, a fenced code block, a blockquote, an image paragraph and a
+  standalone display-math block - so a caption written two blank lines below a
+  table, or a paragraph that merely began with `^ `, was pulled into a block it
+  was not part of. carve-js already detaches and is the oracle.
+
+  A document written with zero or one blank line is unaffected, which is every
+  document in the corpus.
+
 - **The HTML target keeps an author's U+0001** (carve-php#1077, PART 9 section
   29 T1). The renderer marked inline line boundaries with the fixed control
   bytes U+0000 and U+0001, on the claim that a control byte never reaches

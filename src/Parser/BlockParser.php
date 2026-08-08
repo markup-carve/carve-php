@@ -8446,6 +8446,29 @@ class BlockParser
     }
 
     /**
+     * How many blank lines immediately precede `$start`.
+     *
+     * Counting rather than testing one line back: `caption_slot` allows exactly
+     * one, so "is the line above blank" cannot tell one from two and a caption
+     * attached across any run at all.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function blankLineRunBefore(array $lines, int $start): int
+    {
+        $run = 0;
+        for ($i = $start - 1; $i >= 0; $i--) {
+            if (!IndentationHelper::isBlankLine($lines[$i])) {
+                break;
+            }
+            $run++;
+        }
+
+        return $run;
+    }
+
+    /**
      * Try to parse a caption line (^ caption text).
      *
      * Captions apply to the immediately preceding block:
@@ -8469,6 +8492,23 @@ class BlockParser
         // (PART 1), so a lone NBSP, VERTICAL TAB or FORM FEED is content and
         // does make a caption (markup-carve/carve-php#1038).
         if (!preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+            return null;
+        }
+
+        // `caption_slot = [blank_line], caption` carries ONE optional blank
+        // line, and PART 9 §4 spells the same allowance in words: adjacent or
+        // exactly one blank line attaches, TWO DETACH and leave the `^ ` line an
+        // ordinary paragraph.
+        //
+        // The distance has to be recovered HERE, by looking back, because
+        // nothing carries it in: parseBlocksImpl() skips a run of blank lines at
+        // the top of its loop without counting them, so by the time any block
+        // parser is dispatched the run is gone. That is why one shared predicate
+        // covers all five captionable hosts rather than five copies drifting
+        // apart - the hosts are decided further down this method, on the block
+        // this caption would attach to, and the distance is the same question
+        // for every one of them.
+        if ($this->blankLineRunBefore($lines, $start) > 1) {
             return null;
         }
 
