@@ -381,7 +381,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 // is recorded on carve-php#1075 rather than answered here.
                 // Trimming a plain-text panel NAME is this caller's own
                 // business either way.
-                return trim($renderer->getHeadingIdTracker()->getPlainText($child));
+                return trim($renderer->getHeadingIdTracker()->getDisplayText($child));
             }
         }
 

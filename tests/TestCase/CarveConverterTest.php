@@ -770,13 +770,26 @@ DJOT;
         $this->assertStringContainsString(':heart:', $result);
     }
 
+    /**
+     * THE ID DOES NOT MOVE WITH THE SYMBOLS MAP. syntax.md section 4.1 step 1
+     * excludes a `:name:` symbol from a heading's rendered plain text by
+     * CONSTRUCT, so the three headings below carry the same id whether `ok` is
+     * mapped or not.
+     *
+     * These rows read `ok-h`, `x-ok-y` and `h-ok` until
+     * markup-carve/carve#1011: the id was keyed on the shortcode NAME, which
+     * with a map configured names neither the source the author typed nor the
+     * `OK` the reader sees. An id is assigned in the parse pass, and a symbol
+     * resolves through renderer configuration - so any id that reads the symbol
+     * at all moves when a host adds a map.
+     */
     public function testMappedSymbolAtEveryInlinePositionAndContainer(): void
     {
         $converter = new CarveConverter(symbols: ['ok' => 'OK']);
         $cases = [
-            "# :ok: h\n" => "<section id=\"ok-h\">\n  <h1>OK h</h1>\n</section>\n",
-            "# x :ok: y\n" => "<section id=\"x-ok-y\">\n  <h1>x OK y</h1>\n</section>\n",
-            "# h :ok:\n" => "<section id=\"h-ok\">\n  <h1>h OK</h1>\n</section>\n",
+            "# :ok: h\n" => "<section id=\"h\">\n  <h1>OK h</h1>\n</section>\n",
+            "# x :ok: y\n" => "<section id=\"x-y\">\n  <h1>x OK y</h1>\n</section>\n",
+            "# h :ok:\n" => "<section id=\"h\">\n  <h1>h OK</h1>\n</section>\n",
             ":ok: h\n" => "<p>OK h</p>\n",
             "- :ok: h\n" => "<ul>\n  <li>OK h</li>\n</ul>\n",
             "> :ok: h\n" => "<blockquote><p>OK h</p></blockquote>\n",
