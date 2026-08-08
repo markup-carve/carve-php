@@ -857,6 +857,23 @@ class CarveRenderer implements RendererInterface
         return $node instanceof Paragraph || $node instanceof Image || $node instanceof Figure;
     }
 
+    protected function adjacentBlocksMerge(Node $left, Node $right): bool
+    {
+        if ($left::class !== $right::class) {
+            return false;
+        }
+        if ($left instanceof ListBlock && $right instanceof ListBlock) {
+            return $left->getListType() === $right->getListType()
+                && $left->getMarker() === $right->getMarker()
+                && $left->getStyle() === $right->getStyle();
+        }
+
+        return $left instanceof BlockQuote
+            || $left instanceof Table
+            || $left instanceof LineBlock
+            || $left instanceof DefinitionList;
+    }
+
     protected function atMarkerColumn(string $text): string
     {
         return implode("\n", array_map(
@@ -891,7 +908,8 @@ class CarveRenderer implements RendererInterface
             // which is column 0. Everything after it has to sit there too - see
             // below - so this only ever latches on.
             $atMarkerColumn = false;
-            foreach ($children as $child) {
+            foreach ($children as $index => $child) {
+                $next = $children[$index + 1] ?? null;
                 // A definition the author wrote BETWEEN these two blocks was
                 // collected out of the item, and the gap it left is what split
                 // one paragraph into two. Dropping the line would rejoin them,
@@ -957,7 +975,11 @@ class CarveRenderer implements RendererInterface
                 // would change corpus 228's canonical form. It does not release
                 // a run that is already at the marker column, because the
                 // column, not the paragraph, is what the later child continues.
-                if ($atMarkerColumn || (!$separated && $previous instanceof Paragraph && $this->foldsIntoAnOpenParagraph($child))) {
+                if (
+                    $atMarkerColumn
+                    || ($next !== null && $this->adjacentBlocksMerge($child, $next))
+                    || (!$separated && $previous instanceof Paragraph && $this->foldsIntoAnOpenParagraph($child))
+                ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
                     $atMarkerColumn = true;
