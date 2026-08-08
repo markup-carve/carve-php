@@ -110,16 +110,26 @@ final class DocumentSentinels
      */
     public static function pick(string $text, int $count, int $first): array
     {
-        for ($base = $first; $base + $count - 1 <= self::PRIVATE_USE_LAST; $base += $count) {
+        // ONE CODE POINT AT A TIME, not one RUN at a time. Stepping by $count
+        // only ever tested ALIGNED runs, so the search gave up after
+        // (0xF8FF - $first) / $count candidates - roughly a thousand for a run
+        // of six - and a document holding ONE character from each of those was
+        // enough to exhaust it and fall through to the colliding preferred run.
+        // The comment below used to claim the fallback needed every private-use
+        // code point to be written, which is a constraint that did not hold: it
+        // needed about a sixth of them, in a document a generator could produce.
+        // Stepping by one means the fallback really does need the whole range
+        // covered with no gap of $count (markup-carve/carve-php#1087).
+        for ($base = $first; $base + $count - 1 <= self::PRIVATE_USE_LAST; $base++) {
             $run = self::run($base, $count);
             if (!self::collides($text, $run)) {
                 return $run;
             }
         }
 
-        // Unreachable for any real document: it would have to write every
-        // private-use code point above $first. Keep the preferred run rather
-        // than throw.
+        // Reachable only by a document that leaves no gap of $count consecutive
+        // unwritten code points anywhere above $first in the private-use area.
+        // Keep the preferred run rather than throw.
         return self::run($first, $count);
     }
 

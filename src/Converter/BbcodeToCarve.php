@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 
 /**
  * Converts BBCode markup to Djot
@@ -23,6 +24,13 @@ class BbcodeToCarve
      * @var int
      */
     public const MAX_INPUT_LENGTH = 262144;
+
+    /**
+     * The preferred first code point of the run picked for the stash key.
+     *
+     * @var int
+     */
+    protected const STASH_KEY_FIRST = 0xE001;
 
     /**
      * Convert BBCode to Djot markup
@@ -69,13 +77,30 @@ class BbcodeToCarve
         return $djot;
     }
 
+    /**
+     * Stash the spans that must survive Carve escaping, then put them back.
+     *
+     * THE STASH KEY IS CHOSEN FROM WHAT THE INPUT DOES NOT CONTAIN. It used to
+     * be the fixed `NUL B <index> NUL`, on the assumption that no forum post
+     * carries a NUL - and unlike the Markdown converter next door, this one does
+     * not strip input NULs, so the assumption was never enforced. A post
+     * containing `<NUL>B0<NUL>` had that text REPLACED BY AN UNRELATED SPAN of
+     * the same post, and one whose index was past the end of the stash raised an
+     * uncaught TypeError out of the restore callback - a crash reachable from
+     * ordinary untrusted input (markup-carve/carve-php#1087).
+     *
+     * Picking the delimiters instead removes both: a key the input cannot
+     * contain cannot be authored, so there is no unrelated span to substitute
+     * and no index that was not put there by this method.
+     */
     protected function escapePlainBbcodeText(string $bbcode): string
     {
+        [$open, $close] = DocumentSentinels::pick($bbcode, 2, self::STASH_KEY_FIRST);
         $protected = [];
-        $protect = function (array $match) use (&$protected): string {
+        $protect = function (array $match) use (&$protected, $open, $close): string {
             $protected[] = $match[0];
 
-            return "\x00B" . (count($protected) - 1) . "\x00";
+            return $open . (count($protected) - 1) . $close;
         };
 
         $text = preg_replace_callback('/\[code(?:=[^\]]*)?\].*?\[\/code\]/is', $protect, $bbcode) ?? $bbcode;
@@ -87,7 +112,7 @@ class BbcodeToCarve
         $text = $this->escapePlainCarveInlineSyntax($text);
 
         return preg_replace_callback(
-            '/\x00B(\d+)\x00/',
+            '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u',
             fn (array $match): string => $protected[(int)$match[1]],
             $text,
         ) ?? $text;

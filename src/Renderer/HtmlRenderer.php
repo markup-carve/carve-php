@@ -484,9 +484,18 @@ class HtmlRenderer implements RendererInterface
      * guard. Both are picked now anyway, because a guard that is safe by
      * accident is one parser change away from being unsafe.
      *
+     * A THIRD guard is picked with them for the `::: footnotes` placement
+     * block. That marker used to be the fixed string NUL + `carve:footnotes-placement`
+     * + NUL, on the claim that "a control character cannot appear in rendered
+     * HTML output" - the same claim, in the same file, that U+0001 had already
+     * falsified. Source cannot supply it, because the parser rewrites an input
+     * NUL, but a host-built text node can: it rendered a footnotes `div` in the
+     * middle of the author's paragraph (markup-carve/carve-php#1087). One run of
+     * three cannot collide with itself or with the document.
+     *
      * @var list<string>
      */
-    protected array $breakGuards = ["\u{E001}", "\u{E002}"];
+    protected array $breakGuards = ["\u{E001}", "\u{E002}", "\u{E003}"];
 
     /**
      * The first code point of the run picked for the break guards.
@@ -537,7 +546,7 @@ class HtmlRenderer implements RendererInterface
     {
         $this->breakGuards = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($root),
-            2,
+            3,
             self::BREAK_GUARD_FIRST,
         );
     }
@@ -621,7 +630,7 @@ class HtmlRenderer implements RendererInterface
                     // By now every footnote is numbered. If the document has a
                     // `::: footnotes` placement block, flush the section at its
                     // sentinel instead of appending at the end; otherwise append.
-                    if (str_contains($html, self::FOOTNOTES_PLACEMENT_SENTINEL)) {
+                    if (str_contains($html, $this->footnotesPlacementSentinel())) {
                         $html = $this->placeFootnotesSection($html);
                     } else {
                         $html .= $this->renderFootnotesSection();
@@ -634,9 +643,9 @@ class HtmlRenderer implements RendererInterface
                 // (after the body check above), and a marker in a document with
                 // no footnotes never hit the branch above. Never leak the raw
                 // sentinel into output.
-                if (str_contains($html, self::FOOTNOTES_PLACEMENT_SENTINEL)) {
+                if (str_contains($html, $this->footnotesPlacementSentinel())) {
                     $html = str_replace(
-                        self::FOOTNOTES_PLACEMENT_SENTINEL,
+                        $this->footnotesPlacementSentinel(),
                         '<div class="footnotes"></div>',
                         $html,
                     );
@@ -1402,14 +1411,18 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * Private sentinel emitted for a `::: footnotes` placement block; render()
-     * swaps it for the endnotes section (relocated from the document end) or, in
-     * a document with no footnotes, for a graceful empty placeholder. Uses a
-     * control character that cannot appear in rendered HTML output.
+     * The marker emitted for a `::: footnotes` placement block; render() swaps
+     * it for the endnotes section (relocated from the document end) or, in a
+     * document with no footnotes, for a graceful empty placeholder.
      *
-     * @var string
+     * PICKED PER DOCUMENT with the break guards, for the reason spelled on
+     * $breakGuards: as a fixed string it was reachable through the node API and
+     * turned an author's own text into a footnotes `div`.
      */
-    protected const FOOTNOTES_PLACEMENT_SENTINEL = "\x00carve:footnotes-placement\x00";
+    protected function footnotesPlacementSentinel(): string
+    {
+        return $this->breakGuards[2];
+    }
 
     /**
      * True while rendering the endnotes section's footnote bodies. A
@@ -1443,7 +1456,7 @@ class HtmlRenderer implements RendererInterface
             // relocated endnotes (matching carve-js), then the sentinel.
             $body = rtrim($this->renderChildren($node), "\n");
 
-            return ($body !== '' ? $body . "\n" : '') . self::FOOTNOTES_PLACEMENT_SENTINEL;
+            return ($body !== '' ? $body . "\n" : '') . $this->footnotesPlacementSentinel();
         }
         $types = array_values(array_intersect($classes, Div::ADMONITION_TYPES));
 
@@ -2721,7 +2734,7 @@ class HtmlRenderer implements RendererInterface
     protected function placeFootnotesSection(string $html): string
     {
         $section = $this->renderFootnotesSection();
-        $sentinel = self::FOOTNOTES_PLACEMENT_SENTINEL;
+        $sentinel = $this->footnotesPlacementSentinel();
         $pos = strpos($html, $sentinel);
         if ($pos !== false) {
             $html = substr($html, 0, $pos) . $section . substr($html, $pos + strlen($sentinel));
