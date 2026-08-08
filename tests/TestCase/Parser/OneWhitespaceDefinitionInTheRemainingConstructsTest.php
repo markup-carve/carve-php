@@ -137,6 +137,16 @@ class OneWhitespaceDefinitionInTheRemainingConstructsTest extends TestCase
             'unquoted attribute value' => ["{k=v@w}\np\n"],
             'separator between attributes' => ["{#a@.b}\np\n"],
 
+            // The INLINE attribute block is a separate gate from the block one -
+            // PART 4's space-only interior, which reads its own class. Its rows
+            // were missing from the first version of this case and a mutation
+            // reverting that gate survived the whole set; these are what killed
+            // it. The anchor has to be a real inline (`*b*`), because a brace run
+            // after bare text is not an attribute block at all and so cannot tell
+            // the two classes apart.
+            'inline attribute value' => ["*b*{k=v@w}\n"],
+            'inline attribute separator' => ["*b*{#a@.b}\n"],
+
             // Inline delimiter flanking, which read `ctype_space()`.
             'emphasis flanking' => ["/@a/\n"],
             'strong flanking' => ["*@a*\n"],
