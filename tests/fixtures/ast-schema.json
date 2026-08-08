@@ -354,7 +354,9 @@
         "required": []
     },
     "thematic_break": {
-        "fields": [],
+        "fields": [
+            "marker"
+        ],
         "required": []
     },
     "underline": {

@@ -347,7 +347,7 @@ class MarkdownRendererTest extends TestCase
         $markdown = $this->renderer->render($this->converter->parse($source));
 
         $this->assertStringContainsString('---', $markdown);
-        $this->assertStringContainsString('---', CarveConverter::toCarve($source));
+        $this->assertStringContainsString('***', CarveConverter::toCarve($source));
     }
 
     public function testTable(): void

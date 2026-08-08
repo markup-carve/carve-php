@@ -58,6 +58,34 @@ class AstCodecTest extends TestCase
         $this->assertSame('Title', $heading['children'][0]['value']);
     }
 
+    public function testThematicBreakMarkerSurvivesAstIngestAndWriting(): void
+    {
+        $parsed = $this->codec->encode($this->converter->parse("---\n\n***\n\n___\n"));
+        $this->assertArrayNotHasKey('marker', $parsed['children'][0]);
+        $this->assertSame('*', $parsed['children'][1]['marker']);
+        $this->assertSame('_', $parsed['children'][2]['marker']);
+
+        $wire = [
+            'type' => 'document',
+            'srcByteLength' => 3,
+            'children' => [['type' => 'thematic_break', 'marker' => '_']],
+        ];
+
+        $document = $this->codec->decode($wire);
+        $encoded = $this->codec->encode($document);
+
+        $this->assertArrayHasKey('marker', $encoded['children'][0]);
+        $this->assertSame('_', $encoded['children'][0]['marker']);
+        $this->assertSame("___\n", (new CarveRenderer())->render($document));
+
+        unset($wire['children'][0]['marker']);
+        $this->assertSame("---\n", (new CarveRenderer())->render($this->codec->decode($wire)));
+
+        $wire['children'][0]['marker'] = '-';
+        $decoded = $this->codec->decode($wire);
+        $this->assertArrayNotHasKey('marker', $this->codec->encode($decoded)['children'][0]);
+    }
+
     public function testAttributesAreEncodedUnderAttrsAndOmittedWhenEmpty(): void
     {
         $withAttrs = $this->codec->encode($this->converter->parse("{#slug .lead}\ntext"));

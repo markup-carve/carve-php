@@ -15,11 +15,10 @@ use PHPUnit\Framework\TestCase;
  * is only a hazard when something later closes it, which makes the collision a
  * property of the WHOLE emitted text rather than of its first line.
  *
- * Two unrelated writer decisions put a `---` there:
+ * Two unrelated writer decisions can put a `---` there:
  *
- * - PART 11 section 6a normalizes `***` and `___` to `---`, so a break that
- *   opens the document gains a closer from any later break (carve-php#1069
- *   cause 1).
+ * - an authored `---` break can open the document and gain a closer from any
+ *   later break (carve-php#1069 cause 1).
  * - a hoisted link or footnote definition is written after the body, promoting
  *   whatever stood second to byte 0 (cause 2). Nothing is respelled there, so
  *   fixing the first cause does not fix this one.
@@ -94,18 +93,17 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
 
     /**
      * CONTROL. A leading break with nothing below it to close a block keeps the
-     * canonical `---`, which is what PART 11 section 6a asks for and what
-     * carve-js and carve-rs write. No mutation of the fallback moves this row.
+     * authored marker. No mutation of the fallback moves this row.
      */
-    public function testALeadingBreakWithNoCloserKeepsTheCanonicalSpelling(): void
+    public function testALeadingBreakWithNoCloserKeepsTheAuthoredSpelling(): void
     {
-        $this->assertSame("---\n\np\n", $this->fmt("***\n\np\n"));
-        $this->assertSame("---\n", $this->fmt("***\n"));
+        $this->assertSame("***\n\np\n", $this->fmt("***\n\np\n"));
+        $this->assertSame("***\n", $this->fmt("***\n"));
     }
 
     /**
      * CONTROL. A document that really carries frontmatter still writes it, and
-     * a later break inside that document is still canonical.
+     * a later break inside that document keeps its authored marker.
      */
     public function testRealFrontmatterIsUntouched(): void
     {
@@ -114,25 +112,23 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
         $formatted = $this->fmt($source);
         $this->assertStringStartsWith("---yaml\n", $formatted);
         $this->assertStringContainsString("\n---\n", $formatted);
-        $this->assertStringNotContainsString('***', $formatted);
+        $this->assertStringContainsString('***', $formatted);
     }
 
     /**
-     * The respelling is paid only where it buys something. A break anywhere
-     * other than byte 0 keeps `---` even when the document also holds a later
-     * break, because nothing opens frontmatter.
+     * A break anywhere other than byte 0 keeps its authored marker when the
+     * document also holds a later break, because nothing opens frontmatter.
      */
-    public function testABreakBelowTheHeadKeepsTheCanonicalSpelling(): void
+    public function testABreakBelowTheHeadKeepsTheAuthoredSpelling(): void
     {
         $formatted = $this->fmt("p\n\n***\n\nq\n\n___\n");
-        $this->assertSame("p\n\n---\n\nq\n\n---\n", $formatted);
+        $this->assertSame("p\n\n***\n\nq\n\n___\n", $formatted);
         $this->assertRoundTrips("p\n\n***\n\nq\n\n___\n");
     }
 
     /**
-     * A document still misread with `***` keeps the canonical spelling rather
-     * than paying a respelling that buys nothing, and the residual is asserted
-     * rather than hidden.
+     * A document still misread with `***` keeps its authored spelling, and the
+     * residual is asserted rather than hidden.
      *
      * Here byte 0 is a paragraph the hoisted definition promoted and the `---`
      * closer is a line INSIDE a fenced block, so neither is the writer's to
@@ -143,12 +139,12 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
      * AS frontmatter, so it leaves through the cost gate and never reaches the
      * fallback.
      */
-    public function testADocumentNoRespellingSavesKeepsTheCanonicalSpelling(): void
+    public function testADocumentNoRespellingSavesKeepsTheAuthoredSpelling(): void
     {
         $source = "[^a]: n\n\n---yaml\nk: v\n\n***\n\n```\n---\n```\n";
         $formatted = $this->fmt($source);
         $this->assertStringStartsWith("---yaml\n", $formatted);
-        $this->assertStringNotContainsString('***', $formatted);
+        $this->assertStringContainsString('***', $formatted);
         // The residual, stated: this document does not round-trip in either
         // spelling. PART 11 §1 is broken by the fence's `---`, which no writer
         // decision reaches.

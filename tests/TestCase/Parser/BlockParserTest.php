@@ -269,6 +269,16 @@ class BlockParserTest extends TestCase
         }
     }
 
+    public function testThematicBreakRecordsAuthoredMarker(): void
+    {
+        foreach (['-' => '---', '*' => '***', '_' => '___'] as $marker => $source) {
+            $node = $this->parser->parse($source)->getChildren()[0];
+
+            $this->assertInstanceOf(ThematicBreak::class, $node);
+            $this->assertSame($marker, $node->char);
+        }
+    }
+
     public function testThematicBreakIsContiguousColumnZeroOnly(): void
     {
         // §262: a thematic break is a column-0 run of >= 3 IDENTICAL `-`/`*`/`_`,

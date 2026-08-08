@@ -962,7 +962,13 @@ class ProseMirrorToCarve
             ));
         }
 
-        $node = $this->newNode($carveType);
+        if ($carveType === 'thematic_break') {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            $marker = self::asString($attrs['carveMarker'] ?? '-');
+            $node = new ThematicBreak(in_array($marker, ['-', '*', '_'], true) ? $marker : '-');
+        } else {
+            $node = $this->newNode($carveType);
+        }
 
         // State the map records as several ProseMirror names has to be put back:
         // the name is the only place that information survives.
@@ -1044,6 +1050,7 @@ class ProseMirrorToCarve
                 $node instanceof ListBlock && $key === 'carveBareMarker' => $this->setState($node, 'bareMarker', self::asBool($value)),
                 $node instanceof ListBlock && $key === 'carveListStyle' => $this->setState($node, 'style', self::asString($value)),
                 $node instanceof ListBlock && $key === 'carveListMarker' => $this->setState($node, 'marker', self::asString($value)),
+                $node instanceof ThematicBreak && $key === 'carveMarker' => true,
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(
