@@ -307,7 +307,7 @@ class MarkdownRenderer implements RendererInterface
         // Normalize multiple blank lines
         $markdown = preg_replace("/\n{3,}/", "\n\n", $markdown) ?? $markdown;
 
-        $markdown = trim($markdown) . "\n";
+        $markdown = trim($markdown, StringUtil::TRIMMABLE_WHITESPACE) . "\n";
 
         $markdown = $this->resolveNarrowedEscapes($markdown);
 
@@ -700,7 +700,10 @@ class MarkdownRenderer implements RendererInterface
         // A Markdown heading is a single line, so a multi-line carve heading
         // (lazy continuation, `# Foo\nbar`) is flattened to one line. This also
         // keeps a trailing `{#id}` attribute on the actual heading line.
-        $text = trim((string)preg_replace('/\s*\n\s*/', ' ', $this->renderChildren($node)));
+        $text = trim(
+            (string)preg_replace('/[ \t\r\n]*\n[ \t\r\n]*/', ' ', $this->renderChildren($node)),
+            StringUtil::TRIMMABLE_WHITESPACE,
+        );
         $id = $this->headingIdTracker->getIdForHeading($node);
         // A referenced heading carries an explicit `{#id}` (pandoc/kramdown) so
         // the `[label](#id)` link pointing at it resolves to a real anchor.
@@ -754,7 +757,7 @@ class MarkdownRenderer implements RendererInterface
         $this->inBlockQuote = false;
 
         // Prefix each line with >
-        $lines = explode("\n", trim($content));
+        $lines = explode("\n", trim($content, StringUtil::TRIMMABLE_WHITESPACE));
         $quoted = array_map(fn ($line) => '> ' . $line, $lines);
 
         return implode("\n", $quoted) . "\n\n";
@@ -788,7 +791,7 @@ class MarkdownRenderer implements RendererInterface
                     $prefix = $marker . ' ';
                 }
 
-                $content = trim($this->renderChildren($child));
+                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
@@ -832,7 +835,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        return ': ' . trim($this->renderChildren($node)) . "\n";
+        return ': ' . trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -900,7 +903,7 @@ class MarkdownRenderer implements RendererInterface
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell)),
+                'content' => trim($this->renderChildren($cell), StringUtil::TRIMMABLE_WHITESPACE),
                 'alignment' => $cell->getAlignment(),
             ],
         );
@@ -969,12 +972,12 @@ class MarkdownRenderer implements RendererInterface
         //   after    Stanza one,[2 spaces]\nstill one.\n\n...
         //
         // carve-js and carve-rs both emit the second form (carve#352).
-        return trim($this->renderChildren($node)) . "\n\n";
+        return trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
     }
 
     protected function renderFootnote(Footnote $node): string
     {
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
@@ -1228,7 +1231,7 @@ class MarkdownRenderer implements RendererInterface
         $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                $output = rtrim($output) . $sep . $this->renderCaption($child);
+                $output = rtrim($output, StringUtil::TRIMMABLE_WHITESPACE) . $sep . $this->renderCaption($child);
             } else {
                 $output .= $this->renderNode($child);
             }
@@ -1239,7 +1242,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderCaption(Caption $node): string
     {
-        return trim($this->renderChildren($node)) . "\n\n";
+        return trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
     }
 
     /**
@@ -1417,20 +1420,37 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
-     * Drop C0/C1 control characters (keeping tab and newline) from author
-     * content, and the underscore-escape sentinel with them: author content
-     * that carried it would otherwise be read as an escape this renderer
-     * emitted. Every path to the output passes through here.
+     * Drop the control characters this target does NOT emit.
+     *
+     * PART 9 §29 C0 CONTROLS ON THE RENDER TARGETS: after
+     * markup-carve/carve#963 the whitespace of the language is exactly U+0020,
+     * U+0009, U+000A and U+000D, and every OTHER C0 control - U+0000..U+0008,
+     * U+000B, U+000C, U+000E..U+001F - is ordinary CONTENT. PART 9 §29 T2 has the Markdown target EMIT the class. A target that
+     * deletes it is lossy in the way markup-carve/carve#817 rejected for the
+     * wire, and the reason first offered for the strip - that a Markdown reader
+     * reclassifies these characters as whitespace - was measured against the
+     * CommonMark reference implementation and markdown-it in three modes and did
+     * not hold: all four keep them, and `-<VT>item` opens no list in any of them.
+     *
+     * WHAT STILL GOES. U+000D is WHITESPACE, not content, so it is stripped like
+     * the other whitespace this writer normalizes. DEL (U+007F) and the C1
+     * controls U+0080..U+009F stay stripped too: §29 T5 puts them outside that
+     * section, and this engine is deliberately the strict one there - CSI
+     * (U+009B) and OSC (U+009D) are single-character forms of the sequences §25
+     * exists to stop.
+     *
+     * The narrowed-escape sentinels go too, as they always did: author content that
+     * carried one would otherwise be read as an escape this renderer emitted.
+     *
+     * The terminal target keeps its own broad strip; see
+     * AnsiRenderer::stripControls(). Narrowing THAT one would be a security
+     * regression, which is why the three targets spell this separately rather
+     * than sharing one function.
      */
     protected function stripControls(string $text): string
     {
         $text = (string)preg_replace('/' . self::NARROWED_SENTINEL_CLASS . '/u', '', $text);
 
-        // `\p{Cc}` and NOT a hand-written "non-whitespace C0 control" class.
-        // Cc is C0 *and* C1, so DEL (U+007F) and U+0080-U+009F go too - and CSI
-        // (U+009B) and OSC (U+009D) are single-character forms of the very
-        // sequences PART 9 §25's terminal rule exists to stop. Narrowing this
-        // guard to C0 would let them through.
-        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
+        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
     }
 }

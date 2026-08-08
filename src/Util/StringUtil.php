@@ -138,6 +138,27 @@ final class StringUtil
     ];
 
     /**
+     * The characters a render target may trim from the edge of a run.
+     *
+     * PHP's default trim charlist is `" \t\n\r\0\x0B"`, which is not this
+     * language's whitespace: after markup-carve/carve#963 that is exactly
+     * U+0020, U+0009, U+000A and U+000D, and NUL and the VERTICAL TAB are
+     * CONTENT (PART 9 §29). A default `trim()` on a rendered run therefore
+     * DELETES an author's vertical tab whenever it lands at the start or end of
+     * a block, which is not a strip anyone wrote and not one §29 permits on the
+     * Markdown and plain targets.
+     *
+     * It is a constant rather than a habit because the hazard is invisible at
+     * the call site: `trim($x)` looks like the whitespace rule and is not it.
+     * PCRE's `\s` has the same problem from the other side - it matches the
+     * vertical tab and the form feed - so a pattern standing in for "whitespace"
+     * spells the class out instead.
+     *
+     * @var string
+     */
+    public const TRIMMABLE_WHITESPACE = " \t\n\r";
+
+    /**
      * Remove the Trojan-Source bidi override/isolate controls from a string.
      *
      * Used on rendered text and code so the emitted HTML cannot visually

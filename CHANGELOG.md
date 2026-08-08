@@ -269,6 +269,36 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown and plain targets emit the non-whitespace C0 controls**
+  (PART 9 §29 C0 CONTROLS ON THE RENDER TARGETS, markup-carve/carve#979;
+  carve-php#1060). After markup-carve/carve#963 the whitespace of the language
+  is exactly U+0020, U+0009, U+000A and U+000D, and every other C0 control -
+  U+0000..U+0008, U+000B, U+000C, U+000E..U+001F - is ordinary content. These
+  two targets deleted all 28 of them; they now write them out. A vertical tab
+  or a form feed the author typed comes back on both, in every construct
+  measured: paragraph, heading, code span, fenced code, emphasis, link text and
+  destination, image alt, blockquote, list item, table cell, footnote body,
+  definition term and body, caption, math and line block. The reason first
+  offered for the strip - that a Markdown reader reclassifies these as
+  whitespace - was measured against the CommonMark reference implementation and
+  markdown-it in three modes and did not hold.
+
+  **The terminal target is unchanged and still strips every control character**
+  - the non-whitespace C0 controls, DEL (U+007F) and the C1 controls alike. It
+  is the one consumer that ACTS on the character.
+
+  **U+000D is not in the class.** Carriage return is whitespace, so both targets
+  go on normalizing it, and DEL and the C1 controls stay refused on all three
+  non-HTML targets.
+
+- **A vertical tab at the edge of a block is no longer trimmed away** on the
+  Markdown and plain targets. PHP's default `trim()` charlist is
+  `" \t\n\r\0\x0B"`, which is not this language's whitespace, so a vertical
+  tab that landed at the start or end of a paragraph, blockquote, list item,
+  table cell, footnote body, definition body or caption was deleted even where
+  the strip had let it through. PCRE's `\s` has the same problem from the other
+  side and reached the Markdown heading folder, which collapses a soft wrap.
+
 - **Every derived display text clones the heading's nodes** (PART 9R R4, DERIVED
   DISPLAY TEXT CLONES THE SAME NODES, markup-carve/carve#957; carve-php#1073).
   A node carries the author's code span, emphasis and source run and a string
