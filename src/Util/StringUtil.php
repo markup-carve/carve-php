@@ -218,6 +218,60 @@ final class StringUtil
     }
 
     /**
+     * Replace every byte sequence that is not well-formed UTF-8 with the
+     * U+FFFD REPLACEMENT CHARACTER, one per maximal ill-formed subsequence.
+     *
+     * PART 1 takes the input as UTF-8, so a malformed byte is outside what the
+     * grammar describes and the engine has to pick an answer anyway. The
+     * answer that loses nothing is the WHATWG decode: substitute, keep going,
+     * and let every valid character around the bad byte survive
+     * (markup-carve/carve-php#1082).
+     *
+     * Not doing this is not the same as doing nothing. PHP's UTF-8 aware
+     * helpers do not degrade gracefully on an invalid byte, they ANSWER
+     * NOTHING: `htmlspecialchars()` without ENT_SUBSTITUTE returns the empty
+     * string for the whole value, and any `/u` pattern makes preg_replace()
+     * return null, which the callers cast back to `''`. So one stray byte
+     * emptied the whole paragraph on the HTML, Markdown, plain and ANSI
+     * targets alike, with exit 0 and an empty stderr - valid content
+     * destroyed while every signal said success.
+     *
+     * The NUL rewrite at the parse entry is the same decision made earlier for
+     * one specific byte; this is the rule it was an instance of.
+     *
+     * mb_convert_encoding() is what implements it, because it is the only
+     * option on the supported PHP floor (8.2, so no mb_scrub()) that splits
+     * the input into MAXIMAL ill-formed subsequences the way the WHATWG
+     * decoder does - a truncated `\xE2\x82` before a valid byte is ONE
+     * replacement character, not two. That is measured to be byte-identical to
+     * what carve-js gets from its own decoder, which is the parity that
+     * matters. htmlspecialchars(ENT_SUBSTITUTE) disagrees on a surrogate and a
+     * per-byte scan disagrees on a truncated sequence, so neither is a
+     * substitute for it.
+     *
+     * The substitution character is process-global state in mbstring, so it is
+     * set and restored around the one call rather than assumed.
+     */
+    public static function toValidUtf8(string $value): string
+    {
+        // preg_match('//u') on an empty pattern is the cheap validity probe:
+        // it returns 1 for well-formed UTF-8 and false otherwise, so a valid
+        // document never pays for the conversion.
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        $previous = mb_substitute_character();
+        mb_substitute_character(0xFFFD);
+
+        try {
+            return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        } finally {
+            mb_substitute_character($previous);
+        }
+    }
+
+    /**
      * Find a safe code fence marker that doesn't conflict with content
      *
      * Returns backticks (` or ```) that don't appear in the content,

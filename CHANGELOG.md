@@ -269,6 +269,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A malformed UTF-8 byte no longer empties the text around it**
+  (carve-php#1082, PART 1). One ill-formed byte in a paragraph rendered `<p></p>`
+  on the HTML target and a bare newline on the Markdown, plain and ANSI targets,
+  discarding every valid character in that paragraph while returning exit 0 and
+  writing nothing to stderr - the one failure a caller cannot detect. The source
+  is now decoded the way carve-js decodes it, substituting U+FFFD for each
+  maximal ill-formed subsequence, so `hello <bad byte> world` keeps both words on
+  every target. Neighbouring paragraphs were never affected and still are not.
+
 - **`fmt` emits a blank inside an indented verbatim block as an empty line**
   (carve-php#1068, PART 11 section 7). A blank line inside a fenced code block,
   a raw block or a block comment nested in a FOOTNOTE BODY or a DEFINITION BODY
