@@ -100,16 +100,21 @@ class ATabsLabelReadsTheOneLeafReaderTest extends TestCase
 
     public function testASymbolIsSpelledTheWayTheLeafReaderSpellsIt(): void
     {
-        // The row that USED to be the one place this engine and carve-js
-        // disagreed on what a leaf contributes: the leaf reader wrote a symbol
-        // back as `:name:` while carve-js contributed nothing. That was a
-        // question about the leaf rules rather than about this extension, and
-        // markup-carve/carve#1011 settled it against the leaf reader - a symbol
-        // is excluded from derived TEXT (syntax.md section 4.1 step 1). Routing
-        // the label through the leaf rules still does not change the answer
-        // either way; the answer itself moved, and this label moved with it.
+        // THE ROW SPLIT RATHER THAN MOVED. It used to be the one place this
+        // engine and carve-js disagreed on what a leaf contributes: the leaf
+        // reader wrote a symbol back as `:name:` while carve-js contributed
+        // nothing. markup-carve/carve#1011 settled the ID side against the leaf
+        // reader - syntax.md section 4.1 step 1 excludes a symbol from a
+        // heading's derived TEXT - and carve-php#1101 then gave the DISPLAY
+        // side its own reader, because a tab name is what the reader sees and a
+        // symbol is visible content there.
+        //
+        // So the two derivations part on exactly this node, and a tab name
+        // takes the display one. This assertion is what stops the id rule from
+        // creeping back over the display path: it did creep once, in the window
+        // between those two merges, and no other row noticed.
         $this->assertSame(
-            'and x',
+            ':smile: and x',
             $this->label(':smile: and x', [], [':smile:' => '<img alt="smile">']),
         );
     }
