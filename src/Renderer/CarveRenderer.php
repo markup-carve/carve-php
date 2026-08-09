@@ -2761,8 +2761,15 @@ class CarveRenderer implements RendererInterface
      */
     private static function caretOpensACaption(string $text, int $offset, bool $opensBlockLine): bool
     {
-        $next = $text[$offset + 1] ?? '';
-        if ($next !== ' ' && $next !== "\t") {
+        // SPACE ONLY. A tab after the marker leaves the line as prose (corpus
+        // 231-a-tab-after-a-heading-quote-or-caption-marker-leaves-the-line-as-prose-2
+        // is that document), so `^<TAB>` re-parses as text either way and PART 11
+        // §2 escapes a character only where omitting it would change the
+        // re-parse. Accepting a tab here was invisible while the caption slot was
+        // offered only to a paragraph after a caption-hosting BLOCK; offering it
+        // after an inline image too reached it, as a backslash this writer
+        // emitted where carve-js emits a bare caret.
+        if (($text[$offset + 1] ?? '') !== ' ') {
             return false;
         }
 

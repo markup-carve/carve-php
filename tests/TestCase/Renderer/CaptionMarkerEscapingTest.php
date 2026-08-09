@@ -43,6 +43,25 @@ class CaptionMarkerEscapingTest extends TestCase
         $this->assertSame("![a](/u)\n\\^ cap\n", (new CarveRenderer())->render($document));
     }
 
+    /**
+     * The caption slot is a SPACE after the marker. A tab leaves the line as
+     * prose - corpus
+     * `231-a-tab-after-a-heading-quote-or-caption-marker-leaves-the-line-as-prose-2`
+     * is exactly this document - so the caret re-parses as text either way and
+     * escaping it only changes the bytes.
+     *
+     * Offering the slot after an INLINE image made the difference observable:
+     * this writer emitted a backslash here where carve-js emits the bare caret.
+     * The corpus case has no `.fmt` fixture, so only the cross-engine render
+     * comparison could see it.
+     */
+    public function testATabAfterTheCaretIsNotACaptionSlot(): void
+    {
+        $source = "![Moon](m.jpg)\n^\tFigure 1\n";
+
+        $this->assertSame($source, CarveConverter::carve()->convert($source));
+    }
+
     public function testAnImageOnALaterParagraphLineDoesNotCreateACaptionSlot(): void
     {
         $source = ":name:\n![a](/u)\n^ cap\n\\\"\n";
