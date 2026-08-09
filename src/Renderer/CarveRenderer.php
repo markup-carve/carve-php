@@ -1614,6 +1614,7 @@ class CarveRenderer implements RendererInterface
             $out = '';
             $count = count($nodes);
             $captionCanOpen = $this->paragraphStartsAfterCaptionHost && $this->inlineDepth === 1;
+            $isFirstInlineLine = true;
             $lineNodeCount = 0;
             $lineHostsCaption = false;
             for ($i = 0; $i < $count; $i++) {
@@ -1626,7 +1627,8 @@ class CarveRenderer implements RendererInterface
                         $captionCanOpen,
                     );
                     if ($node instanceof SoftBreak) {
-                        $captionCanOpen = $lineNodeCount === 1 && $lineHostsCaption;
+                        $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
+                        $isFirstInlineLine = false;
                         $lineNodeCount = 0;
                         $lineHostsCaption = false;
 

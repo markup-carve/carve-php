@@ -35,4 +35,11 @@ class CaptionMarkerEscapingTest extends TestCase
 
         $this->assertSame("![a](/u)\n\\^ cap\n", (new CarveRenderer())->render($document));
     }
+
+    public function testAnImageOnALaterParagraphLineDoesNotCreateACaptionSlot(): void
+    {
+        $source = ":name:\n![a](/u)\n^ cap\n\\\"\n";
+
+        $this->assertSame($source, CarveConverter::carve()->convert($source));
+    }
 }
