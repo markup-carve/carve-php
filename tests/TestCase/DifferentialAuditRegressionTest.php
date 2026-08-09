@@ -61,4 +61,13 @@ class DifferentialAuditRegressionTest extends TestCase
         $html = (new CarveConverter())->convert("{ \n~~~%\n~~~\n");
         $this->assertSame("<p>{\n~~~%\n~~~</p>\n", $html);
     }
+
+    public function testTagNodeSurvivesInsideAHeadingDerivedLinkLabel(): void
+    {
+        $html = (new CarveConverter())->convert("# a &#65; b\n\n[a &#65; b][]\n");
+        $this->assertStringContainsString(
+            '<a href="#a-65-b">a &amp;<span class="tag"><strong>#65</strong></span>; b</a>',
+            $html,
+        );
+    }
 }

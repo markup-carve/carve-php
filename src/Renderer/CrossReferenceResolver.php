@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -182,7 +183,14 @@ class CrossReferenceResolver
                 // source. Unwrapping it to its label would discard that source,
                 // so `[[x][missing]](/z)` linked the word `x` instead of
                 // keeping `[x][missing]` inside the anchor, as carve-js does.
-                if ($insideLink && !$this->isUnresolvedReference($child)) {
+                // An unconfigured mention/tag is a semantic Link subclass but
+                // renders as a non-anchor span. It therefore does not violate
+                // links-never-nest and must keep its node inside a link label.
+                // A configured mention has a destination and remains subject
+                // to the ordinary nested-anchor unwrap.
+                $nonLinkMention = $child instanceof Mention
+                    && $child->getDestination() === '';
+                if ($insideLink && !$nonLinkMention && !$this->isUnresolvedReference($child)) {
                     // A link inside another link: drop the inner destination,
                     // splice in its (already-unwrapped) display content.
                     $node->replaceChildWithMany($child, array_values($child->getChildren()));
