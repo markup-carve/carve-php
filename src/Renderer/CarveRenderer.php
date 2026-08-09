@@ -567,6 +567,14 @@ class CarveRenderer implements RendererInterface
      */
     protected bool $afterCaptionHost = false;
 
+    /**
+     * Whether the first inline line of the paragraph being rendered follows a
+     * block that can host a caption. Kept separate from $afterCaptionHost so a
+     * soft break inside that paragraph cannot inherit the previous block's
+     * caption slot (carve-php#1113).
+     */
+    protected bool $paragraphStartsAfterCaptionHost = false;
+
     protected function renderBlock(Node $node): string
     {
         $attrs = $this->renderAttrs($node);
@@ -585,7 +593,7 @@ class CarveRenderer implements RendererInterface
             // A LONE image is a block node, not a paragraph wrapping one (the
             // `image` node's own description in the AST vocabulary).
             $node instanceof Image => $this->renderImage($node),
-            $node instanceof Paragraph => $withAttrs($this->guardThematicBreakLines($this->renderInlines($node->getChildren()))),
+            $node instanceof Paragraph => $withAttrs($this->renderParagraph($node, $attrs === '')),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it
             // too - emitting both says it twice and re-parses with an attribute
@@ -622,6 +630,17 @@ class CarveRenderer implements RendererInterface
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
             default => $this->renderBlocks($node->getChildren()),
         };
+    }
+
+    protected function renderParagraph(Paragraph $node, bool $canUsePreviousCaptionSlot): string
+    {
+        $previous = $this->paragraphStartsAfterCaptionHost;
+        $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
+        try {
+            return $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+        } finally {
+            $this->paragraphStartsAfterCaptionHost = $previous;
+        }
     }
 
     /**
@@ -1594,12 +1613,33 @@ class CarveRenderer implements RendererInterface
         try {
             $out = '';
             $count = count($nodes);
+            $captionCanOpen = $this->paragraphStartsAfterCaptionHost && $this->inlineDepth === 1;
+            $lineNodeCount = 0;
+            $lineHostsCaption = false;
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if ($node instanceof InlineNode) {
-                    $out .= $this->renderInline($node, $this->lastBoundary($nodes[$i - 1] ?? null), $this->firstBoundary($nodes[$i + 1] ?? null));
+                    $out .= $this->renderInline(
+                        $node,
+                        $this->lastBoundary($nodes[$i - 1] ?? null),
+                        $this->firstBoundary($nodes[$i + 1] ?? null),
+                        $captionCanOpen,
+                    );
+                    if ($node instanceof SoftBreak) {
+                        $captionCanOpen = $lineNodeCount === 1 && $lineHostsCaption;
+                        $lineNodeCount = 0;
+                        $lineHostsCaption = false;
+
+                        continue;
+                    }
+                    $lineNodeCount++;
+                    $lineHostsCaption = $lineNodeCount === 1 && self::inlineHostsACaption($node);
+                    $captionCanOpen = false;
                 } elseif ($node instanceof Comment) {
                     $out .= ' %% ' . $node->getContent();
+                    $lineNodeCount++;
+                    $lineHostsCaption = false;
+                    $captionCanOpen = false;
                 }
             }
 
@@ -1609,7 +1649,7 @@ class CarveRenderer implements RendererInterface
         }
     }
 
-    protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = ''): string
+    protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = '', bool $captionCanOpen = false): string
     {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
@@ -1621,9 +1661,7 @@ class CarveRenderer implements RendererInterface
                 $this->resolveIndentPlaceholder($node->getContent()),
                 // Does this node's first character sit at the start of a block
                 // line? Only there can `^ ` be read back as a caption marker.
-                ($prevChar === '' || $prevChar === "\n")
-                    && $this->tableCellDepth === 0
-                    && $this->afterCaptionHost,
+                $captionCanOpen && $this->tableCellDepth === 0,
             ) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -1670,6 +1708,15 @@ class CarveRenderer implements RendererInterface
             $node instanceof CitationGroup => $node->getRaw(),
             default => $this->renderInlines($node->getChildren()),
         };
+    }
+
+    private static function inlineHostsACaption(InlineNode $node): bool
+    {
+        if ($node instanceof Image) {
+            return UnresolvedReference::sourceOf($node) === null;
+        }
+
+        return $node instanceof Math && $node->isDisplay();
     }
 
     protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
@@ -2719,7 +2766,7 @@ class CarveRenderer implements RendererInterface
             return false;
         }
 
-        return $offset === 0 ? $opensBlockLine : ($text[$offset - 1] ?? '') === "\n";
+        return $offset === 0 && $opensBlockLine;
     }
 
     private static function caretOpensAConstruct(string $text, int $offset): bool

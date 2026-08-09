@@ -64,6 +64,14 @@ class MarkdownRaggedTableTest extends TestCase
         $this->assertStringNotContainsString('| y |  |', $out);
     }
 
+    public function testDelimiterMatchesANarrowHeaderAboveAWiderBody(): void
+    {
+        $out = $this->md("| h |\n|---|\n| |x |\n");
+
+        $this->assertSame("| h |\n| --- |\n|  | x |\n", $out);
+        $this->assertSame([1, 1, 2], $this->cellCounts($out));
+    }
+
     /**
      * An authored EMPTY trailing cell is a cell and survives: the old
      * trailing-empty pop could not tell it from padding.
