@@ -1034,20 +1034,13 @@ class MarkdownRenderer implements RendererInterface
         if ($headerCells !== null) {
             $output .= '| ' . implode(' | ', $headerCells) . ' |' . "\n";
 
-            // Generate separator row with alignments.
-            //
-            // NOT NARROWED TO THE HEADER'S OWN CELL COUNT HERE, though PART 11
-            // §10b says a delimiter "carries exactly one cell for each cell in
-            // the HEADER ROW, not one for each column reached by a wider body
-            // row" - and a reader agrees with the clause rather than with the
-            // code: `| A |` over `| --- | --- |` is not a table at all to
-            // python-markdown or to marked, so the whole thing publishes as a
-            // paragraph of pipes. All three engines emit the wider row today,
-            // so narrowing it in this one would put a shape the corpus currently
-            // agrees on into disagreement. It is a real defect and it is filed
-            // rather than fixed here (markup-carve/carve#1040).
+            // The delimiter promotes the header row, so PART 11 §10b requires
+            // exactly one delimiter cell per header cell. Using the table's
+            // maximum width makes common Markdown readers reject a ragged table
+            // whose body is wider than its header (markup-carve/carve#1042).
             $separators = [];
-            for ($index = 0; $index < $layout['columnCount']; $index++) {
+            $headerCellCount = count($headerCells);
+            for ($index = 0; $index < $headerCellCount; $index++) {
                 $align = $alignments[$index] ?? TableCell::ALIGN_DEFAULT;
                 $separators[] = match ($align) {
                     TableCell::ALIGN_LEFT => ':---',

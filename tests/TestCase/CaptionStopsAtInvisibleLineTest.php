@@ -57,4 +57,12 @@ class CaptionStopsAtInvisibleLineTest extends TestCase
     {
         $this->assertSame("p\nmore", $this->caption(">\n^ p\nmore\n"));
     }
+
+    public function testALinkDefinitionBetweenATableAndCaptionPreventsAttachment(): void
+    {
+        $html = (new CarveConverter())->convert("| a | b |\n[a]: /u\n^ cap\n");
+
+        $this->assertStringNotContainsString('<caption>', $html);
+        $this->assertStringContainsString('<p>^ cap</p>', $html);
+    }
 }

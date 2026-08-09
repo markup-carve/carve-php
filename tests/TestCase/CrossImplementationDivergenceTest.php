@@ -203,11 +203,11 @@ class CrossImplementationDivergenceTest extends TestCase
         $this->assertSame('════', $lines[1]);
     }
 
-    public function testHeaderRowspanPreservesColumnsInNonHtmlTables(): void
+    public function testHeaderRowspanPreservesRaggedRowsInNonHtmlTables(): void
     {
         $source = "|=A|\n|^|x|";
 
-        $this->assertSame("| A |\n| --- | --- |\n|  | x |\n", CarveConverter::markdown()->convert($source));
+        $this->assertSame("| A |\n| --- |\n|  | x |\n", CarveConverter::markdown()->convert($source));
         $this->assertSame("A\n | x\n", CarveConverter::plainText()->convert($source));
 
         $ansi = $this->stripSgr(CarveConverter::ansi()->convert($source));

@@ -65,6 +65,63 @@ class MarkdownRaggedTableTest extends TestCase
     }
 
     /**
+     * The other half of PART 11 section 10b: "Where a delimiter row is required
+     * to promote the first row to a header, that delimiter carries exactly one
+     * cell for each cell in the HEADER ROW, not one for each column reached by a
+     * wider body row."
+     *
+     * This renderer sized it from the table width, so a one-cell header emitted a
+     * two-cell delimiter. Neither python-markdown nor marked reads that as a
+     * table - the cell counts have to agree - so the document published as a
+     * paragraph of pipes and lost its table entirely
+     * (markup-carve/carve#1042). All three engines emitted the wider row, so the
+     * cross-engine render comparison scored the shape green throughout.
+     */
+    public function testDelimiterMatchesANarrowHeaderAboveAWiderBody(): void
+    {
+        // Corpus 284-a-ragged-table-keeps-each-row-s-cell-count-3.
+        $out = $this->md("| h |\n|---|\n| |x |\n");
+
+        $this->assertSame("| h |\n| --- |\n|  | x |\n", $out);
+        $this->assertSame([1, 1, 2], $this->cellCounts($out));
+    }
+
+    public function testTheSpanFreeShapeIsReachedToo(): void
+    {
+        $out = $this->md("|=a|\n| x | y |\n");
+
+        $this->assertSame("| a |\n| --- |\n| x | y |\n", $out);
+    }
+
+    public function testTheHeaderAlignmentSurvivesTheNarrowing(): void
+    {
+        $out = $this->md("|=> h |\n| x | y |\n");
+
+        $this->assertSame("| h |\n| ---: |\n| x | y |\n", $out);
+    }
+
+    public function testTheDelimiterAlwaysMatchesTheHeaderItPromotes(): void
+    {
+        $sources = [
+            "| h |\n|---|\n| |x |\n",
+            "|=a|\n| x | y |\n",
+            "| |x |\n|---|\n| y |\n",
+            "|= A |= B |\n| 1 | 2 |\n",
+            "|=> h |\n| x | y | z |\n",
+        ];
+
+        foreach ($sources as $source) {
+            $counts = $this->cellCounts($this->md($source));
+
+            $this->assertSame(
+                $counts[0],
+                $counts[1],
+                'delimiter width does not match the header for ' . json_encode($source),
+            );
+        }
+    }
+
+    /**
      * An authored EMPTY trailing cell is a cell and survives: the old
      * trailing-empty pop could not tell it from padding.
      */

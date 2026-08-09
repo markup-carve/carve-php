@@ -3521,6 +3521,11 @@ class BlockParser
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
         $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
+        // A dangling attribute line belongs to this container and dies at its
+        // boundary. Letting the pending state escape attached it to the next
+        // outer block (carve#1028).
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
         $this->lineOffset = $previousOffset;
 
         // (Pending block attributes were already applied before the
@@ -3575,6 +3580,8 @@ class BlockParser
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
         $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
         $this->lineOffset = $previousOffset;
 
         $this->convertDirectParagraphSoftBreaksToHardBreaks($div);
@@ -8662,7 +8669,15 @@ class BlockParser
         // apart - the hosts are decided further down this method, on the block
         // this caption would attach to, and the distance is the same question
         // for every one of them.
-        if ($this->blankLineRunBefore($lines, $start) > 1) {
+        $blankLines = $this->blankLineRunBefore($lines, $start);
+        if ($blankLines > 1) {
+            return null;
+        }
+        // An invisible interrupter still occupies its source line. It renders
+        // nothing, but it is not caption_slot's optional blank line and a
+        // caption cannot attach across it (carve#1028).
+        $lineBeforeSlot = $start - $blankLines - 1;
+        if ($lineBeforeSlot >= 0 && $this->isInvisibleOrAttributeLine($lines[$lineBeforeSlot])) {
             return null;
         }
 

@@ -375,6 +375,57 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown delimiter row is sized from the header row, not the table**
+  (markup-carve/carve#1042). PART 11 §10b says the delimiter "carries exactly one
+  cell for each cell in the HEADER ROW, not one for each column reached by a
+  wider body row", and the Markdown target sized it from the table width instead.
+  A ragged table therefore emitted a delimiter wider than the row it promotes:
+
+  ```
+  | h |
+  |---|
+  | |x |
+  ```
+
+  used to write
+
+  ```
+  | h |
+  | --- | --- |
+  |  | x |
+  ```
+
+  which neither python-markdown nor marked reads as a table - the whole document
+  published as a paragraph of pipes. It now writes
+
+  ```
+  | h |
+  | --- |
+  |  | x |
+  ```
+
+  and both readers render a table again. A header that is itself the widest row
+  is unchanged, and the header's column alignment still reaches the delimiter.
+
+- **The Carve writer stops escaping a caret that opens no caption slot**
+  (carve-php#1113). A caption marker is only readable at the start of the FIRST
+  line of a paragraph that directly follows a block able to host a caption, so
+  that is the only place the writer has to defend. It escaped a caret after any
+  newline instead, so a soft break inside such a paragraph carried the slot
+  along with it:
+
+  ```
+  | a | b |
+
+  para
+  ^ cap
+  ```
+
+  was written back with `\^ cap` on the second line, where carve-js and carve-rs
+  write the caret bare. Both readings render the same HTML, so nothing on the
+  page changed - the divergence was in the canonical source the writer produces,
+  which PART 11 §2a requires the three engines to agree on byte for byte.
+
 - **A collapsed reference resolving through a heading publishes its label's
   whitespace** (markup-carve/carve#1023, PART 12 §3a). `ref` carries the derived
   text - the label with its markup stripped, per the markup-carve/carve#962 ruling - and this
