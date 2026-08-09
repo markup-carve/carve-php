@@ -52,6 +52,18 @@ class CliTest extends TestCase
         return ['out' => (string)$out, 'err' => (string)$err, 'exit' => $exit];
     }
 
+    public function testVersionReportsAReleasedChangelogSection(): void
+    {
+        $result = $this->runCliInput(['--version'], '');
+        $changelog = file_get_contents(dirname(__DIR__, 2) . '/CHANGELOG.md');
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('carve-php version ' . CarveConverter::LIB_VERSION . "\n", $result['out']);
+        $this->assertSame('', $result['err']);
+        $this->assertIsString($changelog);
+        $this->assertStringContainsString('## [' . CarveConverter::LIB_VERSION . '] - ', $changelog);
+    }
+
     public function testRendersHtmlByDefault(): void
     {
         $out = $this->runCli([]);

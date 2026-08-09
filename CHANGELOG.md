@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-09
+
 ### Breaking
 
 - **A literal footnote reference escapes BOTH brackets on the Markdown target**
@@ -1517,5 +1519,9 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.4...HEAD
+[0.1.4]: https://github.com/markup-carve/carve-php/compare/0.1.3...0.1.4
+[0.1.3]: https://github.com/markup-carve/carve-php/compare/0.1.2...0.1.3
+[0.1.2]: https://github.com/markup-carve/carve-php/compare/0.1.1...0.1.2
+[0.1.1]: https://github.com/markup-carve/carve-php/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/markup-carve/carve-php/releases/tag/0.1.0
