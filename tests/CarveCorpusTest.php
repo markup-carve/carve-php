@@ -46,6 +46,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-caret-line-does-not-end-a-paragraph-it-cannot-caption',
+        'a-column-zero-definition-ends-an-open-list-item',
         'adjacent-block-openers-in-an-attached-run-stay-separate',
         'an-empty-footnote-body-is-written-with-the-empty-sentinel',
         'a-caption-attaches-across-one-blank-line',
