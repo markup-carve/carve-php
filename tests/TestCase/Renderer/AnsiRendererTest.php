@@ -170,6 +170,20 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('| h |   |', $renderer->render($doc));
     }
 
+    /**
+     * The mirror witness. The header case alone would pass a renderer that only
+     * padded the row it promotes; the ruling on markup-carve/carve#1044 is about
+     * any short row, and the short-BODY case is the one where narrowing the box
+     * to the widest row would have been a no-op.
+     */
+    public function testRaggedTablePadsItsShortBodyRow(): void
+    {
+        $renderer = new AnsiRenderer(80, false, false);
+        $doc = $this->converter->parse("| |x |\n|---|\n| y |");
+
+        $this->assertStringContainsString('| y |   |', $renderer->render($doc));
+    }
+
     public function testRenderImage(): void
     {
         $doc = $this->converter->parse('![A photo](image.jpg)');
