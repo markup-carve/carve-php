@@ -64,6 +64,25 @@ class CliTest extends TestCase
         $this->assertStringContainsString('## [' . CarveConverter::LIB_VERSION . '] - ', $changelog);
     }
 
+    /**
+     * The provenance marker `carve fmt --stamp` writes carries LIB_VERSION, so a
+     * README example spelling a different version documents output the tool does
+     * not produce. That second home for the value is how the constant sat three
+     * releases behind without anyone noticing.
+     */
+    public function testDocumentedStampExamplesCarryTheCurrentVersion(): void
+    {
+        $readme = file_get_contents(dirname(__DIR__, 2) . '/README.md');
+        $this->assertIsString($readme);
+
+        $found = preg_match_all('/carve-php (\d+\.\d+\.\d+)/', $readme, $matches);
+        $this->assertGreaterThan(0, $found, 'README documents no stamp version to check.');
+        $this->assertSame(
+            [CarveConverter::LIB_VERSION],
+            array_values(array_unique($matches[1])),
+        );
+    }
+
     public function testRendersHtmlByDefault(): void
     {
         $out = $this->runCli([]);
