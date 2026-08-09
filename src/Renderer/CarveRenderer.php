@@ -2668,11 +2668,9 @@ class CarveRenderer implements RendererInterface
             ? '/([\\\\`"\'^])/'
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/';
 
-        $minimal = $this->escapeMode === self::ESCAPE_MODE_MINIMAL;
-
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use ($text, $minimal, $opensBlockLine): string {
+            static function (array $match) use ($text, $opensBlockLine): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
                 if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
