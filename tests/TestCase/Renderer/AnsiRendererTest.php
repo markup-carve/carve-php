@@ -152,15 +152,22 @@ class AnsiRendererTest extends TestCase
         $this->assertStringNotContainsString(' (#Name)', $output);
     }
 
-    public function testHeaderRowspanTableOmitsTrailingPlaceholderCell(): void
+    public function testHeaderRowspanTablePadsToTheFullWidthBorder(): void
     {
         $renderer = new AnsiRenderer(80, false, false);
         $doc = $this->converter->parse("|=A|\n|^|x|");
         $output = $renderer->render($doc);
 
-        $this->assertStringContainsString("| A |\n", $output);
-        $this->assertStringNotContainsString('| A |   |', $output);
+        $this->assertStringContainsString('| A |   |', $output);
         $this->assertStringContainsString('|   | x |', $output);
+    }
+
+    public function testRaggedTablePadsItsShortHeaderRow(): void
+    {
+        $renderer = new AnsiRenderer(80, false, false);
+        $doc = $this->converter->parse("| h |\n|---|\n| |x |");
+
+        $this->assertStringContainsString('| h |   |', $renderer->render($doc));
     }
 
     public function testRenderImage(): void
