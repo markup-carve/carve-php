@@ -2762,7 +2762,7 @@ class CarveRenderer implements RendererInterface
     private static function caretOpensACaption(string $text, int $offset, bool $opensBlockLine): bool
     {
         $next = $text[$offset + 1] ?? '';
-        if ($next !== ' ' && $next !== "\t") {
+        if ($next !== ' ') {
             return false;
         }
 
