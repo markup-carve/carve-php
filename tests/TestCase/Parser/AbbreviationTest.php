@@ -252,7 +252,7 @@ DJOT;
         $abbreviations = $this->parser->getAbbreviations();
 
         $this->assertArrayHasKey('HTML', $abbreviations);
-        $this->assertStringContainsString('the standard markup language', $abbreviations['HTML']);
+        $this->assertSame('Hyper Text Markup Language,', $abbreviations['HTML']);
     }
 
     public function testNoAbbreviationsDefined(): void

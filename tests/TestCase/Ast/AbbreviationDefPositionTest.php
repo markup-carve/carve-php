@@ -60,18 +60,16 @@ class AbbreviationDefPositionTest extends TestCase
     }
 
     /**
-     * A continuation line is part of the definition, so the span covers it too -
-     * an implementation that recorded only the opener would pass the case above
-     * and clip this one.
+     * The expansion ends at newline; an indented line is a separate paragraph.
      */
-    public function testAContinuationLineIsInsideTheSpan(): void
+    public function testAnIndentedFollowingLineIsOutsideTheDefinitionSpan(): void
     {
         $source = "*[HTML]: Hyper Text\n    Markup Language\n\nThe HTML spec.\n";
         $def = $this->firstDef($this->ast($source));
 
         $text = $this->sliceOf($source, $def['pos']);
         $this->assertStringContainsString('Hyper Text', $text);
-        $this->assertStringContainsString('Markup Language', $text, 'the continuation fell outside the span');
+        $this->assertStringNotContainsString('Markup Language', $text);
     }
 
     /**

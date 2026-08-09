@@ -91,7 +91,7 @@ class BlockParser
      *
      * @var string
      */
-    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) /';
+    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) +[ \t]*[^ \t]/';
 
     /**
      * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
@@ -1805,35 +1805,7 @@ class BlockParser
                 $abbr = $matches[1];
                 $definition = rtrim($matches[2], " \t");
 
-                // Collect continuation lines (indented)
                 $j = $i + 1;
-                while ($j < $count) {
-                    $nextLine = $lines[$j];
-                    if (IndentationHelper::isBlankLine($nextLine)) {
-                        break;
-                    }
-                    // Check if next line starts a new abbreviation definition
-                    if ($this->isAbbreviationDefinitionLine($nextLine)) {
-                        break;
-                    }
-                    if ($this->startsNewBlock($nextLine)) {
-                        break;
-                    }
-                    // A list marker (bullet or ordered, at any indent) starts a
-                    // list, not a definition continuation. startsNewBlock() no
-                    // longer reports list markers (symmetric interruption), so
-                    // check explicitly to avoid swallowing the list.
-                    if ($this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null) {
-                        break;
-                    }
-                    // Continuation line (indented)
-                    if (preg_match('/^\s+(.+)$/', $nextLine, $contMatch)) {
-                        $definition .= ' ' . $contMatch[1];
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
 
                 // Store the abbreviation (case-sensitive). The map answers
                 // WHICH definition wins - the last one (PART 9R) - and the
@@ -1842,10 +1814,8 @@ class BlockParser
                 // 3a).
                 $this->abbreviations[$abbr] = $definition;
                 $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
-                // The definition's own lines, so the node built for it at
-                // serialization has somewhere to point. A continuation line is
-                // part of the definition, so the span covers `$i` through the
-                // last line consumed rather than the opener alone.
+                // The expansion is one physical line, as the grammar's
+                // `abbreviation_expansion ... newline` production requires.
                 if ($this->trackPositions) {
                     $lineMap = [];
                     for ($k = $i; $k < $j; $k++) {
@@ -4246,9 +4216,10 @@ class BlockParser
         // inside it. carve-rs closes it; the distinction between the two flags
         // was the bug (carve-php#652).
         $trimmed = ltrim($content, " \t");
-        $isHeading = preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
-        $isThematicBreak = preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
-        $isTableRow = $this->tableParser->isTableRow($trimmed);
+        $atContentColumn = $trimmed === $content;
+        $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
+        $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
+        $isTableRow = $atContentColumn && $this->tableParser->isTableRow($trimmed);
         // A definition TERM is bounded like a heading: it holds inline content,
         // not a paragraph. `:::` is a div fence and is handled above.
         $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
@@ -4796,6 +4767,12 @@ class BlockParser
             // open paragraph for a dedented line to fold into).
             $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
             $trailingState = $this->advanceTrailingBlockState($trailingState, $itemContent);
+            // A table written on the marker line owns the following lazy line
+            // even though an ordinary completed table does not expose a
+            // paragraph. This is the marker-line S4 ownership case.
+            if ($this->tableParser->isTableRow($itemContent)) {
+                $trailingState['openParagraph'] = true;
+            }
 
             // First-block item (Carve): `- +` opens an item whose body is the
             // flush-left block that follows, with no indentation. A lone `+` as
@@ -7350,34 +7327,6 @@ class BlockParser
             return null;
         }
 
-        // Collect continuation lines
-        $i = $start + 1;
-        $count = count($lines);
-
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                break;
-            }
-            // Check if next line starts a new abbreviation definition
-            if ($this->isAbbreviationDefinitionLine($nextLine)) {
-                break;
-            }
-            if ($this->startsNewBlock($nextLine)) {
-                break;
-            }
-            // A list marker (bullet or ordered, at any indent) starts a list,
-            // not a definition continuation; stop the skip so it is parsed.
-            if ($this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null) {
-                break;
-            }
-            if (preg_match('/^\s+(.+)$/', $nextLine)) {
-                $i++;
-            } else {
-                break;
-            }
-        }
-
         // The line is KEPT as a node rather than merely skipped. It renders
         // nothing on HTML and is emitted as written on the non-HTML targets
         // (PART 11 §10a), and those renderers walk `children` - so a definition
@@ -7389,7 +7338,9 @@ class BlockParser
             $parent->appendChild($node);
         }
 
-        return $i - $start;
+        // The grammar's expansion ends at `newline`; an indented following
+        // line is a new paragraph, not a continuation of the definition.
+        return 1;
     }
 
     protected function isAbbreviationDefinitionLine(string $line): bool
@@ -9176,7 +9127,9 @@ class BlockParser
      */
     protected function hasClosingFenceAhead(string $line, ?array $lines, ?int $index): bool
     {
-        if (preg_match('/^([`~])\1{2,}/', $line, $matches) !== 1) {
+        $opener = $this->fencedBlockParser->parseRawBlockOpener($line)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($line);
+        if ($opener === null) {
             return false;
         }
 
@@ -9184,8 +9137,8 @@ class BlockParser
             return true;
         }
 
-        $char = $matches[1];
-        $length = strspn($line, $char);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        $length = $opener['length'];
         $count = count($lines);
 
         // Reuse the collector's closer matcher so the interruption lookahead can
