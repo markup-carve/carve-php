@@ -560,6 +560,9 @@ class HeadingIdTracker
             // symbol in a derived display label, where it is visible content.
             return '';
         }
+        if ($child instanceof FootnoteRef || $child instanceof InlineFootnote) {
+            return '';
+        }
         if ($child instanceof RawInline) {
             // Format-specific raw HTML is excluded from heading
             // text/id (matches PlainTextRenderer behaviour).

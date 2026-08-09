@@ -53,6 +53,14 @@ class TableParser
             return false;
         }
 
+        // A single cell containing only padding is still an empty one-cell
+        // row, and therefore not a table. `|||` remains the distinct valid
+        // two-empty-cell spelling.
+        $interior = substr($lineWithoutRowAttrs, 1, -1);
+        if (!str_contains($interior, '|') && trim($interior, " \t") === '') {
+            return false;
+        }
+
         // Verify the line truly ends with | outside of code spans
         return $this->lineEndsWithPipeOutsideCodeSpan($lineWithoutRowAttrs);
     }

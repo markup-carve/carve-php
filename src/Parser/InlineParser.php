@@ -4301,7 +4301,15 @@ class InlineParser
         }
 
         if ($closePos === false) {
-            return null;
+            $content = substr($text, $contentStart);
+            if ($content === '') {
+                return null;
+            }
+
+            return [
+                'node' => new Math(rtrim($content, " \t\r\n"), $display),
+                'pos' => $length,
+            ];
         }
 
         // Math reuses the verbatim span, so it takes the same single-space strip
