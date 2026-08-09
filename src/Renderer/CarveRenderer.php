@@ -2679,7 +2679,7 @@ class CarveRenderer implements RendererInterface
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
                 }
-                if ($minimal && $char === '^' && !self::caretOpensAConstruct($text, $offset)) {
+                if ($char === '^' && !self::caretOpensAConstruct($text, $offset)) {
                     return '^';
                 }
                 // A COLON only opens something at the start of a line - `::`

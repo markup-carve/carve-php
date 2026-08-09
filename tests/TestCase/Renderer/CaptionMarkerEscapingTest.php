@@ -16,6 +16,13 @@ use PHPUnit\Framework\TestCase;
 
 class CaptionMarkerEscapingTest extends TestCase
 {
+    public function testAnOrphanCaretStaysBareInBothWriterPasses(): void
+    {
+        $source = "^ cap \n # head\n";
+
+        $this->assertSame("^ cap\n\\# head\n", CarveConverter::carve()->convert($source));
+    }
+
     public function testSoftBreakInsideFollowingParagraphDoesNotInheritCaptionSlot(): void
     {
         $source = "| a | b |\n\npara\n^ cap\n";
