@@ -884,7 +884,6 @@ class AnsiRenderer implements RendererInterface
 
         foreach ($layout['rows'] as $row) {
             $cells = [];
-            $lastGenuine = -1;
             foreach ($row['cells'] as $colIndex => $cell) {
                 $isGenuine = is_array($cell) && isset($cell['content']) && is_string($cell['content']);
                 $content = $isGenuine ? $cell['content'] : '';
@@ -894,17 +893,7 @@ class AnsiRenderer implements RendererInterface
                     'content' => $content,
                     'isHeader' => $row['isHeader'],
                 ];
-                if ($isGenuine) {
-                    $lastGenuine = $colIndex;
-                }
             }
-            // Drop only SYNTHETIC trailing padding - columns this row does not
-            // reach - but KEEP every column the row AUTHORED, so the box stays
-            // well-formed (`| x || ` -> `│ x │   │`). The `<` and `^` markers are
-            // cells the writer typed, so a row whose last column is covered by a
-            // span is not a short row; cutting it back to `$lastGenuine` drew a
-            // row narrower than the border above and below it. Matches carve-rs.
-            $cells = array_slice($cells, 0, max($lastGenuine + 1, $row['authoredWidth']));
             $rows[] = $cells;
         }
 

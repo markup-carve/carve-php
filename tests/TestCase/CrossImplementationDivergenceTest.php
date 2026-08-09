@@ -203,7 +203,7 @@ class CrossImplementationDivergenceTest extends TestCase
         $this->assertSame('════', $lines[1]);
     }
 
-    public function testHeaderRowspanPreservesRaggedRowsInNonHtmlTables(): void
+    public function testHeaderRowspanIsRaggedInTextAndPaddedInAnsi(): void
     {
         $source = "|=A|\n|^|x|";
 
@@ -211,8 +211,7 @@ class CrossImplementationDivergenceTest extends TestCase
         $this->assertSame("A\n | x\n", CarveConverter::plainText()->convert($source));
 
         $ansi = $this->stripSgr(CarveConverter::ansi()->convert($source));
-        $this->assertStringContainsString('│ A │', $ansi);
-        $this->assertStringNotContainsString('│ A │   │', $ansi);
+        $this->assertStringContainsString('│ A │   │', $ansi);
         $this->assertStringContainsString('│   │ x │', $ansi);
     }
 
