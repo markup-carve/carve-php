@@ -205,11 +205,18 @@ class LinkPolicy
      */
     public function isUrlAllowed(string $url, ?string $baseHost = null): bool
     {
-        $url = trim($url);
+        $url = preg_replace('/^[\x00-\x20]+|[\x00-\x20]+$/', '', $url) ?? $url;
 
         if ($url === '') {
             return true;
         }
+
+        // WHATWG special URLs treat a backslash as a slash. Normalize only the
+        // prefix classifier's view: scheme checks and any allowed destination
+        // keep the bytes the author supplied. The trim above strips exactly the
+        // leading/trailing ASCII C0 controls and space a URL parser ignores;
+        // DEL, C1 controls and Unicode spaces deliberately remain content.
+        $prefixUrl = str_replace('\\', '/', $url);
 
         // Fragment-only URLs are always internal
         if (str_starts_with($url, '#')) {
@@ -217,12 +224,16 @@ class LinkPolicy
         }
 
         // Protocol-relative URLs are absolute external URLs, not internal paths.
-        if (str_starts_with($url, '//')) {
-            return $this->isProtocolRelativeUrlAllowed($url, $baseHost);
+        if (str_starts_with($prefixUrl, '//')) {
+            return $this->isProtocolRelativeUrlAllowed($prefixUrl, $baseHost);
         }
 
         // Relative paths are internal
-        if (str_starts_with($url, '/') || str_starts_with($url, './') || str_starts_with($url, '../')) {
+        if (
+            str_starts_with($prefixUrl, '/')
+            || str_starts_with($prefixUrl, './')
+            || str_starts_with($prefixUrl, '../')
+        ) {
             return $this->allowInternal;
         }
 
