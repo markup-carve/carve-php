@@ -23,6 +23,13 @@ class CaptionMarkerEscapingTest extends TestCase
         $this->assertSame("^ cap\n\\# head\n", CarveConverter::carve()->convert($source));
     }
 
+    public function testATabAfterTheCaretIsNotACaptionSlot(): void
+    {
+        $source = "![Moon](m.jpg)\n^\tFigure 1\n";
+
+        $this->assertSame($source, CarveConverter::carve()->convert($source));
+    }
+
     public function testSoftBreakInsideFollowingParagraphDoesNotInheritCaptionSlot(): void
     {
         $source = "| a | b |\n\npara\n^ cap\n";
