@@ -1575,6 +1575,10 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text);
+        $text = (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+
+        return str_contains($text, "\xE2")
+            ? (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text)
+            : $text;
     }
 }
