@@ -57,7 +57,15 @@ class NonHtmlRendererSecurityTest extends TestCase
 
     public function testMarkdownEscapesEmbeddedHtmlInTextAndFallbackTags(): void
     {
-        $this->assertStringNotContainsString('<img', $this->md('plain <img onerror=x> text'));
+        // The property is that no `<` reaches the output UNESCAPED, not that the
+        // bytes `<img` are absent: a text node is neutralized with a backslash
+        // now, so `\<img …\>` is present and inert - a reader emits the `<` as
+        // text and escapes it, giving the same `&lt;img …&gt;` the entity form
+        // gave. Asserting the absence of the substring would pass for the wrong
+        // reason the moment the escape changed shape again.
+        $text = $this->md('plain <img onerror=x> text');
+        $this->assertStringContainsString('\\<img onerror=x\\>', $text);
+        $this->assertDoesNotMatchRegularExpression('/(?<!\\\\)</', $text);
         // Superscript HTML fallback: children are HTML-escaped.
         $sup = $this->md('{^<img src=x onerror=alert(1)>^}');
         $this->assertStringContainsString('<sup>', $sup);

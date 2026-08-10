@@ -56,7 +56,15 @@ class MarkdownSmartTypographyModeTest extends TestCase
         // Escaping is a separate concern with its own security rationale, and
         // this mode deliberately leaves it alone.
         $this->assertSame('a \* b', trim($this->source()->convert('a * b')));
-        $this->assertSame('a &amp; b', trim($this->source()->convert('a & b')));
+        $this->assertSame('a \<b\> c', trim($this->source()->convert('a <b> c')));
+
+        // A bare ampersand is NOT escaped, and that is the escaping rule rather
+        // than this mode: an entity reference in Markdown text decodes to a
+        // character, which a reader escapes again on output, so it can never
+        // open a tag. Only an ampersand that would CHANGE the text gets a
+        // backslash, which this one would not.
+        $this->assertSame('a & b', trim($this->source()->convert('a & b')));
+        $this->assertSame('a \&amp; b', trim($this->source()->convert('a &amp; b')));
 
         // An intraword underscore is NOT escaped: it needs no escape, and
         // escaping it degrades exact-match search in a generated corpus (#417).

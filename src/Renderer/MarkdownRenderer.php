@@ -173,6 +173,14 @@ class MarkdownRenderer implements RendererInterface
 
     protected int $listDepth = 0;
 
+    /**
+     * How many raw HTML fallback tags (`<sup>`, `<mark>`, `<del>`, …) enclose
+     * the node being rendered. Non-zero means a backslash is not an escape, so
+     * escapeText() keeps the entity form. See
+     * renderRawHtmlFallbackChildren().
+     */
+    protected int $rawHtmlFallbackDepth = 0;
+
     protected bool $inBlockQuote = false;
 
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
@@ -1212,7 +1220,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderSuperscript(Superscript $node): string
     {
         // Markdown doesn't have native superscript, use HTML
-        return '<sup>' . $this->renderChildren($node) . '</sup>';
+        return '<sup>' . $this->renderRawHtmlFallbackChildren($node) . '</sup>';
     }
 
     protected function escapeTitle(string $title): string
@@ -1228,25 +1236,25 @@ class MarkdownRenderer implements RendererInterface
     protected function renderSubscript(Subscript $node): string
     {
         // Markdown doesn't have native subscript, use HTML
-        return '<sub>' . $this->renderChildren($node) . '</sub>';
+        return '<sub>' . $this->renderRawHtmlFallbackChildren($node) . '</sub>';
     }
 
     protected function renderHighlight(Highlight $node): string
     {
         // Markdown doesn't have native highlight, use HTML
-        return '<mark>' . $this->renderChildren($node) . '</mark>';
+        return '<mark>' . $this->renderRawHtmlFallbackChildren($node) . '</mark>';
     }
 
     protected function renderInsert(Insert $node): string
     {
         // Use HTML ins tag
-        return '<ins>' . $this->renderChildren($node) . '</ins>';
+        return '<ins>' . $this->renderRawHtmlFallbackChildren($node) . '</ins>';
     }
 
     protected function renderDelete(Delete $node): string
     {
         // Markdown has no native critic deletion distinct from strikethrough.
-        return '<del>' . $this->renderChildren($node) . '</del>';
+        return '<del>' . $this->renderRawHtmlFallbackChildren($node) . '</del>';
     }
 
     protected function renderSubstitution(Substitution $node): string
@@ -1258,7 +1266,7 @@ class MarkdownRenderer implements RendererInterface
     protected function renderUnderline(Underline $node): string
     {
         // Markdown has no native underline; emit raw HTML.
-        return '<u>' . $this->renderChildren($node) . '</u>';
+        return '<u>' . $this->renderRawHtmlFallbackChildren($node) . '</u>';
     }
 
     protected function renderStrike(Strike $node): string
@@ -1375,25 +1383,103 @@ class MarkdownRenderer implements RendererInterface
         return '<abbr title="' . $title . '">' . $text . '</abbr>';
     }
 
+    /**
+     * Render the children of a construct that degrades to a raw HTML tag.
+     *
+     * A backslash is not an escape inside raw HTML. Between `<sup>` and
+     * `</sup>` the reader is looking at markup, so `\<img …\>` would be a LIVE
+     * img with a stray backslash in front of it, where `&lt;img …&gt;` is inert
+     * - the one context where the entity form is doing work the backslash
+     * cannot do. escapeText() reads the depth and keeps the entities there.
+     *
+     * Held as a depth rather than a flag because these constructs nest.
+     */
+    protected function renderRawHtmlFallbackChildren(Node $node): string
+    {
+        $this->rawHtmlFallbackDepth++;
+
+        try {
+            return $this->renderChildren($node);
+        } finally {
+            $this->rawHtmlFallbackDepth--;
+        }
+    }
+
     protected function escapeText(string $text): string
     {
-        // Neutralize embedded HTML first, so Markdown later re-rendered to HTML
-        // cannot execute it: carve's "HTML is text" guarantee holds for the
-        // Markdown target too (a literal `<img onerror=…>` in text becomes
-        // inert `&lt;img …&gt;`). `&` first so the entities are not re-escaped.
-        $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
+        if ($this->rawHtmlFallbackDepth > 0) {
+            // Inside a raw HTML fallback tag: entity-escape, as this writer did
+            // everywhere before the backslash rule, then apply the Markdown
+            // metacharacter pass - the text between the tags is still Markdown.
+            $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
 
-        // Escape special Markdown characters in text. None overlap with the HTML
-        // chars escaped above.
+            return preg_replace_callback(
+                '/([\\\\`*_\[\]#])/',
+                fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
+                $text,
+            ) ?? $text;
+        }
+
+        // Neutralize embedded HTML, so Markdown later re-rendered to HTML cannot
+        // execute it: carve's "HTML is text" guarantee holds for the Markdown
+        // target too, and a literal `<img onerror=…>` in text has to come back
+        // inert.
+        //
+        // A BACKSLASH does that, and an entity is not needed for it. `\<` is a
+        // Markdown escape for an ASCII punctuation character, so a reader emits
+        // the character as TEXT and escapes it on output - `\<script\>` renders
+        // `&lt;script&gt;`, exactly what `&lt;script&gt;` used to render, while
+        // the Markdown itself still reads as the text the author wrote.
+        //
+        // `&` is left ALONE. It carries no risk to leave bare: an entity
+        // reference in Markdown text decodes to a CHARACTER, and a character in
+        // text content is escaped again on output, so it can never open a tag.
+        // Verified against two independent readers with raw HTML ALLOWED - the
+        // permissive setting - where `&lt;script&gt;` renders as visible text
+        // and only a bare `<script>` is live. Escaping it bought nothing and
+        // cost every ampersand in every document its spelling.
+        //
+        // The one `&` that IS escaped is the one that would otherwise change the
+        // text: an ampersand opening an entity reference. `&lt;` written by the
+        // author is four characters, and left bare a reader decodes it to one.
+        // That is a fidelity rule, not a safety rule, and it fires only on text
+        // that already looks like an entity - an ordinary `Tom & Jerry` is
+        // untouched. The three decoded forms and the digit bound are the ones
+        // neutralizeCharacterReferences() already pins for destinations, for the
+        // same reason: the emitted bytes are cross-engine, so a wider bound in
+        // one engine shows up as a divergence on a longer digit run.
+        //
+        // `<` and `>` join the same pass, and `&` is decided from the ORIGINAL
+        // string by offset rather than in a pass of its own. A separate pass in
+        // either order gets one of the two cases wrong: run first and the
+        // metacharacter pass escapes the backslash this one just wrote, run
+        // second and the `#` of `&#106;` is already a sentinel, so the lookahead
+        // no longer recognizes the reference.
         //
         // `_`, `#` and `[` are emitted as SENTINELS rather than as backslashes:
         // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
         // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
         // and every other metacharacter keeps M1 as written (M1c).
+        $subject = $text;
+
         return preg_replace_callback(
-            '/([\\\\`*_\[\]#])/',
-            fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
+            '/([\\\\`*_\[\]#<>&])/',
+            function (array $match) use ($subject): string {
+                [$character, $offset] = $match[1];
+
+                if ($character === '&') {
+                    return preg_match(
+                        '/^(?:#[0-9]{1,8};|#[xX][0-9a-fA-F]{1,8};|[a-zA-Z][a-zA-Z0-9]{0,31};)/',
+                        substr($subject, $offset + 1),
+                    ) === 1 ? '\\&' : '&';
+                }
+
+                return $this->narrowedSentinels[$character] ?? '\\' . $character;
+            },
             $text,
+            -1,
+            $count,
+            PREG_OFFSET_CAPTURE,
         ) ?? $text;
     }
 

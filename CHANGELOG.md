@@ -7,6 +7,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The Markdown target escapes `<` and `>` with a backslash and leaves a bare
+  `&` alone** (markup-carve/carve#1071). Text used to be neutralized as
+  `&amp;`, `&lt;` and `&gt;`. Only two thirds of that was doing anything: an
+  entity reference in Markdown TEXT decodes to a character, and a character in
+  text content is escaped again on output, so it can never open a tag - only a
+  bare `<` can. Measured against two independent readers with raw HTML ALLOWED,
+  `&lt;script&gt;` renders as visible text while `<script>` is live, and
+  `\<script\>` renders exactly what the entity form rendered. So `Aktionen &
+  Reaktionen` now writes as itself instead of `Aktionen &amp; Reaktionen`, and
+  `5 < 6` writes `5 \< 6`. The one `&` still escaped is one that OPENS a
+  character reference, so text authored as `&lt;` keeps its four characters
+  rather than a reader decoding it to one; the recognized forms and the digit
+  bound are the ones this target already pins for destinations. Inside a raw
+  HTML fallback tag (`<sup>`, `<mark>`, `<del>`, …) the entity form stays,
+  because a backslash is not an escape between tags.
+
 ### Fixed
 
 - **A nested list is indented once on the Markdown target.** `renderList()`
