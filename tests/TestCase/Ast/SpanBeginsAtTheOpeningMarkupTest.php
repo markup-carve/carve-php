@@ -211,7 +211,7 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
             $description['pos']['endOffset'] - $description['pos']['startOffset'],
         ));
 
-        $this->assertSame('def', $slice);
+        $this->assertSame(':  def', $slice);
     }
 
     /**

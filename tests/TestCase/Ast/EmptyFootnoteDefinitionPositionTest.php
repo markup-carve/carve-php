@@ -108,12 +108,8 @@ class EmptyFootnoteDefinitionPositionTest extends TestCase
     }
 
     /**
-     * A definition with content keeps the extent its BODY gives it.
-     *
-     * The fix is reached only where the body places nothing, and this pins that:
-     * widening it to every definition would move the extent of every footnote in
-     * the corpus, which is a separate question (the engines already disagree
-     * about it, and that disagreement is declared).
+     * A definition with content starts at its own opening marker and reaches
+     * through its body.
      */
     public function testADefinitionWithABodyKeepsItsBodyDerivedExtent(): void
     {
@@ -122,7 +118,7 @@ class EmptyFootnoteDefinitionPositionTest extends TestCase
 
         $this->assertCount(1, $footnotes);
         $pos = $this->posOf($footnotes[0]);
-        $this->assertSame('body', $this->sliceOf($source, $pos));
+        $this->assertSame('[^f]: body', $this->sliceOf($source, $pos));
     }
 
     /**
