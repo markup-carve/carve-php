@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-10
+
 ### Breaking
 
 - **A literal footnote reference escapes BOTH brackets on the Markdown target**
@@ -374,6 +376,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing, losing both texts, because `substitution` was never registered.
 
 ### Fixed
+
+- **The library reports its own version again** (markup-carve/carve-php#1129).
+  `CarveConverter::LIB_VERSION` stayed at `0.1.0` across the 0.1.1, 0.1.2 and
+  0.1.3 releases, so `carve --version` and the `carve fmt --stamp` provenance
+  marker both answered three releases behind the code that produced them. Any
+  document stamped since July carries a `generated-by: carve-php 0.1.0` line
+  that does not identify the writer that wrote it.
 
 - **A short ANSI table row is padded out to the box** (markup-carve/carve#1044).
   The ANSI box draws its rules at the TABLE width, so a ragged table left the
@@ -1517,5 +1526,9 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.4...HEAD
+[0.1.4]: https://github.com/markup-carve/carve-php/compare/0.1.3...0.1.4
+[0.1.3]: https://github.com/markup-carve/carve-php/compare/0.1.2...0.1.3
+[0.1.2]: https://github.com/markup-carve/carve-php/compare/0.1.1...0.1.2
+[0.1.1]: https://github.com/markup-carve/carve-php/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/markup-carve/carve-php/releases/tag/0.1.0
