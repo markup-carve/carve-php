@@ -1,9 +1,14 @@
 # Define the line ending behavior of the different file extensions
 # Set default behavior, in case users don't have core.autocrlf set.
-* text text=auto eol=lf
+* text=auto eol=lf
 
+*.gif binary
+*.ico binary
+*.jpeg binary
 *.jpg binary
+*.pdf binary
 *.png binary
+*.webp binary
 
 # Remove files for archives generated using `git archive`
 phpunit.xml.dist export-ignore
