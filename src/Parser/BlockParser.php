@@ -329,6 +329,11 @@ class BlockParser
     protected array $footnoteDefinitionSpans = [];
 
     /**
+     * @var array<int, true> Nodes reassembled from discontiguous source.
+     */
+    protected array $unplaceableNodeIds = [];
+
+    /**
      * Abbreviation definitions: maps abbreviation text to its definition
      *
      * @var array<string, string>
@@ -942,9 +947,7 @@ class BlockParser
             //
             // Only when there are no children, so a definition that has content
             // keeps the extent its body already gives it.
-            if ($footnote->getChildren() === [] && $footnote->getPos() === null) {
-                $footnote->setPos($this->footnoteDefinitionSpans[$label] ?? null);
-            }
+            $footnote->setPos($this->footnoteDefinitionSpans[$label] ?? $footnote->getPos());
             $document->appendChild($footnote);
         }
 
@@ -1477,6 +1480,10 @@ class BlockParser
                                 $bodyLineMap[] = $k;
                                 $k++;
                             }
+                            $this->extendFootnoteDefinitionToLineStart(
+                                $label,
+                                (int)end($bodyLineMap) + 1,
+                            );
                             $i = $k - 1;
                         }
                         $deferredBodies[$label] = [
@@ -1571,6 +1578,10 @@ class BlockParser
                         $footnote->setAttribute('data-source-line', (string)($i + 1));
                     }
                     $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
+                    $this->extendFootnoteDefinitionToLineStart(
+                        $label,
+                        (int)end($contentLineMap) + 1,
+                    );
                     $this->footnotes[$label] = $footnote;
                     if ($contentLines) {
                         $deferredBodies[$label] = [
@@ -1980,6 +1991,7 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
+        $this->unplaceableNodeIds = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
@@ -2634,7 +2646,12 @@ class BlockParser
             if ($topLevel && !$parent->hasChildren() && preg_match('/^---[ \t]*$/', $line) === 1) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
-                    $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                    $this->stampSourceLine(
+                        $parent,
+                        $childrenBefore,
+                        $sourceLine,
+                        $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
+                    );
                     $i += $matchConsumed;
 
                     continue;
@@ -2688,7 +2705,12 @@ class BlockParser
             if ($consumed === null) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {
-                    $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                    $this->stampSourceLine(
+                        $parent,
+                        $childrenBefore,
+                        $sourceLine,
+                        $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
+                    );
                     $i += $matchConsumed;
 
                     continue;
@@ -2823,6 +2845,9 @@ class BlockParser
             return;
         }
 
+        while ($endLine > $startLine && IndentationHelper::isBlankLine($this->sourceLines[$endLine] ?? '')) {
+            $endLine--;
+        }
         $start = $this->lineStartOffsets[$startLine] ?? null;
         $end = $this->lineStartOffsets[$endLine] ?? null;
         if ($start === null || $end === null) {
@@ -3258,7 +3283,13 @@ class BlockParser
         // Carve line comment: a `%%` line (the `%%%` fenced form is handled
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
-            $parent->appendChild(new Comment(trim(substr(ltrim($line, " \t"), 2))));
+            $comment = new Comment(trim(substr(ltrim($line, " \t"), 2)));
+            $sourceLine = $this->sourceLineFor($start);
+            $sourceText = $this->sourceLines[$sourceLine] ?? '';
+            if (strlen($sourceText) - strlen(ltrim($sourceText, " \t")) === 1) {
+                $comment->setPos($this->spanForLineMap([$sourceLine], 0));
+            }
+            $parent->appendChild($comment);
 
             return 1;
         }
@@ -3335,6 +3366,12 @@ class BlockParser
 
         // Comments are stored but not rendered
         $comment = new Comment($content, $fenceLength);
+        $sourceLine = $this->sourceLineFor($start);
+        $sourceText = $this->sourceLines[$sourceLine] ?? '';
+        if (strlen($sourceText) - strlen(ltrim($sourceText, " \t")) === 1) {
+            $lastSourceLine = $this->sourceLineFor(max($start, $i - 1));
+            $comment->setPos($this->wholeLinesSpan($sourceLine, $lastSourceLine, 0));
+        }
         $parent->appendChild($comment);
 
         return $i - $start;
@@ -3886,6 +3923,18 @@ class BlockParser
         }
 
         $blockQuote = new BlockQuote();
+        $quoteSourceLine = $this->sourceLineFor($start);
+        $sourceTail = rtrim($this->sourceLines[$quoteSourceLine] ?? '', " \t");
+        $lineTail = rtrim($line, " \t");
+        $markerTail = ltrim($lineTail, " \t");
+        $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
+            ? strlen($sourceTail) - strlen($markerTail)
+            : ($this->currentContentColumns[$quoteSourceLine] ?? 0);
+        $quoteOpeningColumn = max(
+            $quoteOpeningColumn,
+            $this->currentContentColumns[$quoteSourceLine] ?? 0,
+            strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
+        );
 
         // Save and clear pending attributes - they apply to the blockquote, not inner content
         $quoteAttributes = $this->pendingAttributes;
@@ -3992,6 +4041,7 @@ class BlockParser
             }
         }
 
+        $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteOpeningColumn));
         $this->parseBlocks($blockQuote, $innerLines, 0, $innerLineMap);
 
         // Apply the saved attributes to the blockquote
@@ -4278,6 +4328,14 @@ class BlockParser
 
         // Get the base indentation of this list
         $baseIndent = IndentationHelper::getLeadingColumns($line);
+        $listSourceLine = $this->sourceLineFor($start);
+        $sourceTail = rtrim($this->sourceLines[$listSourceLine] ?? '', " \t");
+        $lineTail = rtrim($line, " \t");
+        $listOpeningColumn = $parent instanceof Document
+            ? 0
+            : (str_ends_with($sourceTail, $lineTail)
+                ? strlen($sourceTail) - strlen($lineTail)
+                : ($this->currentContentColumns[$listSourceLine] ?? 0));
 
         /** @var string $listType */
         $listType = $listInfo['type'];
@@ -4738,6 +4796,16 @@ class BlockParser
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
             $listItemSourceLine = $this->sourceLineFor($i);
+            $itemSource = $this->sourceLines[$listItemSourceLine] ?? '';
+            $itemMarker = ltrim($line, " \t");
+            $itemMarkerColumn = str_ends_with($itemSource, $itemMarker)
+                ? strlen($itemSource) - strlen($itemMarker)
+                : $listOpeningColumn;
+            $itemPrefix = substr($itemSource, 0, $itemMarkerColumn);
+            $itemOpeningColumn = str_contains($itemPrefix, "\t")
+                && $itemMarkerColumn <= $listOpeningColumn
+                ? 0
+                : $listOpeningColumn;
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
                 /** @var array<string, string> $markerAttributes */
@@ -4844,6 +4912,7 @@ class BlockParser
                 if ($this->subContentHasLooseningBlank($itemLines)) {
                     $list->setTight(false);
                 }
+                $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
 
@@ -4877,7 +4946,7 @@ class BlockParser
                     $itemLines,
                     $itemLineMap,
                 );
-                $listItem->setPos($this->spanForLineMap($itemLineMap));
+                $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
 
@@ -4938,7 +5007,7 @@ class BlockParser
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
-            $listItem->setPos($this->spanForLineMap($itemLineMap));
+            $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
             $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
 
             $list->appendChild($listItem);
@@ -4973,8 +5042,47 @@ class BlockParser
     protected function parseItemBlocks(Node $item, array $lines, ?array $lineMap = null): void
     {
         $this->parseBlocks($item, $lines, 0, $lineMap);
+        if ($lineMap !== null && $lineMap !== []) {
+            $this->repairNestedParagraphSuffixes($item, $lineMap[0]);
+        }
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
+    }
+
+    private function repairNestedParagraphSuffixes(Node $node, int $sourceLine): void
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Paragraph) {
+                $inlines = $child->getChildren();
+                if (count($inlines) === 1 && $inlines[0] instanceof Text) {
+                    $value = $inlines[0]->getContent();
+                    $existing = $inlines[0]->getPos();
+                    if ($existing !== null && $existing->startLine !== $sourceLine + 1) {
+                        $this->repairNestedParagraphSuffixes($child, $sourceLine);
+
+                        continue;
+                    }
+                    $source = rtrim($this->sourceLines[$sourceLine] ?? '', " \t");
+                    if ($value !== '' && str_ends_with($source, $value)) {
+                        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+                        if ($lineStart !== null) {
+                            $byte = $lineStart + strlen($source) - strlen($value);
+                            $span = $this->positionIndex?->span(
+                                $byte,
+                                $byte + strlen($value),
+                                $sourceLine + 1,
+                                $sourceLine + 1,
+                                $lineStart,
+                                $lineStart,
+                            );
+                            $inlines[0]->setPos($span);
+                            $child->setPos($span);
+                        }
+                    }
+                }
+            }
+            $this->repairNestedParagraphSuffixes($child, $sourceLine);
+        }
     }
 
     /**
@@ -5972,7 +6080,12 @@ class BlockParser
                 }
 
                 $term = new DefinitionTerm();
-                $term->setPos($this->foldedLinesSpan($termContentLines) ?? $this->wholeLineSpan($termStart));
+                $termSource = $this->sourceLineFor($termStart);
+                $term->setPos($this->wholeLinesSpan(
+                    $termStart,
+                    $i - 1,
+                    $this->currentContentColumns[$termSource] ?? 0,
+                ));
                 $this->inlineParser->parse(
                     $term,
                     $termText,
@@ -6266,7 +6379,26 @@ class BlockParser
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);
-                if ($dd->getChildren() === []) {
+                $definitionSource = $this->sourceLineFor($definitionStart);
+                $ddPos = $this->wholeLinesSpan(
+                    $definitionStart,
+                    $definitionStart,
+                    $this->currentContentColumns[$definitionSource] ?? 0,
+                );
+                $ddChildren = $dd->getChildren();
+                $lastChildPos = $ddChildren === [] ? null : $ddChildren[count($ddChildren) - 1]->getPos();
+                if ($ddPos !== null && $lastChildPos !== null && $lastChildPos->endOffset > $ddPos->endOffset) {
+                    $ddPos = new SourceSpan(
+                        startLine: $ddPos->startLine,
+                        endLine: $lastChildPos->endLine,
+                        startColumn: $ddPos->startColumn,
+                        endColumn: $lastChildPos->endColumn,
+                        startOffset: $ddPos->startOffset,
+                        endOffset: $lastChildPos->endOffset,
+                    );
+                }
+                $dd->setPos($ddPos);
+                if ($dd->getChildren() === [] && $dd->getPos() === null) {
                     // A description EMPTIED by collection still occupied a line,
                     // and §4 wants a position on every node but the root.
                     // Container spans are derived from children, so this one
@@ -6304,6 +6436,21 @@ class BlockParser
             break;
         }
 
+        $entries = $dl->getChildren();
+        if ($entries !== []) {
+            $first = $entries[0]->getPos();
+            $last = $entries[count($entries) - 1]->getPos();
+            if ($first !== null && $last !== null) {
+                $dl->setPos(new SourceSpan(
+                    startLine: $first->startLine,
+                    endLine: $last->endLine,
+                    startColumn: $first->startColumn,
+                    endColumn: $last->endColumn,
+                    startOffset: $first->startOffset,
+                    endOffset: $last->endOffset,
+                ));
+            }
+        }
         $parent->appendChild($dl);
 
         return $i - $start;
@@ -6885,7 +7032,18 @@ class BlockParser
 
             // Parse regular row
             $row = new TableRow($isHeaderRow);
-            $row->setPos($this->wholeLineSpan($baseLineForRow));
+            $rowStartSpan = $this->tableLineSpan($baseLineForRow);
+            $rowEndSpan = $this->wholeLineSpan($i - 1);
+            if ($rowStartSpan !== null && $rowEndSpan !== null) {
+                $row->setPos(new SourceSpan(
+                    startLine: $rowStartSpan->startLine,
+                    endLine: $rowEndSpan->endLine,
+                    startColumn: $rowStartSpan->startColumn,
+                    endColumn: $rowEndSpan->endColumn,
+                    startOffset: $rowStartSpan->startOffset,
+                    endOffset: $rowEndSpan->endOffset,
+                ));
+            }
             if ($rowAttributes) {
                 $row->setAttributes($rowAttributes);
             }
@@ -6958,6 +7116,10 @@ class BlockParser
                 $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
                     ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
+                if (count($cellData['sourceChunks']) > 1) {
+                    $cellSpan = null;
+                    $this->unplaceableNodeIds[spl_object_id($cell)] = true;
+                }
                 // The text's OWN extent inside the cell: the cell span covers
                 // the padding too, so the text is located within the raw slice
                 // the split kept for exactly this.
@@ -7018,6 +7180,21 @@ class BlockParser
         }
 
         $this->applyPendingAttributes($table);
+        $rows = $table->getChildren();
+        if ($rows !== []) {
+            $first = $this->tableLineSpan($start);
+            $last = $this->wholeLineSpan(max($start, $i - 1));
+            if ($first !== null && $last !== null) {
+                $table->setPos(new SourceSpan(
+                    startLine: $first->startLine,
+                    endLine: $last->endLine,
+                    startColumn: $first->startColumn,
+                    endColumn: $last->endColumn,
+                    startOffset: $first->startOffset,
+                    endOffset: $last->endOffset,
+                ));
+            }
+        }
         $parent->appendChild($table);
 
         // Caption parsing is now handled by tryParseCaption
@@ -7372,6 +7549,12 @@ class BlockParser
         $contentLines = [];
         $indent = strlen($line) - strlen($content);
         $firstSourceLine = $this->sourceLineFor($start);
+        $indent += $this->currentContentColumns[$firstSourceLine] ?? 0;
+        $sourceTail = rtrim($this->sourceLines[$firstSourceLine] ?? '', " \t");
+        $contentTail = rtrim($content, " \t");
+        if ($contentTail !== '' && str_ends_with($sourceTail, $contentTail)) {
+            $indent = max($indent, strlen($sourceTail) - strlen($contentTail));
+        }
         $this->appendParagraphContentLines($contentLines, $firstSourceLine, $indent, $content);
 
         $i = $start + 1;
@@ -7404,7 +7587,8 @@ class BlockParser
             $this->appendParagraphContentLines(
                 $contentLines,
                 $this->sourceLineFor($i),
-                strlen($rawNextLine) - strlen($nextLine),
+                strlen($rawNextLine) - strlen($nextLine)
+                    + ($this->currentContentColumns[$this->sourceLineFor($i)] ?? 0),
                 $nextLine,
             );
             $contentParts[] = $nextLine;
@@ -7458,6 +7642,18 @@ class BlockParser
             ];
         }
         $content = implode("\n", $physicalLines);
+        foreach ($contentLines as $index => [$lineIndex, $column, $length, $lineText]) {
+            $trimmedSourceText = rtrim($lineText, " \t");
+            $trimmedLength = min($length, strlen($trimmedSourceText));
+            if ($trimmedLength !== $length || $trimmedSourceText !== $lineText) {
+                $contentLines[$index] = [
+                    $lineIndex,
+                    $column,
+                    $trimmedLength,
+                    $trimmedSourceText,
+                ];
+            }
+        }
 
         $paragraph = new Paragraph();
         // Set here rather than leaving it to the block-loop stamp, which spans
@@ -7470,6 +7666,36 @@ class BlockParser
             $start,
             sourceMap: $this->foldedLinesMap($contentLines),
         );
+        $placed = array_values(array_filter(
+            $paragraph->getChildren(),
+            static fn (Node $node): bool => $node->getPos() !== null,
+        ));
+        $measured = $this->foldedLinesSpan($contentLines);
+        if ($placed !== []) {
+            $first = $placed[0]->getPos();
+            $last = $placed[count($placed) - 1]->getPos();
+            if ($first !== null && $last !== null) {
+                if ($measured !== null && $measured->endOffset < $last->endOffset) {
+                    $last = new SourceSpan(
+                        startLine: $last->startLine,
+                        endLine: $measured->endLine,
+                        startColumn: $last->startColumn,
+                        endColumn: $measured->endColumn,
+                        startOffset: $last->startOffset,
+                        endOffset: $measured->endOffset,
+                    );
+                    $placed[count($placed) - 1]->setPos($last);
+                }
+                $paragraph->setPos(new SourceSpan(
+                    startLine: $first->startLine,
+                    endLine: $measured !== null ? $measured->endLine : $last->endLine,
+                    startColumn: $first->startColumn,
+                    endColumn: $measured !== null ? $measured->endColumn : $last->endColumn,
+                    startOffset: $first->startOffset,
+                    endOffset: $measured !== null ? $measured->endOffset : $last->endOffset,
+                ));
+            }
+        }
         $this->applyPendingAttributes($paragraph);
         $parent->appendChild($paragraph);
 
@@ -7538,15 +7764,34 @@ class BlockParser
      * item's extent honest without needing the item text to be a slice.
      *
      * @param array<int, int> $lineMap
+     * @param int|null $openingColumn
      */
-    private function spanForLineMap(array $lineMap): ?SourceSpan
+    private function spanForLineMap(array $lineMap, ?int $openingColumn = null): ?SourceSpan
     {
         if (!$this->trackPositions || $lineMap === []) {
             return null;
         }
 
-        $first = $lineMap[array_key_first($lineMap)];
-        $last = $lineMap[array_key_last($lineMap)];
+        $firstKey = array_key_first($lineMap);
+        $first = $lineMap[$firstKey];
+        $remaining = count($lineMap);
+        while ($remaining > 1) {
+            $lastKey = array_key_last($lineMap);
+            if ($lastKey === null) {
+                return null;
+            }
+            $candidate = $lineMap[$lastKey];
+            if (!IndentationHelper::isBlankLine($this->sourceLines[$candidate] ?? '')) {
+                break;
+            }
+            array_pop($lineMap);
+            $remaining--;
+        }
+        $lastKey = array_key_last($lineMap);
+        if ($lastKey === null) {
+            return null;
+        }
+        $last = $lineMap[$lastKey];
         $start = $this->lineStartOffsets[$first] ?? null;
         $lastStart = $this->lineStartOffsets[$last] ?? null;
         if ($start === null || $lastStart === null) {
@@ -7556,7 +7801,7 @@ class BlockParser
         $lastLength = strlen($this->sourceLines[$last] ?? '');
         // PART 12 §4, as in `stampBlockSpan`: an item nested in a container
         // begins at its own marker, not at the container prefix (carve#913).
-        $opening = $start + ($this->currentContentColumns[$first] ?? 0);
+        $opening = $start + ($openingColumn ?? ($this->currentContentColumns[$first] ?? 0));
 
         return $this->positionIndex?->span(
             min($opening, $lastStart + $lastLength),
@@ -7710,6 +7955,11 @@ class BlockParser
      */
     private function deriveContainerSpans(Node $node): ?SourceSpan
     {
+        if (isset($this->unplaceableNodeIds[spl_object_id($node)])) {
+            $node->setPos(null);
+
+            return null;
+        }
         $first = null;
         $last = null;
         foreach ($node->getChildren() as $child) {
@@ -7726,6 +7976,76 @@ class BlockParser
         }
 
         $own = $node->getPos();
+        $allChildrenPlaced = count($node->getChildren()) === count(array_filter(
+            $node->getChildren(),
+            static fn (Node $child): bool => $child->getPos() !== null,
+        ));
+        if ($node instanceof Paragraph && $allChildrenPlaced && $first !== null && $last !== null) {
+            $exact = new SourceSpan(
+                startLine: $first->startLine,
+                endLine: $last->endLine,
+                startColumn: $first->startColumn,
+                endColumn: $last->endColumn,
+                startOffset: $first->startOffset,
+                endOffset: $last->endOffset,
+            );
+            $node->setPos($exact);
+
+            return $exact;
+        }
+        if (($node instanceof ListItem || $node instanceof DefinitionDescription) && $own !== null && $last !== null) {
+            $own = new SourceSpan(
+                startLine: $own->startLine,
+                endLine: $last->endLine,
+                startColumn: $own->startColumn,
+                endColumn: $last->endColumn,
+                startOffset: $own->startOffset,
+                endOffset: $last->endOffset,
+            );
+            $node->setPos($own);
+        }
+        if (
+            $node instanceof ListItem
+            && $own !== null
+            && $node->getParent() instanceof ListBlock
+            && $node->getParent()->getParent() instanceof Document
+        ) {
+            $lineStart = $this->lineStartOffsets[$own->startLine - 1] ?? null;
+            if ($lineStart !== null) {
+                $own = new SourceSpan(
+                    startLine: $own->startLine,
+                    endLine: $own->endLine,
+                    startColumn: 1,
+                    endColumn: $own->endColumn,
+                    startOffset: $this->positionIndex?->codepointAt($lineStart) ?? $own->startOffset,
+                    endOffset: $own->endOffset,
+                );
+                $node->setPos($own);
+            }
+        }
+        if ($own !== null && $node instanceof ListBlock) {
+            $lineIndex = $own->endLine - 1;
+            $continuation = $this->sourceLines[$lineIndex + 2] ?? '';
+            if (
+                ($this->sourceLines[$lineIndex + 1] ?? null) === ''
+                && array_key_exists($lineIndex + 2, $this->sourceLines)
+                && $own->endColumn === mb_strlen($this->sourceLines[$lineIndex] ?? '', 'UTF-8') + 1
+                && strlen($continuation) - strlen(ltrim($continuation, " \t")) >= $own->startColumn - 1
+            ) {
+                $nextByte = $this->lineStartOffsets[$lineIndex + 1] ?? null;
+                if ($nextByte !== null) {
+                    $own = new SourceSpan(
+                        startLine: $own->startLine,
+                        endLine: $own->endLine + 1,
+                        startColumn: $own->startColumn,
+                        endColumn: 1,
+                        startOffset: $own->startOffset,
+                        endOffset: $this->positionIndex?->codepointAt($nextByte) ?? $own->endOffset,
+                    );
+                    $node->setPos($own);
+                }
+            }
+        }
         if ($own !== null) {
             // A node contains what it holds, so its extent is the UNION of its
             // own and its children's - not whichever was set first. A list item
@@ -7738,7 +8058,10 @@ class BlockParser
             if ($own->startOffset <= $first->startOffset && $own->endOffset >= $last->endOffset) {
                 return $own;
             }
-            $first = $own->startOffset <= $first->startOffset ? $own : $first;
+            // A measured container's opener is authoritative. A child cannot
+            // own bytes before its parent; an earlier mapped child is a prefix
+            // from the re-indented parsing stream, not source owned by it.
+            $first = $own;
             $last = $own->endOffset >= $last->endOffset ? $own : $last;
         }
 
@@ -7754,6 +8077,30 @@ class BlockParser
             startOffset: $first->startOffset,
             endOffset: $last->endOffset,
         );
+        // A blank line closes a list after the terminator of its last content
+        // line. The terminator is owned by the list; the blank line is not.
+        if ($node instanceof ListBlock) {
+            $lineIndex = $derived->endLine - 1;
+            $continuation = $this->sourceLines[$lineIndex + 2] ?? '';
+            if (
+                ($this->sourceLines[$lineIndex + 1] ?? null) === ''
+                && array_key_exists($lineIndex + 2, $this->sourceLines)
+                && $derived->endColumn === mb_strlen($this->sourceLines[$lineIndex] ?? '', 'UTF-8') + 1
+                && strlen($continuation) - strlen(ltrim($continuation, " \t")) >= $derived->startColumn - 1
+            ) {
+                $nextByte = $this->lineStartOffsets[$lineIndex + 1] ?? null;
+                if ($nextByte !== null) {
+                    $derived = new SourceSpan(
+                        startLine: $derived->startLine,
+                        endLine: $derived->endLine + 1,
+                        startColumn: $derived->startColumn,
+                        endColumn: 1,
+                        startOffset: $derived->startOffset,
+                        endOffset: $this->positionIndex?->codepointAt($nextByte) ?? $derived->endOffset,
+                    );
+                }
+            }
+        }
         $node->setPos($derived);
 
         return $derived;
@@ -7779,7 +8126,16 @@ class BlockParser
 
         $end = $start + strlen($this->sourceLines[$sourceLine] ?? '');
 
-        return $this->positionIndex?->span($end, $end + 1, $sourceLine + 1, $sourceLine + 1, $start, $start);
+        $next = $this->lineStartOffsets[$sourceLine + 1] ?? ($end + 1);
+
+        return $this->positionIndex?->span(
+            $end,
+            $next,
+            $sourceLine + 1,
+            $sourceLine + 2,
+            $start,
+            $next,
+        );
     }
 
     /**
@@ -7856,6 +8212,28 @@ class BlockParser
         }
     }
 
+    private function extendFootnoteDefinitionToLineStart(string $label, int $lineIndex): void
+    {
+        $span = $this->footnoteDefinitionSpans[$label] ?? null;
+        $endByte = $this->lineStartOffsets[$lineIndex] ?? null;
+        if (
+            $span === null
+            || $endByte === null
+            || $lineIndex >= count($this->sourceLines) - 1
+            || !IndentationHelper::isBlankLine($this->sourceLines[$lineIndex] ?? '')
+        ) {
+            return;
+        }
+        $this->footnoteDefinitionSpans[$label] = new SourceSpan(
+            startLine: $span->startLine,
+            endLine: $lineIndex + 1,
+            startColumn: $span->startColumn,
+            endColumn: 1,
+            startOffset: $span->startOffset,
+            endOffset: $this->positionIndex?->codepointAt($endByte) ?? $span->endOffset,
+        );
+    }
+
     private function wholeLineSpan(int $index): ?SourceSpan
     {
         if (!$this->trackPositions) {
@@ -7877,6 +8255,36 @@ class BlockParser
             $sourceLine + 1,
             $start,
             $start,
+        );
+    }
+
+    private function wholeLinesSpan(int $firstIndex, int $lastIndex, int $openingColumn = 0): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+        while (
+            $lastIndex > $firstIndex
+            && IndentationHelper::isBlankLine($this->sourceLines[$this->sourceLineFor($lastIndex)] ?? '')
+        ) {
+            $lastIndex--;
+        }
+        $firstLine = $this->sourceLineFor($firstIndex);
+        $lastLine = $this->sourceLineFor($lastIndex);
+        $start = $this->lineStartOffsets[$firstLine] ?? null;
+        $lastStart = $this->lineStartOffsets[$lastLine] ?? null;
+        if ($start === null || $lastStart === null) {
+            return null;
+        }
+        $end = $lastStart + strlen($this->sourceLines[$lastLine] ?? '');
+
+        return $this->positionIndex?->span(
+            min($start + $openingColumn, $end),
+            $end,
+            $firstLine + 1,
+            $lastLine + 1,
+            $start,
+            $lastStart,
         );
     }
 
@@ -8015,9 +8423,39 @@ class BlockParser
             return null;
         }
 
+        $prefix = strpos($this->sourceLines[$sourceLine] ?? '', '|');
+        $prefix = $prefix === false ? 0 : $prefix;
+
         return $this->positionIndex?->span(
-            $lineStart + $offset,
-            $lineStart + $offset + $rawLength,
+            $lineStart + $prefix + $offset,
+            $lineStart + $prefix + $offset + $rawLength,
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+    }
+
+    private function tableLineSpan(int $index): ?SourceSpan
+    {
+        if (!$this->trackPositions) {
+            return null;
+        }
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+        $line = $this->sourceLines[$sourceLine] ?? '';
+        $prefix = strpos($line, '|');
+        if ($prefix === false) {
+            return null;
+        }
+        $end = $lineStart + strlen($line);
+
+        return $this->positionIndex?->span(
+            $lineStart + $prefix,
+            $end,
             $sourceLine + 1,
             $sourceLine + 1,
             $lineStart,

@@ -87,6 +87,17 @@ final class PositionIndex
         int $startLineByte,
         int $endLineByte,
     ): SourceSpan {
+        // A leading BOM is part of line 1 for column accounting even though the
+        // block parser skips it when recognizing the first construct.
+        if (str_starts_with($this->source, "\u{FEFF}")) {
+            if ($startLine === 1) {
+                $startLineByte = 0;
+            }
+            if ($endLine === 1) {
+                $endLineByte = 0;
+            }
+        }
+
         return new SourceSpan(
             startLine: $startLine,
             endLine: $endLine,
