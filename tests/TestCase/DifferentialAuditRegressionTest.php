@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 class DifferentialAuditRegressionTest extends TestCase
@@ -81,5 +83,17 @@ class DifferentialAuditRegressionTest extends TestCase
             . "</section>\n",
             $html,
         );
+    }
+
+    public function testImageInsideAHeadingStaysInlineOnTextTargets(): void
+    {
+        $source = "# a ![alt](/i.png) b\n\n[a ![alt](/i.png) b][]\n";
+
+        $plain = (new CarveConverter(renderer: new PlainTextRenderer()))->convert($source);
+        $this->assertSame("a alt b\n\na alt b\n", $plain);
+
+        $ansi = (new CarveConverter(renderer: new AnsiRenderer(useColors: false)))->convert($source);
+        $this->assertStringContainsString("a [img: alt] b\n", $ansi);
+        $this->assertStringNotContainsString("[img: alt]\n\n b", $ansi);
     }
 }

@@ -463,7 +463,10 @@ class PlainTextRenderer implements RendererInterface
     {
         $parent = $node->getParent();
 
-        return $parent !== null && !$parent instanceof Paragraph && !$parent instanceof InlineNode;
+        return $parent !== null
+            && !$parent instanceof Paragraph
+            && !$parent instanceof Heading
+            && !$parent instanceof InlineNode;
     }
 
     protected function stripControls(string $text): string
