@@ -61,4 +61,25 @@ class DifferentialAuditRegressionTest extends TestCase
         $html = (new CarveConverter())->convert("{ \n~~~%\n~~~\n");
         $this->assertSame("<p>{\n~~~%\n~~~</p>\n", $html);
     }
+
+    public function testTagNodeSurvivesInsideAHeadingDerivedLinkLabel(): void
+    {
+        $html = (new CarveConverter())->convert("# a &#65; b\n\n[a &#65; b][]\n");
+        $this->assertStringContainsString(
+            '<a href="#a-65-b">a &amp;<span class="tag"><strong>#65</strong></span>; b</a>',
+            $html,
+        );
+    }
+
+    public function testImageAltTextContributesToAHeadingKeyWithoutMakingTheImageBlockLevel(): void
+    {
+        $html = (new CarveConverter())->convert("# a ![alt](/i.png) b\n\n[a ![alt](/i.png) b][]\n");
+        $this->assertSame(
+            "<section id=\"a-alt-b\">\n"
+            . "  <h1>a <img src=\"/i.png\" alt=\"alt\"> b</h1>\n"
+            . "  <p><a href=\"#a-alt-b\">a <img src=\"/i.png\" alt=\"alt\"> b</a></p>\n"
+            . "</section>\n",
+            $html,
+        );
+    }
 }

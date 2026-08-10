@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -532,6 +533,9 @@ class HeadingIdTracker
             // `` # !`Cat` `` would slug to the empty fallback and a
             // `</#cat>` crossref could never resolve.
             return $child->getContent();
+        }
+        if ($child instanceof Image) {
+            return $child->getAlt();
         }
         if ($child instanceof Symbol) {
             if ($includeSymbols) {
