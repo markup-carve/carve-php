@@ -19,6 +19,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   / `    - c` - and a line with no content no longer takes that pad, which
   removes the whitespace-only lines PART 11 §7 forbids.
 
+- **Plain input text is not Carve markup, for `*` and `_` too.** `HtmlToCarve`
+  and `BbcodeToCarve` escaped the bare `/…/`, `=…=` and `~…~` pairs and the
+  braced forms, but never `*…*` or `_…_` - so an HTML paragraph reading
+  `literal *stars* here` converted to a Carve strong, and `_lead_` to an
+  underline. Both are now escaped, along with the braced `{*x*}` and `{_x_}`
+  spellings, with the parser's own word-boundary rule: `a*b*c`,
+  `feature_flag_company`, `can_*` and `5 * 4 * 3` stay bare. `MarkdownToCarve`
+  and `DjotToCarve` name the two delimiters as handled, because their source
+  languages spell emphasis that way and their own passes rewrite it.
+
 ## [0.1.4] - 2026-08-10
 
 ### Breaking

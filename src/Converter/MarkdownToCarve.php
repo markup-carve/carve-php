@@ -528,7 +528,11 @@ class MarkdownToCarve
             }, $line) ?? $line;
         }
 
-        $line = $this->escapePlainCarveInlineSyntax($line);
+        // `*` and `_` are Markdown's own emphasis delimiters, bare and braced
+        // alike, and the passes below rewrite them into Carve. Escaping them
+        // here would freeze `*x*` as literal text before it ever reaches that
+        // rewrite.
+        $line = $this->escapePlainCarveInlineSyntax($line, ['braced' => '*_', 'bare' => '*_']);
 
         $stash = [];
         $hold = function (string $span) use (&$stash): string {
