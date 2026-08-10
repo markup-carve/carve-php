@@ -40,6 +40,9 @@ class MarkdownHabitLinter
      */
     public const RULE_STRIKETHROUGH = 'markdown-strikethrough';
 
+    /**
+     * @var string
+     */
     public const RULE_BIDI_CONTROL_IN_SOURCE = 'bidi-control-in-source';
 
     /**

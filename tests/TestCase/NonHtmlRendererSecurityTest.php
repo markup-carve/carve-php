@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
@@ -37,9 +38,10 @@ class NonHtmlRendererSecurityTest extends TestCase
             foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
                 $this->assertStringNotContainsString($control, $renderer->render($document));
             }
-            $this->assertStringContainsString($control, (new \MarkupCarve\Carve\Renderer\CarveRenderer())->render($document));
+            $this->assertStringContainsString($control, (new CarveRenderer())->render($document));
         }
     }
+
     protected function md(string $djot): string
     {
         $c = new CarveConverter();
