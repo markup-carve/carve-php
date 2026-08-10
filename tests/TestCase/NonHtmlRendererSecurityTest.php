@@ -58,6 +58,14 @@ class NonHtmlRendererSecurityTest extends TestCase
     public function testMarkdownEscapesEmbeddedHtmlInTextAndFallbackTags(): void
     {
         $this->assertStringNotContainsString('<img', $this->md('plain <img onerror=x> text'));
+
+        // `<` and `>` take the entity form and `&` does not (carve#1071). The
+        // reason: an entity in Markdown TEXT decodes to a CHARACTER, and a
+        // character cannot open a tag, so text authored as `&lt;script&gt;`
+        // comes back as the four characters a reader sees rather than as live
+        // markup - which is exactly what a bare `<` would be.
+        $this->assertSame('a &lt; b & c', trim($this->md('a < b & c')));
+        $this->assertSame('a &lt;script&gt; b', trim($this->md('a &lt;script&gt; b')));
         // Superscript HTML fallback: children are HTML-escaped.
         $sup = $this->md('{^<img src=x onerror=alert(1)>^}');
         $this->assertStringContainsString('<sup>', $sup);
