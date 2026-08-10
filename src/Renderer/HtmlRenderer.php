@@ -1818,6 +1818,7 @@ class HtmlRenderer implements RendererInterface
         // image there was never a paragraph, so nothing about it changed.
         return $parent !== null
             && !$parent instanceof Paragraph
+            && !$parent instanceof Heading
             && !$parent instanceof Figure
             && !$parent instanceof InlineNode;
     }

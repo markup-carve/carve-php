@@ -70,4 +70,16 @@ class DifferentialAuditRegressionTest extends TestCase
             $html,
         );
     }
+
+    public function testImageAltTextContributesToAHeadingKeyWithoutMakingTheImageBlockLevel(): void
+    {
+        $html = (new CarveConverter())->convert("# a ![alt](/i.png) b\n\n[a ![alt](/i.png) b][]\n");
+        $this->assertSame(
+            "<section id=\"a-alt-b\">\n"
+            . "  <h1>a <img src=\"/i.png\" alt=\"alt\"> b</h1>\n"
+            . "  <p><a href=\"#a-alt-b\">a <img src=\"/i.png\" alt=\"alt\"> b</a></p>\n"
+            . "</section>\n",
+            $html,
+        );
+    }
 }
