@@ -855,8 +855,6 @@ class MarkdownRenderer implements RendererInterface
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
-                $indent = str_repeat('  ', $this->listDepth - 1);
-
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
                     // Normalize to standard Markdown: numeric with . or )
                     // Roman/alpha styles and (n) format are Djot-specific
@@ -879,12 +877,24 @@ class MarkdownRenderer implements RendererInterface
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
-                $output .= $indent . $prefix . $firstLine . "\n";
+                $output .= $prefix . $firstLine . "\n";
 
                 if ($lines) {
+                    // Every continuation line moves to this item's content
+                    // column, and a nested list is one of them: the child list
+                    // emits its markers flush and THIS pad is what nests it.
+                    // Padding by the list's own depth as well indented each
+                    // level twice, which put a third level ten columns in -
+                    // four past its parent's content column, where a reader
+                    // opens an indented verbatim block instead of a list.
+                    //
+                    // A line with no content takes no padding: PART 11 section
+                    // 7 emits such a line empty, and trailing whitespace is
+                    // what editors and `git apply --whitespace=fix` rewrite
+                    // behind the writer.
                     $continuation = str_repeat(' ', strlen($prefix));
                     foreach ($lines as $line) {
-                        $output .= $indent . $continuation . $line . "\n";
+                        $output .= ($line === '' ? '' : $continuation . $line) . "\n";
                     }
                 }
             }
