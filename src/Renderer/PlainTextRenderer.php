@@ -131,6 +131,8 @@ class PlainTextRenderer implements RendererInterface
 
     protected int $renderDepth = 0;
 
+    protected int $listDepth = 0;
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
@@ -487,20 +489,33 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderList(ListBlock $node): string
     {
+        $this->listDepth++;
         $text = '';
         $counter = $node->getStart();
+        $indent = str_repeat('  ', $this->listDepth - 1);
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-                    $text .= $counter . $this->orderedListItemPrefix;
+                    $text .= $indent . $counter . $this->orderedListItemPrefix;
                     $counter++;
                 } else {
-                    $text .= $this->listItemPrefix;
+                    $text .= $indent . $this->listItemPrefix;
                 }
-                $text .= trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
+                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
+                if ($node->isTight()) {
+                    $nestedIndent = str_repeat('  ', $this->listDepth);
+                    $content = (string)preg_replace(
+                        '/\n\n(?=' . preg_quote($nestedIndent, '/') . '(?:-|\d+[.)]) )/',
+                        "\n",
+                        $content,
+                    );
+                }
+                $text .= $content . "\n";
             }
         }
+
+        $this->listDepth--;
 
         return $text . "\n";
     }

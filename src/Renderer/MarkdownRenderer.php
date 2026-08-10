@@ -734,7 +734,50 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderParagraph(Paragraph $node): string
     {
-        return $this->renderChildren($node) . "\n\n";
+        return $this->protectParagraphListMarkers($this->renderChildren($node)) . "\n\n";
+    }
+
+    /**
+     * Keep paragraph continuation lines from becoming lists in Markdown readers.
+     */
+    protected function protectParagraphListMarkers(string $text): string
+    {
+        $codeFence = 0;
+        $lines = explode("\n", $text);
+        foreach ($lines as &$line) {
+            if ($codeFence === 0) {
+                $line = (string)preg_replace('/^([ \t]{0,3})([-+])(?=[ \t])/', '$1\\\\$2', $line);
+                $line = (string)preg_replace('/^([ \t]{0,3}\d{1,9})([.)])(?=[ \t])/', '$1\\\\$2', $line);
+            }
+
+            $length = strlen($line);
+            for ($i = 0; $i < $length;) {
+                if ($line[$i] !== '`') {
+                    $i++;
+
+                    continue;
+                }
+                $backslashes = 0;
+                for ($j = $i - 1; $j >= 0 && $line[$j] === '\\'; $j--) {
+                    $backslashes++;
+                }
+                $run = 1;
+                while ($i + $run < $length && $line[$i + $run] === '`') {
+                    $run++;
+                }
+                if ($backslashes % 2 === 0) {
+                    if ($codeFence === 0) {
+                        $codeFence = $run;
+                    } elseif ($codeFence === $run) {
+                        $codeFence = 0;
+                    }
+                }
+                $i += $run;
+            }
+        }
+        unset($line);
+
+        return implode("\n", $lines);
     }
 
     /**
