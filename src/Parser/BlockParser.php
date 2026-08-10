@@ -7116,7 +7116,7 @@ class BlockParser
                 $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
                     ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
                 $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
-                if (count($cellData['sourceChunks'] ?? []) > 1) {
+                if (count($cellData['sourceChunks']) > 1) {
                     $cellSpan = null;
                     $this->unplaceableNodeIds[spl_object_id($cell)] = true;
                 }
@@ -7688,11 +7688,11 @@ class BlockParser
                 }
                 $paragraph->setPos(new SourceSpan(
                     startLine: $first->startLine,
-                    endLine: $measured?->endLine ?? $last->endLine,
+                    endLine: $measured !== null ? $measured->endLine : $last->endLine,
                     startColumn: $first->startColumn,
-                    endColumn: $measured?->endColumn ?? $last->endColumn,
+                    endColumn: $measured !== null ? $measured->endColumn : $last->endColumn,
                     startOffset: $first->startOffset,
-                    endOffset: $measured?->endOffset ?? $last->endOffset,
+                    endOffset: $measured !== null ? $measured->endOffset : $last->endOffset,
                 ));
             }
         }
@@ -7772,17 +7772,26 @@ class BlockParser
             return null;
         }
 
-        $first = $lineMap[array_key_first($lineMap)];
+        $firstKey = array_key_first($lineMap);
+        $first = $lineMap[$firstKey];
         $remaining = count($lineMap);
         while ($remaining > 1) {
-            $candidate = $lineMap[array_key_last($lineMap)];
+            $lastKey = array_key_last($lineMap);
+            if ($lastKey === null) {
+                return null;
+            }
+            $candidate = $lineMap[$lastKey];
             if (!IndentationHelper::isBlankLine($this->sourceLines[$candidate] ?? '')) {
                 break;
             }
             array_pop($lineMap);
             $remaining--;
         }
-        $last = $lineMap[array_key_last($lineMap)];
+        $lastKey = array_key_last($lineMap);
+        if ($lastKey === null) {
+            return null;
+        }
+        $last = $lineMap[$lastKey];
         $start = $this->lineStartOffsets[$first] ?? null;
         $lastStart = $this->lineStartOffsets[$last] ?? null;
         if ($start === null || $lastStart === null) {
@@ -7999,7 +8008,7 @@ class BlockParser
             $node instanceof ListItem
             && $own !== null
             && $node->getParent() instanceof ListBlock
-            && $node->getParent()?->getParent() instanceof Document
+            && $node->getParent()->getParent() instanceof Document
         ) {
             $lineStart = $this->lineStartOffsets[$own->startLine - 1] ?? null;
             if ($lineStart !== null) {
