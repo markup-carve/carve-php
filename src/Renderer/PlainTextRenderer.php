@@ -471,7 +471,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string

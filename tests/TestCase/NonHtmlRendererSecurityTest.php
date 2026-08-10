@@ -28,6 +28,18 @@ use PHPUnit\Framework\TestCase;
  */
 class NonHtmlRendererSecurityTest extends TestCase
 {
+    public function testAllPresentationTargetsStripBidiControlsAndCanonicalPreservesThem(): void
+    {
+        $controls = ["\u{202A}", "\u{202B}", "\u{202C}", "\u{202D}", "\u{202E}", "\u{2066}", "\u{2067}", "\u{2068}", "\u{2069}"];
+        foreach ($controls as $control) {
+            $source = "a{$control}b\n";
+            $document = (new CarveConverter())->parse($source);
+            foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+                $this->assertStringNotContainsString($control, $renderer->render($document));
+            }
+            $this->assertStringContainsString($control, (new \MarkupCarve\Carve\Renderer\CarveRenderer())->render($document));
+        }
+    }
     protected function md(string $djot): string
     {
         $c = new CarveConverter();

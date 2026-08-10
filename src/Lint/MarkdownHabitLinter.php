@@ -40,6 +40,8 @@ class MarkdownHabitLinter
      */
     public const RULE_STRIKETHROUGH = 'markdown-strikethrough';
 
+    public const RULE_BIDI_CONTROL_IN_SOURCE = 'bidi-control-in-source';
+
     /**
      * @var string
      */
@@ -87,6 +89,23 @@ class MarkdownHabitLinter
 
         foreach ($lines as $index => $line) {
             $lineNumber = $index + 1;
+            if (preg_match_all('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $line, $bidi, PREG_OFFSET_CAPTURE)) {
+                foreach ($bidi[0] as [$control, $byteColumn]) {
+                    $prefix = substr($line, 0, $byteColumn);
+                    $column = preg_match_all('/./us', $prefix) + 1;
+                    $warnings[] = new LintWarning(
+                        $lineNumber,
+                        $column,
+                        self::RULE_BIDI_CONTROL_IN_SOURCE,
+                        sprintf(
+                            'Bidi override/isolate control U+%04X is preserved by canonical Carve but stripped from presentation output; remove it unless intentional.',
+                            mb_ord($control, 'UTF-8'),
+                        ),
+                        $offset + $byteColumn,
+                        $offset + $byteColumn + strlen($control),
+                    );
+                }
+            }
             // Deliberately WITHOUT the container strip the platform pass uses.
             // This tracker decides where the Markdown-habit rules look, and
             // teaching it that `> ``` ` opens a fence would silently stop those
