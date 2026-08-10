@@ -108,6 +108,11 @@ class BbcodeToCarve
         $text = preg_replace_callback('/\[url\].*?\[\/url\]/is', $protect, $text) ?? $text;
         $text = preg_replace_callback('/\[img(?:=[^\]]*)?\].*?\[\/img\]/is', $protect, $text) ?? $text;
         $text = preg_replace_callback('/\[\/?[a-z][a-z0-9]*(?:=[^\]]*)?\]/i', $protect, $text) ?? $text;
+        // `[*]` is the list-item tag, and the pattern above cannot see it - it
+        // requires a letter after the bracket. Left unprotected, two of them on
+        // a line are a `*…*` pair to the escaper, which then backslashes the
+        // opener of the very marker convertLists() is about to read.
+        $text = preg_replace_callback('/\[\*\]/', $protect, $text) ?? $text;
 
         $text = $this->escapePlainCarveInlineSyntax($text);
 

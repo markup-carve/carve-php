@@ -14,11 +14,13 @@ trait EscapesCarveConstructs
      * list is deliberately longer than the two obvious cases - a delimiter
      * missing from it renders as markup.
      *
-     * `*` and `_` are absent on purpose: `{*x*}` and `{_x_}` carry Markdown-like
-     * emphasis inside braces, so callers that rewrite those forms own them. `@`
-     * and `"` are absent because `{@x@}` and `{"x"}` reinterpret through
-     * mentions and smart typography, which apply to any Carve source rather than
-     * being introduced here.
+     * `*` and `_` are in the list because `{*x*}` and `{_x_}` are a strong and
+     * an underline, so they are markup in exactly the way the rest of the list
+     * is. A caller whose own language spells emphasis that way - Markdown and
+     * Djot both do - names them as handled rather than having them left out
+     * here for everyone. `@` and `"` are absent because `{@x@}` and `{"x"}`
+     * reinterpret through mentions and smart typography, which apply to any
+     * Carve source rather than being introduced here.
      *
      * Held as the literal characters, with the regex character class derived by
      * `bracedDelimiterClass()`. One list, so a delimiter cannot be added to the
@@ -26,7 +28,7 @@ trait EscapesCarveConstructs
      *
      * @var string
      */
-    protected const BRACED_DELIMITER_CHARS = '^,=+-~/#';
+    protected const BRACED_DELIMITER_CHARS = '^,=+-~/#*_';
 
     /**
      * Escape Carve inline constructs that are literal text in the source.
@@ -75,6 +77,19 @@ trait EscapesCarveConstructs
         }
         if (!str_contains($bareHandled, '~')) {
             $line = preg_replace_callback('/(?<![A-Za-z0-9~{])~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
+        }
+
+        // `*` is a strong and `_` an underline, and both are word-bounded: the
+        // lookarounds are the same ones the parser opens on, so `a*b*c`,
+        // `feature_flag_company` and `5 * 4 * 3` stay bare - escaping those
+        // would put a backslash in front of a character the reader typed as
+        // itself. Doubling is excluded because `**x**` and `__x__` are already
+        // literal to the parser.
+        if (!str_contains($bareHandled, '*')) {
+            $line = preg_replace_callback('/(?<![A-Za-z0-9*{])\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $escapeFirst, $line) ?? $line;
+        }
+        if (!str_contains($bareHandled, '_')) {
+            $line = preg_replace_callback('/(?<![A-Za-z0-9_{])_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $escapeFirst, $line) ?? $line;
         }
 
         return $line;

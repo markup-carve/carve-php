@@ -259,6 +259,8 @@ class HtmlToCarveTest extends TestCase
             'bare slash' => ['<p>a /it/ b</p>', 'a /it/ b'],
             'bare equals' => ['<p>a =hi= b</p>', 'a =hi= b'],
             'bare tilde' => ['<p>a ~no~ b</p>', 'a ~no~ b'],
+            'bare asterisk' => ['<p>a *st* b</p>', 'a *st* b'],
+            'bare underscore' => ['<p>a _un_ b</p>', 'a _un_ b'],
             'braced superscript' => ['<p>a {^y^} b</p>', 'a {^y^} b'],
             'braced subscript' => ['<p>a {,y,} b</p>', 'a {,y,} b'],
             'braced highlight' => ['<p>a {=y=} b</p>', 'a {=y=} b'],
@@ -266,6 +268,8 @@ class HtmlToCarveTest extends TestCase
             'braced delete' => ['<p>a {-y-} b</p>', 'a {-y-} b'],
             'braced strikethrough' => ['<p>a {~y~} b</p>', 'a {~y~} b'],
             'braced emphasis' => ['<p>a {/y/} b</p>', 'a {/y/} b'],
+            'braced strong' => ['<p>a {*y*} b</p>', 'a {*y*} b'],
+            'braced underline' => ['<p>a {_y_} b</p>', 'a {_y_} b'],
             'braced comment' => ['<p>a {#y#} b</p>', 'a {#y#} b'],
             'percent comments' => ['<p>a %%c%% b</p>', 'a %%c%% b'],
         ];
@@ -304,6 +308,11 @@ class HtmlToCarveTest extends TestCase
             'ftp url' => ['ftp://x/'],
             'protocol-relative url' => ['//host/path'],
             'file url' => ['file:///etc/hosts'],
+            'intraword asterisk' => ['a*b*c'],
+            'intraword underscore' => ['feature_flag_company'],
+            'spaced multiplication' => ['5 * 4 * 3'],
+            'snake case pair' => ['status_manually_set_by and completed_at'],
+            'lone asterisk' => ['can_* fields'],
         ];
     }
 
