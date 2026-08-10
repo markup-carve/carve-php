@@ -107,6 +107,20 @@ class MarkdownHabitLinterTest extends TestCase
         $this->assertSame('**bold**', substr($source, $warning->start, $warning->end - $warning->start));
     }
 
+    public function testBidiControlsAreReportedEvenInsideVerbatimSource(): void
+    {
+        $source = "😀x\u{202E}y\n`a\u{2066}b`";
+        $warnings = array_values(array_filter(
+            (new MarkdownHabitLinter())->lint($source),
+            static fn ($warning): bool => $warning->rule === MarkdownHabitLinter::RULE_BIDI_CONTROL_IN_SOURCE,
+        ));
+
+        $this->assertCount(2, $warnings);
+        $this->assertSame([1, 3], [$warnings[0]->line, $warnings[0]->column]);
+        $this->assertSame([2, 3], [$warnings[1]->line, $warnings[1]->column]);
+        $this->assertSame("\u{202E}", substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
+    }
+
     public function testEveryHabitOnOneLineIsReportedInColumnOrder(): void
     {
         $this->assertSame(
