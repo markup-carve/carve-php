@@ -56,7 +56,11 @@ class MarkdownSmartTypographyModeTest extends TestCase
         // Escaping is a separate concern with its own security rationale, and
         // this mode deliberately leaves it alone.
         $this->assertSame('a \* b', trim($this->source()->convert('a * b')));
-        $this->assertSame('a &amp; b', trim($this->source()->convert('a & b')));
+        // `&` is emitted bare on this target (carve#1071); what this asserts is
+        // that the mode does not change that either way, and that `<` still
+        // takes the entity form.
+        $this->assertSame('a & b', trim($this->source()->convert('a & b')));
+        $this->assertSame('a &lt; b', trim($this->source()->convert('a < b')));
 
         // An intraword underscore is NOT escaped: it needs no escape, and
         // escaping it degrades exact-match search in a generated corpus (#417).
