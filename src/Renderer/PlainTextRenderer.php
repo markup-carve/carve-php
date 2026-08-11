@@ -131,6 +131,8 @@ class PlainTextRenderer implements RendererInterface
 
     protected int $renderDepth = 0;
 
+    protected int $listDepth = 0;
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
@@ -471,7 +473,11 @@ class PlainTextRenderer implements RendererInterface
 
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+        $text = (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+
+        return str_contains($text, "\xE2")
+            ? (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text)
+            : $text;
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
@@ -483,20 +489,33 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderList(ListBlock $node): string
     {
+        $this->listDepth++;
         $text = '';
         $counter = $node->getStart();
+        $indent = str_repeat('  ', $this->listDepth - 1);
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-                    $text .= $counter . $this->orderedListItemPrefix;
+                    $text .= $indent . $counter . $this->orderedListItemPrefix;
                     $counter++;
                 } else {
-                    $text .= $this->listItemPrefix;
+                    $text .= $indent . $this->listItemPrefix;
                 }
-                $text .= trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
+                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
+                if ($node->isTight()) {
+                    $nestedIndent = str_repeat('  ', $this->listDepth);
+                    $content = (string)preg_replace(
+                        '/\n\n(?=' . preg_quote($nestedIndent, '/') . '(?:-|\d+[.)]) )/',
+                        "\n",
+                        $content,
+                    );
+                }
+                $text .= $content . "\n";
             }
         }
+
+        $this->listDepth--;
 
         return $text . "\n";
     }

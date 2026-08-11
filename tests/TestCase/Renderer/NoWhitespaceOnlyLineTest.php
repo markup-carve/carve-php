@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -66,7 +67,11 @@ class NoWhitespaceOnlyLineTest extends TestCase
     {
         $dir = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
         $inputs = glob($dir . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($inputs),
+            'the corpus is truncated',
+        );
 
         $failures = [];
         foreach ($inputs as $path) {

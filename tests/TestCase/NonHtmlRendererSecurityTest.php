@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +29,19 @@ use PHPUnit\Framework\TestCase;
  */
 class NonHtmlRendererSecurityTest extends TestCase
 {
+    public function testAllPresentationTargetsStripBidiControlsAndCanonicalPreservesThem(): void
+    {
+        $controls = ["\u{202A}", "\u{202B}", "\u{202C}", "\u{202D}", "\u{202E}", "\u{2066}", "\u{2067}", "\u{2068}", "\u{2069}"];
+        foreach ($controls as $control) {
+            $source = "a{$control}b\n";
+            $document = (new CarveConverter())->parse($source);
+            foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+                $this->assertStringNotContainsString($control, $renderer->render($document));
+            }
+            $this->assertStringContainsString($control, (new CarveRenderer())->render($document));
+        }
+    }
+
     protected function md(string $djot): string
     {
         $c = new CarveConverter();
@@ -58,6 +72,14 @@ class NonHtmlRendererSecurityTest extends TestCase
     public function testMarkdownEscapesEmbeddedHtmlInTextAndFallbackTags(): void
     {
         $this->assertStringNotContainsString('<img', $this->md('plain <img onerror=x> text'));
+
+        // `<` and `>` take the entity form and `&` does not (carve#1071). The
+        // reason: an entity in Markdown TEXT decodes to a CHARACTER, and a
+        // character cannot open a tag, so text authored as `&lt;script&gt;`
+        // comes back as the four characters a reader sees rather than as live
+        // markup - which is exactly what a bare `<` would be.
+        $this->assertSame('a &lt; b & c', trim($this->md('a < b & c')));
+        $this->assertSame('a &lt;script&gt; b', trim($this->md('a &lt;script&gt; b')));
         // Superscript HTML fallback: children are HTML-escaped.
         $sup = $this->md('{^<img src=x onerror=alert(1)>^}');
         $this->assertStringContainsString('<sup>', $sup);

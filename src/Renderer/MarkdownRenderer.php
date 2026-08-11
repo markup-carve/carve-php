@@ -734,7 +734,50 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderParagraph(Paragraph $node): string
     {
-        return $this->renderChildren($node) . "\n\n";
+        return $this->protectParagraphListMarkers($this->renderChildren($node)) . "\n\n";
+    }
+
+    /**
+     * Keep paragraph continuation lines from becoming lists in Markdown readers.
+     */
+    protected function protectParagraphListMarkers(string $text): string
+    {
+        $codeFence = 0;
+        $lines = explode("\n", $text);
+        foreach ($lines as &$line) {
+            if ($codeFence === 0) {
+                $line = (string)preg_replace('/^([ \t]{0,3})([-+])(?=[ \t])/', '$1\\\\$2', $line);
+                $line = (string)preg_replace('/^([ \t]{0,3}\d{1,9})([.)])(?=[ \t])/', '$1\\\\$2', $line);
+            }
+
+            $length = strlen($line);
+            for ($i = 0; $i < $length;) {
+                if ($line[$i] !== '`') {
+                    $i++;
+
+                    continue;
+                }
+                $backslashes = 0;
+                for ($j = $i - 1; $j >= 0 && $line[$j] === '\\'; $j--) {
+                    $backslashes++;
+                }
+                $run = 1;
+                while ($i + $run < $length && $line[$i + $run] === '`') {
+                    $run++;
+                }
+                if ($backslashes % 2 === 0) {
+                    if ($codeFence === 0) {
+                        $codeFence = $run;
+                    } elseif ($codeFence === $run) {
+                        $codeFence = 0;
+                    }
+                }
+                $i += $run;
+            }
+        }
+        unset($line);
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -855,8 +898,6 @@ class MarkdownRenderer implements RendererInterface
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
-                $indent = str_repeat('  ', $this->listDepth - 1);
-
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
                     // Normalize to standard Markdown: numeric with . or )
                     // Roman/alpha styles and (n) format are Djot-specific
@@ -879,12 +920,24 @@ class MarkdownRenderer implements RendererInterface
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
-                $output .= $indent . $prefix . $firstLine . "\n";
+                $output .= $prefix . $firstLine . "\n";
 
                 if ($lines) {
+                    // Every continuation line moves to this item's content
+                    // column, and a nested list is one of them: the child list
+                    // emits its markers flush and THIS pad is what nests it.
+                    // Padding by the list's own depth as well indented each
+                    // level twice, which put a third level ten columns in -
+                    // four past its parent's content column, where a reader
+                    // opens an indented verbatim block instead of a list.
+                    //
+                    // A line with no content takes no padding: PART 11 section
+                    // 7 emits such a line empty, and trailing whitespace is
+                    // what editors and `git apply --whitespace=fix` rewrite
+                    // behind the writer.
                     $continuation = str_repeat(' ', strlen($prefix));
                     foreach ($lines as $line) {
-                        $output .= $indent . $continuation . $line . "\n";
+                        $output .= ($line === '' ? '' : $continuation . $line) . "\n";
                     }
                 }
             }
@@ -1370,8 +1423,24 @@ class MarkdownRenderer implements RendererInterface
         // Neutralize embedded HTML first, so Markdown later re-rendered to HTML
         // cannot execute it: carve's "HTML is text" guarantee holds for the
         // Markdown target too (a literal `<img onerror=…>` in text becomes
-        // inert `&lt;img …&gt;`). `&` first so the entities are not re-escaped.
-        $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
+        // inert `&lt;img …&gt;`).
+        //
+        // ONLY `<` AND `>` DO THAT WORK. A bare `&` cannot open a tag: an entity
+        // in Markdown TEXT decodes to a CHARACTER, and a character in text
+        // content is escaped again by whatever writes the HTML. Measured against
+        // pandoc 3.5, commonmark.js and marked with raw HTML ALLOWED - the
+        // entity and bare forms came out byte-identical and inert, while a bare
+        // `<` was live in all three. Escaping every ampersand cost every
+        // document its spelling for nothing: on one real corpus 324 of 423
+        // escaped characters were ampersands (carve#1071).
+        //
+        // NO EXCEPTION FOR A CHARACTER-REFERENCE OPENER, deliberately. Text
+        // authored as `&#65;` is emitted as itself. Whether an `&` opens a
+        // reference depends on the EMITTED LINE, and Carve parses `#65` as a
+        // tag, so this renderer sees two separate text nodes - answering it here
+        // would be one node too early, the mistake §8a M1b documents for `_`,
+        // `#` and `[`.
+        $text = str_replace(['<', '>'], ['&lt;', '&gt;'], $text);
 
         // Escape special Markdown characters in text. None overlap with the HTML
         // chars escaped above.
@@ -1549,6 +1618,10 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+        $text = (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
+
+        return str_contains($text, "\xE2")
+            ? (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text)
+            : $text;
     }
 }

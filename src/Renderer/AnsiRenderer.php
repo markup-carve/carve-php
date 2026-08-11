@@ -1206,7 +1206,11 @@ class AnsiRenderer implements RendererInterface
      */
     protected function stripControls(string $text): string
     {
-        return (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
+        $text = (string)preg_replace('/(?!\x{0009}|\x{000A})\p{Cc}/u', '', $text);
+
+        return str_contains($text, "\xE2")
+            ? (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text)
+            : $text;
     }
 
     protected function renderFigure(Figure $node): string

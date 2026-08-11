@@ -18,7 +18,8 @@ use PHPUnit\Framework\TestCase;
  * - **M1b** `_`, `#` and `[` are escaped IF AND ONLY IF the character is
  *   ADJACENT ON THE EMITTED LINE to an UNESCAPED DELIMITER OF THE SAME
  *   CHARACTER.
- * - **M1c** nothing else narrows.
+ * - **M1c** a paragraph line must not become a list.
+ * - **M1d** nothing else narrows.
  *
  * THE SHARP PAIR IS M1a AGAINST M1b, and it is what says a single-rule
  * implementation cannot satisfy both. Making the asterisk conditional kills only
@@ -35,6 +36,17 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
 {
+    public function testParagraphLinesCannotBecomeListsInMarkdownReaders(): void
+    {
+        $converter = CarveConverter::markdown();
+        $this->assertSame("para\n\\- tail\n", $converter->convert("para\n- tail\n"));
+        $this->assertSame("para\n\\+ tail\n", $converter->convert("para\n+ tail\n"));
+        $this->assertSame("para\n1\\. tail\n", $converter->convert("para\n1. tail\n"));
+        $this->assertSame("para\n1\\) tail\n", $converter->convert("para\n1) tail\n"));
+        $this->assertSame("- real\n", $converter->convert("- real\n"));
+        $this->assertSame("para `code\n- literal`\n", $converter->convert("para ``code\n- literal``\n"));
+    }
+
     protected function md(string $source): string
     {
         return trim(CarveConverter::markdown()->convert($source));

@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -167,7 +168,11 @@ class TextRunRoundTripTest extends TestCase
         $this->assertDirectoryExists($dir, 'spec corpus missing; run: git submodule update --init');
 
         $paths = glob($dir . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($paths), 'corpus looks truncated');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($paths),
+            'the corpus is truncated',
+        );
 
         $mismatched = [];
         foreach ($paths as $path) {
@@ -192,7 +197,11 @@ class TextRunRoundTripTest extends TestCase
         $this->assertDirectoryExists($dir, 'spec corpus missing; run: git submodule update --init');
 
         $paths = glob($dir . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($paths), 'corpus looks truncated');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($paths),
+            'the corpus is truncated',
+        );
 
         $offenders = [];
         foreach ($paths as $path) {
