@@ -161,13 +161,17 @@ class CarveRenderer implements RendererInterface
      * document's BLOCK STRUCTURE rather than a character
      * (markup-carve/carve-php#1087).
      *
-     * A run of six also cannot collide with itself: the picker returns six
+     * Slot 6 marks a hard boundary between compatible sibling lists. It
+     * survives whole-document blank-line collapsing and restores to the empty
+     * string, leaving exactly two blank lines between the rendered lists.
+     *
+     * A run of seven also cannot collide with itself: the picker returns seven
      * DISTINCT consecutive code points, so the tag differs from every carrier by
      * construction rather than by being parked at a hopefully-unused address.
      *
-     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
+     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
-    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}", "\u{E006}"];
+    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}", "\u{E006}", "\u{E007}"];
 
     /**
      * Every string in the tree, joined.
@@ -183,12 +187,12 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string} $picked */
-        $picked = DocumentSentinels::pick($text, 6, 0xE001);
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string} $picked */
+        $picked = DocumentSentinels::pick($text, 7, 0xE001);
 
         return $picked;
     }
@@ -512,32 +516,6 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Whether two adjacent sibling lists would read back as ONE list.
-     *
-     * PART 9 section 11 N1's axes. `listType` already separates a task list
-     * from a plain one, so what remains is the authored marker character (the
-     * bullet, or the ordered delimiter) and the ordered dialect. Where any of
-     * them differs the lists separate on their own and the writer owes them
-     * nothing, which is what carve#286 established.
-     */
-    protected static function listsWouldMerge(ListBlock $a, ListBlock $b): bool
-    {
-        return $a->getListType() === $b->getListType()
-            && $a->getMarker() === $b->getMarker()
-            && $a->getStyle() === $b->getStyle();
-    }
-
-    protected static function indentLines(string $text, int $columns): string
-    {
-        $pad = str_repeat(' ', $columns);
-
-        return implode("\n", array_map(
-            static fn (string $line): string => $line === '' ? $line : $pad . $line,
-            explode("\n", $text),
-        ));
-    }
-
-    /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
@@ -552,40 +530,29 @@ class CarveRenderer implements RendererInterface
         $previousCaptionHost = $this->afterCaptionHost;
         try {
             $parts = [];
-            // TWO ADJACENT SIBLING LISTS NEED SOMETHING BETWEEN THEM. Written at
-            // the same column with matching markers they merge on re-parse, so
-            // `parse(fmt(x)) == parse(x)` is false for a document the parser
-            // reads as two lists (carve#1088). carve#286 spent the marker axis -
-            // emit the marker as authored - which separates them only while the
-            // markers DIFFER; when both are `1.` at column 0 there is nothing
-            // left to preserve and indentation is the axis remaining.
-            //
-            // ONE SPACE, CUMULATIVE, RELATIVE TO THE LIST BEFORE IT. One space is
-            // the only offset safe for both kinds: a bullet's content column is
-            // 2, so two spaces already NEST the second list inside the first. And
-            // the step is per list rather than per run - writing every later list
-            // at a flat +1 leaves the second and third at the same column, where
-            // they merge with each other.
-            $previousList = null;
-            $listOffset = 0;
+            $previousRendered = null;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
                 // Remember, for the NEXT block, whether a `^ ` line after it
                 // would be read back as a caption. Only then does the caption
                 // marker need escaping (PART 11 §2, carve-php#758).
                 $this->afterCaptionHost = self::hostsACaption($block);
-                if ($block instanceof ListBlock) {
-                    $listOffset = $previousList !== null && self::listsWouldMerge($previousList, $block)
-                        ? $listOffset + 1
-                        : 0;
-                    $previousList = $block;
-                } elseif ($rendered !== '') {
-                    $previousList = null;
-                    $listOffset = 0;
-                }
                 if ($rendered !== '') {
-                    $parts[] = $listOffset > 0 ? self::indentLines($rendered, $listOffset) : $rendered;
+                    if (
+                        $previousRendered instanceof ListBlock
+                        && $block instanceof ListBlock
+                        && $this->adjacentBlocksMerge($previousRendered, $block)
+                    ) {
+                        // implode contributes the ordinary blank line; this
+                        // protected line contributes the second one and is
+                        // removed only after normalize() has collapsed runs.
+                        $rendered = $this->verbatimSentinels[6] . "\n" . $rendered;
+                    }
+                    $parts[] = $rendered;
                 }
+                // Adjacency is structural. A rendering-empty comment or
+                // definition between lists prevents the special separator.
+                $previousRendered = $block;
             }
 
             return implode("\n\n", $parts);
@@ -1094,13 +1061,21 @@ class CarveRenderer implements RendererInterface
         if ($left instanceof ListBlock && $right instanceof ListBlock) {
             return $left->getListType() === $right->getListType()
                 && $left->getMarker() === $right->getMarker()
-                && $left->getStyle() === $right->getStyle();
+                && $left->getStyle() === $right->getStyle()
+                && $this->listIsTask($left) === $this->listIsTask($right);
         }
 
         return $left instanceof BlockQuote
             || $left instanceof Table
             || $left instanceof LineBlock
             || $left instanceof DefinitionList;
+    }
+
+    protected function listIsTask(ListBlock $list): bool
+    {
+        $first = $list->getChildren()[0] ?? null;
+
+        return $first instanceof ListItem && $first->isTask();
     }
 
     protected function atMarkerColumn(string $text): string
@@ -2969,6 +2944,7 @@ class CarveRenderer implements RendererInterface
             $this->verbatimSentinels[2] => '',
             // Back to the character itself - see protectVerbatim().
             $this->verbatimSentinels[4] => "\u{E000}",
+            $this->verbatimSentinels[6] => '',
         ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It

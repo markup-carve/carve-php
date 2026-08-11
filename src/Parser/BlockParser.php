@@ -5341,6 +5341,7 @@ class BlockParser
         $i = $start;
         $count = count($lines);
         $lastItemHadBlankAfter = false;
+        $blankRun = 0;
         $firstItem = true; // Track first item to use listInfo directly
         // Content column of the most recently opened item (marker width + base).
         // A post-blank continuation belongs to that item only if it reaches this
@@ -5355,6 +5356,7 @@ class BlockParser
             // Skip blank lines, track them for tight/loose determination
             if (IndentationHelper::isBlankLine($currentLine)) {
                 $lastItemHadBlankAfter = true;
+                $blankRun++;
                 $i++;
 
                 continue;
@@ -5362,6 +5364,18 @@ class BlockParser
 
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
+
+            // PART 17 L1 (0.2): one blank line is the separator inside a
+            // loose list; two or more are a hard boundary between compatible
+            // sibling lists. Stop before consuming the next marker so the
+            // outer block parser opens a fresh list at the same column.
+            if ($blankRun >= 2 && $currentIndent === $baseIndent) {
+                $boundaryItem = $this->listParser->parseListItemMarker(ltrim($currentLine, " \t"));
+                if ($boundaryItem !== null && $this->listParser->itemMatchesList($listInfo, $boundaryItem)) {
+                    break;
+                }
+            }
+            $blankRun = 0;
 
             // If line is less indented than base, we're done with this list
             if ($currentIndent < $baseIndent) {
