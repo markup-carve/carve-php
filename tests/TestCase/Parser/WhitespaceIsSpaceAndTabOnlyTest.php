@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;

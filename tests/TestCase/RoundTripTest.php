@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\AdmonitionExtension;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;

@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use PHPUnit\Framework\TestCase;
 

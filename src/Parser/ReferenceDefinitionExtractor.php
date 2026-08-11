@@ -76,6 +76,8 @@ class ReferenceDefinitionExtractor
         // document, so the author's line rendered nowhere AND defined nothing
         // (carve#664). carve-js tracks the same state for the same reason.
         $inFootnoteBody = false;
+        $paragraphOpen = false;
+        $inDefinitionBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -103,6 +105,32 @@ class ReferenceDefinitionExtractor
             $reachedCol = $contentColumns->reachedBy(
                 strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
             );
+
+            $structuralListMarker = $contentCol > 0
+                && preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +/', $unquoted) === 1;
+            $structuralContinuation = $contentCol > 0 && trim($line, " \t") === '+'
+                && IndentationHelper::getLeadingColumns($unquoted, $contentCol + 1) < $contentCol;
+            if (preg_match('/^:  /', $line) === 1) {
+                $inDefinitionBody = true;
+            } elseif (IndentationHelper::isBlankLine($line) || preg_match('/^:: /', $line) === 1) {
+                $inDefinitionBody = false;
+            }
+            $definitionBodyBoundary = $inDefinitionBody
+                && ($line[0] ?? '') === '[' && $this->matchDefinitionLine($line) !== null;
+            if (
+                $paragraphOpen && !IndentationHelper::isBlankLine($line)
+                && !$structuralListMarker && !$structuralContinuation && !$definitionBodyBoundary
+            ) {
+                $i++;
+
+                continue;
+            }
+            if (
+                IndentationHelper::isBlankLine($line) || $structuralListMarker
+                || $structuralContinuation || $definitionBodyBoundary
+            ) {
+                $paragraphOpen = false;
+            }
 
             // A comment fence's closer is a leading `%` run of the SAME length;
             // trailing text is allowed, so `%%% end` closes a `%%%` fence.
@@ -239,12 +267,28 @@ class ReferenceDefinitionExtractor
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $pendingAttrsInList = false;
+                if ($this->opensParagraphLine($bare)) {
+                    $paragraphOpen = true;
+                }
             }
 
             $i++;
         }
 
         return $references;
+    }
+
+    private function opensParagraphLine(string $line): bool
+    {
+        $line = ltrim($line, " \t");
+        if ($line === '' || $line === '+' || $this->matchDefinitionLine($line) !== null) {
+            return false;
+        }
+
+        return preg_match(
+            '/^(?:#{1,6}(?:[ \t]|$)|>{1,}(?:[ \t]|$)|[-*_]{3,}[ \t]*$|[`~]{3,}|%{2,}|:{2,}(?:[ \t]|$)|\|)/',
+            $line,
+        ) !== 1;
     }
 
     /**
