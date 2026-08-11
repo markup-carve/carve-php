@@ -7,6 +7,22 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`HtmlToCarve` no longer writes a construct into a table cell that cannot
+  parse there** (markup-carve/carve-php#1164). A cell's own attributes were
+  written with a space after the opening pipe, and a cell attribute block
+  parses only when it is GLUED to that pipe - so `<td class="c">x</td>` came
+  back as a cell reading `{.c} x`, four visible characters of punctuation
+  instead of a class. They are now written `|{.c} x |` and the class reaches
+  the cell. A cell whose CONTENT starts with a brace keeps its space and stays
+  content. Block constructs from INSIDE a cell are dropped rather than written
+  as text: a `<div class="x">` became a literal `::: x d :::` on the cell's one
+  line, and a `class` on a block in the cell a literal `{.c}` - both now keep
+  their content and lose only the wrapper, which is what an attribute-less
+  `<div>` in a cell already did. An inline `<span class>` was always fine and
+  is unchanged.
+
 ### Changed
 
 - **The Markdown target leaves a bare ampersand alone.** Text was neutralized as

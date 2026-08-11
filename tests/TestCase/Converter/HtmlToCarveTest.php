@@ -1241,6 +1241,63 @@ HTML;
         $this->assertStringContainsString('{data-sort=1}', $result);
     }
 
+    /**
+     * A cell attribute block only parses GLUED to the opening pipe: with a
+     * space before it the brace is ordinary cell content, so the class was
+     * rendered as the four visible characters `{.c}` instead of reaching the
+     * cell (markup-carve/carve-php#1164).
+     */
+    public function testCellAttributesAreGluedToTheOpeningPipe(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td class="c">x</td></tr></table>');
+
+        $this->assertStringContainsString('|{.c} x |', $carve);
+        $this->assertStringContainsString('<td class="c">x</td>', (new CarveConverter())->convert($carve));
+    }
+
+    public function testHeaderCellAttributesAreGluedToTheOpeningPipe(): void
+    {
+        $carve = $this->converter->convert(
+            '<table><tr><th class="c">h</th></tr><tr><td>x</td></tr></table>',
+        );
+
+        $this->assertStringContainsString('|{.c} h |', $carve);
+        $this->assertStringContainsString('<th class="c">h</th>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * Cell content the author wrote as a literal brace keeps its space, so it
+     * stays content rather than being promoted into an attribute block.
+     */
+    public function testLiteralBraceInACellIsNotPromotedToAnAttributeBlock(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>{.c} x</td></tr></table>');
+
+        $this->assertStringContainsString('| {.c} x |', $carve);
+        $this->assertStringContainsString('<td>{.c} x</td>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * A div fence needs its own lines and a cell is one line, so `:::` can
+     * never open there. The wrapper is dropped and the content kept, which is
+     * what an attribute-less div in a cell already did (carve-php#1164).
+     */
+    public function testDivInsideACellDropsTheFenceAndKeepsTheContent(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><div class="x">d</div></td></tr></table>');
+
+        $this->assertStringNotContainsString(':::', $carve);
+        $this->assertStringContainsString('<td>d</td>', (new CarveConverter())->convert($carve));
+    }
+
+    public function testBlockAttributesInsideACellAreNotWrittenAsText(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><p class="c">x</p></td></tr></table>');
+
+        $this->assertStringNotContainsString('{.c}', $carve);
+        $this->assertStringContainsString('<td>x</td>', (new CarveConverter())->convert($carve));
+    }
+
     public function testListWithAttributes(): void
     {
         $html = '<ul class="menu"><li class="active">Item 1</li><li>Item 2</li></ul>';
@@ -2406,8 +2463,15 @@ HTML;
         $this->assertStringNotContainsString('colspan', $result);
         // class attribute should still be preserved
         $this->assertStringContainsString('{.wide}', $result);
-        // Three cells: the real one and two `<` markers
-        $this->assertStringContainsString('| {.wide} Content | < | < |', $result);
+        // Three cells: the real one and two `<` markers. The attribute block is
+        // glued to the opening pipe, which is the only position it parses in
+        // (carve-php#1164) - this used to be written with a space, where the
+        // class was cell content rather than an attribute.
+        $this->assertStringContainsString('|{.wide} Content | < | < |', $result);
+        $this->assertStringContainsString(
+            '<td class="wide" colspan="3">Content</td>',
+            (new CarveConverter())->convert($result),
+        );
     }
 
     public function testTableRowspanThreeRows(): void

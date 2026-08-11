@@ -462,6 +462,13 @@ class HtmlToCarve
             return $this->processLineBlock($node);
         }
 
+        // A div fence needs its own lines, which a cell does not have. Drop the
+        // wrapper and keep the content - the same thing an attribute-less div
+        // in a cell already did (carve-php#1164).
+        if ($this->tableCellDepth > 0) {
+            return $this->processChildren($node);
+        }
+
         $classes = $this->getElementClassList($node);
         $fenceClass = array_shift($classes);
 
@@ -1719,6 +1726,8 @@ class HtmlToCarve
         $headerRow = null;
         $headerRowAttrs = '';
         $headerCells = [];
+        /** @var array<int, true> $headerAttributedCells */
+        $headerAttributedCells = [];
         $columnCount = 0;
         $captionText = '';
         $alignments = [];
@@ -1739,6 +1748,10 @@ class HtmlToCarve
 
         foreach ($trElements as $tr) {
             $cells = [];
+            // Indexes into $cells whose string opens with an attribute block
+            // THIS converter wrote. Kept rather than re-sniffed off the string,
+            // so a cell whose content merely starts with a brace is not glued.
+            $attributedCells = [];
             $isHeader = false;
 
             // Logical column index, accounting for positions already occupied
@@ -1772,6 +1785,7 @@ class HtmlToCarve
                 $cellContent = $this->serializeTableCellContent($cell);
                 $cellAttrs = $this->getElementAttributes($cell, ['colspan', 'rowspan']);
                 if ($cellAttrs !== '') {
+                    $attributedCells[count($cells)] = true;
                     $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
                 } else {
                     $cells[] = $cellContent;
@@ -1818,12 +1832,13 @@ class HtmlToCarve
                 $rowAttrs = $this->getElementAttributes($tr);
                 $rowAttrSuffix = $rowAttrs !== '' ? '{' . $rowAttrs . '}' : '';
 
-                $row = '| ' . implode(' | ', $cells) . ' |' . $rowAttrSuffix;
+                $row = $this->buildTableRowLine($cells, $attributedCells) . $rowAttrSuffix;
 
                 if ($isHeader && $headerRow === null) {
                     $headerRow = $row;
                     $headerRowAttrs = $rowAttrSuffix;
                     $headerCells = $cells;
+                    $headerAttributedCells = $attributedCells;
                 } else {
                     $rows[] = $row;
                 }
@@ -1839,14 +1854,7 @@ class HtmlToCarve
 
             // A header cell carrying an attribute block can't use the tight
             // `|=` form unambiguously, so fall back to the separator form.
-            $headerHasCellAttrs = false;
-            foreach ($headerCells as $hc) {
-                if (str_starts_with($hc, '{')) {
-                    $headerHasCellAttrs = true;
-
-                    break;
-                }
-            }
+            $headerHasCellAttrs = $headerAttributedCells !== [];
 
             // Also fall back to separator form when header has span markers (`<`/`^`),
             // because `|= < |` is not valid Carve syntax for a colspan continuation.
@@ -1939,6 +1947,44 @@ class HtmlToCarve
         return $rows;
     }
 
+    /**
+     * Assemble one table row line.
+     *
+     * A cell attribute block parses only when it is GLUED to the opening pipe:
+     * PART 7 gives `data_cell` its own `{space}` run after the `|`, so a space
+     * before the brace makes the whole thing ordinary content and the class is
+     * rendered as the four visible characters `{.c}` (carve-php#1164). Cells
+     * this converter gave an attribute block are therefore written without the
+     * separating space, and every other cell keeps it - including one whose
+     * CONTENT happens to start with a brace, which must stay content.
+     *
+     * @param array<int, string> $cells
+     * @param array<int, true> $attributed Indexes of cells opening with an attribute block.
+     */
+    protected function buildTableRowLine(array $cells, array $attributed): string
+    {
+        $line = '|';
+
+        foreach ($cells as $index => $cell) {
+            $line .= (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
+        }
+
+        return $line;
+    }
+
+    /**
+     * How many table cells enclose the node being serialized.
+     *
+     * A pipe-table cell is one line of inline content, so a block construct
+     * cannot open inside one: a div fence collapses onto the line and survives
+     * as the literal text `::: x d :::`, and a block attribute block as a
+     * literal `{.c}`. Both are suppressed while this is non-zero, which is
+     * what an attribute-less div in a cell already did.
+     *
+     * @var int
+     */
+    protected int $tableCellDepth = 0;
+
     protected function serializeTableCellContent(DOMElement $cell): string
     {
         $hasBlockChildren = false;
@@ -1951,7 +1997,14 @@ class HtmlToCarve
             }
         }
 
-        $content = $hasBlockChildren ? $this->processBlock($cell) : $this->processChildren($cell);
+        $this->tableCellDepth++;
+
+        try {
+            $content = $hasBlockChildren ? $this->processBlock($cell) : $this->processChildren($cell);
+        } finally {
+            $this->tableCellDepth--;
+        }
+
         $content = trim($content);
 
         $content = preg_replace('/\s+/', ' ', $content) ?? $content;
@@ -2376,6 +2429,14 @@ class HtmlToCarve
      */
     protected function formatBlockAttributes(DOMElement $node, array $skipAttrs = []): string
     {
+        // Inside a cell there is no line for a block attribute block to sit on,
+        // so it would be written as literal text. The attribute is dropped
+        // instead (carve-php#1164); the cell's OWN attributes are unaffected -
+        // they are written by processTable(), glued to the opening pipe.
+        if ($this->tableCellDepth > 0) {
+            return '';
+        }
+
         $attrs = $this->getElementAttributes($node, $skipAttrs);
         if (!$attrs) {
             return '';
