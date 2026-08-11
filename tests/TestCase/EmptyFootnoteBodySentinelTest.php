@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -96,7 +96,7 @@ class EmptyFootnoteBodySentinelTest extends TestCase
         // attributes survive. It is inert on this node because a footnote body
         // is its own container, and that has to hold for the neighbours too:
         // neither the next definition nor a following paragraph may collect it.
-        $written = CarveConverter::toCarve("[^f]: {x}\n[^g]: g body\n\nr[^f] s[^g]\n");
+        $written = CarveConverter::toCarve("r[^f] s[^g]\n\n[^f]: {empty}\n\n[^g]: g body\n");
         $html = $this->converter->convert($written);
 
         $this->assertStringNotContainsString('empty=', $html);
@@ -108,7 +108,7 @@ class EmptyFootnoteBodySentinelTest extends TestCase
     {
         // The reason the clause says the inertness is a PARSE RULE rather than
         // a property of the word. Same token, one node over, and it renders.
-        $this->assertSame('<p empty="">para</p>', $this->squash($this->converter->convert("{empty}\npara\n")));
+        $this->assertSame('<p empty="">para</p>', $this->squash($this->converter->convert("{empty=\"\"}\npara\n")));
     }
 
     public function testAnOrdinaryBodyIsUnchangedControl(): void
@@ -116,6 +116,6 @@ class EmptyFootnoteBodySentinelTest extends TestCase
         // CONTROL. This passes today, no mutation above touches it, and
         // without it the rows are equally satisfied by a writer that put
         // `{empty}` on every footnote definition it ever wrote.
-        $this->assertSame("r[^f]\n\n[^f]: t\n", CarveConverter::toCarve("[^f]: t\n\nr[^f]\n"));
+        $this->assertSame("r[^f]\n\n[^f]: t\n", CarveConverter::toCarve("r[^f]\n\n[^f]: t\n"));
     }
 }

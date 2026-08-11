@@ -93,6 +93,7 @@ class ReferenceDefinitionExtractor
             // item's content column - and eating that indentation here loses
             // the very column the definition has to reach (carve-php#788).
             $unquoted = ContainerPrefix::stripQuoteMarkers($line);
+            $blankLine = IndentationHelper::isBlankLine($unquoted);
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
@@ -112,13 +113,18 @@ class ReferenceDefinitionExtractor
                 && IndentationHelper::getLeadingColumns($unquoted, $contentCol + 1) < $contentCol;
             if (preg_match('/^:  /', $line) === 1) {
                 $inDefinitionBody = true;
-            } elseif (IndentationHelper::isBlankLine($line) || preg_match('/^:: /', $line) === 1) {
+            } elseif ($blankLine || preg_match('/^:: /', $line) === 1) {
                 $inDefinitionBody = false;
             }
+            $definitionBodyCandidate = preg_replace('/^[ \t]*:  /', '', $unquoted);
             $definitionBodyBoundary = $inDefinitionBody
-                && ($line[0] ?? '') === '[' && $this->matchDefinitionLine($line) !== null;
+                && ($this->matchDefinitionLine($unquoted) !== null || (
+                    is_string($definitionBodyCandidate)
+                    && $definitionBodyCandidate !== $unquoted
+                    && $this->matchDefinitionLine($definitionBodyCandidate) !== null
+                ));
             if (
-                $paragraphOpen && !IndentationHelper::isBlankLine($line)
+                $paragraphOpen && !$blankLine
                 && !$structuralListMarker && !$structuralContinuation && !$definitionBodyBoundary
             ) {
                 $i++;
@@ -126,7 +132,7 @@ class ReferenceDefinitionExtractor
                 continue;
             }
             if (
-                IndentationHelper::isBlankLine($line) || $structuralListMarker
+                $blankLine || $structuralListMarker
                 || $structuralContinuation || $definitionBodyBoundary
             ) {
                 $paragraphOpen = false;
@@ -206,7 +212,13 @@ class ReferenceDefinitionExtractor
                 $inFootnoteBody = false;
             }
 
-            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
+            $previousIndex = $i - 1;
+            if (preg_match('/^[ \t]*:  /', $unquoted) === 1) {
+                while ($previousIndex >= 0 && IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$previousIndex]))) {
+                    $previousIndex--;
+                }
+            }
+            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$previousIndex] ?? '');
             $bare = $referenceLine['line'];
             // A footnote body has a content column of its own and it is TWO -
             // the indent §16 requires of a continuation line (carve#717). This

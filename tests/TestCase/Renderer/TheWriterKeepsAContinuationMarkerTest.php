@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
@@ -77,7 +77,7 @@ class TheWriterKeepsAContinuationMarkerTest extends TestCase
         foreach (["```\nb\n```", '> b', '# b', "::: note\nb\n:::", '---'] as $block) {
             $source = "- a\n+\n" . $block . "\n\nx\n";
             $this->assertTrue($this->roundTrips($source), $source);
-            $this->assertStringNotContainsString("\n+\n", $this->fmt($source), $source);
+            $this->assertStringContainsString("\n+\n", $this->fmt($source), $source);
         }
     }
 

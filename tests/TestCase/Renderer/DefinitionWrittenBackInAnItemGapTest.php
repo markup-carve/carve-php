@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -52,7 +52,7 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
     public function testTheDefinitionIsNotAlsoWrittenAtDocumentLevel(): void
     {
         // Writing it in both places would define the label twice.
-        $out = $this->fmt("- a\n  [r]: /u\n  more\n\nsee [t][r]\n");
+        $out = $this->fmt("- a\n+\n[r]: /u\n+\nmore\n\nsee [t][r]\n");
         $this->assertSame(1, substr_count($out, '[r]: /u'));
     }
 
@@ -61,7 +61,7 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
         // The point of writing the line back: without it the two blocks rejoin
         // into one paragraph, and a paragraph with a soft break renders
         // differently from two tight blocks.
-        $formatted = $this->fmt("- a\n  [^f]: x\n  more\n\nsee[^f]\n");
+        $formatted = $this->fmt("- a\n+\n[^f]: x\n+\nmore\n\nsee[^f]\n");
         $this->assertStringContainsString("<li>a\n    more\n  </li>", $this->html($formatted));
     }
 
@@ -69,7 +69,7 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
     {
         // The neighbouring case: no item gap claims it, so the writer's
         // ordinary placement is unchanged.
-        $this->assertSame("see [t][r]\n\n[r]: /u\n", $this->fmt("[r]: /u\n\nsee [t][r]\n"));
+        $this->assertSame("see [t][r]\n\n[r]: /u\n", $this->fmt("see [t][r]\n\n[r]: /u\n"));
     }
 
     public function testAnItemWithNoDefinitionIsUnchanged(): void

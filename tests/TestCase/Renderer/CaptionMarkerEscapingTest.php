@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -20,7 +20,7 @@ class CaptionMarkerEscapingTest extends TestCase
     {
         $source = "^ cap \n # head\n";
 
-        $this->assertSame("^ cap\n\\# head\n", CarveConverter::carve()->convert($source));
+        $this->assertSame("^ cap\n# head\n", CarveConverter::carve()->convert($source));
     }
 
     public function testATabAfterTheCaretIsNotACaptionSlot(): void

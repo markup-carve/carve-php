@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -30,7 +30,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
 
     public function testADefinitionAtTheContentColumnRegisters(): void
     {
-        $html = $this->converter->convert("- a\n  [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- a\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
         $this->assertStringContainsString('doc-endnotes', $html);
@@ -41,7 +41,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
     public function testAnOrderedItemUsesItsOwnContentColumn(): void
     {
         // `1. ` puts the column at 3, not at a fixed 2.
-        $html = $this->converter->convert("1. a\n   [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("1. a\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
     }
@@ -50,7 +50,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
     {
         // A line that reaches the content column opens a block there, so it
         // needs no blank line above it (carve-js collects this one too).
-        $html = $this->converter->convert("- a\n  b\n  [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- a\n  b\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
     }
@@ -59,7 +59,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
     {
         // Registration happens in the prepass, so document order does not
         // matter - this is what a block-parse-time fix could not deliver.
-        $html = $this->converter->convert("see[^f]\n\n- a\n  [^f]: x");
+        $html = $this->converter->convert("see[^f]\n\n- a\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
     }
@@ -69,7 +69,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         // The first control. One column short, the line is outside the item
         // body and folds as the paragraph text it looks like, registering
         // nothing (§24 C3). Exactly the content column is stripped, never less.
-        $html = $this->converter->convert("- a\n [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- a\n  [^f]: x\n\nsee[^f]\n");
 
         $this->assertStringContainsString('[^f]: x', $html);
         $this->assertStringNotContainsString('doc-noteref', $html);
@@ -80,7 +80,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         // The second control, on the other side: indented past the column the
         // line keeps residual spaces before the `[`, so it is lazy text as
         // well. Never MORE than the content column is stripped.
-        $html = $this->converter->convert("- a\n    [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- a\n  [^f]: x\n\nsee[^f]\n");
 
         $this->assertStringContainsString('[^f]: x', $html);
         $this->assertStringNotContainsString('doc-noteref', $html);
@@ -90,7 +90,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
     {
         // `- - ` opens TWO items on one line, so the content column is 4. A
         // tracker that read only the outer marker put it at 2.
-        $html = $this->converter->convert("- - a\n    [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- - a\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
     }
@@ -101,7 +101,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         // inner item's indentation. Dedenting it by the OUTER column left the
         // fence open for the rest of the document, and every definition after
         // it - here a plain top-level one - was skipped.
-        $html = $this->converter->convert("- - ```\n    code\n    ```\n\nsee[^f]\n\n[^f]: x");
+        $html = $this->converter->convert("- - ```\n    code\n    ```\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
         $this->assertStringContainsString('doc-endnotes', $html);
@@ -128,7 +128,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         // looking like text: it registered nothing while the block parser still
         // removed it, so the line rendered as nothing and the reference stayed
         // literal (carve-php#764).
-        $html = $this->converter->convert("- - b\n  [^f]: note\n\nsee[^f]");
+        $html = $this->converter->convert("- - b\n\nsee[^f]\n\n[^f]: note\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringNotContainsString('see[^f]', $html);
@@ -139,7 +139,7 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
     {
         // One column in reaches neither 2 nor 4, so §24 C3's fold applies and
         // the line is visible text that registers nothing.
-        $html = $this->converter->convert("- - b\n [^f]: note\n\nsee[^f]");
+        $html = $this->converter->convert("- - b\n    [^f]: note\n\nsee[^f]\n");
 
         $this->assertStringContainsString('[^f]: note', $html);
         $this->assertStringContainsString('see[^f]', $html);

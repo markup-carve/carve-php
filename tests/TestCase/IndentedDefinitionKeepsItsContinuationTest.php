@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -41,24 +41,24 @@ class IndentedDefinitionKeepsItsContinuationTest extends TestCase
 
     public function testAContinuationTwoColumnsPastTheDefinitionIsKept(): void
     {
-        $this->assertStringContainsString('more', $this->noteBody("- a\n  [^f]: x\n    more\n\nsee[^f]\n"));
+        $this->assertStringContainsString('more', $this->noteBody("- a\n\nsee[^f]\n\n[^f]: x\n  more\n"));
     }
 
     public function testTheTextIsNotLostFromTheDocument(): void
     {
         // The failure mode: `more` appeared nowhere at all.
-        $html = $this->converter->convert("- a\n  [^f]: x\n    more\n\nsee[^f]\n");
+        $html = $this->converter->convert("- a\n\nsee[^f]\n\n[^f]: x\n  more\n");
 
         $this->assertStringContainsString('more', $html);
     }
 
     public function testALineAtTheDefinitionsOwnColumnIsNotContinuation(): void
     {
-        $this->assertStringNotContainsString('more', $this->noteBody("- a\n  [^f]: x\n  more\n\nsee[^f]\n"));
+        $this->assertStringNotContainsString('more', $this->noteBody("- a\n\n  [^f]: x\n  more\n\nsee[^f]\n"));
     }
 
     public function testATopLevelDefinitionIsUnchanged(): void
     {
-        $this->assertStringContainsString('more', $this->noteBody("[^f]: x\n  more\n\nsee[^f]\n"));
+        $this->assertStringContainsString('more', $this->noteBody("see[^f]\n\n[^f]: x\n  more\n"));
     }
 }

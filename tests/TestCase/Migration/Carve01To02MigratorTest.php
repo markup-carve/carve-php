@@ -21,4 +21,18 @@ final class Carve01To02MigratorTest extends TestCase
     {
         self::assertSame("intro\n```\n", Carve01To02Migrator::migrate("intro\n```\n"));
     }
+
+    public function testItLeavesFrontmatterByteIdentical(): void
+    {
+        $source = "---\ntitle: X\n---\n\nbody\n";
+
+        self::assertSame($source, Carve01To02Migrator::migrate($source));
+    }
+
+    public function testAListMarkerWasNotAnOldInterrupter(): void
+    {
+        $source = "intro\n- item\n";
+
+        self::assertSame($source, Carve01To02Migrator::migrate($source));
+    }
 }

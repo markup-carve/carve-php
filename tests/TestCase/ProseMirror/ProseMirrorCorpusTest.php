@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use MarkupCarve\Carve\ProseMirror\SchemaMap;
@@ -47,9 +47,16 @@ class ProseMirrorCorpusTest extends TestCase
      * by the improvements the comments above record; each raised the actual and
      * none moved the floor.
      *
+     * Rebased from 493 to 487 for Carve 0.2 paragraph extent. Lines such as
+     * `text` / `# H` are now one paragraph with a soft break instead of two
+     * block nodes; the editor model deliberately degrades that soft break to a
+     * space, so those documents correctly leave the lossless population.
+     * `MAXIMUM_COVERED_BUT_DIFFERING` remains zero: no fully-covered document
+     * changed silently.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 493;
+    private const MINIMUM_LOSSLESS = 487;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -78,9 +85,15 @@ class ProseMirrorCorpusTest extends TestCase
      * ({@see self::expectedCorpusSize()}), because that one may not drift at
      * all.
      *
+     * Rebased from 631 to 609 with the same 0.2 semantic change. The executable
+     * corpus now creates soft-break paragraphs for former interrupting opener
+     * lines, and ProseMirror's documented soft-break degradation makes their
+     * rendered HTML differ after the bridge. This is changed input shape, not
+     * newly silent loss; the fully-covered-difference ceiling stays at zero.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 631;
+    private const MINIMUM_SURVIVING = 609;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug

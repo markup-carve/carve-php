@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\AdmonitionExtension;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
@@ -832,6 +832,7 @@ DJOT;
 First[^1] and second[^2].
 
 [^1]: First note.
+
 [^2]: Second note.
 DJOT;
         $this->assertRoundTrip($djot);

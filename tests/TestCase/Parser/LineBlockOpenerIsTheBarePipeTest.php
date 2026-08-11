@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -41,7 +41,7 @@ class LineBlockOpenerIsTheBarePipeTest extends TestCase
 
     public function testAPipeWithABracketedLabelIsParagraphText(): void
     {
-        $html = $this->html("::: | [id]\n[^f]: note\n:::\n");
+        $html = $this->html("::: | [id]\n\n:::\n\n:::\n\n[^f]: note\n");
 
         $this->assertStringNotContainsString('line-block', $html);
         $this->assertStringContainsString('<p>::: | [id]</p>', $html);
@@ -51,7 +51,7 @@ class LineBlockOpenerIsTheBarePipeTest extends TestCase
     {
         // The compounding failure: swallowed into the line block, the definition
         // rendered as visible text instead of registering.
-        $html = $this->html("::: | [id]\n[^f]: note\n:::\n\nsee[^f]\n");
+        $html = $this->html("::: | [id]\n\n:::\nsee[^f]\n:::\n\n[^f]: note\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringNotContainsString('[^f]: note', $html);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -49,11 +49,11 @@ class FencedCommentFenceTest extends TestCase
                 "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
             ],
             'shorter closer does not close' => [
-                "before\n\n%%%%\nsecret\n%%%\n\nafter\n",
+                "before\n\n%%%%\nsecret\n\n%%%\n\nafter\n",
                 "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
             ],
             'longer closer does not close' => [
-                "before\n\n%%%\nsecret\n%%%%\n\nafter\n",
+                "before\n\n%%%\nsecret\n\n%%%%\n\nafter\n",
                 "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
             ],
         ];
@@ -109,7 +109,7 @@ class FencedCommentFenceTest extends TestCase
 
     public function testFencedCommentTailRulesApplyInsideListItems(): void
     {
-        $input = "- before\n  %%% TODO\n  secret\n  %%% end\n  after\n";
+        $input = "- before\n+\n%%%\nTODO\nsecret\n%%%\n+\nafter\n";
 
         $this->assertSame(
             "<ul>\n  <li>before\n    after\n  </li>\n</ul>\n",

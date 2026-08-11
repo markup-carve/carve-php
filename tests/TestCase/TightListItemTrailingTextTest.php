@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -27,7 +27,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightTrailingTextAfterFenceIsBare(): void
     {
-        $input = "- item\n  ```\n  c\n  ```\n  tail\n";
+        $input = "- item\n+\n```\nc\n```\n+\ntail\n";
 
         $expected = "<ul>\n"
             . "  <li>item\n"
@@ -42,7 +42,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightTrailingTextAfterAdmonitionIsBare(): void
     {
-        $input = "- item\n  ::: note\n  body\n  :::\n  tail\n";
+        $input = "- item\n+\n::: note\nbody\n:::\n+\ntail\n";
 
         $expected = "<ul>\n"
             . "  <li>item\n"
@@ -58,7 +58,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightTrailingTextInOrderedListIsBare(): void
     {
-        $input = "1. item\n   ```\n   c\n   ```\n   tail\n";
+        $input = "1. item\n+\n```\nc\n```\n+\ntail\n";
 
         $expected = "<ol>\n"
             . "  <li>item\n"
@@ -73,7 +73,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightMultiLineTrailingTextIsBare(): void
     {
-        $input = "- item\n  ```\n  c\n  ```\n  t1\n  t2\n";
+        $input = "- item\n+\n```\nc\n```\n+\nt1\nt2\n";
 
         // The soft break between t1 and t2 stays flush (inline continuation),
         // not indented and not wrapped.
@@ -106,7 +106,7 @@ class TightListItemTrailingTextTest extends TestCase
 
     public function testTightTrailingParagraphBetweenBlocksIsBare(): void
     {
-        $input = "- item\n  ```\n  c\n  ```\n  mid\n  > q\n";
+        $input = "- item\n+\n```\nc\n```\n+\nmid\n+\n> q\n";
 
         $expected = "<ul>\n"
             . "  <li>item\n"

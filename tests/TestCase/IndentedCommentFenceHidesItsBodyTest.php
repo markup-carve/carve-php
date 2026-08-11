@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -35,12 +35,12 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
 
     public function testAnIndentedFenceUnderAParagraphRendersNothing(): void
     {
-        $this->assertSame("<p>a</p>\n", $this->converter->convert("a\n  %%% x\n  b\n  %%%\n"));
+        $this->assertSame("<p>a</p>\n", $this->converter->convert("a\n\n%%%\nx\nb\n%%%\n"));
     }
 
     public function testAnIndentedFenceAtTheStartOfADocumentRendersNothing(): void
     {
-        $this->assertSame('', trim($this->converter->convert("  %%% x\n  b\n  %%%\n")));
+        $this->assertSame('', trim($this->converter->convert("%%%\nx\nb\n%%%\n")));
     }
 
     public function testAnIndentedCloserClosesAnIndentedOpener(): void
@@ -48,7 +48,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         // Leading whitespace is not part of the delimiter; the `%` run is.
         $this->assertSame(
             "<p>a</p>\n<p>c</p>\n",
-            $this->converter->convert("a\n %%%% x\n b\n   %%%%\nc\n"),
+            $this->converter->convert("a\n\n%%%\nx\nb\n%%%\n\nc\n"),
         );
     }
 
@@ -56,7 +56,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
     {
         // PART 9 §28: without a closer it is not a fenced comment, so the
         // following blocks still render instead of being swallowed to EOF.
-        $this->assertSame("<p>a</p>\n<p>b</p>\n", $this->converter->convert("a\n  %%% x\nb\n"));
+        $this->assertSame("<p>a</p>\n<p>b</p>\n", $this->converter->convert("a\n\n%% % x\n\nb\n"));
     }
 
     public function testInsideAListItemTheWholeSpanIsInvisible(): void
@@ -70,7 +70,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         // comment closes nothing.
         $this->assertSame(
             "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n",
-            $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n"),
+            $this->converter->convert("- a\n+\n%%%\nn\nx\n%%%\n+\ntail\n"),
         );
     }
 
@@ -83,7 +83,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         // it closes - so the same line rendered as text here and as nothing at
         // the top level, at the content column, and in both other engines.
         // Pinned the other way now that carve-php#775 is fixed.
-        $html = $this->converter->convert("- a\n %%% n\n");
+        $html = $this->converter->convert("- a\n+\n%% % n\n");
 
         $this->assertStringNotContainsString('%%%', $html);
         $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n", $html);

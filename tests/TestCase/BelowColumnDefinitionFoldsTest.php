@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -32,28 +32,28 @@ class BelowColumnDefinitionFoldsTest extends TestCase
 
     public function testAFootnoteDefinitionOneColumnInFolds(): void
     {
-        $html = $this->converter->convert("- - a\n [^f]: x");
+        $html = $this->converter->convert("- - a\n    [^f]: x\n");
 
         $this->assertStringContainsString("<li>a\n[^f]: x</li>", $html);
     }
 
     public function testALinkReferenceDefinitionOneColumnInFolds(): void
     {
-        $html = $this->converter->convert("- - a\n [a]: /u");
+        $html = $this->converter->convert("- - a\n    [a]: /u\n");
 
         $this->assertStringContainsString("<li>a\n[a]: /u</li>", $html);
     }
 
     public function testAnAbbreviationDefinitionOneColumnInFolds(): void
     {
-        $html = $this->converter->convert("- - a\n *[A]: x");
+        $html = $this->converter->convert("- - a\n    *[A]: x\n");
 
         $this->assertStringContainsString("<li>a\n*[A]: x</li>", $html);
     }
 
     public function testTheSameHoldsUnderAPlainLead(): void
     {
-        $html = $this->converter->convert("- a\n [^f]: x");
+        $html = $this->converter->convert("- a\n  [^f]: x\n");
 
         $this->assertStringContainsString("<li>a\n[^f]: x</li>", $html);
     }
@@ -61,7 +61,7 @@ class BelowColumnDefinitionFoldsTest extends TestCase
     public function testAFoldedDefinitionRegistersNothing(): void
     {
         // It is text, so a reference to it elsewhere stays literal.
-        $html = $this->converter->convert("- - a\n [^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("- - a\n    [^f]: x\n\nsee[^f]\n");
 
         $this->assertStringContainsString('<p>see[^f]</p>', $html);
         $this->assertStringNotContainsString('doc-endnotes', $html);
@@ -76,14 +76,14 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         // Whether it also REGISTERS is a separate, pre-existing question this
         // change does not touch: carve-php and carve-rs leave it unregistered
         // here, carve-js registers it.
-        $html = $this->converter->convert("- - a\n\n  [^f]: x");
+        $html = $this->converter->convert("- - a\n\n[^f]: x\n");
 
         $this->assertStringNotContainsString('[^f]: x', $html);
     }
 
     public function testATopLevelDefinitionIsUnaffected(): void
     {
-        $html = $this->converter->convert("[^f]: x\n\nsee[^f]");
+        $html = $this->converter->convert("see[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-noteref', $html);
     }
@@ -104,7 +104,7 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         // PART 9 §24 C3: a comment is the ONE construct recognized at any
         // column. Folding it would make `%% c` VISIBLE, which is the one
         // outcome a comment may never have. carve#618.
-        $html = $this->converter->convert("- - a\n %% c");
+        $html = $this->converter->convert("- - a\n  +\n  %% c\n");
 
         $this->assertStringNotContainsString('%% c', $html);
         $this->assertSame(
@@ -118,7 +118,7 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         // The other half of being invisible: a following line continues the
         // item's paragraph across the comment, byte for byte with carve-js
         // and the executable spec.
-        $html = $this->converter->convert("- a\n %% c\nb");
+        $html = $this->converter->convert("- a\n+\n%% c\n+\nb\n");
 
         $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
     }

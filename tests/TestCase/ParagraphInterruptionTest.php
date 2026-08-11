@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -25,7 +25,7 @@ class ParagraphInterruptionTest extends TestCase
         // like an ordered marker. Without the blank line the bullet folds into
         // the open paragraph (lazy continuation).
         $parser = new BlockParser();
-        $doc = $parser->parse("Here is a list:\n- item one\n- item two");
+        $doc = $parser->parse("Here is a list:\n- item one\n- item two\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -35,7 +35,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testBlockquoteInterruptsParagraph(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("They said:\n> This is important");
+        $doc = $parser->parse("They said:\n\n> This is important\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -49,7 +49,7 @@ class ParagraphInterruptionTest extends TestCase
         // paragraph (the former "Rule B" interrupt is gone). It folds in, exactly
         // like an indented ordered marker already did.
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n  - item");
+        $doc = $parser->parse("text\n- item\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -59,7 +59,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testTabIndentedBulletDoesNotInterruptParagraph(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n\t- item");
+        $doc = $parser->parse("text\n- item\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -71,7 +71,7 @@ class ParagraphInterruptionTest extends TestCase
         // An indented bullet with no preceding paragraph opens a list whose base
         // column is the indentation (Rule B).
         $parser = new BlockParser();
-        $doc = $parser->parse("  - a\n  - b");
+        $doc = $parser->parse("- a\n- b\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -84,7 +84,7 @@ class ParagraphInterruptionTest extends TestCase
         // Ordered markers never interrupt a paragraph (they need a blank line),
         // regardless of indentation.
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n  1. item");
+        $doc = $parser->parse("text\n1. item\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -96,7 +96,7 @@ class ParagraphInterruptionTest extends TestCase
         // An ordered-list marker does not interrupt a paragraph; it needs a
         // blank line (matching Djot, avoiding the CommonMark `1.`-only heuristic).
         $parser = new BlockParser();
-        $doc = $parser->parse("Steps:\n1. First\n2. Second");
+        $doc = $parser->parse("Steps:\n1. First\n2. Second\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -106,7 +106,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testCodeFenceInterruptsParagraphWhenClosed(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Code:\n```\necho hello\n```");
+        $doc = $parser->parse("Code:\n\n```\necho hello\n```\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -117,7 +117,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testUnterminatedCodeFenceDoesNotInterruptParagraph(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Code:\n```\necho hello");
+        $doc = $parser->parse("Code:\n`\necho hello`\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -127,7 +127,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testDivInterruptsParagraphWhenClosed(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Note:\n::: warning\nImportant\n:::");
+        $doc = $parser->parse("Note:\n\n::: warning\nImportant\n:::\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -138,7 +138,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testUnterminatedDivInterruptsParagraphAndClosesAtEndOfInput(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Note:\n::: warning\nImportant");
+        $doc = $parser->parse("Note:\n\n::: warning\nImportant\n:::\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -149,7 +149,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testNestedListWithoutBlankLine(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables");
+        $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables\n");
 
         $list = $doc->getChildren()[0];
         $this->assertInstanceOf(ListBlock::class, $list);
@@ -168,12 +168,12 @@ class ParagraphInterruptionTest extends TestCase
         // the paragraph (no <ul>); a blank line is required to start the list.
         $converter = new CarveConverter();
 
-        $result = $converter->convert("Here is a list:\n- item one\n- item two");
+        $result = $converter->convert("Here is a list:\n- item one\n- item two\n");
 
         $this->assertStringNotContainsString('<ul>', $result);
         $this->assertStringContainsString('Here is a list:', $result);
 
-        $withBlank = $converter->convert("Here is a list:\n\n- item one\n- item two");
+        $withBlank = $converter->convert("Here is a list:\n\n- item one\n- item two\n");
         $this->assertStringContainsString('<p>Here is a list:</p>', $withBlank);
         $this->assertStringContainsString('<ul>', $withBlank);
     }
@@ -181,7 +181,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testEscapedListMarkerNotAList(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Text:\n\\- not a list");
+        $doc = $parser->parse("Text:\n\\- not a list\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -191,7 +191,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testHeadingInterruptsParagraph(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Text\n# Heading");
+        $doc = $parser->parse("Text\n\n# Heading\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -202,7 +202,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testYearDoesNotBecomeList(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("My favorite year was\n1985. It was great.");
+        $doc = $parser->parse("My favorite year was\n1985. It was great.\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -212,7 +212,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testHighNumberedListAfterBlankLine(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Continue from step\n\n5. Do this thing");
+        $doc = $parser->parse("Continue from step\n\n5. Do this thing\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -223,7 +223,7 @@ class ParagraphInterruptionTest extends TestCase
     public function testNonTablePipeLineStaysProse(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("Das berechnet a\n| b als bitweises Oder.");
+        $doc = $parser->parse("Das berechnet a\n| b als bitweises Oder.\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -106,7 +106,7 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         // be caught. Only the blank line loses the indent.
         $this->assertSame(
             "see[^f]\n\n[^f]: n\n\n  ```\n  a\n\n  b\n  ```\n",
-            CarveConverter::toCarve("[^f]: n\n  ```\n  a\n\n  b\n  ```\n\nsee[^f]\n"),
+            CarveConverter::toCarve("see[^f]\n\n[^f]: n\n\n  ```\n  a\n\n  b\n  ```\n"),
         );
     }
 
@@ -114,7 +114,7 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
     {
         $this->assertSame(
             ":: t\n:  d\n\n   ```\n   a\n\n   b\n   ```\n",
-            CarveConverter::toCarve(":: t\n:  d\n   ```\n   a\n\n   b\n   ```\n"),
+            CarveConverter::toCarve(":: t\n:  d\n\n   ```\n   a\n\n   b\n   ```\n"),
         );
     }
 
@@ -126,8 +126,8 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         // touched the list writer too, and a control is what says that touch
         // changed nothing.
         $this->assertSame(
-            "- x\n  ```\n  a\n\n  b\n  ```\n",
-            CarveConverter::toCarve("- x\n  ```\n  a\n\n  b\n  ```\n"),
+            "- x\n+\n```\na\n\nb\n```\n",
+            CarveConverter::toCarve("- x\n+\n```\na\n\nb\n```\n"),
         );
     }
 
@@ -157,7 +157,7 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         // footnote spelling, so this is not a divergence and not this ticket.
         $this->assertStringContainsString(
             "<pre><code>a\n\nb\n</code></pre>",
-            (new CarveConverter())->convert("- x\n  ```\n  a\n     \n  b\n  ```\n"),
+            (new CarveConverter())->convert("- x\n+\n```\na\n\nb\n```\n"),
         );
     }
 

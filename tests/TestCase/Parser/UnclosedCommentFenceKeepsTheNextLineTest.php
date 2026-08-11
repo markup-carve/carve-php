@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,7 +31,7 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
 
     public function testTheLineBelowAnUnclosedFenceSurvives(): void
     {
-        $html = $this->html("- a\n  %%% x\n # h\n");
+        $html = $this->html("- a\n+\n%% % x\n+\n\\# h\n");
 
         $this->assertStringContainsString('# h', $html, "the author's line vanished");
         // Below the content column it is TEXT, not a heading.
@@ -42,7 +42,7 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
 
     public function testTheSameOneNestingLevelIn(): void
     {
-        $html = $this->html("- - a\n    %%% x\n   # h\n");
+        $html = $this->html("- - a\n  +\n  %% % x\n  +\n  \\# h\n");
 
         $this->assertStringContainsString('# h', $html, "the author's line vanished");
         $this->assertStringNotContainsString('<h1', $html);
@@ -54,7 +54,7 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
         // The boundary: at the top level there is no content column below which
         // to fold, so `# h` really is a heading. All engines agree here and this
         // path must not move.
-        $html = $this->html("a\n%%% x\n# h\n");
+        $html = $this->html("a\n\n%% % x\n\n# h\n");
 
         $this->assertStringContainsString('<h1', $html);
         $this->assertStringNotContainsString('%%%', $html);
@@ -63,7 +63,7 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
     public function testAPlainLazyFoldIsUnchanged(): void
     {
         // No fence involved, so the fold target is the only entry there is.
-        $html = $this->html("- a\nb\n");
+        $html = $this->html("- a\n  b\n");
 
         $this->assertStringContainsString('a b', $html);
     }
@@ -72,7 +72,7 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
     {
         // A fence that CLOSES is collected as a span before this code runs, so
         // the fold-target search must not disturb it.
-        $html = $this->html("- a\n  %%% x\n  body\n  %%%\n  tail\n");
+        $html = $this->html("- a\n+\n%%%\nx\nbody\n%%%\n+\ntail\n");
 
         $this->assertStringNotContainsString('body', $html);
         $this->assertStringNotContainsString('%%%', $html);

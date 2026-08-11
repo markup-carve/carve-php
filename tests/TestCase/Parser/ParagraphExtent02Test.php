@@ -10,7 +10,9 @@ use PHPUnit\Framework\TestCase;
 
 final class ParagraphExtent02Test extends TestCase
 {
-    /** @return iterable<string, array{string}> */
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function openers(): iterable
     {
         yield 'heading' => ['# Heading'];

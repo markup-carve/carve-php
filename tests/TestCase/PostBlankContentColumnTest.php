@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -91,7 +91,7 @@ class PostBlankContentColumnTest extends TestCase
         // interrupts the item and the whole list parses at document level.
         $this->assertHtml(
             "<ul>\n  <li>one</li>\n</ul>\n<dl>\n  <dt>term</dt>\n  <dd>def</dd>\n</dl>",
-            "- one\n:: term\n:  def\n",
+            "- one\n\n:: term\n:  def\n",
         );
     }
 
@@ -100,7 +100,7 @@ class PostBlankContentColumnTest extends TestCase
         // At the content column the def-list nests as a whole `<dl>` in the item.
         $this->assertHtml(
             "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n      <dd>def</dd>\n    </dl>\n  </li>\n</ul>",
-            "- one\n  :: term\n  :  def\n",
+            "- one\n\n  :: term\n  :  def\n",
         );
     }
 
@@ -136,7 +136,7 @@ class PostBlankContentColumnTest extends TestCase
         // together (matches carve-js).
         $this->assertHtml(
             "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n      <dd>def</dd>\n    </dl>\n  </li>\n</ul>",
-            "- one\n  :: term\n:  def\n",
+            "- one\n\n  :: term\n:  def\n",
         );
     }
 

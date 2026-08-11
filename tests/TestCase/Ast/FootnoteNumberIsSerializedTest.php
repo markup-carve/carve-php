@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
@@ -70,7 +70,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
     {
         $this->assertSame(
             [['footnote_ref', 1], ['footnote_ref', 1]],
-            $this->numbers($this->ast("[^a]: note\n\nsee[^a] again[^a]\n")),
+            $this->numbers($this->ast("see[^a] again[^a]\n\n[^a]: note\n")),
         );
     }
 
@@ -79,7 +79,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
         // Defined in the order b, a; USED in the order a, b - so `a` is 1.
         $this->assertSame(
             [['footnote_ref', 1], ['footnote_ref', 2]],
-            $this->numbers($this->ast("[^b]: two\n[^a]: one\n\nsee[^a] then[^b]\n")),
+            $this->numbers($this->ast("see[^a] then[^b]\n\n[^b]: two\n\n[^a]: one\n")),
         );
     }
 
@@ -94,7 +94,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
                 ['footnote_ref', 1],
                 ['inline_footnote', 3],
             ],
-            $this->numbers($this->ast("[^a]: note\n\nsee[^a] then ^[one] then[^a] and ^[two]\n")),
+            $this->numbers($this->ast("see[^a] then ^[one] then[^a] and ^[two]\n\n[^a]: note\n")),
         );
     }
 
@@ -114,7 +114,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
         // inside one takes the next number rather than being skipped.
         $this->assertSame(
             [['footnote_ref', 1], ['footnote_ref', 2]],
-            $this->numbers($this->ast("[^a]: note [^b]\n[^b]: other\n\nsee[^a]\n")),
+            $this->numbers($this->ast("see[^a]\n\n[^a]: note [^b]\n\n[^b]: other\n")),
         );
     }
 
@@ -123,7 +123,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
         // A field the encoder writes and the decoder drops is worse than one that
         // was never there.
         $codec = new AstCodec();
-        $once = $this->ast("[^a]: note\n\nsee[^a] then ^[x]\n");
+        $once = $this->ast("see[^a] then ^[x]\n\n[^a]: note\n");
         $twice = $codec->encode($codec->decode($once));
 
         $this->assertSame($this->numbers($once), $this->numbers($twice));
@@ -133,7 +133,7 @@ class FootnoteNumberIsSerializedTest extends TestCase
     {
         // The published tree and the rendered document must not disagree: the
         // numbering pass is additional to the renderer's, not a replacement.
-        $html = (new CarveConverter())->convert("[^a]: note\n\nsee[^a] then ^[one] then[^a]\n");
+        $html = (new CarveConverter())->convert("see[^a] then ^[one] then[^a]\n\n[^a]: note\n");
 
         // The inline footnote is number 2 in the HTML too - `id="fnref2"` with a
         // `<sup>2</sup>` - which is what the published tree now agrees with. The

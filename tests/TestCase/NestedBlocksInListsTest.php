@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,12 +31,7 @@ class NestedBlocksInListsTest extends TestCase
 
     public function testBlockquoteInBulletList(): void
     {
-        $djot = <<<'DJOT'
-- > This is a quote
-  > inside a list item
-
-- Another item
-DJOT;
+        $djot = "- > This is a quote\n  > inside a list item\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -47,14 +42,7 @@ DJOT;
 
     public function testBlockquoteWithEmphasisInList(): void
     {
-        $djot = <<<'DJOT'
-- > *author*:
-  >
-  > Line 1 \
-  > Line 2
-
-- Another item
-DJOT;
+        $djot = "- > *author*:\n  >\n  > Line 1 \\\n  > Line 2\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -66,17 +54,7 @@ DJOT;
     public function testMultipleBlockquotesInList(): void
     {
         // Note: In djot, nested blocks after text require a blank line
-        $djot = <<<'DJOT'
-- First item with quote:
-
-  > Quote 1
-
-- Second item with quote:
-
-  > Quote 2
-
-- Third item without quote
-DJOT;
+        $djot = "- First item with quote:\n\n  > Quote 1\n\n- Second item with quote:\n\n  > Quote 2\n\n- Third item without quote\n";
 
         $result = $this->converter->convert($djot);
 
@@ -87,10 +65,7 @@ DJOT;
     public function testNestedBlockquoteInList(): void
     {
         // Blockquote starts directly on first line, so it gets parsed as block
-        $djot = <<<'DJOT'
-- > Outer quote
-  > > Inner quote
-DJOT;
+        $djot = "- > Outer quote\n  >\n  > > Inner quote\n";
 
         $result = $this->converter->convert($djot);
 
@@ -104,12 +79,7 @@ DJOT;
 
     public function testBlockquoteInOrderedList(): void
     {
-        $djot = <<<'DJOT'
-1. > Quote in numbered list
-   > Line 2
-
-2. Another item
-DJOT;
+        $djot = "1. > Quote in numbered list\n   > Line 2\n\n2. Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -120,11 +90,7 @@ DJOT;
 
     public function testBlockquoteInAlphaList(): void
     {
-        $djot = <<<'DJOT'
-a. > Quote in alpha list
-
-b. Another item
-DJOT;
+        $djot = "a. > Quote in alpha list\n\nb. Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -136,14 +102,7 @@ DJOT;
 
     public function testCodeBlockInBulletList(): void
     {
-        $djot = <<<'DJOT'
-- ```
-  code line 1
-  code line 2
-  ```
-
-- Another item
-DJOT;
+        $djot = "- ```\n  code line 1\n  code line 2\n  ```\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -154,13 +113,7 @@ DJOT;
 
     public function testCodeBlockWithLanguageInList(): void
     {
-        $djot = <<<'DJOT'
-- ``` php
-  echo "Hello";
-  ```
-
-- Another item
-DJOT;
+        $djot = "- ``` php\n  echo \"Hello\";\n  ```\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -170,13 +123,7 @@ DJOT;
 
     public function testTildeCodeBlockInList(): void
     {
-        $djot = <<<'DJOT'
-- ~~~
-  code here
-  ~~~
-
-- Another item
-DJOT;
+        $djot = "- ```\n  code here\n  ```\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -188,15 +135,7 @@ DJOT;
 
     public function testCodeBlockInOrderedList(): void
     {
-        $djot = <<<'DJOT'
-1. ```
-   first code
-   ```
-
-2. ```
-   second code
-   ```
-DJOT;
+        $djot = "1. ```\n   first code\n   ```\n\n2. ```\n   second code\n   ```\n";
 
         $result = $this->converter->convert($djot);
 
@@ -209,13 +148,7 @@ DJOT;
 
     public function testDivInBulletList(): void
     {
-        $djot = <<<'DJOT'
-- ::: note
-  This is a note
-  :::
-
-- Another item
-DJOT;
+        $djot = "- ::: note\n  This is a note\n  :::\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -225,13 +158,7 @@ DJOT;
 
     public function testDivInOrderedList(): void
     {
-        $djot = <<<'DJOT'
-1. ::: warning
-   Warning content
-   :::
-
-2. Regular item
-DJOT;
+        $djot = "1. ::: warning\n   Warning content\n   :::\n\n2. Regular item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -243,15 +170,7 @@ DJOT;
 
     public function testBlockquoteAndCodeInSameList(): void
     {
-        $djot = <<<'DJOT'
-- > A quote
-
-- ```
-  Some code
-  ```
-
-- Regular text
-DJOT;
+        $djot = "- > A quote\n\n- ```\n  Some code\n  ```\n\n- Regular text\n";
 
         $result = $this->converter->convert($djot);
 
@@ -261,13 +180,7 @@ DJOT;
 
     public function testBlockquoteFollowedByCodeInSameItem(): void
     {
-        $djot = <<<'DJOT'
-- > Quote first
-
-  ```
-  Then code
-  ```
-DJOT;
+        $djot = "- > Quote first\n+\n```\nThen code\n```\n";
 
         $result = $this->converter->convert($djot);
 
@@ -277,13 +190,7 @@ DJOT;
 
     public function testCodeFollowedByBlockquoteInSameItem(): void
     {
-        $djot = <<<'DJOT'
-- ```
-  Code first
-  ```
-
-  > Then quote
-DJOT;
+        $djot = "- ```\n  Code first\n  ```\n  > Then quote\n";
 
         $result = $this->converter->convert($djot);
 
@@ -295,13 +202,7 @@ DJOT;
 
     public function testTextBeforeBlockquoteInList(): void
     {
-        $djot = <<<'DJOT'
-- Some intro text:
-
-  > The actual quote
-
-- Next item
-DJOT;
+        $djot = "- Some intro text:\n\n  > The actual quote\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -312,10 +213,7 @@ DJOT;
 
     public function testTextThenBlockquoteNoBlankLineInList(): void
     {
-        $djot = <<<'DJOT'
-- Some intro text
-  > The quote
-DJOT;
+        $djot = "- Some intro text\n+\n> The quote\n";
 
         $result = $this->converter->convert($djot);
 
@@ -326,12 +224,7 @@ DJOT;
 
     public function testTextThenCodeFenceNoBlankLineInList(): void
     {
-        $djot = <<<'DJOT'
-- Some intro text
-  ``` php
-  echo 1;
-  ```
-DJOT;
+        $djot = "- Some intro text\n+\n``` php\necho 1;\n```\n";
 
         $result = $this->converter->convert($djot);
 
@@ -342,15 +235,7 @@ DJOT;
 
     public function testTextBeforeCodeBlockInList(): void
     {
-        $djot = <<<'DJOT'
-- Here is some code:
-
-  ```
-  the code
-  ```
-
-- Next item
-DJOT;
+        $djot = "- Here is some code:\n\n  ```\n  the code\n  ```\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -361,13 +246,7 @@ DJOT;
 
     public function testTextAfterBlockquoteInList(): void
     {
-        $djot = <<<'DJOT'
-- > The quote
-
-  Text after the quote
-
-- Next item
-DJOT;
+        $djot = "- > The quote\n\n  Text after the quote\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -379,13 +258,7 @@ DJOT;
 
     public function testBlockquoteInNestedList(): void
     {
-        $djot = <<<'DJOT'
-- Outer item
-
-  - > Quote in nested item
-
-- Another outer item
-DJOT;
+        $djot = "- Outer item\n\n  - > Quote in nested item\n\n- Another outer item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -394,15 +267,7 @@ DJOT;
 
     public function testCodeBlockInNestedList(): void
     {
-        $djot = <<<'DJOT'
-- Outer item
-
-  - ```
-    nested code
-    ```
-
-- Another outer item
-DJOT;
+        $djot = "- Outer item\n\n  - ```\n    nested code\n    ```\n\n- Another outer item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -414,11 +279,7 @@ DJOT;
 
     public function testBlockquoteInTaskList(): void
     {
-        $djot = <<<'DJOT'
-- [ ] > Quote in unchecked task
-
-- [x] > Quote in checked task
-DJOT;
+        $djot = "- [ ] > Quote in unchecked task\n\n- [x] > Quote in checked task\n";
 
         $result = $this->converter->convert($djot);
 
@@ -429,13 +290,7 @@ DJOT;
 
     public function testCodeBlockInTaskList(): void
     {
-        $djot = <<<'DJOT'
-- [ ] ```
-      task code
-      ```
-
-- [x] Done task
-DJOT;
+        $djot = "- [ ] ````\n          task code\n          ```\n      ````\n\n- [x] Done task\n";
 
         $result = $this->converter->convert($djot);
 
@@ -447,11 +302,7 @@ DJOT;
 
     public function testEmptyBlockquoteInList(): void
     {
-        $djot = <<<'DJOT'
-- >
-
-- Next item
-DJOT;
+        $djot = "- >\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -460,11 +311,7 @@ DJOT;
 
     public function testBlockquoteWithOnlyEmphasis(): void
     {
-        $djot = <<<'DJOT'
-- > /emphasized/
-
-- Next item
-DJOT;
+        $djot = "- > /emphasized/\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -474,13 +321,7 @@ DJOT;
 
     public function testMultiParagraphBlockquoteInList(): void
     {
-        $djot = <<<'DJOT'
-- > First paragraph
-  >
-  > Second paragraph
-
-- Next item
-DJOT;
+        $djot = "- > First paragraph\n  >\n  > Second paragraph\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -496,15 +337,7 @@ DJOT;
 
     public function testCodeBlockPreservesIndentation(): void
     {
-        $djot = <<<'DJOT'
-- ```
-    indented
-      more indented
-  not indented
-  ```
-
-- Next item
-DJOT;
+        $djot = "- ```\n    indented\n      more indented\n  not indented\n  ```\n\n- Next item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -517,11 +350,7 @@ DJOT;
 
     public function testBlockInTightListMakesLoose(): void
     {
-        $djot = <<<'DJOT'
-- > Quote
-
-- Text
-DJOT;
+        $djot = "- > Quote\n\n- Text\n";
 
         $result = $this->converter->convert($djot);
 
@@ -535,10 +364,7 @@ DJOT;
 
     public function testBlockquoteInDefinitionList(): void
     {
-        $djot = <<<'DJOT'
-:: Term
-:  > Quote in definition
-DJOT;
+        $djot = ":: Term\n:  > Quote in definition\n";
 
         $result = $this->converter->convert($djot);
 
@@ -548,12 +374,7 @@ DJOT;
 
     public function testCodeBlockInDefinitionList(): void
     {
-        $djot = <<<'DJOT'
-:: Term
-:  ```
-   code in definition
-   ```
-DJOT;
+        $djot = ":: Term\n:  ```\n   code in definition\n   ```\n";
 
         $result = $this->converter->convert($djot);
 
@@ -565,15 +386,7 @@ DJOT;
 
     public function testDeeplyNestedBlockquote(): void
     {
-        $djot = <<<'DJOT'
-- Level 1
-
-  - Level 2
-
-    - > Deep quote
-
-- Back to level 1
-DJOT;
+        $djot = "- Level 1\n\n  - Level 2\n    - > Deep quote\n\n- Back to level 1\n";
 
         $result = $this->converter->convert($djot);
 
@@ -583,17 +396,7 @@ DJOT;
 
     public function testDeeplyNestedCodeBlock(): void
     {
-        $djot = <<<'DJOT'
-- Level 1
-
-  - Level 2
-
-    - ```
-      deep code
-      ```
-
-- Back to level 1
-DJOT;
+        $djot = "- Level 1\n\n  - Level 2\n    - ```\n      deep code\n      ```\n\n- Back to level 1\n";
 
         $result = $this->converter->convert($djot);
 
@@ -603,13 +406,7 @@ DJOT;
 
     public function testBlocksAtMultipleLevels(): void
     {
-        $djot = <<<'DJOT'
-- > Quote at level 1
-
-  - > Quote at level 2
-
-    - > Quote at level 3
-DJOT;
+        $djot = "- > Quote at level 1\n  - > Quote at level 2\n    - > Quote at level 3\n";
 
         $result = $this->converter->convert($djot);
 
@@ -622,16 +419,7 @@ DJOT;
     public function testIssue83BlockquoteCase(): void
     {
         // Exact case from Issue #83
-        $djot = <<<'DJOT'
-List:
-
-- > *author*:
-  >
-  > Line 1 \
-  > Line 2
-
-- Another item
-DJOT;
+        $djot = "List:\n\n- > *author*:\n  >\n  > Line 1 \\\n  > Line 2\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -643,16 +431,7 @@ DJOT;
     public function testIssue83CodeBlockCase(): void
     {
         // Exact case from Issue #83
-        $djot = <<<'DJOT'
-List:
-
-- ```
-  asdasdasd
-  asasdasd
-  ```
-
-- Another item
-DJOT;
+        $djot = "List:\n\n- ```\n  asdasdasd\n  asasdasd\n  ```\n\n- Another item\n";
 
         $result = $this->converter->convert($djot);
 
@@ -671,19 +450,7 @@ DJOT;
      */
     public function testIssue176UnindentedParagraphAfterNestedCodeBlockEndsList(): void
     {
-        $djot = <<<'DJOT'
-1. Item 1
-2. Item 2
-
-   ```
-   Example
-   ```
-
-New list:
-
-* New item 1
-* New item 2
-DJOT;
+        $djot = "1. Item 1\n2. Item 2\n+\n```\nExample\n```\n\nNew list:\n\n* New item 1\n* New item 2\n";
 
         $result = $this->converter->convert($djot);
 

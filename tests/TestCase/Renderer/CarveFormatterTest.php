@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -131,10 +131,10 @@ class CarveFormatterTest extends TestCase
         $converter = new CarveConverter();
 
         // 162: item / fenced code / trailing text - all joined tight, no blank.
-        $src162 = "- item\n  ```\n  c\n  ```\n  tail\n";
+        $src162 = "- item\n+\n```\nc\n```\n+\ntail\n";
         $formatted162 = CarveConverter::toCarve($src162);
         $this->assertSame(
-            "- item\n  ```\n  c\n  ```\n  tail\n",
+            $src162,
             $formatted162,
             'Tight item with a fence and trailing text must format tight (no loosening blank).',
         );

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -43,22 +43,22 @@ class CitationKeyParagraphInterruptionTest extends TestCase
     }
 
     /**
-     * The lines that DO interrupt still do, so the fix did not widen into
-     * "a bracket line is always prose".
+     * In 0.2, invisible-looking constructs also stay literal inside an open
+     * paragraph; they only become structural at a blank boundary.
      *
      * @return array<string, array{string, string}>
      */
-    public static function stillInterruptsProvider(): array
+    public static function noLongerInterruptsProvider(): array
     {
         return [
-            'reference definition' => ["Prose.\n[b]: https://example.com\n", '<p>Prose.</p>'],
-            'footnote definition' => ["Prose.\n[^f]: A note.\n", '<p>Prose.</p>'],
-            'line comment' => ["Prose.\n%% hidden\n", '<p>Prose.</p>'],
+            'reference definition' => ["Prose.\n[b]: https://example.com\n", "Prose.\n[b]: https://example.com</p>"],
+            'footnote definition' => ["Prose.\n[^f]: A note.\n", "Prose.\n[^f]: A note.</p>"],
+            'line comment' => ["Prose.\n%% hidden\n", "Prose.\n%% hidden</p>"],
         ];
     }
 
-    #[DataProvider('stillInterruptsProvider')]
-    public function testAnInvisibleConstructStillInterrupts(string $source, string $expected): void
+    #[DataProvider('noLongerInterruptsProvider')]
+    public function testAnInvisibleConstructDoesNotInterrupt(string $source, string $expected): void
     {
         $this->assertStringContainsString($expected, (new CarveConverter())->convert($source));
     }
@@ -67,7 +67,7 @@ class CitationKeyParagraphInterruptionTest extends TestCase
     {
         // Not a definition either, and it was already handled correctly - the
         // predicate and the parser agreed on this one.
-        $html = (new CarveConverter())->convert("Prose.\n[b]:   \n");
+        $html = (new CarveConverter())->convert("Prose.\n[b]:\n");
 
         $this->assertSame(1, substr_count($html, '<p>'));
     }
@@ -78,7 +78,7 @@ class CitationKeyParagraphInterruptionTest extends TestCase
         // a following definition, so this is the other side of the change.
         // Under §15 A2a it belongs to neither: it floats past the definition to
         // the next VISIBLE block.
-        $html = (new CarveConverter())->convert("{.c}\n[b]: https://example.com\n\nSee [b][].\n");
+        $html = (new CarveConverter())->convert("{.c}\nSee [b][].\n\n[b]: https://example.com\n");
 
         $this->assertStringContainsString('<p class="c">', $html);
         $this->assertStringNotContainsString('class="c">b</a>', $html);

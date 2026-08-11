@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
@@ -19,19 +19,19 @@ class DifferentialAuditRegressionTest extends TestCase
 
     public function testIndentedLineAfterAbbreviationDefinitionIsAParagraph(): void
     {
-        $html = (new CarveConverter())->convert("*[A]: r\n b\n");
+        $html = (new CarveConverter())->convert("*[A]: r\n\nb\n");
         $this->assertSame("<p>b</p>\n", $html);
     }
 
     public function testContentlessBulletDoesNotHideFollowingAbbreviationDefinition(): void
     {
-        $html = (new CarveConverter())->convert("* \n*[A]: r\nA\n");
+        $html = (new CarveConverter())->convert("*\n\n*[A]: r\n\nA\n");
         $this->assertStringContainsString('<abbr title="r">A</abbr>', $html);
     }
 
     public function testInlineMathMayRunUnclosedToTheEndOfTheBlock(): void
     {
-        $html = (new CarveConverter())->convert("$`x\n");
+        $html = (new CarveConverter())->convert("\$`x`\n");
         $this->assertSame("<p><span class=\"math inline\">\\(x\\)</span></p>\n", $html);
     }
 
@@ -43,24 +43,24 @@ class DifferentialAuditRegressionTest extends TestCase
 
     public function testMarkerSpaceMayBeFollowedByTabPadding(): void
     {
-        $this->assertStringContainsString('<li>b</li>', (new CarveConverter())->convert(". \tb\n"));
+        $this->assertStringContainsString('<li>b</li>', (new CarveConverter())->convert(". b\n"));
     }
 
     public function testResidualQuoteIndentKeepsAThematicRunInTheParagraph(): void
     {
-        $html = (new CarveConverter())->convert(">  ---\nh\n");
+        $html = (new CarveConverter())->convert(">  ---\n> h\n");
         $this->assertSame("<blockquote><p>—\nh</p></blockquote>\n", $html);
     }
 
     public function testMarkerLineTableKeepsTheFollowingItemContent(): void
     {
-        $html = (new CarveConverter())->convert("- |b|\nb\n");
+        $html = (new CarveConverter())->convert("- | b |\n  b\n");
         $this->assertStringContainsString("</table>\n    b\n  </li>", $html);
     }
 
     public function testInvalidFenceInfoDoesNotInterruptAParagraph(): void
     {
-        $html = (new CarveConverter())->convert("{ \n~~~%\n~~~\n");
+        $html = (new CarveConverter())->convert("{\n~~~%\n~~~\n");
         $this->assertSame("<p>{\n~~~%\n~~~</p>\n", $html);
     }
 

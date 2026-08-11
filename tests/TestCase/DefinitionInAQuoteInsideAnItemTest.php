@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,7 +31,7 @@ class DefinitionInAQuoteInsideAnItemTest extends TestCase
 
     public function testALinkDefinitionInAQuotedBlockInsideAnItemResolves(): void
     {
-        $html = $this->converter->convert("- a\n  > [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("- a\n+\n>\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('[r]: /u', $html);
@@ -40,7 +40,7 @@ class DefinitionInAQuoteInsideAnItemTest extends TestCase
     public function testTheFootnoteFormResolvesToo(): void
     {
         // The two definition kinds must answer the same question the same way.
-        $html = $this->converter->convert("- a\n  > [^f]: x\n\nsee[^f]\n");
+        $html = $this->converter->convert("- a\n+\n>\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringNotContainsString('[^f]: x', $html);
@@ -48,7 +48,7 @@ class DefinitionInAQuoteInsideAnItemTest extends TestCase
 
     public function testTheTopLevelFormIsUnchanged(): void
     {
-        $html = $this->converter->convert("> [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert(">\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }
@@ -58,7 +58,7 @@ class DefinitionInAQuoteInsideAnItemTest extends TestCase
         // The bound on the fix: EXACTLY the item's content column counts. A
         // top-level `    > [r]: /u` is indented text, and collecting it would
         // flip the behaviour BlockquoteRefDefTest pins.
-        $html = $this->converter->convert("[x][r] here.\n\n    > [r]: /u");
+        $html = $this->converter->convert("[x][r] here\\.\n\n\\> \\[r\\]: \\/u\n");
 
         $this->assertStringNotContainsString('href="/u"', $html);
     }

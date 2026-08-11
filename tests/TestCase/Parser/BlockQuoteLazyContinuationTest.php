@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,11 +25,11 @@ class BlockQuoteLazyContinuationTest extends TestCase
     public function testNonMarkerLineInsideOpenFenceTerminatesQuote(): void
     {
         // The non-">" line must NOT be swallowed into the code block; the quote
-        // ends and `b` starts a paragraph. The trailing `> c` then interrupts
-        // that paragraph into a fresh block quote (§10 paragraph interruption).
+        // ends and `b` starts a paragraph. Under 0.2, the trailing `> c` does
+        // not interrupt that open paragraph and remains literal text.
         $djot = "> ```\n> a\nb\n> c";
         $expected = "<blockquote>\n  <pre><code>a\n</code></pre>\n</blockquote>\n"
-            . "<p>b</p>\n<blockquote><p>c</p></blockquote>\n";
+            . "<p>b\n&gt; c</p>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

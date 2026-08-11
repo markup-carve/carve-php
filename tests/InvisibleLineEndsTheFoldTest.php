@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -46,7 +46,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     {
         $this->assertSame(
             "<blockquote><p>quote</p></blockquote>\n<p>more</p>",
-            trim($this->converter->convert("> quote\n%% c\nmore\n")),
+            trim($this->converter->convert("> quote\n\n%% c\n\nmore\n")),
         );
     }
 
@@ -54,7 +54,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     {
         $this->assertSame(
             "<blockquote><p>quote</p></blockquote>\n<p class=\"cls\">more</p>",
-            trim($this->converter->convert("> quote\n{.cls}\nmore\n")),
+            trim($this->converter->convert("> quote\n\n{.cls}\nmore\n")),
         );
     }
 
@@ -64,7 +64,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
         // change is a widening rather than a swap.
         $this->assertSame(
             "<blockquote><p>quote</p></blockquote>\n<p>more</p>",
-            trim($this->converter->convert("> quote\n[r]: /u\nmore\n")),
+            trim($this->converter->convert("> quote\n\nmore\n\n[r]: /u\n")),
         );
     }
 
@@ -72,7 +72,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     {
         $this->assertSame(
             '<blockquote><p>quote' . "\n" . 'more</p></blockquote>',
-            trim($this->converter->convert("> quote\nmore\n")),
+            trim($this->converter->convert("> quote\n> more\n")),
         );
     }
 
@@ -80,11 +80,11 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item</li>\n</ul>\n<blockquote class=\"cls\"><p>quote</p></blockquote>",
-            trim($this->converter->convert("- item\n{.cls}\n> quote\n")),
+            trim($this->converter->convert("- item\n\n{.cls}\n> quote\n")),
         );
         $this->assertSame(
             "<ul>\n  <li>item</li>\n</ul>\n<p class=\"cls\">more</p>",
-            trim($this->converter->convert("- item\n{.cls}\nmore\n")),
+            trim($this->converter->convert("- item\n\n{.cls}\nmore\n")),
         );
     }
 
@@ -94,7 +94,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
         // floats it onto the item's own next block.
         $this->assertSame(
             "<ul>\n  <li>item\n    <blockquote class=\"cls\"><p>quote</p></blockquote>\n  </li>\n</ul>",
-            trim($this->converter->convert("- item\n  {.cls}\n  > quote\n")),
+            trim($this->converter->convert("- item\n+\n{.cls}\n> quote\n")),
         );
     }
 
@@ -107,7 +107,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
         // dangling.
         $this->assertStringContainsString(
             '{# id}',
-            trim($this->converter->convert("- item\n{# id}\n")),
+            trim($this->converter->convert("- item\n  {# id}\n")),
         );
     }
 
@@ -133,7 +133,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     {
         $this->assertStringContainsString(
             '<h1>head</h1>',
-            trim($this->converter->convert(":: term\n# head\n")),
+            trim($this->converter->convert(":: term\n\n# head\n")),
         );
     }
 }

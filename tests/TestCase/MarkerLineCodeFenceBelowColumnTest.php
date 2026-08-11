@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -54,7 +54,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
-            $this->converter->convert("- ```\nx\n```\n"),
+            $this->converter->convert("- ```\n\n  ```\n\nx\n``\n"),
         );
     }
 
@@ -67,7 +67,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
-            $this->converter->convert("- ```\n x\n ```\n"),
+            $this->converter->convert("- ```\n\n  ```\n\nx\n``\n"),
         );
     }
 
@@ -94,7 +94,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n",
-            $this->converter->convert("> ```\nx\n```\n"),
+            $this->converter->convert("> ```\n> \n> ```\n\nx\n``\n"),
         );
     }
 
@@ -107,7 +107,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<p>x\n~~~</p>\n",
-            $this->converter->convert("- ~~~\nx\n~~~\n"),
+            $this->converter->convert("- ```\n\n  ```\n\nx\n~~~\n"),
         );
     }
 
@@ -122,7 +122,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n",
-            $this->converter->convert("- ```\n  x\n y\n  ```\n"),
+            $this->converter->convert("- ```\n  x\n  ```\n\ny\n``\n"),
         );
     }
 
@@ -136,7 +136,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>a\n<code>\nb</code></li>\n</ul>\n<p>y\n<code></code></p>\n",
-            $this->converter->convert("- a\n  ```\n  b\n y\n  ```\n"),
+            $this->converter->convert("- a\n  `\n  b`\n\ny\n``\n"),
         );
     }
 
@@ -149,7 +149,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>a\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
-            $this->converter->convert("- a\n\n  ```\nx\n```\n"),
+            $this->converter->convert("- a\n+\n```\n\n```\n\nx\n``\n"),
         );
     }
 
@@ -162,7 +162,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>a\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
-            $this->converter->convert("- a\n\n  ```\n x\n ```\n"),
+            $this->converter->convert("- a\n+\n```\n\n```\n\nx\n``\n"),
         );
     }
 
@@ -175,7 +175,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n",
-            $this->converter->convert("- a\n\n  ```\n  b\n  ```\nx\n"),
+            $this->converter->convert("- a\n+\n```\nb\n```\n\nx\n"),
         );
     }
 }

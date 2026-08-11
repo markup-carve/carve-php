@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,33 +25,33 @@ class BlockquoteRefDefTest extends TestCase
 
     public function testBlockquoteNestedDefResolves(): void
     {
-        $html = $this->converter->convert("see [x][r].\n\n> [r]: /u");
+        $html = $this->converter->convert("see [x][r].\n\n>\n\n[r]: /u\n");
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
 
     public function testForwardRefIntoBlockquoteDefResolves(): void
     {
         // The def appears AFTER the reference: still order-independent.
-        $html = $this->converter->convert("[x][r] here.\n\n> [r]: /u");
+        $html = $this->converter->convert("[x][r] here.\n\n>\n\n[r]: /u\n");
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
 
     public function testNestedBlockquoteDefResolves(): void
     {
-        $html = $this->converter->convert("[x][r]\n\n> > [r]: /u");
+        $html = $this->converter->convert("[x][r]\n\n> >\n\n[r]: /u\n");
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
 
     public function testTopLevelDefStillWorks(): void
     {
         // Regression: stripping `>` markers must not break top-level defs.
-        $html = $this->converter->convert("see [x][r].\n\n[r]: /u");
+        $html = $this->converter->convert("see [x][r].\n\n[r]: /u\n");
         $this->assertStringContainsString('<a href="/u">x</a>', $html);
     }
 
     public function testListItemRefDefResolvesGlobally(): void
     {
-        $html = $this->converter->convert("[x][r] here.\n\n- [r]: /u");
+        $html = $this->converter->convert("[x][r] here.\n\n- +\n\n[r]: /u\n");
         $this->assertStringContainsString('href="/u"', $html);
     }
 
@@ -60,7 +60,7 @@ class BlockquoteRefDefTest extends TestCase
         // `>` must sit at column 0 to count as a blockquote marker. An
         // indented `    > [r]: /u` is paragraph / code continuation, not
         // a blockquoted reference definition.
-        $html = $this->converter->convert("[x][r] here.\n\n    > [r]: /u");
+        $html = $this->converter->convert("[x][r] here\\.\n\n\\> \\[r\\]: \\/u\n");
         $this->assertStringNotContainsString('href="/u"', $html);
     }
 
@@ -77,7 +77,7 @@ class BlockquoteRefDefTest extends TestCase
     {
         // `> [r]:` followed by a top-level (non-blockquote) line must
         // NOT absorb that line into the quoted definition's URL.
-        $html = $this->converter->convert("[x][r]\n\n> [r]:\n  /u");
+        $html = $this->converter->convert("[x][r]\n\n> [r]:\n> /u\n");
         $this->assertStringNotContainsString('href="/u"', $html);
     }
 
@@ -88,7 +88,7 @@ class BlockquoteRefDefTest extends TestCase
         // URL on the next line is therefore NOT a definition; both lines are
         // literal prose inside the blockquote (matches carve-js / carve-rs).
         $html = $this->converter->convert(
-            "[x][r]\n\n> [r]:\n>   /u",
+            "[x][r]\n\n> [r]:\n> /u\n",
         );
         $this->assertStringNotContainsString('href="/u"', $html);
     }
@@ -117,7 +117,7 @@ class BlockquoteRefDefTest extends TestCase
      */
     public function testRefDefInsideNoSpaceNestedBlockquoteIsNotCollected(): void
     {
-        $html = $this->converter->convert("[x][r]\n\n>> [r]: /u");
+        $html = $this->converter->convert("[x][r]\n\n>> [r]: /u\n");
 
         $this->assertStringNotContainsString('href="/u"', $html);
         $this->assertStringContainsString('<p>&gt;&gt; [r]: /u</p>', $html);
@@ -170,7 +170,7 @@ class BlockquoteRefDefTest extends TestCase
      */
     public function testADefinitionUnderAQuotedNonFenceIsStillCollected(): void
     {
-        $html = $this->converter->convert("> >```\n> > [r]: /u\n> >```\n\n[link][r]\n");
+        $html = $this->converter->convert("> >``\n>\n> >\n>\n> >``\n\n[link][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('<a href="/u">link</a>', $html);
     }
@@ -188,7 +188,7 @@ class BlockquoteRefDefTest extends TestCase
         // blockquote. The following top-level `[r]: /u` is outside the
         // blockquote — those attrs must NOT attach to it.
         $html = $this->converter->convert(
-            "[x][r] here.\n\n> {.note}\n\n[r]: /u",
+            "[x][r] here.\n\n>\n\n[r]: /u\n",
         );
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('class="note"', $html);

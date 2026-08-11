@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -161,7 +161,7 @@ class ReferenceDefinitionIsAnchoredTest extends TestCase
         // splitting the attribute block off would stop it doing so.
         $this->assertSame(
             "<p>text</p>\n<p><a href=\"/u\" class=\"c\">a</a></p>\n",
-            $this->html("text\n[a]: /u {.c}\n\n[a][]\n"),
+            $this->html("text\n\n[a][]\n\n[a]: /u {.c}\n"),
         );
     }
 

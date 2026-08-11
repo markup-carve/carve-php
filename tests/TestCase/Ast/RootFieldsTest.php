@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use PHPUnit\Framework\TestCase;
 
@@ -65,7 +65,7 @@ class RootFieldsTest extends TestCase
 
     public function testFootnoteAuthoredInsideBlockquoteIsStillADocumentChild(): void
     {
-        $encoded = $this->encode("> quoted[^b]\n> [^b]: note\n");
+        $encoded = $this->encode("> quoted[^b]\n>\n> [^b]: note\n");
 
         $this->assertSame(['block_quote', 'footnote'], array_column($encoded['children'], 'type'));
         $this->assertSame('b', $encoded['children'][1]['label']);
@@ -153,7 +153,7 @@ class RootFieldsTest extends TestCase
             array_map(static fn (object $child): string => $child->getType(), $decoded->getChildren()),
         );
         $this->assertSame(
-            (new CarveConverter())->convert("---\ntitle: x\n---\n\nx[^r]\n\n[^r]: note\n"),
+            (new CarveConverter())->convert("---yaml\ntitle: x\n---\n\nx[^r]\n\n[^r]: note\n"),
             (new CarveConverter())->render($decoded),
             'the upgraded payload has to render what the stored one described',
         );

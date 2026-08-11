@@ -1230,6 +1230,7 @@ class BlockParser
         // reach, tracked exactly as the link-reference prepass tracks it.
         $contentColumns = new ListContentColumns();
         $paragraphOpen = false;
+        $inDefinitionBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -1239,6 +1240,7 @@ class BlockParser
             // COLUMN-0 marker is stripped: an indented one sits at an item's
             // content column, and eating that indentation loses it.
             $unquotedForColumns = ContainerPrefix::stripQuoteMarkers($line);
+            $blankLine = IndentationHelper::isBlankLine($unquotedForColumns);
             $contentCol = $contentColumns->observe($unquotedForColumns, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
@@ -1251,15 +1253,22 @@ class BlockParser
                 && preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +/', $unquotedForColumns) === 1;
             $structuralContinuation = $contentCol > 0 && trim($line, " \t") === '+'
                 && IndentationHelper::getLeadingColumns($unquotedForColumns, $contentCol + 1) < $contentCol;
+            if (preg_match('/^[ \t]*:  /', $unquotedForColumns) === 1) {
+                $inDefinitionBody = true;
+            } elseif ($blankLine || preg_match('/^[ \t]*:: /', $unquotedForColumns) === 1) {
+                $inDefinitionBody = false;
+            }
+            $definitionBodyBoundary = $inDefinitionBody
+                && preg_match('/(?:^|[ \t])\[\^[^\]]+\]: +\S/', $unquotedForColumns) === 1;
             if (
-                $paragraphOpen && !IndentationHelper::isBlankLine($line)
-                && !$structuralListMarker && !$structuralContinuation
+                $paragraphOpen && !$blankLine
+                && !$structuralListMarker && !$structuralContinuation && !$definitionBodyBoundary
             ) {
                 $i++;
 
                 continue;
             }
-            if (IndentationHelper::isBlankLine($line) || $structuralListMarker || $structuralContinuation) {
+            if ($blankLine || $structuralListMarker || $structuralContinuation || $definitionBodyBoundary) {
                 $paragraphOpen = false;
             }
             // Strip any leading blockquote markers before the fence test so a
@@ -9446,7 +9455,7 @@ class BlockParser
         }
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
-        if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
+        if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 

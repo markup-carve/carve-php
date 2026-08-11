@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
-use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
+use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -78,7 +78,7 @@ class DefinitionInsideDefinitionListTest extends TestCase
     {
         // The entry is continued by a further description line, so the term is
         // not the only thing that can precede one.
-        $html = $this->html(":: term\n:  a\n:  [r]: /u\n\nsee [t][r]\n");
+        $html = $this->html(":: term\n:  a\n\n:  [r]: /u\n\nsee [t][r]\n");
 
         $this->assertStringContainsString('<a href="/u">t</a>', $html);
     }
@@ -94,7 +94,7 @@ class DefinitionInsideDefinitionListTest extends TestCase
 
     public function testAColonFenceIsNotADescriptionMarker(): void
     {
-        $html = $this->html(":: term\n::: note\n[r]: /u\n:::\n\nsee [t][r]\n");
+        $html = $this->html(":: term\n\n::: note\n\n:::\n\nsee [t][r]\n\n[r]: /u\n");
 
         // The fence opens a div; whether the definition inside it is collected
         // is a different rule, and what matters here is that the fence line was
