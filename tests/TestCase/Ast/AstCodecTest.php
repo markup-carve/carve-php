@@ -11,6 +11,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -358,7 +359,7 @@ class AstCodecTest extends TestCase
     {
         $directory = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
         $inputs = glob($directory . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
+        $this->assertSame(CorpusPopulation::expectedSize(), count($inputs), 'the corpus is truncated');
 
         $renderer = new CarveRenderer();
         $htmlFailures = [];
@@ -812,7 +813,7 @@ class AstCodecTest extends TestCase
     {
         $directory = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
         $inputs = glob($directory . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
+        $this->assertSame(CorpusPopulation::expectedSize(), count($inputs), 'the corpus is truncated');
 
         $divergent = [];
         foreach ($inputs as $input) {
