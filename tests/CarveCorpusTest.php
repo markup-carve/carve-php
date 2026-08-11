@@ -51,6 +51,7 @@ class CarveCorpusTest extends TestCase
         'heading-index-plain-text-covers-visible-leaves-and-rejects-an-empty-key',
         'a-column-zero-definition-ends-an-open-list-item',
         'adjacent-block-openers-in-an-attached-run-stay-separate',
+        'adjacent-sibling-lists-survive-the-round-trip',
         'an-empty-footnote-body-is-written-with-the-empty-sentinel',
         'a-caption-attaches-across-one-blank-line',
         'a-container-a-lazy-line-folded-into-is-still-open',

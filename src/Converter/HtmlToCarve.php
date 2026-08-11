@@ -253,7 +253,7 @@ class HtmlToCarve
      * @param string $message
      * @param string $code
      *
-     * @throws \HtmlImportLimitException
+     * @throws \MarkupCarve\Carve\Converter\HtmlImportLimitException
      */
     protected function addImportDiagnostic(array &$diagnostics, string $code, string $message, string $severity, string $path): void
     {
