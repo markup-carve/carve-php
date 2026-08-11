@@ -3956,14 +3956,11 @@ class BlockParser
         $innerLines = [];
         $innerLineMap = [];
         $lazyState = [
-            'inFence' => false,
+            'mode' => BlockQuoteLazyMode::Content,
             'fenceChar' => '',
             'fenceLength' => 0,
-            'inComment' => false,
             'commentLength' => 0,
             'paragraphOpen' => false,
-            'paragraphTextOpen' => false,
-            'inDiv' => false,
             'divFenceLength' => 0,
             'divDepth' => 0,
             'absorbingFence' => false,
@@ -4030,7 +4027,7 @@ class BlockParser
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
-                && !$this->endsBlockQuote($currentLine, $lazyState['paragraphTextOpen'], $lines, $i)
+                && !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i)
             ) {
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
@@ -4042,7 +4039,7 @@ class BlockParser
                 // when an open plain paragraph precedes it: after a heading,
                 // table, or other closed block there is no paragraph to fold
                 // into, so the list marker ENDS the quote and starts a sibling
-                // list (endsBlockQuote() handles this via paragraphTextOpen).
+                // list (endsBlockQuote() handles this via paragraphOpen).
                 $innerLines[] = $currentLine;
                 $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i);
@@ -4073,15 +4070,8 @@ class BlockParser
      * open paragraph (a just-opened div, a closed fence), such a line must instead
      * terminate the quote - otherwise it is wrongly swallowed into the fence/div.
      *
-     * The separate `paragraphTextOpen` flag is narrower than `paragraphOpen`:
-     * it is true only after a plain PARAGRAPH-text line, and false after a
-     * heading, table, thematic break, fence, comment, div, or blank line. It
-     * decides whether a lazy list marker folds (open paragraph above) or ends
-     * the quote (no open paragraph), mirroring the top-level rule that a list
-     * marker folds into a paragraph but never into a heading.
-     *
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{inFence:bool,fenceChar:string,fenceLength:int,inComment:bool,commentLength:int,paragraphOpen:bool,paragraphTextOpen:bool,inDiv:bool,divFenceLength:int,divDepth:int,absorbingFence:bool} $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
@@ -4095,29 +4085,26 @@ class BlockParser
         $wasAbsorbing = $state['absorbingFence'];
         $state['absorbingFence'] = false;
 
-        if ($state['inComment']) {
+        if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
             if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
-                $state['inComment'] = false;
+                $state['mode'] = BlockQuoteLazyMode::Content;
             }
             $state['paragraphOpen'] = false;
-            $state['paragraphTextOpen'] = false;
 
             return;
         }
 
-        if ($state['inFence']) {
+        if ($state['mode'] === BlockQuoteLazyMode::CodeFence) {
             if ($this->fencedBlockParser->isCodeFenceCloser($content, $state['fenceChar'], $state['fenceLength'])) {
-                $state['inFence'] = false;
+                $state['mode'] = BlockQuoteLazyMode::Content;
             }
             $state['paragraphOpen'] = false;
-            $state['paragraphTextOpen'] = false;
 
             return;
         }
 
         if (IndentationHelper::isBlankLine($content)) {
             $state['paragraphOpen'] = false;
-            $state['paragraphTextOpen'] = false;
 
             return;
         }
@@ -4132,21 +4119,19 @@ class BlockParser
         if (!$state['paragraphOpen']) {
             $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($content);
             if ($fenceInfo !== null) {
-                $state['inFence'] = true;
+                $state['mode'] = BlockQuoteLazyMode::CodeFence;
                 $state['fenceChar'] = $fenceInfo['char'];
                 $state['fenceLength'] = $fenceInfo['length'];
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
 
             $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($content);
             if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
-                $state['inComment'] = true;
+                $state['mode'] = BlockQuoteLazyMode::CommentFence;
                 $state['commentLength'] = $commentInfo['length'];
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -4160,13 +4145,12 @@ class BlockParser
         // list item already answered correctly, and one construct answering S4
         // two ways is a bug in one of the two paths
         // (markup-carve/carve#920, corpus 271).
-        if ($state['inDiv']) {
+        if ($state['mode'] === BlockQuoteLazyMode::Div) {
             if ($this->fencedBlockParser->isDivFenceCloser($content, $state['divFenceLength'])) {
                 // A CLOSED container holds no open paragraph either.
                 $state['divDepth']--;
-                $state['inDiv'] = $state['divDepth'] > 0;
+                $state['mode'] = $state['divDepth'] > 0 ? BlockQuoteLazyMode::Div : BlockQuoteLazyMode::Content;
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -4179,13 +4163,11 @@ class BlockParser
             if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
                 $state['divDepth']++;
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
             if ($this->fencedBlockParser->parseCodeFenceOpener($content) !== null) {
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -4203,7 +4185,6 @@ class BlockParser
                 || $this->tableParser->isTableRow($trimmedInDiv)
             ) {
                 $state['paragraphOpen'] = false;
-                $state['paragraphTextOpen'] = false;
 
                 return;
             }
@@ -4214,7 +4195,6 @@ class BlockParser
             // BLANK line never reaches here - the branch above it returns first
             // and leaves `inDiv` standing - so every line that does is body.
             $state['paragraphOpen'] = true;
-            $state['paragraphTextOpen'] = true;
 
             return;
         }
@@ -4230,7 +4210,6 @@ class BlockParser
             if ($wasAbsorbing && $bareFence) {
                 $state['absorbingFence'] = true;
                 $state['paragraphOpen'] = true;
-                $state['paragraphTextOpen'] = true;
 
                 return;
             }
@@ -4239,11 +4218,10 @@ class BlockParser
             // instead of folding in.
             /** @var int $divFenceLength */
             $divFenceLength = $divOpener['length'];
-            $state['inDiv'] = true;
+            $state['mode'] = BlockQuoteLazyMode::Div;
             $state['divFenceLength'] = $divFenceLength;
             $state['divDepth'] = 1;
             $state['paragraphOpen'] = false;
-            $state['paragraphTextOpen'] = false;
 
             return;
         }
@@ -4255,7 +4233,6 @@ class BlockParser
         if (preg_match('/^:{3,}/', ltrim($content, " \t")) === 1) {
             $state['absorbingFence'] = true;
             $state['paragraphOpen'] = true;
-            $state['paragraphTextOpen'] = true;
 
             return;
         }
@@ -4272,10 +4249,9 @@ class BlockParser
         // again for the heading: "a bounded title holds no block and ENDS AT THE
         // NEWLINE, so nothing folds into it at all".
         //
-        // These used to set paragraphOpen anyway and clear only
-        // paragraphTextOpen, so `> # h` / `b` kept the quote open and put `b`
-        // inside it. carve-rs closes it; the distinction between the two flags
-        // was the bug (carve-php#652).
+        // These used to leave the paragraph open, so `> # h` / `b` kept the
+        // quote open and put `b` inside it. carve-rs closes it; tracking two
+        // subtly different paragraph booleans was the bug (carve-php#652).
         $trimmed = ltrim($content, " \t");
         $atContentColumn = $trimmed === $content;
         $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
@@ -4307,10 +4283,6 @@ class BlockParser
         // same paragraph - but not a heading or a thematic break, which end it.
         $state['absorbingFence'] = $wasAbsorbing && !$leavesNoParagraph;
         $state['paragraphOpen'] = !$leavesNoParagraph;
-        // A list marker folds only into an open PLAIN paragraph, so the same
-        // set clears this too. Mirrors the top-level rule: `text\n- item`
-        // folds, `# h\n- item` is a heading plus a sibling list.
-        $state['paragraphTextOpen'] = !$leavesNoParagraph;
     }
 
     /**
@@ -9417,19 +9389,19 @@ class BlockParser
      * startsNewBlock().
      *
      * @param string $line
-     * @param bool $paragraphTextOpen Whether an open plain paragraph precedes this line.
+     * @param bool $paragraphOpen Whether an open paragraph precedes this line.
      * @param array<string>|null $lines
      * @param int|null $index
      */
     protected function endsBlockQuote(
         string $line,
-        bool $paragraphTextOpen,
+        bool $paragraphOpen,
         ?array $lines = null,
         ?int $index = null,
     ): bool {
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
-        if (!$paragraphTextOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
+        if (!$paragraphOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 
