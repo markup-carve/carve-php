@@ -64,6 +64,7 @@ final class AstPatch
             }
             $document[$key] = $value;
         }
+        (new AstCodec())->decode($document);
 
         return $document;
     }
@@ -126,6 +127,10 @@ final class AstPatch
             $out[$key] = self::clean($child, $stripMetadata && $key !== 'keyValues');
         }
 
+        if (!array_is_list($out)) {
+            ksort($out, SORT_STRING);
+        }
+
         return $out;
     }
 
@@ -143,6 +148,10 @@ final class AstPatch
                 continue;
             }
             $out[$key] = self::clean($child, $stripMetadata && $key !== 'keyValues');
+        }
+
+        if (!array_is_list($out)) {
+            ksort($out, SORT_STRING);
         }
 
         return $out;
@@ -204,12 +213,13 @@ final class AstPatch
      * @param list<string> $parts
      * @param array{op: 'add'|'replace', path: string, value: mixed}|array{op: 'remove', path: string} $operation
      * @param bool $stripMetadata
+     * @param bool $forceObject
      *
      * @throws \InvalidArgumentException
      *
      * @return array<int|string, mixed>
      */
-    private static function applyAt(array $root, array $parts, array $operation, bool $stripMetadata = true): array
+    private static function applyAt(array $root, array $parts, array $operation, bool $stripMetadata = true, bool $forceObject = false): array
     {
         $key = array_shift($parts);
         if ($key === null) {
@@ -220,11 +230,17 @@ final class AstPatch
             if (!array_key_exists($actual, $root) || !is_array($root[$actual])) {
                 throw new InvalidArgumentException('Patch path component does not exist: ' . $key);
             }
-            $root[$actual] = self::applyAt($root[$actual], $parts, $operation, $stripMetadata && $key !== 'keyValues');
+            $root[$actual] = self::applyAt(
+                $root[$actual],
+                $parts,
+                $operation,
+                $stripMetadata && $key !== 'keyValues',
+                $key === 'keyValues',
+            );
 
             return $root;
         }
-        if (array_is_list($root)) {
+        if (array_is_list($root) && !$forceObject) {
             $index = self::index($key, count($root), $operation['op'] === 'add');
             if ($operation['op'] === 'add') {
                 array_splice($root, $index, 0, [self::clean($operation['value'], $stripMetadata)]);

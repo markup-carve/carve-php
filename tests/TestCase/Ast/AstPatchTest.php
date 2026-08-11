@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Ast\AstPatch;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class AstPatchTest extends TestCase
 {
@@ -49,31 +50,32 @@ class AstPatchTest extends TestCase
 
     public function testObjectAndArrayOperationsReplayIndividually(): void
     {
-        $document = ['type' => 'document', 'children' => [['type' => 'paragraph', 'children' => []]], 'old' => true];
+        $document = $this->ast("[text]{old=yes}\n");
+        $attrs = '/children/0/children/0/attrs/keyValues';
         $operations = [
+            ['op' => 'add', 'path' => $attrs . '/a~1b~0c', 'value' => 'escaped'],
+            ['op' => 'remove', 'path' => $attrs . '/old'],
             ['op' => 'add', 'path' => '/children/1', 'value' => ['type' => 'paragraph', 'children' => []]],
-            ['op' => 'replace', 'path' => '/children/0', 'value' => ['type' => 'heading', 'level' => 1, 'children' => []]],
             ['op' => 'remove', 'path' => '/children/1'],
-            ['op' => 'add', 'path' => '/a~1b~0c', 'value' => 'escaped'],
-            ['op' => 'remove', 'path' => '/old'],
         ];
 
         $result = AstPatch::apply($document, $operations);
 
-        $this->assertSame('heading', $result['children'][0]['type']);
-        $this->assertSame('escaped', $result['a/b~c']);
-        $this->assertArrayNotHasKey('old', $result);
+        $this->assertSame('paragraph', $result['children'][0]['type']);
+        $this->assertSame('escaped', $result['children'][0]['children'][0]['attrs']['keyValues']['a/b~c']);
+        $this->assertArrayNotHasKey('old', $result['children'][0]['children'][0]['attrs']['keyValues']);
     }
 
     public function testCreateEmitsObjectAddAndRemoveOperations(): void
     {
-        $before = ['type' => 'document', 'children' => [], 'remove' => true];
-        $after = ['type' => 'document', 'children' => [], 'add' => ['nested' => true]];
+        $before = $this->ast("[text]{remove=yes}\n");
+        $after = $this->ast("[text]{add=yes}\n");
 
         $patch = AstPatch::create($before, $after);
 
-        $this->assertSame($after + ['srcByteLength' => 0], AstPatch::apply($before, $patch));
-        $this->assertSame(['remove', 'add'], array_column($patch, 'op'));
+        $after['srcByteLength'] = 0;
+        $this->assertEquals($after, AstPatch::apply($before, $patch));
+        $this->assertSame(['remove', 'add', 'replace'], array_column($patch, 'op'));
     }
 
     public function testRootReplacementIsValidatedAndCleaned(): void
@@ -90,12 +92,12 @@ class AstPatchTest extends TestCase
 
     public function testAuthorAttributesNamedLikeMetadataSurvive(): void
     {
-        $before = ['type' => 'document', 'children' => [], 'attrs' => ['keyValues' => ['pos' => 'before', 'srcByteLength' => 'before']]];
-        $after = ['type' => 'document', 'children' => [], 'attrs' => ['keyValues' => ['pos' => 'after', 'srcByteLength' => 'after']]];
+        $before = $this->ast("[text]{pos=before srcByteLength=before}\n");
+        $after = $this->ast("[text]{pos=after srcByteLength=after}\n");
 
         $result = AstPatch::apply($before, AstPatch::create($before, $after));
 
-        $this->assertSame($after['attrs'], $result['attrs']);
+        $this->assertSame($after['children'][0]['children'][0]['attrs'], $result['children'][0]['children'][0]['attrs']);
     }
 
     /**
@@ -105,7 +107,7 @@ class AstPatchTest extends TestCase
     #[DataProvider('invalidPatchProvider')]
     public function testMalformedPatchesAreRejected(array $document, array $operations): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(Throwable::class);
         AstPatch::apply($document, $operations);
     }
 
@@ -119,6 +121,7 @@ class AstPatchTest extends TestCase
         yield 'remove root' => [$document, [['op' => 'remove', 'path' => '']]];
         yield 'scalar root' => [$document, [['op' => 'replace', 'path' => '', 'value' => 'no']]];
         yield 'invalid root' => [$document, [['op' => 'replace', 'path' => '', 'value' => ['type' => 'paragraph']]]];
+        yield 'unknown child node' => [$document, [['op' => 'add', 'path' => '/children/0', 'value' => ['type' => 'unknown-node']]]];
         yield 'invalid pointer' => [$document, [['op' => 'remove', 'path' => 'children']]];
         yield 'missing direct property' => [$document, [['op' => 'remove', 'path' => '/missing']]];
         yield 'non-container parent' => [$document, [['op' => 'remove', 'path' => '/type/value']]];

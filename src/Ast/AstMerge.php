@@ -40,6 +40,7 @@ final class AstMerge
             throw new InvalidArgumentException('Merge result is not a PART 12 document root.');
         }
         $ast['srcByteLength'] = 0;
+        (new AstCodec())->decode($ast);
 
         return ['ok' => true, 'ast' => $ast, 'conflicts' => []];
     }
@@ -60,6 +61,10 @@ final class AstMerge
                 continue;
             }
             $out[$key] = self::clean($child, $stripMetadata && $key !== 'keyValues');
+        }
+
+        if (!array_is_list($out)) {
+            ksort($out, SORT_STRING);
         }
 
         return $out;
@@ -92,7 +97,7 @@ final class AstMerge
     private static function conflictItem(string $reason, string $path, mixed $base, mixed $ours, mixed $theirs): array
     {
         $item = [
-            'path' => $path !== '' ? $path : '/',
+            'path' => $path,
             'reason' => $reason,
             'base' => $base === self::missing() ? null : $base,
             'ours' => $ours === self::missing() ? null : $ours,
@@ -447,7 +452,7 @@ final class AstMerge
         $ready = array_keys(array_filter($incoming, static fn (int $count): bool => $count === 0));
         $order = [];
         while ($ready !== []) {
-            sort($ready, SORT_STRING);
+            usort($ready, static fn (string $a, string $b): int => $a[0] <=> $b[0] ?: (int)substr($a, 1) <=> (int)substr($b, 1));
             $token = array_shift($ready);
             $order[] = $token;
             foreach (array_keys($edges[$token] ?? []) as $to) {

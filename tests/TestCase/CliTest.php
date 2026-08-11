@@ -323,4 +323,37 @@ class CliTest extends TestCase
         $this->assertSame(1, $result['exit']);
         $this->assertStringContainsString('requires a mode', $result['err']);
     }
+
+    public function testStructuralMergeJsonEnvelopeAndConflictExit(): void
+    {
+        $paths = [];
+        foreach (["alpha\n\nbeta\n", "alpha\n", "alpha\n\nbeta edited\n"] as $source) {
+            $path = tempnam(sys_get_temp_dir(), 'carve-merge-');
+            $this->assertIsString($path);
+            file_put_contents($path, $source);
+            $paths[] = $path;
+        }
+
+        try {
+            $result = $this->runCliInput(['merge', '--json', ...$paths], '');
+        } finally {
+            foreach ($paths as $path) {
+                unlink($path);
+            }
+        }
+
+        $this->assertSame(1, $result['exit']);
+        $decoded = json_decode($result['out'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertFalse($decoded['ok']);
+        $this->assertSame('delete-edit', $decoded['conflicts'][0]['reason']);
+        $this->assertTrue($decoded['conflicts'][0]['deleted']['ours']);
+    }
+
+    public function testStructuralMergeHelp(): void
+    {
+        $result = $this->runCliInput(['merge', '--help'], '');
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringContainsString('Usage: carve merge', $result['out']);
+    }
 }

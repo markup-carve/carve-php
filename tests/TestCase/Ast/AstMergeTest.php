@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class AstMergeTest extends TestCase
 {
@@ -33,6 +34,31 @@ class AstMergeTest extends TestCase
         $this->assertStringContainsString('New', $json);
         $this->assertStringContainsString('/b', $json);
         $this->assertStringNotContainsString('"pos"', $json);
+    }
+
+    public function testRejectsAResolvedInvalidTree(): void
+    {
+        $base = $this->ast("Base.\n");
+        $ours = $this->ast("Ours.\n");
+        $theirs = $this->ast("Theirs.\n");
+
+        $this->expectException(Throwable::class);
+        AstMerge::merge($base, $ours, $theirs, static fn (): array => [
+            'value' => ['type' => 'unknown-node'],
+        ]);
+    }
+
+    public function testDeduplicatesIdenticalInsertionsWithDifferentKeyOrder(): void
+    {
+        $base = $this->ast("Base.\n");
+        $ours = $this->ast("Base.\n\nAdded.\n");
+        $theirs = $ours;
+        $theirs['children'][1] = array_reverse($theirs['children'][1], true);
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertCount(2, $result['ast']['children']);
     }
 
     public function testMergesConcurrentInsertions(): void
@@ -90,46 +116,46 @@ class AstMergeTest extends TestCase
 
     public function testMissingMarkerCannotCollideWithAuthoredText(): void
     {
-        $base = ['type' => 'document', 'children' => [], 'probe' => "\0carve-missing\0"];
-        $ours = ['type' => 'document', 'children' => [], 'probe' => 'ours'];
-        $theirs = ['type' => 'document', 'children' => [], 'probe' => "\0carve-missing\0"];
+        $node = static fn (mixed $value): array => ['type' => 'document', 'children' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]]]];
+        $base = $node("\0carve-missing\0");
+        $ours = $node('ours');
+        $theirs = $node("\0carve-missing\0");
 
         $result = AstMerge::merge($base, $ours, $theirs);
 
         $this->assertTrue($result['ok']);
-        $this->assertSame('ours', $result['ast']['probe']);
+        $this->assertSame('ours', $result['ast']['children'][0]['children'][0]['value']);
     }
 
-    public function testResolverCanChooseANullBaseValue(): void
+    public function testResolvedInvalidNullValueIsRejected(): void
     {
-        $base = ['type' => 'document', 'children' => [], 'probe' => null];
-        $ours = ['type' => 'document', 'children' => [], 'probe' => 'ours'];
-        $theirs = ['type' => 'document', 'children' => [], 'probe' => 'theirs'];
+        $node = static fn (mixed $value): array => ['type' => 'document', 'children' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]]]];
+        $base = $node(null);
+        $ours = $node('ours');
+        $theirs = $node('theirs');
 
-        $result = AstMerge::merge($base, $ours, $theirs, static fn (): string => 'base');
-
-        $this->assertTrue($result['ok']);
-        $this->assertArrayHasKey('probe', $result['ast']);
-        $this->assertNull($result['ast']['probe']);
+        $this->expectException(Throwable::class);
+        AstMerge::merge($base, $ours, $theirs, static fn (): string => 'base');
     }
 
     public function testResolverCanSupplyACustomValue(): void
     {
         $result = AstMerge::merge(
-            ['type' => 'document', 'children' => [], 'probe' => 'base'],
-            ['type' => 'document', 'children' => [], 'probe' => 'ours'],
-            ['type' => 'document', 'children' => [], 'probe' => 'theirs'],
+            $this->ast("base\n"),
+            $this->ast("ours\n"),
+            $this->ast("theirs\n"),
             static fn (): array => ['value' => 'resolved'],
         );
 
         $this->assertTrue($result['ok']);
-        $this->assertSame('resolved', $result['ast']['probe']);
+        $this->assertSame('resolved', $result['ast']['children'][0]['children'][0]['value']);
     }
 
     public function testIdentityHintsTrackEditedNodesAcrossAMove(): void
     {
         $node = static fn (string $id, string $value): array => [
             'type' => 'heading',
+            'level' => 1,
             'attrs' => ['id' => $id],
             'children' => [['type' => 'text', 'value' => $value]],
         ];
@@ -180,6 +206,7 @@ class AstMergeTest extends TestCase
     {
         $node = static fn (string $id, string $value): array => [
             'type' => 'heading',
+            'level' => 1,
             'attrs' => ['id' => $id],
             'children' => [['type' => 'text', 'value' => $value]],
         ];
