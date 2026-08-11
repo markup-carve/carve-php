@@ -99,6 +99,8 @@ class BlockParser
      * below then refused the abbreviation definition on the NEXT line: the term
      * expanded nowhere and `fmt` dropped the line, while a link definition and a
      * footnote definition in the same position were both collected normally.
+     *
+     * @var string
      */
     private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) +[ \t]*[^ \t]/';
 
