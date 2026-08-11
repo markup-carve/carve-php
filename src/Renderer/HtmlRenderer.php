@@ -1214,7 +1214,16 @@ class HtmlRenderer implements RendererInterface
     {
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
-        $inner = rtrim($this->renderChildren($node), "\n");
+
+        // Rendered ONCE, and the pieces serve both the framing decision below
+        // and the output. Rendering a child again to test whether it is empty
+        // doubles the work at every nesting level, which is exponential in
+        // depth: a 20-deep quote went from under a millisecond to 6 seconds.
+        $rendered = [];
+        foreach ($children as $child) {
+            $rendered[] = $this->renderNode($child);
+        }
+        $inner = rtrim(implode('', $rendered), "\n");
 
         // A blockquote of a single paragraph is compact (one line);
         // anything else (lists, headings, multiple blocks) is expanded
@@ -1233,8 +1242,8 @@ class HtmlRenderer implements RendererInterface
         // Decided by rendering rather than by a type list, so a third node type
         // that renders nothing cannot be added silently.
         $visible = [];
-        foreach ($children as $child) {
-            if ($child instanceof Paragraph || $this->renderNode($child) !== '') {
+        foreach ($children as $index => $child) {
+            if ($rendered[$index] !== '') {
                 $visible[] = $child;
             }
         }
