@@ -35,4 +35,28 @@ class HtmlImportReportTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         new HtmlToCarve(importMode: 'unknown');
     }
+
+    public function testSharedContractFixtures(): void
+    {
+        $root = dirname(__DIR__, 2) . '/spec/tests/html-import';
+        $fixtures = glob($root . '/*', GLOB_ONLYDIR);
+        $this->assertNotEmpty($fixtures);
+        foreach ($fixtures as $fixture) {
+            $html = file_get_contents($fixture . '/input.html');
+            $expected = file_get_contents($fixture . '/expected.crv');
+            $reportJson = file_get_contents($fixture . '/expected.report.json');
+            $this->assertNotFalse($html);
+            $this->assertNotFalse($expected);
+            $this->assertNotFalse($reportJson);
+            $expectedReport = json_decode($reportJson, true, flags: JSON_THROW_ON_ERROR);
+
+            $result = (new HtmlToCarve())->convertWithReport($html);
+            $this->assertSame($expected, $result->value, basename($fixture));
+            $this->assertSame(
+                array_column($expectedReport['diagnostics'], 'code'),
+                array_column($result->report()['diagnostics'], 'code'),
+                basename($fixture),
+            );
+        }
+    }
 }
