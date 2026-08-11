@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
@@ -110,5 +111,119 @@ class AstMergeTest extends TestCase
         $this->assertTrue($result['ok']);
         $this->assertArrayHasKey('probe', $result['ast']);
         $this->assertNull($result['ast']['probe']);
+    }
+
+    public function testResolverCanSupplyACustomValue(): void
+    {
+        $result = AstMerge::merge(
+            ['type' => 'document', 'children' => [], 'probe' => 'base'],
+            ['type' => 'document', 'children' => [], 'probe' => 'ours'],
+            ['type' => 'document', 'children' => [], 'probe' => 'theirs'],
+            static fn (): array => ['value' => 'resolved'],
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('resolved', $result['ast']['probe']);
+    }
+
+    public function testIdentityHintsTrackEditedNodesAcrossAMove(): void
+    {
+        $node = static fn (string $id, string $value): array => [
+            'type' => 'heading',
+            'attrs' => ['id' => $id],
+            'children' => [['type' => 'text', 'value' => $value]],
+        ];
+        $base = ['type' => 'document', 'children' => [$node('a', 'A'), $node('b', 'B')]];
+        $ours = ['type' => 'document', 'children' => [$node('b', 'B changed'), $node('a', 'A')]];
+        $theirs = ['type' => 'document', 'children' => [$node('a', 'A changed'), $node('b', 'B')]];
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('b', $result['ast']['children'][0]['attrs']['id']);
+        $this->assertSame('B changed', $result['ast']['children'][0]['children'][0]['value']);
+        $this->assertSame('A changed', $result['ast']['children'][1]['children'][0]['value']);
+    }
+
+    public function testLcsMatchesSeveralEditedSiblings(): void
+    {
+        $node = static fn (string $value): array => ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]];
+        $base = ['type' => 'document', 'children' => [$node('A'), $node('B'), $node('C')]];
+        $ours = ['type' => 'document', 'children' => [$node('A1'), $node('B1'), $node('C1')]];
+        $theirs = ['type' => 'document', 'children' => [$node('A'), $node('B'), $node('C'), $node('D')]];
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(['A1', 'B1', 'C1', 'D'], array_map(static fn (array $item): string => $item['children'][0]['value'], $result['ast']['children']));
+    }
+
+    public function testVeryWideAmbiguousSequencesUseTheBoundedMatcher(): void
+    {
+        $baseChildren = [];
+        $oursChildren = [];
+        for ($index = 0; $index < 1_001; ++$index) {
+            $baseChildren[] = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'base-' . $index]]];
+            $oursChildren[] = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'ours-' . $index]]];
+        }
+        $base = ['type' => 'document', 'children' => $baseChildren];
+        $ours = ['type' => 'document', 'children' => $oursChildren];
+        $theirs = ['type' => 'document', 'children' => [...$baseChildren, ['type' => 'heading', 'level' => 1, 'children' => []]]];
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertCount(1_002, $result['ast']['children']);
+    }
+
+    public function testIdenticalConcurrentInsertionIsEmittedOnce(): void
+    {
+        $node = static fn (string $id, string $value): array => [
+            'type' => 'heading',
+            'attrs' => ['id' => $id],
+            'children' => [['type' => 'text', 'value' => $value]],
+        ];
+        $same = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'Same']]];
+        $base = ['type' => 'document', 'children' => [$node('a', 'A'), $node('b', 'B')]];
+        $ours = ['type' => 'document', 'children' => [$node('a', 'A ours'), $same, $node('b', 'B')]];
+        $theirs = ['type' => 'document', 'children' => [$node('a', 'A'), $same, $node('b', 'B theirs')]];
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(1, substr_count(json_encode($result['ast'], JSON_THROW_ON_ERROR), 'Same'));
+    }
+
+    public function testAuthorAttributesNamedLikeMetadataSurvive(): void
+    {
+        $node = static fn (string $value, string $attribute): array => [
+            'type' => 'paragraph',
+            'children' => [['type' => 'text', 'value' => $value, 'attrs' => ['keyValues' => ['pos' => $attribute, 'srcByteLength' => $attribute]]]],
+        ];
+        $base = ['type' => 'document', 'children' => [$node('base', 'base')]];
+        $ours = ['type' => 'document', 'children' => [$node('base', 'ours')]];
+        $theirs = ['type' => 'document', 'children' => [$node('theirs', 'base')]];
+
+        $result = AstMerge::merge($base, $ours, $theirs);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(['pos' => 'ours', 'srcByteLength' => 'ours'], $result['ast']['children'][0]['children'][0]['attrs']['keyValues']);
+    }
+
+    public function testInvalidResolverAnswerIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AstMerge::merge(
+            ['type' => 'document', 'children' => [], 'probe' => 'base'],
+            ['type' => 'document', 'children' => [], 'probe' => 'ours'],
+            ['type' => 'document', 'children' => [], 'probe' => 'theirs'],
+            static fn (): string => 'mine',
+        );
+    }
+
+    public function testInvalidRootIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AstMerge::merge([], [], []);
     }
 }

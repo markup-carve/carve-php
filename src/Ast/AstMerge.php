@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use InvalidArgumentException;
 use stdClass;
 
 final class AstMerge
@@ -21,6 +22,8 @@ final class AstMerge
      * @param array<string, mixed> $theirs
      * @param callable(array<string, mixed>): ('base'|'ours'|'theirs'|array{value: mixed}|null)|null $resolve
      *
+     * @throws \InvalidArgumentException
+     *
      * @return array{ok: true, ast: array<string, mixed>, conflicts: array{}}|array{ok: false, ast: null, conflicts: list<array<string, mixed>>}
      */
     public static function merge(array $base, array $ours, array $theirs, ?callable $resolve = null): array
@@ -33,6 +36,9 @@ final class AstMerge
 
         /** @var array<string, mixed> $ast */
         $ast = self::clean($merged);
+        if (($ast['type'] ?? null) !== 'document' || !isset($ast['children']) || !is_array($ast['children'])) {
+            throw new InvalidArgumentException('Merge result is not a PART 12 document root.');
+        }
         $ast['srcByteLength'] = 0;
 
         return ['ok' => true, 'ast' => $ast, 'conflicts' => []];
@@ -43,34 +49,41 @@ final class AstMerge
         return $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key);
     }
 
-    private static function clean(mixed $value): mixed
+    private static function clean(mixed $value, bool $stripMetadata = true): mixed
     {
         if (!is_array($value)) {
             return $value;
         }
         $out = [];
         foreach ($value as $key => $child) {
-            if ($key === 'pos' || $key === 'srcByteLength') {
+            if ($stripMetadata && ($key === 'pos' || $key === 'srcByteLength')) {
                 continue;
             }
-            $out[$key] = self::clean($child);
+            $out[$key] = self::clean($child, $stripMetadata && $key !== 'keyValues');
         }
 
         return $out;
     }
 
-    private static function equal(mixed $a, mixed $b): bool
+    private static function stripMetadata(string $path): bool
+    {
+        return !in_array('keyValues', explode('/', $path), true);
+    }
+
+    private static function equal(mixed $a, mixed $b, string $path = ''): bool
     {
         if ($a === self::missing() || $b === self::missing()) {
             return $a === $b;
         }
 
-        return json_encode(self::clean($a), JSON_THROW_ON_ERROR) === json_encode(self::clean($b), JSON_THROW_ON_ERROR);
+        $stripMetadata = self::stripMetadata($path);
+
+        return json_encode(self::clean($a, $stripMetadata), JSON_THROW_ON_ERROR) === json_encode(self::clean($b, $stripMetadata), JSON_THROW_ON_ERROR);
     }
 
-    private static function key(mixed $value): string
+    private static function key(mixed $value, string $path): string
     {
-        return json_encode(self::clean($value), JSON_THROW_ON_ERROR);
+        return json_encode(self::clean($value, self::stripMetadata($path)), JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -102,8 +115,10 @@ final class AstMerge
      * @param mixed $base
      * @param mixed $ours
      * @param mixed $theirs
-@param list<array<string, mixed>> $conflicts
+     * @param list<array<string, mixed>> $conflicts
      * @param callable|null $resolve
+     *
+     * @throws \InvalidArgumentException
      */
     private static function conflict(
         string $reason,
@@ -125,12 +140,14 @@ final class AstMerge
             return $resolution['value'];
         }
 
-        return match ($resolution) {
+        $resolved = match ($resolution) {
             'base' => $base,
             'ours' => $ours,
             'theirs' => $theirs,
-            default => self::missing(),
+            default => throw new InvalidArgumentException('Merge resolver must return base, ours, theirs, {value}, or null.'),
         };
+
+        return $resolved;
     }
 
     private static function kind(mixed $value): string
@@ -162,19 +179,20 @@ final class AstMerge
     /**
      * @param list<mixed> $base
      * @param list<mixed> $side
+     * @param string $path
      *
      * @return array{baseToSide: array<int, int>, sideToBase: array<int, int>, additions: list<int>}
      */
-    private static function matchSide(array $base, array $side): array
+    private static function matchSide(array $base, array $side, string $path): array
     {
         $baseToSide = [];
         $sideToBase = [];
         $exact = [];
         foreach ($side as $index => $value) {
-            $exact[self::key($value)][] = $index;
+            $exact[self::key($value, $path)][] = $index;
         }
         foreach ($base as $index => $value) {
-            $key = self::key($value);
+            $key = self::key($value, $path);
             if (($exact[$key] ?? []) === []) {
                 continue;
             }
@@ -190,6 +208,13 @@ final class AstMerge
         };
 
         $hints = [];
+        $baseHints = [];
+        foreach ($remainingBase() as $index) {
+            $hint = self::identityHint($base[$index]);
+            if ($hint !== null) {
+                $baseHints[$hint][] = $index;
+            }
+        }
         foreach ($remainingSide() as $index) {
             $hint = self::identityHint($side[$index]);
             if ($hint !== null) {
@@ -198,7 +223,7 @@ final class AstMerge
         }
         foreach ($remainingBase() as $index) {
             $hint = self::identityHint($base[$index]);
-            if ($hint !== null && count($hints[$hint] ?? []) === 1) {
+            if ($hint !== null && count($baseHints[$hint] ?? []) === 1 && count($hints[$hint] ?? []) === 1) {
                 $sideIndex = $hints[$hint][0];
                 if (!isset($sideToBase[$sideIndex])) {
                     $baseToSide[$index] = $sideIndex;
@@ -304,8 +329,8 @@ final class AstMerge
      */
     private static function mergeSequence(array $base, array $ours, array $theirs, string $path, array &$conflicts, ?callable $resolve): mixed
     {
-        $om = self::matchSide($base, $ours);
-        $tm = self::matchSide($base, $theirs);
+        $om = self::matchSide($base, $ours, $path);
+        $tm = self::matchSide($base, $theirs, $path);
         $values = [];
         $omitted = [];
         foreach ($base as $index => $value) {
@@ -319,7 +344,7 @@ final class AstMerge
             }
             if ($oi === null || $ti === null) {
                 $present = $oi === null ? $theirs[$ti] : $ours[$oi];
-                if (self::equal($value, $present)) {
+                if (self::equal($value, $present, $path)) {
                     $omitted[$token] = true;
 
                     continue;
@@ -346,8 +371,12 @@ final class AstMerge
         $used = [];
         foreach ($om['additions'] as $oi) {
             $same = null;
+            $oursHint = self::identityHint($ours[$oi]);
             foreach ($tm['additions'] as $ti) {
-                if (!isset($used[$ti]) && self::anchor($oi, $om, count($ours)) === self::anchor($ti, $tm, count($theirs)) && self::equal($ours[$oi], $theirs[$ti])) {
+                if ($oursHint !== null && self::identityHint($theirs[$ti]) === $oursHint && self::anchor($oi, $om, count($ours)) === self::anchor($ti, $tm, count($theirs)) && !self::equal($ours[$oi], $theirs[$ti], $path)) {
+                    return self::conflict('concurrent-sequence-edit', $path, $base, $ours, $theirs, $conflicts, $resolve);
+                }
+                if (!isset($used[$ti]) && self::anchor($oi, $om, count($ours)) === self::anchor($ti, $tm, count($theirs)) && self::equal($ours[$oi], $theirs[$ti], $path)) {
                     $same = $ti;
 
                     break;
@@ -445,13 +474,13 @@ final class AstMerge
      */
     private static function mergeValue(mixed $base, mixed $ours, mixed $theirs, string $path, array &$conflicts, ?callable $resolve): mixed
     {
-        if (self::equal($ours, $theirs)) {
+        if (self::equal($ours, $theirs, $path)) {
             return $ours;
         }
-        if (self::equal($ours, $base)) {
+        if (self::equal($ours, $base, $path)) {
             return $theirs;
         }
-        if (self::equal($theirs, $base)) {
+        if (self::equal($theirs, $base, $path)) {
             return $ours;
         }
         if ($ours === self::missing() || $theirs === self::missing()) {
@@ -463,7 +492,7 @@ final class AstMerge
         if (is_array($base) && !array_is_list($base) && is_array($ours) && !array_is_list($ours) && is_array($theirs) && !array_is_list($theirs)) {
             $out = [];
             foreach (array_unique([...array_keys($base), ...array_keys($ours), ...array_keys($theirs)]) as $key) {
-                if ($key === 'pos' || $key === 'srcByteLength') {
+                if (self::stripMetadata($path) && ($key === 'pos' || $key === 'srcByteLength')) {
                     continue;
                 }
                 $value = self::mergeValue(

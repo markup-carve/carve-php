@@ -73,6 +73,9 @@ function runMergeCommand(array $argv): never
     foreach (array_slice($argv, 2) as $arg) {
         if ($arg === '--json') {
             $json = true;
+        } elseif ($arg === '-h' || $arg === '--help') {
+            fwrite(STDOUT, "Usage: carve merge [--json] base ours theirs\n");
+            exit(0);
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "carve merge: unknown option: $arg\n");
             exit(2);
@@ -88,6 +91,10 @@ function runMergeCommand(array $argv): never
     $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
     $trees = [];
     foreach ($files as $file) {
+        if (!is_file($file) || !is_readable($file)) {
+            fwrite(STDERR, "carve merge: cannot read $file\n");
+            exit(2);
+        }
         $source = file_get_contents($file);
         if ($source === false) {
             fwrite(STDERR, "carve merge: cannot read $file\n");
@@ -109,9 +116,14 @@ function runMergeCommand(array $argv): never
         exit(1);
     }
     if ($json) {
-        fwrite(STDOUT, json_encode($result['ast'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+        fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
     } else {
-        fwrite(STDOUT, CarveConverter::carve()->render($codec->decode($result['ast'])));
+        try {
+            fwrite(STDOUT, CarveConverter::carve()->render($codec->decode($result['ast'])));
+        } catch (Throwable $exception) {
+            fwrite(STDERR, 'carve merge: ' . $exception->getMessage() . "\n");
+            exit(2);
+        }
     }
     exit(0);
 }
