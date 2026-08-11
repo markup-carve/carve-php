@@ -3230,15 +3230,10 @@ class BlockParser
                 break;
             }
 
-            // Splitting a source that ends with a newline yields a phantom
-            // empty final element. That newline terminates the preceding line,
-            // it does not add a blank content line, so an unterminated fence
-            // running to EOF must not absorb it (matching carve-js).
-            if ($i === $count - 1 && $currentLine === '') {
-                $i++;
-
-                break;
-            }
+            // A blank LAST line here is real content: the phantom element a
+            // terminal newline leaves behind is dropped in splitLines(), where
+            // the string is known to be a whole document. Refusing it here
+            // refused the genuine blank at the end of a container body too.
 
             // Remove indent from content lines (up to the same amount as opening fence)
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen);
@@ -10391,6 +10386,18 @@ class BlockParser
                 continue;
             }
             $offset += 1;
+        }
+
+        // Drop the empty line a TERMINAL newline leaves behind. `explode` on
+        // "a\n" yields ['a', ''] and the document has one line, not two.
+        //
+        // It belongs here, where the string is known to be a whole document.
+        // The fence collector used to do it instead, by refusing to absorb a
+        // blank LAST line - which also refused the real blank at the end of a
+        // container body, so a fence ended by a div closer or a bare quote
+        // marker came out a line short (carve-php#1177).
+        if (end($lines) === '') {
+            array_pop($lines);
         }
 
         return $lines;
