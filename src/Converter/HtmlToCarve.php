@@ -459,7 +459,7 @@ class HtmlToCarve
         // dropped and the content kept - the same thing an attribute-less div
         // in a cell already did (carve-php#1164).
         if ($this->tableCellDepth > 0) {
-            return $this->processBlock($node);
+            return $this->degradeToContent($node);
         }
 
         // Check for admonition div (round-trip support)
@@ -492,7 +492,7 @@ class HtmlToCarve
         if ($fenceClass === null || $fenceClass === '') {
             $attrs = $this->formatBlockAttributes($node);
             if ($attrs === '') {
-                return $this->processBlock($node);
+                return $this->degradeToContent($node);
             }
 
             $content = trim($this->processChildren($node));
@@ -515,7 +515,7 @@ class HtmlToCarve
                 }
             }
             if (!$hasExtraAttrs) {
-                return $this->processBlock($node);
+                return $this->degradeToContent($node);
             }
         }
 
@@ -705,14 +705,14 @@ class HtmlToCarve
         // context has emptied its attributes; this makes the one exception
         // behave like the rest (carve-php#1164).
         if ($this->tableCellDepth > 0) {
-            return $this->processBlock($node);
+            return $this->degradeToContent($node);
         }
 
         $tagName = strtolower($node->tagName);
         $attrs = $this->formatBlockAttributes($node);
 
         if ($tagName !== 'details' && $attrs === '') {
-            return $this->processBlock($node);
+            return $this->degradeToContent($node);
         }
 
         $content = trim($this->processBlock($node));
@@ -1995,6 +1995,29 @@ class HtmlToCarve
      * @var int
      */
     protected int $tableCellDepth = 0;
+
+    /**
+     * Degrade a wrapper to its own content, keeping the boundary it carried.
+     *
+     * The wrapper goes but the block break it stood for must not: processBlock()
+     * appends a block child's output directly and relies on the child having
+     * ended itself. A paragraph does, which is why a `<p>` pair was never
+     * affected and only the wrappers that degrade were - two `<div>`s came out
+     * as one run of text, `ab`, at top level and `| a()b: |` in a table cell.
+     *
+     * One rule, two right answers. Outside a table the separator is a real
+     * block break, which is what the author wrote. Inside a pipe-table cell the
+     * cell serializer collapses it to a single space, because a pipe row is one
+     * line and cannot hold a break at all - an explicit `<br>` there does not
+     * survive as one either. So this is a separator rather than padding, and a
+     * lone wrapper still trims to `| d |` (carve-php#1164).
+     */
+    protected function degradeToContent(DOMElement $node): string
+    {
+        $content = $this->processBlock($node);
+
+        return $content === '' ? '' : $content . "\n\n";
+    }
 
     protected function serializeTableCellContent(DOMElement $cell): string
     {
