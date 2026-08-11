@@ -1222,10 +1222,27 @@ class HtmlRenderer implements RendererInterface
         // A single-image paragraph renders as a bare block <img>, a
         // block-level element, so it takes the expanded form too (matching
         // carve-js / carve-rs and this renderer's own div/heading handling).
+        // FRAMING COUNTS ONLY CHILDREN THAT RENDER SOMETHING. A comment
+        // (PART 9 section 4.13) and a raw block for another target both render
+        // '', and an invisible child was enough to push a single-paragraph
+        // quote into the expanded form: `> %% c` then `> y` produced the
+        // indented shape where the oracle produces the compact one
+        // (carve#1106). The list-item renderer already ignores such a child;
+        // this one counted it.
+        //
+        // Decided by rendering rather than by a type list, so a third node type
+        // that renders nothing cannot be added silently.
+        $visible = [];
+        foreach ($children as $child) {
+            if ($child instanceof Paragraph || $this->renderNode($child) !== '') {
+                $visible[] = $child;
+            }
+        }
+
         if (
-            count($children) === 1
-            && $children[0] instanceof Paragraph
-            && !$this->isBlockImageParagraph($children[0])
+            count($visible) === 1
+            && $visible[0] instanceof Paragraph
+            && !$this->isBlockImageParagraph($visible[0])
         ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
