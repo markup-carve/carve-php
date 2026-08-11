@@ -449,21 +449,32 @@ class AnsiRenderer implements RendererInterface
      * denies the definition, and the inline `abbreviation` it feeds is a separate
      * profile entry that keeps rendering.
      */
-    protected function renderAbbreviationDefinitions(Document $document): string
+
+    /**
+     * Definitions the document holds only as map entries (the API path, see
+     * Document::getAbbreviationDefinitionsNotInTree).
+     */
+    protected function renderResidualAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getChildren() as $child) {
-            if (!$child instanceof AbbreviationDefinition) {
-                continue;
-            }
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
             $lines[] = $this->style(
-                '*[' . $this->stripControls($child->getAbbr()) . ']: '
-                    . $this->stripControls($child->getExpansion()),
+                '*[' . $this->stripControls($definition['abbr']) . ']: '
+                    . $this->stripControls($definition['expansion']),
                 self::DIM,
             );
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
+    {
+        return $this->style(
+            '*[' . $this->stripControls($child->getAbbr()) . ']: '
+                . $this->stripControls($child->getExpansion()),
+            self::DIM,
+        ) . "\n\n";
     }
 
     public function render(Document $document): string
@@ -472,12 +483,19 @@ class AnsiRenderer implements RendererInterface
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
+        // The definition renders WHERE IT WAS WRITTEN, from its node, because the
+        // dispatch has an arm for it. This used to place the whole set at one end
+        // of the body, chosen by `hasAbbreviationsBeforeBody()` - two positions,
+        // which is one fewer than a document can express, so a definition
+        // authored BETWEEN two blocks moved to an end. carve-js and carve-rs both
+        // keep it in place, and this node exists precisely so this renderer can
+        // too (carve-php#708).
         $output = $this->renderChildren($document);
-        $abbreviations = $this->renderAbbreviationDefinitions($document);
-        if ($abbreviations !== '') {
+        $residual = $this->renderResidualAbbreviationDefinitions($document);
+        if ($residual !== '') {
             $output = $document->hasAbbreviationsBeforeBody()
-                ? $abbreviations . "\n" . $output
-                : $output . "\n" . $abbreviations;
+                ? $residual . "\n" . $output
+                : $output . "\n" . $residual;
         }
 
         // Normalize multiple blank lines
@@ -505,6 +523,8 @@ class AnsiRenderer implements RendererInterface
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
+                $node instanceof AbbreviationDefinition
+                => $this->renderAbbreviationDefinition($node),
                 $node instanceof Paragraph => $this->renderParagraph($node),
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),

@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -329,10 +330,20 @@ class CarveRenderer implements RendererInterface
      */
     protected array $definitionsWrittenInPlace = [];
 
+    /**
+     * A term defined twice is two lines the author wrote; which one wins is
+     * resolution (PART 9R) and the formatter does not resolve, so every
+     * authored node is written, each at its own position.
+     */
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $node): string
+    {
+        return '*[' . $this->escapeBracketText($node->getAbbr()) . ']: '
+            . str_replace("\n", ' ', $node->getExpansion());
+    }
+
     protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
-        $abbrs = [];
         // PART 12 §10: definition attributes serialize ONCE, on the definition.
         // Resolution materializes them onto every link that resolves the label
         // so the HTML target can render them, which leaves the writer unable to
@@ -362,26 +373,29 @@ class CarveRenderer implements RendererInterface
                 }
             }
         }
-        // Every authored definition, in source order. A term defined twice is
-        // two lines the author wrote; which one wins is resolution (PART 9R)
-        // and the formatter does not resolve.
-        foreach ($document->getAbbreviationDefinitions() as $definition) {
-            $abbrs[] = '*[' . $this->escapeBracketText($definition['abbr']) . ']: '
+        // The definition is written WHERE IT WAS AUTHORED, from its node, because
+        // `renderBlocks` has an arm for it. This used to place the whole set at
+        // one end of the body, chosen by `hasAbbreviationsBeforeBody()` - two
+        // positions, which is one fewer than a document can express, so a
+        // definition authored BETWEEN two blocks moved to an end and
+        // `parse(fmt(x)) != parse(x)` (PART 11 section 1). The parser in this
+        // engine already keeps the node at its source position because PART 12
+        // section 7 refuses to collect it (BlockParser::orderCollectedDefinitions),
+        // so the two halves disagreed about the same clause.
+        $residual = [];
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $residual[] = '*[' . $this->escapeBracketText($definition['abbr']) . ']: '
                 . str_replace("\n", ' ', $definition['expansion']);
         }
-        // One BLANK line between definitions, matching carve-js and carve-rs.
-        // Joining them with a single newline round-trips (the next line is a
-        // definition either way), so nothing but a byte comparison across
-        // engines could see it - and no corpus document had two definitions.
-        if ($abbrs !== [] && $document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n\n", $abbrs);
+        if ($residual !== [] && $document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n\n", $residual);
         }
         $body = $this->renderBlocks($document->getChildren());
         if ($body !== '') {
             $parts[] = $body;
         }
-        if ($abbrs !== [] && !$document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n\n", $abbrs);
+        if ($residual !== [] && !$document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n\n", $residual);
         }
 
         return $this->normalize(implode("\n\n", $parts));
@@ -593,6 +607,8 @@ class CarveRenderer implements RendererInterface
             // A LONE image is a block node, not a paragraph wrapping one (the
             // `image` node's own description in the AST vocabulary).
             $node instanceof Image => $this->renderImage($node),
+            $node instanceof AbbreviationDefinition
+            => $withAttrs($this->renderAbbreviationDefinition($node)),
             $node instanceof Paragraph => $withAttrs($this->renderParagraph($node, $attrs === '')),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it

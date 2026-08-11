@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
 use MarkupCarve\Carve\Ast\PayloadDepth;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -193,6 +194,25 @@ class ProseMirrorToCarve
             $carveDocument->setAbbreviationsBeforeBody(
                 (bool)($attrs['carveAbbreviationsBeforeBody'] ?? false),
             );
+            // REBUILD THE NODES, not just the two side tables. Every non-HTML
+            // renderer writes a definition from its `AbbreviationDefinition`
+            // child, at that child's position, so a document carrying only the
+            // tables comes back with no definition lines at all. ProseMirror
+            // records one flag rather than per-definition positions, so the
+            // authored order is restored at the end the flag names - the same
+            // position this payload was produced from.
+            $restored = [];
+            foreach ($carveDocument->getAbbreviationDefinitions() as $definition) {
+                $restored[] = new AbbreviationDefinition($definition['abbr'], $definition['expansion']);
+            }
+            if ($restored !== []) {
+                $children = $carveDocument->getChildren();
+                $carveDocument->setChildren(
+                    $carveDocument->hasAbbreviationsBeforeBody()
+                        ? array_merge($restored, $children)
+                        : array_merge($children, $restored),
+                );
+            }
         }
 
         return $carveDocument;
