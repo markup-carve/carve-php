@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-structural-attribute-leads-the-author-s-own',
         'a-caret-line-does-not-end-a-paragraph-it-cannot-caption',
         'heading-index-plain-text-covers-visible-leaves-and-rejects-an-empty-key',
         'a-column-zero-definition-ends-an-open-list-item',
