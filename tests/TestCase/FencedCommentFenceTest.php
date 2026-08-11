@@ -182,10 +182,14 @@ class FencedCommentFenceTest extends TestCase
     {
         // No closer inside the quote, so the opener degrades to a line comment
         // and the quoted body still renders.
+        //
+        // The quote holds one VISIBLE child - the degraded comment renders
+        // nothing - so it takes the compact form. What this row pins is that
+        // the body survives and `after` stays outside (carve#1106).
         $input = "> %%% x\n> visible\n\nafter\n";
 
         $this->assertSame(
-            "<blockquote>\n  <p>visible</p>\n</blockquote>\n<p>after</p>\n",
+            "<blockquote><p>visible</p></blockquote>\n<p>after</p>\n",
             (new CarveConverter())->convert($input),
         );
     }

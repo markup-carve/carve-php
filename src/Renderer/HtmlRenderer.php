@@ -1214,7 +1214,16 @@ class HtmlRenderer implements RendererInterface
     {
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
-        $inner = rtrim($this->renderChildren($node), "\n");
+
+        // Rendered ONCE, and the pieces serve both the framing decision below
+        // and the output. Rendering a child again to test whether it is empty
+        // doubles the work at every nesting level, which is exponential in
+        // depth: a 20-deep quote went from under a millisecond to 6 seconds.
+        $rendered = [];
+        foreach ($children as $child) {
+            $rendered[] = $this->renderNode($child);
+        }
+        $inner = rtrim(implode('', $rendered), "\n");
 
         // A blockquote of a single paragraph is compact (one line);
         // anything else (lists, headings, multiple blocks) is expanded
@@ -1222,10 +1231,27 @@ class HtmlRenderer implements RendererInterface
         // A single-image paragraph renders as a bare block <img>, a
         // block-level element, so it takes the expanded form too (matching
         // carve-js / carve-rs and this renderer's own div/heading handling).
+        // FRAMING COUNTS ONLY CHILDREN THAT RENDER SOMETHING. A comment
+        // (PART 9 section 4.13) and a raw block for another target both render
+        // '', and an invisible child was enough to push a single-paragraph
+        // quote into the expanded form: `> %% c` then `> y` produced the
+        // indented shape where the oracle produces the compact one
+        // (carve#1106). The list-item renderer already ignores such a child;
+        // this one counted it.
+        //
+        // Decided by rendering rather than by a type list, so a third node type
+        // that renders nothing cannot be added silently.
+        $visible = [];
+        foreach ($children as $index => $child) {
+            if ($rendered[$index] !== '') {
+                $visible[] = $child;
+            }
+        }
+
         if (
-            count($children) === 1
-            && $children[0] instanceof Paragraph
-            && !$this->isBlockImageParagraph($children[0])
+            count($visible) === 1
+            && $visible[0] instanceof Paragraph
+            && !$this->isBlockImageParagraph($visible[0])
         ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
