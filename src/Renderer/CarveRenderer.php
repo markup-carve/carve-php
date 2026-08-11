@@ -749,7 +749,11 @@ class CarveRenderer implements RendererInterface
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
                 $continuation = str_repeat(' ', strlen($prefix));
+                $inTaskNestedList = false;
                 foreach ($lines as $line) {
+                    if ($item->isTask() && $this->isRenderedListMarker(ltrim($line, " \t"))) {
+                        $inTaskNestedList = true;
+                    }
                     // A BLANK continuation line stays blank: indenting it emits a
                     // whitespace-only line, which the writer never may
                     // (NoWhitespaceOnlyLineTest).
@@ -770,11 +774,13 @@ class CarveRenderer implements RendererInterface
                         // at the ITEM's marker column, not its content column
                         // (§17 L3). Indenting either is what made the attached
                         // paragraph fold (carve#861).
-                        $out .= substr($line, strlen($this->markerColumn())) . "\n";
+                        $markerIndent = $inTaskNestedList ? '  ' : '';
+                        $out .= $markerIndent . substr($line, strlen($this->markerColumn())) . "\n";
 
                         continue;
                     }
-                    $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
+                    $lineIndent = $inTaskNestedList ? '  ' : $continuation;
+                    $out .= $blank ? $line . "\n" : $lineIndent . $line . "\n";
                 }
                 if (!$node->isTight() && $index < count($children) - 1) {
                     $out .= "\n";
@@ -804,6 +810,11 @@ class CarveRenderer implements RendererInterface
     protected function isBlankContinuationLine(string $line): bool
     {
         return $line === '' || $line === $this->verbatimSentinels[2];
+    }
+
+    protected function isRenderedListMarker(string $line): bool
+    {
+        return preg_match('/^(?:[-*](?: \[[ xX]\])? |[A-Za-z0-9]+[.)] )/', $line) === 1;
     }
 
     /**
