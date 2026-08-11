@@ -452,6 +452,16 @@ class HtmlToCarve
 
     protected function processDiv(DOMElement $node): string
     {
+        // FIRST, before the admonition and line-block round trips below: those
+        // are colon fences too, and reaching them inside a cell produced
+        // `::: note d :::` and `::: | onetwo :::` as literal cell text. A fence
+        // needs its own lines, which a cell does not have, so the wrapper is
+        // dropped and the content kept - the same thing an attribute-less div
+        // in a cell already did (carve-php#1164).
+        if ($this->tableCellDepth > 0) {
+            return $this->processBlock($node);
+        }
+
         // Check for admonition div (round-trip support)
         if ($node->hasAttribute('data-djot-admonition-type')) {
             return $this->processAdmonition($node);
@@ -460,13 +470,6 @@ class HtmlToCarve
         // Check for line block (round-trip support)
         if ($this->hasClass($node, 'line-block')) {
             return $this->processLineBlock($node);
-        }
-
-        // A div fence needs its own lines, which a cell does not have. Drop the
-        // wrapper and keep the content - the same thing an attribute-less div
-        // in a cell already did (carve-php#1164).
-        if ($this->tableCellDepth > 0) {
-            return $this->processChildren($node);
         }
 
         $classes = $this->getElementClassList($node);
@@ -697,6 +700,14 @@ class HtmlToCarve
 
     protected function processGenericBlockContainer(DOMElement $node): string
     {
+        // `<details>` always builds a colon fence, which a cell cannot hold.
+        // Every other tag here already degrades to its content once the cell
+        // context has emptied its attributes; this makes the one exception
+        // behave like the rest (carve-php#1164).
+        if ($this->tableCellDepth > 0) {
+            return $this->processBlock($node);
+        }
+
         $tagName = strtolower($node->tagName);
         $attrs = $this->formatBlockAttributes($node);
 

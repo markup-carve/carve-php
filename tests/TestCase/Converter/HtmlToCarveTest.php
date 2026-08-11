@@ -1290,6 +1290,48 @@ HTML;
         $this->assertStringContainsString('<td>d</td>', (new CarveConverter())->convert($carve));
     }
 
+    /**
+     * The admonition and line-block round trips are colon fences too, and they
+     * are reached before the ordinary div path - so the cell context has to be
+     * consulted first, or they keep writing `::: note d :::` into a cell
+     * (raised by codex review on carve-php#1165).
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function fenceInsideACellProvider(): array
+    {
+        return [
+            'admonition' => ['<div data-djot-admonition-type="note"><p>d</p></div>', '<td>d</td>'],
+            'line block' => ['<div class="line-block"><div>one</div><div>two</div></div>', '<td>onetwo</td>'],
+            'details' => ['<details><summary>s</summary><p>d</p></details>', '<td>s d</td>'],
+        ];
+    }
+
+    #[DataProvider('fenceInsideACellProvider')]
+    public function testAColonFenceIsNeverWrittenIntoACell(string $inner, string $cell): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>' . $inner . '</td></tr></table>');
+
+        $this->assertStringNotContainsString(':::', $carve);
+        $this->assertStringContainsString($cell, (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * The same constructs OUTSIDE a cell keep their fence: the guard is about
+     * where the construct is being written, not about the construct.
+     */
+    public function testTheSameConstructsKeepTheirFenceOutsideACell(): void
+    {
+        $this->assertStringContainsString(
+            "::: note\nd\n:::",
+            $this->converter->convert('<div data-djot-admonition-type="note"><p>d</p></div>'),
+        );
+        $this->assertStringContainsString(
+            '::: details',
+            $this->converter->convert('<details><summary>s</summary><p>d</p></details>'),
+        );
+    }
+
     public function testBlockAttributesInsideACellAreNotWrittenAsText(): void
     {
         $carve = $this->converter->convert('<table><tr><td><p class="c">x</p></td></tr></table>');
