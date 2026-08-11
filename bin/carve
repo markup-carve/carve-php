@@ -9,6 +9,7 @@ declare(strict_types=1);
  * Usage:
  *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
  *   carve lint [--platform <name>] [files...]
+ *   carve merge [--json] base ours theirs
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -46,6 +47,7 @@ if (!$autoloaderFound) {
 }
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
@@ -62,6 +64,57 @@ use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Stamp;
+
+/** @param array<int, string> $argv */
+function runMergeCommand(array $argv): never
+{
+    $json = false;
+    $files = [];
+    foreach (array_slice($argv, 2) as $arg) {
+        if ($arg === '--json') {
+            $json = true;
+        } elseif (str_starts_with($arg, '-')) {
+            fwrite(STDERR, "carve merge: unknown option: $arg\n");
+            exit(2);
+        } else {
+            $files[] = $arg;
+        }
+    }
+    if (count($files) !== 3) {
+        fwrite(STDERR, "carve merge: takes exactly three files (base, ours, theirs)\n");
+        exit(2);
+    }
+    $codec = new AstCodec();
+    $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
+    $trees = [];
+    foreach ($files as $file) {
+        $source = file_get_contents($file);
+        if ($source === false) {
+            fwrite(STDERR, "carve merge: cannot read $file\n");
+            exit(2);
+        }
+        $trees[] = $codec->encode($converter->parse($source));
+    }
+    $result = AstMerge::merge($trees[0], $trees[1], $trees[2]);
+    if (!$result['ok']) {
+        if ($json) {
+            fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+        } else {
+            foreach ($result['conflicts'] as $conflict) {
+                fwrite(STDERR, sprintf("conflict %s at %s\n", $conflict['reason'], $conflict['path']));
+            }
+            $count = count($result['conflicts']);
+            fwrite(STDERR, sprintf("%d structural conflict%s\n", $count, $count === 1 ? '' : 's'));
+        }
+        exit(1);
+    }
+    if ($json) {
+        fwrite(STDOUT, json_encode($result['ast'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+    } else {
+        fwrite(STDOUT, CarveConverter::carve()->render($codec->decode($result['ast'])));
+    }
+    exit(0);
+}
 
 /**
  * Parse command line arguments
@@ -279,6 +332,7 @@ Carve - Render Carve markup
 
 Usage:
   carve fmt [options] [files...]
+  carve merge [--json] base.crv ours.crv theirs.crv
   carve [options] [input-file]
   cat file.crv | carve [options]
 
@@ -344,6 +398,9 @@ function showVersion(): void
 }
 
 // Main
+if (($argv[1] ?? null) === 'merge') {
+    runMergeCommand($argv);
+}
 $parsed = parseArgs($argv);
 $options = $parsed['options'];
 $inputFile = $parsed['input'];

@@ -156,7 +156,14 @@ bin/carve --markdown README.crv      # Markdown
 bin/carve --plain README.crv         # plain text
 bin/carve --ansi README.crv          # ANSI-colored terminal text
 echo '# Hello' | bin/carve           # render from stdin
+bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
 ~~~
+
+`AstMerge::merge()` exposes the same conservative merge to applications: it
+combines independent field edits, insertions, deletions, and moves, and returns
+explicit JSON-Pointer conflicts instead of choosing an ambiguous winner.
+`AstPatch::create()` and `AstPatch::apply()` provide position-independent patch
+replay. Position metadata is intentionally regenerated after serialization.
 
 `--html` / `--markdown` (`--md`) / `--plain` (`--plain-text`) / `--ansi` select
 the format. `--json` (`--ast`) emits the parsed AST instead of rendering it, and
