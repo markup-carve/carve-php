@@ -10396,7 +10396,7 @@ class BlockParser
         // blank LAST line - which also refused the real blank at the end of a
         // container body, so a fence ended by a div closer or a bare quote
         // marker came out a line short (carve-php#1177).
-        if ($lines !== [] && end($lines) === '') {
+        if (end($lines) === '') {
             array_pop($lines);
         }
 
