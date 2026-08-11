@@ -7,6 +7,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`HtmlToCarve` can emit `::: list-table` for a table whose cells hold block
+  content** (markup-carve/carve-php#1167), via a third constructor argument,
+  `listTableForBlockCells`. A pipe-table cell is one line of inline content, so
+  a cell holding two paragraphs, a list or a code block degrades to its text;
+  ListTable is the construct for exactly that case (extensions §5) and its
+  cells are list items, so they hold full block content. Caption,
+  `{header-rows}` / `{header-cols}` and the shared `^` / `<` span markers all
+  carry over. OFF by default, and necessarily so: pipe tables are Tier-1 and
+  always on while ListTable is Tier-2 and off until a processor enables it, so
+  emitting one for a consumer that has not is worse than the degradation it
+  replaces. Only a table that NEEDS the form switches - one whose cells are all
+  inline, or whose cells hold a single paragraph, keeps the pipe form. Known
+  gap: a cell's own attributes are dropped in this form, because Carve has no
+  per-list-item attribute spelling to carry them.
+
 ### Fixed
 
 - **A block wrapper that degrades to its content keeps the boundary it carried**

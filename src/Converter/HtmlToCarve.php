@@ -64,13 +64,39 @@ class HtmlToCarve
     protected array $alignmentClasses = [];
 
     /**
+     * Emit `::: list-table` for a table whose cells hold block content.
+     *
+     * A pipe-table cell is one line of inline content, so a cell holding two
+     * paragraphs, a list or a code block has nowhere to go and degrades to its
+     * text. ListTable is the construct for exactly that case (extensions §5),
+     * and cells there are list items, so they hold full block content.
+     *
+     * OFF by default, and it has to be: pipe tables are Tier-1 core and always
+     * on, while ListTable is Tier-2 and off until a processor enables it - so
+     * emitting one for a consumer that has not is worse than the degradation it
+     * replaces, `<div class="list-table">` around a nested list instead of a
+     * table. The caller knows which processor reads the output; this converter
+     * does not.
+     *
+     * Only a table that NEEDS it switches form. One whose cells are all inline
+     * keeps the pipe form, so turning this on does not rewrite every table in a
+     * document.
+     */
+    protected bool $listTableForBlockCells = false;
+
+    /**
      * @param bool $trustedRoundTrip
      * @param array<string, string> $alignmentClasses text-align value => class name
+     * @param bool $listTableForBlockCells Emit `::: list-table` for a table with block-content cells.
      */
-    public function __construct(bool $trustedRoundTrip = false, array $alignmentClasses = [])
-    {
+    public function __construct(
+        bool $trustedRoundTrip = false,
+        array $alignmentClasses = [],
+        bool $listTableForBlockCells = false,
+    ) {
         $this->trustedRoundTrip = $trustedRoundTrip;
         $this->alignmentClasses = array_change_key_case($alignmentClasses);
+        $this->listTableForBlockCells = $listTableForBlockCells;
     }
 
     protected int $listDepth = 0;
@@ -1733,6 +1759,10 @@ class HtmlToCarve
 
     protected function processTable(DOMElement $node): string
     {
+        if ($this->listTableForBlockCells && $this->tableHasBlockContentCell($node)) {
+            return $this->processTableAsListTable($node);
+        }
+
         $rows = [];
         $headerRow = null;
         $headerRowAttrs = '';
@@ -1923,6 +1953,248 @@ class HtmlToCarve
         }
 
         return $output . "\n";
+    }
+
+    /**
+     * Does any cell hold content a pipe-table cell cannot express?
+     *
+     * A pipe cell is one line of inline content. Two or more paragraphs, a
+     * list, a code block, a blockquote or a nested table all need their own
+     * lines. A SINGLE paragraph does not count: a list-table collapses that to
+     * inline content anyway (extensions §5.2), so it is not a reason to leave
+     * the Tier-1 form.
+     */
+    protected function tableHasBlockContentCell(DOMElement $table): bool
+    {
+        foreach ($this->getDirectTableRows($table) as $row) {
+            foreach ($row->childNodes as $cell) {
+                if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['td', 'th'], true)) {
+                    continue;
+                }
+
+                $paragraphs = 0;
+
+                foreach ($cell->getElementsByTagName('*') as $descendant) {
+                    $tag = strtolower($descendant->tagName);
+
+                    if (in_array($tag, ['ul', 'ol', 'pre', 'blockquote', 'table', 'dl'], true)) {
+                        return true;
+                    }
+
+                    if ($tag === 'p' && ++$paragraphs > 1) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Write the table as a `::: list-table` div.
+     *
+     * Rows are the outer list items and cells the inner ones, so a cell is a
+     * list item and holds block content for free. The span markers are the
+     * pipe-table ones - a lone `^` merges upward, a lone `<` leftward
+     * (extensions §5.1) - so the colspan/rowspan bookkeeping is the same
+     * question answered in the same spelling, just written as items.
+     *
+     * `{header-rows}` / `{header-cols}` sit on the line BEFORE the opener: a
+     * trailing attribute block on `:::` would make the whole div literal.
+     */
+    protected function processTableAsListTable(DOMElement $node): string
+    {
+        $captionElement = $this->findFirstDirectChildByTagName($node, 'caption');
+        $caption = $captionElement instanceof DOMElement
+            ? trim($this->processChildren($captionElement))
+            : '';
+
+        $rows = [];
+        $headerRows = 0;
+        $headerCols = null;
+        $sawBodyRow = false;
+
+        foreach ($this->getDirectTableRows($node) as $row) {
+            $cells = [];
+            $rowIsAllHeader = true;
+            $leadingHeaderCells = 0;
+            $countingLeaders = true;
+
+            foreach ($row->childNodes as $cell) {
+                if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['td', 'th'], true)) {
+                    continue;
+                }
+
+                $isHeaderCell = strtolower($cell->tagName) === 'th';
+                $rowIsAllHeader = $rowIsAllHeader && $isHeaderCell;
+
+                if ($countingLeaders && $isHeaderCell) {
+                    $leadingHeaderCells++;
+                } else {
+                    $countingLeaders = false;
+                }
+
+                $cells[] = [
+                    'content' => $this->listTableCellContent($cell),
+                    'attributes' => $this->getElementAttributes($cell, ['colspan', 'rowspan']),
+                    'colspan' => max(1, (int)$cell->getAttribute('colspan')),
+                    'rowspan' => max(1, (int)$cell->getAttribute('rowspan')),
+                ];
+            }
+
+            if ($cells === []) {
+                continue;
+            }
+
+            // Only a run of header rows at the TOP is `header-rows`; a `<th>`
+            // further down is an ordinary cell as far as this attribute goes.
+            if ($rowIsAllHeader && !$sawBodyRow) {
+                $headerRows++;
+            } else {
+                $sawBodyRow = true;
+                // `header-cols` is the count every BODY row agrees on.
+                $headerCols = $headerCols === null
+                    ? $leadingHeaderCells
+                    : min($headerCols, $leadingHeaderCells);
+            }
+
+            $rows[] = $cells;
+        }
+
+        if ($rows === []) {
+            return '';
+        }
+
+        $attributes = [];
+
+        // The table's OWN attributes belong on this block too. ListTable passes
+        // non-structural attributes through to the rendered `<table>`, so a
+        // class or id the author wrote is carried rather than dropped on the
+        // way into this form (raised by codex review).
+        $tableAttributes = $this->getElementAttributes($node, ['data-djot-col-widths']);
+        if ($tableAttributes !== '') {
+            $attributes[] = $tableAttributes;
+        }
+
+        if ($headerRows > 0) {
+            $attributes[] = 'header-rows=' . $headerRows;
+        }
+        if ($headerCols !== null && $headerCols > 0) {
+            $attributes[] = 'header-cols=' . $headerCols;
+        }
+
+        $output = $attributes === [] ? '' : '{' . implode(' ', $attributes) . "}\n";
+        $output .= '::: list-table' . ($caption === '' ? '' : ' "' . str_replace('"', '\\"', $caption) . '"') . "\n";
+        $output .= $this->listTableRows($rows);
+
+        return $output . ":::\n\n";
+    }
+
+    /**
+     * The nested list: one outer item per row, one inner item per cell.
+     *
+     * @param array<int, array<int, array{content: string, attributes: string, colspan: int, rowspan: int}>> $rows
+     */
+    protected function listTableRows(array $rows): string
+    {
+        // [column => remaining rows spanned], so a `^` lands in the column the
+        // rowspan actually occupies rather than at the end of the row.
+        $rowspanMap = [];
+        $output = '';
+
+        foreach ($rows as $cells) {
+            $items = [];
+            $column = 0;
+
+            foreach ($cells as $cell) {
+                while (isset($rowspanMap[$column])) {
+                    $items[] = '^';
+                    if (--$rowspanMap[$column] === 0) {
+                        unset($rowspanMap[$column]);
+                    }
+                    $column++;
+                }
+
+                // The cell's own attributes are NOT written. Carve has no
+                // per-list-item attribute spelling this converter could find -
+                // `{.c}` on its own line before an item attaches to the LIST,
+                // and after the marker it is literal text - so emitting one
+                // put the class on the cell's first PARAGRAPH instead of on
+                // the cell. Dropping it is the smaller loss than moving it
+                // somewhere it does not belong; see carve-php#1167.
+                $items[] = $cell['content'];
+
+                if ($cell['rowspan'] > 1) {
+                    $rowspanMap[$column] = ($rowspanMap[$column] ?? 0) + ($cell['rowspan'] - 1);
+                }
+                $column++;
+
+                for ($span = 1; $span < $cell['colspan']; $span++) {
+                    $items[] = '<';
+                    $column++;
+                }
+            }
+
+            // A column still spanned AFTER the row's last real cell needs its
+            // `^` as well. Without it the row simply ends, the span is lost and
+            // the next row gains an empty cell instead (raised by codex review).
+            while (isset($rowspanMap[$column])) {
+                $items[] = '^';
+                if (--$rowspanMap[$column] === 0) {
+                    unset($rowspanMap[$column]);
+                }
+                $column++;
+            }
+
+            $output .= $this->listTableRow($items);
+        }
+
+        return $output;
+    }
+
+    /**
+     * One row. The first cell opens both lists on one line, every later cell is
+     * an inner item indented under it, and a cell's continuation lines are
+     * indented to that inner item's content column.
+     *
+     * @param array<int, string> $items
+     */
+    protected function listTableRow(array $items): string
+    {
+        $output = '';
+
+        foreach ($items as $index => $item) {
+            $marker = $index === 0 ? '- - ' : '  - ';
+            $lines = explode("\n", rtrim($item));
+            $output .= $marker . array_shift($lines) . "\n";
+
+            foreach ($lines as $line) {
+                $output .= ($line === '' ? '' : '    ' . $line) . "\n";
+            }
+        }
+
+        return $output;
+    }
+
+    /**
+     * A cell's own content, as blocks rather than as one collapsed line.
+     */
+    protected function listTableCellContent(DOMElement $cell): string
+    {
+        $hasBlockChildren = false;
+
+        foreach ($cell->childNodes as $child) {
+            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), $this->blockElements, true)) {
+                $hasBlockChildren = true;
+
+                break;
+            }
+        }
+
+        $content = $hasBlockChildren ? $this->processBlock($cell) : trim($this->processChildren($cell));
+
+        return trim($content) === '' ? '' : trim($content);
     }
 
     /**
