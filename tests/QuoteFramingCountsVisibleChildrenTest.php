@@ -79,7 +79,7 @@ class QuoteFramingCountsVisibleChildrenTest extends TestCase
         $nest = static function (int $depth): string {
             $s = 'x';
             for ($i = 0; $i < $depth; $i++) {
-                $s = implode("\n", array_map(static fn(string $l): string => '> ' . $l, explode("\n", $s)));
+                $s = implode("\n", array_map(static fn (string $l): string => '> ' . $l, explode("\n", $s)));
             }
 
             return $s . "\n";
