@@ -50,6 +50,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -126,6 +127,67 @@ function runMergeCommand(array $argv): never
         }
     }
     exit(0);
+}
+
+/** @param array<int, string> $argv */
+function runMigrateCommand(array $argv): never
+{
+    $mode = 'safe';
+    $adapter = 'generic';
+    $report = null;
+    $checkLoss = false;
+    $fromHtml = false;
+    $input = null;
+    for ($i = 2, $count = count($argv); $i < $count; $i++) {
+        $arg = $argv[$i];
+        if (in_array($arg, ['--from', '--mode', '--adapter', '--report'], true)) {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "carve migrate: $arg requires a value\n");
+                exit(2);
+            }
+            $value = $argv[++$i];
+            match ($arg) {
+                '--from' => $fromHtml = $value === 'html',
+                '--mode' => $mode = $value,
+                '--adapter' => $adapter = $value,
+                '--report' => $report = $value,
+            };
+        } elseif ($arg === '--check-loss') {
+            $checkLoss = true;
+        } elseif (str_starts_with($arg, '-') && $arg !== '-') {
+            fwrite(STDERR, "carve migrate: unknown option: $arg\n");
+            exit(2);
+        } elseif ($input !== null) {
+            fwrite(STDERR, "carve migrate: takes at most one input file\n");
+            exit(2);
+        } else {
+            $input = $arg;
+        }
+    }
+    if (!$fromHtml) {
+        fwrite(STDERR, "carve migrate: --from html is required\n");
+        exit(2);
+    }
+    $html = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
+    if ($html === false) {
+        fwrite(STDERR, "carve migrate: cannot read input\n");
+        exit(2);
+    }
+    try {
+        $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))->convertWithReport($html);
+    } catch (InvalidArgumentException $exception) {
+        fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
+        exit(2);
+    }
+    fwrite(STDOUT, $result->value);
+    $json = json_encode($result->report(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if ($report === '-') {
+        fwrite(STDERR, $json);
+    } elseif ($report !== null && file_put_contents($report, $json) === false) {
+        fwrite(STDERR, "carve migrate: cannot write report $report\n");
+        exit(2);
+    }
+    exit($checkLoss && $result->diagnostics !== [] ? 1 : 0);
 }
 
 /**
@@ -412,6 +474,9 @@ function showVersion(): void
 // Main
 if (($argv[1] ?? null) === 'merge') {
     runMergeCommand($argv);
+}
+if (($argv[1] ?? null) === 'migrate') {
+    runMigrateCommand($argv);
 }
 $parsed = parseArgs($argv);
 $options = $parsed['options'];

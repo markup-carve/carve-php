@@ -9,6 +9,7 @@ use DOMElement;
 use DOMNode;
 use DOMText;
 use DOMXPath;
+use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
@@ -84,19 +85,182 @@ class HtmlToCarve
      */
     protected bool $listTableForBlockCells = false;
 
+    protected string $importMode = 'safe';
+
+    protected string $importAdapter = 'generic';
+
+    protected int $maxDiagnostics = 1000;
+
     /**
      * @param bool $trustedRoundTrip
      * @param array<string, string> $alignmentClasses text-align value => class name
      * @param bool $listTableForBlockCells Emit `::: list-table` for a table with block-content cells.
+     * @param int $maxDiagnostics
+     * @param string $importAdapter
+     * @param string $importMode
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         bool $trustedRoundTrip = false,
         array $alignmentClasses = [],
         bool $listTableForBlockCells = false,
+        string $importMode = 'safe',
+        string $importAdapter = 'generic',
+        int $maxDiagnostics = 1000,
     ) {
+        $modes = ['safe', 'semantic', 'roundtrip'];
+        $adapters = ['generic', 'tiptap', 'prosemirror', 'ckeditor', 'tinymce', 'word', 'google-docs'];
+        if (!in_array($importMode, $modes, true)) {
+            throw new InvalidArgumentException('Unknown HTML import mode: ' . $importMode);
+        }
+        if (!in_array($importAdapter, $adapters, true)) {
+            throw new InvalidArgumentException('Unknown HTML import adapter: ' . $importAdapter);
+        }
+        if ($maxDiagnostics < 0) {
+            throw new InvalidArgumentException('maxDiagnostics must not be negative');
+        }
         $this->trustedRoundTrip = $trustedRoundTrip;
         $this->alignmentClasses = array_change_key_case($alignmentClasses);
         $this->listTableForBlockCells = $listTableForBlockCells;
+        $this->importMode = $trustedRoundTrip ? 'roundtrip' : $importMode;
+        $this->importAdapter = $importAdapter;
+        $this->maxDiagnostics = $maxDiagnostics;
+    }
+
+    /**
+     * Convert HTML and return an ordered report of lossy import decisions.
+     */
+    public function convertWithReport(string $html): HtmlImportResult
+    {
+        $diagnostics = $this->inspectImportLoss($html);
+
+        return new HtmlImportResult(
+            $this->convert($html),
+            $this->importMode,
+            $this->importAdapter,
+            $diagnostics,
+        );
+    }
+
+    /**
+     * @return list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
+     */
+    protected function inspectImportLoss(string $html): array
+    {
+        $wrapped = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1 ? $html : '<div>' . $html . '</div>';
+        $doc = new DOMDocument();
+        $doc->encoding = 'UTF-8';
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="UTF-8">' . $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+
+        $diagnostics = [];
+        $root = $doc->documentElement ?? $doc;
+        $this->inspectImportNode($root, '', 1, $diagnostics);
+
+        return $diagnostics;
+    }
+
+    /**
+     * @param \DOMNode $node
+     * @param string $parentPath
+     * @param int $index
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportNode(DOMNode $node, string $parentPath, int $index, array &$diagnostics): void
+    {
+        if (!$node instanceof DOMElement) {
+            return;
+        }
+        $tag = strtolower($node->tagName);
+        $path = $parentPath . '/' . $tag . '[' . $index . ']';
+        if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
+            $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
+
+            return;
+        }
+
+        foreach ($node->attributes as $attribute) {
+            $name = strtolower($attribute->name);
+            if (str_starts_with($name, 'on')) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'style') {
+                $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+            } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
+            }
+        }
+
+        if (!$this->isKnownImportElement($tag)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Replaced unsupported <' . $tag . '> element with Carve span metadata',
+                'info',
+                $path,
+            );
+        }
+
+        $elementIndex = 0;
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $elementIndex++;
+            $this->inspectImportNode($child, $path, $elementIndex, $diagnostics);
+        }
+    }
+
+    protected function isRepresentedImportAttribute(string $tag, string $name): bool
+    {
+        if ($name === 'title') {
+            return true;
+        }
+        if ($name === 'id' || $name === 'class' || str_starts_with($name, 'data-')) {
+            return true;
+        }
+
+        return match ($tag) {
+            'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
+            'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
+            'ol' => in_array($name, ['start', 'type'], true),
+            'input' => in_array($name, ['type', 'checked', 'disabled'], true),
+            'td', 'th' => in_array($name, ['rowspan', 'colspan', 'align'], true),
+            default => false,
+        };
+    }
+
+    protected function isKnownImportElement(string $tag): bool
+    {
+        return in_array($tag, [
+            'html', 'body', 'div', 'section', 'article', 'main', 'header', 'footer', 'nav', 'address',
+            'aside', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search', 'details', 'summary',
+            'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em',
+            'i', 'u', 's', 'strike',
+            'del', 'mark', 'sub', 'sup', 'code', 'pre', 'a', 'img', 'br', 'hr',
+            'span', 'ul', 'ol',
+            'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th',
+            'td', 'caption',
+            'figure', 'figcaption', 'blockquote', 'cite', 'abbr', 'input',
+        ], true);
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     * @param string $path
+     * @param string $severity
+     * @param string $message
+     * @param string $code
+     *
+     * @throws \MarkupCarve\Carve\Converter\HtmlImportLimitException
+     */
+    protected function addImportDiagnostic(array &$diagnostics, string $code, string $message, string $severity, string $path): void
+    {
+        if (count($diagnostics) >= $this->maxDiagnostics) {
+            throw new HtmlImportLimitException('HTML import diagnostics limit exceeded');
+        }
+        $diagnostics[] = new HtmlImportDiagnostic($code, $message, $severity, $path);
     }
 
     protected int $listDepth = 0;
