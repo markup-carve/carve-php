@@ -66,7 +66,7 @@ class AContinuationMarkerAttachesEveryBlockInTheRunTest extends TestCase
 
     public function testEveryLaterChildOfTheRunIsWrittenAtTheMarkerColumnToo(): void
     {
-        $source = "- x\n+\n---yaml\nk: v\n---\n";
+        $source = "- x\n+\n---yaml\nk: v\n+\n---\n";
         $this->assertRoundTrips($source);
         // The break stayed a rule instead of folding into the paragraph above
         // it and becoming an em dash.
@@ -91,8 +91,8 @@ class AContinuationMarkerAttachesEveryBlockInTheRunTest extends TestCase
      */
     public function testABlockThatOpensItsOwnBlockIsStillIndented(): void
     {
-        $this->assertSame("- x\n  ```\n  c\n  ```\n", $this->fmt("- x\n+\n```\nc\n```\n"));
-        $this->assertSame("- x\n  > q\n", $this->fmt("- x\n+\n> q\n"));
+        $this->assertSame("- x\n+\n```\nc\n```\n", $this->fmt("- x\n+\n```\nc\n```\n"));
+        $this->assertSame("- x\n+\n> q\n", $this->fmt("- x\n+\n> q\n"));
         $this->assertRoundTrips("- x\n+\n```\nc\n```\n");
         $this->assertRoundTrips("- x\n+\n> q\n");
     }

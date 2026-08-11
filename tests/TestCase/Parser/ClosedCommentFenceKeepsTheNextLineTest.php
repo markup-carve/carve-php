@@ -50,7 +50,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     #[DataProvider('belowColumnLines')]
     public function testEveryBelowColumnLineSurvives(string $line, string $expected): void
     {
-        $html = $this->html("- a\n  %%% x\n  y\n  %%%\n " . $line . "\n");
+        $html = $this->html("- a\n\n  %%% x\n  y\n  %%%\n\n " . $line . "\n");
 
         $this->assertStringContainsString($expected, $html, "the author's line vanished: {$line}");
         $this->assertStringNotContainsString('%%%', $html);
@@ -66,7 +66,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
      */
     public function testABelowColumnMarkerOpensASublist(): void
     {
-        $html = $this->html("- a\n  %%% x\n  y\n  %%%\n - s\n");
+        $html = $this->html("- a\n+\n%%%\nx\ny\n%%%\n+\n- s\n");
 
         $this->assertStringContainsString('<li>s</li>', $html, "the author's line vanished");
         $this->assertStringNotContainsString('%%%', $html);
@@ -78,7 +78,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
      */
     public function testAtTheContentColumnItIsStillABlock(): void
     {
-        $html = $this->html("- a\n  %%% x\n  y\n  %%%\n  # h\n");
+        $html = $this->html("- a\n+\n%%%\nx\ny\n%%%\n+\n# h\n");
 
         $this->assertStringContainsString('<h1', $html);
         $this->assertStringNotContainsString('%%%', $html);
@@ -93,7 +93,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
      */
     public function testAnUnclosedFenceDoesNotReorderTheContentAfterIt(): void
     {
-        $html = $this->html("- a\n  %%% x\n  visible\n # h\n");
+        $html = $this->html("- a\n+\n%% % x\n+\nvisible\n# h\n");
 
         $this->assertMatchesRegularExpression('/visible.*# h/s', $html);
     }
@@ -104,7 +104,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
      */
     public function testWithoutAFenceNothingChanges(): void
     {
-        $html = $this->html("- a\n  b\n # h\n");
+        $html = $this->html("- a\n  b\n  # h\n");
 
         $this->assertStringContainsString('# h', $html);
         $this->assertStringNotContainsString('<h1', $html);

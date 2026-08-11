@@ -1041,7 +1041,9 @@ class CarveRenderer implements RendererInterface
      */
     protected function foldsIntoAnOpenParagraph(Node $node): bool
     {
-        return $node instanceof Paragraph || $node instanceof Image || $node instanceof Figure;
+        // In 0.2 every nonblank line belongs to the open paragraph, whatever
+        // block shape it would have had at block position.
+        return !$node instanceof ListBlock;
     }
 
     /**
@@ -1137,7 +1139,12 @@ class CarveRenderer implements RendererInterface
                         if ($out !== '') {
                             $out .= "\n";
                         }
-                        $out .= $written;
+                        // Definitions no longer interrupt the paragraph above.
+                        // Attach the definition-led run explicitly at the item
+                        // marker column so it stays structural without making
+                        // the item loose.
+                        $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($written);
+                        $atMarkerColumn = true;
                         $separated = true;
                     }
                 }

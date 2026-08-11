@@ -832,6 +832,7 @@ DJOT;
 First[^1] and second[^2].
 
 [^1]: First note.
+
 [^2]: Second note.
 DJOT;
         $this->assertRoundTrip($djot);

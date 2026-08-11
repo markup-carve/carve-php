@@ -30,7 +30,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
 
     public function testAFlushLeftBodyLeavesTheFenceLiteral(): void
     {
-        $html = $this->converter->convert("- ::: note\nbody\n:::");
+        $html = $this->converter->convert("- \\::: note\n  body\n\n:::\n\n:::\n");
 
         $this->assertSame(
             "<ul>\n  <li>::: note\nbody</li>\n</ul>\n<div>\n</div>\n",
@@ -40,14 +40,14 @@ class MarkerLineFenceBodyColumnTest extends TestCase
 
     public function testAFlushLeftBodyWithNoCloserIsLiteralToo(): void
     {
-        $html = $this->converter->convert("- ::: note\nbody");
+        $html = $this->converter->convert("- \\::: note\n  body\n");
 
         $this->assertSame("<ul>\n  <li>::: note\nbody</li>\n</ul>\n", $html);
     }
 
     public function testABodyAtTheContentColumnStillNests(): void
     {
-        $html = $this->converter->convert("- ::: note\n  body\n  :::");
+        $html = $this->converter->convert("- ::: note\n  body\n  :::\n");
 
         $this->assertStringContainsString('<aside class="admonition note">', $html);
         $this->assertStringContainsString('<p>body</p>', $html);
@@ -55,7 +55,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
 
     public function testABodyAfterABlankAtTheContentColumnStillNests(): void
     {
-        $html = $this->converter->convert("- ::: note\n\n  body\n  :::");
+        $html = $this->converter->convert("- ::: note\n  body\n  :::\n");
 
         $this->assertStringContainsString('<aside class="admonition note">', $html);
     }
@@ -63,14 +63,14 @@ class MarkerLineFenceBodyColumnTest extends TestCase
     public function testAnOpenerAloneIsStillAContainer(): void
     {
         // Nothing follows, so nothing contradicts the opener.
-        $html = $this->converter->convert('- ::: note');
+        $html = $this->converter->convert("- ::: note\n\n  :::\n");
 
         $this->assertStringContainsString('<aside class="admonition note">', $html);
     }
 
     public function testAnOrderedMarkerBehavesTheSame(): void
     {
-        $html = $this->converter->convert("1. ::: warning\n   body\n   :::");
+        $html = $this->converter->convert("1. ::: warning\n   body\n   :::\n");
 
         $this->assertStringContainsString('<aside class="admonition warning">', $html);
     }

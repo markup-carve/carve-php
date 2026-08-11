@@ -96,6 +96,8 @@ class ReferenceDefinitionExtractor
         // document, so the author's line rendered nowhere AND defined nothing
         // (carve#664). carve-js tracks the same state for the same reason.
         $inFootnoteBody = false;
+        $paragraphOpen = false;
+        $inDefinitionBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -247,7 +249,13 @@ class ReferenceDefinitionExtractor
                 $inFootnoteBody = false;
             }
 
-            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
+            $previousIndex = $i - 1;
+            if (preg_match('/^[ \t]*:  /', $unquoted) === 1) {
+                while ($previousIndex >= 0 && IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$previousIndex]))) {
+                    $previousIndex--;
+                }
+            }
+            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$previousIndex] ?? '');
             $bare = $referenceLine['line'];
             // A footnote body has a content column of its own and it is TWO -
             // the indent §16 requires of a continuation line (carve#717). This
@@ -316,12 +324,28 @@ class ReferenceDefinitionExtractor
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $pendingAttrsInList = false;
+                if ($this->opensParagraphLine($bare)) {
+                    $paragraphOpen = true;
+                }
             }
 
             $i++;
         }
 
         return $references;
+    }
+
+    private function opensParagraphLine(string $line): bool
+    {
+        $line = ltrim($line, " \t");
+        if ($line === '' || $line === '+' || $this->matchDefinitionLine($line) !== null) {
+            return false;
+        }
+
+        return preg_match(
+            '/^(?:#{1,6}(?:[ \t]|$)|>{1,}(?:[ \t]|$)|[-*_]{3,}[ \t]*$|[`~]{3,}|%{2,}|:{2,}(?:[ \t]|$)|\|)/',
+            $line,
+        ) !== 1;
     }
 
     /**

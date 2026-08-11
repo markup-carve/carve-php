@@ -30,7 +30,7 @@ class FenceInFootnoteBodyIsOpaqueTest extends TestCase
 
     public function testADefinitionInsideAFenceInANoteBodyRegistersNothing(): void
     {
-        $html = $this->html("[^a]: note\n  ```\n  [r]: /u\n  ```\n\nsee[^a] and [t][r]\n");
+        $html = $this->html("see[^a] and [t][r]\n\n[^a]: note\n\n  ```\n  [r]: /u\n  ```\n");
 
         $this->assertStringNotContainsString('href="/u"', $html);
         // The reference stays literal, and the code line still renders as code.
@@ -41,14 +41,14 @@ class FenceInFootnoteBodyIsOpaqueTest extends TestCase
     public function testADefinitionOutsideTheFenceInTheSameBodyStillRegisters(): void
     {
         // The boundary: the fix must not make the whole note body opaque.
-        $html = $this->html("[^a]: note\n  [r]: /u\n\nsee[^a] and [t][r]\n");
+        $html = $this->html("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testCollectionResumesAfterTheCloser(): void
     {
-        $html = $this->html("[^a]: note\n  ```\n  x\n  ```\n\n  [r]: /u\n\nsee[^a] and [t][r]\n");
+        $html = $this->html("see[^a] and [t][r]\n\n[^a]: note\n\n  ```\n  x\n  ```\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }

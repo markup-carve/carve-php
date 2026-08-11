@@ -84,7 +84,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q</p></blockquote> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  body\n   > q\n")),
+            $this->squash($this->html(":: t\n:  body\n\n   > q\n")),
         );
     }
 
@@ -92,7 +92,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd>body</dd> </dl> <blockquote><p>q</p></blockquote>',
-            $this->squash($this->html(":: t\n:  body\n> q\n")),
+            $this->squash($this->html(":: t\n:  body\n\n> q\n")),
         );
     }
 
@@ -107,7 +107,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd> <p>a</p> <ul> <li>x</li> <li>y</li> </ul> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  a\n\n    - x\n    - y\n")),
+            $this->squash($this->html(":: t\n:  a\n\n   - x\n   - y\n")),
         );
     }
 
@@ -126,7 +126,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd>body &gt; q &gt; r</dd> </dl>',
-            $this->squash($this->html(":: t\n:  body\n    > q\n     > r\n")),
+            $this->squash($this->html(":: t\n:  body\n   > q\n   > r\n")),
         );
     }
 

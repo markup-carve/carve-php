@@ -131,10 +131,10 @@ class CarveFormatterTest extends TestCase
         $converter = new CarveConverter();
 
         // 162: item / fenced code / trailing text - all joined tight, no blank.
-        $src162 = "- item\n  ```\n  c\n  ```\n  tail\n";
+        $src162 = "- item\n+\n```\nc\n```\n+\ntail\n";
         $formatted162 = CarveConverter::toCarve($src162);
         $this->assertSame(
-            "- item\n  ```\n  c\n  ```\n  tail\n",
+            $src162,
             $formatted162,
             'Tight item with a fence and trailing text must format tight (no loosening blank).',
         );

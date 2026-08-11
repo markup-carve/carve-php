@@ -32,7 +32,7 @@ final class AdjacentAttachedBlockOpenersTest extends TestCase
 
     public function testIsolatedBlockOpenerKeepsIndentedCanonicalForm(): void
     {
-        self::assertSame("- x\n  > q\n", (new CarveConverter())->toCarve("- x\n+\n> q\n"));
+        self::assertSame("- x\n+\n> q\n", (new CarveConverter())->toCarve("- x\n+\n> q\n"));
     }
 
     public function testIncompatibleListsDoNotNeedContinuationMarkers(): void

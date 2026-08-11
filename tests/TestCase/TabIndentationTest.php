@@ -220,7 +220,7 @@ class TabIndentationTest extends TestCase
     {
         $converter = new CarveConverter();
         $converter->addExtension(new TabNormalizeExtension(width: 4));
-        $result = $converter->convert('`code	with	tabs`');
+        $result = $converter->convert("`code\twith\ttabs`\n");
 
         $this->assertStringContainsString('code    with    tabs', $result);
         $this->assertStringNotContainsString("\t", $result);
@@ -353,7 +353,7 @@ class TabIndentationTest extends TestCase
      */
     public function testABlockOpenerAtTheContentColumnStillNests(): void
     {
-        $result = $this->converter->convert("1. a\n   > quote");
+        $result = $this->converter->convert("1. a\n+\n> quote\n");
 
         $this->assertStringContainsString('<blockquote>', $result);
     }

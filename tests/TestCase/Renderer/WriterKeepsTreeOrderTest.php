@@ -35,7 +35,7 @@ class WriterKeepsTreeOrderTest extends TestCase
     {
         // The link definition sits on the footnote body's continuation line, so
         // it is collected from inside the footnote and lands after it.
-        $source = "[^a]: note\n  [r]: /u\n\nsee[^a] and [t][r]\n";
+        $source = "[^a]: note\n\n  [r]: /u\n\nsee[^a] and [t][r]\n";
 
         $this->assertSame("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n", $this->written($source));
     }
@@ -57,7 +57,7 @@ class WriterKeepsTreeOrderTest extends TestCase
     public function testTheWrittenSourceStillRendersTheSameHtml(): void
     {
         // PART 11 §1, so a reordering fix cannot change the document.
-        $source = "[^a]: note\n  [r]: /u\n\nsee[^a] and [t][r]\n";
+        $source = "[^a]: note\n\n  [r]: /u\n\nsee[^a] and [t][r]\n";
         $converter = new CarveConverter();
 
         $this->assertSame(

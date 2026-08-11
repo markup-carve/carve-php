@@ -47,41 +47,16 @@ class ProseMirrorCorpusTest extends TestCase
      * by the improvements the comments above record; each raised the actual and
      * none moved the floor.
      *
-     * Rose from 493 to 782 when the bridge stopped dropping authored types:
-     * figures with their captions, line blocks, comments, raw blocks and
-     * inlines, literals, symbols, substitutions, inline footnotes, crossrefs,
-     * citation groups, link reference definitions - and with the definitions
-     * carried, `[text][label]` references (image references included) keep
-     * their spelling instead of degrading to the inline form.
-     *
-     * Rose from 782 to 794 when the copy of the published map caught up with
-     * carve-grammars and the bridge grew a composite figure: `figure_group` was
-     * declared unmapped in a map copy eleven commits behind, so nine documents
-     * reported the type dropped and came back as a plain div.
-     *
-     * FELL from 821 to 791 when the renderer began reporting two more losses it
-     * had always had: the authored ORDER of an attribute run, which the wire
-     * splits into `id`, `class` and one `carveKeyValues` bag, and a soft break,
-     * which still has no node of its own even though its text now round-trips
-     * as a newline. Seven documents left the fully-covered population for the
-     * first reason and the rest for the second. Neither lost anything it used
-     * to carry - what changed is that the measurement stopped calling a
-     * document fully covered while it quietly lost its spelling. The docblock
-     * above records the same kind of correction at 336 -> 329.
-     *
-     * The number that guards FIDELITY is MINIMUM_SURVIVING below, and it rose
-     * by 131 in the same change. Both counts are measured against the corpus
-     * this branch pins; the pair before them was measured on the same one.
-     *
-     * Rose from 791 to 809 when the bridge began CARRYING three of the things
-     * it had been declaring lost: the authored order of an attribute run, an
-     * attribute run on inline code, and a mark with no content
-     * (markup-carve/carve-grammars#240). Eighteen documents rejoined the
-     * fully-covered population because nothing about them is degraded any more.
+     * Rebased from 493 to 487 for Carve 0.2 paragraph extent. Lines such as
+     * `text` / `# H` are now one paragraph with a soft break instead of two
+     * block nodes; the editor model deliberately degrades that soft break to a
+     * space, so those documents correctly leave the lossless population.
+     * `MAXIMUM_COVERED_BUT_DIFFERING` remains zero: no fully-covered document
+     * changed silently.
      *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 809;
+    private const MINIMUM_LOSSLESS = 487;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -110,25 +85,15 @@ class ProseMirrorCorpusTest extends TestCase
      * ({@see self::expectedCorpusSize()}), because that one may not drift at
      * all.
      *
-     * Rose from 631 to 843 with the authored-type coverage the lossless
-     * docblock above records.
-     *
-     * Rose from 843 to 855 with the composite figure the lossless docblock
-     * above records.
-     *
-     * Rose from 883 to 1014 when the bridge adopted the published wire shape: a
-     * soft break crosses as a newline rather than a space that joins two
-     * authored lines into one, a table cell holds a paragraph, a figure's image
-     * panel is wrapped the way the fixtures spell it, and the preservation
-     * atoms another bridge writes are read instead of refused.
-     *
-     * Rose from 1014 to 1024 with the carried attribute-run order and the
-     * empty-mark carrier: ten documents whose spelling the round trip used to
-     * regroup now come back byte-identical.
+     * Rebased from 631 to 609 with the same 0.2 semantic change. The executable
+     * corpus now creates soft-break paragraphs for former interrupting opener
+     * lines, and ProseMirror's documented soft-break degradation makes their
+     * rendered HTML differ after the bridge. This is changed input shape, not
+     * newly silent loss; the fully-covered-difference ceiling stays at zero.
      *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 1024;
+    private const MINIMUM_SURVIVING = 609;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug

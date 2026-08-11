@@ -38,7 +38,7 @@ class BulletMarkerContentColumnTest extends TestCase
     {
         $this->assertHtml(
             "<ul>\n  <li>item\n    <h1 id=\"Wide\">Wide</h1>\n  </li>\n</ul>",
-            "-   item\n    # Wide\n",
+            "-   item\n+\n# Wide\n",
         );
     }
 
@@ -46,7 +46,7 @@ class BulletMarkerContentColumnTest extends TestCase
     {
         $this->assertHtml(
             "<ul>\n  <li>item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
-            "- item\n  # H\n",
+            "- item\n+\n# H\n",
         );
     }
 
@@ -54,7 +54,7 @@ class BulletMarkerContentColumnTest extends TestCase
     {
         $this->assertHtml(
             "<ul>\n  <li>item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
-            "*    item\n     # H\n",
+            "*    item\n+\n# H\n",
         );
     }
 
@@ -74,7 +74,7 @@ class BulletMarkerContentColumnTest extends TestCase
     {
         $this->assertHtml(
             "<ul>\n  <li><input type=\"checkbox\" disabled> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
-            "- [ ] item\n  # H\n",
+            "- [ ] item\n+\n# H\n",
         );
     }
 

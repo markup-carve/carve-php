@@ -845,7 +845,7 @@ HTML;
         $html = '<section role="doc-endnotes"><ol><li id="fn1" data-djot-footnote-label="1"><p>One</p><p>Two</p><p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("[^1]: One\n  \n  Two\n", $result);
+        $this->assertSame("[^1]: One\n\n  Two\n", $result);
 
         $htmlBack = (new CarveConverter())->convert("ref[^1]\n\n" . $result);
         $this->assertStringContainsString('<p>One</p>', $htmlBack);

@@ -1453,6 +1453,8 @@ class BlockParser
         // The item content column a definition on a CONTINUATION line has to
         // reach, tracked exactly as the link-reference prepass tracks it.
         $contentColumns = new ListContentColumns();
+        $paragraphOpen = false;
+        $inDefinitionBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -1612,6 +1614,15 @@ class BlockParser
             // suffix of this line). When the line has no `[^` at all, neither
             // path can fire, so skip the marker-stripping prefix scan entirely.
             if (!str_contains($line, '[^')) {
+                $trimmedSeed = ltrim($line, " \t");
+                $markerWithText = preg_match('/^(?:[-*]|[0-9]+[.)]) +\S/', $trimmedSeed) === 1;
+                $quoteWithText = preg_match('/^> +\S/', $trimmedSeed) === 1;
+                if (
+                    !IndentationHelper::isBlankLine($line)
+                    && (!$this->isBlockElementStart($line, $lines, $i) || $markerWithText || $quoteWithText)
+                ) {
+                    $paragraphOpen = true;
+                }
                 $i++;
 
                 continue;
@@ -1659,6 +1670,11 @@ class BlockParser
                 $label = $matches[1];
                 $content = $matches[2];
                 if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
+                    // A definition-shaped line without the required inline
+                    // body is ordinary paragraph text. Keep that paragraph
+                    // open so a following valid-looking definition cannot
+                    // interrupt it under the 0.2 block rule.
+                    $paragraphOpen = true;
                     $i++;
 
                     continue;
@@ -1886,6 +1902,19 @@ class BlockParser
                             'lineMap' => $contentLineMap,
                         ];
                     }
+                }
+            }
+
+            // Lines containing a footnote reference take the slower path
+            // above, but most are not definitions (`See [^n].`). They still
+            // open an ordinary paragraph exactly like lines handled by the
+            // fast no-`[^` branch.
+            if (!IndentationHelper::isBlankLine($line)) {
+                $trimmedSeed = ltrim($line, " \t");
+                $markerWithText = preg_match('/^(?:[-*]|[0-9]+[.)]) +\S/', $trimmedSeed) === 1;
+                $quoteWithText = preg_match('/^> +\S/', $trimmedSeed) === 1;
+                if (!$this->isBlockElementStart($line, $lines, $i) || $markerWithText || $quoteWithText) {
+                    $paragraphOpen = true;
                 }
             }
 
@@ -2148,12 +2177,14 @@ class BlockParser
         // item whose lazy continuation a flush-left line folds into.
         $divs = [];
         $inListItem = false;
+        $paragraphOpen = false;
 
         while ($i < $count) {
             $line = $lines[$i];
 
             if (IndentationHelper::isBlankLine($line)) {
                 $inListItem = false;
+                $paragraphOpen = false;
             } elseif (preg_match(self::LIST_ITEM_CONTEXT_PATTERN, $line) === 1) {
                 $inListItem = true;
             }
@@ -2212,6 +2243,24 @@ class BlockParser
                 } else {
                     $divs[] = $width;
                 }
+            }
+
+            // §10: once prose has opened a paragraph, a following nonblank
+            // abbreviation-shaped line is paragraph text, not a definition.
+            if ($paragraphOpen) {
+                $i++;
+
+                continue;
+            }
+            if (
+                !IndentationHelper::isBlankLine($line)
+                && !$this->isBlockElementStart($line, $lines, $i)
+                && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line) !== 1
+            ) {
+                $paragraphOpen = true;
+                $i++;
+
+                continue;
             }
 
             // Match abbreviation definition: *[abbr]: definition. The pattern
@@ -3121,7 +3170,7 @@ class BlockParser
             if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                 $i += $consumed;
 
@@ -3190,7 +3239,7 @@ class BlockParser
                 }
             }
 
-            $consumed ??= $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+            $consumed ??= $this->tryParseParagraph($parent, $lines, $i);
 
             // The block ran from $i to $i + $consumed - 1 in THIS line array;
             // resolve the last one back to the top-level array the offsets are
@@ -6833,6 +6882,13 @@ class BlockParser
             $nextTrimmed = ltrim($nextLine, " \t");
             $isBlockQuoteLazyLine = isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
 
+            // A below-content-column line can be lazy only when the item owns
+            // an open paragraph. Marker-line empty quotes and real fences own
+            // no paragraph, so their under-indented residue belongs outside.
+            if (!$trailingState['openParagraph'] && $nextIndent < $contentIndent) {
+                break;
+            }
+
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
             }
@@ -6892,7 +6948,9 @@ class BlockParser
                     break;
                 }
                 $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
-                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
+                if ($openCommentLength !== null || !$trailingState['openParagraph']) {
+                    $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
+                }
                 if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
                     $sawIndentedUnclaimedColonFence = true;
                 }
@@ -6993,15 +7051,6 @@ class BlockParser
             // which now ends the item whenever no paragraph is open. Re-asking
             // it here could no longer fail, and a check that cannot fail reads
             // as a guard while guarding nothing.
-            if (
-                $nextIndent === 0
-                && !$this->isBlockElementStart($nextTrimmed)
-                && !$this->startsNewBlock($nextTrimmed)
-                && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
-            ) {
-                break;
-            }
-
             // Reached only with a paragraph open, for the same reason.
             $foldedAsText = false;
             if (
@@ -7072,10 +7121,7 @@ class BlockParser
         ?int $index = null,
     ): bool {
         return $nextIndent < $baseIndent
-            && (
-                $this->listParser->parseListItemMarker($nextTrimmed) !== null
-                || ($nextIndent === 0 && $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index))
-            );
+            && $this->listParser->parseListItemMarker($nextTrimmed) !== null;
     }
 
     /**
@@ -7143,8 +7189,7 @@ class BlockParser
             return true;
         }
 
-        return $baseIndent === 0
-            && $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index);
+        return false;
     }
 
     /**
@@ -7193,6 +7238,8 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingBlockState($trailingState, $seedLine);
         }
+        $leadDiv = $this->fencedBlockParser->parseDivFenceOpener($itemLines[0] ?? '');
+        $leadDivWidth = $leadDiv['length'] ?? null;
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -7218,6 +7265,12 @@ class BlockParser
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             if ($nextIndent < $contentIndent) {
                 $nextTrimmed = ltrim($nextLine, " \t");
+                if (
+                    is_int($leadDivWidth)
+                    && $this->fencedBlockParser->isDivFenceCloser($nextTrimmed, $leadDivWidth)
+                ) {
+                    break;
+                }
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
@@ -7692,6 +7745,7 @@ class BlockParser
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->startsInterruptingBlock($contLine, $lines, $i)
+                        && !$this->isReferenceDefinitionLine($contLine)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
                         // block: the tracker must read it as the lazy line it
@@ -9701,16 +9755,14 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
-     * @param bool $topLevel
      */
-    protected function tryParseParagraph(Node $parent, array $lines, int $start, bool $topLevel = false): int
+    protected function tryParseParagraph(Node $parent, array $lines, int $start): int
     {
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
         /** @var list<string> $contentParts */
         $contentParts = [$content];
-        $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
         // Where each folded line's content sits, so a multi-line paragraph can
         // still place its inlines: [line index, column in that line, length].
         // Nested content arrives PRE-JOINED: a list item hands its body over as
@@ -9738,18 +9790,16 @@ class BlockParser
             if (IndentationHelper::isBlankLine($nextLine)) {
                 break;
             }
-
-            // An unclosed `{` used to suppress this check, so every following
-            // line became paragraph text until a blank line. That published
-            // COMMENT bodies - `%%` and `%%%` hold content the author does not
-            // want in the output - and swallowed headings and fences.
-            //
-            // It was this engine's rule alone: carve-js and carve-rs interrupt
-            // normally after `text{a=x`, which is the example the rule was
-            // written for, and PART 9 §10's I1 says nothing about brace state.
-            // It protected nothing either - an inline attribute block cannot
-            // span lines in any engine.
-            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine, $topLevel)) {
+            // Caption attachment is host-sensitive structure, not paragraph
+            // interruption. A caret line closes only a captionable image/math
+            // paragraph so the block reader can attach it.
+            if (
+                preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $nextLine) === 1
+                && $this->isCaptionableParagraphContent(
+                    implode("\n", $contentParts),
+                    $this->sourceLineFor($start),
+                )
+            ) {
                 break;
             }
 
@@ -9764,8 +9814,6 @@ class BlockParser
                 $nextLine,
             );
             $contentParts[] = $nextLine;
-            $hasUnclaimedColonFenceLine = $hasUnclaimedColonFenceLine
-                || $this->paragraphHasUnclaimedColonFenceLine($nextLine);
             $i++;
         }
 
@@ -11862,6 +11910,9 @@ class BlockParser
         ?array $lines = null,
         ?int $index = null,
     ): bool {
+        if ($paragraphTextOpen) {
+            return $this->isCaptionLine($line);
+        }
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
         if (!$paragraphOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {

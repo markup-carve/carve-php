@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\LegacyCarveConverter as CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -84,11 +84,11 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
      * writer cannot respell the paragraph, so the document is saved by moving
      * the CLOSER - which is why the fallback is document-wide.
      */
-    public function testAHoistedDefinitionDoesNotPromoteAFrontmatterShapedParagraph(): void
+    public function testAHoistedDefinitionKeepsAFrontmatterShapedParagraphLiteral(): void
     {
         $source = "[^a]: n\n\n---yaml\nk: v\n---\n";
         $this->assertRoundTrips($source);
-        $this->assertStringContainsString('<hr>', $this->html($this->fmt($source)));
+        $this->assertStringContainsString("—yaml\nk: v\n—", $this->html($this->fmt($source)));
     }
 
     /**

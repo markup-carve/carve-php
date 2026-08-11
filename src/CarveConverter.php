@@ -53,7 +53,7 @@ class CarveConverter
      *
      * @var string
      */
-    public const SPEC_VERSION = '0.1';
+    public const SPEC_VERSION = '0.2';
 
     /**
      * Library version - the release this build is.

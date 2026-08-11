@@ -57,7 +57,7 @@ class CollectedDefinitionsAreInSourceOrderTest extends TestCase
     {
         self::assertSame(
             ['paragraph', 'footnote', 'link_reference_definition'],
-            $this->kinds("[^a]: note\n[r]: /u\n\nsee[^a] and [t][r]\n"),
+            $this->kinds("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n"),
         );
     }
 
@@ -65,7 +65,7 @@ class CollectedDefinitionsAreInSourceOrderTest extends TestCase
     {
         self::assertSame(
             ['paragraph', 'link_reference_definition', 'footnote'],
-            $this->kinds("[r]: /u\n[^a]: note\n\nsee[^a] and [t][r]\n"),
+            $this->kinds("see[^a] and [t][r]\n\n[r]: /u\n\n[^a]: note\n"),
         );
     }
 
@@ -73,7 +73,7 @@ class CollectedDefinitionsAreInSourceOrderTest extends TestCase
     {
         self::assertSame(
             ['paragraph', 'link_reference_definition', 'footnote', 'link_reference_definition'],
-            $this->kinds("[r]: /u\n[^a]: note\n[s]: /v\n\nsee[^a] and [t][r] and [u][s]\n"),
+            $this->kinds("see[^a] and [t][r] and [u][s]\n\n[r]: /u\n\n[^a]: note\n\n[s]: /v\n"),
         );
     }
 
@@ -86,7 +86,7 @@ class CollectedDefinitionsAreInSourceOrderTest extends TestCase
         self::assertSame(
             ['abbreviation_def', 'paragraph', 'link_reference_definition', 'footnote'],
             $this->kinds(
-                "*[HTML]: HyperText Markup Language\n[r]: /u\n[^a]: note\n\nsee[^a] and [t][r] and HTML\n",
+                "*[HTML]: HyperText Markup Language\n\nsee[^a] and [t][r] and HTML\n\n[r]: /u\n\n[^a]: note\n",
             ),
         );
     }
@@ -98,8 +98,8 @@ class CollectedDefinitionsAreInSourceOrderTest extends TestCase
     public function testThePublishedPositionsAscendAcrossTheCollectedTail(): void
     {
         $sources = [
-            "[^a]: note\n[r]: /u\n\nsee[^a] and [t][r]\n",
-            "[r]: /u\n[^a]: note\n\nsee[^a] and [t][r]\n",
+            "[^a]: note\n\n[r]: /u\n\nsee[^a] and [t][r]\n",
+            "[r]: /u\n\n[^a]: note\n\nsee[^a] and [t][r]\n",
         ];
         foreach ($sources as $source) {
             $offsets = [];

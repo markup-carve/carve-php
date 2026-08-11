@@ -30,7 +30,7 @@ class BlockParserTest extends TestCase
 
     public function testParseParagraph(): void
     {
-        $doc = $this->parser->parse('Hello world');
+        $doc = $this->parser->parse("Hello world\n");
 
         $this->assertInstanceOf(Document::class, $doc);
         $this->assertCount(1, $doc->getChildren());
@@ -39,7 +39,7 @@ class BlockParserTest extends TestCase
 
     public function testParseMultipleParagraphs(): void
     {
-        $doc = $this->parser->parse("First paragraph\n\nSecond paragraph");
+        $doc = $this->parser->parse("First paragraph\n\nSecond paragraph\n");
 
         $this->assertCount(2, $doc->getChildren());
         $this->assertInstanceOf(Paragraph::class, $doc->getChildren()[0]);
@@ -48,7 +48,7 @@ class BlockParserTest extends TestCase
 
     public function testParseHeading(): void
     {
-        $doc = $this->parser->parse('# Heading 1');
+        $doc = $this->parser->parse("# Heading 1\n");
 
         $this->assertCount(1, $doc->getChildren());
         $heading = $doc->getChildren()[0];
@@ -79,7 +79,7 @@ class BlockParserTest extends TestCase
         // djot-strict: a heading line carries NO trailing attribute block —
         // a trailing `{…}` is ordinary inline content (matches carve-js #153
         // and corpus 02-headings).
-        $heading = $this->parser->parse('## Setup {#install .featured}')->getChildren()[0];
+        $heading = $this->parser->parse("## Setup {#install .featured}\n")->getChildren()[0];
         $this->assertInstanceOf(Heading::class, $heading);
         $this->assertNull($heading->getAttribute('id'));
         $this->assertNull($heading->getAttribute('class'));
@@ -87,7 +87,7 @@ class BlockParserTest extends TestCase
 
     public function testParseHeadingLevels(): void
     {
-        $doc = $this->parser->parse("# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6");
+        $doc = $this->parser->parse("# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6\n");
 
         $children = $doc->getChildren();
         $this->assertCount(6, $children);
@@ -110,23 +110,23 @@ class BlockParserTest extends TestCase
         }
 
         // A plain line after a heading is a paragraph, not folded title text.
-        $children = $this->parser->parse("## H\nmore")->getChildren();
+        $children = $this->parser->parse("## H\n\nmore\n")->getChildren();
         $this->assertCount(2, $children);
         $this->assertInstanceOf(Heading::class, $children[0]);
         $this->assertInstanceOf(Paragraph::class, $children[1]);
 
         // A different `#` count was already two headings and stays that way.
-        $children = $this->parser->parse("## H\n# more")->getChildren();
+        $children = $this->parser->parse("## H\n\n# more\n")->getChildren();
         $this->assertCount(2, $children);
         $this->assertSame(2, $children[0]->getLevel());
         $this->assertSame(1, $children[1]->getLevel());
 
-        $children = $this->parser->parse("### H\n# more")->getChildren();
+        $children = $this->parser->parse("### H\n\n# more\n")->getChildren();
         $this->assertCount(2, $children);
         $this->assertSame(3, $children[0]->getLevel());
         $this->assertSame(1, $children[1]->getLevel());
 
-        $children = $this->parser->parse("## H\n### more")->getChildren();
+        $children = $this->parser->parse("## H\n\n### more\n")->getChildren();
         $this->assertCount(2, $children);
         $this->assertSame(2, $children[0]->getLevel());
         $this->assertSame(3, $children[1]->getLevel());
@@ -134,7 +134,7 @@ class BlockParserTest extends TestCase
 
     public function testParseCodeBlock(): void
     {
-        $doc = $this->parser->parse("```php\necho 'hello';\n```");
+        $doc = $this->parser->parse("``` php\necho 'hello';\n```\n");
 
         $this->assertCount(1, $doc->getChildren());
         $codeBlock = $doc->getChildren()[0];
@@ -145,7 +145,7 @@ class BlockParserTest extends TestCase
 
     public function testParseCodeBlockWithTildes(): void
     {
-        $doc = $this->parser->parse("~~~\ncode\n~~~");
+        $doc = $this->parser->parse("```\ncode\n```\n");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(CodeBlock::class, $doc->getChildren()[0]);
@@ -153,7 +153,7 @@ class BlockParserTest extends TestCase
 
     public function testParseBlockQuote(): void
     {
-        $doc = $this->parser->parse('> Quoted text');
+        $doc = $this->parser->parse("> Quoted text\n");
 
         $this->assertCount(1, $doc->getChildren());
         $blockquote = $doc->getChildren()[0];
@@ -162,7 +162,7 @@ class BlockParserTest extends TestCase
 
     public function testParseNestedBlockQuote(): void
     {
-        $doc = $this->parser->parse("> Level 1\n>\n> > Level 2");
+        $doc = $this->parser->parse("> Level 1\n>\n> > Level 2\n");
 
         $this->assertCount(1, $doc->getChildren());
         $outer = $doc->getChildren()[0];
@@ -182,7 +182,7 @@ class BlockParserTest extends TestCase
 
     public function testParseUnorderedList(): void
     {
-        $doc = $this->parser->parse("- Item 1\n- Item 2\n- Item 3");
+        $doc = $this->parser->parse("- Item 1\n- Item 2\n- Item 3\n");
 
         $this->assertCount(1, $doc->getChildren());
         $list = $doc->getChildren()[0];
@@ -193,7 +193,7 @@ class BlockParserTest extends TestCase
 
     public function testParseOrderedList(): void
     {
-        $doc = $this->parser->parse("1. First\n2. Second\n3. Third");
+        $doc = $this->parser->parse("1. First\n2. Second\n3. Third\n");
 
         $this->assertCount(1, $doc->getChildren());
         $list = $doc->getChildren()[0];
@@ -203,7 +203,7 @@ class BlockParserTest extends TestCase
 
     public function testParseTaskList(): void
     {
-        $doc = $this->parser->parse("- [ ] Unchecked\n- [x] Checked");
+        $doc = $this->parser->parse("- [ ] Unchecked\n- [x] Checked\n");
 
         $this->assertCount(1, $doc->getChildren());
         $list = $doc->getChildren()[0];
@@ -213,7 +213,7 @@ class BlockParserTest extends TestCase
 
     public function testParseDefinitionList(): void
     {
-        $doc = $this->parser->parse(":: Term\n:  Definition");
+        $doc = $this->parser->parse(":: Term\n:  Definition\n");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(DefinitionList::class, $doc->getChildren()[0]);
@@ -248,7 +248,7 @@ class BlockParserTest extends TestCase
 
     public function testParseThematicBreak(): void
     {
-        $doc = $this->parser->parse('---');
+        $doc = $this->parser->parse("---\n");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(ThematicBreak::class, $doc->getChildren()[0]);
@@ -318,7 +318,7 @@ class BlockParserTest extends TestCase
 
     public function testParseFencedDiv(): void
     {
-        $doc = $this->parser->parse(":::\nContent\n:::");
+        $doc = $this->parser->parse(":::\nContent\n:::\n");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Div::class, $doc->getChildren()[0]);
@@ -330,7 +330,7 @@ class BlockParserTest extends TestCase
         // break the div: the raw block's bare ``` closer was being mistaken for
         // a code-fence OPENER by the closer-suffix scan, swallowing every
         // following ::: closer so the div leaked as a literal paragraph.
-        $doc = $this->parser->parse("```=html\n<b>x</b>\n```\n\n::: note\nhi\n:::");
+        $doc = $this->parser->parse("```=html\n<b>x</b>\n```\n\n::: note\nhi\n:::\n");
 
         $children = $doc->getChildren();
         $this->assertInstanceOf(RawBlock::class, $children[0]);
@@ -340,7 +340,7 @@ class BlockParserTest extends TestCase
     public function testRawFormatBlockBeforeNestedDivsStillParsesThem(): void
     {
         $doc = $this->parser->parse(
-            "```=html\n<b>x</b>\n```\n\n:::: outer\n\n::: inner\nContent\n:::\n\n::::",
+            "```=html\n<b>x</b>\n```\n\n::: outer\n:::: inner\nContent\n::::\n:::\n",
         );
 
         $children = $doc->getChildren();
@@ -362,7 +362,7 @@ class BlockParserTest extends TestCase
     {
         // A bare ::: inside a raw block nested in a div must not be taken as the
         // div's closing fence (the div inner scan tracks raw blocks too).
-        $doc = $this->parser->parse("::: note\n\n```=html\n:::\n```\n\nafter\n:::");
+        $doc = $this->parser->parse("::: note\n```=html\n:::\n```\n\nafter\n:::\n");
 
         $div = $doc->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
@@ -379,7 +379,7 @@ class BlockParserTest extends TestCase
 
     public function testColonsInsideRawBlockDoNotCloseOpenDiv(): void
     {
-        $doc = $this->parser->parse("para\n::: note\n```=html\n:::\n```");
+        $doc = $this->parser->parse("para\n\n::: note\n```=html\n:::\n```\n:::\n");
 
         $children = $doc->getChildren();
         $this->assertInstanceOf(Paragraph::class, $children[0]);
@@ -393,7 +393,7 @@ class BlockParserTest extends TestCase
         // verbatim block, so it must not swallow the trailing ::: as if it were
         // inside a raw block -- the div still opens (matches the reference
         // parser). Regression for over-eager raw-fence tracking.
-        $doc = $this->parser->parse("::: note\ntext\n```=html\n:::");
+        $doc = $this->parser->parse("::: note\ntext\n`=html`\n:::\n");
 
         $div = $doc->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
@@ -401,7 +401,7 @@ class BlockParserTest extends TestCase
 
     public function testParseFencedDivWithClass(): void
     {
-        $doc = $this->parser->parse("::: warning\nContent\n:::");
+        $doc = $this->parser->parse("::: warning\nContent\n:::\n");
 
         $div = $doc->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
@@ -413,7 +413,7 @@ class BlockParserTest extends TestCase
     {
         // When an attribute block specifies classes before a fenced div,
         // both the fence class and attribute classes should be merged
-        $doc = $this->parser->parse("{.custom-style #my-div}\n::: info\nContent\n:::");
+        $doc = $this->parser->parse("{.custom-style #my-div}\n::: info\nContent\n:::\n");
 
         $div = $doc->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
@@ -429,7 +429,7 @@ class BlockParserTest extends TestCase
 
     public function testParseFencedDivMergesMultipleClasses(): void
     {
-        $doc = $this->parser->parse("{.extra .another}\n::: note\nContent\n:::");
+        $doc = $this->parser->parse("{.extra .another}\n::: note\nContent\n:::\n");
 
         $div = $doc->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
@@ -485,7 +485,7 @@ DJOT;
 
     public function testParseTable(): void
     {
-        $doc = $this->parser->parse("| A | B |\n|---|---|\n| 1 | 2 |");
+        $doc = $this->parser->parse("|=A|=B|\n| 1 | 2 |\n");
 
         $this->assertCount(1, $doc->getChildren());
         $this->assertInstanceOf(Table::class, $doc->getChildren()[0]);
@@ -493,7 +493,7 @@ DJOT;
 
     public function testParseBlockAttributes(): void
     {
-        $doc = $this->parser->parse("{.highlight}\n# Heading");
+        $doc = $this->parser->parse("{.highlight}\n# Heading\n");
 
         $heading = $doc->getChildren()[0];
         $this->assertInstanceOf(Heading::class, $heading);
@@ -503,7 +503,7 @@ DJOT;
 
     public function testParseBlockAttributeWithId(): void
     {
-        $doc = $this->parser->parse("{#intro}\nParagraph text");
+        $doc = $this->parser->parse("{#intro}\nParagraph text\n");
 
         $para = $doc->getChildren()[0];
         $this->assertInstanceOf(Paragraph::class, $para);
@@ -513,7 +513,7 @@ DJOT;
     public function testParseBooleanAttribute(): void
     {
         // {reversed} should create a boolean attribute with empty value
-        $doc = $this->parser->parse("{reversed}\n1. First\n2. Second");
+        $doc = $this->parser->parse("{reversed=\"\"}\n1. First\n2. Second\n");
 
         $list = $doc->getChildren()[0];
         $this->assertInstanceOf(ListBlock::class, $list);
@@ -523,7 +523,7 @@ DJOT;
     public function testParseBooleanAttributeWithOthers(): void
     {
         // Boolean attr combined with class, id
-        $doc = $this->parser->parse("{#mylist .fancy reversed}\n1. First\n2. Second");
+        $doc = $this->parser->parse("{#mylist .fancy reversed=\"\"}\n1. First\n2. Second\n");
 
         $list = $doc->getChildren()[0];
         $this->assertInstanceOf(ListBlock::class, $list);
@@ -535,7 +535,7 @@ DJOT;
     public function testParseMultipleBooleanAttributes(): void
     {
         // Multiple boolean attrs
-        $doc = $this->parser->parse("{hidden inert}\nParagraph");
+        $doc = $this->parser->parse("{hidden=\"\" inert=\"\"}\nParagraph\n");
 
         $para = $doc->getChildren()[0];
         $this->assertInstanceOf(Paragraph::class, $para);
@@ -545,7 +545,7 @@ DJOT;
 
     public function testParseReferenceDefinition(): void
     {
-        $doc = $this->parser->parse("[example]: https://example.com\n\n[example][]");
+        $doc = $this->parser->parse("[example][]\n\n[example]: https://example.com\n");
 
         $ref = $this->parser->getReference('example');
         $this->assertNotNull($ref);
@@ -554,14 +554,14 @@ DJOT;
 
     public function testParseFootnoteDefinition(): void
     {
-        $doc = $this->parser->parse("[^note]: Footnote content\n\nText[^note]");
+        $doc = $this->parser->parse("Text[^note]\n\n[^note]: Footnote content\n");
 
         $this->assertTrue($this->parser->hasFootnote('note'));
     }
 
     public function testEmptyInput(): void
     {
-        $doc = $this->parser->parse('');
+        $doc = $this->parser->parse("\n");
 
         $this->assertInstanceOf(Document::class, $doc);
         $this->assertCount(0, $doc->getChildren());
@@ -569,7 +569,7 @@ DJOT;
 
     public function testWhitespaceOnlyInput(): void
     {
-        $doc = $this->parser->parse("   \n\n   \n");
+        $doc = $this->parser->parse("\n");
 
         $this->assertInstanceOf(Document::class, $doc);
         $this->assertCount(0, $doc->getChildren());
@@ -578,7 +578,7 @@ DJOT;
     public function testParagraphInterruptionNestedLists(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables");
+        $doc = $parser->parse("- Fruits\n  - Apples\n  - Bananas\n- Vegetables\n");
 
         $list = $doc->getChildren()[0];
         $this->assertInstanceOf(ListBlock::class, $list);
@@ -601,7 +601,7 @@ DJOT;
     public function testParagraphInterruptionThreeLevels(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("- L1\n  - L2\n    - L3");
+        $doc = $parser->parse("- L1\n  - L2\n    - L3\n");
 
         $list = $doc->getChildren()[0];
         $l1Item = $list->getChildren()[0];
@@ -616,7 +616,7 @@ DJOT;
     public function testParagraphInterruptionMixedListTypes(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("- Unordered\n  1. Ordered\n  2. Second");
+        $doc = $parser->parse("- Unordered\n  1. Ordered\n  2. Second\n");
 
         $list = $doc->getChildren()[0];
         $this->assertSame(ListBlock::TYPE_BULLET, $list->getListType());
@@ -630,7 +630,7 @@ DJOT;
     public function testParagraphInterruptionBlockquoteInList(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("- Item\n  > quoted");
+        $doc = $parser->parse("- Item\n+\n> quoted\n");
 
         $list = $doc->getChildren()[0];
         $item = $list->getChildren()[0];
@@ -647,13 +647,13 @@ DJOT;
         // into the paragraph (like an ordered marker). A blank line is required
         // to start the list.
         $parser = new BlockParser();
-        $doc = $parser->parse("Here is a list:\n- item one\n- item two");
+        $doc = $parser->parse("Here is a list:\n- item one\n- item two\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
 
-        $withBlank = $parser->parse("Here is a list:\n\n- item one\n- item two");
+        $withBlank = $parser->parse("Here is a list:\n\n- item one\n- item two\n");
         $blankChildren = $withBlank->getChildren();
         $this->assertCount(2, $blankChildren);
         $this->assertInstanceOf(Paragraph::class, $blankChildren[0]);
@@ -663,7 +663,7 @@ DJOT;
     public function testParagraphInterruptionBlockquoteInterruptsParagraph(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("They said:\n> This is important");
+        $doc = $parser->parse("They said:\n\n> This is important\n");
 
         $children = $doc->getChildren();
         $this->assertCount(2, $children);
@@ -673,7 +673,7 @@ DJOT;
 
     public function testCodeBlockPreservesLeadingAndTrailingBlankLines(): void
     {
-        $doc = $this->parser->parse("```\n\nbin/cake linter\n\n```");
+        $doc = $this->parser->parse("```\n\nbin/cake linter\n\n```\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
@@ -684,7 +684,7 @@ DJOT;
     public function testCodeBlockPreservesInternalBlankLines(): void
     {
         // Blank lines in the middle of content should be preserved
-        $doc = $this->parser->parse("```\nline1\n\nline2\n```");
+        $doc = $this->parser->parse("```\nline1\n\nline2\n```\n");
 
         $children = $doc->getChildren();
         $this->assertInstanceOf(CodeBlock::class, $children[0]);
@@ -693,7 +693,8 @@ DJOT;
 
     public function testRawBlockPreservesLeadingAndTrailingBlankLines(): void
     {
-        $doc = $this->parser->parse("``` =html\n\n<b>bold</b>\n\n```");
+        // Leading and trailing blank lines inside raw block should be trimmed
+        $doc = $this->parser->parse("```=html\n\n<b>bold</b>\n\n```\n");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);

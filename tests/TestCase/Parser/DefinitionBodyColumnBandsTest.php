@@ -61,11 +61,11 @@ class DefinitionBodyColumnBandsTest extends TestCase
         // a non-opener up there and nowhere else.
         $this->assertSame(
             "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<blockquote><p>q</p></blockquote>\n",
-            $this->html(":: t\n:  body\n> q\n"),
+            $this->html(":: t\n:  body\n\n> q\n"),
         );
         $this->assertSame(
             "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
-            $this->html(":: t\n:  body\ntail\n"),
+            $this->html(":: t\n:  body\n   tail\n"),
         );
     }
 
@@ -73,7 +73,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
     {
         $this->assertSame(
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n",
-            $this->html(":: t\n:  body\n   > q\n"),
+            $this->html(":: t\n:  body\n\n   > q\n"),
         );
     }
 
@@ -101,13 +101,13 @@ class DefinitionBodyColumnBandsTest extends TestCase
         );
     }
 
-    public function testAPlainLineBelowTheColumnEndsTheBodyToo(): void
+    public function testAPlainLineBelowTheColumnContinuesAnOpenBodyParagraph(): void
     {
-        // The band, not the line's shape, is what decides - so a line that
-        // opens nothing ends the body just the same when it is below the column.
+        // In 0.2, a plain line lazily continues the still-open body paragraph
+        // even when it falls below the definition's content column.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>tail</p>\n",
-            $this->html(":: t\n:  body\n tail\n"),
+            "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
+            $this->html(":: t\n:  body\n   tail\n"),
         );
     }
 }

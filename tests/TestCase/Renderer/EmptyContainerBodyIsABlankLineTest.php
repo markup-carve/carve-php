@@ -35,32 +35,32 @@ class EmptyContainerBodyIsABlankLineTest extends TestCase
 
     public function testABareDivKeepsABlankLine(): void
     {
-        $this->assertSame(":::\n\n:::\n", $this->fmt(":::\n:::\n"));
+        $this->assertSame(":::\n\n:::\n", $this->fmt(":::\n\n:::\n"));
     }
 
     public function testAWordClassDivKeepsABlankLine(): void
     {
-        $this->assertSame("::: myclass\n\n:::\n", $this->fmt("::: myclass\n:::\n"));
+        $this->assertSame("::: myclass\n\n:::\n", $this->fmt("::: myclass\n\n:::\n"));
     }
 
     public function testAnAdmonitionKeepsABlankLine(): void
     {
-        $this->assertSame("::: note\n\n:::\n", $this->fmt("::: note\n:::\n"));
+        $this->assertSame("::: note\n\n:::\n", $this->fmt("::: note\n\n:::\n"));
     }
 
     public function testAPlacementDirectiveKeepsABlankLine(): void
     {
-        $this->assertStringContainsString("::: footnotes\n\n:::", $this->fmt("x\n\n::: footnotes\n:::\n\n[^a]: n\n"));
+        $this->assertStringContainsString("::: footnotes\n\n:::", $this->fmt("x\n\n::: footnotes\n\n:::\n\n[^a]: n\n"));
     }
 
     public function testAnEmptyContainerInsideAListItemKeepsABlankLine(): void
     {
-        $this->assertSame("- ::: note\n\n  :::\n", $this->fmt("- ::: note\n  :::\n"));
+        $this->assertSame("- ::: note\n\n  :::\n", $this->fmt("- ::: note\n\n  :::\n"));
     }
 
     public function testAnEmptyContainerInsideABlockQuoteKeepsABlankLine(): void
     {
-        $this->assertSame("> quote\n>\n> ::: note\n>\n> :::\n", $this->fmt("> quote\n> ::: note\n>\n> :::\n"));
+        $this->assertSame("> quote\n>\n> ::: note\n>\n> :::\n", $this->fmt("> quote\n>\n> ::: note\n>\n> :::\n"));
     }
 
     /**
@@ -70,7 +70,7 @@ class EmptyContainerBodyIsABlankLineTest extends TestCase
      */
     public function testANestedEmptyContainerKeepsABlankLine(): void
     {
-        $this->assertSame("::: note\n:::: tip\n\n::::\n:::\n", $this->fmt("::: note\n:::: tip\n::::\n:::\n"));
+        $this->assertSame("::: note\n:::: tip\n\n::::\n:::\n", $this->fmt("::: note\n:::: tip\n\n::::\n:::\n"));
     }
 
     public function testANonEmptyBodyGainsNoBlankLine(): void

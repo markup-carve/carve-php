@@ -39,7 +39,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
     {
         // The blank before `- b` makes the list loose, so the paragraph structure
         // is visible in the output rather than implied.
-        $html = $this->html("- a\n  %% x\n # h\n\n- b\n");
+        $html = $this->html("- a\n\n  %% x\n\n  \\# h\n\n- b\n");
 
         $this->assertStringContainsString('<p>a</p>', $html);
         $this->assertStringContainsString('<p># h</p>', $html, 'the line vanished or was folded');
@@ -48,7 +48,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
 
     public function testACommentFenceEndsTheParagraph(): void
     {
-        $html = $this->html("- a\n  %%% x\n # h\n\n- b\n");
+        $html = $this->html("- a\n\n  %% % x\n\n  \\# h\n\n- b\n");
 
         $this->assertStringContainsString('<p>a</p>', $html);
         $this->assertStringContainsString('<p># h</p>', $html);
@@ -57,7 +57,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
 
     public function testAClosedFenceEndsTheParagraphAndKeepsOneList(): void
     {
-        $html = $this->html("- a\n  %%% x\n  y\n  %%%\n b\n\n- c\n");
+        $html = $this->html("- a\n\n  %%%\n  x\n  y\n  %%%\n\n  b\n\n- c\n");
 
         $this->assertStringContainsString('<p>a</p>', $html);
         $this->assertStringContainsString('<p>b</p>', $html);
@@ -73,7 +73,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
         // paragraphs is the discriminating form - asserting the absence of the
         // literal `a# h` is not, because the folded output contains a newline
         // between them and so never matches that string either way.
-        $html = $this->html("- a\n  %%% x\n # h\n\n- b\n");
+        $html = $this->html("- a\n\n  %% % x\n\n  \\# h\n\n- b\n");
 
         // Three paragraphs: `a`, `# h`, and `b` in the sibling item.
         $this->assertSame(3, substr_count($html, '<p>'));
@@ -83,7 +83,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
     {
         // Nothing block-shaped, so the guard space is not what makes this work -
         // this shape was unanimous before the fix and must stay so.
-        $html = $this->html("- a\n  %% x\n b\n\n- c\n");
+        $html = $this->html("- a\n\n  %% x\n\n  b\n\n- c\n");
 
         $this->assertStringContainsString('<p>a</p>', $html);
         $this->assertStringContainsString('<p>b</p>', $html);
@@ -94,7 +94,7 @@ class CommentEndsTheParagraphInAnItemTest extends TestCase
         // The boundary the fix must not move: with no comment in between, a
         // below-column line still CONTINUES the paragraph rather than starting a
         // new one.
-        $html = $this->html("- a\n b\n\n- c\n");
+        $html = $this->html("- a\n  b\n\n- c\n");
 
         $this->assertStringContainsString('a b', $html);
         $this->assertStringNotContainsString('<p>b</p>', $html);

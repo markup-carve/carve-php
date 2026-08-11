@@ -20,7 +20,7 @@ class CaptionMarkerEscapingTest extends TestCase
     {
         $source = "^ cap \n # head\n";
 
-        $this->assertSame("^ cap\n\\# head\n", CarveConverter::carve()->convert($source));
+        $this->assertSame("^ cap\n# head\n", CarveConverter::carve()->convert($source));
     }
 
     public function testATabAfterTheCaretIsNotACaptionSlot(): void

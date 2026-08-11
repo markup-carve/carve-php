@@ -41,7 +41,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // The control. Pinned by corpus 82-blockquote-lazy-continuation.
         $this->assertSame(
             '<blockquote><p>a b</p></blockquote>',
-            $this->squash($this->converter->convert("> a\nb\n")),
+            $this->squash($this->converter->convert("> a\n> b\n")),
         );
     }
 
@@ -52,7 +52,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // so nothing folds into it at all."
         $this->assertSame(
             '<blockquote> <h1 id="h">h</h1> </blockquote> <p>b</p>',
-            $this->squash($this->converter->convert("> # h\nb\n")),
+            $this->squash($this->converter->convert("> # h\n\nb\n")),
         );
     }
 
@@ -67,7 +67,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // PR had been green against the older base.
         $this->assertSame(
             '<blockquote> <dl> <dt>t</dt> </dl> </blockquote> <p>~</p>',
-            $this->squash($this->converter->convert("> :: t\n~\n")),
+            $this->squash($this->converter->convert("> :: t\n\n~\n")),
         );
     }
 
@@ -76,7 +76,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // An invisible construct leaves no paragraph at all.
         $this->assertSame(
             '<blockquote> </blockquote> <p>/</p>',
-            $this->squash($this->converter->convert("> [f]: ~\n/\n")),
+            $this->squash($this->converter->convert(">\n\n/\n\n[f]: ~\n")),
         );
     }
 
@@ -89,7 +89,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // the lazy rule (carve-php#693).
         $this->assertSame(
             '<ul> <li> <ul> <li>a b</li> </ul> </li> </ul>',
-            $this->squash($this->converter->convert("- - a\nb\n")),
+            $this->squash($this->converter->convert("- - a\n    b\n")),
         );
     }
 
@@ -101,7 +101,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // item's stream; dedenting it would have promoted it to a heading.
         $this->assertSame(
             '<ul> <li> <ul> <li>a # H</li> </ul> </li> </ul>',
-            $this->squash($this->converter->convert("- - a\n # H\n")),
+            $this->squash($this->converter->convert("- - a\n    # H\n")),
         );
     }
 
@@ -110,7 +110,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // At column 0 the heading is a heading, so it interrupts as always.
         $this->assertSame(
             '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <section id="H"> <h1>H</h1> </section>',
-            $this->squash($this->converter->convert("- - a\n# H\n")),
+            $this->squash($this->converter->convert("- - a\n\n# H\n")),
         );
     }
 
@@ -131,7 +131,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // sub-item's block quote, not the sub-item itself.
         $this->assertSame(
             '<ul> <li> <ul> <li> <blockquote><p>q b</p></blockquote> </li> </ul> </li> </ul>',
-            $this->squash($this->converter->convert("- - > q\nb\n")),
+            $this->squash($this->converter->convert("- - > q\n    > b\n")),
         );
     }
 
@@ -142,7 +142,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // below, applied to the marker-line branch.
         $this->assertSame(
             '<ul> <li> <ul> <li>a</li> </ul> <pre><code>code </code></pre> </li> </ul> <p>c</p>',
-            $this->squash($this->converter->convert("- - a\n  ```\n  code\n  ```\nc\n")),
+            $this->squash($this->converter->convert("- - a\n\n  ```\n  code\n  ```\n\nc\n")),
         );
     }
 
@@ -151,7 +151,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // Already correct in every engine; here so a fix that reached for
         // "always close" instead of "close when no paragraph is open" does not
         // pass by accident.
-        $html = $this->squash($this->converter->convert("> ```\n> x\n> ```\nb\n"));
+        $html = $this->squash($this->converter->convert("> ```\n> x\n> ```\n\nb\n"));
 
         $this->assertStringContainsString('</blockquote> <p>b</p>', $html);
     }
