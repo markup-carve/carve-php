@@ -112,6 +112,11 @@ class CarveFormatterTest extends TestCase
             // header, label, and the sibling class on the attribute line.
             "{.callout}\n::: note \"T\" [L]\nBody.\n:::\n" =>
                 "{.callout}\n::: note \"T\" [L]\nBody.\n:::\n",
+            // A task checkbox is content, so nested blocks and an attached run
+            // use the bullet's two-column content boundary, not the full
+            // rendered checkbox prefix.
+            "- [ ] a\n  - b\n\n    > q\n" =>
+                "- [ ] a\n  - b\n  +\n  > q\n",
         ];
 
         foreach ($cases as $input => $expected) {
