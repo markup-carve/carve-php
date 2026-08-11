@@ -18,12 +18,12 @@ class StampTest extends TestCase
     /**
      * @var string
      */
-    private const LINE_MARKER = '%% carve-version: 0.1; generated-by: carve-php 0.1.0';
+    private const LINE_MARKER = '%% carve-version: 0.2; generated-by: carve-php 0.1.0';
 
     /**
      * @var string
      */
-    private const BLOCK_MARKER = "%%%\ncarve-version: 0.1\ngenerated-by: carve-php 0.1.0\n%%%";
+    private const BLOCK_MARKER = "%%%\ncarve-version: 0.2\ngenerated-by: carve-php 0.1.0\n%%%";
 
     public function testOneLinerDefaultFormOutput(): void
     {

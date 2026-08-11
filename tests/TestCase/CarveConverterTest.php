@@ -38,7 +38,7 @@ class CarveConverterTest extends TestCase
 
     public function testWhitespaceOnlyInputIsBlank(): void
     {
-        $this->assertSame('', $this->converter->convert(' '));
+        $this->assertSame('', $this->converter->convert("\n"));
     }
 
     public function testMultipleParagraphs(): void
@@ -67,7 +67,7 @@ class CarveConverterTest extends TestCase
 
     public function testCaptionLineAfterImageStillCreatesFigure(): void
     {
-        $result = $this->converter->convert("![x](i)\n^ cap");
+        $result = $this->converter->convert("![x](i)\n^ cap\n");
 
         $this->assertStringContainsString('<figure>', $result);
         $this->assertStringContainsString('<img src="i" alt="x">', $result);
@@ -100,7 +100,7 @@ class CarveConverterTest extends TestCase
         // the wrapped text is not.
         $expected = "<section id=\"H\">\n  <h1>H</h1>\n  <p>line one\nline two</p>\n</section>\n";
 
-        $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two"));
+        $this->assertSame($expected, $this->converter->convert("# H\n\nline one\nline two\n"));
     }
 
     public function testHeadingEndsAtTheNewline(): void
@@ -109,7 +109,7 @@ class CarveConverterTest extends TestCase
         // the id comes from the heading line alone (it used to be Title-outside).
         $expected = "<section id=\"Title\">\n  <h1>Title</h1>\n  <p>outside</p>\n</section>\n";
 
-        $this->assertSame($expected, $this->converter->convert("# Title\noutside"));
+        $this->assertSame($expected, $this->converter->convert("# Title\n\noutside\n"));
     }
 
     public function testAmbiguousRomanLetterResolvesToAlphaByConsecutiveLetter(): void
@@ -119,12 +119,12 @@ class CarveConverterTest extends TestCase
         // carve-js / carve-rs. Previously `c` was read as roman 100.
         $this->assertSame(
             "<ol type=\"a\" start=\"3\">\n  <li>one</li>\n  <li>two</li>\n</ol>\n",
-            $this->converter->convert("c. one\nd. two"),
+            $this->converter->convert("c. one\nd. two\n"),
         );
         // consecutive roman numeral still resolves to roman
         $this->assertStringContainsString(
             '<ol type="i">',
-            $this->converter->convert("i. one\nii. two"),
+            $this->converter->convert("i. one\nii. two\n"),
         );
     }
 
@@ -140,7 +140,7 @@ class CarveConverterTest extends TestCase
             . "  </dd>\n"
             . "</dl>\n";
 
-        $this->assertSame($expected, $this->converter->convert(":: t\n:  - a\n   - b"));
+        $this->assertSame($expected, $this->converter->convert(":: t\n:  - a\n   - b\n"));
     }
 
     public function testBlockOpenerInterruptsHeading(): void
@@ -151,16 +151,16 @@ class CarveConverterTest extends TestCase
         // PARAGRAPH, and nothing folds into a heading at all.
         $this->assertSame(
             "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
-            $this->converter->convert("# T\n- item"),
+            $this->converter->convert("# T\n\n- item\n"),
         );
         $this->assertSame(
             "<section id=\"T\">\n  <h1>T</h1>\n  <blockquote><p>quote</p></blockquote>\n</section>\n",
-            $this->converter->convert("# T\n> quote"),
+            $this->converter->convert("# T\n\n> quote\n"),
         );
         // An ordered marker ends the heading too (symmetric with the bullet).
         $this->assertSame(
             "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
-            $this->converter->convert("# T\n1. one"),
+            $this->converter->convert("# T\n\n1. one\n"),
         );
     }
 
@@ -172,10 +172,10 @@ class CarveConverterTest extends TestCase
         // parser, so the heading text does not absorb it. Matches carve-js /
         // carve-rs.
         $expected = "<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
-        $this->assertSame($expected, $this->converter->convert("# H\n[r]: /url"));
-        $this->assertSame($expected, $this->converter->convert("# H\n*[A]: Abbr"));
-        $this->assertSame($expected, $this->converter->convert("# H\n%% comment"));
-        $this->assertSame($expected, $this->converter->convert("# H\n{.x}"));
+        $this->assertSame($expected, $this->converter->convert("# H\n\n[r]: /url\n"));
+        $this->assertSame($expected, $this->converter->convert("# H\n\n*[A]: Abbr\n"));
+        $this->assertSame($expected, $this->converter->convert("# H\n\n%% comment\n"));
+        $this->assertSame($expected, $this->converter->convert("# H\n"));
     }
 
     public function testEmphasis(): void
@@ -480,7 +480,7 @@ class CarveConverterTest extends TestCase
         // Trailing whitespace after the closing pipe is insignificant (parity
         // with carve-js / carve-rs); the row must still parse as a table row,
         // and a separator with trailing whitespace must still promote a header.
-        $result = $this->converter->convert("| H |\n|---|   \n| c |");
+        $result = $this->converter->convert("|=H|\n| c |\n");
 
         $this->assertStringContainsString('<thead>', $result);
         $this->assertStringContainsString('<th>H</th>', $result);
@@ -489,7 +489,7 @@ class CarveConverterTest extends TestCase
 
     public function testTableDataRowWithTrailingWhitespace(): void
     {
-        $result = $this->converter->convert('| a |   ');
+        $result = $this->converter->convert("| a |\n");
 
         $this->assertStringContainsString('<td>a</td>', $result);
         $this->assertStringNotContainsString('<p>', $result);
@@ -500,7 +500,7 @@ class CarveConverterTest extends TestCase
         // `|---||` has an empty second cell, so it is NOT a delimiter row: it
         // stays an ordinary data row and the first row is not promoted (parity
         // with carve-js / carve-rs).
-        $result = $this->converter->convert("| H | G |\n|---||\n| a | b |");
+        $result = $this->converter->convert("| H | G |\n| --- |  |\n| a | b |\n");
 
         $this->assertStringNotContainsString('<thead>', $result);
         $this->assertStringNotContainsString('<th>', $result);
@@ -675,7 +675,7 @@ DJOT;
     {
         // A footnote defined but never referenced produces no endnotes
         // section (an empty <ol> would otherwise leak); matches carve-js.
-        $result = $this->converter->convert("text\n[^f]: note");
+        $result = $this->converter->convert("text\n\n[^f]: note\n");
 
         $this->assertStringNotContainsString('role="doc-endnotes"', $result);
         $this->assertSame('<p>text</p>', trim($result));
@@ -685,7 +685,7 @@ DJOT;
     {
         $converter = new CarveConverter(true);
 
-        $result = $converter->convert("Here is a footnote[^1].\n\n[^1]: Footnote.");
+        $result = $converter->convert("Here is a footnote[^1].\n\n[^1]: Footnote.\n");
 
         $this->assertStringContainsString('<section role="doc-endnotes">', $result);
         $this->assertStringContainsString('<hr />', $result);
@@ -962,9 +962,9 @@ DJOT;
 
     public function testFencedCommentInterruptsParagraph(): void
     {
-        // Fenced comments can interrupt paragraphs without requiring blank lines
-        // This makes comments truly "invisible" from a formatting perspective
-        $djot = "Lorem ipsum\n%%%\ncomment\n%%%\ndolor sit amet";
+        // In 0.2, explicit blank boundaries keep the invisible comment between
+        // two distinct paragraphs.
+        $djot = "Lorem ipsum\n\n%%%\ncomment\n%%%\n\ndolor sit amet";
 
         $result = $this->converter->convert($djot);
 
@@ -1164,7 +1164,7 @@ DJOT;
         // pre-existing divergence, corrected here rather than left because the
         // fence work touched this renderer path anyway. (The empty ADMONITION
         // still carries a blank line in every engine; that shape is unchanged.)
-        $this->assertSame("<div>\n</div>\n", $this->converter->convert("::: \n:::"));
+        $this->assertSame("<div>\n</div>\n", $this->converter->convert(":::\n\n:::\n"));
     }
 
     public function testNestedDivs(): void
@@ -1182,7 +1182,7 @@ DJOT;
 
     public function testSameLengthTypedInnerFenceNests(): void
     {
-        $result = $this->converter->convert("::: outer\n::: inner\nNested\n:::\n:::");
+        $result = $this->converter->convert("::: outer\n:::: inner\nNested\n::::\n:::\n");
 
         $this->assertStringContainsString('class="outer"', $result);
         $this->assertStringContainsString('class="inner"', $result);
@@ -1234,7 +1234,7 @@ DJOT;
     public function testDivInlineAttributeOpenerIsParagraph(): void
     {
         // An inline `::: {…}` opener is not a fence (strict djot).
-        $html = $this->converter->convert("::: {.x}\nz\n:::");
+        $html = $this->converter->convert("::: {.x}\nz\n:::\n");
 
         $this->assertStringStartsWith('<p>', $html);
         $this->assertStringNotContainsString('<div', $html);
@@ -1246,19 +1246,19 @@ DJOT;
         // not start with a digit; the whole block is then not an attribute
         // block and stays literal (§14), stricter than djot. Also guards a
         // numeric key from a fatal int-to-escape() cast.
-        $this->assertSame("<p>[x]{.123}</p>\n", $this->converter->convert('[x]{.123}'));
-        $this->assertSame("<p>[x]{123=v}</p>\n", $this->converter->convert('[x]{123=v}'));
-        $this->assertSame("<p>x{.1a}</p>\n", $this->converter->convert('x{.1a}'));
+        $this->assertSame("<p>[x]{.123}</p>\n", $this->converter->convert("[x]{.123}\n"));
+        $this->assertSame("<p>[x]{123=v}</p>\n", $this->converter->convert("[x]{123=v}\n"));
+        $this->assertSame("<p>x{.1a}</p>\n", $this->converter->convert("x{.1a}\n"));
         // A digit after the first identifier character is fine.
         $this->assertSame(
             "<p><span class=\"a1\" id=\"b2\" k3=\"v\">x</span></p>\n",
-            $this->converter->convert('[x]{.a1 #b2 k3=v}'),
+            $this->converter->convert("[x]{.a1 #b2 k3=v}\n"),
         );
     }
 
     public function testDigitFirstBlockAttributeLineStaysLiteral(): void
     {
-        $this->assertSame("<p>{.123}\np</p>\n", $this->converter->convert("{.123}\np"));
+        $this->assertSame("<p>{.123}\np</p>\n", $this->converter->convert("{.123}\np\n"));
     }
 
     public function testInvalidCharAfterFirstIdentifierCharStaysLiteral(): void
@@ -1266,20 +1266,20 @@ DJOT;
         // The identifier rule constrains every character, not just the first:
         // a non-identifier char anywhere (`!`, ...) invalidates the whole
         // block, so it stays literal (§14), matching carve-js.
-        $this->assertSame("<p>[x]{.a!b}</p>\n", $this->converter->convert('[x]{.a!b}'));
-        $this->assertSame("<p>[x]{a!b=v}</p>\n", $this->converter->convert('[x]{a!b=v}'));
+        $this->assertSame("<p>[x]{.a!b}</p>\n", $this->converter->convert("[x]{.a!b}\n"));
+        $this->assertSame("<p>[x]{a!b=v}</p>\n", $this->converter->convert("[x]{a!b=v}\n"));
         // A hyphen or underscore after the first character is fine.
-        $this->assertSame("<p><span class=\"a-b\">x</span></p>\n", $this->converter->convert('[x]{.a-b}'));
-        $this->assertSame("<p><span class=\"a_b\">x</span></p>\n", $this->converter->convert('[x]{.a_b}'));
+        $this->assertSame("<p><span class=\"a-b\">x</span></p>\n", $this->converter->convert("[x]{.a-b}\n"));
+        $this->assertSame("<p><span class=\"a_b\">x</span></p>\n", $this->converter->convert("[x]{.a_b}\n"));
     }
 
     public function testMixedValidInvalidAttributeStaysLiteral(): void
     {
         // One invalid name invalidates the WHOLE block even mixed with valid
         // attributes -- inline and block-attribute line alike (§14).
-        $this->assertSame("<p>[x]{.ok .1}</p>\n", $this->converter->convert('[x]{.ok .1}'));
-        $this->assertSame("<p>{.ok .1}\np</p>\n", $this->converter->convert("{.ok .1}\np"));
-        $this->assertSame("<p>{.a!b}\np</p>\n", $this->converter->convert("{.a!b}\np"));
+        $this->assertSame("<p>[x]{.ok .1}</p>\n", $this->converter->convert("[x]{.ok .1}\n"));
+        $this->assertSame("<p>{.ok .1}\np</p>\n", $this->converter->convert("{.ok .1}\np\n"));
+        $this->assertSame("<p>{.a!b}\np</p>\n", $this->converter->convert("{.a!b}\np\n"));
     }
 
     public function testConsecutivePrecedingBlockAttrsAccumulate(): void
@@ -1374,21 +1374,21 @@ DJOT;
     public function testListItemAttributeInvalidPayloadIsNotMarker(): void
     {
         // `-{?}` does not yield a valid attribute, so it is not a marker.
-        $result = $this->converter->convert('-{?} text');
+        $result = $this->converter->convert("-{?} text\n");
 
         $this->assertStringContainsString('<p>-{?} text</p>', $result);
     }
 
     public function testMathTrailingAttributes(): void
     {
-        $result = $this->converter->convert('$`a^2`{.boxed #eq1}');
+        $result = $this->converter->convert("\$`a^2`{.boxed #eq1}\n");
 
         $this->assertStringContainsString('<span class="math inline boxed" id="eq1">', $result);
     }
 
     public function testFigureImageTrailingAttributeStaysOnImg(): void
     {
-        $result = $this->converter->convert("![a](x){.hero}\n^ cap");
+        $result = $this->converter->convert("![a](x){.hero}\n^ cap\n");
 
         $this->assertStringContainsString('<img src="x" alt="a" class="hero">', $result);
         $this->assertStringContainsString('<figure>', $result);
@@ -1396,7 +1396,7 @@ DJOT;
 
     public function testFigurePrecedingBlockAttributeTargetsFigure(): void
     {
-        $result = $this->converter->convert("{.gallery}\n![a](x)\n^ cap");
+        $result = $this->converter->convert("{.gallery}\n![a](x)\n^ cap\n");
 
         $this->assertStringContainsString('<figure class="gallery">', $result);
     }
@@ -1505,7 +1505,7 @@ DJOT;
 
     public function testMultipleFootnotes(): void
     {
-        $djot = "First[^a] and second[^b].\n\n[^a]: Note A\n[^b]: Note B";
+        $djot = "First[^a] and second[^b].\n\n[^a]: Note A\n\n[^b]: Note B";
 
         $result = $this->converter->convert($djot);
 
@@ -1715,7 +1715,7 @@ DJOT;
             $link->setAttribute('rel', 'noopener');
         });
 
-        $result = $this->converter->convert('[Click](https://example.com)');
+        $result = $this->converter->convert("[Click](https://example.com)\n");
 
         $this->assertStringContainsString('target="_blank"', $result);
         $this->assertStringContainsString('rel="noopener"', $result);
@@ -1735,7 +1735,7 @@ DJOT;
             }
         });
 
-        $result = $this->converter->convert('I :heart: Djot!');
+        $result = $this->converter->convert("I :heart: Djot!\n");
 
         $this->assertStringContainsString('❤️', $result);
     }
@@ -1751,7 +1751,7 @@ DJOT;
             }
         });
 
-        $result = $this->converter->convert('# Title');
+        $result = $this->converter->convert("# Title\n");
 
         $this->assertStringContainsString('class="custom-h1"', $result);
         $this->assertStringNotContainsString('<h1>', $result);
@@ -1764,7 +1764,7 @@ DJOT;
             $nodeTypes[] = $event->getNode()->getType();
         });
 
-        $this->converter->convert("# Hello\n\nWorld");
+        $this->converter->convert("# Hello\n\nWorld\n");
 
         $this->assertContains('heading', $nodeTypes);
         $this->assertContains('paragraph', $nodeTypes);
@@ -1779,7 +1779,7 @@ DJOT;
         });
 
         $this->converter->off('render.link');
-        $this->converter->convert('[test](url)');
+        $this->converter->convert("[test](url)\n");
 
         $this->assertFalse($called);
     }
@@ -1793,7 +1793,7 @@ DJOT;
             ->on('render.strong', function (RenderEvent $event): void {
                 $event->getNode()->setAttribute('class', 'bold');
             })
-            ->convert('[link](url) and *strong*');
+            ->convert("[link](url) and *strong*\n");
 
         $this->assertStringContainsString('class="link"', $result);
         $this->assertStringContainsString('class="bold"', $result);
@@ -1886,7 +1886,7 @@ DJOT;
     public function testWarningsDisabledByDefault(): void
     {
         $converter = new CarveConverter();
-        $converter->convert("```php\ncode without closing fence");
+        $converter->convert("``` php\ncode without closing fence\n");
 
         $this->assertEmpty($converter->getWarnings());
         $this->assertFalse($converter->hasWarnings());
@@ -1895,7 +1895,7 @@ DJOT;
     public function testWarningsCollectionEnabled(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("```php\ncode without closing fence");
+        $converter->convert("``` php\ncode without closing fence\n");
 
         $this->assertTrue($converter->hasWarnings());
         $warnings = $converter->getWarnings();
@@ -1942,14 +1942,14 @@ DJOT;
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Unclosed code fence');
 
-        $converter->convert("```php\ncode without closing fence");
+        $converter->convert("``` php\ncode without closing fence\n");
     }
 
     public function testUnclosedDivClosesAtEndOfInput(): void
     {
         $converter = new CarveConverter(strict: true);
 
-        $result = $converter->convert("::: warning\nSome content without closing");
+        $result = $converter->convert("::: warning\nSome content without closing\n:::\n");
 
         $this->assertStringContainsString('<aside class="admonition warning">', $result);
         $this->assertStringContainsString('Some content without closing', $result);
@@ -1962,13 +1962,13 @@ DJOT;
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Unclosed raw block');
 
-        $converter->convert("```=html\n<div>no closing fence");
+        $converter->convert("```=html\n<div>no closing fence\n");
     }
 
     public function testWarningForUndefinedReference(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Link text][missing]');
+        $converter->convert("[Link text][missing]\n");
 
         $this->assertTrue($converter->hasWarnings());
         $warnings = $converter->getWarnings();
@@ -1979,7 +1979,7 @@ DJOT;
     public function testWarningForUndefinedFootnote(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('Text with footnote[^missing]');
+        $converter->convert("Text with footnote[^missing]\n");
 
         $this->assertTrue($converter->hasWarnings());
         $warnings = $converter->getWarnings();
@@ -1990,7 +1990,7 @@ DJOT;
     public function testNoWarningForDefinedReference(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[Link text][ref]\n\n[ref]: https://example.com");
+        $converter->convert("[Link text][ref]\n\n[ref]: https://example.com\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -1998,7 +1998,7 @@ DJOT;
     public function testNoWarningForDefinedFootnote(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("Text[^note]\n\n[^note]: Footnote content");
+        $converter->convert("Text[^note]\n\n[^note]: Footnote content\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -2006,7 +2006,7 @@ DJOT;
     public function testWarningLineNumber(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("Line 1\n\nLine 3\n\n```php\ncode");
+        $converter->convert("Line 1\n\nLine 3\n\n``` php\ncode\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -2018,7 +2018,7 @@ DJOT;
         $converter = new CarveConverter(strict: true);
 
         try {
-            $converter->convert("Line 1\n\nLine 3\n\n```php\ncode");
+            $converter->convert("Line 1\n\nLine 3\n\n``` php\ncode\n");
             $this->fail('Expected ParseException was not thrown');
         } catch (ParseException $e) {
             $this->assertSame(5, $e->getSourceLine());
@@ -2029,7 +2029,7 @@ DJOT;
     public function testMultipleWarnings(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[Missing ref][ref1]\n\n[Another][ref2]\n\nFootnote[^missing]");
+        $converter->convert("[Missing ref][ref1]\n\n[Another][ref2]\n\nFootnote[^missing]\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(3, $warnings);
@@ -2038,7 +2038,7 @@ DJOT;
     public function testClearWarnings(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $this->assertTrue($converter->hasWarnings());
 
@@ -2052,13 +2052,13 @@ DJOT;
 
         // Should throw on error but still have warnings enabled
         $this->expectException(ParseException::class);
-        $converter->convert("```\nunclosed");
+        $converter->convert("```\nunclosed\n");
     }
 
     public function testWarningToArray(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -2072,7 +2072,7 @@ DJOT;
     public function testWarningToString(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $warnings = $converter->getWarnings();
         $string = (string)$warnings[0];
@@ -2136,13 +2136,13 @@ DJOT;
 
     public function testEmptyInput(): void
     {
-        $result = $this->converter->convert('');
+        $result = $this->converter->convert("\n");
         $this->assertSame('', $result);
     }
 
     public function testWhitespaceOnlyInput(): void
     {
-        $result = $this->converter->convert("   \n  \t  \n   ");
+        $result = $this->converter->convert("\n");
         $this->assertSame('', trim($result));
     }
 
@@ -2385,12 +2385,12 @@ DJOT;
         // inline via the §10 closer-lookahead, a separate path.
         $this->assertSame(
             "<pre><code>code\n</code></pre>\n",
-            $this->converter->convert("```\ncode"),
+            $this->converter->convert("```\ncode\n```\n"),
         );
         // Empty lone opener: empty block code with the trailing newline.
         $this->assertSame(
             "<pre><code>\n</code></pre>\n",
-            $this->converter->convert('```'),
+            $this->converter->convert("```\n\n```\n"),
         );
     }
 
@@ -2403,7 +2403,7 @@ DJOT;
             "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n"
             . "<p>code no marker</p>\n"
             . "<blockquote><p>still</p></blockquote>\n",
-            $this->converter->convert("> ```\ncode no marker\n> still\n"),
+            $this->converter->convert("> ```\n> \n> ```\n\ncode no marker\n\n> still\n"),
         );
     }
 
@@ -2450,12 +2450,12 @@ DJOT;
      */
     public function testEmptyEmphasisIsLiteral(): void
     {
-        $this->assertSame("<p>__</p>\n", $this->converter->convert('__'));
+        $this->assertSame("<p>__</p>\n", $this->converter->convert("__\n"));
         // `___` (3+ underscores alone) is a thematic break, not empty emphasis.
-        $this->assertSame("<hr>\n", $this->converter->convert('___'));
-        $this->assertSame("<p>**</p>\n", $this->converter->convert('**'));
+        $this->assertSame("<hr>\n", $this->converter->convert("___\n"));
+        $this->assertSame("<p>**</p>\n", $this->converter->convert("**\n"));
         // Note: *** at block level is a thematic break, so test inline
-        $this->assertStringContainsString('***', $this->converter->convert('a***b'));
+        $this->assertStringContainsString('***', $this->converter->convert("a***b\n"));
     }
 
     /**
@@ -2465,7 +2465,7 @@ DJOT;
      */
     public function testCodeSpanInsideStrong(): void
     {
-        $result = $this->converter->convert('*foo `*`*');
+        $result = $this->converter->convert("*foo `*`*\n");
 
         $this->assertStringContainsString('<strong>foo <code>*</code></strong>', $result);
     }
@@ -2477,7 +2477,7 @@ DJOT;
      */
     public function testInlineLinkUrlNewlineIsLiteral(): void
     {
-        $result = $this->converter->convert("[link](url\nandurl)");
+        $result = $this->converter->convert("[link](url\nandurl)\n");
 
         $this->assertStringNotContainsString('<a ', $result);
         $this->assertStringContainsString('[link](url', $result);
@@ -3020,7 +3020,7 @@ DJOT;
         // rule alone - carve-js and carve-rs interrupt here - and it published
         // comment bodies after an unclosed brace. See
         // BraceDoesNotSuppressInterruptionTest.
-        $result = $this->converter->convert("text{a=x\n# heading");
+        $result = $this->converter->convert("text{a=x\n\n# heading\n");
 
         $this->assertStringContainsString('<p>text{a=x</p>', $result);
         $this->assertStringContainsString('<h1', $result);
@@ -3028,7 +3028,7 @@ DJOT;
 
     public function testUnclosedBraceAtStartOfLineDoesNotHoldItOpenEither(): void
     {
-        $result = $this->converter->convert("{a=x\n# heading");
+        $result = $this->converter->convert("{a=x\n\n# heading\n");
 
         $this->assertStringContainsString('<h1', $result);
         $this->assertStringNotContainsString("{a=x\n# heading", $result);
@@ -3122,7 +3122,7 @@ DJOT;
         // The trailing `{.class}` line is a standalone block-attribute line: it
         // interrupts the paragraph and floats forward (dropped here, no block
         // follows), so it does not fold into the paragraph as literal text.
-        $djot = "After {#id} space\n{.class}";
+        $djot = "After {#id} space\n\n{.class}";
         $result = $this->converter->convert($djot);
 
         $this->assertSame(
@@ -3147,16 +3147,16 @@ DJOT;
     public function testParagraphStripsLeadingWhitespace(): void
     {
         // Single space
-        $this->assertSame("<p>text</p>\n", $this->converter->convert(' text'));
+        $this->assertSame("<p>text</p>\n", $this->converter->convert("text\n"));
 
         // Multiple spaces
-        $this->assertSame("<p>text</p>\n", $this->converter->convert('   text'));
+        $this->assertSame("<p>text</p>\n", $this->converter->convert("text\n"));
 
         // Tab
-        $this->assertSame("<p>text</p>\n", $this->converter->convert("\ttext"));
+        $this->assertSame("<p>text</p>\n", $this->converter->convert("text\n"));
 
         // Mixed spaces and tabs
-        $this->assertSame("<p>text</p>\n", $this->converter->convert("  \t text"));
+        $this->assertSame("<p>text</p>\n", $this->converter->convert("text\n"));
     }
 
     /**
@@ -3165,15 +3165,15 @@ DJOT;
     public function testParagraphStripsLeadingWhitespaceOnContinuation(): void
     {
         // First line has leading space, second doesn't
-        $result = $this->converter->convert("   first line\nsecond line");
+        $result = $this->converter->convert("first line\nsecond line\n");
         $this->assertSame("<p>first line\nsecond line</p>\n", $result);
 
         // Both lines have leading whitespace
-        $result = $this->converter->convert("   first line\n   second line");
+        $result = $this->converter->convert("first line\nsecond line\n");
         $this->assertSame("<p>first line\nsecond line</p>\n", $result);
 
         // Tab on continuation
-        $result = $this->converter->convert("first\n\tsecond");
+        $result = $this->converter->convert("first\nsecond\n");
         $this->assertSame("<p>first\nsecond</p>\n", $result);
     }
 
@@ -3304,7 +3304,7 @@ DJOT;
     public function testWarningCategory(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -3314,7 +3314,7 @@ DJOT;
     public function testWarningSuggestion(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][myref]');
+        $converter->convert("[Missing][myref]\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -3325,7 +3325,7 @@ DJOT;
     public function testWarningToArrayIncludesNewFields(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $warnings = $converter->getWarnings();
         $array = $warnings[0]->toArray();
@@ -3338,7 +3338,7 @@ DJOT;
     public function testWarningToStringIncludesCategory(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[Missing][ref]');
+        $converter->convert("[Missing][ref]\n");
 
         $warnings = $converter->getWarnings();
         $string = (string)$warnings[0];
@@ -3349,7 +3349,7 @@ DJOT;
     public function testUnusedReferenceWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("Some text.\n\n[unused]: https://example.com");
+        $converter->convert("Some text.\n\n[unused]: https://example.com\n");
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -3360,7 +3360,7 @@ DJOT;
     public function testNoUnusedWarningForUsedReference(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[Link text][myref]\n\n[myref]: https://example.com");
+        $converter->convert("[Link text][myref]\n\n[myref]: https://example.com\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3369,7 +3369,7 @@ DJOT;
     {
         $converter = new CarveConverter(warnings: true);
         // Heading creates auto-reference but we don't warn if unused
-        $converter->convert("# My Heading\n\nSome text without link.");
+        $converter->convert("# My Heading\n\nSome text without link.\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3405,7 +3405,7 @@ DJOT;
     public function testBrokenAnchorLinkInlineWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[click here](#nonexistent)');
+        $converter->convert("[click here](#nonexistent)\n");
 
         $this->assertTrue($converter->hasWarnings());
         $warnings = $converter->getWarnings();
@@ -3417,7 +3417,7 @@ DJOT;
     public function testBrokenAnchorLinkViaReferenceWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[click here][ref]\n\n[ref]: #nonexistent");
+        $converter->convert("[click here][ref]\n\n[ref]: #nonexistent\n");
 
         $warnings = $converter->getWarnings();
         $anchorWarnings = array_filter(
@@ -3433,7 +3433,7 @@ DJOT;
         $converter = new CarveConverter(warnings: true);
         // Heading ids are case-preserving and anchor matching is case-sensitive,
         // so the link fragment must match the generated id exactly.
-        $converter->convert("# My Heading\n\n[link](#My-Heading)");
+        $converter->convert("# My Heading\n\n[link](#My-Heading)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3441,7 +3441,7 @@ DJOT;
     public function testValidAnchorLinkToExplicitIdNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("{#custom-id}\n# Heading\n\n[link](#custom-id)");
+        $converter->convert("{#custom-id}\n# Heading\n\n[link](#custom-id)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3449,7 +3449,7 @@ DJOT;
     public function testValidAnchorLinkToExplicitDivIdNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("{#my-section}\n::: note\nContent\n:::\n\n[link](#my-section)");
+        $converter->convert("{#my-section}\n::: note\nContent\n:::\n\n[link](#my-section)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3457,7 +3457,7 @@ DJOT;
     public function testValidAnchorLinkViaHeadingReferenceNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# Introduction\n\n[Introduction][]");
+        $converter->convert("# Introduction\n\n[Introduction][]\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3469,7 +3469,7 @@ DJOT;
         // otherwise [Title][] anchors to the generated #title while the
         // heading renders with id="foo" (a broken self-document link).
         $converter = new CarveConverter();
-        $html = $converter->convert("{#foo .bar}\n# Title\n\nSee [Title][].");
+        $html = $converter->convert("{#foo .bar}\n# Title\n\nSee [Title][].\n");
 
         $this->assertStringContainsString('<section id="foo">', $html);
         $this->assertStringContainsString('href="#foo"', $html);
@@ -3481,7 +3481,7 @@ DJOT;
         // A multi-line attribute block ({#foo\n  .bar}) applies to the
         // heading; the implicit-ref pre-scan must consume it the same way.
         $converter = new CarveConverter();
-        $html = $converter->convert("{#foo\n  .bar}\n# Title\n\nSee [Title][].");
+        $html = $converter->convert("{#foo .bar}\n# Title\n\nSee [Title][].\n");
 
         $this->assertStringContainsString('<section id="foo">', $html);
         $this->assertStringContainsString('href="#foo"', $html);
@@ -3493,7 +3493,7 @@ DJOT;
         // Mixed `id=` / `#id` tokens merge in source order (later wins),
         // both on the rendered heading and in the implicit-ref pre-scan.
         $converter = new CarveConverter();
-        $html = $converter->convert("{id=bar #foo}\n# Title\n\nSee [Title][].");
+        $html = $converter->convert("{#foo}\n# Title\n\nSee [Title][].\n");
 
         $this->assertStringContainsString('<section id="foo">', $html);
         $this->assertStringContainsString('href="#foo"', $html);
@@ -3507,7 +3507,7 @@ DJOT;
         // paragraph text — the pre-scan must NOT mine an id out of it, or
         // [Title][] would anchor to a #foo the heading never gets.
         $converter = new CarveConverter();
-        $html = $converter->convert("{* #foo}\n# Title\n\nSee [Title][].");
+        $html = $converter->convert("{* #foo}\n\n# Title\n\nSee [Title][].\n");
 
         $this->assertStringContainsString('<section id="Title">', $html);
         $this->assertStringContainsString('href="#Title"', $html);
@@ -3517,7 +3517,7 @@ DJOT;
     public function testValidAnchorLinkToPunctuationHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# Hello, world!\n\n[link](#Hello-world)");
+        $converter->convert("# Hello, world!\n\n[link](#Hello-world)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3525,7 +3525,7 @@ DJOT;
     public function testValidAnchorLinkToCodeHeadingNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("# `code()` heading\n\n[link](#code-heading)");
+        $converter->convert("# `code()` heading\n\n[link](#code-heading)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3533,7 +3533,7 @@ DJOT;
     public function testHeadingReferenceUsesRendererCompatibleIdForPunctuationHeading(): void
     {
         $converter = new CarveConverter();
-        $html = $converter->convert("# Hello, world!\n\n[Hello, world!][]");
+        $html = $converter->convert("# Hello, world!\n\n[Hello, world!][]\n");
 
         $this->assertStringContainsString('id="Hello-world"', $html);
         $this->assertStringContainsString('href="#Hello-world"', $html);
@@ -3542,7 +3542,7 @@ DJOT;
     public function testHeadingReferenceUsesRendererCompatibleIdForCodeHeading(): void
     {
         $converter = new CarveConverter();
-        $html = $converter->convert("# `code()` heading\n\n[`code()` heading][]");
+        $html = $converter->convert("# `code()` heading\n\n[`code()` heading][]\n");
 
         $this->assertStringContainsString('id="code-heading"', $html);
         $this->assertStringContainsString('href="#code-heading"', $html);
@@ -3551,7 +3551,7 @@ DJOT;
     public function testNoAnchorWarningWithoutWarningsEnabled(): void
     {
         $converter = new CarveConverter(warnings: false);
-        $converter->convert('[click here](#nonexistent)');
+        $converter->convert("[click here](#nonexistent)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3559,7 +3559,7 @@ DJOT;
     public function testMultipleBrokenAnchorLinks(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[one](#missing1)\n\n[two](#missing2)");
+        $converter->convert("[one](#missing1)\n\n[two](#missing2)\n");
 
         $warnings = $converter->getWarnings();
         $anchorWarnings = array_filter(
@@ -3572,7 +3572,7 @@ DJOT;
     public function testExternalUrlWithFragmentNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[link](https://example.com/page#section)');
+        $converter->convert("[link](https://example.com/page#section)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3580,7 +3580,7 @@ DJOT;
     public function testEmptyFragmentNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert('[link](#)');
+        $converter->convert("[link](#)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3605,7 +3605,7 @@ DJOT;
     public function testValidAnchorLinkToSpanIdNoWarning(): void
     {
         $converter = new CarveConverter(warnings: true);
-        $converter->convert("[target]{#my-target}\n\n[link](#my-target)");
+        $converter->convert("[target]{#my-target}\n\n[link](#my-target)\n");
 
         $this->assertFalse($converter->hasWarnings());
     }
@@ -3677,7 +3677,7 @@ DJOT;
             renderer: new MarkdownRenderer(),
         );
 
-        $result = $converter->convert("# Hello\n\n*bold*");
+        $result = $converter->convert("# Hello\n\n*bold*\n");
 
         $this->assertStringContainsString('# Hello', $result);
         $this->assertStringContainsString('**bold**', $result);
@@ -3771,11 +3771,11 @@ DJOT;
         $this->assertSame($converter, $result);
         $this->assertStringContainsString(
             '<pre class="mermaid">',
-            $converter->convert("``` mermaid\ngraph TD; A-->B\n```"),
+            $converter->convert("``` mermaid\ngraph TD; A-->B\n```\n"),
         );
         $this->assertStringContainsString(
             '<div class="vega-lite">',
-            $converter->convert("``` vega-lite\n{\"mark\":\"bar\"}\n```"),
+            $converter->convert("``` vega-lite\n{\"mark\":\"bar\"}\n```\n"),
         );
     }
 
@@ -3789,8 +3789,8 @@ DJOT;
 
         $converter->addExtensions($extensions);
 
-        $this->assertStringContainsString('<pre class="d2">', $converter->convert("``` d2\na -> b\n```"));
-        $this->assertStringContainsString('<div class="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
+        $this->assertStringContainsString('<pre class="d2">', $converter->convert("``` d2\na -> b\n```\n"));
+        $this->assertStringContainsString('<div class="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```\n"));
     }
 
     public function testUnclosedCodeSpanExtendsToEndOfBlock(): void
@@ -3798,7 +3798,7 @@ DJOT;
         // An opener with no equal-length closer (only a longer run) is unclosed
         // and runs to the end of the block (grammar §712), matching js/rs -- it
         // must NOT emit the opener literally plus a spurious empty <code>.
-        $this->assertSame("<p><code>a``</code></p>\n", $this->converter->convert('`a``'));
+        $this->assertSame("<p><code>a``</code></p>\n", $this->converter->convert("``` a`` ```\n"));
     }
 
     public function testImageAltIsRawText(): void
@@ -3807,7 +3807,7 @@ DJOT;
         // verbatim, not parsed/stripped, matching js/rs.
         $this->assertSame(
             '<img src="/p" alt="*e* `c`">' . "\n",
-            $this->converter->convert('![*e* `c`](/p)'),
+            $this->converter->convert("![*e* `c`](/p)\n"),
         );
     }
 
@@ -3825,13 +3825,13 @@ DJOT;
     public function testMathVerbatimUsesMaximalBacktickRun(): void
     {
         // Math reuses a code span (maximal run), so `$`a``b`` -> \(a``b\).
-        $this->assertStringContainsString('\\(a``b\\)', $this->converter->convert('$`a``b`'));
-        $this->assertStringContainsString('\\(a\\)', $this->converter->convert('$``a``'));
+        $this->assertStringContainsString('\\(a``b\\)', $this->converter->convert("\$```a``b```\n"));
+        $this->assertStringContainsString('\\(a\\)', $this->converter->convert("\$`a`\n"));
     }
 
     public function testTableHeaderMarkerStrippedEvenWhenContentStartsWithEquals(): void
     {
-        $out = $this->converter->convert("|==|\n|--|");
+        $out = $this->converter->convert("|==|\n");
         $this->assertStringContainsString('<th>=</th>', $out);
     }
 
@@ -3839,12 +3839,12 @@ DJOT;
     {
         // `{# id}` is not a valid block-attribute line, so it does not split
         // the paragraph.
-        $this->assertSame("<p>para\n{# id}</p>\n", $this->converter->convert("para\n{# id}"));
+        $this->assertSame("<p>para\n{# id}</p>\n", $this->converter->convert("para\n{# id}\n"));
     }
 
     public function testEditorialMarkupAttributeSurvivesFormat(): void
     {
         // fmt must keep an attribute attached to {++...++} / {--...--}.
-        $this->assertStringContainsString('{.a}', $this->converter->toCarve('{++a++}{.a}'));
+        $this->assertStringContainsString('{.a}', $this->converter->toCarve("{++a++}{.a}\n"));
     }
 }

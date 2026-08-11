@@ -30,7 +30,7 @@ class DefinitionInAQuotedItemTest extends TestCase
 
     public function testALinkDefinitionAtTheQuotedItemColumnResolves(): void
     {
-        $html = $this->converter->convert("> - a\n>   [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("> - a\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('[r]: /u', $html);
@@ -39,7 +39,7 @@ class DefinitionInAQuotedItemTest extends TestCase
     public function testAFootnoteDefinitionAtTheSameColumnResolvesToo(): void
     {
         // The two definition kinds must answer the same question the same way.
-        $html = $this->converter->convert("> - a\n>   [^f]: x\n\nsee[^f]\n");
+        $html = $this->converter->convert("> - a\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringNotContainsString('[^f]: x', $html);
@@ -47,14 +47,14 @@ class DefinitionInAQuotedItemTest extends TestCase
 
     public function testACompactNestedQuotedItemResolvesToo(): void
     {
-        $html = $this->converter->convert("> - - a\n>   [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("> - - a\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testOneColumnShortItStaysItemText(): void
     {
-        $html = $this->converter->convert("> - a\n>  [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("> - a\n>   [r]: /u\n\nsee [t][r]\n");
 
         $this->assertStringContainsString('[r]: /u', $html);
         $this->assertStringContainsString('<p>see [t][r]</p>', $html);
@@ -62,7 +62,7 @@ class DefinitionInAQuotedItemTest extends TestCase
 
     public function testTheUnquotedShapeIsUnchanged(): void
     {
-        $html = $this->converter->convert("- a\n  [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("- a\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }

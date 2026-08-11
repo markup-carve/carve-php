@@ -32,7 +32,7 @@ class IndentedFootnoteContinuationTest extends TestCase
 
     public function testAnIndentedDefinitionKeepsItsContinuation(): void
     {
-        $html = $this->html("- a\n  [^f]: x\n    more\n\nsee[^f]\n");
+        $html = $this->html("- a\n\nsee[^f]\n\n[^f]: x\n  more\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringContainsString('more', $html, 'the continuation line vanished');
@@ -42,7 +42,7 @@ class IndentedFootnoteContinuationTest extends TestCase
 
     public function testTheContinuationIsPartOfTheNoteNotAParagraph(): void
     {
-        $html = $this->html("- a\n  [^f]: x\n    more\n\nsee[^f]\n");
+        $html = $this->html("- a\n\nsee[^f]\n\n[^f]: x\n  more\n");
 
         // `x` and `more` are one paragraph inside the endnote, so the backlink
         // follows `more` rather than sitting between the two lines.
@@ -52,7 +52,7 @@ class IndentedFootnoteContinuationTest extends TestCase
     public function testATopLevelDefinitionIsUnchanged(): void
     {
         // The shape that always worked, pinned so the two paths stay in step.
-        $html = $this->html("[^f]: x\n  more\n\nsee[^f]\n");
+        $html = $this->html("see[^f]\n\n[^f]: x\n  more\n");
 
         $this->assertStringContainsString('more', $html);
         $this->assertMatchesRegularExpression('/x\s*more<a href="#fnref1"/', $html);
@@ -63,7 +63,7 @@ class IndentedFootnoteContinuationTest extends TestCase
         // The boundary the fix must not move: at the definition's OWN column the
         // line is not a continuation, so it stays item content rather than being
         // swallowed into the note.
-        $html = $this->html("- a\n  [^f]: x\n  tail\n\nsee[^f]\n");
+        $html = $this->html("- a\n+\n[^f]: x\n+\ntail\n\nsee[^f]\n");
 
         $this->assertStringContainsString('tail', $html, 'the line vanished');
         $this->assertDoesNotMatchRegularExpression('/x\s*tail/', $html, 'tail must not join the note body');
@@ -75,7 +75,7 @@ class IndentedFootnoteContinuationTest extends TestCase
         // the line-based prepass does not strip, so those are deliberately left
         // single-line and handed to normal block parsing. Pinned so the
         // exclusion is a decision rather than an oversight.
-        $html = $this->html("> [^f]: x\n\nsee[^f]\n");
+        $html = $this->html(">\n\nsee[^f]\n\n[^f]: x\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringContainsString('x', $html);

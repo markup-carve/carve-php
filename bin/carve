@@ -48,6 +48,7 @@ if (!$autoloaderFound) {
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Migration\Carve01To02Migrator;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -236,6 +237,7 @@ function parseFmtArgs(array $argv): array
         'command' => 'fmt',
         'write' => false,
         'check' => false,
+        'from01' => false,
         'stamp' => false,
         'stampForm' => 'line',
         'help' => false,
@@ -250,6 +252,8 @@ function parseFmtArgs(array $argv): array
             $options['write'] = true;
         } elseif ($arg === '--check') {
             $options['check'] = true;
+        } elseif ($arg === '--from-0.1') {
+            $options['from01'] = true;
         } elseif ($arg === '--stamp') {
             $options['stamp'] = true;
             $options['stampForm'] = 'line';
@@ -308,6 +312,7 @@ Formatter:
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
+  fmt --from-0.1      Preserve 0.1 block boundaries with explicit blanks
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
 
@@ -406,7 +411,8 @@ if (($options['command'] ?? null) === 'fmt') {
             fwrite(STDERR, "Error: Failed to read from stdin\n");
             exit(1);
         }
-        $formatted = CarveConverter::toCarve($input);
+        $source = $options['from01'] ? Carve01To02Migrator::migrate($input) : $input;
+        $formatted = CarveConverter::toCarve($source);
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
         }
@@ -425,7 +431,8 @@ if (($options['command'] ?? null) === 'fmt') {
             $exitCode = 1;
             continue;
         }
-        $formatted = CarveConverter::toCarve($input);
+        $source = $options['from01'] ? Carve01To02Migrator::migrate($input) : $input;
+        $formatted = CarveConverter::toCarve($source);
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
         }

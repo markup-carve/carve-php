@@ -32,7 +32,7 @@ class FootnoteBodyIndentSkipsVerbatimTest extends TestCase
 
     public function testAClosingFenceInANoteBodyIsNotIndented(): void
     {
-        $html = $this->html("[^a]: note\n  ```\n  code\n  ```\n\nsee[^a]\n");
+        $html = $this->html("see[^a]\n\n[^a]: note\n\n  ```\n  code\n  ```\n");
 
         // The opener carries the body's indent; the closer sits at column 0, so
         // no whitespace lands inside the `<pre>`.
@@ -41,7 +41,7 @@ class FootnoteBodyIndentSkipsVerbatimTest extends TestCase
 
     public function testTheCodeItselfCarriesNoTrailingWhitespace(): void
     {
-        $html = $this->html("[^a]: note\n  ```\n  code\n  ```\n\nsee[^a]\n");
+        $html = $this->html("see[^a]\n\n[^a]: note\n\n  ```\n  code\n  ```\n");
 
         $this->assertMatchesRegularExpression('/<code>code\n<\/code>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<code>code\n +<\/code>/', $html);
@@ -51,7 +51,7 @@ class FootnoteBodyIndentSkipsVerbatimTest extends TestCase
     {
         // Interior lines were never padded (only tag-leading ones were), so this
         // pins that the fix did not start padding them either.
-        $html = $this->html("[^a]: note\n  ```\n  a\n    b\n  ```\n\nsee[^a]\n");
+        $html = $this->html("see[^a]\n\n[^a]: note\n\n  ```\n  a\n    b\n  ```\n");
 
         $this->assertStringContainsString("<pre><code>a\n  b\n</code></pre>", $html);
     }
@@ -60,7 +60,7 @@ class FootnoteBodyIndentSkipsVerbatimTest extends TestCase
     {
         // The guard must clear on the closer. A paragraph following the fence is
         // a block-boundary line and still gets the body's six spaces.
-        $html = $this->html("[^a]: note\n  ```\n  code\n  ```\n\n  after\n\nsee[^a]\n");
+        $html = $this->html("see[^a]\n\n[^a]: note\n\n  ```\n  code\n  ```\n\n  after\n");
 
         // The final paragraph carries the backlink, so match the opening only.
         $this->assertStringContainsString('      <p>after', $html);
@@ -69,7 +69,7 @@ class FootnoteBodyIndentSkipsVerbatimTest extends TestCase
     public function testAPlainNoteBodyIsUnchanged(): void
     {
         // No verbatim content at all - the path the fix must not disturb.
-        $html = $this->html("[^a]: note\n\nsee[^a]\n");
+        $html = $this->html("see[^a]\n\n[^a]: note\n");
 
         $this->assertStringContainsString('      <p>note', $html);
     }

@@ -76,6 +76,8 @@ class ReferenceDefinitionExtractor
         // document, so the author's line rendered nowhere AND defined nothing
         // (carve#664). carve-js tracks the same state for the same reason.
         $inFootnoteBody = false;
+        $paragraphOpen = false;
+        $inDefinitionBody = false;
 
         while ($i < $count) {
             $line = $lines[$i];
@@ -91,6 +93,7 @@ class ReferenceDefinitionExtractor
             // item's content column - and eating that indentation here loses
             // the very column the definition has to reach (carve-php#788).
             $unquoted = ContainerPrefix::stripQuoteMarkers($line);
+            $blankLine = IndentationHelper::isBlankLine($unquoted);
             // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
@@ -103,6 +106,37 @@ class ReferenceDefinitionExtractor
             $reachedCol = $contentColumns->reachedBy(
                 strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
             );
+
+            $structuralListMarker = $contentCol > 0
+                && preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +/', $unquoted) === 1;
+            $structuralContinuation = $contentCol > 0 && trim($line, " \t") === '+'
+                && IndentationHelper::getLeadingColumns($unquoted, $contentCol + 1) < $contentCol;
+            if (preg_match('/^:  /', $line) === 1) {
+                $inDefinitionBody = true;
+            } elseif ($blankLine || preg_match('/^:: /', $line) === 1) {
+                $inDefinitionBody = false;
+            }
+            $definitionBodyCandidate = preg_replace('/^[ \t]*:  /', '', $unquoted);
+            $definitionBodyBoundary = $inDefinitionBody
+                && ($this->matchDefinitionLine($unquoted) !== null || (
+                    is_string($definitionBodyCandidate)
+                    && $definitionBodyCandidate !== $unquoted
+                    && $this->matchDefinitionLine($definitionBodyCandidate) !== null
+                ));
+            if (
+                $paragraphOpen && !$blankLine
+                && !$structuralListMarker && !$structuralContinuation && !$definitionBodyBoundary
+            ) {
+                $i++;
+
+                continue;
+            }
+            if (
+                $blankLine || $structuralListMarker
+                || $structuralContinuation || $definitionBodyBoundary
+            ) {
+                $paragraphOpen = false;
+            }
 
             // A comment fence's closer is a leading `%` run of the SAME length;
             // trailing text is allowed, so `%%% end` closes a `%%%` fence.
@@ -178,7 +212,13 @@ class ReferenceDefinitionExtractor
                 $inFootnoteBody = false;
             }
 
-            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
+            $previousIndex = $i - 1;
+            if (preg_match('/^[ \t]*:  /', $unquoted) === 1) {
+                while ($previousIndex >= 0 && IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$previousIndex]))) {
+                    $previousIndex--;
+                }
+            }
+            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$previousIndex] ?? '');
             $bare = $referenceLine['line'];
             // A footnote body has a content column of its own and it is TWO -
             // the indent §16 requires of a continuation line (carve#717). This
@@ -239,12 +279,28 @@ class ReferenceDefinitionExtractor
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
                 $pendingAttrsInList = false;
+                if ($this->opensParagraphLine($bare)) {
+                    $paragraphOpen = true;
+                }
             }
 
             $i++;
         }
 
         return $references;
+    }
+
+    private function opensParagraphLine(string $line): bool
+    {
+        $line = ltrim($line, " \t");
+        if ($line === '' || $line === '+' || $this->matchDefinitionLine($line) !== null) {
+            return false;
+        }
+
+        return preg_match(
+            '/^(?:#{1,6}(?:[ \t]|$)|>{1,}(?:[ \t]|$)|[-*_]{3,}[ \t]*$|[`~]{3,}|%{2,}|:{2,}(?:[ \t]|$)|\|)/',
+            $line,
+        ) !== 1;
     }
 
     /**

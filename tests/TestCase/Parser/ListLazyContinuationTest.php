@@ -85,18 +85,18 @@ class ListLazyContinuationTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testHeadingLineEndsList(): void
+    public function testHeadingLineContinuesOpenItemParagraph(): void
     {
         $djot = "- a\n# H";
-        $expected = "<ul>\n  <li>a</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
+        $expected = "<ul>\n  <li>a\n# H</li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
-    public function testClosedFencedCodeLineEndsList(): void
+    public function testClosedFenceLineContinuesOpenItemParagraph(): void
     {
         $djot = "- a\n```\nx\n```";
-        $expected = "<ul>\n  <li>a</li>\n</ul>\n<pre><code>x\n</code></pre>\n";
+        $expected = "<ul>\n  <li>a\n<code>\nx\n</code></li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }

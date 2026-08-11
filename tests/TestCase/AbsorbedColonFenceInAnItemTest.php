@@ -51,7 +51,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\nbody\n:::\ntail</li>\n</ul>",
-            $this->html("- item\n  :::note\n  body\n  :::\ntail\n"),
+            $this->html("- item\n  :::note\n  body\n  :::\n  tail\n"),
         );
     }
 
@@ -62,7 +62,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // completes it, and a closed block leaves no open paragraph.
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  body\n  :::\ntail\n"),
+            $this->html("- item\n+\n::: note\nbody\n:::\n\ntail\n"),
         );
     }
 
@@ -70,7 +70,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\nbody\n:::\ntail</li>\n</ul>",
-            $this->html("- item\n  :::note\n  body\n  :::\n tail\n"),
+            $this->html("- item\n  :::note\n  body\n  :::\n  tail\n"),
         );
     }
 
@@ -78,7 +78,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>:::note\nbody\n:::\ntail</li>\n</ul>",
-            $this->html("- :::note\n  body\n  :::\ntail\n"),
+            $this->html("- :::note\n  body\n  :::\n  tail\n"),
         );
     }
 
@@ -88,7 +88,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // does not - the partial match S4 is written for.
         $this->assertSame(
             "<blockquote>\n  <ul>\n    <li>item\n:::note\nbody\n:::\ntail</li>\n  </ul>\n</blockquote>",
-            $this->html("> - item\n>   :::note\n>   body\n>   :::\n> tail\n"),
+            $this->html("> - item\n>   :::note\n>   body\n>   :::\n>   tail\n"),
         );
     }
 
@@ -98,7 +98,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // which has no closer to absorb at all - ended the item too.
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\ntail</li>\n</ul>",
-            $this->html("- item\n  :::note\ntail\n"),
+            $this->html("- item\n  :::note\n  tail\n"),
         );
     }
 
@@ -108,7 +108,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // length to match against.
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\nbody\n::::\ntail</li>\n</ul>",
-            $this->html("- item\n  :::note\n  body\n  ::::\ntail\n"),
+            $this->html("- item\n  :::note\n  body\n  ::::\n  tail\n"),
         );
     }
 
@@ -119,7 +119,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // paragraph - the same answer this engine gives at the top level.
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  :::note\n  ::: note\n  body\n  :::\ntail\n"),
+            $this->html("- item\n  :::note\n+\n::: note\nbody\n:::\n\ntail\n"),
         );
     }
 
@@ -129,7 +129,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // would hold the paragraph open past the block's end.
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>:::oops</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  :::oops\n  :::\ntail\n"),
+            $this->html("- item\n+\n::: note\n:::oops\n:::\n\ntail\n"),
         );
     }
 
@@ -139,11 +139,11 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // a real div opener and `tail` ends the item.
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\n    <h1 id=\"h\">h</h1>\n    <div>\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  :::note\n  # h\n  :::\ntail\n"),
+            $this->html("- item\n  :::note\n+\n# h\n+\n:::\n\n:::\n\ntail\n"),
         );
         $this->assertSame(
             "<ul>\n  <li>item\n:::note\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n    <div>\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  :::note\n  | a |\n  :::\ntail\n"),
+            $this->html("- item\n  :::note\n+\n| a |\n+\n:::\n\n:::\n\ntail\n"),
         );
     }
 
@@ -157,7 +157,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // holding `:::oops`, `:::` and `tail`.
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n\n    </aside>\n    :::oops\n:::\ntail\n  </li>\n</ul>",
-            $this->html("- item\n  ::: note\n  :::\n  :::oops\n  :::\ntail\n"),
+            $this->html("- item\n+\n::: note\n\n:::\n+\n:::oops\n:::\ntail\n"),
         );
     }
 
@@ -176,7 +176,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body\ntail</p>\n    </aside>\n  </li>\n</ul>",
-            $this->html("- item\n  ::: note\n  body\ntail\n"),
+            $this->html("- item\n+\n::: note\nbody\ntail\n:::\n"),
         );
     }
 
@@ -186,7 +186,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // the stack, so there is no paragraph and the line is the document's.
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\ntail\n"),
+            $this->html("- item\n+\n::: note\n\n:::\n\ntail\n"),
         );
     }
 
@@ -204,11 +204,11 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <aside class=\"admonition tip\">\n\n      </aside>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  :::: tip\ntail\n"),
+            $this->html("- item\n+\n::: note\n:::: tip\n\n::::\n:::\n\ntail\n"),
         );
         $this->assertSame(
             "<blockquote>\n  <p>quote</p>\n  <aside class=\"admonition note\">\n    <aside class=\"admonition tip\">\n\n    </aside>\n  </aside>\n</blockquote>\n<p>tail</p>",
-            $this->html("> quote\n> ::: note\n> :::: tip\ntail\n"),
+            $this->html("> quote\n>\n> ::: note\n> :::: tip\n>\n> ::::\n> :::\n\ntail\n"),
         );
     }
 
@@ -227,16 +227,16 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertStringEndsWith(
             "</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  | a |\ntail\n"),
+            $this->html("- item\n+\n::: note\n| a |\n:::\n\ntail\n"),
         );
         $this->assertStringEndsWith(
             "</blockquote>\n<p>tail</p>",
-            $this->html("> quote\n> ::: note\n> # h\ntail\n"),
+            $this->html("> quote\n>\n> ::: note\n> # h\n> :::\n\ntail\n"),
         );
         // The measured exception: a heading in a LIST-ITEM div keeps the line.
         $this->assertStringContainsString(
             "<h1 id=\"h\">h</h1>\n      <p>tail</p>",
-            $this->html("- item\n  ::: note\n  # h\ntail\n"),
+            $this->html("- item\n+\n::: note\n# h\n\ntail\n:::\n"),
         );
     }
 
@@ -244,7 +244,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     {
         $this->assertSame(
             "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
-            $this->html("- item\n  ::: note\n  body\n  :::\ntail\n"),
+            $this->html("- item\n+\n::: note\nbody\n:::\n\ntail\n"),
         );
     }
 }

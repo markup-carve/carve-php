@@ -27,7 +27,7 @@ class DefinitionInAFootnoteBodyTest extends TestCase
 
     public function testADefinitionInANoteBodyResolves(): void
     {
-        $html = $this->converter->convert("[^a]: note\n  [r]: /u\n\nsee[^a] and [t][r]\n");
+        $html = $this->converter->convert("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('[r]: /u', $html);
@@ -35,7 +35,7 @@ class DefinitionInAFootnoteBodyTest extends TestCase
 
     public function testTheNoteKeepsOnlyItsOwnText(): void
     {
-        $html = $this->converter->convert("[^a]: note\n  [r]: /u\n\nsee[^a] and [t][r]\n");
+        $html = $this->converter->convert("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n");
         $start = strpos($html, '<li id="fn1">');
         $this->assertNotFalse($start);
         $body = substr($html, $start, (int)strpos($html, '</li>', $start) - $start);
@@ -48,7 +48,7 @@ class DefinitionInAFootnoteBodyTest extends TestCase
     {
         // The control: only a DEFINITION is lifted out; ordinary continuation
         // text stays in the note.
-        $html = $this->converter->convert("[^a]: note\n  more\n\nsee[^a]\n");
+        $html = $this->converter->convert("see[^a]\n\n[^a]: note\n  more\n");
 
         $this->assertStringContainsString('more', $html);
     }
@@ -56,7 +56,7 @@ class DefinitionInAFootnoteBodyTest extends TestCase
     public function testATopLevelDefinitionAfterANoteIsUnaffected(): void
     {
         // A non-blank line at column 0 closes the note body.
-        $html = $this->converter->convert("[^a]: note\n\n[r]: /u\n\nsee[^a] and [t][r]\n");
+        $html = $this->converter->convert("see[^a] and [t][r]\n\n[^a]: note\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
     }

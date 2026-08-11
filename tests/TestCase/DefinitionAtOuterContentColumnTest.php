@@ -45,7 +45,7 @@ class DefinitionAtOuterContentColumnTest extends TestCase
     #[DataProvider('columnProvider')]
     public function testADefinitionAtAContentColumnRegistersAndRendersNothing(string $indent): void
     {
-        $html = $this->converter->convert("- - a\n{$indent}[^f]: x\n\nsee[^f]\n");
+        $html = $this->converter->convert("- - a\n\n{$indent}[^f]: x\n\nsee[^f]\n");
 
         $this->assertStringContainsString('doc-endnotes', $html);
         $this->assertStringNotContainsString('[^f]: x', $html);
@@ -54,7 +54,7 @@ class DefinitionAtOuterContentColumnTest extends TestCase
     #[DataProvider('columnProvider')]
     public function testTheNoteIsClaimedByExactlyOneReference(string $indent): void
     {
-        $html = $this->converter->convert("- - a\n{$indent}[^f]: x\n\nsee[^f]\n");
+        $html = $this->converter->convert("- - a\n\n{$indent}[^f]: x\n\nsee[^f]\n");
 
         $this->assertSame(1, substr_count($html, 'role="doc-noteref"'));
         $this->assertSame(1, substr_count($html, 'role="doc-backlink"'));
@@ -63,7 +63,7 @@ class DefinitionAtOuterContentColumnTest extends TestCase
 
     public function testBetweenTwoColumnsTheLineStaysTextAndDefinesNothing(): void
     {
-        $html = $this->converter->convert("- - a\n   [^f]: x\n\nsee[^f]\n");
+        $html = $this->converter->convert("- - a\n    [^f]: x\n\nsee[^f]\n");
 
         $this->assertStringContainsString('[^f]: x', $html);
         $this->assertStringNotContainsString('doc-endnotes', $html);
@@ -71,7 +71,7 @@ class DefinitionAtOuterContentColumnTest extends TestCase
 
     public function testTheSameHoldsForALinkDefinition(): void
     {
-        $html = $this->converter->convert("- - a\n  [r]: /u\n\nsee [t][r]\n");
+        $html = $this->converter->convert("- - a\n\nsee [t][r]\n\n[r]: /u\n");
 
         $this->assertStringContainsString('href="/u"', $html);
         $this->assertStringNotContainsString('[r]: /u', $html);

@@ -45,7 +45,7 @@ class ParagraphBraceScanTest extends TestCase
     public function testUnclosedBraceDoesNotSuppressInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x\n# heading");
+        $doc = $parser->parse("text{a=x\n\n# heading\n");
 
         $this->assertInstanceOf(Paragraph::class, $doc->getChildren()[0]);
         $this->assertTrue($this->hasHeading($doc), 'the heading interrupts, as in carve-js and carve-rs');
@@ -54,7 +54,7 @@ class ParagraphBraceScanTest extends TestCase
     public function testClosedBraceAllowsInterruption(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=x}\n# heading");
+        $doc = $parser->parse("text{a=x}\n\n# heading\n");
 
         $this->assertTrue($this->hasHeading($doc));
     }
@@ -64,7 +64,7 @@ class ParagraphBraceScanTest extends TestCase
         // Whatever the brace state, the heading interrupts. Kept as a case
         // because it is the shape that made the old rule look subtle.
         $parser = new BlockParser();
-        $doc = $parser->parse("text{a=\"}\"\n# heading");
+        $doc = $parser->parse("text{a=\"}\"\n\n# heading\n");
 
         $this->assertTrue($this->hasHeading($doc));
     }
@@ -72,7 +72,7 @@ class ParagraphBraceScanTest extends TestCase
     public function testPlainParagraphStillInterrupts(): void
     {
         $parser = new BlockParser();
-        $doc = $parser->parse("text\n# heading");
+        $doc = $parser->parse("text\n\n# heading\n");
 
         $this->assertTrue($this->hasHeading($doc));
     }

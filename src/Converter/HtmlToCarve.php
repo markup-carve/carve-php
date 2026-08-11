@@ -170,21 +170,21 @@ class HtmlToCarve
         // Append reference definitions collected during conversion
         if ($this->referenceDefinitions !== []) {
             // Ensure blank line before reference definitions
-            $refs = "\n\n";
+            $definitions = [];
             foreach ($this->referenceDefinitions as $label => $url) {
-                $refs .= '[' . $label . ']: ' . $url . "\n";
+                $definitions[] = '[' . $label . ']: ' . $url;
             }
-            $djot .= $refs;
+            $djot .= "\n\n" . implode("\n\n", $definitions) . "\n";
         }
 
         // Append footnote definitions collected during conversion
         if ($this->footnoteDefinitions !== []) {
             // Ensure blank line before footnote definitions
-            $notes = "\n\n";
+            $definitions = [];
             foreach ($this->footnoteDefinitions as $label => $content) {
-                $notes .= $this->formatFootnoteDefinition($label, $content) . "\n";
+                $definitions[] = $this->formatFootnoteDefinition($label, $content);
             }
-            $djot .= $notes;
+            $djot .= "\n\n" . implode("\n\n", $definitions) . "\n";
         }
 
         // Clean up
@@ -2770,7 +2770,7 @@ class HtmlToCarve
 
             // Blank line (or whitespace-only line) ends definition list context but not list context
             if (trim($line) === '') {
-                $result[] = $inFootnote ? '  ' : ''; // Normalize to empty string unless footnote continuation needs indentation
+                $result[] = '';
 
                 continue;
             }
