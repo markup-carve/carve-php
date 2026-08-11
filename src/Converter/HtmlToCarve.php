@@ -2067,6 +2067,16 @@ class HtmlToCarve
         }
 
         $attributes = [];
+
+        // The table's OWN attributes belong on this block too. ListTable passes
+        // non-structural attributes through to the rendered `<table>`, so a
+        // class or id the author wrote is carried rather than dropped on the
+        // way into this form (raised by codex review).
+        $tableAttributes = $this->getElementAttributes($node, ['data-djot-col-widths']);
+        if ($tableAttributes !== '') {
+            $attributes[] = $tableAttributes;
+        }
+
         if ($headerRows > 0) {
             $attributes[] = 'header-rows=' . $headerRows;
         }
@@ -2124,6 +2134,17 @@ class HtmlToCarve
                     $items[] = '<';
                     $column++;
                 }
+            }
+
+            // A column still spanned AFTER the row's last real cell needs its
+            // `^` as well. Without it the row simply ends, the span is lost and
+            // the next row gains an empty cell instead (raised by codex review).
+            while (isset($rowspanMap[$column])) {
+                $items[] = '^';
+                if (--$rowspanMap[$column] === 0) {
+                    unset($rowspanMap[$column]);
+                }
+                $column++;
             }
 
             $output .= $this->listTableRow($items);

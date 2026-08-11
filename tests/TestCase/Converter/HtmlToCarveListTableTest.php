@@ -118,6 +118,47 @@ class HtmlToCarveListTableTest extends TestCase
     }
 
     /**
+     * A column still spanned after the row's LAST real cell needs its marker
+     * too. Without it the row simply ended, the span was lost, and the next
+     * row gained an empty cell (raised by codex review).
+     */
+    public function testARowspanPastTheLastCellOfARowKeepsItsMarker(): void
+    {
+        $carve = $this->enabled->convert(
+            '<table><tr><td>x</td><td rowspan="2"><p>a</p><p>b</p></td></tr><tr><td>y</td></tr></table>',
+        );
+
+        $this->assertStringContainsString("- - y\n  - ^", $carve);
+        $this->assertStringContainsString('<td rowspan="2">', $this->render($carve));
+        $this->assertStringNotContainsString('<td></td>', $this->render($carve));
+    }
+
+    /**
+     * The table's own attributes go on the block, not into the void: ListTable
+     * passes non-structural attributes through to the rendered table.
+     */
+    public function testTheTablesOwnAttributesSurviveTheSwitch(): void
+    {
+        $carve = $this->enabled->convert(
+            '<table class="striped" id="t1"><tr><td><p>a</p><p>b</p></td></tr></table>',
+        );
+
+        $this->assertStringContainsString('{#t1 .striped}', $carve);
+        $this->assertStringContainsString('<table class="striped" id="t1">', $this->render($carve));
+    }
+
+    public function testTableAttributesAndHeaderMetadataShareOneBlock(): void
+    {
+        $carve = $this->enabled->convert(
+            '<table class="striped"><tr><th>H</th></tr><tr><td><p>a</p><p>b</p></td></tr></table>',
+        );
+
+        $this->assertStringContainsString('{.striped header-rows=1}', $carve);
+        $this->assertStringContainsString('<table class="striped">', $this->render($carve));
+        $this->assertStringContainsString('<th>H</th>', $this->render($carve));
+    }
+
+    /**
      * Known limitation, pinned so it is visible rather than discovered: a
      * cell's own attributes are dropped in this form. Carve has no per-list-item
      * attribute spelling this converter could find - `{.c}` on its own line
