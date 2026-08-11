@@ -1434,8 +1434,8 @@ class BlockParser
                 if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
                     // A definition-shaped line without the required inline
                     // body is ordinary paragraph text. Keep that paragraph
-                    // open so a following valid-looking definition cannot
-                    // interrupt it under the 0.2 block rule.
+                    // open so a following valid-looking definition remains
+                    // literal under the 0.2 block rule.
                     $paragraphOpen = true;
                     $i++;
 
@@ -4099,7 +4099,7 @@ class BlockParser
                 // fence), terminates the quote instead of being swallowed. A LIST
                 // marker (bullet OR ordered) FOLDS into an open quoted PARAGRAPH
                 // as literal text -- mirroring the top-level rule where a list
-                // marker does not interrupt an open paragraph. But it only folds
+                // marker cannot end an open paragraph. But it only folds
                 // when an open plain paragraph precedes it: after a heading,
                 // table, or other closed block there is no paragraph to fold
                 // into, so the list marker ENDS the quote and starts a sibling
@@ -4184,9 +4184,8 @@ class BlockParser
         }
 
         // This only tracks LAZY-CONTINUATION state (which non-">" lines extend the
-        // quote), not how the collected content is block-parsed -- §10 paragraph
-        // interruption (with its fence/div closer lookahead) is applied later by
-        // parseBlocks. A fence/comment/div opener begins a fence/comment/div state
+        // quote), not how the collected content is block-parsed. A
+        // fence/comment/div opener begins structural state
         // only when no paragraph is open (the opener is the first content, or
         // follows a blank line); a marker mid-paragraph leaves the paragraph open
         // so a following unquoted line still lazily continues it.
@@ -5097,7 +5096,7 @@ class BlockParser
             // This prevents "-like" lines from being parsed as nested lists while
             // still allowing blockquotes, code blocks, etc. to be properly recognized.
             // Item content parses as blocks. Per grammar §10 only a list marker
-            // interrupts nested content without a blank line (sublists are
+            // starts structural nested content without a blank line (sublists are
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
@@ -5688,7 +5687,7 @@ class BlockParser
             // paragraph. PART 1 S4 says the opposite: `:::note` fails PART 9
             // §12's opener test so it is paragraph text, §12 then has the
             // paragraph absorb the bare fence below it as text too, and a
-            // paragraph nothing ever interrupted is still OPEN when the
+            // paragraph remains OPEN when the
             // flush-left line arrives (carve#891, corpus
             // `86-list-lazy-continuation-9`). What decides is whether a block
             // was opened, never the shape of the line that tried - and
@@ -5717,7 +5716,7 @@ class BlockParser
                 // it then opens a list is the BODY'S question, and the div body
                 // answers it exactly as the top level does - `:::` / `a` /
                 // `- m` / `b` / `:::` is one paragraph there too, because a
-                // marker does not interrupt an open paragraph.
+                // marker cannot end an open paragraph.
                 //
                 // So `- x` / `  :::` / `  a` / `  - m` / `  b` / `  :::` split
                 // the div in two around a nested list and published a spurious
@@ -5893,15 +5892,11 @@ class BlockParser
      * a second spelling of one rule is a second place for it to drift, and the
      * arm this method exists for was missing from BOTH.
      *
-     * A BLOCK-ATTRIBUTE LINE ENDS IT (PART 9 §10 I5, markup-carve/carve#1028).
-     * I5 lists the invisible constructs that interrupt an open paragraph and are
-     * consumed - a reference definition, a comment, "and a block-attribute line
-     * (`{…}` alone on a line, §15)" - and I6 applies the relation to EVERY open
-     * paragraph, an item's included. Neither predicate below could see one:
-     * `isBlockElementStart()` enumerates the VISIBLE openers and
-     * `startsInterruptingBlock()` has no `{` arm at all, so the top level got
-     * I5 right (through `paragraphInterruptedBy()`, which asks
-     * `isInvisibleOrAttributeLine()` as well) and the list path did not.
+     * This method is reached only when no open paragraph can lazily consume the
+     * line. A block-attribute line is then structural (§15), just like a
+     * reference definition or comment. Neither older predicate could see one:
+     * `isBlockElementStart()` enumerated visible openers and
+     * `startsBlockBoundary()` has no `{` arm.
      *
      * What that cost: `- item` / `{.cls}` / `> quote` kept the attribute line
      * inside the item, where it is below the content column and renders as
@@ -6241,7 +6236,7 @@ class BlockParser
                 //    with no indentation (the same continuation marker lists and
                 //    block quotes use);
                 //  - lazy continuation: a flush-left line with no blank before
-                //    it that does not start an interrupting block folds into the
+                //    it that does not start an structural block folds into the
                 //    open paragraph (matching list items, block quotes and djot).
                 // Whether a FORM A line has been pushed since the last blank.
                 // Past-the-column laziness is about a line following the BODY'S
@@ -6335,10 +6330,9 @@ class BlockParser
                     // list into literal text.
                     //
                     // A LIST MARKER IS ASKED FOR SEPARATELY, because
-                    // `startsNewBlock()` answers the INTERRUPTION question and
-                    // PART 9 §10 says a bullet or ordered marker never
-                    // interrupts a paragraph - so it reports false for `- x`,
-                    // which does open a block when it is the body's first line.
+                    // `startsNewBlock()` answers the bounded-block question and
+                    // deliberately excludes lists, so a list marker is asked
+                    // for separately when it can be the body's first block.
                     $lastBodyKey = $body === [] ? null : array_key_last($body);
                     $lastBodyEntry = $lastBodyKey === null ? '' : $body[$lastBodyKey];
                     $lastBodyOpener = strtok($lastBodyEntry, "\n");
@@ -6430,7 +6424,7 @@ class BlockParser
                         break;
                     }
                     // Lazy continuation: a FLUSH-LEFT line with no blank before
-                    // it that does not start an interrupting block folds into the
+                    // it that does not start an structural block folds into the
                     // open paragraph (the same rule list items and block quotes
                     // use; djot-compatible). A block opener ends the definition.
                     //
@@ -6463,7 +6457,7 @@ class BlockParser
                     if (
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
-                        && !$this->startsInterruptingBlock($contLine, $lines, $i)
+                        && !$this->startsBlockBoundary($contLine, $lines, $i)
                         && !$this->isReferenceDefinitionLine($contLine)
                     ) {
                         $body[] = $contLine;
@@ -9110,7 +9104,7 @@ class BlockParser
         if ($blankLines > 1) {
             return null;
         }
-        // An invisible interrupter still occupies its source line. It renders
+        // A non-rendering block still occupies its source line. It renders
         // nothing, but it is not caption_slot's optional blank line and a
         // caption cannot attach across it (carve#1028).
         $lineBeforeSlot = $start - $blankLines - 1;
@@ -9373,8 +9367,8 @@ class BlockParser
      * Whether a line ENDS an open heading (and starts a sibling block). A list
      * marker (bullet, task, or ordered) ends a heading and starts a sibling
      * list: a heading is a bounded title, so a list marker folds into a
-     * PARAGRAPH but never into a heading. Every paragraph-interrupter ends the
-     * heading too. (Block quotes use endsBlockQuote(), which lets a list marker
+     * PARAGRAPH but never into a heading. Every recognized sibling block ends
+     * the heading too. (Block quotes use endsBlockQuote(), which lets a list marker
      * fold into the open quoted paragraph instead.)
      *
      * @param string $line
@@ -9444,13 +9438,13 @@ class BlockParser
      * Whether a non-">" line ENDS an open block quote (and starts a sibling
      * block) during lazy continuation. A list marker (bullet OR ordered) ends
      * the quote UNLESS an open plain paragraph precedes it: when one does, the
-     * marker folds into that paragraph as literal text (the top-level rule that
-     * a list marker does not interrupt an open paragraph, applied inside the
+     * marker folds into that paragraph as literal text (the uniform §10 rule,
+     * applied inside the
      * quote). After a heading, table, fenced code, thematic break, `:::` div,
      * or a blank line there is no open paragraph to fold into, so a list marker
-     * ENDS the quote and starts a sibling list -- mirroring the top level,
-     * where `# h\n- item` is a heading plus a sibling list. Visible
-     * block-openers, invisible constructs, and captions still end the quote via
+     * ENDS the quote and starts a sibling list -- mirroring the bounded-heading case,
+     * where `# h\n- item` is a heading plus a sibling list. Block openers,
+     * invisible constructs, and captions still end the quote via
      * startsNewBlock().
      *
      * @param string $line
@@ -9475,20 +9469,19 @@ class BlockParser
 
         // This line is a flush-left lazy candidate by construction, so it is at
         // DOCUMENT level - where an abbreviation definition is a definition
-        // (PART 12 §7). An INVISIBLE CONSTRUCT interrupts, so it ends the quote
+        // (PART 12 §7). With no paragraph open, an invisible construct ends the quote
         // rather than folding into it. `startsNewBlock` cannot answer this: it
         // is also asked about lines inside containers, where the abbreviation
         // shape is ordinary paragraph text.
         //
         // ALL FOUR INVISIBLE KINDS, not the abbreviation alone
         // (markup-carve/carve#1028). PART 2's LAZY CONTINUATION clause names
-        // them in one breath - a line continues the quote provided it is "not a
+        // them in one breath - with no open paragraph, a line continues the quote provided it is "not a
         // block-opener: a heading, table, fenced code, `:::` div, thematic
         // break, OR an 'invisible' reference / footnote / abbreviation
         // definition OR COMMENT -- each ends the blockquote and starts that
-        // block OUTSIDE it" - and PART 9 §10 I5 adds the block-attribute line to
-        // the same set, with I6 applying the relation to "EVERY open paragraph,
-        // including a blockquote's lazy continuation".
+        // block OUTSIDE it". An open paragraph returns earlier and consumes all
+        // nonblank marker shapes under §10.
         //
         // Only one of the four was here, so this engine ended the quote on a
         // reference definition and kept it open across a `%%` comment and a
@@ -9523,32 +9516,27 @@ class BlockParser
             return true;
         }
 
-        // Fenced comments `%%%` can always interrupt paragraphs
-        // Comments should be invisible and not require extra formatting
+        // A fenced comment is a structural block in this bounded context.
         if ($line[0] === '%' && isset($line[1], $line[2]) && $line[1] === '%' && $line[2] === '%') {
             return true;
         }
 
-        return $this->startsInterruptingBlock($line, $lines, $index);
+        return $this->startsBlockBoundary($line, $lines, $index);
     }
 
     /**
-     * Check if line starts a visible block that interrupts an open paragraph.
+     * Check whether a line establishes a structural boundary for a bounded
+     * block or container. Open paragraphs never call this classifier.
      *
      * @param string $line
      * @param array<string>|null $lines
      * @param int|null $index
      */
-    protected function startsInterruptingBlock(string $line, ?array $lines = null, ?int $index = null): bool
+    protected function startsBlockBoundary(string $line, ?array $lines = null, ?int $index = null): bool
     {
-        // SYMMETRIC LIST INTERRUPTION: no list marker interrupts a paragraph --
-        // a bullet (`-`/`*`) needs a blank line before it, exactly like an
-        // ordered marker (`1.`/`a.`/`i.`) already does. This drops the former
-        // "Rule B" (an indented bullet at ANY indentation interrupted a
-        // paragraph), so there is no indented-bullet arm here and the column-0
-        // `-`/`*` arm below no longer returns true for a bullet. Tight nested
-        // lists are unaffected: sublist nesting runs through
-        // isBlockElementStart(), not this paragraph-interruption predicate.
+        // Paragraphs do not call this classifier. List markers remain excluded
+        // because bounded inline contexts fold them; tight sublist nesting runs
+        // separately through isBlockElementStart().
 
         // Use first-char switch to avoid unnecessary regex checks
         $first = $line[0];
@@ -9560,16 +9548,13 @@ class BlockParser
                 return preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line) === 1;
             case '-':
             case '*':
-                // A bullet does NOT interrupt a paragraph (symmetric with ordered
-                // markers; needs a blank line). Only a thematic break -- a
-                // contiguous col-0 run of at least three IDENTICAL markers, with
-                // no internal whitespace (§262) -- interrupts here.
+                // Only a thematic break is a boundary in this bounded context.
                 return preg_match('/^' . preg_quote($first, '/') . '{3,}[ \t]*$/', $line) === 1;
             case '+':
                 // `+` is the list-continuation marker, NOT a bullet (only the
                 // opt-in PlusBulletExtension re-enables it) and is not a
                 // thematic-break char. A bare `+ x` line is ordinary prose, so
-                // it must not interrupt -- otherwise "+ one\n+ two" splits into
+                // it must not establish a boundary -- otherwise "+ one\n+ two" splits into
                 // two stray paragraphs that are neither prose nor a list.
                 return false;
             case '_':
@@ -9579,32 +9564,28 @@ class BlockParser
             case '|':
                 // Tables: a single "| a | b |" row is a valid table, but a pipe
                 // in prose ("a\n| b als Oder.") is not a row, so validate before
-                // interrupting to avoid splitting prose into stray paragraphs.
+                // classifying it as a boundary to avoid splitting prose.
                 return $this->tableParser->isTableRow($line);
             case '>':
                 // Block quotes
                 return $this->blockQuoteLineContent($line) !== null;
             case '`':
             case '~':
-                // Code fences interrupt only if a matching closer exists ahead.
+                // Code fences are structural only if a matching closer exists ahead.
                 return $this->hasClosingFenceAhead($line, $lines, $index);
             case ':':
                 // Definition list term (`:: term`, not `:::` div) is a
-                // first-class block opener (§24 C3), so it interrupts an open
-                // paragraph exactly like a heading or quote.
+                // first-class block opener in this bounded context.
                 if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
                     return true;
                 }
 
                 return $this->fencedBlockParser->parseDivFenceOpener($line) !== null;
             case '%':
-                // Fenced comments interrupt only if a matching closer exists ahead.
+                // Fenced comments are structural only if a matching closer exists ahead.
                 return $this->hasClosingCommentFenceAhead($line, $lines, $index);
             default:
-                // An ordered-list marker does NOT interrupt a paragraph: it
-                // needs a blank line (matching Djot). Allowing it would require
-                // the CommonMark `1.`-only heuristic to keep `2.`, `1985.` etc.
-                // as prose, which Carve avoids. A bare image is inline too.
+                // Ordered-list markers and bare images fold in bounded inline contexts.
                 return false;
         }
     }
@@ -9630,7 +9611,7 @@ class BlockParser
         $length = $opener['length'];
         $count = count($lines);
 
-        // Reuse the collector's closer matcher so the interruption lookahead can
+        // Reuse the collector's closer matcher so the structural lookahead can
         // never accept a closer the fence collector would reject (no drift).
         for ($i = $index + 1; $i < $count; $i++) {
             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $char, $length)) {
@@ -10240,7 +10221,7 @@ class BlockParser
     /**
      * Check if line starts a block element that should terminate list content collection.
      *
-     * This is different from startsNewBlock() which is about paragraph interruption.
+     * This differs from startsNewBlock(), which classifies bounded block boundaries.
      * Block elements at column 0 (or less than list indent) should always break out
      * of list content collection.
      *
@@ -10292,7 +10273,7 @@ class BlockParser
         // made the block boundary depend on the character rather than on what
         // the line is. A column-0 `|` after a list item detached from the item
         // while `*`, `-` and `x` attached, purely because those three reach the
-        // same decision through the paragraph-interruption predicate, which has
+        // same decision through the block-position predicate, which has
         // always validated the row (carve-php#683). carve-js validates in both
         // places (`isTableRow` in `lineOpensBlock`).
         //

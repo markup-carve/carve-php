@@ -482,7 +482,7 @@ class ReferenceDefinitionExtractor
      * instead of failing visibly.
      *
      * ONE SPELLING, THREE CALLERS. The line is also asked "is this a
-     * definition?" by the paragraph-interruption predicate and by the block
+     * definition?" by the block-position predicate and by the block
      * parser's own consume pass. While the pattern ended in a swallow-everything
      * tail those could test the RAW line and be right by accident, because
      * `[a]: /u {.c}` matched it raw. Anchored, they cannot - so they call this
