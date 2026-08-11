@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Converter\HtmlImportLimitException;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -58,5 +59,11 @@ class HtmlImportReportTest extends TestCase
                 basename($fixture),
             );
         }
+    }
+
+    public function testDiagnosticsLimitIsTyped(): void
+    {
+        $this->expectException(HtmlImportLimitException::class);
+        (new HtmlToCarve(maxDiagnostics: 0))->convertWithReport('<p onclick="x()">x</p>');
     }
 }
