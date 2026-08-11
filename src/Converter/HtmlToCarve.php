@@ -193,11 +193,13 @@ class HtmlToCarve
         }
 
         if (!$this->isKnownImportElement($tag)) {
-            $code = $this->importMode === 'roundtrip' ? 'raw-preserved' : 'element-unwrapped';
-            $message = $this->importMode === 'roundtrip'
-                ? 'Preserved unsupported <' . $tag . '> element as raw HTML'
-                : 'Unwrapped unsupported <' . $tag . '> element';
-            $this->addImportDiagnostic($diagnostics, $code, $message, 'info', $path);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Replaced unsupported <' . $tag . '> element with Carve span metadata',
+                'info',
+                $path,
+            );
         }
 
         $elementIndex = 0;
