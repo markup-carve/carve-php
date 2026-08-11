@@ -304,24 +304,33 @@ class MarkdownRenderer implements RendererInterface
      * denies the definition, and the inline `abbreviation` it feeds is a separate
      * profile entry that keeps rendering.
      */
-    protected function renderAbbreviationDefinitions(Document $document): string
+
+    /**
+     * Definitions the document holds only as map entries (the API path, see
+     * Document::getAbbreviationDefinitionsNotInTree). They have no source line
+     * of their own, so they are written together at the end the document flag
+     * names.
+     */
+    protected function renderResidualAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getChildren() as $child) {
-            if (!$child instanceof AbbreviationDefinition) {
-                continue;
-            }
-            // The definition line goes through escapeHtml() for the same reason
-            // the `<abbr>` built from it does: an expansion is author content,
-            // and this target's contract is that embedded HTML cannot become
-            // live markup downstream. Writing the occurrence escaped and the
-            // definition raw made one output disagree with itself
-            // (carve-php#1063).
-            $lines[] = '*[' . $this->escapeHtml($this->stripControls($child->getAbbr())) . ']: '
-                . $this->escapeHtml($this->stripControls($child->getExpansion()));
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $lines[] = '*[' . $this->escapeHtml($this->stripControls($definition['abbr'])) . ']: '
+                . $this->escapeHtml($this->stripControls($definition['expansion']));
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
+    {
+        // The definition line goes through escapeHtml() for the same reason the
+        // `<abbr>` built from it does: an expansion is author content, and this
+        // target's contract is that embedded HTML cannot become live markup
+        // downstream. Writing the occurrence escaped and the definition raw made
+        // one output disagree with itself (carve-php#1063).
+        return '*[' . $this->escapeHtml($this->stripControls($child->getAbbr())) . ']: '
+            . $this->escapeHtml($this->stripControls($child->getExpansion())) . "\n\n";
     }
 
     public function render(Document $document): string
@@ -339,12 +348,20 @@ class MarkdownRenderer implements RendererInterface
         $this->collectHeadingAndRefIds($document, $referencedIds);
         $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
 
+        // The definition renders WHERE IT WAS WRITTEN, from its node, because
+        // the dispatch above has an arm for it. This used to place the whole set
+        // at one end of the body, chosen by `hasAbbreviationsBeforeBody()` - two
+        // positions, which is one fewer than a document can express, so a
+        // definition authored BETWEEN two blocks moved to an end and
+        // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
+        // place, and this node exists precisely so this renderer can too
+        // (carve-php#708).
         $markdown = $this->renderChildren($document);
-        $abbreviations = $this->renderAbbreviationDefinitions($document);
-        if ($abbreviations !== '') {
+        $residual = $this->renderResidualAbbreviationDefinitions($document);
+        if ($residual !== '') {
             $markdown = $document->hasAbbreviationsBeforeBody()
-                ? $abbreviations . "\n" . $markdown
-                : $markdown . "\n" . $abbreviations;
+                ? $residual . "\n" . $markdown
+                : $markdown . "\n" . $residual;
         }
 
         // Normalize multiple blank lines
@@ -550,6 +567,8 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
                 $node instanceof Comment => '', // Skip comments
+                $node instanceof AbbreviationDefinition
+                => $this->renderAbbreviationDefinition($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),
