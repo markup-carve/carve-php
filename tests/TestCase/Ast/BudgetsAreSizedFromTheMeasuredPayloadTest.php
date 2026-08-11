@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Ast\PayloadSize;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\IndexExtension;
 use MarkupCarve\Carve\Extension\TocPlacementExtension;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -293,7 +294,11 @@ class BudgetsAreSizedFromTheMeasuredPayloadTest extends TestCase
         // document gets exactly the budget parsing it would have got.
         $directory = dirname(__DIR__, 3) . '/tests/spec/tests/corpus';
         $inputs = glob($directory . '/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($inputs), 'the corpus was not found');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($inputs),
+            'the corpus is truncated',
+        );
 
         $codec = new AstCodec();
         $converter = new CarveConverter();

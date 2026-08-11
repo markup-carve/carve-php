@@ -94,7 +94,7 @@ class ProfileVocabularyTest extends TestCase
             }
         }
 
-        $this->assertGreaterThan(400, $checked, 'the corpus was not found');
+        $this->assertSame(CorpusPopulation::expectedSize(), $checked, 'the corpus is truncated');
 
         $new = array_values(array_diff($offenders, self::KNOWN_LOSSY_UNDER_A_FULL_PROFILE));
         $this->assertSame([], $new, 'a full profile started denying a construct it used to allow');

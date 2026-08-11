@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -108,7 +109,11 @@ class AlwaysPublishedFieldsTest extends TestCase
     public function testEveryCorpusNodeCarriesItsTypesRequiredFields(): void
     {
         $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
-        $this->assertNotEmpty($files, 'the spec corpus submodule must be checked out');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($files),
+            'the corpus is truncated',
+        );
 
         $missing = [];
         foreach ($files as $file) {

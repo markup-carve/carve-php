@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -105,7 +106,11 @@ class SourcePositionTest extends TestCase
         // The standing gate. Coverage may rise or fall as more of the parser is
         // threaded; a span that points at the wrong bytes must stay impossible.
         $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
-        $this->assertGreaterThan(400, count($files), 'the corpus was not found');
+        $this->assertSame(
+            CorpusPopulation::expectedSize(),
+            count($files),
+            'the corpus is truncated',
+        );
 
         $checked = 0;
         $wrong = [];
