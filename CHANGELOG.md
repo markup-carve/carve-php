@@ -9,6 +9,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block wrapper that degrades to its content keeps the boundary it carried**
+  (markup-carve/carve-php#1164). Dropping the wrapper also dropped the block
+  break: `<div>a</div><div>b</div>` came out as the single paragraph `ab`, and
+  so did two divs each wrapping a paragraph. In a table cell the same defect
+  read `| a()b: |`, and two `<details>` `| s a()t b: |`. `processBlock()`
+  appends a block child's output directly and relies on the child ending
+  itself; a paragraph does, which is why a `<p>` pair was never affected and
+  only the degrading wrappers were. They now emit the same block separator
+  every other block writer does - one rule with two right answers, since
+  outside a table it is a real block break and inside a pipe-table cell the
+  cell serializer collapses it to a single space, a pipe row being one line
+  that cannot hold a break at all. A lone wrapper still trims to `| d |`
+  rather than gaining padding.
+
 - **`HtmlToCarve` no longer writes a construct into a table cell that cannot
   parse there** (markup-carve/carve-php#1164). A cell's own attributes were
   written with a space after the opening pipe, and a cell attribute block

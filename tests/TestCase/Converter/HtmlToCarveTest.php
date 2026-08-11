@@ -1291,6 +1291,76 @@ HTML;
     }
 
     /**
+     * A wrapper that degrades to its content inside a cell still has to
+     * SEPARATE that content. Dropping the wrapper joined the two runs with
+     * nothing between them, so `create()` and `guard:` came out as
+     * `create()guard:` - the block boundary the author wrote was simply gone.
+     *
+     * Paragraphs were never affected: they carry their own separator.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function blockWrappersInACellProvider(): array
+    {
+        return [
+            'two divs' => ['<div>a()</div><div>b:</div>', '<td>a() b:</td>'],
+            'two divs with classes' => ['<div class="x">a()</div><div class="y">b:</div>', '<td>a() b:</td>'],
+            'div then paragraph' => ['<div>a()</div><p>b:</p>', '<td>a() b:</td>'],
+            'paragraph then div' => ['<p>a()</p><div>b:</div>', '<td>a() b:</td>'],
+            'two paragraphs' => ['<p>a()</p><p>b:</p>', '<td>a() b:</td>'],
+            'details' => ['<details><summary>s</summary><p>a()</p></details>', '<td>s a()</td>'],
+            'two details' => [
+                '<details><summary>s</summary><p>a()</p></details><details><summary>t</summary><p>b:</p></details>',
+                '<td>s a() t b:</td>',
+            ],
+        ];
+    }
+
+    /**
+     * The same defect OUTSIDE a table, which is where it is worse: there a
+     * newline IS available, so the boundary the author wrote should survive as
+     * a real block break rather than as a space. Nothing in the suite covered
+     * this, which is how two divs wrapping two paragraphs came to collapse into
+     * one.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function blockWrappersOutsideATableProvider(): array
+    {
+        return [
+            'two divs' => ['<div>a</div><div>b</div>', "<p>a</p>\n<p>b</p>"],
+            'div then paragraph' => ['<div>a</div><p>b</p>', "<p>a</p>\n<p>b</p>"],
+            'divs wrapping paragraphs' => ['<div><p>a</p></div><div><p>b</p></div>', "<p>a</p>\n<p>b</p>"],
+            'paragraph then div' => ['<p>a</p><div>b</div>', "<p>a</p>\n<p>b</p>"],
+        ];
+    }
+
+    #[DataProvider('blockWrappersOutsideATableProvider')]
+    public function testADegradedWrapperKeepsItsBlockBreakOutsideATable(string $html, string $expected): void
+    {
+        $this->assertStringContainsString($expected, (new CarveConverter())->convert($this->converter->convert($html)));
+    }
+
+    #[DataProvider('blockWrappersInACellProvider')]
+    public function testABlockWrapperInACellStillSeparatesItsContent(string $inner, string $cell): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>' . $inner . '</td></tr></table>');
+
+        $this->assertStringContainsString($cell, (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * The separator is a separator, not padding: a single wrapper does not gain
+     * leading or trailing space in its cell.
+     */
+    public function testASingleWrapperInACellGainsNoPadding(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><div class="x">d</div></td></tr></table>');
+
+        $this->assertStringContainsString('| d |', $carve);
+    }
+
+    /**
      * The admonition and line-block round trips are colon fences too, and they
      * are reached before the ordinary div path - so the cell context has to be
      * consulted first, or they keep writing `::: note d :::` into a cell
@@ -1302,7 +1372,10 @@ HTML;
     {
         return [
             'admonition' => ['<div data-djot-admonition-type="note"><p>d</p></div>', '<td>d</td>'],
-            'line block' => ['<div class="line-block"><div>one</div><div>two</div></div>', '<td>onetwo</td>'],
+            // The two lines are separated rather than run together: a line
+            // block's lines ARE a block boundary, and dropping the fence in a
+            // cell no longer drops that with it.
+            'line block' => ['<div class="line-block"><div>one</div><div>two</div></div>', '<td>one two</td>'],
             'details' => ['<details><summary>s</summary><p>d</p></details>', '<td>s d</td>'],
         ];
     }
