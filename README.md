@@ -33,6 +33,19 @@ $converter = new CarveConverter();
 $html = $converter->convert('# Hello /Carve/');
 ~~~
 
+HTML migration can include an explicit loss report:
+
+~~~ php
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+
+$result = (new HtmlToCarve(importMode: 'safe'))->convertWithReport($html);
+$carve = $result->value;
+$report = $result->report();
+~~~
+
+The existing `convert()` API remains unchanged. The CLI equivalent is
+`carve migrate --from html --report report.json input.html`.
+
 HTML rendering can replace trusted `:name:` symbols with a configured map.
 Unmapped symbols render literally, and symbol attributes wrap the result in a
 `<span>`:
