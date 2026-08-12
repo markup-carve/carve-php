@@ -15,12 +15,13 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  *
  *   _x_ -> /x/ (Djot emphasis is underline in Carve)
  *   ~x~ -> {,x,} (Djot subscript is strikethrough in Carve; forced brace form)
+ *   {~x~} -> {,x,} (Djot spells subscript braced too, and means the same by it)
  *   {=x=} -> {=x=} (highlight is the same braced form in Carve)
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *
  * Constructs that mean the same in both languages ($math$, {+ins+},
- * {-del-}, reference links) are left untouched. Delimiters inside code (fenced
+ * {-del-}, {^x^}, reference links) are left untouched. Delimiters inside code (fenced
  * or inline) and link/image destinations are never rewritten. Only the
  * delimiters are replaced, never the inner text, so nested constructs of
  * different families compose correctly.
@@ -60,11 +61,37 @@ class DjotToCarve
             'close' => '~',
         ],
         [
+            // Djot spells subscript both bare and braced, and means the same
+            // thing by each. The braced spelling has to be matched here, ahead
+            // of the bare rule and in the same family, so it claims the range
+            // first: the bare rule's match sits inside this one, and the
+            // overlap check then rejects it. Without this the braced form
+            // reached the escaper instead and was written out as literal text,
+            // losing the subscript.
+            'id' => 'djot-subscript-tilde-braced',
+            'family' => '~',
+            'pattern' => '/\{~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~\}/',
+            'open' => '{,',
+            'close' => ',}',
+        ],
+        [
             'id' => 'djot-subscript-tilde',
             'family' => '~',
             'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~/',
             'open' => '{,',
             'close' => ',}',
+        ],
+        [
+            // Braced superscript is spelled identically in both languages, so
+            // the conversion is the identity. It still needs a rule: claiming
+            // the range is what stops the bare rule below from matching the
+            // `^x^` inside the braces and wrapping it a second time, into
+            // `{{^x^}}`.
+            'id' => 'djot-superscript-caret-braced',
+            'family' => '^',
+            'pattern' => '/\{\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^\}/',
+            'open' => '{^',
+            'close' => '^}',
         ],
         [
             // Carve has no bare superscript at all (a `^` outside the braced
@@ -187,7 +214,7 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if ($masked[$i] === ' ' && $source[$i] !== "\n") {
                 if ($plain !== '') {
-                    $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_', 'bare' => '~*_']);
+                    $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_^~', 'bare' => '~*_']);
                     $plain = '';
                 }
                 $result .= $source[$i];
@@ -199,7 +226,7 @@ class DjotToCarve
         }
 
         if ($plain !== '') {
-            $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_', 'bare' => '~*_']);
+            $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_^~', 'bare' => '~*_']);
         }
 
         return $result;
