@@ -34,6 +34,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`BbcodeToCarve` keeps code content literal** (markup-carve/carve-php#1206).
+  `escapePlainBbcodeText()` stashed code runs while it escaped and restored
+  them before returning, so every converter after it saw the enclosed markup
+  and rewrote it: `[code][b]not bold[/b][/code]` became a fence containing
+  `*not bold*`, which is neither what the author wrote nor BBCode. Showing
+  markup is most of what `[code]` is used for on a forum. Only the content is
+  stashed now, so the tags stay visible and the run still becomes a fence with
+  its language, and the sentinel is restored after the cleanup pass rather than
+  before it. `[c]`, `[icode]` and `[noparse]` carry the same contract and are
+  covered. `[noparse]`'s own tag still leaks into the output, which is
+  pre-existing and tracked separately.
+
 - **A Markdown hard break inside a block quote or list item survives the
   import** (markup-carve/carve-php#1207). The top-level case landed in
   markup-carve/carve-php#1205, but the condition asked `continuesParagraph()`

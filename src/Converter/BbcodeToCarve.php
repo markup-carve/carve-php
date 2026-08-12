@@ -33,6 +33,16 @@ class BbcodeToCarve
     protected const STASH_KEY_FIRST = 0xE001;
 
     /**
+     * @var int
+     */
+    protected const STASH_KEY_CODE = 0xE010;
+
+    /**
+     * @var array<int, string>
+     */
+    protected array $codeSentinels = ['', ''];
+
+    /**
      * Convert BBCode to Djot markup
      *
      * @throws \InvalidArgumentException when the input exceeds MAX_INPUT_LENGTH bytes
@@ -51,6 +61,22 @@ class BbcodeToCarve
         $djot = str_replace("\r\n", "\n", $djot);
         $djot = str_replace("\r", "\n", $djot);
         $djot = $this->escapePlainBbcodeText($djot);
+
+        // CODE CONTENT IS LITERAL, and it has to stay literal for the whole
+        // pipeline rather than for one step of it. escapePlainBbcodeText()
+        // stashes code while it escapes and restores before returning, so every
+        // converter below saw the enclosed markup and rewrote it:
+        // [code][b]not bold[/b][/code] came out as a fence containing
+        // *not bold*, which is neither what the author wrote nor BBCode - and
+        // showing markup is most of what [code] is used for on a forum
+        // (markup-carve/carve-php#1206).
+        //
+        // Only the CONTENT is stashed; the tags stay visible so convertCode()
+        // still recognizes the run and builds the fence. The sentinel is
+        // restored at the very END, after cleanup, because cleanup strips
+        // leftover BBCode tags and the content legitimately contains some.
+        $codeStash = [];
+        $djot = $this->stashCodeContent($djot, $codeStash);
 
         // Links and images first (before basic formatting escapes brackets)
         $djot = $this->convertLinks($djot);
@@ -74,6 +100,8 @@ class BbcodeToCarve
         // Clean up
         $djot = $this->cleanup($djot);
 
+        $djot = $this->restoreCodeContent($djot, $codeStash);
+
         return $djot;
     }
 
@@ -93,6 +121,62 @@ class BbcodeToCarve
      * contain cannot be authored, so there is no unrelated span to substitute
      * and no index that was not put there by this method.
      */
+
+    /**
+     * Replace the CONTENT of every code run with a sentinel.
+     *
+     * The tags are left in place so convertCode() still sees a code run and
+     * builds its fence; only what the author wrote inside is hidden, which is
+     * the part that has to survive verbatim. [noparse] carries the same
+     * contract - its content is shown, not read - and is stashed with them.
+     *
+     * @param string $text
+     * @param array<int, string> $stash
+     */
+    protected function stashCodeContent(string $text, array &$stash): string
+    {
+        [$open, $close] = DocumentSentinels::pick($text, 2, self::STASH_KEY_CODE);
+        $this->codeSentinels = [$open, $close];
+
+        $protect = function (array $match) use (&$stash, $open, $close): string {
+            $stash[] = $match[2];
+
+            return $match[1] . $open . (count($stash) - 1) . $close . $match[3];
+        };
+
+        $patterns = [
+            '/(\[code(?:=[^\]]*)?\])(.*?)(\[\/code\])/is',
+            '/(\[(?:c|icode)\])(.*?)(\[\/(?:c|icode)\])/is',
+            '/(\[noparse\])(.*?)(\[\/noparse\])/is',
+        ];
+        foreach ($patterns as $pattern) {
+            $text = preg_replace_callback($pattern, $protect, $text) ?? $text;
+        }
+
+        return $text;
+    }
+
+    /**
+     * Put the code content back, after every pass that could rewrite it.
+     *
+     * @param string $text
+     * @param array<int, string> $stash
+     */
+    protected function restoreCodeContent(string $text, array $stash): string
+    {
+        if ($stash === []) {
+            return $text;
+        }
+
+        [$open, $close] = $this->codeSentinels;
+
+        return preg_replace_callback(
+            '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u',
+            fn (array $match): string => $stash[(int)$match[1]],
+            $text,
+        ) ?? $text;
+    }
+
     protected function escapePlainBbcodeText(string $bbcode): string
     {
         [$open, $close] = DocumentSentinels::pick($bbcode, 2, self::STASH_KEY_FIRST);
