@@ -341,6 +341,7 @@ class CarveCorpusTest extends TestCase
         'a-below-column-marker-after-a-comment-where-no-paragraph-is-open',
         'a-list-marker-at-the-content-column-inside-an-open-fence',
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
+        'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
     ];
 
     /**
