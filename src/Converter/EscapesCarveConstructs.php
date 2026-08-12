@@ -57,6 +57,47 @@ trait EscapesCarveConstructs
     }
 
     /**
+     * Escape a brace that opens what Carve would read as an ATTRIBUTE BLOCK,
+     * for a source language that has no such construct.
+     *
+     * `{#id}` is an attribute block in Carve and in Djot, so DjotToCarve must
+     * leave it alone - a pinned id is deliberate there. In HTML and BBCode text
+     * the same characters are literal, and left bare the `#` rule declines to
+     * escape them (it defers to the brace rule, which only matches a complete
+     * pair), so `a {#id} b` came back with a tag span inside literal braces.
+     *
+     * @param string $text
+     */
+    protected function escapeAttributeBlockOpener(string $text): string
+    {
+        return $this->escapeUnlessAlreadyEscaped('/\{(?=#)/', $text);
+    }
+
+    /**
+     * Escape the verbatim delimiter, for a source language that has no code
+     * span of its own to convert.
+     *
+     * A backtick in HTML or BBCode text is a character. Carried across bare it
+     * opens a Carve code span, so plain text turned into markup: `a `b` c` came
+     * back as `a <code>b</code> c` (markup-carve/carve-php#1216). A lone
+     * backtick was worse - `x ` y` has no pair at all and still produced
+     * `<code> y</code>`.
+     *
+     * Only the TEXT path calls this. A `code` or `pre` element takes its own
+     * route and emits its own fence, and BBCode's code tags are stashed before
+     * any escaping runs, so neither is reached from here.
+     *
+     * Djot and Markdown do not call it: a backtick there already means a code
+     * span, and their converters carry it over as one.
+     *
+     * @param string $text
+     */
+    protected function escapeVerbatimDelimiter(string $text): string
+    {
+        return $this->escapeUnlessAlreadyEscaped('/`/', $text);
+    }
+
+    /**
      * Is the character at that offset already escaped?
      *
      * An ODD run of backslashes before it escapes it; an even run is literal
@@ -146,6 +187,21 @@ trait EscapesCarveConstructs
         $bracedDelimiters = $this->bracedDelimiterClass($bracedHandled);
         if ($bracedDelimiters !== '') {
             $line = $this->escapeBracedPairs($line, $bracedDelimiters);
+
+            // A brace that LOOKS like a pair opener but never closes is escaped
+            // too. The bare rules below decline to escape a delimiter sitting
+            // behind an unescaped `{`, on the assumption that the rule above
+            // already handled the pair - and when there is no pair, nothing
+            // did: `a {*b{* c` kept both its brace and its `*` pair and came
+            // back as `a {<strong>b{</strong> c` (markup-carve/carve-php#1218).
+            // Escaping the brace is what makes that assumption true again.
+            // `#` is excluded: `{#id}` is an ATTRIBUTE BLOCK, not a pair
+            // opener, and escaping its brace destroyed an id the Djot source
+            // pinned deliberately.
+            $unpairedOpeners = str_replace(preg_quote('#', '/'), '', $bracedDelimiters);
+            if ($unpairedOpeners !== '') {
+                $line = $this->escapeUnlessAlreadyEscaped('/\{(?=[' . $unpairedOpeners . '])/', $line);
+            }
         }
 
         // The `/` in the lookbehind is not symmetry with the rules below, it is
