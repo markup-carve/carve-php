@@ -34,6 +34,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`BbcodeToCarve` consumes `[noparse]` instead of emitting it**
+  (markup-carve/carve-php#1209). The tag has no Carve construct to become - its
+  whole effect is that the enclosed text is literal - so keeping it wrote
+  `[noparse]` verbatim into a document that has no such thing, and the cleanup
+  pass then ate the closer and left it unbalanced. The tags are dropped and the
+  content is kept as the escaper already left it; escaping it a second time
+  doubled the backslash and rendered both a stray backslash and the markup it
+  was meant to suppress.
+
 - **`BbcodeToCarve` keeps code content literal** (markup-carve/carve-php#1206).
   `escapePlainBbcodeText()` stashed code runs while it escaped and restored
   them before returning, so every converter after it saw the enclosed markup

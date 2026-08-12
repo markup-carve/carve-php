@@ -147,13 +147,29 @@ class BbcodeToCarve
         $patterns = [
             '/(\[code(?:=[^\]]*)?\])(.*?)(\[\/code\])/is',
             '/(\[(?:c|icode)\])(.*?)(\[\/(?:c|icode)\])/is',
-            '/(\[noparse\])(.*?)(\[\/noparse\])/is',
         ];
         foreach ($patterns as $pattern) {
             $text = preg_replace_callback($pattern, $protect, $text) ?? $text;
         }
 
-        return $text;
+        // [noparse] has no Carve construct to become. Its whole effect is "the
+        // enclosed text is literal", so the TAGS are consumed and the content
+        // is escaped to stay literal - the same treatment ordinary text gets.
+        // Keeping the tags emitted them into the output verbatim, and the
+        // cleanup pass then ate the closer, leaving an unbalanced `[noparse]`
+        // in a document that has no such construct (markup-carve/carve-php#1209).
+        // The content is already escaped: escapePlainBbcodeText() ran over the
+        // whole document before this, and it does not stash [noparse]. Escaping
+        // again here doubled the backslash - `a *b* c` became `a \\*b* c`,
+        // which renders a literal backslash AND the bold it was meant to
+        // prevent. So the content is stashed as it stands and only the tags go.
+        $dropTags = function (array $match) use (&$stash, $open, $close): string {
+            $stash[] = $match[1];
+
+            return $open . (count($stash) - 1) . $close;
+        };
+
+        return preg_replace_callback('/\[noparse\](.*?)\[\/noparse\]/is', $dropTags, $text) ?? $text;
     }
 
     /**
