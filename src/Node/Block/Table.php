@@ -12,6 +12,12 @@ class Table extends BlockNode
     protected ?Caption $caption = null;
 
     /**
+     * @var array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null Optional abbreviated
+     *      navigation caption supplied by a structured format. Ordinary renderers ignore it.
+     */
+    protected ?array $shortCaption = null;
+
+    /**
      * Original separator widths for round-trip preservation
      *
      * @var array<int>|null
@@ -36,6 +42,22 @@ class Table extends BlockNode
     public function hasCaption(): bool
     {
         return $this->caption !== null;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null $shortCaption
+     */
+    public function setShortCaption(?array $shortCaption): void
+    {
+        $this->shortCaption = $shortCaption;
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null
+     */
+    public function getShortCaption(): ?array
+    {
+        return $this->shortCaption;
     }
 
     /**

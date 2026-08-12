@@ -15,6 +15,30 @@ namespace MarkupCarve\Carve\Node\Block;
  */
 class Figure extends BlockNode
 {
+    /**
+     * Optional abbreviated navigation caption supplied by a structured format.
+     * Carve 0.1 source has no spelling; ordinary renderers intentionally ignore it.
+     *
+     * @var array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null
+     */
+    protected ?array $shortCaption = null;
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null $shortCaption
+     */
+    public function setShortCaption(?array $shortCaption): void
+    {
+        $this->shortCaption = $shortCaption;
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null
+     */
+    public function getShortCaption(): ?array
+    {
+        return $this->shortCaption;
+    }
+
     public function getType(): string
     {
         return 'figure';
