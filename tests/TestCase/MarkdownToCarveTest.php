@@ -755,6 +755,13 @@ class MarkdownToCarveTest extends TestCase
         );
     }
 
+    public function testIndentedCodeEndsAtALessIndentedLine(): void
+    {
+        // The run stops at the first non-blank line below the indent, and the
+        // blank Carve needs after a block is given back to the document.
+        $this->assertSame("```\na\n```\n\ntext\n", $this->converter->convert("    a\ntext\n"));
+    }
+
     public function testAnIndentedListContinuationIsNotCode(): void
     {
         // Four spaces under a list item is item content, not a code block: the
