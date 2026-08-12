@@ -146,6 +146,8 @@ class HtmlRenderer implements RendererInterface
 
     protected int $renderDepth = 0;
 
+    protected bool $suppressAutomaticAbbreviation = false;
+
     /**
      * @var array<string, string>
      */
@@ -1911,9 +1913,51 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSpan(Span $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $order = ['abbr', 'time', 'code', 'mark', 'samp', 'var', 'kbd', 'cite', 'dfn'];
+        $authored = $node->getAttributes();
+        $semantic = [];
+        foreach ($order as $name) {
+            if (array_key_exists($name, $authored)) {
+                $semantic[$name] = $authored[$name];
+            }
+        }
+        if ($semantic === []) {
+            return '<span' . $this->renderAttributes($node) . '>' . $this->renderChildren($node) . '</span>';
+        }
 
-        return '<span' . $attrs . '>' . $this->renderChildren($node) . '</span>';
+        $previousSuppression = $this->suppressAutomaticAbbreviation;
+        if (array_key_exists('abbr', $semantic)) {
+            $this->suppressAutomaticAbbreviation = true;
+        }
+        try {
+            $html = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previousSuppression;
+        }
+        foreach ($order as $name) {
+            if (!array_key_exists($name, $semantic)) {
+                continue;
+            }
+            $value = $semantic[$name];
+            $mapped = '';
+            if ($value !== '' && ($name === 'abbr' || $name === 'dfn')) {
+                $mapped = ' title="' . $this->escapeAttribute($value) . '"';
+            } elseif ($value !== '' && $name === 'time') {
+                $mapped = ' datetime="' . $this->escapeAttribute($value) . '"';
+            }
+            $html = '<' . $name . $mapped . '>' . $html . '</' . $name . '>';
+        }
+
+        $remainingAuthored = array_diff_key($authored, $semantic);
+        if ($remainingAuthored !== []) {
+            $remaining = $this->getRenderableAttributes($node);
+            foreach (array_keys($semantic) as $name) {
+                unset($remaining[$name]);
+            }
+            $html = '<span' . $this->renderAttributeArray($remaining) . '>' . $html . '</span>';
+        }
+
+        return $html;
     }
 
     /**
@@ -2140,6 +2184,9 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderAbbreviation(Abbreviation $node): string
     {
+        if ($this->suppressAutomaticAbbreviation) {
+            return $this->renderChildren($node);
+        }
         $title = $node->getTitle();
 
         // DoS guard: once the cumulative expansion bytes would exceed the

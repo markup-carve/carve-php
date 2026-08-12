@@ -24,6 +24,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gap: a cell's own attributes are dropped in this form, because Carve has no
   per-list-item attribute spelling to carry them.
 
+### Changed
+
+- **Compact semantic span attributes are now portable core syntax.** Existing
+  `[Ctrl]{kbd}`, `[HTML]{abbr="…"}`, and combined forms work without registering
+  `SemanticSpanExtension`, and the registry now also includes `time`, `code`,
+  `mark`, and `cite`. The old extension class remains as a deprecated no-op
+  compatibility shim throughout 0.1.x.
+
 ### Fixed
 
 - **A second `^ ` line no longer replaces a table's caption**

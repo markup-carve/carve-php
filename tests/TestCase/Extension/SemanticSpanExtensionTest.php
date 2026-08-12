@@ -179,9 +179,7 @@ class SemanticSpanExtensionTest extends TestCase
 
         $html = $converter->convert('[Ctrl+C]{kbd}');
 
-        // Should render as span with kbd attribute
-        $this->assertStringContainsString('<span kbd="">Ctrl+C</span>', $html);
-        $this->assertStringNotContainsString('<kbd>', $html);
+        $this->assertStringContainsString('<kbd>Ctrl+C</kbd>', $html);
     }
 
     public function testRemainingAttributesUseHtmlHardening(): void
