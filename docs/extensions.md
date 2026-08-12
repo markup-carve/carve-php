@@ -1096,6 +1096,13 @@ author: John Doe
 
 ### SemanticSpanExtension
 
+> Legacy PHP-specific attribute mapping. This extension handles Djot-style
+> spans such as `[Ctrl]{kbd}` and may combine several wrappers. Portable Carve
+> documents should use the built-in `:kbd[Ctrl]`, `:abbr[…]`, `:cite[…]`,
+> `:dfn[…]`, `:samp[…]`, `:var[…]`, `:time[…]`, `:code[…]`, and `:mark[…]`
+> forms instead; those require no extension registration and use the ordinary
+> `inline_extension` AST node.
+
 Turns spans carrying semantic attributes into proper HTML5 elements:
 `{kbd}` -> `<kbd>`, `{dfn}` -> `<dfn>`, `{abbr="..."}` -> `<abbr title="...">`,
 `{samp}` -> `<samp>`, `{var}` -> `<var>`. Attributes can be combined, with `dfn`

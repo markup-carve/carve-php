@@ -26,6 +26,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Built-in semantic inline extensions now match carve-js and carve-rs.**
+  `:abbr[…]`, `:cite[…]`, `:dfn[…]`, `:samp[…]`, `:var[…]`, `:time[…]`,
+  `:code[…]`, and `:mark[…]` now render as their same-named HTML elements;
+  `:kbd[…]` already did. Parsing, AST JSON, plain/ANSI output and source
+  formatting are unchanged. This is observable for CSS/DOM consumers: for
+  example, `:abbr[HTML]` changes from `<span class="ext-abbr">HTML</span>` to
+  `<abbr>HTML</abbr>`. The older PHP-only `SemanticSpanExtension` remains
+  available for attribute syntax such as `[HTML]{abbr="…"}`.
+
 - **An escaped brace no longer suppresses the delimiter after it**
   (markup-carve/carve-php#1191). `a \{/x/} b` rendered as the literal
   `a {/x/} b` here while carve-js and carve-rs rendered
