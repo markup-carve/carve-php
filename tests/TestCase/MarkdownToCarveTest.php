@@ -82,9 +82,9 @@ class MarkdownToCarveTest extends TestCase
                 'a ~~gone~~ word',
                 'a ~gone~ word',
             ],
-            'converts ==highlight== to a single = (Carve highlight)' => [
+            'leaves ==highlight== literal (not CommonMark or GFM)' => [
                 'a ==hot== word',
-                'a =hot= word',
+                'a ==hot== word',
             ],
             'leaves ^superscript^ unchanged' => [
                 'x^2^ end',
@@ -471,10 +471,10 @@ class MarkdownToCarveTest extends TestCase
                 'a \=hl= b',
                 '<p>a =hl= b</p>',
             ],
-            'escapes strike literal' => [
+            'a paired single tilde is GFM strikethrough, not literal' => [
                 'a ~s~ b',
-                'a \~s~ b',
-                '<p>a ~s~ b</p>',
+                'a ~s~ b',
+                '<p>a <s>s</s> b</p>',
             ],
             'escapes superscript literal' => [
                 'a {^y^} b',
@@ -511,10 +511,12 @@ class MarkdownToCarveTest extends TestCase
                 'a \{-x-} b',
                 '<p>a {-x-} b</p>',
             ],
-            'escapes braced strike literal' => [
+            'escapes the brace but keeps the strike inside it' => [
+                // GFM reads the tilde pair through the braces, so the braces
+                // are the only literal part here.
                 'a {~x~} b',
-                'a \{\~x~} b',
-                '<p>a {~x~} b</p>',
+                'a \{~x~} b',
+                '<p>a {<s>x</s>} b</p>',
             ],
             'escapes braced emphasis literal' => [
                 'a {/x/} b',
@@ -613,7 +615,7 @@ class MarkdownToCarveTest extends TestCase
             'underscore emphasis' => ['_em_', '/em/'],
             'asterisk emphasis' => ['*em*', '/em/'],
             'GFM strike' => ['~~s~~', '~s~'],
-            'Markdown highlight' => ['==h==', '=h='],
+            'highlight stays literal by default' => ['==h==', '==h=='],
             'HTML sup' => ['<sup>x</sup>', '{^x^}'],
             'HTML sub' => ['<sub>x</sub>', '{,x,}'],
             'HTML mark' => ['<mark>x</mark>', '{=x=}'],
@@ -759,5 +761,43 @@ class MarkdownToCarveTest extends TestCase
         // previous line is not blank, so it never reaches the code branch.
         $html = (new CarveConverter())->convert($this->converter->convert("- a\n    b\n"));
         $this->assertStringNotContainsString('<pre>', $html);
+    }
+
+    public function testAPairedSingleTildeIsStrikethrough(): void
+    {
+        // GFM strikethrough is "a matching pair of one or two tildes", so the
+        // single form is struck; it was escaped into literal text before.
+        $html = (new CarveConverter())->convert($this->converter->convert("a ~b~ c\n"));
+        $this->assertStringContainsString('<s>b</s>', $html);
+    }
+
+    public function testAnUnpairedTildeStaysLiteral(): void
+    {
+        // Literal in GFM and in Carve alike - a lone tilde opens nothing.
+        foreach (["a ~ b\n", "a ~b c\n"] as $markdown) {
+            $html = (new CarveConverter())->convert($this->converter->convert($markdown));
+            $this->assertStringNotContainsString('<s>', $html);
+        }
+    }
+
+    public function testHighlightIsLiteralByDefaultAndConvertsWhenAsked(): void
+    {
+        // `==x==` is literal in CommonMark and GFM, so converting it by default
+        // invented a highlight the source never had. The flag mirrors
+        // `convertMath`, for the flavours that do define it.
+        $this->assertSame("a ==b== c\n", $this->converter->convert("a ==b== c\n"));
+
+        $optIn = new MarkdownToCarve(convertHighlight: true);
+        $this->assertSame("a =b= c\n", $optIn->convert("a ==b== c\n"));
+        $this->assertStringContainsString(
+            '<mark>b</mark>',
+            (new CarveConverter())->convert($optIn->convert("a ==b== c\n")),
+        );
+    }
+
+    public function testTheTwoDialectFlagsAreIndependent(): void
+    {
+        $mathOnly = new MarkdownToCarve(convertMath: true);
+        $this->assertSame("a ==b== c\n", $mathOnly->convert("a ==b== c\n"));
     }
 }
