@@ -194,6 +194,29 @@ class MarkdownToCarve
                 continue;
             }
 
+            // A Markdown INDENTED code block becomes a Carve FENCE. Carve has
+            // no indented code block, so the run was reaching the ordinary text
+            // path: the code became a PARAGRAPH and its own delimiters were
+            // rewritten as markup. `    let x = *not bold*` migrated to
+            // `    let x = /not bold/` - the code's asterisks silently changed.
+            //
+            // The previous line must be blank, which is what keeps this safe:
+            // an indented line under a list item is item continuation, not
+            // code, and never reaches here.
+            if (($prevLineType === 'blank' || $prevLineType === 'code_fence') && preg_match('/^(?: {4,}|\t)/', $line)) {
+                $block = $this->collectIndentedCode($lines, $i);
+                if ($prevLineType !== 'blank' && $result !== []) {
+                    $result[] = '';
+                }
+                foreach ($block['lines'] as $blockLine) {
+                    $result[] = $blockLine;
+                }
+                $i = $block['end'] - 1;
+                $prevLineType = 'code_fence';
+
+                continue;
+            }
+
             // A GFM table header: a `|...|` row whose NEXT line is a delimiter
             // row (the table's second row). Emit the Carve-canonical `|=` header
             // with alignment markers and drop the separator; body rows pass
@@ -289,7 +312,28 @@ class MarkdownToCarve
                 $bulletRunBroken = false;
             }
 
-            $result[] = $this->convertInlineFormatting($body);
+            $converted = $this->convertInlineFormatting($body);
+
+            // A Markdown HARD BREAK is two or more spaces at the end of a line;
+            // Carve spells it with a trailing backslash. Trailing spaces mean
+            // NOTHING in Carve, so carrying them across DROPPED the break -
+            // `a  ` then `b` migrated to a paragraph with no `<br>` in it.
+            //
+            // CommonMark has no hard break at a paragraph's end, so the next
+            // line has to be part of the same paragraph: non-blank, and not the
+            // start of another block. Heading and list lines are excluded for
+            // the same reason - a break has nothing to break there.
+            if (
+                !$isHeading
+                && !$isList
+                && preg_match('/ {2,}$/', $body)
+                && $i + 1 < $lineCount
+                && $this->continuesParagraph($lines[$i + 1])
+            ) {
+                $converted = rtrim($converted) . '\\';
+            }
+
+            $result[] = $converted;
 
             if ($isHeading && $i + 1 < $lineCount) {
                 $nextTrimmed = trim($lines[$i + 1]);
@@ -470,6 +514,84 @@ class MarkdownToCarve
         $parts = preg_split('/(?<!\\\\)\|/', $line);
 
         return $parts === false ? [] : $parts;
+    }
+
+    /**
+     * Collect a Markdown indented code block and re-emit it as a Carve fence.
+     *
+     * The run is the contiguous stretch of lines indented four columns (or one
+     * tab), plus any blank lines BETWEEN them - a blank line does not end an
+     * indented code block in CommonMark, only a less-indented non-blank one
+     * does. Trailing blanks belong to the document, so they are given back.
+     *
+     * Exactly one indent step is removed, which is what CommonMark strips;
+     * deeper indentation is the code's own and is kept.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     *
+     * @return array{lines: array<int, string>, end: int}
+     */
+    protected function collectIndentedCode(array $lines, int $start): array
+    {
+        $lineCount = count($lines);
+        $run = [];
+        $end = $start;
+        for ($i = $start; $i < $lineCount; $i++) {
+            $line = $lines[$i];
+            if (trim($line) === '') {
+                $run[] = $line;
+
+                continue;
+            }
+            if (!preg_match('/^(?: {4,}|\t)/', $line)) {
+                break;
+            }
+            $run[] = $line;
+            $end = $i + 1;
+        }
+
+        $body = [];
+        $longestRun = 0;
+        foreach (array_slice($run, 0, $end - $start) as $line) {
+            $dedented = trim($line) === '' ? '' : (preg_replace('/^(?: {4}|\t)/', '', $line) ?? $line);
+            $body[] = $dedented;
+            $length = strlen($dedented);
+            for ($i = 0; $i < $length; $i++) {
+                if ($dedented[$i] === '`') {
+                    $longestRun = max($longestRun, $this->backtickRunLength($dedented, $i));
+                }
+            }
+        }
+
+        $fence = str_repeat('`', max(3, $longestRun + 1));
+        $out = array_merge([$fence], $body, [$fence]);
+        // Carve needs a blank line after a block; the caller resumes at `end`,
+        // which is the first line the run did not take.
+        if ($end < $lineCount && trim($lines[$end]) !== '') {
+            $out[] = '';
+        }
+
+        return ['lines' => $out, 'end' => $end];
+    }
+
+    /**
+     * Whether a line continues the paragraph above it rather than opening a
+     * block of its own.
+     *
+     * Only used to decide whether a hard break has anything to break: a break
+     * before a heading, list, quote, fence or rule is a break at the end of the
+     * paragraph, which CommonMark does not recognize.
+     */
+    protected function continuesParagraph(string $line): bool
+    {
+        $trimmed = trim($line);
+        if ($trimmed === '') {
+            return false;
+        }
+
+        return !preg_match('/^(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|`{3,}|~{3,})/', $trimmed)
+            && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed);
     }
 
     /**
