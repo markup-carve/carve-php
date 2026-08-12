@@ -2856,8 +2856,15 @@ class BlockParser
             return;
         }
 
-        while ($endLine > $startLine && IndentationHelper::isBlankLine($this->sourceLines[$endLine] ?? '')) {
-            $endLine--;
+        // A trailing blank line is normally spacing after the block, not part of
+        // it. It is NOT spacing when the block is verbatim and the blank is its
+        // own content: a fence that ends with the container rather than with a
+        // closer holds that line, and trimming it reported the SAME extent for
+        // two documents whose content differs (carve-php#1183).
+        if (!$this->endsWithVerbatimBlankLine($node)) {
+            while ($endLine > $startLine && IndentationHelper::isBlankLine($this->sourceLines[$endLine] ?? '')) {
+                $endLine--;
+            }
         }
         $start = $this->lineStartOffsets[$startLine] ?? null;
         $end = $this->lineStartOffsets[$endLine] ?? null;
@@ -2879,6 +2886,26 @@ class BlockParser
             $start,
             $end,
         ));
+    }
+
+    /**
+     * Whether this block's own content ends with a blank line.
+     *
+     * True for a verbatim block whose content ends in a newline - the newline
+     * terminates a line, so one more (empty) line belongs to the node - and for
+     * a container whose last child is such a block, since the container's span
+     * has to reach at least as far as what it holds.
+     */
+    private function endsWithVerbatimBlankLine(Node $node): bool
+    {
+        if ($node instanceof CodeBlock || $node instanceof RawBlock || $node instanceof Comment) {
+            return str_ends_with($node->getContent(), "\n");
+        }
+
+        $children = $node->getChildren();
+        $last = $children === [] ? null : $children[array_key_last($children)];
+
+        return $last instanceof Node && $this->endsWithVerbatimBlankLine($last);
     }
 
     private function stampNodeSourceLine(Node $node, int $sourceLine): void
