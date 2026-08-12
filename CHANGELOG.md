@@ -40,6 +40,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as `{^a<sub>b</sub>c^}`, both losing the superscript and inventing a
   subscript, and now matches Djot's `<sup>a{,b,}c</sup>`.
 
+- **A footnote reference no longer crosses a source newline.** The parser used
+  to publish an unresolved `footnote_ref` whose id contained that newline,
+  although the one-line definition marker could never bind it. The bracketed
+  source now remains ordinary text around a soft break, matching the grammar;
+  rendered HTML and canonical source are unchanged.
+
 - **A block wrapper that degrades to its content keeps the boundary it carried**
   (markup-carve/carve-php#1164). Dropping the wrapper also dropped the block
   break: `<div>a</div><div>b</div>` came out as the single paragraph `ab`, and

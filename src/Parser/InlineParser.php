@@ -4180,8 +4180,10 @@ class InlineParser
      */
     protected function parseFootnoteRef(string $text, int $pos): ?array
     {
-        // Match [^label] - \G anchors at offset position, avoiding extra strpos check
-        if (!preg_match('/\G\[\^([^\]]+)\]/', $text, $matches, 0, $pos)) {
+        // A label is a physical-line identifier. A definition marker cannot
+        // cross a newline, so accepting one in a reference creates an id that
+        // no valid definition can bind.
+        if (!preg_match('/\G\[\^([^\]\r\n]+)\]/', $text, $matches, 0, $pos)) {
             return null;
         }
 
