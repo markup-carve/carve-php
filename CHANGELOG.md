@@ -34,6 +34,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A single-line list item stays on its marker line**
+  (markup-carve/carve-php#1217). `HtmlToCarve` pushed an item's first part below
+  the marker whenever it began with a block-marker character, which left `- `
+  alone on its line - and a marker with nothing after it is not a marker, so the
+  item came back as a paragraph reading `-` with its content outside the list.
+  It fired on text that merely looked like a block (`<li>|start</li>`) and on
+  real blocks alike, so a heading, a blockquote or a table inside an item was
+  lost as well. Only a part spanning more than one line now goes below the
+  marker.
+
 - **Plain HTML and BBCode text no longer becomes Carve markup**
   (markup-carve/carve-php#1216, markup-carve/carve-php#1218). Neither language
   has a code span or an attribute block of its own, so a backtick or a `{#id}`
