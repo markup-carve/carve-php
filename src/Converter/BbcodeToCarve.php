@@ -214,7 +214,10 @@ class BbcodeToCarve
         // opener of the very marker convertLists() is about to read.
         $text = preg_replace_callback('/\[\*\]/', $protect, $text) ?? $text;
 
-        $text = $this->escapePlainCarveInlineSyntax($text);
+        // BBCode has no backslash escape either, so a backslash here is the
+        // author's character. Doubled after the tags and code spans are stashed,
+        // so only real text is touched.
+        $text = $this->escapePlainCarveInlineSyntax($this->escapeLiteralBackslashes($text));
 
         return preg_replace_callback(
             '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u',

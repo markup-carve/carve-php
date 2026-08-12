@@ -290,8 +290,16 @@ class HtmlToCarveTest extends TestCase
         );
 
         $this->assertStringContainsString('`a {,y,} b`', $carve);
-        $this->assertStringContainsString('[a \\\\{,y,} b](ftp://x/)', $carve);
+        // One backslash, escaping the brace. Two would be a LITERAL backslash
+        // followed by a live subscript, which is what the label path used to
+        // emit here - it doubled a backslash the text pass had already written
+        // as an escape (markup-carve/carve-php#1214).
+        $this->assertStringContainsString('[a \\{,y,} b](ftp://x/)', $carve);
         $this->assertStringContainsString("```\na %%c%% b\n```", $carve);
+
+        // The claim behind the spelling: the label survives the round trip.
+        $back = (new CarveConverter())->convert($carve);
+        $this->assertStringContainsString('<a href="ftp://x/">a {,y,} b</a>', $back);
     }
 
     /**

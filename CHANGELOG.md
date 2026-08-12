@@ -34,6 +34,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A literal backslash in HTML or BBCode text survives the conversion**
+  (markup-carve/carve-php#1214). Neither language has a backslash escape, so a
+  backslash in their text is one the author typed; Carve does have one, so an
+  undoubled backslash arriving there was read as an escape and ate the character
+  after it. `a \*b* c` in HTML came back as `a *b* c`, and `x \ y` came back
+  with a non-breaking space, because `\ ` is that escape. `HtmlToCarve` and
+  `BbcodeToCarve` now double backslashes before escaping delimiters; `DjotToCarve`
+  and `MarkdownToCarve` deliberately do not, since a backslash there is the
+  author's own escape. A link label is no longer escaped twice as part of the
+  same change.
+
 - **A delimiter the source already escaped is no longer escaped a second time**
   (markup-carve/carve-php#1212). Doubling it was worse than leaving it alone:
   the doubled backslash rendered as a literal backslash AND freed the delimiter
