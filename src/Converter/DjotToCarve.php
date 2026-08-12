@@ -15,12 +15,13 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  *
  *   _x_ -> /x/ (Djot emphasis is underline in Carve)
  *   ~x~ -> {,x,} (Djot subscript is strikethrough in Carve; forced brace form)
+ *   {~x~} -> {,x,} (Djot spells subscript braced too, and means the same by it)
  *   {=x=} -> {=x=} (highlight is the same braced form in Carve)
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *
  * Constructs that mean the same in both languages ($math$, {+ins+},
- * {-del-}, reference links) are left untouched. Delimiters inside code (fenced
+ * {-del-}, {^x^}, reference links) are left untouched. Delimiters inside code (fenced
  * or inline) and link/image destinations are never rewritten. Only the
  * delimiters are replaced, never the inner text, so nested constructs of
  * different families compose correctly.

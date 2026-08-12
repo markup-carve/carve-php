@@ -26,6 +26,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`DjotToCarve` converts Djot's braced subscript and superscript instead of
+  escaping them** (markup-carve/carve-php#1186). Djot spells subscript and
+  superscript both bare and braced and means the same by each, but only the bare
+  spelling had a rule. The braced spelling fell through to the escaper and was
+  written out as literal text, so `{~x~}` lost its subscript and `{^x^}` lost
+  its superscript - the silent content change the converter exists to prevent.
+  `{~x~}` now converts to `{,x,}` like the bare form, and `{^x^}`, which means
+  superscript in both languages, is left alone. carve-js's `djot-migrate`, named
+  in this class's own docblock as the canonical list, already excluded `{^x^}`
+  as "valid in both languages" and already suggested `{,x,}` for `{~x~}`. The
+  nested case is corrected by the same change: `{^a{,b,}c^}` had been rendering
+  as `{^a<sub>b</sub>c^}`, both losing the superscript and inventing a
+  subscript, and now matches Djot's `<sup>a{,b,}c</sup>`.
+
 - **A block wrapper that degrades to its content keeps the boundary it carried**
   (markup-carve/carve-php#1164). Dropping the wrapper also dropped the block
   break: `<div>a</div><div>b</div>` came out as the single paragraph `ab`, and

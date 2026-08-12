@@ -68,9 +68,45 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($input, $this->converter->convert($input));
     }
 
+    /**
+     * The braced superscript is spelled the same in both languages and means
+     * superscript in both, so the conversion is the identity - which is what
+     * the name has always said. It previously escaped the brace instead,
+     * turning the superscript into literal text.
+     *
+     * carve-js's `djot-migrate`, which this converter's docblock names as its
+     * canonical source, excludes this form from its superscript rule in so many
+     * words: "the braced `{^x^}` form, which is valid in both languages".
+     */
     public function testPreBracedForcedSuperscriptIsUntouched(): void
     {
-        $this->assertSame('\\{^x^}', $this->converter->convert('{^x^}'));
+        $this->assertSame('{^x^}', $this->converter->convert('{^x^}'));
+    }
+
+    /**
+     * Djot spells subscript bare and braced and means the same by each, so the
+     * braced form converts exactly like the bare one. It previously escaped
+     * instead, dropping the subscript.
+     */
+    public function testBracedSubscriptConvertsLikeTheBareForm(): void
+    {
+        $this->assertSame('{,y,}', $this->converter->convert('{~y~}'));
+        $this->assertSame(
+            $this->converter->convert('~y~'),
+            $this->converter->convert('{~y~}'),
+        );
+    }
+
+    /**
+     * BOUND: the bare superscript still needs the braced form, and a Carve
+     * construct that Djot does not share is still escaped. Neither row moves
+     * under this change - they are here so a fix cannot pass by exempting every
+     * braced delimiter from escaping.
+     */
+    public function testTheSurroundingRulesAreUnchanged(): void
+    {
+        $this->assertSame('{^x^}', $this->converter->convert('^x^'));
+        $this->assertSame('\\{,y,}', $this->converter->convert('{,y,}'));
     }
 
     public function testPreBracedForcedSubscriptIsUntouched(): void
@@ -180,8 +216,10 @@ class DjotToCarveTest extends TestCase
             'bare slash' => ['a /it/ b', 'a /it/ b'],
             'bare equals' => ['a =hi= b', 'a =hi= b'],
             'braced subscript' => ['a {,y,} b', 'a {,y,} b'],
-            'braced superscript' => ['a {^y^} b', 'a {^y^} b'],
-            'braced strikethrough' => ['a {~y~} b', 'a {~y~} b'],
+            // `{^y^}` and `{~y~}` are NOT plain Djot text - Djot renders them
+            // as superscript and subscript - so they belong to the conversion
+            // tests above, not here. They were listed as literals, which is
+            // what made the converter escape them.
             'braced emphasis' => ['a {/y/} b', 'a {/y/} b'],
             'braced comment' => ['a {#y#} b', 'a {#y#} b'],
             'percent comments' => ['a %%c%% b', 'a %%c%% b'],
