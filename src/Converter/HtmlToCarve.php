@@ -1867,14 +1867,27 @@ class HtmlToCarve
         $inlineBuffer = '';
     }
 
+    /**
+     * Does this part have to go BELOW the marker rather than on it?
+     *
+     * Only when it spans more than one line. A single-line part goes on the
+     * marker line whatever it is, which is what carve-js and carve-rs both do
+     * and what Carve itself parses: `- > q`, `- | c |` and `- # h` all come
+     * back as a blockquote, a table and a heading inside the item.
+     *
+     * This used to also push a part DOWN when it began with a block marker
+     * character, which had two problems (markup-carve/carve-php#1217). Reading
+     * a rendered block back out of a string cannot tell `<li>|start</li>`,
+     * which is text, from a table the converter produced. And even when the
+     * part really was a block, pushing it down left `- ` alone on its line -
+     * a marker with nothing after it is not a marker, so the item came back as
+     * a paragraph reading `-` and the content escaped the list entirely.
+     *
+     * @param string $content
+     */
     protected function isListItemBlockPart(string $content): bool
     {
-        return str_contains($content, "\n")
-            || str_starts_with($content, '>')
-            || str_starts_with($content, '```')
-            || str_starts_with($content, ':::')
-            || str_starts_with($content, '|')
-            || str_starts_with($content, '#');
+        return str_contains($content, "\n");
     }
 
     protected function indentListItemPart(string $content, string $indent): string

@@ -1060,12 +1060,21 @@ HTML;
         $this->assertSame("- \n\n  ::: details\n  Title\n\n  Body\n  :::\n", $result);
     }
 
-    public function testListItemWithHeadingKeepsIndentedHeadingBlock(): void
+    public function testListItemWithHeadingKeepsTheHeadingInTheItem(): void
     {
         $html = '<ul><li><h2>Head</h2></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("- \n\n  ## Head\n", $result);
+        // On the marker line. The indented spelling this used to assert did
+        // not round trip at all: `- ` alone is not a marker, so it came back
+        // as a paragraph reading `-` followed by a paragraph reading
+        // `## Head` - the list AND the heading both lost
+        // (markup-carve/carve-php#1217).
+        $this->assertSame("- ## Head\n", $result);
+        $this->assertStringContainsString(
+            '<h2',
+            (new CarveConverter())->convert($result),
+        );
     }
 
     public function testHtml5BlockContainerWithoutAttributesFallsBackToPlainBlock(): void
