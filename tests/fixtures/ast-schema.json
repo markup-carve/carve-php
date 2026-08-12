@@ -123,9 +123,10 @@
         "required": []
     },
     "figure": {
-        "fields": [
-            "target",
-            "caption"
+    "fields": [
+      "shortCaption",
+      "target",
+      "caption"
         ],
         "required": []
     },
@@ -324,8 +325,9 @@
         "required": []
     },
     "table": {
-        "fields": [
-            "caption"
+    "fields": [
+      "caption",
+      "shortCaption"
         ],
         "required": []
     },
