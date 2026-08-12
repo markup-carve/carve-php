@@ -441,7 +441,12 @@ class HtmlToCarve
                 $text = preg_replace('/\s+/', ' ', $text) ?? $text;
             }
 
-            return $this->inPre ? $text : $this->escapePlainCarveInlineSyntax($text);
+            // A backslash in HTML text is a character, not an escape, so it
+            // is doubled before the delimiter escaping runs. Inside `pre` the
+            // text is verbatim and nothing is escaped at all.
+            return $this->inPre
+                ? $text
+                : $this->escapePlainCarveInlineSyntax($this->escapeLiteralBackslashes($text));
         }
 
         if (!($node instanceof DOMElement)) {
@@ -1391,7 +1396,7 @@ class HtmlToCarve
             return $this->processRawHtmlInlineElement($node);
         }
 
-        $alt = $this->escapeLinkOrImageLabel($rawAlt);
+        $alt = $this->escapeLinkOrImageLabel($this->escapeLiteralBackslashes($rawAlt));
 
         // Check for reference image (round-trip support)
         if ($node->hasAttribute('data-djot-ref')) {
@@ -3171,11 +3176,19 @@ class HtmlToCarve
         return $formatted;
     }
 
+    /**
+     * Escape the brackets that would end a link or image label early.
+     *
+     * Takes text that has already been through `processNode`, so its literal
+     * backslashes are doubled already; doubling them here as well produced
+     * `[a \\\\ b]` for a label containing one backslash. The raw `alt` attribute
+     * has NOT been through that path, so its call site doubles first.
+     */
     protected function escapeLinkOrImageLabel(string $text): string
     {
         return str_replace(
-            ['\\', '[', ']'],
-            ['\\\\', '\[', '\]'],
+            ['[', ']'],
+            ['\[', '\]'],
             $text,
         );
     }

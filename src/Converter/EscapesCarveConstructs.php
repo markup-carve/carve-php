@@ -31,6 +31,32 @@ trait EscapesCarveConstructs
     protected const BRACED_DELIMITER_CHARS = '^,=+-~/#*_';
 
     /**
+     * Double every backslash, for a source language that has no backslash
+     * escape of its own.
+     *
+     * HTML and BBCode do not: a backslash in their text is a character the
+     * author typed, so it has to survive into Carve, where a backslash IS an
+     * escape. Left alone it is read as one and eats the character after it -
+     * `a \\*b* c` lost its backslash, and `x \\ y` became a non-breaking
+     * space (markup-carve/carve-php#1214).
+     *
+     * Runs FIRST, before any delimiter escaping, which is also what keeps the
+     * already-escaped guard honest: after doubling, every backslash run coming
+     * from source text is EVEN, so a delimiter behind one is correctly seen as
+     * unescaped and still gets its own escape.
+     *
+     * Djot and Markdown do not call this. A backslash there is an escape the
+     * author wrote, and doubling it would render the backslash they meant to
+     * disappear.
+     *
+     * @param string $text
+     */
+    protected function escapeLiteralBackslashes(string $text): string
+    {
+        return str_replace('\\', '\\\\', $text);
+    }
+
+    /**
      * Is the character at that offset already escaped?
      *
      * An ODD run of backslashes before it escapes it; an even run is literal
@@ -96,7 +122,6 @@ trait EscapesCarveConstructs
      */
     protected function escapePlainCarveInlineSyntax(string $line, array $handledDelimiters = []): string
     {
-        $escapeFirst = static fn (array $match): string => '\\' . $match[0];
         $bareHandled = $handledDelimiters['bare'] ?? '';
         $bracedHandled = $handledDelimiters['braced'] ?? '';
 
@@ -105,21 +130,22 @@ trait EscapesCarveConstructs
         // Braced forms first, so the bare rules below see an escaped `{` and
         // leave the delimiter inside it alone instead of escaping it twice.
         //
-        // Repeated until stable, because one pass escapes only the outermost
-        // brace of a nested `{^a{,b,}c^}` - the match consumes the inner pair,
-        // which would then render as a subscript inside literal text. The
-        // `(?<!\\)` guard is what makes this terminate: an escaped brace is
-        // never re-matched, and each pass escapes at least one.
+        // Scanned rather than replaced wholesale, because the outer match of a
+        // nested `{^a{,b,}c^}` CONSUMES the inner pair, which would then render
+        // as a subscript inside literal text. The scanner resumes inside each
+        // match so the inner pair is reached. The
+        // already-escaped guard is what makes this terminate: a brace behind an
+        // odd backslash run is skipped, so a pass that escapes nothing leaves
+        // the line unchanged and ends the loop.
+        //
+        // The guard COUNTS the run rather than testing one character, because a
+        // source language without a backslash escape has its backslashes
+        // doubled before this runs. In `\\{^x^}` the brace is real and the two
+        // backslashes are one literal one; a single-character lookbehind read
+        // that as an escaped brace and let the superscript through.
         $bracedDelimiters = $this->bracedDelimiterClass($bracedHandled);
         if ($bracedDelimiters !== '') {
-            do {
-                $previous = $line;
-                $line = preg_replace_callback(
-                    '/(?<!\\\\)\{([' . $bracedDelimiters . '])(?!\s)[^\n]+?(?<!\s)\1\}/',
-                    $escapeFirst,
-                    $line,
-                ) ?? $line;
-            } while ($line !== $previous);
+            $line = $this->escapeBracedPairs($line, $bracedDelimiters);
         }
 
         // The `/` in the lookbehind is not symmetry with the rules below, it is
@@ -182,6 +208,53 @@ trait EscapesCarveConstructs
      *
      * @param string $handled Literal characters the caller owns.
      */
+
+    /**
+     * Escape the opening brace of every braced pair that is not escaped already.
+     *
+     * Scans with an explicit offset instead of one sweeping replace, for two
+     * reasons the plain replace got wrong:
+     *
+     *  - a nested `{^a{,b,}c^}` has its inner pair swallowed by the outer
+     *    match, so resuming AFTER each match never reaches it. Resuming just
+     *    inside the match does.
+     *  - whether a brace is escaped is a question about the PARITY of the
+     *    backslash run before it, which a fixed-width lookbehind cannot ask.
+     *    That matters once a source language without backslash escapes has had
+     *    its backslashes doubled: `\\{^x^}` is a literal backslash followed by
+     *    a real brace.
+     *
+     * Terminates because the offset strictly increases on every iteration.
+     *
+     * @param string $line
+     * @param string $delimiters A regex character class body.
+     */
+    protected function escapeBracedPairs(string $line, string $delimiters): string
+    {
+        $pattern = '/\{([' . $delimiters . '])(?!\s)[^\n]+?(?<!\s)\1\}/';
+        $offset = 0;
+        $length = strlen($line);
+
+        while ($offset < $length && preg_match($pattern, $line, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
+            [$text, $at] = $match[0];
+            if ($this->isEscapedAt($line, $at)) {
+                $offset = $at + 1;
+
+                continue;
+            }
+
+            $line = substr_replace($line, '\\' . $text, $at, strlen($text));
+            // Exactly one character longer, so the bound is tracked rather than
+            // recomputed.
+            $length++;
+            // Past the backslash just inserted and the brace it escapes, so a
+            // pair nested inside this one is the next thing considered.
+            $offset = $at + 2;
+        }
+
+        return $line;
+    }
+
     protected function bracedDelimiterClass(string $handled = ''): string
     {
         $class = '';
