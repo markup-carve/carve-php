@@ -34,6 +34,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A Markdown hard break inside a block quote or list item survives the
+  import** (markup-carve/carve-php#1207). The top-level case landed in
+  markup-carve/carve-php#1205, but the condition asked `continuesParagraph()`
+  about the raw next line, which is the wrong question inside a container: the
+  next line of a quoted paragraph begins with `>` and reads as a new block, and
+  a list item was excluded outright. So `> a` + two spaces + `> b` and
+  `- a` + two spaces + indented `b` both lost the break that carve-js and
+  carve-rs keep. The container context is now removed from both sides before
+  asking. Two adjacent list items are still two paragraphs and stay unbroken,
+  and a blank line inside a quote still ends the paragraph.
+
 - **A second `^ ` line no longer replaces a table's caption**
   (markup-carve/carve-php#1199). `^ One` followed by `^ Two` published
   `<caption>Two</caption>` and `One` appeared nowhere in the output - authored
