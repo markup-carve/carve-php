@@ -92,6 +92,29 @@ trait EscapesCarveConstructs
             $line = preg_replace_callback('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $escapeFirst, $line) ?? $line;
         }
 
+        // A TAG is the one construct here that is not a pair: `#x` opens on its
+        // own and needs no closer, so nothing downstream can neutralize it and
+        // the brace-escaping above cannot either - `\{#y#}` still rendered a tag
+        // span inside literal braces (carve-php#1191).
+        //
+        // Source languages do not share it. Djot and Markdown both mean literal
+        // text by `#y`, so every `#word` in their prose became a Carve tag, of
+        // which the braced case was only the rarest instance.
+        //
+        // Mirrors the parser's opener rather than approximating it: a tag opens
+        // on a `#` NOT preceded by an alphanumeric and followed by an
+        // alphanumeric or `-`. That leaves a heading alone, since `# ` is
+        // followed by a space, and leaves `a#y` alone, which is not a tag
+        // either.
+        //
+        // `&` joins the exclusion for a reason the tag rule does not care about
+        // but this trait's callers do: `&#8212;` is a NUMERIC CHARACTER
+        // REFERENCE, and escaping its `#` stops it decoding, so `a &#8212; b`
+        // kept the entity instead of becoming an em dash.
+        if (!str_contains($bareHandled, '#')) {
+            $line = preg_replace_callback('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $escapeFirst, $line) ?? $line;
+        }
+
         return $line;
     }
 
