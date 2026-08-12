@@ -35,6 +35,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `<abbr>HTML</abbr>`. The older PHP-only `SemanticSpanExtension` remains
   available for attribute syntax such as `[HTML]{abbr="…"}`.
 
+- **`DjotToCarve` converts an intraword `_x_` instead of leaving it literal**
+  (markup-carve/carve-js#997). Djot's spec puts no word boundary on emphasis, so
+  `snake_case_name` IS emphasis in the source language - pandoc's Djot reader
+  renders `snake<em>case</em>name` - and an author who wanted the literal
+  characters had to escape them. An unescaped run is therefore emphasis the
+  author saw in their own renderer and kept, and leaving it literal dropped what
+  the source stated. It now converts to the braced `{/case/}`, which is required
+  rather than stylistic: a bare `/` is literal intraword in Carve, so
+  `snake/case/name` renders as itself.
+
+  An escaped `snake\_case\_name` is untouched and still renders literally, which
+  is what makes the change safe. `MarkdownToCarve` is unaffected: CommonMark's
+  flanking rules leave an intraword `_` literal, so the identifier reading is the
+  correct one there and stays.
+
 - **An escaped brace no longer suppresses the delimiter after it**
   (markup-carve/carve-php#1191). `a \{/x/} b` rendered as the literal
   `a {/x/} b` here while carve-js and carve-rs rendered

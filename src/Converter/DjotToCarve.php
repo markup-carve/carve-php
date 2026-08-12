@@ -26,12 +26,11 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  * delimiters are replaced, never the inner text, so nested constructs of
  * different families compose correctly.
  *
- * ONE DELIBERATE DIVERGENCE: an intraword underscore is left literal, so
- * `snake_case_name` migrates unchanged. Djot's spec puts no word boundary on
- * emphasis and a strict reader emphasizes that pair, but the documents this
- * converter exists for are full of identifiers no author meant as emphasis.
- * Faithful to intent rather than to a strict reading; see the rule for the
- * full argument and its cost.
+ * An intraword `_x_` converts too, to the braced `{/x/}`. Djot's spec puts no
+ * word boundary on emphasis, so `snake_case_name` IS emphasis in the source
+ * language and an author who wanted the literal characters had to escape them;
+ * an unescaped run is therefore what the author saw and kept. The braced form
+ * is required because a bare `/` is literal intraword in Carve.
  *
  * Ported from the carve-js djot-migrate linter (the canonical list of
  * Djot/Carve delimiter collisions). Operates byte-wise so offsets from the
@@ -125,6 +124,28 @@ class DjotToCarve
             'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?![A-Za-z0-9_])/',
             'open' => '/',
             'close' => '/',
+        ],
+        [
+            // The complement of the rule above, and it CONVERTS rather than
+            // leaving the run literal. The input is a DJOT document: Djot
+            // emphasizes an intraword `_`, and an author who wanted the literal
+            // characters had to escape them. `snake\_case\_name` renders as
+            // `snake_case_name` in Djot and arrives here already escaped, so an
+            // UNESCAPED `snake_case_name` is emphasis the author saw in their
+            // own renderer and kept.
+            //
+            // The braced form is required, not stylistic: a bare `/` is literal
+            // intraword in Carve, so only `snake{/case/}name` gives back
+            // `snake<em>case</em>name`.
+            //
+            // This does not transfer to `MarkdownToCarve`, whose flanking rules
+            // leave an intraword `_` literal - there the identifier reading is
+            // the correct one.
+            'id' => 'djot-intraword-underscore',
+            'family' => '_',
+            'pattern' => '/(?<=[A-Za-z0-9])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?=[A-Za-z0-9])/',
+            'open' => '{/',
+            'close' => '/}',
         ],
         [
             'id' => 'djot-highlight-braces',

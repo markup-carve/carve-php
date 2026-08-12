@@ -167,22 +167,47 @@ class DjotToCarveTest extends TestCase
     }
 
     /**
-     * Pins the converter's one deliberate divergence from Djot.
+     * An intraword `_x_` CONVERTS, to the braced form.
      *
-     * Djot's spec puts NO word boundary on emphasis - a `_` opens when not
-     * followed by whitespace and closes when not preceded by whitespace - so a
-     * strict reader emphasizes this pair, and pandoc's Djot reader renders
-     * `snake<em>case</em>word`. The converter leaves it literal instead,
-     * because the documents it exists for are full of identifiers no author
-     * meant as emphasis.
+     * Djot's spec puts no word boundary on emphasis, so `snake_case_name` is
+     * emphasis in the source language - pandoc's Djot reader renders
+     * `snake<em>case</em>name`. An author who wanted the literal characters had
+     * to escape them, so an unescaped run is emphasis the author saw in their
+     * own renderer and kept, and leaving it literal would drop what the source
+     * states.
      *
-     * So this is not "the pattern happens not to match". It is a choice about
-     * intent whose cost is that a document which DID mean emphasis inside a
-     * word loses it silently.
+     * The braced form is required rather than stylistic: a bare `/` is literal
+     * intraword in Carve, so `snake/case/name` renders as itself.
      */
-    public function testWordInternalUnderscoreLeftLiteralByIntent(): void
+    public function testWordInternalUnderscoreConvertsToTheBracedForm(): void
     {
-        $this->assertSame('snake_case_word', $this->converter->convert('snake_case_word'));
+        $this->assertSame('snake{/case/}name', $this->converter->convert('snake_case_name'));
+        $this->assertSame('MAX{/BUFFER/}SIZE', $this->converter->convert('MAX_BUFFER_SIZE'));
+    }
+
+    /**
+     * The other side of the same argument, and what makes it safe: an author who
+     * meant the literal identifier escaped it, and the escape survives. Djot
+     * renders `snake\_case\_name` as `snake_case_name`, and so does this.
+     */
+    public function testAnEscapedIntrawordUnderscoreIsLeftAlone(): void
+    {
+        $source = 'snake\\_case\\_name';
+        $this->assertSame($source, $this->converter->convert($source));
+
+        $html = CarveConverter::create()->convert($this->converter->convert($source));
+        $this->assertStringContainsString('snake_case_name', $html);
+        $this->assertStringNotContainsString('<em>', $html);
+    }
+
+    /**
+     * BOUND: the word-bounded rule is unchanged and still emits the BARE form,
+     * which is what a `_x_` between spaces needs. Removing the intraword rule
+     * leaves this passing, so it bounds the change rather than proving it.
+     */
+    public function testTheWordBoundedRuleStillEmitsTheBareForm(): void
+    {
+        $this->assertSame('a /x/ b', $this->converter->convert('a _x_ b'));
     }
 
     public function testUnchangedConstructs(): void
