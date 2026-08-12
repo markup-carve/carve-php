@@ -342,6 +342,7 @@ class CarveCorpusTest extends TestCase
         'a-list-marker-at-the-content-column-inside-an-open-fence',
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
         'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
+        'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
     ];
 
     /**
