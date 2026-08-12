@@ -689,4 +689,75 @@ class MarkdownToCarveTest extends TestCase
             $this->assertStringNotContainsString('<script>', $html);
         }
     }
+
+    public function testTrailingSpacesBecomeACarveHardBreak(): void
+    {
+        // Trailing spaces mean NOTHING in Carve, so carrying them across
+        // dropped the break; the backslash is Carve's spelling for it.
+        $out = $this->converter->convert("a  \nb\n");
+        $this->assertSame("a\\\nb\n", $out);
+        $this->assertStringContainsString('<br>', (new CarveConverter())->convert($out));
+    }
+
+    public function testTrailingSpacesAtAParagraphEndAreNotABreak(): void
+    {
+        // CommonMark has no hard break at a paragraph's end, and a stray
+        // backslash there would render as a literal one.
+        $html = (new CarveConverter())->convert($this->converter->convert("a  \n\nb\n"));
+        $this->assertStringNotContainsString('<br>', $html);
+    }
+
+    public function testTrailingSpacesBeforeAHeadingAreNotABreak(): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert("a  \n# H\n"));
+        $this->assertStringNotContainsString('<br>', $html);
+    }
+
+    public function testIndentedCodeBecomesAFenceSoItStaysCode(): void
+    {
+        $out = $this->converter->convert("    indented\n    code\n");
+        $this->assertSame("```\nindented\ncode\n```\n", $out);
+        $this->assertStringContainsString(
+            '<pre><code>indented',
+            (new CarveConverter())->convert($out),
+        );
+    }
+
+    public function testIndentedCodeIsNotReadAsMarkup(): void
+    {
+        // The bug this fixes: as a paragraph, the code's OWN delimiters were
+        // rewritten - `*not bold*` migrated to `/not bold/`.
+        $out = $this->converter->convert("    let x = *not bold* and _not em_\n");
+        $this->assertStringContainsString('*not bold*', $out);
+        $this->assertStringContainsString('_not em_', $out);
+        $this->assertStringNotContainsString('<strong>', (new CarveConverter())->convert($out));
+    }
+
+    public function testIndentedCodeKeepsABlankLineInsideIt(): void
+    {
+        // A blank line does not end an indented code block in CommonMark;
+        // only a less-indented non-blank line does.
+        $this->assertSame("```\na\n\nb\n```\n", $this->converter->convert("    a\n\n    b\n"));
+    }
+
+    public function testIndentedCodeRemovesExactlyOneIndentStep(): void
+    {
+        $this->assertSame("```\na\n    b\n```\n", $this->converter->convert("    a\n        b\n"));
+    }
+
+    public function testIndentedCodePicksAFenceLongerThanItsBacktickRuns(): void
+    {
+        $this->assertSame(
+            "````\n```\nx\n```\n````\n",
+            $this->converter->convert("    ```\n    x\n    ```\n"),
+        );
+    }
+
+    public function testAnIndentedListContinuationIsNotCode(): void
+    {
+        // Four spaces under a list item is item content, not a code block: the
+        // previous line is not blank, so it never reaches the code branch.
+        $html = (new CarveConverter())->convert($this->converter->convert("- a\n    b\n"));
+        $this->assertStringNotContainsString('<pre>', $html);
+    }
 }
