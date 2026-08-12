@@ -9145,6 +9145,20 @@ class BlockParser
 
         // Handle Table - add caption directly to table
         if ($lastChild instanceof Table) {
+            // A SECOND `^ ` line does not replace the caption already attached.
+            // PART 9 section 4, `resources/grammar.ebnf` near line 1101: "a
+            // further `^ ` line does NOT continue the caption ...; it ends the
+            // caption and, having no captionable block to attach to, is
+            // ordinary paragraph text."
+            //
+            // Overwriting discarded the first caption SILENTLY - `^ One` then
+            // `^ Two` published `<caption>Two</caption>` and `One` appeared
+            // nowhere in the output. carve-js and carve-rs both keep the first
+            // and leave the second as a paragraph (markup-carve/carve-php#1199).
+            if ($lastChild->getCaption() !== null) {
+                return null;
+            }
+
             $caption = new Caption();
             $caption->setPos($this->wholeLineSpan($start));
             $this->inlineParser->parse(
