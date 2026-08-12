@@ -2050,10 +2050,12 @@ class HtmlRenderer implements RendererInterface
         $inner = $this->renderChildren($node);
         $attrs = $this->renderAttributes($node);
 
-        // Known semantic types render as their element; everything else
-        // is a generic span.ext-<type>.
-        if ($type === 'kbd') {
-            return '<kbd' . $attrs . '>' . $inner . '</kbd>';
+        // PART 10 §9: this fixed registry is built-in renderer behavior over
+        // the ordinary inline_extension node. Never promote an arbitrary
+        // extension name to an HTML element.
+        $semanticTypes = ['abbr', 'cite', 'dfn', 'kbd', 'samp', 'var', 'time', 'code', 'mark'];
+        if (in_array($type, $semanticTypes, true)) {
+            return '<' . $type . $attrs . '>' . $inner . '</' . $type . '>';
         }
 
         // The structural `ext-<type>` class comes FIRST, before any authored
