@@ -33,9 +33,20 @@ class ShortCaptionTest extends TestCase
         $codec = new AstCodec();
         $document = $codec->decode($payload);
 
+        [$figure, $table] = $document->getChildren();
+        self::assertCount(1, $figure->getShortCaption());
+        self::assertSame('Navigation label', $figure->getShortCaption()[0]->getContent());
+        self::assertCount(1, $table->getShortCaption());
+        self::assertSame('Navigation label', $table->getShortCaption()[0]->getContent());
+
         self::assertEquals($payload, $codec->encode($document));
         $html = (new HtmlRenderer())->render($document);
         self::assertStringContainsString('<figcaption>Full caption</figcaption>', $html);
         self::assertStringNotContainsString('Navigation label', $html);
+
+        $figure->setShortCaption(null);
+        $table->setShortCaption(null);
+        self::assertNull($figure->getShortCaption());
+        self::assertNull($table->getShortCaption());
     }
 }
