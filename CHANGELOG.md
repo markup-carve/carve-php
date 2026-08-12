@@ -34,6 +34,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A delimiter the source already escaped is no longer escaped a second time**
+  (markup-carve/carve-php#1212). Doubling it was worse than leaving it alone:
+  the doubled backslash rendered as a literal backslash AND freed the delimiter
+  to open the construct the first escape was suppressing, so `a \#y b` in Djot,
+  which means `a #y b`, rendered a stray backslash followed by a tag span.
+  Affected the `#`, `=` and `/` rules on every converter that escapes Carve
+  constructs, so Djot, Markdown, HTML and BBCode sources alike. Source arriving
+  already escaped is the normal case, because those languages escape with a
+  backslash too.
+
 - **`BbcodeToCarve` consumes `[noparse]` instead of emitting it**
   (markup-carve/carve-php#1209). The tag has no Carve construct to become - its
   whole effect is that the enclosed text is literal - so keeping it wrote
