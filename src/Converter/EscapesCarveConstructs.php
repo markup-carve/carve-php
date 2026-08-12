@@ -31,6 +31,64 @@ trait EscapesCarveConstructs
     protected const BRACED_DELIMITER_CHARS = '^,=+-~/#*_';
 
     /**
+     * Is the character at that offset already escaped?
+     *
+     * An ODD run of backslashes before it escapes it; an even run is literal
+     * backslashes and the character still counts.
+     *
+     * @param string $subject
+     * @param int $offset
+     */
+    protected function isEscapedAt(string $subject, int $offset): bool
+    {
+        $backslashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $subject[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 1;
+    }
+
+    /**
+     * Escape every match of the pattern that is not escaped ALREADY.
+     *
+     * Escaping an escaped delimiter a second time is worse than leaving it: the
+     * doubled backslash renders as a literal backslash and frees the delimiter
+     * to open the construct the first escape was suppressing, so the output
+     * gains a character the author never wrote AND the markup they escaped away
+     * (markup-carve/carve-php#1212). Source arriving already escaped is the
+     * normal case here, because the source languages escape with a backslash
+     * too.
+     *
+     * Matched with offsets rather than replaced in place, because a lookbehind
+     * cannot express "an odd number of backslashes" and counting back from the
+     * offset can. Everything before the offset is untouched at the moment it is
+     * counted, so the count is against the text the author wrote.
+     *
+     * @param string $pattern
+     * @param string $subject
+     */
+    protected function escapeUnlessAlreadyEscaped(string $pattern, string $subject): string
+    {
+        if (preg_match_all($pattern, $subject, $matches, PREG_OFFSET_CAPTURE) === false) {
+            return $subject;
+        }
+
+        // Applied back to front, because inserting a backslash shifts every
+        // offset after it and those were measured against the original string.
+        foreach (array_reverse($matches[0]) as $match) {
+            [$text, $offset] = $match;
+            if ($this->isEscapedAt($subject, $offset)) {
+                continue;
+            }
+
+            $subject = substr_replace($subject, '\\' . $text, $offset, strlen($text));
+        }
+
+        return $subject;
+    }
+
+    /**
      * Escape Carve inline constructs that are literal text in the source.
      *
      * @param string $line
@@ -70,13 +128,13 @@ trait EscapesCarveConstructs
         // rendering as `ftp:<em>/x</em>`. Only `http`/`https` URLs are protected
         // upstream in Markdown, so every other scheme reached this rule.
         if (!str_contains($bareHandled, '/')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $line);
         }
         if (!str_contains($bareHandled, '=')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9=])(?<!(?<!\\\\)\{)=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9=])(?<!(?<!\\\\)\{)=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $line);
         }
         if (!str_contains($bareHandled, '~')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9~])(?<!(?<!\\\\)\{)~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9~])(?<!(?<!\\\\)\{)~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $line);
         }
 
         // `*` is a strong and `_` an underline, and both are word-bounded: the
@@ -86,10 +144,10 @@ trait EscapesCarveConstructs
         // itself. Doubling is excluded because `**x**` and `__x__` are already
         // literal to the parser.
         if (!str_contains($bareHandled, '*')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9*])(?<!(?<!\\\\)\{)\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9*])(?<!(?<!\\\\)\{)\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $line);
         }
         if (!str_contains($bareHandled, '_')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $line);
         }
 
         // A TAG is the one construct here that is not a pair: `#x` opens on its
@@ -112,7 +170,7 @@ trait EscapesCarveConstructs
         // REFERENCE, and escaping its `#` stops it decoding, so `a &#8212; b`
         // kept the entity instead of becoming an em dash.
         if (!str_contains($bareHandled, '#')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $escapeFirst, $line) ?? $line;
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $line);
         }
 
         return $line;
