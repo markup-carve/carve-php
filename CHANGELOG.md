@@ -34,6 +34,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Plain HTML and BBCode text no longer becomes Carve markup**
+  (markup-carve/carve-php#1216, markup-carve/carve-php#1218). Neither language
+  has a code span or an attribute block of its own, so a backtick or a `{#id}`
+  in their text is characters the author typed - carried over bare, `a `b` c`
+  came back as `a <code>b</code> c` and `a {#id} b` grew a tag span. A lone
+  backtick was worse: `x ` y` has no pair at all and still produced a code span.
+  A brace that looks like a pair opener but never closes is escaped too, since
+  the bare delimiter rules were declining to escape behind it on the assumption
+  that a pair rule had handled it. `DjotToCarve` keeps pinned attribute blocks,
+  which are deliberate there.
+
 - **A literal backslash in HTML or BBCode text survives the conversion**
   (markup-carve/carve-php#1214). Neither language has a backslash escape, so a
   backslash in their text is one the author typed; Carve does have one, so an

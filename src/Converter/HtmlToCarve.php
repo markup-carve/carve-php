@@ -446,7 +446,7 @@ class HtmlToCarve
             // text is verbatim and nothing is escaped at all.
             return $this->inPre
                 ? $text
-                : $this->escapePlainCarveInlineSyntax($this->escapeLiteralBackslashes($text));
+                : $this->escapePlainCarveInlineSyntax($this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))));
         }
 
         if (!($node instanceof DOMElement)) {
