@@ -34,6 +34,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`MarkdownToCarve` keeps a paired single-tilde strikethrough, and no longer
+  invents a highlight** (markup-carve/carve-php#1222). GFM strikethrough is a
+  matching pair of ONE or two tildes and Carve spells it the same way, but the
+  single form was escaped into literal text, so `a ~b~ c` lost its
+  strikethrough. Separately, `==x==` is literal text in CommonMark and GFM while
+  it means a highlight in Obsidian, Quarto and pandoc's `mark` extension - it
+  was converted unconditionally, putting a `mark` in the output that the source
+  never had. It is now behind a `convertHighlight` constructor flag defaulting
+  to false, mirroring the existing `convertMath`. Expectations were taken from
+  `marked` in GFM mode.
+
+  **Behavior change:** `==x==` no longer becomes a highlight by default. Pass
+  `new MarkdownToCarve(convertHighlight: true)` for the flavours that mean one.
+
 - **A single-line list item stays on its marker line**
   (markup-carve/carve-php#1217). `HtmlToCarve` pushed an item's first part below
   the marker whenever it began with a block-marker character, which left `- `

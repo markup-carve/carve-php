@@ -22,6 +22,12 @@ use RuntimeException;
  * dollar runs untouched. Pass `convertMath: true` only for Markdown flavours
  * that treat dollars as math delimiters (for example Pandoc / GitHub-style
  * input); enabling it rewrites any prose containing paired dollars.
+ *
+ * `==x==` is the same case: literal text in CommonMark and GFM, a highlight in
+ * Obsidian, Quarto and pandoc's `mark` extension. Pass `convertHighlight: true`
+ * for those flavours. Both default to false because inventing markup the source
+ * did not have is worse than leaving a construct flat - flat text still reads,
+ * where an invented `mark` renders differently from what the author saw.
  */
 class MarkdownToCarve
 {
@@ -35,9 +41,17 @@ class MarkdownToCarve
      */
     protected bool $convertMath = false;
 
-    public function __construct(bool $convertMath = false)
+    /**
+     * When true, rewrite `==x==` to a Carve highlight. Default false because
+     * CommonMark and GFM both treat it as literal text; Obsidian, Quarto and
+     * pandoc's `mark` extension are the flavours that mean a highlight by it.
+     */
+    protected bool $convertHighlight = false;
+
+    public function __construct(bool $convertMath = false, bool $convertHighlight = false)
     {
         $this->convertMath = $convertMath;
+        $this->convertHighlight = $convertHighlight;
     }
 
     /**
@@ -694,7 +708,19 @@ class MarkdownToCarve
         // alike, and the passes below rewrite them into Carve. Escaping them
         // here would freeze `*x*` as literal text before it ever reaches that
         // rewrite.
-        $line = $this->escapePlainCarveInlineSyntax($line, ['braced' => '*_', 'bare' => '*_']);
+        // `~` joins them: GFM strikethrough is a matching pair of ONE or two
+        // tildes, and Carve spells strikethrough with one, so a paired single
+        // tilde maps across untouched. Escaping it here turned `a ~b~ c` into
+        // literal text and lost the strikethrough
+        // (markup-carve/carve-php#1222). An unpaired tilde needs no escape
+        // either: `path ~/a and ~/b` is literal in GFM and literal in Carve,
+        // because both require a non-space after the opener and before the
+        // closer.
+        //
+        // BARE only. `{~x~}` keeps its brace escaped, because GFM renders it
+        // `{<del>x</del>}` - braces visible - while Carve reads `{~x~}` as a
+        // braced strikethrough and eats them.
+        $line = $this->escapePlainCarveInlineSyntax($line, ['braced' => '*_', 'bare' => '*_~']);
 
         $stash = [];
         $hold = function (string $span) use (&$stash): string {
@@ -717,10 +743,16 @@ class MarkdownToCarve
         $line = preg_replace('/(?<![A-Za-z0-9_])_(?!\s)([^_]+?)(?<!\s)_(?![A-Za-z0-9_])/', '/$1/', $line) ?? $line;
         $line = preg_replace('/~~([^~]+)~~/', '~$1~', $line) ?? $line;
 
-        // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
-        // doubled `==x==` is literal text in Carve, so a Markdown highlight
-        // left unchanged would silently mis-render.
-        $line = preg_replace('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line) ?? $line;
+        // ==highlight== -> =highlight=, only when the caller says its input is
+        // a flavour that HAS highlight. `==x==` is literal text in CommonMark
+        // and in GFM, so converting it by default invented a `mark` that was
+        // never in the source (markup-carve/carve-php#1222) - the same reason
+        // `convertMath` is off by default, and the more damaging direction:
+        // under-converting leaves readable text, inventing markup does not.
+        // Carve renders `==x==` literally too, so leaving it alone round trips.
+        if ($this->convertHighlight) {
+            $line = preg_replace('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line) ?? $line;
+        }
 
         // Highlight/super/subscript use the forced brace forms: an HTML tag can
         // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is

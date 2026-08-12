@@ -82,9 +82,12 @@ class MarkdownToCarveTest extends TestCase
                 'a ~~gone~~ word',
                 'a ~gone~ word',
             ],
-            'converts ==highlight== to a single = (Carve highlight)' => [
+            // `==x==` is literal in CommonMark and GFM, so it stays literal
+            // by default. The opt-in flavours are covered by
+            // testHighlightIsOptIn (markup-carve/carve-php#1222).
+            'leaves ==highlight== alone, since CommonMark has no highlight' => [
                 'a ==hot== word',
-                'a =hot= word',
+                'a ==hot== word',
             ],
             'leaves ^superscript^ unchanged' => [
                 'x^2^ end',
@@ -471,10 +474,14 @@ class MarkdownToCarveTest extends TestCase
                 'a \=hl= b',
                 '<p>a =hl= b</p>',
             ],
-            'escapes strike literal' => [
+            // GFM strikethrough is a matching pair of ONE or two tildes, so
+            // this IS a strikethrough and Carve spells it the same way. It
+            // used to be escaped into literal text
+            // (markup-carve/carve-php#1222).
+            'carries a paired single tilde across as a strikethrough' => [
                 'a ~s~ b',
-                'a \~s~ b',
-                '<p>a ~s~ b</p>',
+                'a ~s~ b',
+                '<p>a <s>s</s> b</p>',
             ],
             'escapes superscript literal' => [
                 'a {^y^} b',
@@ -511,10 +518,14 @@ class MarkdownToCarveTest extends TestCase
                 'a \{-x-} b',
                 '<p>a {-x-} b</p>',
             ],
-            'escapes braced strike literal' => [
+            // Only the BRACE is escaped. GFM renders `a {~x~} b` as
+            // `a {<del>x</del>} b` - braces visible, content struck - and
+            // Carve would otherwise read `{~x~}` as a braced strikethrough and
+            // eat the braces.
+            'escapes the brace but keeps the strikethrough' => [
                 'a {~x~} b',
-                'a \{\~x~} b',
-                '<p>a {~x~} b</p>',
+                'a \{~x~} b',
+                '<p>a {<s>x</s>} b</p>',
             ],
             'escapes braced emphasis literal' => [
                 'a {/x/} b',
@@ -613,7 +624,7 @@ class MarkdownToCarveTest extends TestCase
             'underscore emphasis' => ['_em_', '/em/'],
             'asterisk emphasis' => ['*em*', '/em/'],
             'GFM strike' => ['~~s~~', '~s~'],
-            'Markdown highlight' => ['==h==', '=h='],
+            'Markdown highlight stays literal by default' => ['==h==', '==h=='],
             'HTML sup' => ['<sup>x</sup>', '{^x^}'],
             'HTML sub' => ['<sub>x</sub>', '{,x,}'],
             'HTML mark' => ['<mark>x</mark>', '{=x=}'],
