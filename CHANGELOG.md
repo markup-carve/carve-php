@@ -26,6 +26,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An escaped brace no longer suppresses the delimiter after it**
+  (markup-carve/carve-php#1191). `a \{/x/} b` rendered as the literal
+  `a {/x/} b` here while carve-js and carve-rs rendered
+  `a {<em>x</em>} b`; the same held for `\{=y=}`, `\{*y*}`, `\{_y_}` and
+  `\{~y~}`. The closer search skipped any delimiter followed by `}`, on the
+  grounds that such a closer belongs to a braced opener - which is true only
+  when a braced opener EXISTS. An escaped brace is a literal `{` and opens
+  nothing, so `/x/` there is an ordinary bare pair. `escaped_char` in
+  `resources/grammar.ebnf` is one backslash and one punctuation character, and
+  nothing in it suppresses what follows. An UNESCAPED `{` still owns its whole
+  construct, and an even backslash run still leaves the brace real.
+
+  The converters move with it, because their escaping targeted the old
+  behavior: text that is literal in the source language and markup in Carve is
+  now escaped at BOTH the brace and the inner delimiter, so `{/x/}` from
+  Markdown, Djot, HTML or BBCode converts to `\{\/x/}` rather than
+  `\{/x/}`. The rendered output is unchanged - that is what the escaping is
+  for - but the intermediate Carve differs. `{=x=}` and the other braced forms
+  a converter already owns are untouched.
+
 - **`DjotToCarve` converts Djot's braced subscript and superscript instead of
   escaping them** (markup-carve/carve-php#1186). Djot spells subscript and
   superscript both bare and braced and means the same by each, but only the bare
