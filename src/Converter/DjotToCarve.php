@@ -25,6 +25,13 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  * delimiters are replaced, never the inner text, so nested constructs of
  * different families compose correctly.
  *
+ * ONE DELIBERATE DIVERGENCE: an intraword underscore is left literal, so
+ * `snake_case_name` migrates unchanged. Djot's spec puts no word boundary on
+ * emphasis and a strict reader emphasizes that pair, but the documents this
+ * converter exists for are full of identifiers no author meant as emphasis.
+ * Faithful to intent rather than to a strict reading; see the rule for the
+ * full argument and its cost.
+ *
  * Ported from the carve-js djot-migrate linter (the canonical list of
  * Djot/Carve delimiter collisions). Operates byte-wise so offsets from the
  * masked scan splice into the original UTF-8 string unchanged.
@@ -69,6 +76,23 @@ class DjotToCarve
             'close' => '^}',
         ],
         [
+            // The `[A-Za-z0-9_]` lookarounds are a DELIBERATE DIVERGENCE from
+            // Djot, not a transcription of its rule, and they are the one place
+            // this converter knowingly changes what a document means.
+            //
+            // Djot puts no word boundary on emphasis at all. Its spec says only
+            // that a `_` opens "if it is not directly followed by whitespace"
+            // and closes "if it is not directly preceded by whitespace", so a
+            // strict reader emphasizes an intraword pair - pandoc's Djot reader
+            // turns `snake_case_name` into `snake<em>case</em>name`.
+            //
+            // This converter does not, because the documents it exists for -
+            // notes, READMEs, generated docs - are full of `snake_case`
+            // identifiers no author meant as emphasis, and Carve itself leaves
+            // an intraword `_` literal for that reason (carve-php#417). The
+            // migration is therefore faithful to INTENT rather than to a strict
+            // reading, and the cost is real and silent: a Djot document that
+            // did mean emphasis inside a word loses it with no warning.
             'id' => 'djot-emphasis-underscore',
             'family' => '_',
             'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?![A-Za-z0-9_])/',

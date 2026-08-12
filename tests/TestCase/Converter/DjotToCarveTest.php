@@ -130,7 +130,21 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('\\_x_', $this->converter->convert('\\_x_'));
     }
 
-    public function testWordInternalUnderscoreNotMatched(): void
+    /**
+     * Pins the converter's one deliberate divergence from Djot.
+     *
+     * Djot's spec puts NO word boundary on emphasis - a `_` opens when not
+     * followed by whitespace and closes when not preceded by whitespace - so a
+     * strict reader emphasizes this pair, and pandoc's Djot reader renders
+     * `snake<em>case</em>word`. The converter leaves it literal instead,
+     * because the documents it exists for are full of identifiers no author
+     * meant as emphasis.
+     *
+     * So this is not "the pattern happens not to match". It is a choice about
+     * intent whose cost is that a document which DID mean emphasis inside a
+     * word loses it silently.
+     */
+    public function testWordInternalUnderscoreLeftLiteralByIntent(): void
     {
         $this->assertSame('snake_case_word', $this->converter->convert('snake_case_word'));
     }
