@@ -1052,12 +1052,20 @@ HTML;
         $this->assertSame("- \n  {#empty}\n", $result);
     }
 
-    public function testListItemWithDetailsKeepsIndentedTaggedContainer(): void
+    public function testListItemWithDetailsKeepsTheContainerInTheItem(): void
     {
         $html = '<ul><li><details><summary>Title</summary><p>Body</p></details></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("- \n\n  ::: details\n  Title\n\n  Body\n  :::\n", $result);
+        // The container's OPENER shares the marker line. The spelling this used
+        // to assert put `- ` alone on its line, which is not a marker, so the
+        // item came back as a paragraph reading `-` with the container loose
+        // beside it (markup-carve/carve-php#1224).
+        $this->assertSame("- ::: details\n  Title\n\n  Body\n  :::\n", $result);
+        $this->assertStringContainsString(
+            'class="details"',
+            (new CarveConverter())->convert($result),
+        );
     }
 
     public function testListItemWithHeadingKeepsTheHeadingInTheItem(): void
