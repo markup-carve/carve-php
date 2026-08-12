@@ -185,6 +185,53 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('snake_case_word', $this->converter->convert('snake_case_word'));
     }
 
+    /**
+     * A TAG is the one Carve inline construct that is not a pair: `#x` opens on
+     * its own, so nothing downstream neutralizes it and escaping an enclosing
+     * brace cannot either.
+     *
+     * Djot has no hashtag at all - pandoc's Djot reader renders `a #y b` as
+     * `<p>a #y b</p>` - so every `#word` in Djot prose became a Carve tag span
+     * that existed nowhere in the source (carve-php#1191).
+     */
+    public function testHashDoesNotBecomeATag(): void
+    {
+        $this->assertSame('a \\#y b', $this->converter->convert('a #y b'));
+        $this->assertSame('a \\#1 b', $this->converter->convert('a #1 b'));
+    }
+
+    /**
+     * The braced case from the report, which is the rarest instance rather than
+     * the whole defect: escaping the brace alone left the inner `#` opening a
+     * tag inside literal braces.
+     */
+    public function testBracedHashIsFullyLiteral(): void
+    {
+        $this->assertSame('\\{\\#y#} x', $this->converter->convert('{#y#} x'));
+    }
+
+    /**
+     * BOUND: a NUMERIC CHARACTER REFERENCE carries a `#` that is not a tag.
+     * Escaping it stopped `&#8212;` decoding, so the em dash never appeared -
+     * caught by carve-js's entity tests, which this engine had no counterpart
+     * for.
+     */
+    public function testNumericCharacterReferenceKeepsItsHash(): void
+    {
+        $this->assertSame('a &#8212; b', $this->converter->convert('a &#8212; b'));
+        $this->assertSame('a &#x2014; b', $this->converter->convert('a &#x2014; b'));
+    }
+
+    /**
+     * BOUND: a heading is `#` followed by a SPACE and is shared with Djot, and
+     * `a#y` is not a tag either. Neither may gain a backslash.
+     */
+    public function testHeadingAndIntrawordHashAreUntouched(): void
+    {
+        $this->assertSame('# Heading', $this->converter->convert('# Heading'));
+        $this->assertSame('a#y b', $this->converter->convert('a#y b'));
+    }
+
     public function testUnchangedConstructs(): void
     {
         // Critic markup is identical in Djot and Carve, so it passes through.
