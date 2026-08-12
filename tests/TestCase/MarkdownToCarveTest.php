@@ -498,7 +498,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'escapes braced highlight literal' => [
                 'a {=x=} b',
-                'a \{=x=} b',
+                'a \{\=x=} b',
                 '<p>a {=x=} b</p>',
             ],
             'escapes braced insert literal' => [
@@ -513,12 +513,12 @@ class MarkdownToCarveTest extends TestCase
             ],
             'escapes braced strike literal' => [
                 'a {~x~} b',
-                'a \{~x~} b',
+                'a \{\~x~} b',
                 '<p>a {~x~} b</p>',
             ],
             'escapes braced emphasis literal' => [
                 'a {/x/} b',
-                'a \{/x/} b',
+                'a \{\/x/} b',
                 '<p>a {/x/} b</p>',
             ],
             // One pass escapes only the outer brace and the inner pair would

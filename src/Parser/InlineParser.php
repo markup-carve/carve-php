@@ -2778,6 +2778,23 @@ class InlineParser
     }
 
     /**
+     * Is the character at `$offset` escaped by a backslash?
+     *
+     * An ODD run of backslashes before it escapes it; an even run is literal
+     * backslashes and the character still counts, so `\\{` is a literal
+     * backslash followed by a real brace.
+     */
+    protected function isEscapedAt(string $text, int $offset): bool
+    {
+        $backslashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $text[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 1;
+    }
+
+    /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
      * @param string $delimiter
@@ -2800,6 +2817,12 @@ class InlineParser
         // Check if this can be an opener (not preceded by whitespace for closer detection)
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
         $nextChar = $text[$pos + 1] ?? ' ';
+
+        // Does a BRACED opener actually precede this delimiter? An escaped `{`
+        // is a literal character and opens nothing, so `\{/x/}` holds an
+        // ordinary bare pair while `{/x/}` holds the braced construct. The
+        // closer search below needs the distinction (markup-carve/carve-php#1191).
+        $openerIsBraced = $prevChar === '{' && !$this->isEscapedAt($text, $pos - 1);
 
         // Can't open if followed by whitespace. PART 7's four characters, not
         // `ctype_space()`, which also takes a VERTICAL TAB and a FORM FEED - so
@@ -2936,10 +2959,22 @@ class InlineParser
                 // Check if this can be a closer (not preceded by whitespace)
                 $beforeClose = $searchPos > 0 ? $text[$searchPos - 1] : ' ';
                 if (!StringUtil::isWhitespaceChar($beforeClose)) {
-                    // A braced closer (like _} or *}) can only close a braced opener
-                    // Since we're looking for a non-braced closer, skip if followed by }
+                    // A braced closer (like `_}` or `*}`) belongs to a braced
+                    // opener, so a bare opener must not steal it: in `{/x/}` the
+                    // whole construct is the braced form's, not this path's.
+                    //
+                    // That only holds when a braced opener actually EXISTS. An
+                    // ESCAPED brace is a literal `{` and opens nothing, so in
+                    // `\{/x/}` the `/x/` is an ordinary bare pair and this is its
+                    // closer. Skipping it unconditionally left the whole run
+                    // literal, so carve-php rendered `\{/x/}` as `{/x/}` where
+                    // carve-js and carve-rs render `{<em>x</em>}`
+                    // (markup-carve/carve-php#1191). `escaped_char` in
+                    // `resources/grammar.ebnf` is one backslash and ONE
+                    // punctuation character; nothing in it suppresses the
+                    // constructs after the character it escapes.
                     $afterClose = $text[$searchPos + 1] ?? '';
-                    if ($afterClose === '}') {
+                    if ($afterClose === '}' && $openerIsBraced) {
                         $searchPos++;
 
                         continue;

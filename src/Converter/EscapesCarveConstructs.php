@@ -70,13 +70,13 @@ trait EscapesCarveConstructs
         // rendering as `ftp:<em>/x</em>`. Only `http`/`https` URLs are protected
         // upstream in Markdown, so every other scheme reached this rule.
         if (!str_contains($bareHandled, '/')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9{\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
+            $line = preg_replace_callback('/(?<![A-Za-z0-9\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $escapeFirst, $line) ?? $line;
         }
         if (!str_contains($bareHandled, '=')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9={])=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
+            $line = preg_replace_callback('/(?<![A-Za-z0-9=])(?<!(?<!\\\\)\{)=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $escapeFirst, $line) ?? $line;
         }
         if (!str_contains($bareHandled, '~')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9~{])~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
+            $line = preg_replace_callback('/(?<![A-Za-z0-9~])(?<!(?<!\\\\)\{)~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $escapeFirst, $line) ?? $line;
         }
 
         // `*` is a strong and `_` an underline, and both are word-bounded: the
@@ -86,10 +86,10 @@ trait EscapesCarveConstructs
         // itself. Doubling is excluded because `**x**` and `__x__` are already
         // literal to the parser.
         if (!str_contains($bareHandled, '*')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9*{])\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $escapeFirst, $line) ?? $line;
+            $line = preg_replace_callback('/(?<![A-Za-z0-9*])(?<!(?<!\\\\)\{)\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $escapeFirst, $line) ?? $line;
         }
         if (!str_contains($bareHandled, '_')) {
-            $line = preg_replace_callback('/(?<![A-Za-z0-9_{])_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $escapeFirst, $line) ?? $line;
+            $line = preg_replace_callback('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $escapeFirst, $line) ?? $line;
         }
 
         return $line;
