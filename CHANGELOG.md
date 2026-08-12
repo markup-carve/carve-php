@@ -34,6 +34,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A code span is padded on both sides, and a multi-line list item keeps its
+  list** (markup-carve/carve-php#1224). Two `HtmlToCarve` defects. A code span
+  whose content starts or ends with a backtick needs a space at BOTH ends,
+  because a reader strips one from each end only when there is one at each end;
+  padding a single side left that space in the code, so `<code>`start</code>`
+  came back as `<code> `start</code>`. And a list item whose content spans more
+  than one line put `- ` alone on its line, which is not a marker, so a
+  `details` container as an item's only content came back as a paragraph
+  reading `-` with the container loose beside it. The marker line now carries
+  the first line of the content whatever it is.
+
 - **A single-line list item stays on its marker line**
   (markup-carve/carve-php#1217). `HtmlToCarve` pushed an item's first part below
   the marker whenever it began with a block-marker character, which left `- `
