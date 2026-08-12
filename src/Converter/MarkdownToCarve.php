@@ -325,10 +325,9 @@ class MarkdownToCarve
             // the same reason - a break has nothing to break there.
             if (
                 !$isHeading
-                && !$isList
                 && preg_match('/ {2,}$/', $body)
                 && $i + 1 < $lineCount
-                && $this->continuesParagraph($lines[$i + 1])
+                && $this->nextLineContinuesThisParagraph($body, $lines[$i + 1], $isList)
             ) {
                 $converted = rtrim($converted) . '\\';
             }
@@ -583,6 +582,47 @@ class MarkdownToCarve
      * before a heading, list, quote, fence or rule is a break at the end of the
      * paragraph, which CommonMark does not recognize.
      */
+
+    /**
+     * Does the line after a trailing-space run belong to the SAME paragraph?
+     *
+     * The plain `continuesParagraph()` answers this at the top level, where a
+     * `>` or a list marker on the next line really does start a new block. It
+     * is the wrong question INSIDE a container, and answering it there dropped
+     * the break: `> a ` / `> b` is one paragraph in a block quote, and `- a `
+     * / ` b` is one paragraph in a list item, but the first was rejected
+     * because the next line begins with `>` and the second because the current
+     * line is a list item at all.
+     *
+     * So the container context is removed from both sides before asking. A
+     * quoted line requires the next line to carry the same quote prefix, and
+     * the remainder is then judged on its own. A list item requires the next
+     * line to be an indented continuation rather than another marker, which is
+     * what keeps `- a ` / `- b` - two separate paragraphs - unbroken.
+     */
+    protected function nextLineContinuesThisParagraph(string $body, string $next, bool $isList): bool
+    {
+        if (preg_match('/^\s*(?:>\s?)+/', $body, $matches)) {
+            if (!preg_match('/^\s*(?:>\s?)+/', $next, $nextMatches)) {
+                return false;
+            }
+
+            return $this->continuesParagraph(substr($next, strlen($nextMatches[0])));
+        }
+
+        if ($isList) {
+            // Another marker starts a new item, so there is nothing to break.
+            // An indented non-blank line is this item's own paragraph.
+            if (trim($next) === '' || preg_match('/^\s*(?:[-*+]\s|\d+[.)]\s)/', $next)) {
+                return false;
+            }
+
+            return preg_match('/^\s+\S/', $next) === 1;
+        }
+
+        return $this->continuesParagraph($next);
+    }
+
     protected function continuesParagraph(string $line): bool
     {
         $trimmed = trim($line);
