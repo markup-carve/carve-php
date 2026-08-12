@@ -5,152 +5,20 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Event\RenderEvent;
-use MarkupCarve\Carve\Node\Inline\Span;
-use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Converts spans with semantic attributes to proper HTML elements
+ * Compatibility shim for semantic span attributes now handled by core.
  *
- * Transforms span attributes into semantic HTML5 elements:
- * - `kbd` attribute → `<kbd>` (keyboard input)
- * - `dfn` attribute → `<dfn>` (definition/term)
- * - `abbr` attribute → `<abbr>` (abbreviation, with title)
- * - `samp` attribute → `<samp>` (sample output)
- * - `var` attribute → `<var>` (variable)
+ * Existing registrations remain source-compatible during 0.1.x. New code can
+ * use `[text]{kbd}`, `[HTML]{abbr="…"}`, and the other standardized semantic
+ * attributes without registering an extension.
  *
- * These can also be combined, with `dfn` wrapping inner elements.
- *
- * Example usage:
- * ```php
- * $converter = new CarveConverter();
- * $converter->addExtension(new SemanticSpanExtension());
- *
- * // Keyboard shortcuts
- * echo $converter->convert('[Ctrl+C]{kbd}');
- * // Output: <p><kbd>Ctrl+C</kbd></p>
- *
- * // Definitions
- * echo $converter->convert('[API]{dfn="Application Programming Interface"}');
- * // Output: <p><dfn title="Application Programming Interface">API</dfn></p>
- *
- * // Abbreviations
- * echo $converter->convert('[HTML]{abbr="HyperText Markup Language"}');
- * // Output: <p><abbr title="HyperText Markup Language">HTML</abbr></p>
- *
- * // Combined (definition of an abbreviation)
- * echo $converter->convert('[CSS]{dfn abbr="Cascading Style Sheets"}');
- * // Output: <p><dfn><abbr title="Cascading Style Sheets">CSS</abbr></dfn></p>
- * ```
- *
- * Djot syntax:
- * - `[text]{kbd}` or `[text]{kbd=""}` - keyboard input
- * - `[text]{dfn}` or `[text]{dfn="title"}` - definition (optional title)
- * - `[text]{abbr="title"}` - abbreviation (title required for meaning)
- *
- * Note: This extension provides manual control over semantic elements via attributes.
- * For automatic abbreviation expansion (defining once, applying everywhere), use the
- * built-in abbreviation definition syntax instead:
- * ```
- * *[HTML]: HyperText Markup Language
- * The HTML specification defines...
- * ```
+ * @deprecated Semantic span attributes are built into Carve core.
  */
 class SemanticSpanExtension implements ExtensionInterface
 {
     public function register(CarveConverter $converter): void
     {
-        $renderer = $converter->getRenderer();
-        if (!$renderer instanceof HtmlRenderer) {
-            return;
-        }
-
-        $converter->on('render.span', function (RenderEvent $event) use ($renderer): void {
-            $node = $event->getNode();
-            if (!$node instanceof Span) {
-                return;
-            }
-
-            $kbd = $node->getAttribute('kbd');
-            $dfn = $node->getAttribute('dfn');
-            $abbr = $node->getAttribute('abbr');
-            $samp = $node->getAttribute('samp');
-            $var = $node->getAttribute('var');
-
-            // Check if any semantic attribute is present
-            if ($kbd === null && $dfn === null && $abbr === null && $samp === null && $var === null) {
-                return;
-            }
-
-            // Remove semantic attributes from node (they're processed, not rendered)
-            $node->removeAttribute('kbd');
-            $node->removeAttribute('dfn');
-            $node->removeAttribute('abbr');
-            $node->removeAttribute('samp');
-            $node->removeAttribute('var');
-
-            // Get remaining attributes for outer wrapper
-            $remainingAttrs = $node->getAttributes();
-
-            // Get children HTML
-            $content = $event->getChildrenHtml();
-
-            // Build inner content with semantic elements
-            // Priority: abbr innermost, then samp/var, then kbd, dfn outermost
-            $html = $content;
-
-            // Wrap in <abbr> if abbr attribute present (with title)
-            if ($abbr !== null && $abbr !== '') {
-                $html = '<abbr title="' . StringUtil::escapeHtml((string)$abbr) . '">' . $html . '</abbr>';
-            }
-
-            if ($samp !== null) {
-                $html = '<samp>' . $html . '</samp>';
-            }
-
-            if ($var !== null) {
-                $html = '<var>' . $html . '</var>';
-            }
-
-            // Wrap in <kbd> if kbd attribute present
-            if ($kbd !== null) {
-                $html = '<kbd>' . $html . '</kbd>';
-            }
-
-            // Wrap in <dfn> if dfn attribute present (with optional title)
-            if ($dfn !== null) {
-                if ($dfn !== '') {
-                    $html = '<dfn title="' . StringUtil::escapeHtml((string)$dfn) . '">' . $html . '</dfn>';
-                } else {
-                    $html = '<dfn>' . $html . '</dfn>';
-                }
-            }
-
-            // Wrap in span with remaining attributes if any exist
-            if ($remainingAttrs !== []) {
-                $attrsHtml = $this->renderAttributes($remainingAttrs, $renderer);
-                $html = '<span' . $attrsHtml . '>' . $html . '</span>';
-            }
-
-            $event->setHtml($html);
-        });
-    }
-
-    /**
-     * Render attributes as HTML attribute string
-     *
-     * @param array<string, string> $attrs
-     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
-     */
-    protected function renderAttributes(array $attrs, HtmlRenderer $renderer): string
-    {
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        return $renderer->renderAttributeArray($attrs);
+        // Core HTML rendering owns this behavior; intentionally a no-op.
     }
 }

@@ -144,6 +144,7 @@ class CarveCorpusTest extends TestCase
         'blocks-that-render-to-nothing',
         'bold-italic-delimiter-needs-content',
         'boolean-attributes',
+        'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
         'classes-are-deduplicated',
         'code-span-and-image-trailing-attributes-are-strict',
         'collapsed-reference-link',

@@ -309,9 +309,12 @@ DJOT;
 
         $html = $this->converter->convert($input);
 
-        // The inline span-based text gets wrapped in a span with the abbr attribute
-        // The span content "HTML" is still processed for abbreviations
-        $this->assertStringContainsString('abbr="Custom Inline Definition"', $html);
+        // The explicit wrapper wins; nested <abbr> elements would be invalid
+        // and would hide the author's title.
+        $this->assertStringContainsString(
+            '<abbr title="Custom Inline Definition">HTML</abbr> with attribute',
+            $html,
+        );
 
         // The regular text "HTML" should have the definition-based abbr
         $this->assertStringContainsString(
