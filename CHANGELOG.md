@@ -26,6 +26,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A second `^ ` line no longer replaces a table's caption**
+  (markup-carve/carve-php#1199). `^ One` followed by `^ Two` published
+  `<caption>Two</caption>` and `One` appeared nowhere in the output - authored
+  text discarded with no trace. PART 9 section 4 says a further `^ ` line "ends
+  the caption and, having no captionable block to attach to, is ordinary
+  paragraph text", which is what carve-js and carve-rs produce. The first
+  caption now survives and the second renders as `<p>^ Two</p>`. A single
+  caption still attaches, and the figure host was already correct.
+
 - **Built-in semantic inline extensions now match carve-js and carve-rs.**
   `:abbr[…]`, `:cite[…]`, `:dfn[…]`, `:samp[…]`, `:var[…]`, `:time[…]`,
   `:code[…]`, and `:mark[…]` now render as their same-named HTML elements;
