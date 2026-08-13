@@ -501,7 +501,15 @@ class PlainTextRenderer implements RendererInterface
     {
         $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
-        return $this->blockQuotePrefix . $content . $this->blockQuoteSuffix . "\n\n";
+        $quoted = $this->blockQuotePrefix . $content . $this->blockQuoteSuffix;
+        // The attribution is visible content, so a text target keeps it - as a
+        // separate block, which is the spacing the renderer-parity fixtures pin.
+        $attribution = $node->getAttribution();
+        if ($attribution !== null) {
+            $quoted .= "\n\n" . trim($this->renderChildren($attribution));
+        }
+
+        return $quoted . "\n\n";
     }
 
     protected function renderList(ListBlock $node): string

@@ -762,7 +762,15 @@ class CarveRenderer implements RendererInterface
         $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
         $lines = explode("\n", $inner);
 
-        return implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
+        $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
+
+        // PART 9 SS4a: an attribution is written back as the `^` line it was
+        // read from. Dropping it would lose content, which PART 11 SS1 forbids.
+        $attribution = $node->getAttribution();
+
+        return $attribution === null
+            ? $quoted
+            : $quoted . "\n^ " . $this->renderInlines($attribution->getChildren());
     }
 
     protected function renderList(ListBlock $node): string

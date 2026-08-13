@@ -138,7 +138,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testCaptionStillAttaches(): void
     {
         $this->assertSame(
-            "<figure>\n  <blockquote><p>quoted</p></blockquote>\n  <figcaption>cap</figcaption>\n</figure>\n",
+            "<blockquote>\n  <p>quoted</p>\n  <footer>cap</footer>\n</blockquote>\n",
             $this->converter->convert("> quoted\n^ cap"),
         );
     }

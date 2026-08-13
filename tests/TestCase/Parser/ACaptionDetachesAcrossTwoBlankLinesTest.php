@@ -53,10 +53,17 @@ class ACaptionDetachesAcrossTwoBlankLinesTest extends TestCase
         ];
     }
 
+    /**
+     * `<footer>` counts too: the quote host's caption is its ATTRIBUTION and
+     * renders as a footer inside the quote (PART 9 §4a, carve#1159). What the
+     * slot ACCEPTS is the question here, and that is the same for all five
+     * hosts however the accepted content is spelled in HTML. No other
+     * construct emits a `<footer>`, so the count stays exact.
+     */
     protected function captionCount(string $source): int
     {
         return (int)preg_match_all(
-            '/<(fig)?caption[ >]/',
+            '/<(fig)?caption[ >]|<footer[ >]/',
             (new CarveConverter())->convert($source),
         );
     }

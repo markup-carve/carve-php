@@ -750,6 +750,13 @@ class AnsiRenderer implements RendererInterface
         $content = $this->renderChildren($node);
         $this->blockQuoteDepth--;
 
+        // Keeps the styling the caption had while a quote was a figure, so a
+        // terminal reader sees the same thing in a different place.
+        $attribution = $node->getAttribution();
+        if ($attribution !== null) {
+            $content = rtrim($content, "\n") . "\n\n" . $this->renderCaption($attribution);
+        }
+
         return $content;
     }
 
