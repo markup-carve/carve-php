@@ -1467,20 +1467,34 @@ class MarkdownRenderer implements RendererInterface
         // tag, so this renderer sees two separate text nodes - answering it here
         // would be one node too early, the mistake §8a M1b documents for `_`,
         // `#` and `[`.
-        $text = str_replace(['<', '>'], ['&lt;', '&gt;'], $text);
-
-        // Escape special Markdown characters in text. None overlap with the HTML
-        // chars escaped above.
+        // Escape special Markdown characters in text. None overlap with the angle
+        // brackets handled after it.
         //
         // `_`, `#` and `[` are emitted as SENTINELS rather than as backslashes:
         // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
         // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
         // and every other metacharacter keeps M1 as written (M1c).
-        return preg_replace_callback(
+        $escaped = preg_replace_callback(
             '/([\\\\`*_\[\]#])/',
             fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
             $text,
         ) ?? $text;
+
+        // PART 11 SS8a M1e: a `<` is escaped only where the emitted line would
+        // read it as markup - before an ASCII letter, `/`, `!` or `?`, the four
+        // things that open raw HTML. Everything else is inert, and so is `>`
+        // mid-line; at line start `>` is a block quote marker M1 already covers.
+        //
+        // A BACKSLASH, not an entity. This wrote the two entities
+        // unconditionally with no clause behind it (markup-carve/carve#1148),
+        // and that is precisely because an entity is not the operation the
+        // section describes: M2 and M3 protect a character so it survives as
+        // itself, and an entity replaces it instead. Escaping the `<` alone
+        // suffices - a tag that cannot open cannot be closed.
+        //
+        // AFTER the metacharacter pass, so the backslash this inserts is not
+        // itself escaped by it.
+        return preg_replace('/<(?=[A-Za-z\/!?])/', '\\\\<', $escaped) ?? $escaped;
     }
 
     /**
