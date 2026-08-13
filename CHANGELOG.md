@@ -7,6 +7,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The `{:TAG}` language attribute** (markup-carve/carve#1114). `[x]{:fr}` is
+  exact sugar for `{lang=fr}`, on inline spans and block attribute lines alike;
+  `{:}` is the explicit "language unknown" form and desugars to `lang=""`. A
+  tag is hyphen-separated ASCII-alphanumeric subtags of at most eight
+  characters, a malformed candidate leaves the whole block literal, and the
+  sigil takes no padding, so `{: fr}` is the empty attribute plus a separate
+  boolean. `:tag` and `lang=tag` are one key, last value at the first position.
+  This shipped without a changelog entry when the feature landed; recording it
+  here rather than leaving it to the diff.
+
 ### Changed
 
 - **`code` and `mark` leave the built-in semantic registry.** Both spellings
