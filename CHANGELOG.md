@@ -7,6 +7,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A math span's base class keeps the class slot in place** (PART 10 §1,
+  markup-carve/carve#1164). `math inline` / `math display` was written ahead of
+  everything, so an id the author wrote BEFORE any class came out after it -
+  `$`E=mc^2`{#i .c k=v}` gave `<span class="math inline c" id="i" k="v">` where
+  the clause asks for `<span id="i" class="math inline c" k="v">`. A mandatory
+  base class is prepended INSIDE the class slot; the slot stays where the author
+  first wrote a class. With no authored class there is no slot to keep, so the
+  base class leads, unchanged.
+
 ### Changed
 
 - **The Markdown target escapes `<` only where it would open markup** (PART 11
