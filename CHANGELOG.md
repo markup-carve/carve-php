@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`carve migrate --from` reaches every importer the library ships**, not just
+  the HTML one it started with: `markdown` (and the `md` short name), `djot`
+  and `bbcode` now convert on the command line too. `MarkdownToCarve`,
+  `DjotToCarve` and `BbcodeToCarve` were library-only, so the only way to run
+  them was to write PHP. `--mode`, `--adapter`, `--report` and `--check-loss`
+  stay HTML's alone - the other three parse their source whole and have nothing
+  to report as lost - and are ignored rather than rejected for them. An unknown
+  format now fails with `unknown source format <name>` instead of the old
+  `--from html is required`. The `migrate` subcommand is also listed in
+  `--help` for the first time.
+
 - **`HtmlToCarve` can emit `::: list-table` for a table whose cells hold block
   content** (markup-carve/carve-php#1167), via a third constructor argument,
   `listTableForBlockCells`. A pipe-table cell is one line of inline content, so
