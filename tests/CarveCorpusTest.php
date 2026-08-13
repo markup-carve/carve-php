@@ -432,6 +432,29 @@ class CarveCorpusTest extends TestCase
         return false;
     }
 
+    /**
+     * AN ENTRY THAT NAMES NOTHING IS NOT A PASS.
+     *
+     * The assertions behind AHEAD_OF_PIN run only for an entry whose slug is IN
+     * the corpus, so a declaration left behind after an upstream RENAME matches
+     * no case, runs no assertion, and reads as coverage. markup-carve/carve#1162
+     * renamed `293-a-semantic-span-keeps-its-wrapper-…` to
+     * `293-a-semantic-name-renames-the-span-…`; entries naming the old slug
+     * would have gone on "passing" while checking nothing in either direction.
+     */
+    public function testAheadOfPinNamesOnlyCasesThatExist(): void
+    {
+        $slugs = array_keys(self::corpusProvider());
+        $orphaned = array_values(array_diff(array_keys(self::AHEAD_OF_PIN), $slugs));
+
+        self::assertSame(
+            [],
+            $orphaned,
+            'AHEAD_OF_PIN names case(s) the corpus does not have: ' . implode(', ', $orphaned)
+                . ' - renamed upstream, or already retired; either way the entry asserts nothing.',
+        );
+    }
+
     #[DataProvider('corpusProvider')]
     public function testCorpus(string $slug, string $crv, string $html): void
     {

@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `ext-NAME` class no longer moves the author's class slot.**
+  `:widget[x]{#i .c k=v}` renders `<span id="i" class="ext-widget c" k="v">`;
+  the structural class merges INTO the slot the author wrote and the slot keeps
+  its position, where it used to jump ahead of the id. Spec PART 10 §1, pinned
+  by corpus `45-inline-extensions-12` (markup-carve/carve#1168).
+
 ### Added
 
 - **Three semantic span attributes need no extension** (markup-carve/carve#1146).
