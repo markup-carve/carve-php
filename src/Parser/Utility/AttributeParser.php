@@ -32,84 +32,7 @@ class AttributeParser
      */
     public static function parse(string $attrStr): array
     {
-        // Remove comments before parsing
-        $attrStr = self::removeComments($attrStr);
-
-        $attributes = [];
-
-        // Strip quoted values and unquoted key=value pairs before matching .class and #id
-        // to avoid matching dots/hashes inside attribute values like key="file.txt"
-        // or partial matches from invalid unquoted values like key=foo/bar
-        $strippedForShorthand = preg_replace('/"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
-        $strippedForShorthand = preg_replace("/'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedForShorthand) ?? $strippedForShorthand;
-        // Strip unquoted key=value tokens entirely (up to whitespace) to prevent
-        // invalid chars like slashes from being misinterpreted as shorthand
-        $strippedForShorthand = preg_replace('/[a-zA-Z][a-zA-Z0-9_:-]*=[^ \t\r\n]+/', '', $strippedForShorthand) ?? $strippedForShorthand;
-
-        // Parse .class -- the class name is a grammar identifier and may not
-        // start with a digit (a `class="123"` is also invalid CSS), so a
-        // digit-first `.123` is not matched. The whole block then yields no
-        // attribute and stays literal (§14). The possessive `*+` with `(?!:)`
-        // refuses a colon-bearing name OUTRIGHT rather than capturing the part
-        // before the colon: `.a:b` yields no class at all.
-        if (preg_match_all('/\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)/', $strippedForShorthand, $classMatches)) {
-            $attributes['class'] = implode(' ', $classMatches[1]);
-        }
-
-        // Parse #id -- the id is a grammar identifier (no leading digit).
-        if (preg_match('/#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)/', $strippedForShorthand, $idMatch)) {
-            $attributes['id'] = $idMatch[1];
-        }
-
-        // Parse key="double quoted value", key='single quoted value', or key=unquoted
-        // The regex uses the unrolled form [^"\\]*(?:\\.[^"\\]*)* to match
-        // content with escaped characters in linear time (the naive
-        // ([^"\\]|\\.)* shape is catastrophic and trips the PCRE JIT
-        // stacklimit on long values, see the engine-error guards below).
-        // Per carve-js, unquoted values may contain any non-whitespace byte
-        // except quotes and braces.
-        // Unquoted values must be followed by whitespace or } to be valid.
-        // The key is a grammar `identifier`: letter/`_` first, then letters,
-        // digits, `_` or `-`. A digit-first key (`123=v`) and a colon-bearing
-        // key (`xml:lang=en`) are therefore not matched -- the block then
-        // yields no such attribute and stays literal (§14). A colon remains
-        // legal inside an unquoted VALUE (`k=a:b`), per `unquoted_value`.
-        // Refusing a digit-first key also avoids a numeric string key being
-        // cast to int when used as an array key.
-        $kvPattern = '/(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\''
-            . '|(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)/';
-
-        $kvMatches = [];
-        if (self::safeMatchAll($kvPattern, $attrStr, $kvMatches)) {
-            foreach ($kvMatches as $match) {
-                if (($match[1] ?? '') !== '') {
-                    // key="double quoted value"
-                    $attributes[$match[1]] = self::processEscapes($match[2] ?? '');
-                } elseif (($match[3] ?? '') !== '') {
-                    // key='single quoted value'
-                    $attributes[$match[3]] = self::processEscapes($match[4] ?? '');
-                } elseif (($match[5] ?? '') !== '') {
-                    // key=unquoted
-                    $attributes[$match[5]] = $match[6] ?? '';
-                }
-            }
-        }
-
-        // Parse boolean attributes (bare words like "reversed", "hidden")
-        // First, strip out quoted values and key=value pairs to avoid matching words inside them
-        $strippedAttr = preg_replace('/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+="[^"\\\\]*(?:\\\\.[^"\\\\]*)*"/', '', $attrStr) ?? $attrStr;
-        $strippedAttr = preg_replace("/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+='[^'\\\\]*(?:\\\\.[^'\\\\]*)*'/", '', $strippedAttr) ?? $strippedAttr;
-        $strippedAttr = preg_replace('/(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n"\'{}]+/', '', $strippedAttr) ?? $strippedAttr;
-
-        // Now match bare words (must not start with . or #)
-        if (preg_match_all('/(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|$)/', $strippedAttr, $boolMatches)) {
-            foreach ($boolMatches[1] as $boolAttr) {
-                $attributes[$boolAttr] = '';
-            }
-        }
-
-        return $attributes;
+        return self::parseOrderedWithSlots($attrStr)['attributes'];
     }
 
     /**
@@ -158,7 +81,9 @@ class AttributeParser
             // Group 8: #id shorthand
             . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
-            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)'
+            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)|'
+            // Named groups: semantic language shorthand (the tag may be empty)
+            . '(?:(?<=[ \t\r\n])|^)(?<lang_sigil>:)(?<lang_tag>[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)'
             . '/';
 
         $matches = [];
@@ -190,6 +115,9 @@ class AttributeParser
                 // boolean attribute
                 $attributes[$match[9]] = '';
                 $order[] = $match[9];
+            } elseif (($match['lang_sigil'] ?? '') === ':') {
+                $attributes['lang'] = $match['lang_tag'] ?? '';
+                $order[] = 'lang';
             }
         }
 
@@ -254,7 +182,8 @@ class AttributeParser
             // Group 8: #id shorthand
             . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
-            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)'
+            . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)|'
+            . '(?:(?<=[ \t\r\n])|^)(?<lang_sigil>:)(?<lang_tag>[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)'
             . '/';
 
         $matches = [];
@@ -279,6 +208,8 @@ class AttributeParser
             } elseif (($match[9] ?? '') !== '') {
                 // boolean attribute
                 $node->setAttribute($match[9], '');
+            } elseif (($match['lang_sigil'] ?? '') === ':') {
+                $node->setAttribute('lang', $match['lang_tag'] ?? '');
             }
         }
     }
@@ -394,6 +325,7 @@ class AttributeParser
             return true;
         }
         $patterns = [
+            '/(?:(?<=[ \t\r\n])|^):(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)/',
             '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'{}]+/',
             '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
             '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',

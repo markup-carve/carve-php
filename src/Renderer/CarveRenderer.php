@@ -1260,7 +1260,12 @@ class CarveRenderer implements RendererInterface
                 return;
             }
             $seen[$slot] = true;
-            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+            $value = $attrs[$slot];
+            if (strtolower($slot) === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+                $parts[] = ':' . $value;
+            } else {
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
+            }
         };
 
         $order = $node->getAttributeOrder();
@@ -2347,7 +2352,12 @@ class CarveRenderer implements RendererInterface
                 return;
             }
             $seen[$slot] = true;
-            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+            $value = $attrs[$slot];
+            if (strtolower($slot) === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+                $parts[] = ':' . $value;
+            } else {
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
+            }
         };
 
         if ($order !== []) {

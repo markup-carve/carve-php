@@ -3592,7 +3592,7 @@ class InlineParser
 
         // Check if this looks like valid attributes (starts with ., #, or key=)
         // Exclude _ * = + - ~ ^ which are braced inline markers
-        if (!preg_match('/^[.#a-zA-Z]/', $attrStr)) {
+        if (!preg_match('/^[.#:a-zA-Z]/', $attrStr)) {
             return null;
         }
 
@@ -3737,6 +3737,7 @@ class InlineParser
             return true;
         }
         $patterns = [
+            '/(?:(?<=[ \t\r\n])|^):(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)/',
             // unquoted key=value (the key is an identifier; the value is
             // tolerant like carve-js's `\S+`, so an invalid value is skipped)
             '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+/',

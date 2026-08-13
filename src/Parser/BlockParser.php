@@ -2273,7 +2273,7 @@ class BlockParser
         $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
         if ($singleLineAttrStr !== null) {
             $attrStr = $singleLineAttrStr;
-            if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+            if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
             $consumed = 1;
@@ -2290,7 +2290,7 @@ class BlockParser
             $nextLine = $lines[$i];
             if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
                 $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
-                if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
                 $consumed = $i - $start + 1;
@@ -2990,7 +2990,7 @@ class BlockParser
         if ($singleLineAttrStr !== null) {
             $attrStr = $singleLineAttrStr;
             // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-            if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+            if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
 
@@ -3052,7 +3052,7 @@ class BlockParser
                 $attrStr = trim($attrContent);
 
                 // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-                if (!preg_match('/^[.#a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
                 // The whole payload must be valid, else it is not a block-
@@ -8919,7 +8919,7 @@ class BlockParser
         // start with an attribute char: an invalid one like `{# id}` (a
         // space-broken id) is NOT a block-attribute line, so it continues the
         // paragraph as text rather than splitting it. Matches carve-js / carve-rs.
-        return preg_match('/^[.#a-zA-Z]/', $attrStr) === 1
+        return preg_match('/^[.#:a-zA-Z]/', $attrStr) === 1
             && !str_starts_with($attrStr, '%')
             && $this->inlineParser->isValidAttrPayload($attrStr);
     }
