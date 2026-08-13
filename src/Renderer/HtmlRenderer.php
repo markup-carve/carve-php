@@ -1913,7 +1913,7 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderSpan(Span $node): string
     {
-        $order = ['abbr', 'time', 'code', 'mark', 'samp', 'var', 'kbd', 'cite', 'dfn'];
+        $order = ['abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'];
         $authored = $node->getAttributes();
         $semantic = [];
         foreach ($order as $name) {
@@ -2097,7 +2097,11 @@ class HtmlRenderer implements RendererInterface
         // PART 10 §9: this fixed registry is built-in renderer behavior over
         // the ordinary inline_extension node. Never promote an arbitrary
         // extension name to an HTML element.
-        $semanticTypes = ['abbr', 'cite', 'dfn', 'kbd', 'samp', 'var', 'time', 'code', 'mark'];
+        // PART 9 §9: the registry holds no element Carve already spells, so
+        // `code` and `mark` are absent - a code span writes <code> and =x= writes
+        // <mark>. `code` also gave one tag two content models: a code span is
+        // verbatim while an extension body is parsed.
+        $semanticTypes = ['abbr', 'cite', 'dfn', 'kbd', 'samp', 'var', 'time'];
         if (in_array($type, $semanticTypes, true)) {
             return '<' . $type . $attrs . '>' . $inner . '</' . $type . '>';
         }

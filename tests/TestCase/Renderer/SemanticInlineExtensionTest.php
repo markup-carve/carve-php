@@ -25,9 +25,31 @@ class SemanticInlineExtensionTest extends TestCase
             'samp' => ['samp', 'samp'],
             'var' => ['var', 'var'],
             'time' => ['time', 'time'],
-            'code' => ['code', 'code'],
-            'mark' => ['mark', 'mark'],
         ];
+    }
+
+    /**
+     * PART 9 §9: the registry holds no element Carve already spells, so these
+     * two take the generic fallback. `code` is also the name that made the
+     * duplication a defect - a code span is verbatim while an extension body is
+     * parsed, so one tag carried two content models.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function namesCarveAlreadySpells(): array
+    {
+        return [
+            'code' => [':code[*b*]', '<p><span class="ext-code"><strong>b</strong></span></p>'],
+            'mark' => [':mark[*b*]', '<p><span class="ext-mark"><strong>b</strong></span></p>'],
+            'code span' => ['`*b*`', '<p><code>*b*</code></p>'],
+            'highlight' => ['=*b*=', '<p><mark><strong>b</strong></mark></p>'],
+        ];
+    }
+
+    #[DataProvider('namesCarveAlreadySpells')]
+    public function testANameCarveAlreadySpellsIsNotInTheRegistry(string $source, string $expected): void
+    {
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     #[DataProvider('semanticTypes')]

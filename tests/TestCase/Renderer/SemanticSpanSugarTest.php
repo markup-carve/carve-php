@@ -16,7 +16,7 @@ class SemanticSpanSugarTest extends TestCase
 
         self::assertSame(
             "<p><dfn><abbr title=\"Cascading Style Sheets\">CSS</abbr></dfn>\n"
-            . "<time datetime=\"12:00\">Noon</time> <cite><kbd><var><samp><mark><code>x</code></mark></samp></var></kbd></cite></p>\n",
+            . "<time datetime=\"12:00\">Noon</time> <span code=\"\" mark=\"\"><cite><kbd><var><samp>x</samp></var></kbd></cite></span></p>\n",
             $converter->convert($source),
         );
     }

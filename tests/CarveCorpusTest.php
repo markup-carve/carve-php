@@ -46,6 +46,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'the-semantic-registry-holds-no-element-carve-already-spells',
         'a-language-attribute-is-exact-sugar-for-lang',
         'a-malformed-language-tag-leaves-the-whole-block-literal',
         'a-language-attribute-and-lang-are-one-key',
@@ -358,7 +359,14 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // PART 11 §6c, the writer's spelling for a value-less attribute, plus
+        // the boolean/`lang` merge the same clause needs. Implemented in
+        // markup-carve/carve-php#1233; this branch is the registry change only,
+        // and the submodule it moves to carries the category. Promote it there.
+        '298-a-boolean-lang-is-the-third-spelling-of-the-same-key' => 'PART 11 §6c and the boolean/lang merge it needs: implemented in markup-carve/carve-php#1233, deferred here because this branch is the registry change only.',
+        '298-a-boolean-lang-is-the-third-spelling-of-the-same-key-2' => 'PART 11 §6c and the boolean/lang merge it needs: implemented in markup-carve/carve-php#1233, deferred here because this branch is the registry change only.',
+    ];
 
     protected CarveConverter $converter;
 
