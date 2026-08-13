@@ -144,7 +144,13 @@ class MarkdownRendererTest extends TestCase
         // another `[` - while `]` keeps M1 (M1c). The label still cannot close, so
         // nothing breaks out; what this case is about, the destination's `<b>`
         // being neutralized, is unchanged.
-        $this->assertSame("![x\\](https://e.com/a &lt;b&gt;)\n", $this->renderer->render($document));
+        //
+        // The SPELLING moved with M1e (markup-carve/carve#1148): a backslash
+        // rather than an entity. It neutralizes the same way and carries the URL
+        // better - through a CommonMark reader the escaped form gives back the
+        // real character as `%3C`, where the entity form put a literal `&lt;`
+        // into the href.
+        $this->assertSame("![x\\](https://e.com/a \\<b>)\n", $this->renderer->render($document));
     }
 
     public function testLinkWithTitle(): void
