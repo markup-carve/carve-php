@@ -5,88 +5,142 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Renderer\AnsiRenderer;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Extension\SemanticSpanExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * PART 9 §9/§10, the tier split. Core reserves three SPAN ATTRIBUTES; the four
+ * other names and the `:name[...]` spelling are the SemanticSpan extension's.
+ *
+ * The pairs matter more than the rows: every assertion has a twin with the
+ * extension off, because "renders <samp>" and "renders <samp> only when asked"
+ * are different claims and a suite that always registers the extension cannot
+ * tell them apart.
+ */
 class SemanticInlineExtensionTest extends TestCase
 {
     /**
      * @return array<string, array{string, string}>
      */
-    public static function semanticTypes(): array
+    public static function coreNames(): array
     {
         return [
             'abbr' => ['abbr', 'abbr'],
-            'cite' => ['cite', 'cite'],
-            'dfn' => ['dfn', 'dfn'],
-            'kbd' => ['kbd', 'kbd'],
-            'samp' => ['samp', 'samp'],
-            'var' => ['var', 'var'],
             'time' => ['time', 'time'],
+            'kbd' => ['kbd', 'kbd'],
         ];
     }
 
     /**
-     * PART 9 §9: the registry holds no element Carve already spells, so these
-     * two take the generic fallback. `code` is also the name that made the
-     * duplication a defect - a code span is verbatim while an extension body is
-     * parsed, so one tag carried two content models.
-     *
-     * @return array<string, array{string, string}>
+     * @return array<string, array{string}>
      */
-    public static function namesCarveAlreadySpells(): array
+    public static function extensionNames(): array
     {
         return [
-            'code' => [':code[*b*]', '<p><span class="ext-code"><strong>b</strong></span></p>'],
-            'mark' => [':mark[*b*]', '<p><span class="ext-mark"><strong>b</strong></span></p>'],
-            'code span' => ['`*b*`', '<p><code>*b*</code></p>'],
-            'highlight' => ['=*b*=', '<p><mark><strong>b</strong></mark></p>'],
+            'samp' => ['samp'],
+            'var' => ['var'],
+            'cite' => ['cite'],
+            'dfn' => ['dfn'],
         ];
     }
 
-    #[DataProvider('namesCarveAlreadySpells')]
-    public function testANameCarveAlreadySpellsIsNotInTheRegistry(string $source, string $expected): void
+    #[DataProvider('coreNames')]
+    public function testCoreNameIsConsumedWithNoExtension(string $name, string $tag): void
     {
-        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
-    }
-
-    #[DataProvider('semanticTypes')]
-    public function testBuiltInSemanticTypeUsesMatchingElement(string $name, string $tag): void
-    {
-        $html = (new CarveConverter())->convert(':' . $name . '[x]');
+        $html = (new CarveConverter())->convert('[x]{' . $name . '}');
 
         self::assertSame('<p><' . $tag . '>x</' . $tag . '></p>', trim($html));
     }
 
-    public function testAttributesAreHardenedOnTheSemanticElement(): void
+    #[DataProvider('extensionNames')]
+    public function testExtensionNameStaysAnAttributeWithNoExtension(string $name): void
     {
-        $html = (new CarveConverter())->convert(
-            ':time[*noon*]{#clock .local datetime="12:00" onclick="alert(1)"}',
-        );
+        $html = (new CarveConverter())->convert('[x]{' . $name . '}');
+
+        self::assertSame('<p><span ' . $name . '="">x</span></p>', trim($html));
+    }
+
+    #[DataProvider('extensionNames')]
+    public function testExtensionNameIsConsumedWhenRegistered(string $name): void
+    {
+        $cv = new CarveConverter();
+        $cv->addExtension(new SemanticSpanExtension());
+
+        self::assertSame('<p><' . $name . '>x</' . $name . '></p>', trim($cv->convert('[x]{' . $name . '}')));
+    }
+
+    public function testValueMapsToTheAttributeItStandsFor(): void
+    {
+        $cv = new CarveConverter();
 
         self::assertSame(
-            '<p><time id="clock" class="local" datetime="12:00"><strong>noon</strong></time></p>',
-            trim($html),
+            '<p><abbr title="HyperText Markup Language">HTML</abbr></p>',
+            trim($cv->convert('[HTML]{abbr="HyperText Markup Language"}')),
+        );
+        self::assertSame(
+            '<p><time datetime="2026-01-01">now</time></p>',
+            trim($cv->convert('[now]{time="2026-01-01"}')),
         );
     }
 
-    public function testUnknownNameKeepsGenericFallback(): void
+    public function testDerivedAttributeYieldsToAnAuthoredOne(): void
     {
-        $html = (new CarveConverter())->convert(':widget[x]{.control}');
-
-        self::assertSame('<p><span class="ext-widget control">x</span></p>', trim($html));
+        self::assertSame(
+            '<p><abbr title="authored">x</abbr></p>',
+            trim((new CarveConverter())->convert('[x]{abbr="derived" title="authored"}')),
+        );
     }
 
-    public function testPlainAndAnsiRenderOnlyContent(): void
+    public function testLeftoversRideTheOutermostElement(): void
     {
-        $source = ':abbr[*HTML*]{title="HyperText Markup Language"}';
+        $cv = new CarveConverter();
 
-        $plain = CarveConverter::create(renderer: new PlainTextRenderer())->convert($source);
-        $ansi = CarveConverter::create(renderer: new AnsiRenderer(useColors: false))->convert($source);
+        self::assertSame(
+            '<p><kbd id="k" class="key">Tab</kbd></p>',
+            trim($cv->convert('[Tab]{#k .key kbd}')),
+        );
+        self::assertSame('<p><kbd>x</kbd></p>', trim($cv->convert('[x]{kbd onclick="alert(1)"}')));
+    }
 
-        self::assertSame("HTML\n", $plain);
-        self::assertSame("HTML\n", $ansi);
+    public function testASpanWithNoSemanticNameIsUnchanged(): void
+    {
+        $cv = new CarveConverter();
+
+        self::assertSame('<p><span>x</span></p>', trim($cv->convert('[x]{}')));
+        self::assertSame('<p><span>x</span></p>', trim($cv->convert('[x]{onclick="alert(1)"}')));
+    }
+
+    public function testCoreRegistersNoExtensionSpellingAtAll(): void
+    {
+        $cv = new CarveConverter();
+
+        foreach (['abbr', 'time', 'kbd', 'samp', 'var', 'cite', 'dfn', 'code', 'mark'] as $name) {
+            self::assertSame(
+                '<p><span class="ext-' . $name . '">x</span></p>',
+                trim($cv->convert(':' . $name . '[x]')),
+                'core must register no :' . $name . '[...] handler',
+            );
+        }
+    }
+
+    public function testTheExtensionAcceptsTheDeprecatedSpelling(): void
+    {
+        $cv = new CarveConverter();
+        $cv->addExtension(new SemanticSpanExtension());
+
+        self::assertSame('<p><kbd>Ctrl</kbd></p>', trim($cv->convert(':kbd[Ctrl]')));
+        self::assertSame('<p><samp class="o">out</samp></p>', trim($cv->convert(':samp[out]{.o}')));
+        self::assertSame('<p><span class="ext-code">x</span></p>', trim($cv->convert(':code[x]')));
+    }
+
+    public function testAttributesAreHardenedOnTheSemanticElement(): void
+    {
+        $html = (new CarveConverter())->convert('[*noon*]{#clock .local time="12:00" onclick="alert(1)"}');
+
+        self::assertSame(
+            '<p><time datetime="12:00" id="clock" class="local"><strong>noon</strong></time></p>',
+            trim($html),
+        );
     }
 }

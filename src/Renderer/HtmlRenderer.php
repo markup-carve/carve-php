@@ -1952,9 +1952,58 @@ class HtmlRenderer implements RendererInterface
         return ($this->xhtml ? '<br />' : '<br>') . $this->inlineBreakGuard();
     }
 
+    /**
+     * PART 9 §9: the names core reserves on a span, inner to outer.
+     *
+     * THREE, not the seven this once carried. A name is core when it carries
+     * data the author would otherwise lose (`abbr`'s expansion, `time`'s
+     * machine-readable value) or when a core clause already rules its
+     * interaction; `kbd` is core on ubiquity alone. `samp`, `var`, `cite` and
+     * `dfn` are the SemanticSpan extension's (PART 9 §10) and reach this
+     * renderer by registering their names, not a second renderer.
+     *
+     * @var array<string>
+     */
+    public const CORE_SEMANTIC_SPAN_ORDER = ['abbr', 'time', 'kbd'];
+
+    /**
+     * The full order, including the four names the extension adds.
+     *
+     * @var array<string>
+     */
+    public const EXTENDED_SEMANTIC_SPAN_ORDER = ['abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'];
+
+    /**
+     * Names added by a registered extension, in the canonical order.
+     *
+     * @var array<string>
+     */
+    protected array $extraSemanticSpanNames = [];
+
+    /**
+     * Let an extension add semantic span names (PART 9 §10).
+     *
+     * Declarative on purpose: the nesting order, the value mapping and §9's
+     * riding rule live HERE, so an extension names what it claims instead of
+     * carrying a second copy of the feature that drifts the first time either
+     * side changes.
+     *
+     * @param array<string> $names
+     */
+    public function addSemanticSpanNames(array $names): void
+    {
+        $this->extraSemanticSpanNames = array_values(array_unique(
+            array_merge($this->extraSemanticSpanNames, $names),
+        ));
+    }
+
     protected function renderSpan(Span $node): string
     {
-        $order = ['abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'];
+        $order = array_values(array_filter(
+            self::EXTENDED_SEMANTIC_SPAN_ORDER,
+            fn (string $name): bool => in_array($name, self::CORE_SEMANTIC_SPAN_ORDER, true)
+                || in_array($name, $this->extraSemanticSpanNames, true),
+        ));
         $authored = $node->getAttributes();
         $semantic = [];
         foreach ($order as $name) {
@@ -1975,27 +2024,39 @@ class HtmlRenderer implements RendererInterface
         } finally {
             $this->suppressAutomaticAbbreviation = $previousSuppression;
         }
-        foreach ($order as $name) {
-            if (!array_key_exists($name, $semantic)) {
-                continue;
-            }
-            $value = $semantic[$name];
-            $mapped = '';
-            if ($value !== '' && ($name === 'abbr' || $name === 'dfn')) {
-                $mapped = ' title="' . $this->escapeAttribute($value) . '"';
-            } elseif ($value !== '' && $name === 'time') {
-                $mapped = ' datetime="' . $this->escapeAttribute($value) . '"';
-            }
-            $html = '<' . $name . $mapped . '>' . $html . '</' . $name . '>';
+        // PART 9 §9: leftovers RIDE the outermost semantic element. A consumed
+        // name RENAMES the span rather than wrapping it, so the author's id,
+        // classes and remaining key/values land on the element they were
+        // written on.
+        $riding = $this->getRenderableAttributes($node);
+        foreach (array_keys($semantic) as $name) {
+            unset($riding[$name]);
         }
-
-        $remainingAuthored = array_diff_key($authored, $semantic);
-        if ($remainingAuthored !== []) {
-            $remaining = $this->getRenderableAttributes($node);
-            foreach (array_keys($semantic) as $name) {
-                unset($remaining[$name]);
+        // Keyed rather than a list of names: the value travels with the name, so
+        // there is no second lookup for a static analyzer to doubt.
+        $ordered = [];
+        foreach ($order as $name) {
+            if (array_key_exists($name, $semantic)) {
+                $ordered[$name] = $semantic[$name];
             }
-            $html = '<span' . $this->renderAttributeArray($remaining) . '>' . $html . '</span>';
+        }
+        $outermost = array_key_last($ordered);
+
+        foreach ($ordered as $name => $value) {
+            $own = $name === $outermost ? $riding : [];
+            $mapsTo = null;
+            if ($value !== '' && ($name === 'abbr' || $name === 'dfn')) {
+                $mapsTo = 'title';
+            } elseif ($value !== '' && $name === 'time') {
+                $mapsTo = 'datetime';
+            }
+            // A DERIVED ATTRIBUTE YIELDS TO AN AUTHORED ONE of the same name:
+            // `title` and `datetime` are names an author may also write, and
+            // one element never carries the same attribute twice.
+            $mapped = $mapsTo !== null && !array_key_exists($mapsTo, $own)
+                ? ' ' . $mapsTo . '="' . $this->escapeAttribute($value) . '"'
+                : '';
+            $html = '<' . $name . $mapped . $this->renderAttributeArray($own) . '>' . $html . '</' . $name . '>';
         }
 
         return $html;
@@ -2142,7 +2203,10 @@ class HtmlRenderer implements RendererInterface
         // `code` and `mark` are absent - a code span writes <code> and =x= writes
         // <mark>. `code` also gave one tag two content models: a code span is
         // verbatim while an extension body is parsed.
-        $semanticTypes = ['abbr', 'cite', 'dfn', 'kbd', 'samp', 'var', 'time'];
+        // PART 9 §10: core registers NO `:name[…]` handler at all. The
+        // SemanticSpan extension re-registers the seven as a soft-deprecated
+        // spelling; without it every name takes the readable fallback.
+        $semanticTypes = $this->extraSemanticSpanNames === [] ? [] : self::EXTENDED_SEMANTIC_SPAN_ORDER;
         if (in_array($type, $semanticTypes, true)) {
             return '<' . $type . $attrs . '>' . $inner . '</' . $type . '>';
         }

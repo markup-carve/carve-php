@@ -78,11 +78,13 @@ class SemanticSpanExtensionTest extends TestCase
         );
     }
 
-    public function testPreservesOtherAttributes(): void
+    public function testLeftoversRideTheElement(): void
     {
+        // PART 9 §9: a consumed name RENAMES the span rather than wrapping it,
+        // so what is left lands on the element the author wrote it on.
         $html = $this->converter->convert('[Ctrl+C]{kbd .shortcut #copy-shortcut}');
 
-        $this->assertStringContainsString('<span class="shortcut" id="copy-shortcut"><kbd>Ctrl+C</kbd></span>', $html);
+        $this->assertStringContainsString('<kbd class="shortcut" id="copy-shortcut">Ctrl+C</kbd>', $html);
     }
 
     public function testPreservesClassWithAbbr(): void
@@ -90,7 +92,7 @@ class SemanticSpanExtensionTest extends TestCase
         $html = $this->converter->convert('[HTML]{abbr="HyperText Markup Language" .tech-term}');
 
         $this->assertStringContainsString('class="tech-term"', $html);
-        $this->assertStringContainsString('<abbr title="HyperText Markup Language">HTML</abbr>', $html);
+        $this->assertStringContainsString('<abbr title="HyperText Markup Language" class="tech-term">HTML</abbr>', $html);
     }
 
     public function testRegularSpanUnaffected(): void

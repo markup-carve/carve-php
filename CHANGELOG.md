@@ -9,285 +9,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **The `{:TAG}` language attribute** (markup-carve/carve#1114). `[x]{:fr}` is
-  exact sugar for `{lang=fr}`, on inline spans and block attribute lines alike;
-  `{:}` is the explicit "language unknown" form and desugars to `lang=""`. A
-  tag is hyphen-separated ASCII-alphanumeric subtags of at most eight
-  characters, a malformed candidate leaves the whole block literal, and the
-  sigil takes no padding, so `{: fr}` is the empty attribute plus a separate
-  boolean. `:tag` and `lang=tag` are one key, last value at the first position.
-  This shipped without a changelog entry when the feature landed; recording it
-  here rather than leaving it to the diff.
+- **Three semantic span attributes need no extension** (markup-carve/carve#1146).
+  `[Tab]{kbd}`, `[HTML]{abbr="…"}` and `[now]{time="2026-01-01"}` render
+  `<kbd>`, `<abbr title="…">` and `<time datetime="…">` in a plain converter:
+  spec PART 9 §9 reserves the two names that carry data the author would
+  otherwise lose, plus the one every comparable system ships. `time` is new
+  as a span attribute; `kbd` and `abbr` previously needed
+  `SemanticSpanExtension`.
+
+- **`SemanticSpanExtension` is specified, and carries `cite`** (spec PART 9 §10,
+  docs/extensions.md §11). It is a Tier-2 extension every engine ships rather
+  than this package's own, so `[Dune]{cite}` joins `samp`, `var` and `dfn`, and
+  the `:name[…]` spelling is accepted for all seven names as a SOFT-DEPRECATED
+  compatibility form scheduled for removal in 0.2. Registering it stays one
+  line; what it claims is now declarative, so the nesting order, the value
+  mapping and the riding rule have one implementation in the renderer.
 
 ### Changed
 
-- **`code` and `mark` leave the built-in semantic registry.** Both spellings
-  follow the spec's seven-name list - `abbr`, `time`, `samp`, `var`, `kbd`,
-  `cite`, `dfn` - so `:code[x]` and `:mark[x]` take the generic
-  `<span class="ext-NAME">` fallback and `[x]{code}` / `[x]{mark}` are ordinary
-  boolean attributes on the outer span. A name belongs in the registry only
-  where Carve has no other way to write that element, and these two have one:
-  a code span writes `<code>`, `=x=` writes `<mark>`. `code` is also where the
-  duplication became a defect - a code span is verbatim while an extension body
-  is parsed, so `` `*b*` `` and `:code[*b*]` produced the same tag with
-  different content models and nothing reported the switch
-  (markup-carve/carve#1146).
-
-### Added
-
-- **`carve migrate --from` reaches every importer the library ships**, not just
-  the HTML one it started with: `markdown` (and the `md` short name), `djot`
-  and `bbcode` now convert on the command line too. `MarkdownToCarve`,
-  `DjotToCarve` and `BbcodeToCarve` were library-only, so the only way to run
-  them was to write PHP. `--mode`, `--adapter`, `--report` and `--check-loss`
-  stay HTML's alone - the other three parse their source whole and have nothing
-  to report as lost - and are ignored rather than rejected for them. An unknown
-  format now fails with `unknown source format <name>` instead of the old
-  `--from html is required`. The `migrate` subcommand is also listed in
-  `--help` for the first time.
-
-- **`HtmlToCarve` can emit `::: list-table` for a table whose cells hold block
-  content** (markup-carve/carve-php#1167), via a third constructor argument,
-  `listTableForBlockCells`. A pipe-table cell is one line of inline content, so
-  a cell holding two paragraphs, a list or a code block degrades to its text;
-  ListTable is the construct for exactly that case (extensions §5) and its
-  cells are list items, so they hold full block content. Caption,
-  `{header-rows}` / `{header-cols}` and the shared `^` / `<` span markers all
-  carry over. OFF by default, and necessarily so: pipe tables are Tier-1 and
-  always on while ListTable is Tier-2 and off until a processor enables it, so
-  emitting one for a consumer that has not is worse than the degradation it
-  replaces. Only a table that NEEDS the form switches - one whose cells are all
-  inline, or whose cells hold a single paragraph, keeps the pipe form. Known
-  gap: a cell's own attributes are dropped in this form, because Carve has no
-  per-list-item attribute spelling to carry them.
-
-### Changed
-
-- **Compact semantic span attributes are now portable core syntax.** Existing
-  `[Ctrl]{kbd}`, `[HTML]{abbr="…"}`, and combined forms work without registering
-  `SemanticSpanExtension`, and the registry now also includes `time`, `code`,
-  `mark`, and `cite`. The old extension class remains as a deprecated no-op
-  compatibility shim throughout 0.1.x.
-
-### Fixed
-
-- **A code span is padded on both sides, and a multi-line list item keeps its
-  list** (markup-carve/carve-php#1224). Two `HtmlToCarve` defects. A code span
-  whose content starts or ends with a backtick needs a space at BOTH ends,
-  because a reader strips one from each end only when there is one at each end;
-  padding a single side left that space in the code, so `<code>`start</code>`
-  came back as `<code> `start</code>`. And a list item whose content spans more
-  than one line put `- ` alone on its line, which is not a marker, so a
-  `details` container as an item's only content came back as a paragraph
-  reading `-` with the container loose beside it. The marker line now carries
-  the first line of the content whatever it is.
-
-- **A single-line list item stays on its marker line**
-  (markup-carve/carve-php#1217). `HtmlToCarve` pushed an item's first part below
-  the marker whenever it began with a block-marker character, which left `- `
-  alone on its line - and a marker with nothing after it is not a marker, so the
-  item came back as a paragraph reading `-` with its content outside the list.
-  It fired on text that merely looked like a block (`<li>|start</li>`) and on
-  real blocks alike, so a heading, a blockquote or a table inside an item was
-  lost as well. Only a part spanning more than one line now goes below the
-  marker.
-
-- **Plain HTML and BBCode text no longer becomes Carve markup**
-  (markup-carve/carve-php#1216, markup-carve/carve-php#1218). Neither language
-  has a code span or an attribute block of its own, so a backtick or a `{#id}`
-  in their text is characters the author typed - carried over bare, `a `b` c`
-  came back as `a <code>b</code> c` and `a {#id} b` grew a tag span. A lone
-  backtick was worse: `x ` y` has no pair at all and still produced a code span.
-  A brace that looks like a pair opener but never closes is escaped too, since
-  the bare delimiter rules were declining to escape behind it on the assumption
-  that a pair rule had handled it. `DjotToCarve` keeps pinned attribute blocks,
-  which are deliberate there.
-
-- **A literal backslash in HTML or BBCode text survives the conversion**
-  (markup-carve/carve-php#1214). Neither language has a backslash escape, so a
-  backslash in their text is one the author typed; Carve does have one, so an
-  undoubled backslash arriving there was read as an escape and ate the character
-  after it. `a \*b* c` in HTML came back as `a *b* c`, and `x \ y` came back
-  with a non-breaking space, because `\ ` is that escape. `HtmlToCarve` and
-  `BbcodeToCarve` now double backslashes before escaping delimiters; `DjotToCarve`
-  and `MarkdownToCarve` deliberately do not, since a backslash there is the
-  author's own escape. A link label is no longer escaped twice as part of the
-  same change.
-
-- **A delimiter the source already escaped is no longer escaped a second time**
-  (markup-carve/carve-php#1212). Doubling it was worse than leaving it alone:
-  the doubled backslash rendered as a literal backslash AND freed the delimiter
-  to open the construct the first escape was suppressing, so `a \#y b` in Djot,
-  which means `a #y b`, rendered a stray backslash followed by a tag span.
-  Affected the `#`, `=` and `/` rules on every converter that escapes Carve
-  constructs, so Djot, Markdown, HTML and BBCode sources alike. Source arriving
-  already escaped is the normal case, because those languages escape with a
-  backslash too.
-
-- **`BbcodeToCarve` consumes `[noparse]` instead of emitting it**
-  (markup-carve/carve-php#1209). The tag has no Carve construct to become - its
-  whole effect is that the enclosed text is literal - so keeping it wrote
-  `[noparse]` verbatim into a document that has no such thing, and the cleanup
-  pass then ate the closer and left it unbalanced. The tags are dropped and the
-  content is kept as the escaper already left it; escaping it a second time
-  doubled the backslash and rendered both a stray backslash and the markup it
-  was meant to suppress.
-
-- **`BbcodeToCarve` keeps code content literal** (markup-carve/carve-php#1206).
-  `escapePlainBbcodeText()` stashed code runs while it escaped and restored
-  them before returning, so every converter after it saw the enclosed markup
-  and rewrote it: `[code][b]not bold[/b][/code]` became a fence containing
-  `*not bold*`, which is neither what the author wrote nor BBCode. Showing
-  markup is most of what `[code]` is used for on a forum. Only the content is
-  stashed now, so the tags stay visible and the run still becomes a fence with
-  its language, and the sentinel is restored after the cleanup pass rather than
-  before it. `[c]`, `[icode]` and `[noparse]` carry the same contract and are
-  covered. `[noparse]`'s own tag still leaks into the output, which is
-  pre-existing and tracked separately.
-
-- **A Markdown hard break inside a block quote or list item survives the
-  import** (markup-carve/carve-php#1207). The top-level case landed in
-  markup-carve/carve-php#1205, but the condition asked `continuesParagraph()`
-  about the raw next line, which is the wrong question inside a container: the
-  next line of a quoted paragraph begins with `>` and reads as a new block, and
-  a list item was excluded outright. So `> a` + two spaces + `> b` and
-  `- a` + two spaces + indented `b` both lost the break that carve-js and
-  carve-rs keep. The container context is now removed from both sides before
-  asking. Two adjacent list items are still two paragraphs and stay unbroken,
-  and a blank line inside a quote still ends the paragraph.
-
-- **A second `^ ` line no longer replaces a table's caption**
-  (markup-carve/carve-php#1199). `^ One` followed by `^ Two` published
-  `<caption>Two</caption>` and `One` appeared nowhere in the output - authored
-  text discarded with no trace. PART 9 section 4 says a further `^ ` line "ends
-  the caption and, having no captionable block to attach to, is ordinary
-  paragraph text", which is what carve-js and carve-rs produce. The first
-  caption now survives and the second renders as `<p>^ Two</p>`. A single
-  caption still attaches, and the figure host was already correct.
-
-- **Built-in semantic inline extensions now match carve-js and carve-rs.**
-  `:abbr[…]`, `:cite[…]`, `:dfn[…]`, `:samp[…]`, `:var[…]`, `:time[…]`,
-  `:code[…]`, and `:mark[…]` now render as their same-named HTML elements;
-  `:kbd[…]` already did. Parsing, AST JSON, plain/ANSI output and source
-  formatting are unchanged. This is observable for CSS/DOM consumers: for
-  example, `:abbr[HTML]` changes from `<span class="ext-abbr">HTML</span>` to
-  `<abbr>HTML</abbr>`. The older PHP-only `SemanticSpanExtension` remains
-  available for attribute syntax such as `[HTML]{abbr="…"}`.
-
-- **`DjotToCarve` converts an intraword `_x_` instead of leaving it literal**
-  (markup-carve/carve-js#997). Djot's spec puts no word boundary on emphasis, so
-  `snake_case_name` IS emphasis in the source language - pandoc's Djot reader
-  renders `snake<em>case</em>name` - and an author who wanted the literal
-  characters had to escape them. An unescaped run is therefore emphasis the
-  author saw in their own renderer and kept, and leaving it literal dropped what
-  the source stated. It now converts to the braced `{/case/}`, which is required
-  rather than stylistic: a bare `/` is literal intraword in Carve, so
-  `snake/case/name` renders as itself.
-
-  An escaped `snake\_case\_name` is untouched and still renders literally, which
-  is what makes the change safe. `MarkdownToCarve` is unaffected: CommonMark's
-  flanking rules leave an intraword `_` literal, so the identifier reading is the
-  correct one there and stays.
-
-- **An escaped brace no longer suppresses the delimiter after it**
-  (markup-carve/carve-php#1191). `a \{/x/} b` rendered as the literal
-  `a {/x/} b` here while carve-js and carve-rs rendered
-  `a {<em>x</em>} b`; the same held for `\{=y=}`, `\{*y*}`, `\{_y_}` and
-  `\{~y~}`. The closer search skipped any delimiter followed by `}`, on the
-  grounds that such a closer belongs to a braced opener - which is true only
-  when a braced opener EXISTS. An escaped brace is a literal `{` and opens
-  nothing, so `/x/` there is an ordinary bare pair. `escaped_char` in
-  `resources/grammar.ebnf` is one backslash and one punctuation character, and
-  nothing in it suppresses what follows. An UNESCAPED `{` still owns its whole
-  construct, and an even backslash run still leaves the brace real.
-
-  The converters move with it, because their escaping targeted the old
-  behavior: text that is literal in the source language and markup in Carve is
-  now escaped at BOTH the brace and the inner delimiter, so `{/x/}` from
-  Markdown, Djot, HTML or BBCode converts to `\{\/x/}` rather than
-  `\{/x/}`. The rendered output is unchanged - that is what the escaping is
-  for - but the intermediate Carve differs. `{=x=}` and the other braced forms
-  a converter already owns are untouched.
-
-- **`DjotToCarve` converts Djot's braced subscript and superscript instead of
-  escaping them** (markup-carve/carve-php#1186). Djot spells subscript and
-  superscript both bare and braced and means the same by each, but only the bare
-  spelling had a rule. The braced spelling fell through to the escaper and was
-  written out as literal text, so `{~x~}` lost its subscript and `{^x^}` lost
-  its superscript - the silent content change the converter exists to prevent.
-  `{~x~}` now converts to `{,x,}` like the bare form, and `{^x^}`, which means
-  superscript in both languages, is left alone. carve-js's `djot-migrate`, named
-  in this class's own docblock as the canonical list, already excluded `{^x^}`
-  as "valid in both languages" and already suggested `{,x,}` for `{~x~}`. The
-  nested case is corrected by the same change: `{^a{,b,}c^}` had been rendering
-  as `{^a<sub>b</sub>c^}`, both losing the superscript and inventing a
-  subscript, and now matches Djot's `<sup>a{,b,}c</sup>`.
-
-- **A footnote reference no longer crosses a source newline.** The parser used
-  to publish an unresolved `footnote_ref` whose id contained that newline,
-  although the one-line definition marker could never bind it. The bracketed
-  source now remains ordinary text around a soft break, matching the grammar;
-  rendered HTML and canonical source are unchanged.
-
-- **A block wrapper that degrades to its content keeps the boundary it carried**
-  (markup-carve/carve-php#1164). Dropping the wrapper also dropped the block
-  break: `<div>a</div><div>b</div>` came out as the single paragraph `ab`, and
-  so did two divs each wrapping a paragraph. In a table cell the same defect
-  read `| a()b: |`, and two `<details>` `| s a()t b: |`. `processBlock()`
-  appends a block child's output directly and relies on the child ending
-  itself; a paragraph does, which is why a `<p>` pair was never affected and
-  only the degrading wrappers were. They now emit the same block separator
-  every other block writer does - one rule with two right answers, since
-  outside a table it is a real block break and inside a pipe-table cell the
-  cell serializer collapses it to a single space, a pipe row being one line
-  that cannot hold a break at all. A lone wrapper still trims to `| d |`
-  rather than gaining padding.
-
-- **`HtmlToCarve` no longer writes a construct into a table cell that cannot
-  parse there** (markup-carve/carve-php#1164). A cell's own attributes were
-  written with a space after the opening pipe, and a cell attribute block
-  parses only when it is GLUED to that pipe - so `<td class="c">x</td>` came
-  back as a cell reading `{.c} x`, four visible characters of punctuation
-  instead of a class. They are now written `|{.c} x |` and the class reaches
-  the cell. A cell whose CONTENT starts with a brace keeps its space and stays
-  content. Block constructs from INSIDE a cell are dropped rather than written
-  as text: a `<div class="x">` became a literal `::: x d :::` on the cell's one
-  line, and a `class` on a block in the cell a literal `{.c}` - both now keep
-  their content and lose only the wrapper, which is what an attribute-less
-  `<div>` in a cell already did. An inline `<span class>` was always fine and
-  is unchanged.
-
-### Changed
-
-- **The Markdown target leaves a bare ampersand alone.** Text was neutralized as
-  `&amp;`, `&lt;` and `&gt;`; only two thirds of that was doing anything. An
-  entity in Markdown TEXT decodes to a CHARACTER, and a character cannot open a
-  tag, so `&` carried no risk to leave bare - measured against pandoc 3.5,
-  commonmark.js and marked with raw HTML allowed. `<` and `>` keep the entity
-  form, which is what actually neutralizes embedded HTML. Text authored as
-  `&#65;` is emitted as itself too; there is no character-reference exception.
-
-### Fixed
-
-- **A nested list is indented once on the Markdown target.** `renderList()`
-  padded every line by the list's own depth, and the enclosing item padded the
-  same lines again by the width of its marker, so each level was indented
-  twice: two levels came out at four spaces and three at ten. Ten spaces under
-  a marker whose content column is six is an indented verbatim block, so a
-  third level stopped being a list for every reader that is not Carve itself.
-  Nesting now comes from the parent's continuation pad alone - `- a` / `  - b`
-  / `    - c` - and a line with no content no longer takes that pad, which
-  removes the whitespace-only lines PART 11 §7 forbids.
-
-- **Plain input text is not Carve markup, for `*` and `_` too.** `HtmlToCarve`
-  and `BbcodeToCarve` escaped the bare `/…/`, `=…=` and `~…~` pairs and the
-  braced forms, but never `*…*` or `_…_` - so an HTML paragraph reading
-  `literal *stars* here` converted to a Carve strong, and `_lead_` to an
-  underline. Both are now escaped, along with the braced `{*x*}` and `{_x_}`
-  spellings, with the parser's own word-boundary rule: `a*b*c`,
-  `feature_flag_company`, `can_*` and `5 * 4 * 3` stay bare. `MarkdownToCarve`
-  and `DjotToCarve` name the two delimiters as handled, because their source
-  languages spell emphasis that way and their own passes rewrite it.
+- **Leftover attributes ride the outermost semantic element.**
+  `[Ctrl+C]{kbd .shortcut #copy}` is
+  `<kbd class="shortcut" id="copy">Ctrl+C</kbd>` where it was a `<span>`
+  carrying those attributes around a bare `<kbd>`. A consumed name renames the
+  element the author wrote rather than wrapping it; a span with no semantic
+  name is unchanged, since hardening removes attributes and never the element.
+  A DERIVED attribute yields to an AUTHORED one of the same name, so
+  `[x]{abbr="gen" title="authored"}` carries `title` once.
 
 ## [0.1.4] - 2026-08-10
 
