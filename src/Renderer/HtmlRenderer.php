@@ -2224,17 +2224,22 @@ class HtmlRenderer implements RendererInterface
             return '<' . $type . $attrs . '>' . $inner . '</' . $type . '>';
         }
 
-        // The structural `ext-<type>` class comes FIRST, before any authored
-        // classes: `:foo[a]{.cls}` -> class="ext-foo cls" (matches the
-        // canonical carve-js / carve-rs). Prepend rather than append so the
-        // structural class always leads.
+        // The structural `ext-<type>` class leads INSIDE the class slot, and
+        // the slot keeps its authored position (spec PART 10 §1, carve#1168):
+        // `:foo[a]{#i .c k=v}` is `<span id="i" class="ext-foo c" k="v">`, not
+        // a span whose class jumped ahead of the id. Moving the slot reorders
+        // attributes the author wrote, which is a different rule from merging
+        // a mandatory class into them.
         $attrs = $this->getRenderableAttributes($node);
         $authoredClass = $attrs['class'] ?? '';
-        unset($attrs['class']);
         $structuralClass = $authoredClass === ''
             ? 'ext-' . $type
             : 'ext-' . $type . ' ' . $authoredClass;
-        $attrs = ['class' => $structuralClass] + $attrs;
+        if (array_key_exists('class', $attrs)) {
+            $attrs['class'] = $structuralClass;
+        } else {
+            $attrs = ['class' => $structuralClass] + $attrs;
+        }
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $inner . '</span>';
     }
