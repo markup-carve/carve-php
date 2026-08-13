@@ -10,6 +10,7 @@ declare(strict_types=1);
  *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
  *   carve lint [--platform <name>] [files...]
  *   carve merge [--json] base ours theirs
+ *   carve migrate --from <html|markdown|djot|bbcode> [options] [input-file]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -50,7 +51,10 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\BbcodeToCarve;
+use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -136,7 +140,7 @@ function runMigrateCommand(array $argv): never
     $adapter = 'generic';
     $report = null;
     $checkLoss = false;
-    $fromHtml = false;
+    $from = null;
     $input = null;
     for ($i = 2, $count = count($argv); $i < $count; $i++) {
         $arg = $argv[$i];
@@ -147,7 +151,7 @@ function runMigrateCommand(array $argv): never
             }
             $value = $argv[++$i];
             match ($arg) {
-                '--from' => $fromHtml = $value === 'html',
+                '--from' => $from = $value,
                 '--mode' => $mode = $value,
                 '--adapter' => $adapter = $value,
                 '--report' => $report = $value,
@@ -164,17 +168,35 @@ function runMigrateCommand(array $argv): never
             $input = $arg;
         }
     }
-    if (!$fromHtml) {
-        fwrite(STDERR, "carve migrate: --from html is required\n");
+    if ($from === null) {
+        fwrite(STDERR, "carve migrate: --from html, markdown, djot or bbcode is required\n");
         exit(2);
     }
-    $html = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
-    if ($html === false) {
+    if (!in_array($from, ['html', 'markdown', 'md', 'djot', 'bbcode'], true)) {
+        fwrite(STDERR, "carve migrate: unknown source format $from\n");
+        exit(2);
+    }
+    $source = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
+    if ($source === false) {
         fwrite(STDERR, "carve migrate: cannot read input\n");
         exit(2);
     }
+    $source = (string)$source;
+    // Only the HTML importer reports what it could not carry across, because
+    // only it drops anything: the other three parse their source whole. So
+    // --mode, --adapter, --report and --check-loss are HTML's alone, and are
+    // silently unused here rather than rejected.
+    if ($from !== 'html') {
+        $converter = match ($from) {
+            'markdown', 'md' => new MarkdownToCarve(),
+            'djot' => new DjotToCarve(),
+            default => new BbcodeToCarve(),
+        };
+        fwrite(STDOUT, $converter->convert($source));
+        exit(0);
+    }
     try {
-        $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))->convertWithReport($html);
+        $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))->convertWithReport($source);
     } catch (InvalidArgumentException $exception) {
         fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
         exit(2);
@@ -439,6 +461,13 @@ Formatter:
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
 
+Migration (other markup to Carve, on stdout):
+  migrate --from FORMAT   html, markdown (md), djot or bbcode
+  migrate --mode MODE     HTML only: safe (default) or raw
+  migrate --adapter NAME  HTML only: the source generator (default generic)
+  migrate --report FILE   HTML only: write the loss report as JSON (- is stderr)
+  migrate --check-loss    HTML only: exit 1 when anything was dropped
+
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
   -x, --xhtml         Use XHTML-compatible output (self-closing tags; HTML only)
@@ -460,6 +489,7 @@ Examples:
   carve --markdown document.crv         Render Markdown
   carve --carve document.crv            Render canonical Carve source
   carve fmt -w document.crv             Format file in place
+  carve migrate --from djot notes.dj    Convert Djot to Carve on stdout
   carve document.crv -o document.html   Render to an output file
   echo '*hello*' | carve                Render from stdin
 

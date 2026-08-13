@@ -1178,18 +1178,26 @@ class HtmlToCarve
         $backticks = StringUtil::findSafeCodeFence($content, 1);
         $attrs = $this->formatInlineAttributes($node);
 
-        // Add spaces around content if needed to distinguish from fence
-        // Only add space if content starts/ends with backtick but NOT already a space
-        // (If there's already a space, it was preserved from the original)
+        // Pad the content away from the fence when it starts or ends with a
+        // backtick of its own.
+        //
+        // BOTH sides or neither. A reader strips one space from each end only
+        // when there is one at each end, so padding a single side left that
+        // space in the content: `<code>`start</code>` came back as
+        // `<code> `start</code>` and `<code>end `</code>` with a trailing space
+        // (markup-carve/carve-php#1224). carve-js and carve-rs both pad
+        // symmetrically.
+        //
+        // Added unconditionally once either side calls for it, because a space
+        // already in the content is CONTENT and the reader eats one from each
+        // end regardless. Skipping the pad on a side that already had a space
+        // therefore consumed the author's own space instead of a pad.
         if (strlen($backticks) > 1) {
-            $needsStartSpace = str_starts_with($content, '`') && !str_starts_with($content, ' ');
-            $needsEndSpace = str_ends_with($content, '`') && !str_ends_with($content, ' ');
+            $needsStartSpace = str_starts_with($content, '`');
+            $needsEndSpace = str_ends_with($content, '`');
 
             if ($needsStartSpace || $needsEndSpace) {
-                $start = $needsStartSpace ? ' ' : '';
-                $end = $needsEndSpace ? ' ' : '';
-
-                return $backticks . $start . $content . $end . $backticks . $attrs;
+                return $backticks . ' ' . $content . ' ' . $backticks . $attrs;
             }
         }
 
@@ -1723,22 +1731,22 @@ class HtmlToCarve
                     $firstPartLines = preg_split('/\R/', $firstPart) ?: [''];
                     $firstLine = array_shift($firstPartLines);
 
-                    if ($this->isListItemBlockPart($firstPart)) {
-                        $output .= $indent . $prefix . "\n\n";
-                        if ($liAttrs !== '') {
-                            $output .= $continuation . '{' . $liAttrs . "}\n";
-                        }
-                        $output .= $this->indentListItemPart($firstPart, $continuation) . "\n";
-                    } else {
-                        $output .= $indent . $prefix . $firstLine . "\n";
-                        if ($liAttrs !== '') {
-                            $output .= $continuation . '{' . $liAttrs . "}\n";
-                        }
-                        foreach ($firstPartLines as $line) {
-                            if (trim($line) !== '') {
-                                $output .= $continuation . $line . "\n";
-                            }
-                        }
+                    // The marker line always carries the first line of the
+                    // first part, whatever that part is. A multi-line part used
+                    // to go BELOW the marker instead, which left `- ` alone on
+                    // its line - and a marker with nothing after it is not a
+                    // marker, so a `details` container as an item's only
+                    // content came back as a paragraph reading `-` with the
+                    // container loose beside it (markup-carve/carve-php#1224).
+                    $output .= $indent . $prefix . $firstLine . "\n";
+                    if ($liAttrs !== '') {
+                        $output .= $continuation . '{' . $liAttrs . "}\n";
+                    }
+                    foreach ($firstPartLines as $line) {
+                        // A blank line is kept as a blank line, not dropped: it
+                        // separates the blocks inside the part, and removing it
+                        // ran them together.
+                        $output .= trim($line) === '' ? "\n" : $continuation . $line . "\n";
                     }
 
                     foreach ($contentParts as $part) {
@@ -1865,29 +1873,6 @@ class HtmlToCarve
             $contentParts[] = $inlineContent;
         }
         $inlineBuffer = '';
-    }
-
-    /**
-     * Does this part have to go BELOW the marker rather than on it?
-     *
-     * Only when it spans more than one line. A single-line part goes on the
-     * marker line whatever it is, which is what carve-js and carve-rs both do
-     * and what Carve itself parses: `- > q`, `- | c |` and `- # h` all come
-     * back as a blockquote, a table and a heading inside the item.
-     *
-     * This used to also push a part DOWN when it began with a block marker
-     * character, which had two problems (markup-carve/carve-php#1217). Reading
-     * a rendered block back out of a string cannot tell `<li>|start</li>`,
-     * which is text, from a table the converter produced. And even when the
-     * part really was a block, pushing it down left `- ` alone on its line -
-     * a marker with nothing after it is not a marker, so the item came back as
-     * a paragraph reading `-` and the content escaped the list entirely.
-     *
-     * @param string $content
-     */
-    protected function isListItemBlockPart(string $content): bool
-    {
-        return str_contains($content, "\n");
     }
 
     protected function indentListItemPart(string $content, string $indent): string
