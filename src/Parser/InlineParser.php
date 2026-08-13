@@ -3736,24 +3736,30 @@ class InlineParser
         if (trim($rest, StringUtil::WHITESPACE_CHARS) === '') {
             return true;
         }
-        $patterns = [
-            '/(?:(?<=[ \t\r\n])|^):(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)/',
-            // unquoted key=value (the key is an identifier; the value is
-            // tolerant like carve-js's `\S+`, so an invalid value is skipped)
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+/',
-            // The possessive `*+` plus `(?!:)` stops a colon-bearing shorthand
-            // from being stripped in PART: `.a:b` must leave `.a:b` behind, not
-            // a bare `:b`, so the whole block is judged invalid on the NAME.
-            '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',
-            '/[ \t\r\n]+/',
-        ];
-        foreach ($patterns as $pattern) {
-            $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
-        }
+        // A SEPARATOR IS REQUIRED BETWEEN TWO ATTRIBUTES. `attribute_list` is
+        // `attribute, {space+, attribute}` (PART 7), so `{.a.b}`, `{#i.c}` and
+        // `{.a#i}` are not attribute blocks and stay literal; the executable
+        // spec has always refused them.
+        //
+        // ANCHORED, NOT STRIPPED. The strip pipeline this replaces could not
+        // express the rule: it rewrote each recognized item to a SPACE, which
+        // manufactured the separator the next item needed. Adding a lookbehind
+        // to the class and id patterns fixed `{.a.b}` and left `{.a#i}`
+        // accepted, because by the time the id pattern ran, the class it
+        // followed had already become a space.
+        $item = '(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+        $item = '(?:[a-zA-Z_][a-zA-Z0-9_-]*=' . $item . ')'
+            . '|(?::(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?)'
+            . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+)'
+            . '|(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)'
+            . '|(?:#[a-zA-Z_][a-zA-Z0-9_-]*)'
+            . '|(?:[a-zA-Z][a-zA-Z0-9_-]*)';
+        $ws = '[ \t\r\n]';
 
-        return trim($rest, StringUtil::WHITESPACE_CHARS) === '';
+        return preg_match(
+            '/^' . $ws . '*(?:(?:' . $item . ')(?:' . $ws . '+(?:' . $item . '))*' . $ws . '*)?$/D',
+            $rest,
+        ) === 1;
     }
 
     /**
