@@ -126,11 +126,11 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             ];
             $rows["header cell, leading slot, {$runName}"] = [
                 "|={$run}h |= i |\n| 1 | 2 |\n",
-                "<th>{$lead}h</th>",
+                "<th scope=\"col\">{$lead}h</th>",
             ];
             $rows["header cell, trailing slot, {$runName}"] = [
                 "|= h{$run}|= i |\n| 1 | 2 |\n",
-                "<th>h{$trail}</th>",
+                "<th scope=\"col\">h{$trail}</th>",
             ];
             // A continuation row's cells are `data_cell`s and are padded in a
             // second place, `TableParser::mergeCellContents`. The join between
@@ -249,9 +249,9 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             'data cell, one space' => ["| a | b |\n| c | d |\n", '<td>c</td>'],
             'data cell, two spaces' => ["| a | b |\n|  c  | d |\n", '<td>c</td>'],
             'data cell, no padding' => ["| a | b |\n|c| d |\n", '<td>c</td>'],
-            'header cell, one space' => ["|= h |= i |\n| 1 | 2 |\n", '<th>h</th>'],
-            'header cell, two spaces' => ["|=  h  |= i |\n| 1 | 2 |\n", '<th>h</th>'],
-            'header cell, no padding' => ["|=h|=i|\n| 1 | 2 |\n", '<th>h</th>'],
+            'header cell, one space' => ["|= h |= i |\n| 1 | 2 |\n", '<th scope="col">h</th>'],
+            'header cell, two spaces' => ["|=  h  |= i |\n| 1 | 2 |\n", '<th scope="col">h</th>'],
+            'header cell, no padding' => ["|=h|=i|\n| 1 | 2 |\n", '<th scope="col">h</th>'],
             'delimiter cell, one space' => ["| a | b |\n| --- | --- |\n| 1 | 2 |\n", '<thead>'],
             'delimiter cell, two spaces' => ["| a | b |\n|  ---  | --- |\n| 1 | 2 |\n", '<thead>'],
             'delimiter cell, no padding' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", '<thead>'],

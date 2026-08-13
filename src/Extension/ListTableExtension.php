@@ -249,6 +249,15 @@ class ListTableExtension implements ExtensionInterface
                 $isHeaderCell = $isHeaderRow || $col < $headerCols;
                 $tag = $isHeaderCell ? 'th' : 'td';
                 $attrHtml = '';
+                // PART 10 SST9, the same rule the pipe table follows and in the
+                // same position: `col` in the header-row run, `row` for a cell
+                // that is a header only because it falls inside `header-cols`.
+                // A ListTable and the pipe table it is equivalent to must not
+                // differ in accessibility markup - that equivalence is asserted
+                // directly by testListTableSpanOutputMatchesEquivalentPipeTable.
+                if ($isHeaderCell) {
+                    $attrHtml .= ' scope="' . ($isHeaderRow ? 'col' : 'row') . '"';
+                }
                 if ($entry['rowspan'] > 1) {
                     $attrHtml .= ' rowspan="' . $entry['rowspan'] . '"';
                 }
@@ -273,8 +282,12 @@ class ListTableExtension implements ExtensionInterface
             // columns, so it suppresses padding (rowReach accounts for it).
             $col = max($nextCol, $placement['rowReach'][$rowIndex]);
             for (; $col < $columnCount; $col++) {
-                $tag = ($isHeaderRow || $col < $headerCols) ? 'th' : 'td';
-                $html .= '<' . $tag . '></' . $tag . '>';
+                $isPadHeader = $isHeaderRow || $col < $headerCols;
+                $tag = $isPadHeader ? 'th' : 'td';
+                // A padded cell is still a header cell where the grid says so,
+                // so it states its scope like any other.
+                $padScope = $isPadHeader ? ' scope="' . ($isHeaderRow ? 'col' : 'row') . '"' : '';
+                $html .= '<' . $tag . $padScope . '></' . $tag . '>';
             }
 
             return '<tr>' . $html . '</tr>';

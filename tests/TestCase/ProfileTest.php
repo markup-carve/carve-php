@@ -1237,7 +1237,7 @@ DJOT;
         // Table should be preserved with correct structure
         $this->assertStringContainsString('<table>', $html);
         // Count cells - should have 9 cells total (3 header + 6 body)
-        $this->assertEquals(9, substr_count($html, '<td>') + substr_count($html, '<th>'));
+        $this->assertEquals(9, substr_count($html, '<td>') + substr_count($html, '<th scope="col">'));
         // Data rows should have 3 cells each
         preg_match_all('/<tr>.*?<\/tr>/s', $html, $matches);
         $this->assertCount(3, $matches[0]); // 1 header row + 2 data rows
@@ -1257,7 +1257,7 @@ DJOT;
 
         $this->assertStringContainsString('<table>', $html);
         // Should have 4 cells (2 header + 2 body)
-        $this->assertEquals(4, substr_count($html, '<td>') + substr_count($html, '<th>'));
+        $this->assertEquals(4, substr_count($html, '<td>') + substr_count($html, '<th scope="col">'));
     }
 
     public function testThematicBreakPreservedWhenAllowed(): void

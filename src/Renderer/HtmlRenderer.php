@@ -1677,13 +1677,16 @@ class HtmlRenderer implements RendererInterface
             }
         }
 
-        $renderRow = function (TableRow $row, array $gridRow): string {
+        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false): string {
             $cells = '';
             foreach ($gridRow as $entry) {
                 if ($entry['skip']) {
                     continue;
                 }
-                $cells .= rtrim($this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan']), "\n");
+                $cells .= rtrim(
+                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun),
+                    "\n",
+                );
             }
 
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
@@ -1692,7 +1695,7 @@ class HtmlRenderer implements RendererInterface
         if ($headerRowCount > 0) {
             $thead = '';
             for ($i = 0; $i < $headerRowCount; $i++) {
-                $thead .= $renderRow($tableRows[$i], $grid[$i]);
+                $thead .= $renderRow($tableRows[$i], $grid[$i], true);
             }
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
@@ -1732,10 +1735,48 @@ class HtmlRenderer implements RendererInterface
      * rowspan/colspan is internal bookkeeping for other consumers (carve#527)
      * and is not what this renderer emits.
      */
-    protected function renderResolvedTableCell(TableCell $node, int $rowspan, int $colspan): string
-    {
+    protected function renderResolvedTableCell(
+        TableCell $node,
+        int $rowspan,
+        int $colspan,
+        bool $inHeaderRun = false,
+    ): string {
         $tag = $node->isHeader() ? 'th' : 'td';
         $attrs = $this->getRenderableAttributes($node);
+
+        // PART 10 SST9: a header cell states what it heads - `col` in the leading
+        // header-row run, `row` below it. The language already distinguishes the
+        // two positions, so this states an association the table has rather
+        // than adding a concept; without it a screen reader guesses from
+        // position and guesses wrong on a table carrying both kinds.
+        //
+        // BEFORE the author's attributes, which is the order the corpus pins
+        // (`<th scope="col" class="highlight">`), and before rowspan/colspan.
+        //
+        // An authored `scope` REPLACES the default rather than joining it:
+        // emitting both produced `<th scope="col" scope="colgroup">`, two
+        // attributes of one name and invalid HTML. Suppressing it is also what
+        // keeps `colgroup` and `rowgroup` reachable, since neither has a marker
+        // spelling here.
+        //
+        // The suppression test is CASE-INSENSITIVE, the one place this departs
+        // from Carve's case-sensitive attribute names: `{Scope=…}` is a
+        // different Carve attribute and still reaches the output as `Scope`,
+        // but HTML attribute names are not case-sensitive, so emitting the
+        // default beside it is the same collision by another spelling.
+        if ($tag === 'th') {
+            $authored = false;
+            foreach (array_keys($attrs) as $key) {
+                if (strcasecmp((string)$key, 'scope') === 0) {
+                    $authored = true;
+
+                    break;
+                }
+            }
+            if (!$authored) {
+                $attrs = ['scope' => $inHeaderRun ? 'col' : 'row'] + $attrs;
+            }
+        }
 
         if ($rowspan > 1) {
             $attrs['rowspan'] = (string)$rowspan;

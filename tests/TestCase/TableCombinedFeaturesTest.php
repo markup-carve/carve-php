@@ -197,7 +197,7 @@ DJOT;
         $html = $this->converter->render($doc);
 
         $this->assertStringContainsString('Header 1 continued', $html);
-        $this->assertStringContainsString('<th>', $html);
+        $this->assertStringContainsString('<th scope="col">', $html);
     }
 
     public function testEscapedRowspanMarker(): void

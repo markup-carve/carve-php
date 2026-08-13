@@ -76,7 +76,7 @@ class HtmlToCarveListTableTest extends TestCase
             $this->render($carve),
         );
         $this->assertStringContainsString('<caption>Q</caption>', $this->render($carve));
-        $this->assertStringContainsString('<th>Region</th>', $this->render($carve));
+        $this->assertStringContainsString('<th scope="col">Region</th>', $this->render($carve));
     }
 
     public function testAListCellIsEnoughOnItsOwn(): void
@@ -114,7 +114,7 @@ class HtmlToCarveListTableTest extends TestCase
         );
 
         $this->assertStringContainsString('{header-cols=1}', $carve);
-        $this->assertStringContainsString('<th>R</th>', $this->render($carve));
+        $this->assertStringContainsString('<th scope="row">R</th>', $this->render($carve));
     }
 
     /**
@@ -155,7 +155,7 @@ class HtmlToCarveListTableTest extends TestCase
 
         $this->assertStringContainsString('{.striped header-rows=1}', $carve);
         $this->assertStringContainsString('<table class="striped">', $this->render($carve));
-        $this->assertStringContainsString('<th>H</th>', $this->render($carve));
+        $this->assertStringContainsString('<th scope="col">H</th>', $this->render($carve));
     }
 
     /**

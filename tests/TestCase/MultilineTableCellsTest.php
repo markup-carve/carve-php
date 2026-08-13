@@ -403,7 +403,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>Name</th><th>Description</th></tr></thead>
+  <thead><tr><th scope="col">Name</th><th scope="col">Description</th></tr></thead>
   <tbody>
     <tr><td>Test</td><td>First part second part</td></tr>
   </tbody>

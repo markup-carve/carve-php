@@ -82,9 +82,9 @@ class S4ConformanceTest extends TestCase
         // has nothing to merge into, so it renders as an empty cell rather than
         // being dropped (carve-js / carve-rs parity).
         $colspan = $this->c->convert("| < | b |\n|---|---|\n| c | d |");
-        $this->assertStringContainsString('<th></th><th>b</th>', $colspan);
+        $this->assertStringContainsString('<th scope="col"></th><th scope="col">b</th>', $colspan);
         $rowspan = $this->c->convert("| ^ | b |\n|---|---|\n| c | d |");
-        $this->assertStringContainsString('<th></th><th>b</th>', $rowspan);
+        $this->assertStringContainsString('<th scope="col"></th><th scope="col">b</th>', $rowspan);
         // a normal colspan into a left cell still merges.
         $this->assertStringContainsString(
             '<td colspan="2">c</td>',
@@ -97,26 +97,26 @@ class S4ConformanceTest extends TestCase
         $row1 = fn (string $src): string => explode("\n", $this->c->convert($src))[1];
         // glued `{...}` after the pipe sets the cell's attributes (source order).
         $this->assertSame(
-            '  <thead><tr><th id="id" class="a" key="v">hi</th><th>b</th></tr></thead>',
+            '  <thead><tr><th scope="col" id="id" class="a" key="v">hi</th><th scope="col">b</th></tr></thead>',
             $row1("|{#id .a key=v} hi | b |\n|---|---|\n| c | d |"),
         );
         // a SPACE before the brace is literal content.
         $this->assertSame(
-            '  <thead><tr><th>{.x} hi</th><th>b</th></tr></thead>',
+            '  <thead><tr><th scope="col">{.x} hi</th><th scope="col">b</th></tr></thead>',
             $row1("| {.x} hi | b |\n|---|---|\n| c | d |"),
         );
         // quoted brace in a value; partial-invalid stays literal; attributed
         // cell is never a bare span marker.
         $this->assertSame(
-            '  <thead><tr><th key="{y}">hi</th><th>b</th></tr></thead>',
+            '  <thead><tr><th scope="col" key="{y}">hi</th><th scope="col">b</th></tr></thead>',
             $row1("|{key=\"{y}\"} hi | b |\n|---|---|\n| c | d |"),
         );
         $this->assertSame(
-            '  <thead><tr><th>{.x 1bad} hi</th><th>b</th></tr></thead>',
+            '  <thead><tr><th scope="col">{.x 1bad} hi</th><th scope="col">b</th></tr></thead>',
             $row1("|{.x 1bad} hi | b |\n|---|---|\n| c | d |"),
         );
         $this->assertSame(
-            '  <thead><tr><th class="x">&lt;</th><th>b</th></tr></thead>',
+            '  <thead><tr><th scope="col" class="x">&lt;</th><th scope="col">b</th></tr></thead>',
             $row1("|{.x} < | b |\n|---|---|\n| c | d |"),
         );
         // an attributed cell never makes the row a Carve all-`=` header row.

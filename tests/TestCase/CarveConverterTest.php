@@ -458,8 +458,8 @@ class CarveConverterTest extends TestCase
 
         // djot doesn't use thead/tbody - just th and td cells
         $this->assertStringContainsString('<table>', $result);
-        $this->assertStringContainsString('<th>A</th>', $result);
-        $this->assertStringContainsString('<th>B</th>', $result);
+        $this->assertStringContainsString('<th scope="col">A</th>', $result);
+        $this->assertStringContainsString('<th scope="col">B</th>', $result);
         $this->assertStringContainsString('<td>1</td>', $result);
         $this->assertStringContainsString('<td>2</td>', $result);
     }
@@ -483,7 +483,7 @@ class CarveConverterTest extends TestCase
         $result = $this->converter->convert("| H |\n|---|   \n| c |");
 
         $this->assertStringContainsString('<thead>', $result);
-        $this->assertStringContainsString('<th>H</th>', $result);
+        $this->assertStringContainsString('<th scope="col">H</th>', $result);
         $this->assertStringNotContainsString('<p>', $result);
     }
 
@@ -503,7 +503,7 @@ class CarveConverterTest extends TestCase
         $result = $this->converter->convert("| H | G |\n|---||\n| a | b |");
 
         $this->assertStringNotContainsString('<thead>', $result);
-        $this->assertStringNotContainsString('<th>', $result);
+        $this->assertStringNotContainsString('<th scope="col">', $result);
     }
 
     public function testTableCaption(): void
@@ -2327,7 +2327,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<table>', $result);
-        $this->assertStringContainsString('<th>Header</th>', $result);
+        $this->assertStringContainsString('<th scope="col">Header</th>', $result);
     }
 
     public function testTableWithEscapedPipe(): void
@@ -3832,7 +3832,7 @@ DJOT;
     public function testTableHeaderMarkerStrippedEvenWhenContentStartsWithEquals(): void
     {
         $out = $this->converter->convert("|==|\n|--|");
-        $this->assertStringContainsString('<th>=</th>', $out);
+        $this->assertStringContainsString('<th scope="col">=</th>', $out);
     }
 
     public function testInvalidBlockAttributeLineContinuesParagraph(): void

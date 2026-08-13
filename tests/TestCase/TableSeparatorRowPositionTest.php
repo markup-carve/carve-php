@@ -24,7 +24,7 @@ class TableSeparatorRowPositionTest extends TestCase
     public function testSecondRowSeparatorMakesHeader(): void
     {
         $html = $this->converter->convert("| x | y |\n|---|---|");
-        $this->assertStringContainsString('<thead><tr><th>x</th><th>y</th></tr></thead>', $html);
+        $this->assertStringContainsString('<thead><tr><th scope="col">x</th><th scope="col">y</th></tr></thead>', $html);
     }
 
     public function testLeadingDelimiterIsADataRow(): void
@@ -32,7 +32,7 @@ class TableSeparatorRowPositionTest extends TestCase
         // `|---|` as the first row is not a separator (no header precedes it).
         $html = $this->converter->convert("|---|\n| a |");
         $this->assertStringNotContainsString('<thead>', $html);
-        $this->assertStringNotContainsString('<th>', $html);
+        $this->assertStringNotContainsString('<th scope="col">', $html);
     }
 
     public function testMidTableDelimiterIsADataRow(): void
@@ -41,6 +41,6 @@ class TableSeparatorRowPositionTest extends TestCase
         // previous bug rendered a <th> inside <tbody>.
         $html = $this->converter->convert("| h |\n| a |\n|---|\n| b |");
         $this->assertStringNotContainsString('<thead>', $html);
-        $this->assertStringNotContainsString('<th>', $html);
+        $this->assertStringNotContainsString('<th scope="col">', $html);
     }
 }
