@@ -3037,16 +3037,29 @@ class HtmlRenderer implements RendererInterface
         $delimOpen = $display ? '\\[' : '\\(';
         $delimClose = $display ? '\\]' : '\\)';
 
-        // The static `math inline` / `math display` class leads; an author class
-        // from a trailing attribute block is merged after it. id/key follow.
+        // PART 10 §1: the base class is prepended INSIDE the class slot, and the
+        // slot stays at the FIRST-APPEARANCE position of a class in the author's
+        // order. Writing `class` unconditionally first moves it ahead of an id
+        // the author wrote before any class, which reorders what they wrote.
+        // markup-carve/carve#1168 fixed exactly this for the generic `ext-NAME`
+        // fallback; the math span carries a base class the same way and was
+        // missed, because no corpus case put an id before a class on it
+        // (markup-carve/carve#1164).
         $nodeAttrs = $this->getRenderableAttributes($node);
         $nodeClass = $nodeAttrs['class'] ?? '';
-        unset($nodeAttrs['class']);
         $class = 'math ' . ($display ? 'display' : 'inline');
         if ($nodeClass !== '') {
             $class .= ' ' . $nodeClass;
         }
-        $attrs = ['class' => $class] + $nodeAttrs;
+
+        if (array_key_exists('class', $nodeAttrs)) {
+            // Keep the author's ordering, swapping the merged value in place.
+            $attrs = $nodeAttrs;
+            $attrs['class'] = $class;
+        } else {
+            // No authored class means no slot to keep, so the base class leads.
+            $attrs = ['class' => $class] + $nodeAttrs;
+        }
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $delimOpen . $content . $delimClose . '</span>';
     }
