@@ -1287,7 +1287,7 @@ HTML;
         );
 
         $this->assertStringContainsString('|{.c} h |', $carve);
-        $this->assertStringContainsString('<th class="c">h</th>', (new CarveConverter())->convert($carve));
+        $this->assertStringContainsString('<th scope="col" class="c">h</th>', (new CarveConverter())->convert($carve));
     }
 
     /**

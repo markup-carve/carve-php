@@ -37,7 +37,7 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <caption>Quarterly results</caption>',
-            '  <thead><tr><th>Region</th><th>Notes</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Notes</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>EMEA</td><td>Strong quarter.</td></tr>',
             '  </tbody>',
@@ -123,8 +123,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><th>Region</th><td>Revenue</td></tr>',
-            '    <tr><th>EMEA</th><td>1.2M</td></tr>',
+            '    <tr><th scope="row">Region</th><td>Revenue</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>1.2M</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
@@ -147,7 +147,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>Region</th><th>Notes</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Notes</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>EMEA</td><td>ok</td></tr>',
             '  </tbody>',
@@ -171,8 +171,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><th>Region</th><td>Notes</td></tr>',
-            '    <tr><th>EMEA</th><td>ok</td></tr>',
+            '    <tr><th scope="row">Region</th><td>Notes</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>ok</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
@@ -194,12 +194,12 @@ class ListTableExtensionTest extends TestCase
             ':::',
         ]);
 
-        // The whole header row and the first column are all <th>.
+        // The whole header row and the first column are all <th scope="col">.
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>Metric</th><th>Q1</th><th>Q2</th></tr></thead>',
+            '  <thead><tr><th scope="col">Metric</th><th scope="col">Q1</th><th scope="col">Q2</th></tr></thead>',
             '  <tbody>',
-            '    <tr><th>EMEA</th><td>1.0</td><td>1.2</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>1.0</td><td>1.2</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
@@ -449,7 +449,7 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <caption>Sales</caption>',
-            '  <thead><tr><th>Region</th><th>Q1</th><th>Q2</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Q1</th><th scope="col">Q2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td rowspan="2">EMEA</td><td>10</td><td>12</td></tr>',
             '    <tr><td>14</td><td>16</td></tr>',
@@ -503,7 +503,7 @@ class ListTableExtensionTest extends TestCase
     {
         // A `^` in a BODY row whose origin sits in the header rows must NOT pull
         // a rowspan across the <thead>/<tbody> boundary (an HTML cell cannot
-        // reliably span row groups). The header cell stays a plain <th> and the
+        // reliably span row groups). The header cell stays a plain <th scope="col"> and the
         // `^` degrades to an empty body cell. This deliberately diverges from the
         // equivalent pipe table, which has no such row-group boundary.
         $djot = implode("\n", [
@@ -520,7 +520,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>',
+            '  <thead><tr><th scope="col">A</th><th scope="col">B</th><th scope="col">C</th></tr></thead>',
             '  <tbody>',
             '    <tr><td></td><td>E</td><td>F</td></tr>',
             '  </tbody>',
@@ -535,7 +535,7 @@ class ListTableExtensionTest extends TestCase
         // down and across, but the down-span is clamped at the header/body
         // boundary: the header cell keeps only its colspan, and the body row gets
         // plain cells (the `^` degrades to an empty cell). HTML cannot span a
-        // <th> from <thead> into <tbody>, so this diverges from the pipe table.
+        // <th scope="col"> from <thead> into <tbody>, so this diverges from the pipe table.
         $listTable = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -550,7 +550,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th colspan="2">A</th><th>C</th></tr></thead>',
+            '  <thead><tr><th scope="col" colspan="2">A</th><th scope="col">C</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>x</td><td></td><td>y</td></tr>',
             '  </tbody>',
@@ -579,7 +579,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <thead><tr><th scope="col">H1</th><th scope="col">H2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td rowspan="2">A</td><td>B</td></tr>',
             '    <tr><td>C</td></tr>',
@@ -769,7 +769,7 @@ class ListTableExtensionTest extends TestCase
     {
         // With header-rows=1, a `^` in the body under a header cell must not
         // create a <th rowspan> reaching from <thead> into <tbody>. The header
-        // cell stays a plain <th> and the `^` degrades to an empty body cell.
+        // cell stays a plain <th scope="col"> and the `^` degrades to an empty body cell.
         $djot = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -782,7 +782,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <thead><tr><th scope="col">H1</th><th scope="col">H2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td></td><td>x</td></tr>',
             '  </tbody>',
@@ -825,7 +825,7 @@ class ListTableExtensionTest extends TestCase
 
     public function testCellOwnAttributesCarryOntoCellTagAndStructuralSpanWins(): void
     {
-        // A cell's own list-item attributes are carried onto its <td>/<th>. Any
+        // A cell's own list-item attributes are carried onto its <td>/<th scope="col">. Any
         // author-written rowspan/colspan (in any case) is dropped so the computed
         // structural span is the only one emitted (no duplicate, ambiguous attr).
         $converter = new CarveConverter();

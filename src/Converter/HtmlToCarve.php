@@ -212,6 +212,79 @@ class HtmlToCarve
         }
     }
 
+    /**
+     * Which attributes a table cell must NOT carry back into Carve source.
+     *
+     * `colspan` and `rowspan` have marker spellings, so they are never authored
+     * attributes. `scope` joins them CONDITIONALLY: PART 10 SST9 makes the
+     * renderer emit one on every `th` - `col` in the head-row run, `row` below
+     * it - so the value is GENERATED, and importing it wrote the generator's
+     * own output back as if the author had typed it. A round trip produced
+     * `|{scope=col} Left |` from a table whose source had no attribute block at
+     * all.
+     *
+     * Only the value the renderer would have produced is dropped. An authored
+     * `scope="colgroup"` is not reproducible from position, so it stays - which
+     * is the same reason the renderer lets an authored value replace its
+     * default rather than emitting both.
+     *
+     * @return array<int, string>
+     */
+    protected function tableCellSkipAttributes(DOMElement $cell): array
+    {
+        $skip = ['colspan', 'rowspan'];
+        if (strtolower($cell->tagName) !== 'th' || !$cell->hasAttribute('scope')) {
+            return $skip;
+        }
+
+        if (strcasecmp($cell->getAttribute('scope'), $this->defaultCellScope($cell)) === 0) {
+            $skip[] = 'scope';
+        }
+
+        return $skip;
+    }
+
+    /**
+     * The scope the renderer would emit for this cell from its position alone.
+     *
+     * Section elements answer it directly, and our own output always has them.
+     * Foreign HTML need not: there the leading run of all-header rows is the
+     * head, which is the same rule the renderer applies to the AST.
+     */
+    protected function defaultCellScope(DOMElement $cell): string
+    {
+        for ($node = $cell->parentNode; $node instanceof DOMElement; $node = $node->parentNode) {
+            $tag = strtolower($node->tagName);
+            if ($tag === 'thead') {
+                return 'col';
+            }
+            if ($tag === 'tbody' || $tag === 'tfoot') {
+                return 'row';
+            }
+            if ($tag === 'table') {
+                break;
+            }
+        }
+
+        $row = $cell->parentNode;
+        if (!$row instanceof DOMElement) {
+            return 'row';
+        }
+        $section = $row->parentNode;
+        if (!$section instanceof DOMNode) {
+            return 'row';
+        }
+        foreach ($section->childNodes as $sibling) {
+            if (!$sibling instanceof DOMElement || strtolower($sibling->tagName) !== 'tr') {
+                continue;
+            }
+
+            return $sibling === $row ? 'col' : 'row';
+        }
+
+        return 'row';
+    }
+
     protected function isRepresentedImportAttribute(string $tag, string $name): bool
     {
         if ($name === 'title') {
@@ -1991,7 +2064,7 @@ class HtmlToCarve
 
                 // Serialize content, excluding colspan/rowspan from cell attributes.
                 $cellContent = $this->serializeTableCellContent($cell);
-                $cellAttrs = $this->getElementAttributes($cell, ['colspan', 'rowspan']);
+                $cellAttrs = $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell));
                 if ($cellAttrs !== '') {
                     $attributedCells[count($cells)] = true;
                     $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
@@ -2204,7 +2277,7 @@ class HtmlToCarve
 
                 $cells[] = [
                     'content' => $this->listTableCellContent($cell),
-                    'attributes' => $this->getElementAttributes($cell, ['colspan', 'rowspan']),
+                    'attributes' => $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell)),
                     'colspan' => max(1, (int)$cell->getAttribute('colspan')),
                     'rowspan' => max(1, (int)$cell->getAttribute('rowspan')),
                 ];

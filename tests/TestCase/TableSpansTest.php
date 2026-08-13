@@ -465,7 +465,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th colspan="2">A</th></tr></thead>
+  <thead><tr><th scope="col" colspan="2">A</th></tr></thead>
   <tbody>
     <tr><td rowspan="2">1</td><td>2</td></tr>
     <tr><td>3</td></tr>
@@ -498,7 +498,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+  <thead><tr><th scope="col">A</th><th scope="col">B</th><th scope="col">C</th></tr></thead>
   <tbody>
     <tr><td rowspan="2">x</td><td>y</td><td>z</td></tr>
     <tr><td></td><td>d</td></tr>
@@ -526,7 +526,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>A</th><th>B</th></tr></thead>
+  <thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>
   <tbody>
     <tr><td rowspan="2">x</td><td>y</td></tr>
     <tr><td></td></tr>
@@ -560,7 +560,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>p</th><th>q</th><th>r</th><th>s</th></tr></thead>
+  <thead><tr><th scope="col">p</th><th scope="col">q</th><th scope="col">r</th><th scope="col">s</th></tr></thead>
   <tbody>
     <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>
     <tr><td colspan="2">p</td><td>e</td></tr>
@@ -591,7 +591,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>p</th><th>q</th><th>r</th><th>s</th></tr></thead>
+  <thead><tr><th scope="col">p</th><th scope="col">q</th><th scope="col">r</th><th scope="col">s</th></tr></thead>
   <tbody>
     <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>
     <tr><td colspan="3">p</td></tr>
@@ -623,7 +623,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th colspan="2">A</th></tr></thead>
+  <thead><tr><th scope="col" colspan="2">A</th></tr></thead>
   <tbody>
     <tr><td>x</td><td></td></tr>
   </tbody>
@@ -652,7 +652,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th style="text-align: right;">H</th><th style="text-align: left;">H2</th></tr></thead>
+  <thead><tr><th scope="col" style="text-align: right;">H</th><th scope="col" style="text-align: left;">H2</th></tr></thead>
   <tbody>
     <tr><td style="text-align: right;"></td><td style="text-align: left;">x</td></tr>
   </tbody>
@@ -820,7 +820,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th></th><th>H1</th><th>H2</th></tr></thead>
+  <thead><tr><th scope="col"></th><th scope="col">H1</th><th scope="col">H2</th></tr></thead>
   <tbody>
     <tr><td>L1</td><td rowspan="2" colspan="2">A</td></tr>
     <tr><td>L2</td><td>B</td></tr>
@@ -847,7 +847,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th></th><th>H1</th><th>H2</th><th>H3</th></tr></thead>
+  <thead><tr><th scope="col"></th><th scope="col">H1</th><th scope="col">H2</th><th scope="col">H3</th></tr></thead>
   <tbody>
     <tr><td>L1</td><td rowspan="3" colspan="3">A</td></tr>
     <tr><td>L2</td><td>B</td><td>C</td></tr>
@@ -1000,7 +1000,7 @@ DJOT;
 
         $expected = <<<'HTML'
 <table>
-  <thead><tr><th>A</th><th>B</th></tr></thead>
+  <thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>
   <tbody>
     <tr><td rowspan="3">1</td><td>2</td></tr>
     <tr><td>3</td></tr>

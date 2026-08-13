@@ -351,6 +351,7 @@ class CarveCorpusTest extends TestCase
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
         'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
         'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
+        'two-attributes-need-a-separator-between-them',
     ];
 
     /**
@@ -360,14 +361,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // PART 11 §6c, the writer's spelling for a value-less attribute, plus
-        // the boolean/`lang` merge the same clause needs. Implemented in
-        // markup-carve/carve-php#1233; this branch is the registry change only,
-        // and the submodule it moves to carries the category. Promote it there.
-        '298-a-boolean-lang-is-the-third-spelling-of-the-same-key' => 'PART 11 §6c and the boolean/lang merge it needs: implemented in markup-carve/carve-php#1233, deferred here because this branch is the registry change only.',
-        '298-a-boolean-lang-is-the-third-spelling-of-the-same-key-2' => 'PART 11 §6c and the boolean/lang merge it needs: implemented in markup-carve/carve-php#1233, deferred here because this branch is the registry change only.',
-    ];
+    protected const KNOWN_GAPS = [];
 
     protected CarveConverter $converter;
 

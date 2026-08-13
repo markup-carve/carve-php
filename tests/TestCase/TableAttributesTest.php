@@ -255,7 +255,7 @@ DJOT;
         $html = $this->converter->convert($djot);
 
         // Header cell with class and alignment
-        $this->assertStringContainsString('<th class="name" style="text-align: left;">Name</th>', $html);
+        $this->assertStringContainsString('<th scope="col" class="name" style="text-align: left;">Name</th>', $html);
         // Data cell with class and alignment
         $this->assertStringContainsString('<td class="emphasis" style="text-align: left;">John</td>', $html);
     }
