@@ -9,6 +9,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The `{:TAG}` language attribute** (markup-carve/carve#1114). `[x]{:fr}` is
+  exact sugar for `{lang=fr}`, on inline spans and block attribute lines alike;
+  `{:}` is the explicit "language unknown" form and desugars to `lang=""`. A
+  tag is hyphen-separated ASCII-alphanumeric subtags of at most eight
+  characters, a malformed candidate leaves the whole block literal, and the
+  sigil takes no padding, so `{: fr}` is the empty attribute plus a separate
+  boolean. `:tag` and `lang=tag` are one key, last value at the first position.
+  This shipped without a changelog entry when the feature landed; recording it
+  here rather than leaving it to the diff.
+
+### Changed
+
+- **`code` and `mark` leave the built-in semantic registry.** Both spellings
+  follow the spec's seven-name list - `abbr`, `time`, `samp`, `var`, `kbd`,
+  `cite`, `dfn` - so `:code[x]` and `:mark[x]` take the generic
+  `<span class="ext-NAME">` fallback and `[x]{code}` / `[x]{mark}` are ordinary
+  boolean attributes on the outer span. A name belongs in the registry only
+  where Carve has no other way to write that element, and these two have one:
+  a code span writes `<code>`, `=x=` writes `<mark>`. `code` is also where the
+  duplication became a defect - a code span is verbatim while an extension body
+  is parsed, so `` `*b*` `` and `:code[*b*]` produced the same tag with
+  different content models and nothing reported the switch
+  (markup-carve/carve#1146).
+
+### Added
+
 - **`carve migrate --from` reaches every importer the library ships**, not just
   the HTML one it started with: `markdown` (and the `md` short name), `djot`
   and `bbcode` now convert on the command line too. `MarkdownToCarve`,
