@@ -122,9 +122,11 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     public function testACaptionLineStillAttachesToABlockQuote(): void
     {
         // The arm the caption test was written for is untouched: a quote IS one
-        // of §4's five hosts, so the caption ends the fold and attaches.
+        // of §4's five hosts, so the caption ends the fold and attaches. What
+        // it attaches AS changed - §4a makes it the quote's attribution, not a
+        // figure caption (carve#1159) - and the fold behavior is the same.
         $this->assertStringContainsString(
-            '<figcaption>cap</figcaption>',
+            '<footer>cap</footer>',
             trim($this->converter->convert("> quote\n^ cap\n")),
         );
     }

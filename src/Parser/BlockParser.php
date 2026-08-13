@@ -9209,33 +9209,25 @@ class BlockParser
             return $linesConsumed;
         }
 
-        // Handle BlockQuote - wrap in figure
+        // Handle BlockQuote - the caption is its ATTRIBUTION (PART 9 SS4a)
         if ($lastChild instanceof BlockQuote) {
-            $figure = new Figure();
-
-            // Transfer attributes from blockquote to figure
-            foreach ($lastChild->getAttributes() as $key => $value) {
-                $figure->setAttribute($key, $value);
-                $lastChild->removeAttribute($key);
-            }
-
-            // Create caption
-            $caption = new Caption();
-            $caption->setPos($this->wholeLineSpan($start));
+            // NO FIGURE WRAPPER. A quote carrying a source is not a figure: it
+            // takes no number, and nothing walking the tree for figures finds
+            // it (carve#1159). The quote keeps its own attributes for the same
+            // reason - there is no outer node to move them to.
+            $attribution = new Caption();
+            $attribution->setPos($this->wholeLineSpan($start));
+            // PARSED WITHOUT CAPTION CONTEXT: a caption's bare `#` is the
+            // number placeholder, and an attribution has no number to place, so
+            // SS4a keeps it literal.
             $this->inlineParser->parse(
-                $caption,
+                $attribution,
                 $captionText,
                 $start,
-                true,
+                false,
                 $this->contiguousMapFor($start, $lines[$start], $captionText),
             );
-
-            // Build figure: blockquote + caption
-            $figure->appendChild($lastChild);
-            $figure->appendChild($caption);
-
-            // Replace blockquote with figure in parent
-            $parent->replaceChild(count($children) - 1, $figure);
+            $lastChild->setAttribution($attribution);
 
             return $linesConsumed;
         }

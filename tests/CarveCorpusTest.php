@@ -52,7 +52,8 @@ class CarveCorpusTest extends TestCase
         'a-language-attribute-and-lang-are-one-key',
         'the-language-sigil-takes-no-padding',
         'a-boolean-lang-is-the-third-spelling-of-the-same-key',
-        'a-semantic-span-keeps-its-wrapper-unless-consumption-empties-it',
+        'a-semantic-name-renames-the-span-and-the-leftovers-ride-the-element',
+        'a-derived-title-yields-to-an-authored-one',
         'a-structural-attribute-leads-the-author-s-own',
         'a-caret-line-does-not-end-a-paragraph-it-cannot-caption',
         'heading-index-plain-text-covers-visible-leaves-and-rejects-an-empty-key',
@@ -376,47 +377,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '293-a-semantic-span-keeps-its-wrapper-unless-consumption-empties-it-3' => [
-            'reason' => 'the tier split: leftovers ride the outermost semantic element instead of an outer span',
-            'html' => '<p><kbd>x</kbd></p>',
-        ],
-        '45-inline-extensions' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p>Press <span class="ext-kbd">Ctrl+C</span> to copy.</p>',
-        ],
-        '45-inline-extensions-7' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p><span title="HyperText Markup Language" class="ext-abbr">HTML</span> <span class="ext-cite">The Book</span> <span class="ext-dfn">term</span>
-<span class="ext-samp">ready</span> <span class="ext-var">x</span> <span datetime="12:00" class="ext-time">noon</span> <span class="ext-code">x</span> <span class="ext-mark">relevant</span></p>',
-        ],
-        '45-inline-extensions-8' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p><span id="copy" class="ext-kbd shortcut" data-key="copy"><strong>Ctrl</strong>+C</span></p>',
-        ],
-        '45-inline-extensions-9' => [
-            'reason' => 'the tier split: `dfn`, `samp`, `var`, `cite`, `code` and `mark` are not core names, so they ride the element they were written on as ordinary attributes',
-            'html' => '<p><abbr title="Cascading Style Sheets" dfn="">CSS</abbr>
-<time datetime="12:00">Noon</time> <kbd code="" mark="" samp="" var="" cite="">x</kbd></p>',
-        ],
-        '45-inline-extensions-10' => [
-            'reason' => 'the tier split: leftovers ride the outermost semantic element instead of an outer span',
-            'html' => '<p><kbd id="copy" class="shortcut" data-key="copy"><strong>Ctrl</strong>+C</kbd>
-<kbd>x</kbd></p>',
-        ],
-        '46-symbols' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p>Great :rocket: and <span class="ext-kbd">Ctrl</span> is an extension.</p>',
-        ],
-        '71-attribute-edge-cases-8' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p><span k="{y}" class="ext-kbd">x</span></p>',
-        ],
-        '71-attribute-edge-cases-10' => [
-            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
-            'html' => '<p><span class="ext-kbd foo">x</span></p>',
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 

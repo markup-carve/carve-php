@@ -27,6 +27,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A caption on a block quote is now that quote's attribution** (PART 9 §4a,
+  markup-carve/carve#1159). `> To be` followed by `^ Hamlet` no longer parses as
+  a `figure` wrapping a `block_quote`; it is a `block_quote` carrying an
+  `attribution`, and HTML renders `<footer>Hamlet</footer>` inside the
+  `<blockquote>` rather than a `<figure>` / `<figcaption>` pair. A quote is not
+  a figure, takes no number, and no longer turns up in a walk for figures. The
+  Markdown, plain-text, ANSI and Carve writers all carry the attribution, the
+  AST codec encodes and decodes it, and the ProseMirror bridge carries it in
+  both directions - without that last one, four corpus documents did not survive
+  the round trip through the editor model.
+
+- **The HTML importer reads a quote's `<footer>` back as its attribution.** This
+  renderer emits the attribution that way, so importing it as a second quoted
+  paragraph meant the engine's own HTML did not round-trip. The LAST `footer` or
+  `cite` child wins when a quote carries several, and the earlier one stays
+  ordinary quoted content rather than being dropped - which is what taking the
+  first and skipping every other used to do. An element holding BLOCK content is
+  not an attribution: the slot takes inline content, and flattening blocks into
+  it would run their paragraphs together with no separator, so it stays quoted
+  content and every word survives. All three engines agree byte for byte on both
+  rules.
+
 - **Leftover attributes ride the outermost semantic element.**
   `[Ctrl+C]{kbd .shortcut #copy}` is
   `<kbd class="shortcut" id="copy">Ctrl+C</kbd>` where it was a `<span>`

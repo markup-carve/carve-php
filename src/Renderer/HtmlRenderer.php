@@ -1250,16 +1250,29 @@ class HtmlRenderer implements RendererInterface
             }
         }
 
+        // PART 9 SS4a: the attribution renders INSIDE the quote, where a
+        // quotation's source belongs, rather than as a figcaption on a figure
+        // wrapping it (carve#1159). Its presence also forces the expanded form,
+        // because the compact one has nowhere to put a second element.
+        $attribution = '';
+        $attributionNode = $node->getAttribution();
+        if ($attributionNode !== null) {
+            $attribution = '<footer>' . $this->renderChildren($attributionNode) . "</footer>\n";
+        }
+
         if (
-            count($visible) === 1
+            $attribution === ''
+            && count($visible) === 1
             && $visible[0] instanceof Paragraph
             && !$this->isBlockImageParagraph($visible[0])
         ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
 
+        $body = $attribution === '' ? $inner : $inner . "\n" . rtrim($attribution, "\n");
+
         return '<blockquote' . $attrs . ">\n"
-            . $this->indentBlock($inner, 2) . "\n</blockquote>\n";
+            . $this->indentBlock($body, 2) . "\n</blockquote>\n";
     }
 
     /**
@@ -2217,9 +2230,11 @@ class HtmlRenderer implements RendererInterface
         // structural class always leads.
         $attrs = $this->getRenderableAttributes($node);
         $authoredClass = $attrs['class'] ?? '';
-        $attrs['class'] = $authoredClass === ''
+        unset($attrs['class']);
+        $structuralClass = $authoredClass === ''
             ? 'ext-' . $type
             : 'ext-' . $type . ' ' . $authoredClass;
+        $attrs = ['class' => $structuralClass] + $attrs;
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $inner . '</span>';
     }

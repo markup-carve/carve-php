@@ -906,7 +906,15 @@ class MarkdownRenderer implements RendererInterface
         $lines = explode("\n", trim($content, StringUtil::TRIMMABLE_WHITESPACE));
         $quoted = array_map(fn ($line) => '> ' . $line, $lines);
 
-        return implode("\n", $quoted) . "\n\n";
+        $out = implode("\n", $quoted);
+        // Markdown has no attribution slot, so the source follows the quote as
+        // an ordinary paragraph rather than being dropped.
+        $attribution = $node->getAttribution();
+        if ($attribution !== null) {
+            $out .= "\n\n" . $this->renderChildren($attribution);
+        }
+
+        return $out . "\n\n";
     }
 
     protected function renderList(ListBlock $node): string
