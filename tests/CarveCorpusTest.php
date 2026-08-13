@@ -363,6 +363,61 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [];
 
+    /**
+     * Documents this engine renders per the CURRENT spec, which the PINNED
+     * corpus predates.
+     *
+     * The mirror of KNOWN_GAPS: that list is for a rule the engine has not
+     * caught up to, this one for a rule it reached first. Each entry FAILS IN
+     * BOTH DIRECTIONS - the output must equal what the spec now states, so an
+     * engine regression is caught exactly as the corpus would have caught it,
+     * and it must still DIFFER from the pinned golden, so an entry that went
+     * stale when the submodule bumped fails and has to be deleted with it.
+     *
+     * @var array<string, array{reason: string, html: string}>
+     */
+    protected const AHEAD_OF_PIN = [
+        '293-a-semantic-span-keeps-its-wrapper-unless-consumption-empties-it-3' => [
+            'reason' => 'the tier split: leftovers ride the outermost semantic element instead of an outer span',
+            'html' => '<p><kbd>x</kbd></p>',
+        ],
+        '45-inline-extensions' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p>Press <span class="ext-kbd">Ctrl+C</span> to copy.</p>',
+        ],
+        '45-inline-extensions-7' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p><span title="HyperText Markup Language" class="ext-abbr">HTML</span> <span class="ext-cite">The Book</span> <span class="ext-dfn">term</span>
+<span class="ext-samp">ready</span> <span class="ext-var">x</span> <span datetime="12:00" class="ext-time">noon</span> <span class="ext-code">x</span> <span class="ext-mark">relevant</span></p>',
+        ],
+        '45-inline-extensions-8' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p><span id="copy" class="ext-kbd shortcut" data-key="copy"><strong>Ctrl</strong>+C</span></p>',
+        ],
+        '45-inline-extensions-9' => [
+            'reason' => 'the tier split: `dfn`, `samp`, `var`, `cite`, `code` and `mark` are not core names, so they ride the element they were written on as ordinary attributes',
+            'html' => '<p><abbr title="Cascading Style Sheets" dfn="">CSS</abbr>
+<time datetime="12:00">Noon</time> <kbd code="" mark="" samp="" var="" cite="">x</kbd></p>',
+        ],
+        '45-inline-extensions-10' => [
+            'reason' => 'the tier split: leftovers ride the outermost semantic element instead of an outer span',
+            'html' => '<p><kbd id="copy" class="shortcut" data-key="copy"><strong>Ctrl</strong>+C</kbd>
+<kbd>x</kbd></p>',
+        ],
+        '46-symbols' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p>Great :rocket: and <span class="ext-kbd">Ctrl</span> is an extension.</p>',
+        ],
+        '71-attribute-edge-cases-8' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p><span k="{y}" class="ext-kbd">x</span></p>',
+        ],
+        '71-attribute-edge-cases-10' => [
+            'reason' => 'the tier split (spec PART 9 §9/§10): core reserves three span attributes and registers no `:name[…]` handler',
+            'html' => '<p><span class="ext-kbd foo">x</span></p>',
+        ],
+    ];
+
     protected CarveConverter $converter;
 
     protected function setUp(): void
@@ -435,6 +490,22 @@ class CarveCorpusTest extends TestCase
         );
 
         $actual = $this->converter->convert($crv);
+
+        if (isset(self::AHEAD_OF_PIN[$slug])) {
+            $ahead = self::AHEAD_OF_PIN[$slug];
+            $this->assertSame(
+                $this->normalize($ahead['html']),
+                $this->normalize($actual),
+                $ahead['reason'] . ' (ahead of the pinned corpus): ' . $slug,
+            );
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                $slug . ' now matches the pinned corpus: delete its AHEAD_OF_PIN entry',
+            );
+
+            return;
+        }
 
         $this->assertSame(
             $this->normalize($html),

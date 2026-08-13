@@ -9,25 +9,35 @@ use PHPUnit\Framework\TestCase;
 
 class SemanticSpanSugarTest extends TestCase
 {
-    public function testFixedRegistryAndValueMappings(): void
+    public function testCoreRegistryAndValueMappings(): void
     {
         $converter = new CarveConverter();
-        $source = "[CSS]{dfn abbr=\"Cascading Style Sheets\"}\n[Noon]{time=\"12:00\"} [x]{code mark samp var kbd cite}";
+        $source = "[HTML]{abbr=\"HyperText Markup Language\"}\n[Noon]{time=\"12:00\"} [Tab]{kbd}";
 
         self::assertSame(
-            "<p><dfn><abbr title=\"Cascading Style Sheets\">CSS</abbr></dfn>\n"
-            . "<time datetime=\"12:00\">Noon</time> <span code=\"\" mark=\"\"><cite><kbd><var><samp>x</samp></var></kbd></cite></span></p>\n",
+            "<p><abbr title=\"HyperText Markup Language\">HTML</abbr>\n"
+            . "<time datetime=\"12:00\">Noon</time> <kbd>Tab</kbd></p>\n",
             $converter->convert($source),
         );
     }
 
-    public function testRemainingAttributesUseOneHardenedOuterSpan(): void
+    public function testLeftoversRideTheElementRatherThanAWrapper(): void
     {
         $converter = new CarveConverter();
 
         self::assertSame(
-            "<p><span id=\"copy\" class=\"shortcut\" data-key=\"copy\"><kbd><strong>Ctrl</strong>+C</kbd></span></p>\n",
+            "<p><kbd id=\"copy\" class=\"shortcut\" data-key=\"copy\"><strong>Ctrl</strong>+C</kbd></p>\n",
             $converter->convert('[*Ctrl*+C]{#copy .shortcut kbd data-key="copy" onclick="alert(1)"}'),
+        );
+    }
+
+    public function testNamesOutsideCoreStayOrdinaryAttributes(): void
+    {
+        $converter = new CarveConverter();
+
+        self::assertSame(
+            "<p><span samp=\"\" var=\"\" cite=\"\" dfn=\"\">x</span></p>\n",
+            $converter->convert('[x]{samp var cite dfn}'),
         );
     }
 
