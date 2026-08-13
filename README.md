@@ -46,6 +46,22 @@ $report = $result->report();
 The existing `convert()` API remains unchanged. The CLI equivalent is
 `carve migrate --from html --report report.json input.html`.
 
+Three more importers convert other markup to Carve, in the library as
+`MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
+as `carve migrate --from markdown|djot|bbcode`:
+
+~~~ bash
+carve migrate --from markdown README.md > README.crv
+carve migrate --from djot notes.dj
+cat post.txt | carve migrate --from bbcode
+~~~
+
+`--mode`, `--adapter`, `--report` and `--check-loss` are the HTML importer's
+alone: the other three parse their source whole, so they have nothing to report
+as lost. `MarkdownToCarve` reads CommonMark plus GFM by default; its two
+constructor flags opt in to the `$math$` and `==highlight==` extensions that
+neither dialect defines.
+
 HTML rendering can replace trusted `:name:` symbols with a configured map.
 Unmapped symbols render literally, and symbol attributes wrap the result in a
 `<span>`:

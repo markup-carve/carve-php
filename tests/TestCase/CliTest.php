@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -355,5 +356,67 @@ class CliTest extends TestCase
 
         $this->assertSame(0, $result['exit']);
         $this->assertStringContainsString('Usage: carve merge', $result['out']);
+    }
+
+    /**
+     * Every importer the library ships is reachable from `migrate --from`, not
+     * just the HTML one the command started out with.
+     *
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function migrateSourceFormats(): array
+    {
+        return [
+            'html' => ['html', '<p><b>bold</b> and <i>em</i></p>', "*bold* and /em/\n"],
+            'markdown' => ['markdown', "**bold** and _em_\n", "*bold* and /em/\n"],
+            'markdown short name' => ['md', "**bold** and _em_\n", "*bold* and /em/\n"],
+            'djot' => ['djot', "*bold* and _em_\n", "*bold* and /em/\n"],
+            'bbcode' => ['bbcode', "[b]bold[/b] and [i]em[/i]\n", "*bold* and /em/\n"],
+        ];
+    }
+
+    #[DataProvider('migrateSourceFormats')]
+    public function testMigrateConvertsEverySupportedSourceFormat(
+        string $from,
+        string $source,
+        string $expected,
+    ): void {
+        $result = $this->runCliInput(['migrate', '--from', $from], $source);
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['err']);
+        $this->assertStringContainsString($expected, $result['out']);
+    }
+
+    public function testMigrateRejectsAnUnknownSourceFormat(): void
+    {
+        $result = $this->runCliInput(['migrate', '--from', 'rst'], "hi\n");
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertStringContainsString('unknown source format rst', $result['err']);
+    }
+
+    public function testMigrateNamesEverySourceFormatWhenFromIsMissing(): void
+    {
+        $result = $this->runCliInput(['migrate'], "hi\n");
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertStringContainsString('html, markdown, djot or bbcode', $result['err']);
+    }
+
+    /**
+     * The loss report is the HTML importer's alone - the other three parse
+     * their source whole - so a non-HTML migration ignores it rather than
+     * failing on it.
+     */
+    public function testMigrateIgnoresTheHtmlOnlyOptionsForOtherFormats(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
+            "**bold**\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("*bold*\n", $result['out']);
     }
 }
