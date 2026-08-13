@@ -1261,8 +1261,17 @@ class CarveRenderer implements RendererInterface
             }
             $seen[$slot] = true;
             $value = $attrs[$slot];
-            if (strtolower($slot) === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+            // EXACT key match, not case-insensitive: `LANG` and `lang` are
+            // different attribute names, so folding here rewrote
+            // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
+            // breaks PART 11 SS1 (carve#1137).
+            if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
                 $parts[] = ':' . $value;
+            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+                // PART 11 SS6c: a value-less attribute comes back as the bare
+                // name, which is the production the language has for it. A key
+                // needing escaping has no bare spelling to fall back to.
+                $parts[] = $this->escapeAttrKey($slot);
             } else {
                 $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
             }
@@ -2353,8 +2362,17 @@ class CarveRenderer implements RendererInterface
             }
             $seen[$slot] = true;
             $value = $attrs[$slot];
-            if (strtolower($slot) === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+            // EXACT key match, not case-insensitive: `LANG` and `lang` are
+            // different attribute names, so folding here rewrote
+            // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
+            // breaks PART 11 SS1 (carve#1137).
+            if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
                 $parts[] = ':' . $value;
+            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+                // PART 11 SS6c: a value-less attribute comes back as the bare
+                // name, which is the production the language has for it. A key
+                // needing escaping has no bare spelling to fall back to.
+                $parts[] = $this->escapeAttrKey($slot);
             } else {
                 $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
             }
