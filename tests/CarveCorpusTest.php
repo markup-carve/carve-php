@@ -51,6 +51,7 @@ class CarveCorpusTest extends TestCase
         'a-malformed-language-tag-leaves-the-whole-block-literal',
         'a-language-attribute-and-lang-are-one-key',
         'the-language-sigil-takes-no-padding',
+        'a-boolean-lang-is-the-third-spelling-of-the-same-key',
         'a-semantic-span-keeps-its-wrapper-unless-consumption-empties-it',
         'a-structural-attribute-leads-the-author-s-own',
         'a-caret-line-does-not-end-a-paragraph-it-cannot-caption',
