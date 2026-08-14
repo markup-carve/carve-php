@@ -75,25 +75,33 @@ class NoteInUnresolvedReferenceTest extends TestCase
     }
 
     /**
-     * An unresolved IMAGE reference degrades to source too, alt text included.
+     * The IMAGE spellings never reach the rule, and the reason is worth
+     * pinning: an image's alt is FLAT TEXT, resolved or not, so the `[^1]` in
+     * it is never a note node and there is nothing to number in the first
+     * place. Held as a pair with the resolved image, so a parser change that
+     * starts building nodes for alt text shows up here rather than as an
+     * endnote nobody expected.
+     *
+     * Stated plainly because it is the one shape in this file that a single
+     * mutation to the unresolved branch cannot break - it is decided in the
+     * parser, not in the writer.
      */
-    public function testImageReferenceDiscardsItsNote(): void
+    public function testAnImageReferenceHoldsNoNoteToDiscard(): void
     {
-        $html = $this->converter->convert("a ![t[^1]][nope] b\n\n[^1]: n\n");
+        $unresolved = $this->converter->convert("a ![t[^1]][nope] b\n\n[^1]: n\n");
+        $this->assertSame("<p>a ![t[^1]][nope] b</p>\n", $unresolved);
+        $this->assertNoEndnotes($unresolved);
 
-        $this->assertSame("<p>a ![t[^1]][nope] b</p>\n", $html);
-        $this->assertNoEndnotes($html);
-    }
+        $collapsed = (new CarveConverter())->convert("a ![t[^1]][] b\n\n[^1]: n\n");
+        $this->assertSame("<p>a ![t[^1]][] b</p>\n", $collapsed);
+        $this->assertNoEndnotes($collapsed);
 
-    /**
-     * A collapsed image reference: the fourth spelling of the same degradation.
-     */
-    public function testCollapsedImageReferenceDiscardsItsNote(): void
-    {
-        $html = $this->converter->convert("a ![t[^1]][] b\n\n[^1]: n\n");
-
-        $this->assertSame("<p>a ![t[^1]][] b</p>\n", $html);
-        $this->assertNoEndnotes($html);
+        // The resolved counterpart: the alt keeps the literal `[^1]` and the
+        // document still writes no endnote, which is what makes the two above
+        // a property of alt text rather than of the degradation.
+        $resolved = (new CarveConverter())->convert("a ![t[^1]][r] b\n\n[r]: /u\n\n[^1]: n\n");
+        $this->assertSame("<p>a <img src=\"/u\" alt=\"t[^1]\"> b</p>\n", $resolved);
+        $this->assertNoEndnotes($resolved);
     }
 
     /**
@@ -109,17 +117,14 @@ class NoteInUnresolvedReferenceTest extends TestCase
     }
 
     /**
-     * The inline note in a collapsed and in an image reference.
+     * The inline note in the COLLAPSED spelling of an unresolved reference.
      */
-    public function testInlineNoteInOtherUnresolvedSpellingsIsNotPlaced(): void
+    public function testInlineNoteInACollapsedUnresolvedReferenceIsNotPlaced(): void
     {
-        $collapsed = $this->converter->convert("a [t^[n]][] b\n");
-        $this->assertSame("<p>a [t^[n]][] b</p>\n", $collapsed);
-        $this->assertNoEndnotes($collapsed);
+        $html = $this->converter->convert("a [t^[n]][] b\n");
 
-        $image = (new CarveConverter())->convert("a ![t^[n]][nope] b\n");
-        $this->assertSame("<p>a ![t^[n]][nope] b</p>\n", $image);
-        $this->assertNoEndnotes($image);
+        $this->assertSame("<p>a [t^[n]][] b</p>\n", $html);
+        $this->assertNoEndnotes($html);
     }
 
     /**
