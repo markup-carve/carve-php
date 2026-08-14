@@ -451,7 +451,23 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        return $this->stripControls($node->getContent()) . "\n\n";
+        // Caption floor, the same one renderDiv() below already applies: a fence
+        // header (`"src/app.js"`) and a grouping label (`[Node]`) are authored
+        // text, and this target has nowhere to attach them, so they become
+        // standalone lines rather than being dropped. Header first when both are
+        // present, matching the div's title-then-label order. Ported from
+        // carve-js#1044.
+        $prefix = '';
+        $header = $node->getHeader();
+        if ($header !== null && $header !== '') {
+            $prefix .= $this->stripControls($header) . "\n\n";
+        }
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $prefix .= $this->stripControls($label) . "\n\n";
+        }
+
+        return $prefix . $this->stripControls($node->getContent()) . "\n\n";
     }
 
     protected function renderFigure(Figure $node): string
@@ -533,11 +549,15 @@ class PlainTextRenderer implements RendererInterface
         $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         $quoted = $this->blockQuotePrefix . $content . $this->blockQuoteSuffix;
-        // The attribution is visible content, so a text target keeps it - as a
-        // separate block, which is the spacing the renderer-parity fixtures pin.
+        // PART 11 section 10c T3. ADJACENCY, not a blank line. A blank line is
+        // what separates blocks on this target, so putting one here said the
+        // attribution was a block of its own rather than the quotation's source
+        // - the words survived, the attachment did not. No punctuation is
+        // invented: a dash prefix would put a character in the output the author
+        // never wrote.
         $attribution = $node->getAttribution();
         if ($attribution !== null) {
-            $quoted .= "\n\n" . trim($this->renderChildren($attribution));
+            $quoted .= "\n" . trim($this->renderChildren($attribution));
         }
 
         return $quoted . "\n\n";

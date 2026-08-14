@@ -902,19 +902,30 @@ class MarkdownRenderer implements RendererInterface
         $content = $this->renderChildren($node);
         $this->inBlockQuote = false;
 
-        // Prefix each line with >
-        $lines = explode("\n", trim($content, StringUtil::TRIMMABLE_WHITESPACE));
-        $quoted = array_map(fn ($line) => '> ' . $line, $lines);
+        $body = trim($content, StringUtil::TRIMMABLE_WHITESPACE);
 
-        $out = implode("\n", $quoted);
-        // Markdown has no attribution slot, so the source follows the quote as
-        // an ordinary paragraph rather than being dropped.
+        // PART 11 section 10c T1. The attribution is the quotation's SOURCE, so
+        // it stays INSIDE the quote. It used to follow as a sibling paragraph,
+        // which kept the words but not what they mean - read back it was
+        // attached to nothing, and a round trip produced a blockquote with no
+        // attribution.
+        //
+        // Markdown has no attribution syntax but does admit HTML, and this
+        // target already writes <u>, <mark>, <sub>, <ins> and <del> for
+        // constructs with no Markdown spelling. Through a CommonMark reader
+        // <footer> opens an HTML BLOCK inside the quote (it is not wrapped in a
+        // paragraph), so the rendered HTML matches the HTML target's.
         $attribution = $node->getAttribution();
         if ($attribution !== null) {
-            $out .= "\n\n" . $this->renderChildren($attribution);
+            $text = trim($this->renderChildren($attribution), StringUtil::TRIMMABLE_WHITESPACE);
+            $body .= "\n\n<footer>" . $text . '</footer>';
         }
 
-        return $out . "\n\n";
+        // Prefix each line with >, and a blank line with a bare marker.
+        $lines = explode("\n", $body);
+        $quoted = array_map(fn ($line) => $line === '' ? '>' : '> ' . $line, $lines);
+
+        return implode("\n", $quoted) . "\n\n";
     }
 
     protected function renderList(ListBlock $node): string
@@ -1132,9 +1143,24 @@ class MarkdownRenderer implements RendererInterface
             $output .= '| ' . implode(' | ', $separators) . ' |' . "\n";
         }
 
-        $output .= implode("\n", $bodyRows) . "\n\n";
+        $output .= implode("\n", $bodyRows) . "\n";
 
-        return $output;
+        // A caption is authored text, and Markdown has no table-caption syntax -
+        // so it goes on its own line under the table rather than being dropped.
+        // Dropping it was the only place a presentation target discarded authored
+        // text outright, against the MUST in docs/graceful-degradation.md
+        // ("losing the click is fine; losing the words is not"). An image and a
+        // listing caption already degrade exactly this way, so the table stops
+        // being the odd one out. Ported from carve-js#1044.
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
+            if ($text !== '') {
+                $output .= $text . "\n";
+            }
+        }
+
+        return $output . "\n";
     }
 
     protected function renderLineBlock(LineBlock $node): string

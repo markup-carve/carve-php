@@ -727,11 +727,30 @@ class AnsiRenderer implements RendererInterface
         }
         $output = '';
 
-        // Header with language
+        // Caption floor: a fence header (`"src/app.js"`) and a grouping label
+        // (`[Node]`) are authored text. This target had a rule line already and
+        // put only the language on it, so both were dropped outright - the one
+        // thing docs/graceful-degradation.md says a target may never do. They
+        // join the rule rather than taking lines of their own, so a captioned
+        // fence still reads as one block. Ported from carve-js#1044.
+        $parts = [];
         if ($lang !== null && $lang !== '') {
+            $parts[] = $lang;
+        }
+        $fenceHeader = $node->getHeader();
+        if ($fenceHeader !== null && $fenceHeader !== '') {
+            $parts[] = $this->stripControls($fenceHeader);
+        }
+        $fenceLabel = $node->getLabel();
+        if ($fenceLabel !== null && $fenceLabel !== '') {
+            $parts[] = '[' . $this->stripControls($fenceLabel) . ']';
+        }
+
+        if ($parts !== []) {
+            $joined = implode(' ', $parts);
             $header = $this->useUnicode
-                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $lang . ' '
-                : '--- ' . $lang . ' ';
+                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $joined . ' '
+                : '--- ' . $joined . ' ';
             $output .= $this->style($header, self::DIM) . "\n";
         }
 
@@ -752,9 +771,26 @@ class AnsiRenderer implements RendererInterface
 
         // Keeps the styling the caption had while a quote was a figure, so a
         // terminal reader sees the same thing in a different place.
+        //
+        // PART 11 section 10c T2: it also carries the QUOTE BAR. The bar is
+        // already this target's marker for "inside the quote", and the
+        // attribution was the one line in the quote that did not get it - so the
+        // source read as a separate block that merely happened to follow.
+        // Nothing new is invented; the prefix the body lines already use is
+        // applied one line further. The caption's own trailing separator is
+        // trimmed BEFORE prefixing, or the bar would be drawn on blank lines and
+        // the quote would appear to continue past its end.
         $attribution = $node->getAttribution();
         if ($attribution !== null) {
-            $content = rtrim($content, "\n") . "\n\n" . $this->renderCaption($attribution);
+            $this->blockQuoteDepth++;
+            $bar = $this->getBlockQuotePrefix();
+            $this->blockQuoteDepth--;
+            $rendered = rtrim($this->renderCaption($attribution), "\n");
+            $prefixed = implode("\n", array_map(
+                fn (string $line): string => $bar . $line,
+                explode("\n", $rendered),
+            ));
+            $content = rtrim($content, "\n") . "\n" . rtrim($bar) . "\n" . $prefixed . "\n\n";
         }
 
         return $content;

@@ -51,9 +51,17 @@ class FigureCaptionTest extends TestCase
         $this->assertSame("```\nx\n```\ncap\n", $this->md("```\nx\n```\n^ cap"));
     }
 
-    public function testMarkdownBlockquoteCaptionKeepsBlankLine(): void
+    /**
+     * PART 11 section 10c T1. This used to pin the BLANK LINE, and that spacing
+     * was the defect: a caption on a quote is its ATTRIBUTION, and emitting it
+     * as a sibling kept the words while losing what they mean - read back it was
+     * attached to nothing, and a round trip produced a blockquote with no
+     * attribution. It now stays inside the quote as a <footer>, the element this
+     * target already reaches for when Markdown has no spelling for a construct.
+     */
+    public function testMarkdownBlockquoteAttributionStaysInsideTheQuote(): void
     {
-        $this->assertSame("> q\n\ncap\n", $this->md("> q\n^ cap"));
+        $this->assertSame("> q\n>\n> <footer>cap</footer>\n", $this->md("> q\n^ cap"));
     }
 
     public function testMarkdownFigureNotGluedToFollowingBlock(): void
