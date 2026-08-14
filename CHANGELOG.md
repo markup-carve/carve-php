@@ -112,6 +112,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block quote's source span covers the attribution it owns** (#1249,
+  PART 12 §4). The span stopped at the end of the last quoted line, so the
+  attribution's inline nodes sat outside their own parent in the serialized
+  AST - a tree contradicting itself, which no rendered output could show.
+  A container "ends after its last placed child", and the attribution is one,
+  so the span now reaches the end of the `^` line. Four corpus documents
+  change; a quote with no attribution is unaffected. Consumers indexing a
+  quote by `pos` see the wider extent.
+
 - **A quote attribution stays attached to its quote on every target**
   (markup-carve/carve#1179, PART 11 §10c). It used to follow the quote as a
   sibling separated by a blank line, which kept the words but not what they

@@ -9228,6 +9228,16 @@ class BlockParser
                 $this->contiguousMapFor($start, $lines[$start], $captionText),
             );
             $lastChild->setAttribution($attribution);
+            // The attribution is written AFTER the quote, and it is the quote's
+            // own child, so the quote's span has to reach the end of that line.
+            // PART 12 §4: a span contains its children's spans, and "a container
+            // ends after its explicit closer when it has one, otherwise after
+            // its last placed child". Without this the attribution's inlines sat
+            // outside their own parent - a tree contradicting itself, which no
+            // renderer could show and which the containment sweep could not see
+            // either, because the attribution is not in `getChildren()`
+            // (carve-php#1249). The table arm above widens for the same reason.
+            $this->widenSpanTo($lastChild, $attribution->getPos());
 
             return $linesConsumed;
         }
