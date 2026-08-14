@@ -106,8 +106,10 @@ class MarkdownToCarve
         // `$htmlBreakOwed` records that such a block ended on the line just
         // emitted, so the next non-blank line starts a block of its own, and
         // `$htmlBlockOpen` marks a condition 6 or 7 block, which runs to the
-        // next blank line. Inside an open block nothing opens another one, so
-        // the `</div>` closing a multi-line element stays part of it.
+        // next blank line where a condition 1-5 block runs past one. Inside an
+        // open block nothing opens another, so the `</div>` closing a
+        // multi-line element stays part of it. Every kind ends where its
+        // container does, which `$htmlContainer` records.
         $htmlCloser = null;
         $htmlBreakOwed = false;
         $htmlBlockOpen = false;
@@ -521,11 +523,11 @@ class MarkdownToCarve
         $prevHadContent = !$isBlank && $rest !== '';
 
         if ($isBlank || $rest === '') {
-            // A blank ends the Carve block anyway, so the owed break is already
-            // there. Dropping the pending closer with it bounds an UNTERMINATED
-            // `<script>` to its own paragraph instead of letting it suppress
-            // every later opener in the document.
-            $htmlCloser = null;
+            // A condition 6 or 7 block ends at a blank line, and a blank already
+            // separates the Carve blocks either side of it, so the owed break is
+            // there. Conditions 1 to 5 run to their OWN terminator with blank
+            // lines inside them, so their closer survives one - dropping it put
+            // a break in the middle of a `<script>` and changed its contents.
             $htmlBreakOwed = false;
             $htmlBlockOpen = false;
 
@@ -592,12 +594,21 @@ class MarkdownToCarve
     }
 
     /**
-     * A CommonMark condition-7 opener: one complete open or closing tag with
+     * A CommonMark condition-7 opener: one COMPLETE open or closing tag with
      * nothing but whitespace after it.
+     *
+     * The full tag grammar, not an approximation of it. A line that only looks
+     * like a tag - `<x foo=>`, where the attribute has no value - opens no
+     * block, and treating it as one suppressed the next genuine opener.
      */
     protected function isCompleteTagLine(string $rest): bool
     {
-        return preg_match('/^<\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?\/?>[ \t]*$/', $rest) === 1;
+        $name = '[A-Za-z][A-Za-z0-9-]*';
+        $value = '(?:[^ \t"\'=<>`]+|\'[^\']*\'|"[^"]*")';
+        $attribute = '(?:[ \t]+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:[ \t]*=[ \t]*' . $value . ')?)';
+
+        return preg_match('/^<' . $name . $attribute . '*[ \t]*\/?>[ \t]*$/', $rest) === 1
+            || preg_match('/^<\/' . $name . '[ \t]*>[ \t]*$/', $rest) === 1;
     }
 
     /**

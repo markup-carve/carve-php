@@ -88,6 +88,44 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         );
     }
 
+    public function testAConditionOneToFiveBlockRunsPastABlankLine(): void
+    {
+        // Only conditions 6 and 7 end at a blank line. A `<script>` runs to its
+        // own terminator with blanks inside it, so a break inserted in the
+        // middle would change the script's contents.
+        $this->assertSame(
+            "<script>\n\nprose\n<footer>x</footer>\n</script>\n",
+            $this->converter->convert("<script>\n\nprose\n<footer>x</footer>\n</script>\n"),
+        );
+        $this->assertSame(
+            "<!--\n\nprose\n<footer>x</footer>\n-->\n\nafter\n",
+            $this->converter->convert("<!--\n\nprose\n<footer>x</footer>\n-->\nafter\n"),
+        );
+    }
+
+    public function testOnlyASyntacticallyCompleteTagOpensAConditionSevenBlock(): void
+    {
+        // `<x foo=>` has an attribute with no value, so it is not a tag and
+        // opens nothing - both readers keep it as paragraph text. Treating it as
+        // a block suppressed the genuine opener two lines below it.
+        $this->assertSame(
+            "<x foo=>\nprose\n\n<footer>y</footer>\n",
+            $this->converter->convert("<x foo=>\nprose\n<footer>y</footer>\n"),
+        );
+
+        // The valid spellings do open one, and then nothing inside it is an
+        // opener of its own.
+        foreach (
+            [
+                "<x foo=\"1\">\nprose\n<footer>y</footer>\n",
+                "<not a tag>\nprose\n<footer>y</footer>\n",
+                "</x>\nprose\n<footer>y</footer>\n",
+            ] as $markdown
+        ) {
+            $this->assertSame($markdown, $this->converter->convert($markdown));
+        }
+    }
+
     public function testTabIndentedContentIsMeasuredAndDedentedInColumns(): void
     {
         // A tab advances to the next four-column stop. One tab inside a
