@@ -124,6 +124,40 @@ class SemanticAttributeLinterTest extends TestCase
     }
 
     /**
+     * The message quotes the attribute the renderer WILL emit, value and all. A
+     * fixed `name=""` would be false for every host that carries a value, which
+     * is the shape most worth reporting - and a diagnostic that states output
+     * the renderer does not produce is worse than none.
+     */
+    public function testTheMessageQuotesTheAttributeTheRendererEmits(): void
+    {
+        $warnings = (new SemanticAttributeLinter())->lint('`c`{kbd="keyboard"}');
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('renders as kbd="keyboard".', $warnings[0]->message);
+        $this->assertStringContainsString(
+            'kbd="keyboard"',
+            (new CarveConverter())->convert('`c`{kbd="keyboard"}'),
+        );
+    }
+
+    /**
+     * And the value is escaped the way the renderer escapes it, not printed raw.
+     */
+    public function testTheQuotedValueIsEscapedLikeTheOutput(): void
+    {
+        $source = "{kbd=\"a\\\"b\"}\n> q";
+        $warnings = (new SemanticAttributeLinter())->lint($source);
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('renders as kbd="a&quot;b".', $warnings[0]->message);
+        $this->assertStringContainsString(
+            'kbd="a&quot;b"',
+            (new CarveConverter())->convert($source),
+        );
+    }
+
+    /**
      * `cite` IS a URL attribute of `blockquote` in HTML, so a quote carrying one
      * is the author getting exactly what they asked for. This is the carve-out
      * the port shares with carve-js (markup-carve/carve-js#1022); without it the

@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Lint;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * The two rules about the compact semantic-span names (PART 9 §9 and §10).
@@ -105,7 +106,14 @@ class SemanticAttributeLinter
         }
 
         $warnings = [];
-        $this->collect($document, $elementNames, $this->byteOffsets($source), strlen($source), $warnings);
+        $this->collect(
+            $document,
+            $elementNames,
+            $converter->getHtmlRenderer(),
+            $this->byteOffsets($source),
+            strlen($source),
+            $warnings,
+        );
 
         return $warnings;
     }
@@ -113,6 +121,7 @@ class SemanticAttributeLinter
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $elementNames
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param array<int, int>|null $byteAt
      * @param int $sourceLength
      * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
@@ -120,6 +129,7 @@ class SemanticAttributeLinter
     private function collect(
         Node $node,
         array $elementNames,
+        HtmlRenderer $renderer,
         ?array $byteAt,
         int $sourceLength,
         array &$warnings,
@@ -162,17 +172,23 @@ class SemanticAttributeLinter
                 self::RULE_SEMANTIC_ATTRIBUTE_OUTSIDE_SPAN,
                 sprintf(
                     '"%s" is a semantic span attribute (PART 9 %s10) and only applies to an ordinary '
-                        . '[content]{attrs} span; on %s it stays a raw attribute and renders as %s="".',
+                        . '[content]{attrs} span; on %s it stays a raw attribute and renders as %s="%s".',
                     $name,
                     "\u{00A7}",
                     $type,
                     $name,
+                    // The value the RENDERER emits, escaped the way it escapes
+                    // it. Naming a fixed empty value here would make the message
+                    // false as soon as the author wrote one, and an authored
+                    // value is the shape most worth reporting - `` `c`{kbd=…} ``
+                    // renders the value it was given.
+                    $renderer->escapeAttribute($attributes[$name]),
                 ),
             );
         }
 
         foreach ($node->getChildren() as $child) {
-            $this->collect($child, $elementNames, $byteAt, $sourceLength, $warnings);
+            $this->collect($child, $elementNames, $renderer, $byteAt, $sourceLength, $warnings);
         }
     }
 
