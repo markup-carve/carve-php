@@ -102,6 +102,27 @@ class HtmlImportSemanticSpanTest extends TestCase
     }
 
     /**
+     * An empty value attribute gives the bare boolean, the same as an absent
+     * one, and it does so for all three names that can carry a value rather
+     * than for some of them.
+     *
+     * This is the converter's global rule for an empty attribute value, not a
+     * rule invented for these names: `<span foo="">` has always imported as
+     * `{foo}`. Spelling `<time datetime="">` as `time=""` would make `time` the
+     * only name in the set that reads an empty value differently from the
+     * `<abbr title="">` beside it.
+     */
+    public function testAnEmptyValueAttributeIsTheBareBooleanForEveryNameThatCanCarryOne(): void
+    {
+        $converter = new HtmlToCarve();
+
+        $this->assertSame('[x]{abbr}', trim($converter->convert('<p><abbr title="">x</abbr></p>')));
+        $this->assertSame('[x]{dfn}', trim($converter->convert('<p><dfn title="">x</dfn></p>')));
+        $this->assertSame('[x]{time}', trim($converter->convert('<p><time datetime="">x</time></p>')));
+        $this->assertSame('[x]{foo}', trim($converter->convert('<p><span foo="">x</span></p>')));
+    }
+
+    /**
      * The compact form is one node, so it nests.
      */
     public function testNestsBecauseTheCompactFormDoes(): void
