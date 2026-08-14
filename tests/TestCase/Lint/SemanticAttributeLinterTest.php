@@ -15,7 +15,9 @@ use PHPUnit\Framework\TestCase;
 class SemanticAttributeLinterTest extends TestCase
 {
     /**
+     * @param string $source
      * @param array<string, mixed> $options
+     *
      * @return list<string>
      */
     private function rules(string $source, array $options = []): array
@@ -145,7 +147,7 @@ class SemanticAttributeLinterTest extends TestCase
 
         $this->assertSame(
             [SemanticAttributeLinter::RULE_SEMANTIC_ATTRIBUTE_OUTSIDE_SPAN],
-            $this->rules("`c`{cite=\"https://example.org/dune\"}", $options),
+            $this->rules('`c`{cite="https://example.org/dune"}', $options),
             'cite outside a span and outside a quote still reports',
         );
         $this->assertSame(

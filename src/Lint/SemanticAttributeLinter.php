@@ -83,6 +83,7 @@ class SemanticAttributeLinter
      * @param array<string, mixed> $options Supported: `extensions`, a list of
      *   `ExtensionInterface` instances the caller renders with. Anything else in
      *   the list is ignored.
+     *
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
     public function lint(string $source, array $options = []): array
@@ -178,6 +179,11 @@ class SemanticAttributeLinter
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<int, int>|null $byteAt
+     * @param int $sourceLength
+     * @param string $rule
+     * @param string $message
+     *
+     * @return \MarkupCarve\Carve\Lint\LintWarning
      */
     private function warn(
         Node $node,
@@ -187,14 +193,20 @@ class SemanticAttributeLinter
         string $message,
     ): LintWarning {
         $pos = $node->getPos();
+        // A node the parser could not place carries NO span - PART 12 §4 forbids
+        // inventing one - so the finding falls back to the document start rather
+        // than to a position it made up.
+        if ($pos === null) {
+            return new LintWarning(1, 1, $rule, $message, 0, 0);
+        }
 
         return new LintWarning(
-            $pos?->startLine ?? 1,
-            $pos?->startColumn ?? 1,
+            $pos->startLine,
+            $pos->startColumn,
             $rule,
             $message,
-            $this->toByteOffset($pos?->startOffset ?? 0, $byteAt, $sourceLength),
-            $this->toByteOffset($pos?->endOffset ?? 0, $byteAt, $sourceLength),
+            $this->toByteOffset($pos->startOffset, $byteAt, $sourceLength),
+            $this->toByteOffset($pos->endOffset, $byteAt, $sourceLength),
         );
     }
 
@@ -207,7 +219,9 @@ class SemanticAttributeLinter
      * emitted - two rules in one `carve lint` run reporting in two different
      * units would be a defect of its own.
      *
+     * @param int $codepointOffset
      * @param array<int, int>|null $byteAt
+     * @param int $sourceLength
      */
     private function toByteOffset(int $codepointOffset, ?array $byteAt, int $sourceLength): int
     {
@@ -246,6 +260,7 @@ class SemanticAttributeLinter
 
     /**
      * @param mixed $extensions
+     *
      * @return list<\MarkupCarve\Carve\Extension\ExtensionInterface>
      */
     private function selectedExtensions(mixed $extensions): array
