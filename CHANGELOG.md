@@ -32,6 +32,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Djot (#1231). The HTML importer reports what it could not carry faithfully
   instead of dropping it silently.
 
+- **HTML import spells all seven semantic elements as the compact span
+  attribute.** `<cite>C</cite>` and `<time datetime="2026-01-01">today</time>`
+  join the five that already mapped, importing as `[C]{cite}` and
+  `[today]{time="2026-01-01"}` rather than as bare text; `datetime` becomes the
+  span attribute's value instead of being dropped ahead of the element. A name
+  whose value attribute is absent gives the bare boolean, leftover `id`, `class`
+  and `data-*` ride the same span, and the import report records no loss for any
+  of the seven, in all three modes. `<mark>` keeps its `=m=` spelling, inline
+  `<code>` keeps its code span, `<code>` inside `<pre>` keeps going to a code
+  block, and a `<cite>` read as a block quote's attribution stays an
+  attribution. `abbr`, `time` and `kbd` render back as the original element;
+  `samp`, `var`, `cite` and `dfn` need `SemanticSpanExtension` registered to do
+  so, and render as `<span samp="">` without it.
+
 - **Opt-in list-table output for table cells holding block content** (#1168).
   `HtmlToCarve` never writes a construct a table cell cannot parse; a degraded
   wrapper keeps the boundary it carried (#1165, #1166).
