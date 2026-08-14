@@ -9,8 +9,8 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use MarkupCarve\Carve\ProseMirror\SchemaMap;
+use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -208,7 +208,7 @@ class ProseMirrorCorpusTest extends TestCase
     /**
      * How many corpus documents the pinned spec should yield.
      *
-     * The corpus is GENERATED from `docs/examples/*.md`: the spec's
+     * The corpus is GENERATED from the spec's `resources/examples/*.md`: its
      * `scripts/generate-corpus.mjs` emits one `.crv` / `.html` pair per
      * `::: compare` block, so the block count in that submodule's own examples
      * is the population, and it moves with the pin instead of going stale
@@ -221,34 +221,14 @@ class ProseMirrorCorpusTest extends TestCase
      * itself no matter what, which is the check that cannot fail (see
      * markup-carve/carve#755).
      *
-     * @throws \RuntimeException
+     * Counted by CorpusPopulation rather than here. A second copy of the same
+     * glob is how this file kept its own path after the spec moved the
+     * examples out of `docs/`, and one of the two would have to be found
+     * again next time.
      */
     private static function expectedCorpusSize(): int
     {
-        $examples = glob(dirname(__DIR__, 3) . '/tests/spec/docs/examples/*.md') ?: [];
-        if ($examples === []) {
-            throw new RuntimeException(
-                'The spec submodule is missing its docs/examples, so the expected corpus size '
-                    . 'cannot be derived. Initialize it: git submodule update --init',
-            );
-        }
-
-        // The opener `generate-corpus.mjs` matches, modifiers and all
-        // (`::: compare no-render` still produces a pair).
-        $blocks = 0;
-        foreach ($examples as $path) {
-            foreach (explode("\n", (string)file_get_contents($path)) as $line) {
-                if (preg_match('/^:{3,}\s+compare(\s+\S.*)?$/', trim($line)) === 1) {
-                    $blocks++;
-                }
-            }
-        }
-
-        if ($blocks === 0) {
-            throw new RuntimeException('No `::: compare` block found in the spec examples.');
-        }
-
-        return $blocks;
+        return CorpusPopulation::expectedSize();
     }
 
     public function testEveryAstTypeHasAMappedOrUnmappedDecision(): void

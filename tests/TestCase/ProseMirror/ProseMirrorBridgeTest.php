@@ -907,6 +907,12 @@ class ProseMirrorBridgeTest extends TestCase
             // Nested emphasis and strong are one unordered mark set in the
             // editor model, so which delimiter was outermost is not recoverable.
             'nested emphasis order' => ["/*x*/\n", 'emphasis'],
+            // The same shape one node over: a span with no content has no text
+            // to carry the mark, so it and its attributes go unrepresented.
+            // Corpus `307-an-empty-inline-note-is-literal-3` round-tripped
+            // `x ^[]{.c}` back as `x ^` with neither report saying so.
+            'empty span' => ["x []{.c}\n", 'span'],
+            'empty span after a caret' => ["x ^[]{.c}\n", 'span'],
         ];
     }
 
@@ -982,6 +988,12 @@ class ProseMirrorBridgeTest extends TestCase
             // bridge must not launder it into an explicit link.
             'autolink with a blocked scheme' => ["<vbscript:msgbox>\n"],
             'inline code attributes' => ["`code`{.cls}\n"],
+            // The other side of the empty-span declaration: a span WITH content
+            // has text for the mark, so it must be carried and reported clean.
+            // Without this, declaring every span degraded passes - and every
+            // span carrying one would drop out of the covered population with
+            // nothing to say so.
+            'span with content' => ["x [y]{.c}\n"],
             'alphabetic list' => ["a. apple\nb. pear\n"],
             'roman list' => ["iv. four\nv. five\n"],
             'parenthesis delimiter' => ["1) one\n"],

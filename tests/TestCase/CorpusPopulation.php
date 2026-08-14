@@ -10,9 +10,12 @@ final class CorpusPopulation
 {
     public static function expectedSize(): int
     {
-        $examples = glob(__DIR__ . '/../spec/docs/examples/*.md') ?: [];
+        $examples = glob(__DIR__ . '/../spec/resources/examples/*.md') ?: [];
         if ($examples === []) {
-            throw new RuntimeException('The pinned spec has no docs/examples population.');
+            throw new RuntimeException(
+                'The pinned spec has no resources/examples population, so the expected corpus '
+                    . 'size cannot be derived. Initialize the submodule: git submodule update --init',
+            );
         }
 
         $count = 0;
