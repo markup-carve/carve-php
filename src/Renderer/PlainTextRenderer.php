@@ -46,6 +46,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
+use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
@@ -325,11 +326,41 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
                 $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
+                $node instanceof Span => $this->renderSpan($node),
                 default => $this->renderChildren($node),
             };
         } finally {
             $this->renderDepth--;
         }
+    }
+
+    /**
+     * A span renders its children bare, EXCEPT for an authored `abbr`.
+     *
+     * That is the one expansion this target has to print inline. The automatic
+     * case does not need it: the `*[TERM]: expansion` definition line is emitted
+     * verbatim, so the mapping survives once at the definition rather than at
+     * every occurrence. An AUTHORED value has no definition line to carry it, so
+     * dropping it loses the text outright - `[HTML]{abbr="Custom"}` came out as
+     * bare `HTML` with "Custom" nowhere in the output
+     * (markup-carve/carve#1176).
+     *
+     * Parentheses are already this target's idiom for an aside: an inline
+     * footnote renders `(content)` here.
+     */
+    protected function renderSpan(Span $node): string
+    {
+        $authored = $node->getAttributes()['abbr'] ?? null;
+        if (!is_string($authored) || $authored === '') {
+            return $this->renderChildren($node);
+        }
+
+        $inner = $this->renderChildren($node);
+        if (!$this->chargeAbbreviationExpansion($authored)) {
+            return $inner;
+        }
+
+        return $inner . ' (' . $this->stripControls($authored) . ')';
     }
 
     protected function renderHeadingRef(HeadingRef $node): string

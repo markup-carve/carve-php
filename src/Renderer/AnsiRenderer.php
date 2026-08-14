@@ -573,7 +573,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof Delete => $this->renderDelete($node),
                 $node instanceof Substitution => $this->renderSubstitution($node),
                 $node instanceof CriticComment => $this->stripControls($node->getContent()),
-                $node instanceof Span => $this->renderChildren($node),
+                $node instanceof Span => $this->renderSpan($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => $this->renderSymbol($node),
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
@@ -1273,9 +1273,56 @@ class AnsiRenderer implements RendererInterface
         return $this->style($content, self::ITALIC . self::DIM) . "\n\n";
     }
 
+    /**
+     * Set while rendering a span that carries an authored `abbr`.
+     *
+     * PART 9 §10 and markup-carve/carve#1127: the authored value OUTRANKS
+     * automatic expansion, and a resolved abbreviation inside such a span
+     * contributes only its visible text - a renderer must not emit the nested
+     * expansion. The HTML renderer already carried this flag; this target
+     * emitted the DEFINITION's text instead (markup-carve/carve#1176).
+     */
+    protected bool $suppressAutomaticAbbreviation = false;
+
+    /**
+     * A span renders its children bare, EXCEPT for an authored `abbr`, which
+     * outranks the document definition (markup-carve/carve#1127). ANSI has no
+     * markup to carry a title, so the expansion is parenthetical text - the
+     * same shape this target already uses, carrying the AUTHORED value
+     * (markup-carve/carve#1176).
+     */
+    protected function renderSpan(Span $node): string
+    {
+        $authored = $node->getAttributes()['abbr'] ?? null;
+        if (!is_string($authored)) {
+            return $this->renderChildren($node);
+        }
+
+        $previous = $this->suppressAutomaticAbbreviation;
+        $this->suppressAutomaticAbbreviation = true;
+
+        try {
+            $inner = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previous;
+        }
+
+        if ($authored === '' || !$this->chargeAbbreviationExpansion($authored)) {
+            return $inner;
+        }
+
+        return $inner . $this->style(' (' . $this->stripControls($authored) . ')', self::DIM);
+    }
+
     protected function renderAbbreviation(Abbreviation $node): string
     {
         $text = $this->renderChildren($node);
+
+        // Inside a span carrying its own `abbr`, only the visible text
+        // (markup-carve/carve#1127).
+        if ($this->suppressAutomaticAbbreviation) {
+            return $text;
+        }
 
         // DoS guard: once the cumulative expansion bytes would exceed the
         // budget, degrade to plain key text (no parenthesized definition).
