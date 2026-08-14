@@ -68,6 +68,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use ReflectionObject;
 use Throwable;
@@ -751,7 +752,7 @@ class CarveRenderer implements RendererInterface
         }
         $label = $node->getLabel();
         if ($label !== null) {
-            $parts[] = '[' . $this->escapeBracketText($label) . ']';
+            $parts[] = '[' . $this->writeFlatBracketRun($label) . ']';
         }
 
         return $parts === [] ? '' : ' ' . implode(' ', $parts);
@@ -1167,7 +1168,7 @@ class CarveRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1189,7 +1190,7 @@ class CarveRenderer implements RendererInterface
         $kind = $classes[0] ?? '';
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1201,7 +1202,7 @@ class CarveRenderer implements RendererInterface
         $kind = $this->admonitionKind($node) ?? 'note';
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1657,11 +1658,11 @@ class CarveRenderer implements RendererInterface
     {
         $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
         if ($body === '') {
-            return '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: {empty}';
+            return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: {empty}';
         }
 
         $lines = explode("\n", $body);
-        $out = '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: ' . array_shift($lines);
+        $out = '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . array_shift($lines);
         foreach ($lines as $line) {
             // TWO spaces, the body's own column (PART 9 §16). A wider indent is
             // legal continuation but puts the body's blocks at a relative column
@@ -1786,7 +1787,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
-            $node instanceof FootnoteRef => $withAttrs('[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']'),
+            $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
             $node instanceof SoftBreak => "\n",
             $node instanceof HardBreak => $this->inLineBlock > 0
                 ? "\n"
@@ -2885,8 +2886,33 @@ class CarveRenderer implements RendererInterface
         return ($text[$offset - 1] ?? '') === '{' || $next === '}';
     }
 
+    /**
+     * An image's alt text, written between the `![` and its closing `]`.
+     *
+     * The run is RAW: it lands in an HTML attribute, nothing inside it is
+     * inline-parsed, and no escape inside it is resolved - `![t\]z](/i.png)`
+     * gives `alt="t\]z"`, backslash included. So the writer cannot neutralize
+     * anything here, only write the run or not write it, and it asks the
+     * READER'S OWN SCAN which it is. `![t[z]](/i.png)` came back written
+     * `t\[z\]` on the premise the run stops at the first `]`, which is the
+     * premise markup-carve/carve#1206 removed from the grammar, and the
+     * backslash then compounded one per pass.
+     *
+     * An alt text with no Carve spelling at all - a bare unbalanced `]`, or a
+     * run ending inside an unclosed code span - keeps the escape. `parse`
+     * cannot produce one; an ingested AST can. The escape is not a faithful
+     * representation of that value either, but it is better than none:
+     * `![t]z](/i.png)` written verbatim is a paragraph of literal text where
+     * the escaped spelling is still an image, and it settles, because the
+     * escaped alt is itself representable and the next pass writes the same
+     * bytes.
+     */
     protected function escapeImageAlt(string $text): string
     {
+        if (BracketScanner::rawRunCloses($text)) {
+            return $text;
+        }
+
         return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $text);
     }
 
@@ -2955,14 +2981,37 @@ class CarveRenderer implements RendererInterface
         return str_replace(['\\', '"'], ['\\\\', '\\"'], $text);
     }
 
+    /**
+     * An abbreviation, written between the `*[` and `]:` of its definition.
+     *
+     * Deliberately NOT one of the raw bracketed runs below. The definition is
+     * read as `*[([A-Za-z0-9]+)]: `, so neither a backslash nor a bracket can
+     * reach this from a parse, and an ingested one carrying either has no
+     * definition spelling with or without the escape. A shared shape, not a
+     * shared rule.
+     */
     protected function escapeBracketText(string $text): string
     {
         return str_replace(['\\', ']'], ['\\\\', '\\]'], $text);
     }
 
-    protected function escapeFootnoteLabel(string $text): string
+    /**
+     * A run written between brackets whose reader scans it FLAT: a container
+     * label, a code-fence label, a footnote id.
+     *
+     * Written as authored, with no escape, because there is nothing an escape
+     * could buy. Each of these readers anchors on the whole of what follows and
+     * stops at the first `]` without resolving anything, so a label holding a
+     * `]` fails to match with a backslash exactly as it fails without one - the
+     * construct is not a label either way. What the escape did do was survive
+     * into the label a reader that DID match handed back, so a backslash grew
+     * one more backslash on every format pass and two of the five sites changed
+     * what the document says (a container label is rendered). See
+     * markup-carve/carve#1197 and markup-carve/carve-js#1068.
+     */
+    protected function writeFlatBracketRun(string $text): string
     {
-        return $this->escapeBracketText($text);
+        return $text;
     }
 
     protected function escapeIdentifier(string $text): string

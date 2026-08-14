@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -492,18 +493,6 @@ class InlineParser
      * @var int
      */
     protected const MAX_INLINE_DEPTH = 100;
-
-    /**
-     * Maximum `[`-nesting depth findBalancedBracketEnd will scan before bailing
-     * with null. Caps the per-scan cost so a long run of openers cannot drive
-     * the bracket scan to O(n^2) (see findBalancedBracketEnd). Generously deeper
-     * than any real document and well above MAX_INLINE_DEPTH, so a balanced
-     * bracket that the parser could actually act on is always within range and
-     * output stays byte-identical.
-     *
-     * @var int
-     */
-    protected const MAX_BRACKET_NESTING = 1000;
 
     /**
      * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
@@ -2057,7 +2046,12 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * The `link_text` slot carries the run between the brackets exactly as
+     * `findBalancedBracketEnd` closed it. `parseImage` reads its alt text from
+     * that slot rather than rescanning, so an image's alt closes where a link's
+     * text closes by construction (markup-carve/carve#1206).
+     *
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int, link_text: string}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -2226,6 +2220,7 @@ class InlineParser
                 return [
                     'node' => $link,
                     'pos' => $endPos,
+                    'link_text' => $linkText,
                 ];
             }
 
@@ -2376,6 +2371,7 @@ class InlineParser
                     return [
                         'node' => $link,
                         'pos' => $endPos,
+                        'link_text' => $linkText,
                     ];
                 }
 
@@ -2409,6 +2405,7 @@ class InlineParser
                 return [
                     'node' => $link,
                     'pos' => $endPos,
+                    'link_text' => $linkText,
                 ];
             }
         }
@@ -2441,6 +2438,7 @@ class InlineParser
                     return [
                         'node' => $span,
                         'pos' => $endPos,
+                        'link_text' => $linkText,
                     ];
                 }
             }
@@ -2459,70 +2457,7 @@ class InlineParser
      */
     protected function findBalancedBracketEnd(string $text, int $openPos): ?int
     {
-        $length = strlen($text);
-        if ($openPos >= $length || $text[$openPos] !== '[') {
-            return null;
-        }
-
-        $bracketDepth = 1;
-        $pos = $openPos + 1;
-        while ($pos < $length) {
-            if ($text[$pos] === '`') {
-                $codeEnd = $this->findCodeSpanEnd($text, $pos);
-                if ($codeEnd === null) {
-                    return null;
-                }
-                $pos = $codeEnd;
-
-                continue;
-            }
-
-            // An editorial comment is opaque for the same reason a code span
-            // is: its content is LITERAL (PART 9 `editorial_comment`), so a `]`
-            // inside it is text, and no escape can say so - `{# ... #}`
-            // resolves none, so `\]` puts a real backslash in the comment. Left
-            // unskipped, `[{#a]b#}](u)` had no spelling that produced a link
-            // with the author's text intact (carve#403). An unclosed `{#` is
-            // not a comment and falls through unchanged.
-            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
-                $commentEnd = strpos($text, '#}', $pos + 2);
-                if ($commentEnd !== false) {
-                    $pos = $commentEnd + 2;
-
-                    continue;
-                }
-            }
-
-            if ($text[$pos] === '[') {
-                $bracketDepth++;
-
-                // DoS guard: a run of openers like `[[[…[x]()]()…]()` makes the
-                // main loop call this scan at every `[`, and each scan walked
-                // the whole tail -> O(n^2) (an ~8 KB input timed out). Beyond a
-                // bracket nesting far deeper than any real document we bail with
-                // null (the run renders literally), bounding each scan to
-                // O(MAX_BRACKET_NESTING) and the loop to O(n). Mirrors the inline
-                // recursion cap (MAX_INLINE_DEPTH); the corpus has nothing near
-                // this depth, so output is byte-identical.
-                if ($bracketDepth > self::MAX_BRACKET_NESTING) {
-                    return null;
-                }
-            } elseif ($text[$pos] === ']') {
-                $bracketDepth--;
-            } elseif ($text[$pos] === '\\' && $pos + 1 < $length) {
-                $pos += 2;
-
-                continue;
-            }
-
-            if ($bracketDepth === 0) {
-                return $pos;
-            }
-
-            $pos++;
-        }
-
-        return null;
+        return BracketScanner::balancedBracketEnd($text, $openPos);
     }
 
     /**
@@ -2546,35 +2481,22 @@ class InlineParser
             return null;
         }
 
-        // Alt text is RAW (grammar §864: alt_text = {character - ']'}), NOT
-        // parsed inline: emphasis, code spans, and backslashes are kept
-        // verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``), matching carve-js /
-        // carve-rs. Scan the balanced label directly from the source; a `\`
-        // escapes the next char for close-detection but is kept in the text.
-        // (Previously the alt was derived from the parsed link children, which
-        // stripped markup and dropped code-span content.)
-        $labelStart = $pos + 2;
-        $textLength = strlen($text);
-        $depth = 1;
-        $j = $labelStart;
-        while ($j < $textLength) {
-            $ch = $text[$j];
-            if ($ch === '\\') {
-                $j += 2;
-
-                continue;
-            }
-            if ($ch === '[') {
-                $depth++;
-            } elseif ($ch === ']') {
-                $depth--;
-                if ($depth === 0) {
-                    break;
-                }
-            }
-            $j++;
-        }
-        $alt = substr($text, $labelStart, $j - $labelStart);
+        // Alt text is RAW, NOT parsed inline: emphasis, code spans and
+        // backslashes are kept verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``).
+        // It ends where the LINK's text ends. An image has the same three forms
+        // as a link and only the leading `!` and the `<img src>` output differ,
+        // so the bracketed run is the run a link uses, closed by the same
+        // balanced, escape- and literal-span-aware scan
+        // (markup-carve/carve#1206, markup-carve/carve#1197).
+        //
+        // This used to be a second scan written here, and it agreed with
+        // `findBalancedBracketEnd` on depth and on `\`, but not on the two
+        // opaque runs that scan skips: a code span and an editorial comment.
+        // So `![t`]`z](/i.png)` and `![t{# ] #}z](/i.png)` linked to the right
+        // destination while the alt stopped at a `]` the parse had already
+        // ruled was content. Reading the run parseLink closed removes the
+        // second spelling instead of teaching it the same two exceptions.
+        $alt = $result['link_text'];
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 
@@ -3849,40 +3771,7 @@ class InlineParser
      */
     protected function findCodeSpanEnd(string $text, int $pos): ?int
     {
-        $length = strlen($text);
-
-        // Count opening backticks
-        $openBackticks = 0;
-        while ($pos + $openBackticks < $length && $text[$pos + $openBackticks] === '`') {
-            $openBackticks++;
-        }
-
-        if ($openBackticks === 0) {
-            return null;
-        }
-
-        $contentStart = $pos + $openBackticks;
-
-        // Find matching closing backticks
-        $closingPattern = str_repeat('`', $openBackticks);
-        $searchPos = $contentStart;
-
-        while ($searchPos < $length) {
-            $closePos = strpos($text, $closingPattern, $searchPos);
-            if ($closePos === false) {
-                return null;
-            }
-
-            // Make sure we have exactly the right number of backticks (not more)
-            $afterClose = $closePos + $openBackticks;
-            if ($afterClose >= $length || $text[$afterClose] !== '`') {
-                return $afterClose;
-            }
-
-            $searchPos = $closePos + 1;
-        }
-
-        return null;
+        return BracketScanner::codeSpanEnd($text, $pos);
     }
 
     /**
