@@ -148,6 +148,26 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown importer reads a block-level HTML element as a block inside a
+  container** (#1247). CommonMark's HTML block start conditions apply inside a
+  block quote or a list item exactly as they do at document level, and
+  conditions 1 to 6 may interrupt an open paragraph. The importer knew none of
+  them, so `> quoted` followed by `> <footer>Socrates</footer>` migrated as one
+  quoted paragraph and the element ended up inside a `<p>`, which takes phrasing
+  content only. Ninety-three shapes change, across nine container positions and
+  every interrupting start condition. A condition 1 to 5 block also ends at its
+  own terminator now, so prose on the line below `<!-- x -->` is a block of its
+  own. An inline `<span>` on a continuation line is condition 7 and still stays
+  inline, which is what keeps the rule from blanket-blocking every line that
+  opens with `<`.
+
+- **An item's own content column is no longer read as indented code** (#1247).
+  The four-column test measured from column 0 instead of from the enclosing
+  item's content column, so the content of a nested item was fenced and emitted
+  at column 0 - out of the list entirely, and no longer the kind of thing it
+  was. Genuine indented code inside an item still becomes a fence, at the item's
+  column rather than at 0. Document-level indented code is unchanged.
+
 - **A block quote's source span covers the attribution it owns** (#1249,
   PART 12 §4). The span stopped at the end of the last quoted line, so the
   attribution's inline nodes sat outside their own parent in the serialized
