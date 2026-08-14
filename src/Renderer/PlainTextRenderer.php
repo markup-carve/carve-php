@@ -549,11 +549,15 @@ class PlainTextRenderer implements RendererInterface
         $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         $quoted = $this->blockQuotePrefix . $content . $this->blockQuoteSuffix;
-        // The attribution is visible content, so a text target keeps it - as a
-        // separate block, which is the spacing the renderer-parity fixtures pin.
+        // PART 11 section 10c T3. ADJACENCY, not a blank line. A blank line is
+        // what separates blocks on this target, so putting one here said the
+        // attribution was a block of its own rather than the quotation's source
+        // - the words survived, the attachment did not. No punctuation is
+        // invented: a dash prefix would put a character in the output the author
+        // never wrote.
         $attribution = $node->getAttribution();
         if ($attribution !== null) {
-            $quoted .= "\n\n" . trim($this->renderChildren($attribution));
+            $quoted .= "\n" . trim($this->renderChildren($attribution));
         }
 
         return $quoted . "\n\n";

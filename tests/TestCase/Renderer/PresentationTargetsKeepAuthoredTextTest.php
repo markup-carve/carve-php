@@ -113,4 +113,50 @@ class PresentationTargetsKeepAuthoredTextTest extends TestCase
 
         $this->assertStringContainsString('┌── js src/app.js [Node]', $plain);
     }
+
+    /**
+     * PART 11 section 10c. The attribution is the quotation's SOURCE, so every
+     * target keeps it ATTACHED. It used to follow as a sibling separated by a
+     * blank line: the words survived, the relationship did not, and a round trip
+     * produced a blockquote with no attribution at all.
+     */
+    public function testTheAttributionStaysAttachedToItsQuote(): void
+    {
+        $src = "> q\n^ Attr\n";
+
+        // Markdown: a <footer> element inside the quote. Through a CommonMark
+        // reader that opens an HTML block rather than being wrapped in a
+        // paragraph, so the rendered HTML matches the HTML target's.
+        $this->assertSame("> q\n>\n> <footer>Attr</footer>\n", CarveConverter::markdown()->convert($src));
+
+        // Plain text: adjacency. No blank line, and no invented punctuation.
+        $this->assertSame("\"q\"\nAttr\n", CarveConverter::plainText()->convert($src));
+
+        // Terminal: the quote bar carried onto the attribution line, which keeps
+        // its italic-dim caption styling.
+        $ansi = CarveConverter::ansi()->convert($src);
+        $stripped = preg_replace('/\033\[[0-9;]*m/', '', $ansi) ?? '';
+        $this->assertSame("\u{2502} q\n\u{2502}\n\u{2502} Attr\n", $stripped);
+    }
+
+    /**
+     * A quote with no attribution is untouched: the change adds a line only
+     * where the author wrote one.
+     */
+    public function testAQuoteWithoutAnAttributionIsUnchanged(): void
+    {
+        $this->assertSame("> q\n", CarveConverter::markdown()->convert("> q\n"));
+        $this->assertSame("\"q\"\n", CarveConverter::plainText()->convert("> q\n"));
+    }
+
+    /**
+     * A block after an attributed quote keeps its separation.
+     */
+    public function testABlockAfterAnAttributedQuoteStaysSeparate(): void
+    {
+        $this->assertSame(
+            "> q\n>\n> <footer>A</footer>\n\nafter\n",
+            CarveConverter::markdown()->convert("> q\n^ A\n\nafter\n"),
+        );
+    }
 }

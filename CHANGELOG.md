@@ -9,6 +9,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A quote attribution stays attached to its quote on every target**
+  (markup-carve/carve#1179, PART 11 §10c). It used to follow the quote as a
+  sibling separated by a blank line, which kept the words but not what they
+  mean - read back the attribution was attached to nothing, and a round trip
+  produced a blockquote with no attribution at all. Markdown now emits a
+  `<footer>` element inside the quote (that target already writes `<u>`,
+  `<mark>` and `<ins>` where Markdown has no spelling, and through a CommonMark
+  reader `<footer>` opens an HTML block rather than being wrapped in a
+  paragraph, so the rendered HTML matches the HTML target's); the terminal
+  carries its quote bar onto the attribution line; plain text attaches by
+  adjacency, dropping the blank line. A quote with no attribution is unchanged.
+
 - **Presentation targets no longer discard authored text**
   (markup-carve/carve#1179). `docs/graceful-degradation.md` states the floor as
   a MUST - "losing the click is fine; losing the words is not" - and three kinds
