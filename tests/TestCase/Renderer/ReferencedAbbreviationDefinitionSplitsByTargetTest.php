@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
@@ -256,6 +257,63 @@ class ReferencedAbbreviationDefinitionSplitsByTargetTest extends TestCase
         $this->assertSame(
             "intro\n\nHTML (Different)\n\n*[HTML]: Hyper Text\n",
             (new PlainTextRenderer())->render($this->apiDocument('Different')),
+        );
+    }
+
+    /**
+     * THE DEGRADED CASE. Once the PART 9 §25 expansion budget is spent, every
+     * later occurrence falls back to its bare key - so that definition's
+     * expansion is NOT emitted, and its line is the only copy of those words
+     * left. Dropping it would delete the author's text outright, which is the
+     * content loss this whole clause moves things to avoid.
+     *
+     * The first definition, whose occurrences DID expand before the budget ran
+     * out, still loses its line. Both halves in one document, because a rule
+     * that answered "keep" for everything would pass half of this on its own.
+     */
+    public function testABudgetDegradedOccurrenceLeavesItsDefinitionTheLine(): void
+    {
+        $wide = str_repeat('x', 50000);
+        $source = '*[QQ]: ' . $wide . "\n*[ZZ]: zzz\n\n"
+            . str_repeat('QQ ', 25) . "\n\nZZ at the end.\n";
+
+        foreach ([$this->plain($source), $this->ansi($source)] as $out) {
+            $this->assertStringContainsString('*[ZZ]: zzz', $out);
+            $this->assertStringNotContainsString('*[QQ]: ' . $wide, $out);
+            $this->assertStringNotContainsString('ZZ (zzz)', $out);
+        }
+    }
+
+    /**
+     * The other degraded case, on the target that dispatches render events: a
+     * listener that prevents the default takes the expansion with it, so the
+     * definition's words again reach no output and its line stays.
+     */
+    public function testAListenerThatSuppressesTheOccurrenceLeavesTheLine(): void
+    {
+        $renderer = new PlainTextRenderer();
+        $renderer->on('render.abbreviation', static function (RenderEvent $event): void {
+            $event->setHtml('HTML');
+            $event->preventDefault();
+        });
+
+        $document = CarveConverter::create()->parse("*[HTML]: Hyper Text\n\nHTML\n");
+
+        $this->assertSame("*[HTML]: Hyper Text\n\nHTML\n", $renderer->render($document));
+    }
+
+    /**
+     * The deferred line is written through a placeholder, and a placeholder that
+     * survived into the output would be a private-use code point sitting in a
+     * plain-text document. A definition inside a container defines nothing
+     * (markup-carve/carve#601), so its line is kept - through a container that
+     * rewrites the start of every line it holds.
+     */
+    public function testADefinitionInsideAContainerKeepsItsLineIntact(): void
+    {
+        $this->assertSame(
+            "\"*[HTML]: Hyper Text\"\n\nHTML\n",
+            $this->plain("> *[HTML]: Hyper Text\n\nHTML\n"),
         );
     }
 
