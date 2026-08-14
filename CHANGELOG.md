@@ -163,6 +163,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`carve fmt` writes a bare caret where no inline note can open.** `^[` opens
+  a note only where a note can form, and PART 9 §16 rules out three positions:
+  an empty or whitespace-only body, an unclosed run, and anywhere inside a
+  note's own content, where footnote recognition is disabled at every depth. The
+  writer escaped the caret in all of them, so `x ^[]` was rewritten `x \^[]` and
+  `x ^[a ^[b] c]` became `x ^[a \^[b] c]`, adding a backslash the reader has
+  nothing to resolve. A caret in front of a run that does give a note a body
+  keeps its escape.
+
 - **An image's alt text closes where a link's text closes.** An image has the
   same three forms as a link, and only the leading `!` and the `<img src>`
   output differ, so the bracketed run is the run a link uses. The alt was found
