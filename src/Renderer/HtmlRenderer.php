@@ -2010,13 +2010,30 @@ class HtmlRenderer implements RendererInterface
         ));
     }
 
-    protected function renderSpan(Span $node): string
+    /**
+     * The names this renderer turns into an ELEMENT, inner to outer.
+     *
+     * Core's three plus whatever a registered extension added. A name outside
+     * this set stays an ordinary attribute on the span, so nothing about it is
+     * special - which is the distinction `Lint\SemanticAttributeLinter` reports
+     * on, and the reason this is public rather than private to `renderSpan()`.
+     * A linter carrying its own copy of the set would report the wrong thing
+     * the first time an extension changed what it registers.
+     *
+     * @return list<string>
+     */
+    public function semanticSpanNames(): array
     {
-        $order = array_values(array_filter(
+        return array_values(array_filter(
             self::EXTENDED_SEMANTIC_SPAN_ORDER,
             fn (string $name): bool => in_array($name, self::CORE_SEMANTIC_SPAN_ORDER, true)
                 || in_array($name, $this->extraSemanticSpanNames, true),
         ));
+    }
+
+    protected function renderSpan(Span $node): string
+    {
+        $order = $this->semanticSpanNames();
         $authored = $node->getAttributes();
         $semantic = [];
         foreach ($order as $name) {

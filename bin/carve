@@ -451,7 +451,9 @@ Rendering:
                            typed instead of the resolved glyphs (HTML/Markdown)
 
 Formatter:
-  lint                Report Markdown habits that render as something else
+  lint                Report markup that renders as something else: Markdown
+                      habits, and semantic span attributes that lose a value or
+                      sit outside a span
   lint --platform NAME
                       Also report host autolinks a platform re-linkifies
                       (repeatable; off unless named)
@@ -519,6 +521,7 @@ if (($options['command'] ?? null) === 'lint') {
     }
 
     $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
+    $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -540,7 +543,19 @@ if (($options['command'] ?? null) === 'lint') {
 
     $found = 0;
     foreach ($sources as $name => $source) {
-        foreach ($linter->lint($source, ['platforms' => $options['platforms']]) as $warning) {
+        // A CORE render, because that is what `carve` renders with unless the
+        // caller builds a converter itself. The extension-aware reading is a
+        // programmatic option rather than a flag: `carve` has no way to be told
+        // which extensions the document will be published through.
+        $warnings = array_merge(
+            $linter->lint($source, ['platforms' => $options['platforms']]),
+            $semanticLinter->lint($source),
+        );
+        usort(
+            $warnings,
+            static fn ($a, $b): int => [$a->line, $a->column] <=> [$b->line, $b->column],
+        );
+        foreach ($warnings as $warning) {
             $found++;
             fwrite(STDOUT, sprintf(
                 "%s:%d:%d %s %s\n",

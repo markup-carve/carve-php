@@ -332,8 +332,9 @@ table and checklist: [`docs/security.md`](docs/security.md).
 
 `carve lint` reports constructs that parse cleanly but do not mean what the
 author intended - Markdown habits such as `**bold**` that render as literal
-asterisks, and, per host and off by default, the at-word and hash-number tokens
-a platform re-linkifies out of published output:
+asterisks, semantic span attributes that lose their value (`[x]{kbd="V"}`) or
+sit outside a span (`` `c`{kbd} ``), and, per host and off by default, the
+at-word and hash-number tokens a platform re-linkifies out of published output:
 
 ```sh
 carve lint doc.crv
