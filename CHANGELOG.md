@@ -163,6 +163,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An image's alt text closes where a link's text closes.** An image has the
+  same three forms as a link, and only the leading `!` and the `<img src>`
+  output differ, so the bracketed run is the run a link uses. The alt was found
+  by a second scan written beside the link scan, which agreed with it on nesting
+  depth and on `\` but skipped neither of the two runs whose content is literal.
+  An alt holding a code span or an editorial comment - `![t{# ] #}z](/i.png)`,
+  and the same shape with backticks - published an image with the right
+  destination and an alt cut at a `]` the parse had already ruled was content.
+
+- **`carve fmt` writes a raw bracketed run as authored.** A run the reader reads
+  raw resolves no escape, so a backslash the writer added came back as content.
+  Five writers carried the same escape: an image's alt text, an admonition
+  label, a div label, a code-fence label, and a footnote id in its definition
+  and in every reference to it. `![t[z]](/i.png)` was rewritten `![t\[z\]]` and
+  the alt then read `t\[z\]`; `::: [a\b]` grew one backslash per format pass and
+  never settled, so `fmt(fmt(x)) == fmt(x)` failed from the second pass onward.
+  An abbreviation keeps its escape: its definition is read as `[A-Za-z0-9]+`, so
+  neither character can reach it.
+
 - **The ProseMirror bridge declares the empty span it cannot carry** (#1257).
   `x ^[]{.c}` came back from the round trip as `x ^` - the span and its class
   gone, with neither `droppedTypes()` nor `degradedTypes()` reporting it. A mark
