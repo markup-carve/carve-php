@@ -103,6 +103,22 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         );
     }
 
+    public function testAConditionOneCloserNeedNotMatchItsOpener(): void
+    {
+        // Deliberate, and easy to mistake for a bug: the spec's end condition
+        // for `<script>`, `<pre>`, `<style>` and `<textarea>` is any one of
+        // those four end tags, "it need not match the start tag". `commonmark`
+        // 0.31.2 closes a `<script>` block on `</pre>`, so this engine does too.
+        $this->assertSame(
+            "<script>\n</pre>\n\nafter\n",
+            $this->converter->convert("<script>\n</pre>\nafter\n"),
+        );
+        $this->assertSame(
+            "<pre>\n</textarea>\n\nafter\n",
+            $this->converter->convert("<pre>\n</textarea>\nafter\n"),
+        );
+    }
+
     public function testOnlyASyntacticallyCompleteTagOpensAConditionSevenBlock(): void
     {
         // `<x foo=>` has an attribute with no value, so it is not a tag and

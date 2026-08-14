@@ -693,6 +693,9 @@ class MarkdownToCarve
     protected function htmlBlockCloser(string $rest): ?string
     {
         if (preg_match('/^<(?:script|pre|style|textarea)(?:[ \t>]|$)/i', $rest) === 1) {
+            // Any one of the four end tags closes any one of the four openers -
+            // the spec says outright that it "need not match the start tag",
+            // and `commonmark` 0.31.2 ends a `<script>` block on `</pre>`.
             return '/<\/(?:script|pre|style|textarea)>/i';
         }
         if (str_starts_with($rest, '<!--')) {
