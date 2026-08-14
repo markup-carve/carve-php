@@ -53,8 +53,10 @@ class SemanticAttributeLinter
      * selects that element and is dropped.
      *
      * Mirrors the mapping in `HtmlRenderer::renderSpan()`, which is the only
-     * place that decides it. `SemanticAttributeValueMappingTest` measures the
-     * renderer against this list so the copy cannot drift unnoticed.
+     * place that decides it. `SemanticAttributeLinterTest` measures the renderer
+     * against this list for every reserved name, so the copy cannot drift
+     * unnoticed: a name that starts carrying its value while this list still
+     * calls it discarded reports a loss that stopped happening.
      *
      * @var array<string>
      */
