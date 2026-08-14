@@ -24,6 +24,11 @@ use PHPUnit\Framework\TestCase;
  * carve-js and carve-rs dropped exactly the same three, so a cross-engine
  * comparison could never have caught it - agreement is not correctness
  * (carve#1179).
+ *
+ * PART 11 section 10e then ruled WHERE each of the three goes, which the
+ * containment assertions above deliberately do not pin. The byte-exact cases
+ * below carry that half, and the corpus sidecars (09-tables.md,
+ * 11-fenced-code-5/6/7 .txt and .ansi) carry the rest.
  */
 class PresentationTargetsKeepAuthoredTextTest extends TestCase
 {
@@ -70,14 +75,22 @@ class PresentationTargetsKeepAuthoredTextTest extends TestCase
     }
 
     /**
-     * The caption goes on its own line under the table rather than being glued to
-     * the last row - the shape an image and a listing caption already use here.
+     * PART 11 section 10e T2. The caption follows the table as BODY TEXT,
+     * SEPARATED BY ONE BLANK LINE - the shape an image and a listing caption
+     * already use here.
+     *
+     * The blank line is the assertion, not the formatting. Written directly under
+     * the last row the caption is read as ANOTHER ROW, so the words come back as
+     * a fabricated data cell that no reader can tell from an authored one.
+     * Measured through a third-party GFM reader rather than this repo's own
+     * importer: `| a |` then `Table caption` yields `<td>Table caption</td>`,
+     * while the blank line yields `<p>Table caption</p>`.
      */
-    public function testTheTableCaptionIsItsOwnLine(): void
+    public function testTheTableCaptionIsSeparatedFromTheTableByABlankLine(): void
     {
         $markdown = CarveConverter::markdown()->convert("|= H |\n| a |\n^ Table caption\n");
 
-        $this->assertSame("| H |\n| --- |\n| a |\nTable caption\n", $markdown);
+        $this->assertSame("| H |\n| --- |\n| a |\n\nTable caption\n", $markdown);
     }
 
     /**
@@ -99,23 +112,80 @@ class PresentationTargetsKeepAuthoredTextTest extends TestCase
     {
         $markdown = CarveConverter::markdown()->convert("|= H |\n| a |\n^ Cap\n\nafter\n");
 
-        $this->assertSame("| H |\n| --- |\n| a |\nCap\n\nafter\n", $markdown);
+        $this->assertSame("| H |\n| --- |\n| a |\n\nCap\n\nafter\n", $markdown);
     }
 
     /**
-     * The terminal joins the header and label to the rule line it already draws,
-     * so a captioned fence still reads as one block rather than three.
+     * PART 11 section 10e T1. On the terminal the title and the label are a BOLD
+     * STANDALONE LINE EACH above the block, title first - the shape a fenced div
+     * already uses for the same two tokens - and the LANGUAGE KEEPS THE RULE LINE
+     * TO ITSELF.
+     *
+     * The escape sequences are spelled out rather than stripped because the two
+     * new lines carry the div's bold, and the rule line's trailing space sits
+     * inside its own dim run. A stripped comparison would pass on an unstyled
+     * line and on a lost trailing space alike.
      */
-    public function testTheTerminalRuleCarriesTheHeaderAndLabel(): void
+    public function testTheTerminalWritesTheFenceTitleAndLabelAboveTheRuleLine(): void
     {
         $ansi = CarveConverter::ansi()->convert("``` js \"src/app.js\" [Node]\nlet a = 1\n```\n");
-        $plain = preg_replace('/\033\[[0-9;]*m/', '', $ansi) ?? '';
 
-        $this->assertStringContainsString('┌── js src/app.js [Node]', $plain);
+        $expected = "\033[1m" . 'src/app.js' . "\033[0m\n"
+            . "\n"
+            . "\033[1m" . 'Node' . "\033[0m\n"
+            . "\n"
+            . "\033[2m" . "\u{250C}\u{2500}\u{2500} js" . ' ' . "\033[0m\n"
+            . "\033[97m" . '  let a = 1' . "\033[0m\n";
+
+        $this->assertSame($expected, $ansi);
     }
 
     /**
-     * PART 11 section 10c. The attribution is the quotation's SOURCE, so every
+     * The control for the clause's own reasoning. Folding the two tokens into the
+     * rule line was rejected because THE RULE LINE EXISTS ONLY WHEN THE FENCE HAS
+     * A LANGUAGE: a titled fence without one would have needed a header invented
+     * for it. So this case has to keep the title and draw no rule line, which is
+     * the shape the fold could not have produced. The corpus reaches none of it -
+     * all three of its fence sidecars carry a language.
+     */
+    public function testATitledFenceWithNoLanguageKeepsTheTitleAndDrawsNoRuleLine(): void
+    {
+        $source = "``` \"src/app.js\"\nlet a = 1\n```\n";
+
+        $this->assertSame("src/app.js\n\nlet a = 1\n", CarveConverter::plainText()->convert($source));
+
+        $ansi = CarveConverter::ansi()->convert($source);
+        $this->assertSame(
+            "\033[1m" . 'src/app.js' . "\033[0m\n"
+                . "\n"
+                . "\033[97m" . '  let a = 1' . "\033[0m\n",
+            $ansi,
+        );
+        $this->assertStringNotContainsString("\u{250C}", $ansi);
+    }
+
+    /**
+     * The other control: a fence carrying NEITHER token is untouched on both
+     * targets. The rule line still carries the language alone, and nothing is
+     * written above the block - so the two lines above are added only where the
+     * author wrote the tokens.
+     */
+    public function testAFenceWithNeitherTokenIsUnchanged(): void
+    {
+        $source = "``` js\nlet a = 1\n```\n";
+
+        $this->assertSame("let a = 1\n", CarveConverter::plainText()->convert($source));
+        $this->assertSame(
+            "\033[2m" . "\u{250C}\u{2500}\u{2500} js" . ' ' . "\033[0m\n"
+                . "\033[97m" . '  let a = 1' . "\033[0m\n",
+            CarveConverter::ansi()->convert($source),
+        );
+    }
+
+    /**
+     * PART 11 section 10d (renumbered from 10c by the ruling this pin carries,
+     * which repaired a collision with the existing 10c). The attribution is the
+     * quotation's SOURCE, so every
      * target keeps it ATTACHED. It used to follow as a sibling separated by a
      * blank line: the words survived, the relationship did not, and a round trip
      * produced a blockquote with no attribution at all.

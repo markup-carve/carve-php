@@ -1145,18 +1145,25 @@ class MarkdownRenderer implements RendererInterface
 
         $output .= implode("\n", $bodyRows) . "\n";
 
-        // A caption is authored text, and Markdown has no table-caption syntax -
-        // so it goes on its own line under the table rather than being dropped.
-        // Dropping it was the only place a presentation target discarded authored
-        // text outright, against the MUST in docs/graceful-degradation.md
-        // ("losing the click is fine; losing the words is not"). An image and a
-        // listing caption already degrade exactly this way, so the table stops
-        // being the odd one out. Ported from carve-js#1044.
+        // PART 11 §10e T2: a caption is authored text, and Markdown has no
+        // table-caption syntax, so it survives as BODY TEXT AFTER the table,
+        // SEPARATED BY ONE BLANK LINE. An image caption and a listing caption
+        // already take that position on this target, so the table was the odd
+        // one out rather than a consequence of Markdown lacking the syntax.
+        //
+        // The blank line is load-bearing, not cosmetic. §10e states the general
+        // form: attachment by adjacency is only available on a target where
+        // adjacency does not change what the adjacent block IS. Written directly
+        // under the last row, a GFM reader takes the caption as ANOTHER ROW and
+        // returns it as `<td>Fruit prices</td>` - the words survive as a
+        // fabricated data cell no reader can tell from an authored one, which is
+        // worse than losing them. So this half accepts an attachment weaker than
+        // §10d's: the floor is being met, not a relationship preserved.
         $caption = $node->getCaption();
         if ($caption !== null) {
             $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
             if ($text !== '') {
-                $output .= $text . "\n";
+                $output .= "\n" . $text . "\n";
             }
         }
 
