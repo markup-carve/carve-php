@@ -1336,11 +1336,45 @@ class MarkdownRenderer implements RendererInterface
         return '~~' . $this->renderChildren($node) . '~~';
     }
 
+    /**
+     * Set while rendering a span that carries an authored `abbr`.
+     *
+     * PART 9 §10 and markup-carve/carve#1127: the authored value OUTRANKS
+     * automatic expansion, and a resolved abbreviation inside such a span
+     * contributes only its visible text - a renderer must not emit the nested
+     * expansion. The HTML renderer already carried this flag; this target
+     * emitted the DEFINITION's text instead (markup-carve/carve#1176).
+     */
+    protected bool $suppressAutomaticAbbreviation = false;
+
     protected function renderSpan(Span $node): string
     {
-        // Spans with attributes don't exist in Markdown
-        // Just render the content
-        return $this->renderChildren($node);
+        // Spans with attributes don't exist in Markdown, so the content is
+        // rendered bare - EXCEPT for an authored `abbr`, which outranks the
+        // document definition (markup-carve/carve#1127). This target can carry
+        // a title, because it already emits an `<abbr>` for an ordinary
+        // expansion, so it carries the AUTHORED one (markup-carve/carve#1176).
+        $authored = $node->getAttributes()['abbr'] ?? null;
+        if (!is_string($authored)) {
+            return $this->renderChildren($node);
+        }
+
+        $previous = $this->suppressAutomaticAbbreviation;
+        $this->suppressAutomaticAbbreviation = true;
+
+        try {
+            $inner = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previous;
+        }
+
+        if ($authored === '' || !$this->chargeAbbreviationExpansion($authored)) {
+            return $inner;
+        }
+
+        $title = htmlspecialchars($this->stripControls($authored), ENT_QUOTES, 'UTF-8');
+
+        return '<abbr title="' . $title . '">' . $inner . '</abbr>';
     }
 
     protected function renderMath(Math $node): string
@@ -1433,6 +1467,12 @@ class MarkdownRenderer implements RendererInterface
         // escaping: a `"` in the title or a `<` in the text would otherwise
         // break the tag / be misparsed as markup downstream.
         $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
+
+        // Inside a span carrying its own `abbr`, only the visible text
+        // (markup-carve/carve#1127).
+        if ($this->suppressAutomaticAbbreviation) {
+            return $text;
+        }
 
         // DoS guard: once the cumulative expansion bytes would exceed the
         // budget, degrade to plain key text (no <abbr> wrapper, no title).

@@ -9,6 +9,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An authored `abbr` wins on the Markdown and ANSI targets too**
+  (markup-carve/carve#1176). markup-carve/carve#1127 ruled that an explicit
+  `abbr` outranks automatic expansion, and the HTML renderer honoured it while
+  Markdown and ANSI emitted the DEFINITION's text - so `[HTML]{abbr="Custom"}`
+  under a `*[HTML]: Hyper Text Markup Language` line came out with the wrong
+  title on two of five targets. Both now carry the authored value, using the
+  same suppression flag the HTML renderer already had. The plain-text target
+  carries it too: an authored expansion has no `*[TERM]: …` definition line to
+  state it once, so dropping it lost the text outright, and plain already uses
+  `(…)` for an inline footnote.
+
+### Fixed
+
 - **A math span's base class keeps the class slot in place** (PART 10 §1,
   markup-carve/carve#1164). `math inline` / `math display` was written ahead of
   everything, so an id the author wrote BEFORE any class came out after it -
