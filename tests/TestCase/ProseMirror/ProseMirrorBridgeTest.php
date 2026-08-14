@@ -907,6 +907,12 @@ class ProseMirrorBridgeTest extends TestCase
             // Nested emphasis and strong are one unordered mark set in the
             // editor model, so which delimiter was outermost is not recoverable.
             'nested emphasis order' => ["/*x*/\n", 'emphasis'],
+            // The same shape one node over: a span with no content has no text
+            // to carry the mark, so it and its attributes go unrepresented.
+            // Corpus `307-an-empty-inline-note-is-literal-3` round-tripped
+            // `x ^[]{.c}` back as `x ^` with neither report saying so.
+            'empty span' => ["x []{.c}\n", 'span'],
+            'empty span after a caret' => ["x ^[]{.c}\n", 'span'],
         ];
     }
 

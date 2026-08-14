@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -728,6 +729,15 @@ class ProseMirrorRenderer
      */
     protected function noteUnrepresentableState(Node $node): void
     {
+        if ($node instanceof Span && $node->getChildren() === []) {
+            // Same shape as the empty link below, and the same reason: a mark
+            // needs text to attach to, so a span with no content has nothing to
+            // carry it and the attributes it holds go with it. `x ^[]{.c}`
+            // came back as `x ^`, with neither report saying so.
+            $this->degraded['span'] = 'a span with no content has no text to carry the mark, '
+                . 'so neither it nor its attributes are represented';
+        }
+
         if ($node instanceof Link && !$node instanceof Mention) {
             if ($node->getChildren() === []) {
                 // A mark needs text to attach to. An empty label has none, so
