@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
+use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -171,32 +174,233 @@ class SourcePositionTest extends TestCase
         // at that line while the nested list inside it ran on for several more.
         // A node contains what it holds, so a child span outside its parent is
         // a defect no matter which node type it is.
+        //
+        // WALKED OVER THE SERIALIZED TREE, not over `getChildren()`
+        // (carve-php#1249). A node's children are not all in its child list: a
+        // block quote's attribution, a figure's caption and quote target, a
+        // table's caption and rows, an admonition's title and an inline
+        // footnote's body each live in a slot of their own. Walking the child
+        // list alone made this sweep structurally unable to see any of them -
+        // it could not fail on a wrong span there, and it did not, while a
+        // block quote's span stopped before the attribution it owns for four
+        // corpus documents. The codec publishes every slot, and the conformance
+        // checker in the spec repo (`scripts/spec/ast-positions.mjs`) walks
+        // exactly that shape, so measuring the same tree it does is also what
+        // makes a green run here mean the same thing as a green run there.
+        //
+        // The comparison is against the nearest PLACED ancestor rather than the
+        // immediate parent, again matching the checker: PART 12 §4 lets a node
+        // whose content is not a contiguous slice omit `pos`, and stopping at
+        // one would go quiet exactly where a span is most likely to be wrong.
         $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
+        $codec = new AstCodec();
         $violations = [];
         $checked = 0;
 
         foreach ($files as $file) {
             $document = (new BlockParser(trackPositions: true))->parse((string)file_get_contents($file));
-            foreach (self::walk($document) as $node) {
-                $parent = $node->getPos();
-                if ($parent === null) {
-                    continue;
-                }
-                foreach ($node->getChildren() as $child) {
-                    $span = $child->getPos();
-                    if ($span === null) {
-                        continue;
-                    }
-                    $checked++;
-                    if ($span->startOffset < $parent->startOffset || $span->endOffset > $parent->endOffset) {
-                        $violations[] = sprintf('%s: %s escapes %s', basename($file), $child->getType(), $node->getType());
-                    }
-                }
+            $violations = array_merge(
+                $violations,
+                self::containmentFindings($codec->encode($document), '$', null, '$', basename($file), $checked),
+            );
+        }
+
+        // A CONTAINMENT PASS THAT EXAMINED NOTHING reports zero findings and is
+        // indistinguishable from a clean one, which is why the pair count is
+        // asserted alongside the findings (PART 12 §4, carve#913). The floor
+        // rose with the walk: the child list reached about 1000 pairs, the
+        // serialized tree reaches roughly 5000.
+        $this->assertGreaterThan(4000, $checked, 'the sweep checked almost nothing');
+        $this->assertSame([], $violations, sprintf('%d spans fall outside their parent', count($violations)));
+    }
+
+    public function testTheContainmentSweepReachesASlotOutsideTheChildList(): void
+    {
+        // The sweep above is only worth its runtime if it can see a slot the
+        // child list does not carry. Asserting that directly, on the slot that
+        // was wrong: without it, a rewrite back to `getChildren()` would leave
+        // the sweep green with nothing to say (carve-php#1249).
+        $source = "> q\n^ A\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $quote = $document->getChildren()[0];
+
+        $this->assertInstanceOf(BlockQuote::class, $quote);
+        $attribution = $quote->getAttribution();
+        $this->assertNotNull($attribution, 'the caption did not attach as an attribution');
+        $this->assertCount(1, $quote->getChildren(), 'the attribution is expected OUTSIDE the child list');
+
+        // Break a span inside the attribution on purpose and require the sweep
+        // to say so. The parser is not involved: this is the checker under
+        // test. The codec publishes the attribution as the caption's INLINE
+        // run, so the node to break is the one inside it.
+        $inline = $attribution->getChildren()[0];
+        $inline->setPos(new SourceSpan(
+            startLine: 9,
+            endLine: 9,
+            startColumn: 1,
+            endColumn: 2,
+            startOffset: 900,
+            endOffset: 901,
+        ));
+
+        $checked = 0;
+        $findings = self::containmentFindings(
+            (new AstCodec())->encode($document),
+            '$',
+            null,
+            '$',
+            'synthetic',
+            $checked,
+        );
+
+        $this->assertGreaterThan(0, $checked, 'the sweep compared nothing');
+        $this->assertNotSame([], $findings, 'a broken attribution span went unreported');
+    }
+
+    public function testAQuoteSpanReachesTheEndOfItsAttribution(): void
+    {
+        // PART 12 §4: "A container ends after its explicit closer when it has
+        // one, otherwise after its LAST PLACED CHILD", and a span contains its
+        // children's spans. The attribution is written after the quoted lines
+        // and is the quote's own child, so the quote runs to the end of that
+        // line - not to the end of the last quoted line (carve-php#1249).
+        //
+        // Offsets, not just containment: containment alone is satisfied by a
+        // span that overshoots, and §4 also excludes the trailing terminator.
+        $source = "> Stay hungry.\n^ Steve Jobs\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $quote = $document->getChildren()[0];
+
+        $this->assertInstanceOf(BlockQuote::class, $quote);
+        $pos = $quote->getPos();
+        $this->assertNotNull($pos);
+        $this->assertSame(0, $pos->startOffset);
+        $this->assertSame(27, $pos->endOffset, 'the quote must end after "Jobs", before the newline');
+        $this->assertSame(2, $pos->endLine);
+        $this->assertSame(
+            "> Stay hungry.\n^ Steve Jobs",
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+        );
+    }
+
+    public function testABlankLineBeforeTheAttributionIsInsideTheQuoteSpan(): void
+    {
+        // The separated spelling, which the corpus carries twice
+        // (`55-blockquote-caption-after-a-blank-line`,
+        // `282-two-blank-lines-detach-a-caption-5`). §4 excludes a blank line
+        // that FOLLOWS a construct; this one is interior - it sits between two
+        // children the quote owns - so it is covered like any other gap between
+        // siblings, exactly as the table arm already covers its own.
+        $source = "> quoted\n\n^ Source\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $quote = $document->getChildren()[0];
+
+        $this->assertInstanceOf(BlockQuote::class, $quote);
+        $pos = $quote->getPos();
+        $this->assertNotNull($pos);
+        $this->assertSame(0, $pos->startOffset);
+        $this->assertSame(18, $pos->endOffset);
+        $this->assertSame(
+            "> quoted\n\n^ Source",
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+        );
+    }
+
+    public function testAQuoteWithNoAttributionIsNotWidened(): void
+    {
+        // The control the two above need. A rule that widened unconditionally -
+        // or that widened to the following line whatever it held - would pass
+        // both of them and be wrong here, where the `^` line is missing and the
+        // paragraph after the quote belongs to nobody but the document.
+        $source = "> quoted\n\nafter\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $quote = $document->getChildren()[0];
+
+        $this->assertInstanceOf(BlockQuote::class, $quote);
+        $this->assertNull($quote->getAttribution());
+        $pos = $quote->getPos();
+        $this->assertNotNull($pos);
+        $this->assertSame(8, $pos->endOffset, 'the quote must stop at the end of its own line');
+    }
+
+    /**
+     * The containment rule of PART 12 §4, over the SERIALIZED tree.
+     *
+     * Every key is descended into except `pos`, which holds integers rather
+     * than nodes, so a node reached through a slot of its own is compared like
+     * any other. `$checked` counts the pairs compared and is by reference for
+     * the reason §4 states: a pass that compared nothing must not be able to
+     * come back looking clean.
+     *
+     * @param mixed $node
+     * @param string $path
+     * @param array<string, mixed>|null $parent The nearest PLACED ancestor.
+     * @param string $parentPath
+     * @param string $label
+     * @param int $checked
+     *
+     * @return array<string>
+     */
+    private static function containmentFindings(
+        mixed $node,
+        string $path,
+        ?array $parent,
+        string $parentPath,
+        string $label,
+        int &$checked,
+    ): array {
+        if (!is_array($node)) {
+            return [];
+        }
+
+        if (array_is_list($node)) {
+            $findings = [];
+            foreach ($node as $index => $child) {
+                $findings = array_merge(
+                    $findings,
+                    self::containmentFindings($child, $path . '[' . $index . ']', $parent, $parentPath, $label, $checked),
+                );
+            }
+
+            return $findings;
+        }
+
+        $findings = [];
+        $placed = isset($node['type']) && is_string($node['type']) && isset($node['pos']);
+        if ($placed && $parent !== null) {
+            $checked++;
+            if (
+                $node['pos']['startOffset'] < $parent['pos']['startOffset']
+                || $node['pos']['endOffset'] > $parent['pos']['endOffset']
+            ) {
+                $findings[] = sprintf(
+                    '%s: "%s" at %s [%d, %d] is not inside "%s" at %s [%d, %d]',
+                    $label,
+                    $node['type'],
+                    $path,
+                    $node['pos']['startOffset'],
+                    $node['pos']['endOffset'],
+                    $parent['type'],
+                    $parentPath,
+                    $parent['pos']['startOffset'],
+                    $parent['pos']['endOffset'],
+                );
             }
         }
 
-        $this->assertGreaterThan(1000, $checked, 'the sweep checked almost nothing');
-        $this->assertSame([], $violations, sprintf('%d spans fall outside their parent', count($violations)));
+        $nextParent = $placed ? $node : $parent;
+        $nextPath = $placed ? $path : $parentPath;
+        foreach ($node as $key => $value) {
+            if ($key === 'pos') {
+                continue;
+            }
+            $findings = array_merge(
+                $findings,
+                self::containmentFindings($value, $path . '.' . $key, $nextParent, $nextPath, $label, $checked),
+            );
+        }
+
+        return $findings;
     }
 
     public function testCoverageDoesNotRegress(): void
