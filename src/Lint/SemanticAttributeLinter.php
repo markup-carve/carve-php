@@ -100,15 +100,15 @@ class SemanticAttributeLinter
         // than off a second copy of the tier split. A rule that decides "is this
         // an element?" from its own table reports the wrong thing the moment an
         // extension registers a name the table has not heard of.
-        $elementNames = $converter->getHtmlRenderer()->semanticSpanNames();
-        if ($elementNames === []) {
-            return [];
-        }
-
+        //
+        // NO EMPTY-SET SHORTCUT HERE. §9 puts three names in core, so the set is
+        // never empty and a guard on it could not fail - the walk below already
+        // does nothing for an empty set, which is the same answer without a
+        // branch nothing can reach.
         $warnings = [];
         $this->collect(
             $document,
-            $elementNames,
+            $converter->getHtmlRenderer()->semanticSpanNames(),
             $converter->getHtmlRenderer(),
             $this->byteOffsets($source),
             strlen($source),

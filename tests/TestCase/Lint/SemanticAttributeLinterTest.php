@@ -329,4 +329,19 @@ class SemanticAttributeLinterTest extends TestCase
 
         $this->assertSame([], $this->rules('[x]{cite="V"}', $options));
     }
+
+    /**
+     * An option that is not a list at all reads as no extensions rather than
+     * throwing: this mirrors `MarkdownHabitLinter`, where an unusable option is
+     * ignored on the programmatic API because the caller has a type checker.
+     */
+    public function testANonIterableExtensionOptionReadsAsACoreRender(): void
+    {
+        $this->assertSame([], $this->rules('[x]{cite="V"}', ['extensions' => 'SemanticSpanExtension']));
+        $this->assertSame(
+            [SemanticAttributeLinter::RULE_SEMANTIC_ATTRIBUTE_VALUE_IGNORED],
+            $this->rules('[x]{kbd="V"}', ['extensions' => 'SemanticSpanExtension']),
+            'the core rules still run',
+        );
+    }
 }
