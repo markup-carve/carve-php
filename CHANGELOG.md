@@ -166,7 +166,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   item's content column, so the content of a nested item was fenced and emitted
   at column 0 - out of the list entirely, and no longer the kind of thing it
   was. Genuine indented code inside an item still becomes a fence, at the item's
-  column rather than at 0. Document-level indented code is unchanged.
+  column rather than at 0, and its body is dedented by the container's columns
+  plus the one step CommonMark takes. Indentation is now measured in columns
+  throughout, so a tab advances to the next four-column stop instead of counting
+  as a single byte: one tab under a two-column item is that item's content, two
+  are code. Document-level indented code is unchanged.
 
 - **A block quote's source span covers the attribution it owns** (#1249,
   PART 12 §4). The span stopped at the end of the last quoted line, so the

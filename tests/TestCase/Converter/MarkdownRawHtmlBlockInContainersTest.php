@@ -45,6 +45,15 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
      */
     private const COLUMN_2 = "\x20\x20";
 
+    /**
+     * A literal tab, which advances to the next four-column stop rather than
+     * counting as one column. A formatter rewriting this into spaces would make
+     * every tab assertion below pass while testing nothing at all.
+     *
+     * @var string
+     */
+    private const TAB = "\x09";
+
     private MarkdownToCarve $converter;
 
     protected function setUp(): void
@@ -60,6 +69,55 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // the defect, so the bytes are pinned rather than trusted.
         $this->assertSame('20202020', bin2hex(self::COLUMN_4));
         $this->assertSame('2020', bin2hex(self::COLUMN_2));
+        $this->assertSame('09', bin2hex(self::TAB));
+    }
+
+    public function testAnOpenBlockEndsWhereItsContainerDoes(): void
+    {
+        // A block belongs to the container it opened in, so a line that leaves
+        // that container ends it however far the block would otherwise have
+        // run. Without this the dedented element stayed attached to the quote
+        // it had already left.
+        $this->assertSame(
+            "> <div>\n> x\n\n<footer>y</footer>\n",
+            $this->converter->convert("> <div>\n> x\n<footer>y</footer>\n"),
+        );
+        $this->assertSame(
+            "- <div>\n" . self::COLUMN_2 . "x\n\n<footer>y</footer>\n",
+            $this->converter->convert("- <div>\n" . self::COLUMN_2 . "x\n<footer>y</footer>\n"),
+        );
+    }
+
+    public function testTabIndentedContentIsMeasuredAndDedentedInColumns(): void
+    {
+        // A tab advances to the next four-column stop. One tab inside a
+        // two-column item reaches column 4, which is two past the content
+        // column - the item's own content, not code.
+        $this->assertSame(
+            "- item\n\n" . self::TAB . "code\n",
+            $this->converter->convert("- item\n\n" . self::TAB . "code\n"),
+        );
+
+        // Two tabs reach column 8, four past it, so this is code - dedented by
+        // the container's columns plus the one step, not by one literal tab.
+        $this->assertSame(
+            "- item\n\n" . self::COLUMN_2 . "```\n"
+                . self::COLUMN_4 . "indented code\n" . self::COLUMN_2 . "```\n",
+            $this->converter->convert("- item\n\n" . self::TAB . self::TAB . "indented code\n"),
+        );
+
+        // Mixed spaces and tabs reach column 6, exactly four past it.
+        $this->assertSame(
+            "- item\n\n" . self::COLUMN_2 . "```\n"
+                . self::COLUMN_2 . "code\n" . self::COLUMN_2 . "```\n",
+            $this->converter->convert("- item\n\n" . self::COLUMN_2 . self::TAB . self::COLUMN_2 . "code\n"),
+        );
+
+        // At document level one tab is the whole indent step.
+        $this->assertSame(
+            "prose\n\n```\ncode\n```\n",
+            $this->converter->convert("prose\n\n" . self::TAB . "code\n"),
+        );
     }
 
     /**

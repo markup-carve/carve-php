@@ -112,6 +112,7 @@ class MarkdownToCarve
         $htmlBreakOwed = false;
         $htmlBlockOpen = false;
         $htmlPrevHadContent = false;
+        $htmlContainer = null;
 
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
@@ -126,7 +127,10 @@ class MarkdownToCarve
             // transparent; a non-blank line pops items whose content starts to
             // its right. Code content never changes list tracking.
             if (!$inCodeBlock) {
-                $indent = strlen($line) - strlen(ltrim($line, " \t"));
+                // Columns, not bytes: a tab advances to the next four-column
+                // stop, so measuring it as one byte put `\tcode` to the LEFT of
+                // a two-column item and popped the item that holds it.
+                $indent = $this->indentWidth($line);
                 // A dedented line leaves a list item when a blank precedes it OR
                 // the line itself starts a block (heading, block quote, fence,
                 // thematic break) -- those interrupt lazy continuation (§10).
@@ -139,11 +143,11 @@ class MarkdownToCarve
                     preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
                     && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
                 ) {
-                    $markerIndent = strlen($lm[1]);
+                    $markerIndent = $this->columnWidth($lm[1]);
                     while ($listCols !== [] && end($listCols) > $markerIndent) {
                         array_pop($listCols);
                     }
-                    $listCols[] = strlen($lm[0]);
+                    $listCols[] = $this->columnWidth($lm[0]);
                 } elseif ($trimmed !== '' && ($wasPrevBlank || $startsBlock)) {
                     while ($listCols !== [] && end($listCols) > $indent) {
                         array_pop($listCols);
@@ -249,6 +253,7 @@ class MarkdownToCarve
                 $htmlBreakOwed,
                 $htmlBlockOpen,
                 $htmlPrevHadContent,
+                $htmlContainer,
             );
             if ($separator !== null && !$separatedByCaller) {
                 $result[] = $separator;
@@ -496,6 +501,7 @@ class MarkdownToCarve
      * @param bool $htmlBreakOwed Whether such a block ended on the previous line.
      * @param bool $htmlBlockOpen Whether a condition 6 or 7 block is open.
      * @param bool $prevHadContent Whether the previous line carried content inside its container.
+     * @param string|null $htmlContainer Container the tracked block opened in.
      */
     protected function rawHtmlBlockSeparator(
         string $line,
@@ -506,6 +512,7 @@ class MarkdownToCarve
         bool &$htmlBreakOwed,
         bool &$htmlBlockOpen,
         bool &$prevHadContent,
+        ?string &$htmlContainer,
     ): ?string {
         $rest = $isBlank ? '' : $this->stripContainerPrefix($line, $contentCol);
         // A line that is nothing but its container's markers - `>` on its own -
@@ -524,6 +531,17 @@ class MarkdownToCarve
 
             return null;
         }
+
+        // An HTML block belongs to the container it opened in. A line that
+        // leaves that container ends it, however the block would otherwise have
+        // run on - without this, `> <div>` / `> x` / `<footer>y</footer>` kept
+        // the dedented element attached to the quote it had already left.
+        $key = $this->containerKey($line, $contentCol);
+        if ($key !== $htmlContainer) {
+            $htmlCloser = null;
+            $htmlBlockOpen = false;
+        }
+        $htmlContainer = $key;
 
         if ($htmlCloser !== null) {
             if (preg_match($htmlCloser, $line) === 1) {
@@ -629,6 +647,20 @@ class MarkdownToCarve
     }
 
     /**
+     * Identity of the container a line sits in: its content column and its
+     * block quote depth. Two lines share it exactly when they sit in the same
+     * container, which is what an HTML block's extent is bounded by.
+     */
+    protected function containerKey(string $line, int $contentCol): string
+    {
+        $depth = preg_match('/^([ \t]*)((?:>[ \t]*)*)/', $line, $matches) === 1
+            ? substr_count($matches[2], '>')
+            : 0;
+
+        return $contentCol . '|' . $depth;
+    }
+
+    /**
      * Does this line open a CommonMark HTML block that may interrupt an open
      * paragraph - start conditions 1 through 6?
      *
@@ -674,24 +706,59 @@ class MarkdownToCarve
      */
     protected function indentWidth(string $line): int
     {
-        $width = 0;
         $length = strlen($line);
+        $i = 0;
+        while ($i < $length && ($line[$i] === ' ' || $line[$i] === "\t")) {
+            $i++;
+        }
+
+        return $this->columnWidth(substr($line, 0, $i));
+    }
+
+    /**
+     * Width of a whole string in columns, on the same four-column tab stops.
+     */
+    protected function columnWidth(string $text): int
+    {
+        $width = 0;
+        $length = strlen($text);
         for ($i = 0; $i < $length; $i++) {
-            if ($line[$i] === ' ') {
-                $width++;
-
-                continue;
-            }
-            if ($line[$i] === "\t") {
-                $width += 4 - ($width % 4);
-
-                continue;
-            }
-
-            break;
+            $width += $text[$i] === "\t" ? 4 - ($width % 4) : 1;
         }
 
         return $width;
+    }
+
+    /**
+     * Remove a fixed number of COLUMNS of leading whitespace, on the same tab
+     * stops. A tab straddling the boundary gives back the columns it carries
+     * past it, as spaces, so the code below it keeps its own indentation.
+     */
+    protected function stripColumns(string $line, int $columns): string
+    {
+        $width = 0;
+        $i = 0;
+        $length = strlen($line);
+        while ($i < $length && $width < $columns) {
+            if ($line[$i] === ' ') {
+                $width++;
+                $i++;
+
+                continue;
+            }
+            if ($line[$i] !== "\t") {
+                break;
+            }
+
+            $step = 4 - ($width % 4);
+            if ($width + $step > $columns) {
+                return str_repeat(' ', $width + $step - $columns) . substr($line, $i + 1);
+            }
+            $width += $step;
+            $i++;
+        }
+
+        return substr($line, $i);
     }
 
     protected function normalizeBlockquoteMarkers(string $line): string
@@ -858,8 +925,12 @@ class MarkdownToCarve
 
         $body = [];
         $longestRun = 0;
+        $margin = str_repeat(' ', $contentCol);
         foreach (array_slice($run, 0, $end - $start) as $line) {
-            $dedented = trim($line) === '' ? '' : (preg_replace('/^(?: {4}|\t)/', '', $line) ?? $line);
+            // Strip the container's columns plus the one indent step CommonMark
+            // takes, then put the container's columns back, so the body sits at
+            // the item's content column and its own indentation survives.
+            $dedented = trim($line) === '' ? '' : $margin . $this->stripColumns($line, $contentCol + 4);
             $body[] = $dedented;
             $length = strlen($dedented);
             for ($i = 0; $i < $length; $i++) {
