@@ -7,78 +7,36 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
-
-- **A quote attribution stays attached to its quote on every target**
-  (markup-carve/carve#1179, PART 11 §10c). It used to follow the quote as a
-  sibling separated by a blank line, which kept the words but not what they
-  mean - read back the attribution was attached to nothing, and a round trip
-  produced a blockquote with no attribution at all. Markdown now emits a
-  `<footer>` element inside the quote (that target already writes `<u>`,
-  `<mark>` and `<ins>` where Markdown has no spelling, and through a CommonMark
-  reader `<footer>` opens an HTML block rather than being wrapped in a
-  paragraph, so the rendered HTML matches the HTML target's); the terminal
-  carries its quote bar onto the attribution line; plain text attaches by
-  adjacency, dropping the blank line. A quote with no attribution is unchanged.
-
-- **Presentation targets no longer discard authored text**
-  (markup-carve/carve#1179). `docs/graceful-degradation.md` states the floor as
-  a MUST - "losing the click is fine; losing the words is not" - and three kinds
-  of authored text were dropped outright: a table caption vanished on the
-  Markdown target, and a fence header (`"src/app.js"`) and a grouping label
-  (`[Node]`) vanished on the plain-text and terminal targets. The caption now
-  sits on its own line under the table, the way an image and a listing caption
-  already degrade there; plain emits the header and label as standalone lines
-  ahead of the code, matching the caption floor the div renderer already
-  applied; and the terminal joins them to the rule line it was already drawing.
-  An uncaptioned table and a fence with no header are byte-identical to before.
-
-### Fixed
-
-- **An authored `abbr` wins on the Markdown and ANSI targets too**
-  (markup-carve/carve#1176). markup-carve/carve#1127 ruled that an explicit
-  `abbr` outranks automatic expansion, and the HTML renderer honoured it while
-  Markdown and ANSI emitted the DEFINITION's text - so `[HTML]{abbr="Custom"}`
-  under a `*[HTML]: Hyper Text Markup Language` line came out with the wrong
-  title on two of five targets. Both now carry the authored value, using the
-  same suppression flag the HTML renderer already had. The plain-text target
-  carries it too: an authored expansion has no `*[TERM]: …` definition line to
-  state it once, so dropping it lost the text outright, and plain already uses
-  `(…)` for an inline footnote.
-
-### Fixed
-
-- **A math span's base class keeps the class slot in place** (PART 10 §1,
-  markup-carve/carve#1164). `math inline` / `math display` was written ahead of
-  everything, so an id the author wrote BEFORE any class came out after it -
-  `$`E=mc^2`{#i .c k=v}` gave `<span class="math inline c" id="i" k="v">` where
-  the clause asks for `<span id="i" class="math inline c" k="v">`. A mandatory
-  base class is prepended INSIDE the class slot; the slot stays where the author
-  first wrote a class. With no authored class there is no slot to keep, so the
-  base class leads, unchanged.
-
-### Changed
-
-- **The Markdown target escapes `<` only where it would open markup** (PART 11
-  SS8a M1e, markup-carve/carve#1148). `<` and `>` were rewritten to entities
-  unconditionally, with no clause behind it. A `<` is now escaped with a
-  BACKSLASH when the next character is an ASCII letter, `/`, `!` or `?` - the
-  four things that open raw HTML - and left alone otherwise; `>` takes nothing,
-  since it is inert mid-line and a block quote marker at line start, which M1
-  already covers. So `a < b` survives as itself, and `a <b> c` is written with
-  the opener escaped, which a CommonMark reader gives back as text. A link
-  destination carries its URL better too: the escaped form reads back as the
-  real character, where the entity form put entity text into the href.
-
-### Fixed
-
-- **The `ext-NAME` class no longer moves the author's class slot.**
-  `:widget[x]{#i .c k=v}` renders `<span id="i" class="ext-widget c" k="v">`;
-  the structural class merges INTO the slot the author wrote and the slot keeps
-  its position, where it used to jump ahead of the id. Spec PART 10 §1, pinned
-  by corpus `45-inline-extensions-12` (markup-carve/carve#1168).
-
 ### Added
+
+- **Structural AST merge and patch APIs** (#1162). A three-way merge with
+  explicit JSON-Pointer conflicts and optional base/ours/theirs/custom
+  resolution, position-independent patch creation and replay, and
+  `carve merge [--json] base ours theirs` on the CLI. Results are validated
+  through the normal PART 12 decoder, and ambiguous wide-list matching is
+  bounded. Authored attributes named `pos` or `srcByteLength` survive, while
+  stale generated positions are discarded after a merge or patch.
+
+- **Structured HTML import diagnostics and a migration CLI** (#1174), and
+  `carve migrate --from` reaches every importer - HTML, Markdown, BBCode and
+  Djot (#1231). The HTML importer reports what it could not carry faithfully
+  instead of dropping it silently.
+
+- **Opt-in list-table output for table cells holding block content** (#1168).
+  `HtmlToCarve` never writes a construct a table cell cannot parse; a degraded
+  wrapper keeps the boundary it carried (#1165, #1166).
+
+- **`DjotToCarve` converts Djot's braced subscript and superscript** (#1187)
+  **and intraword emphasis** (#1198). `H{~2~}O` becomes `H{,2,}O`, and
+  `intra{_word_}emphasis` converts to the braced `{/.../}` form instead of
+  staying literal.
+
+- **Semantic language attributes** (#1228). `[x]{:fr}` is exact sugar for
+  `{lang=fr}`, on inline spans and block attribute lines alike; `{:}` desugars
+  to `lang=""`.
+
+- **Structural short captions are preserved in AST JSON** (#1193), with
+  accessors on the owning nodes.
 
 - **Three semantic span attributes need no extension** (markup-carve/carve#1146).
   `[Tab]{kbd}`, `[HTML]{abbr="…"}` and `[now]{time="2026-01-01"}` render
@@ -128,6 +86,123 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   name is unchanged, since hardening removes attributes and never the element.
   A DERIVED attribute yields to an AUTHORED one of the same name, so
   `[x]{abbr="gen" title="authored"}` carries `title` once.
+
+- **The Markdown target escapes `<` only where it would open markup** (PART 11
+  SS8a M1e, markup-carve/carve#1148). `<` and `>` were rewritten to entities
+  unconditionally, with no clause behind it. A `<` is now escaped with a
+  BACKSLASH when the next character is an ASCII letter, `/`, `!` or `?` - the
+  four things that open raw HTML - and left alone otherwise; `>` takes nothing,
+  since it is inert mid-line and a block quote marker at line start, which M1
+  already covers. So `a < b` survives as itself, and `a <b> c` is written with
+  the opener escaped, which a CommonMark reader gives back as text. A link
+  destination carries its URL better too: the escaped form reads back as the
+  real character, where the entity form put entity text into the href.
+
+- **The Markdown target leaves a bare ampersand alone** (#1150). An entity in
+  Markdown text decodes to a character, and a character cannot open a tag, so
+  `&` carried no risk to leave bare; `<` and `>` keep their handling, which is
+  what actually neutralizes embedded HTML.
+
+- **Bidi control characters are stripped from presentation targets** (#1152),
+  so Trojan-Source reordering cannot survive into plain-text, ANSI or Markdown
+  output.
+
+- **Plain-text and ANSI targets preserve list structure** (#1153) instead of
+  flattening items into prose.
+
+### Fixed
+
+- **A quote attribution stays attached to its quote on every target**
+  (markup-carve/carve#1179, PART 11 §10c). It used to follow the quote as a
+  sibling separated by a blank line, which kept the words but not what they
+  mean - read back the attribution was attached to nothing, and a round trip
+  produced a blockquote with no attribution at all. Markdown now emits a
+  `<footer>` element inside the quote (that target already writes `<u>`,
+  `<mark>` and `<ins>` where Markdown has no spelling, and through a CommonMark
+  reader `<footer>` opens an HTML block rather than being wrapped in a
+  paragraph, so the rendered HTML matches the HTML target's); the terminal
+  carries its quote bar onto the attribution line; plain text attaches by
+  adjacency, dropping the blank line. A quote with no attribution is unchanged.
+
+- **Presentation targets no longer discard authored text**
+  (markup-carve/carve#1179). `docs/graceful-degradation.md` states the floor as
+  a MUST - "losing the click is fine; losing the words is not" - and three kinds
+  of authored text were dropped outright: a table caption vanished on the
+  Markdown target, and a fence header (`"src/app.js"`) and a grouping label
+  (`[Node]`) vanished on the plain-text and terminal targets. The caption now
+  sits on its own line under the table, the way an image and a listing caption
+  already degrade there; plain emits the header and label as standalone lines
+  ahead of the code, matching the caption floor the div renderer already
+  applied; and the terminal joins them to the rule line it was already drawing.
+  An uncaptioned table and a fence with no header are byte-identical to before.
+
+- **An authored `abbr` wins on the Markdown and ANSI targets too**
+  (markup-carve/carve#1176). markup-carve/carve#1127 ruled that an explicit
+  `abbr` outranks automatic expansion, and the HTML renderer honoured it while
+  Markdown and ANSI emitted the DEFINITION's text - so `[HTML]{abbr="Custom"}`
+  under a `*[HTML]: Hyper Text Markup Language` line came out with the wrong
+  title on two of five targets. Both now carry the authored value, using the
+  same suppression flag the HTML renderer already had. The plain-text target
+  carries it too: an authored expansion has no `*[TERM]: …` definition line to
+  state it once, so dropping it lost the text outright, and plain already uses
+  `(…)` for an inline footnote.
+
+- **A math span's base class keeps the class slot in place** (PART 10 §1,
+  markup-carve/carve#1164). `math inline` / `math display` was written ahead of
+  everything, so an id the author wrote BEFORE any class came out after it -
+  `$`E=mc^2`{#i .c k=v}` gave `<span class="math inline c" id="i" k="v">` where
+  the clause asks for `<span id="i" class="math inline c" k="v">`. A mandatory
+  base class is prepended INSIDE the class slot; the slot stays where the author
+  first wrote a class. With no authored class there is no slot to keep, so the
+  base class leads, unchanged.
+
+- **The `ext-NAME` class no longer moves the author's class slot.**
+  `:widget[x]{#i .c k=v}` renders `<span id="i" class="ext-widget c" k="v">`;
+  the structural class merges INTO the slot the author wrote and the slot keeps
+  its position, where it used to jump ahead of the id. Spec PART 10 §1, pinned
+  by corpus `45-inline-extensions-12` (markup-carve/carve#1168).
+
+- **A nested list is indented once on the Markdown target, not twice** (#1142).
+  Each level was padded by the list's own depth and again by the enclosing
+  item's marker width, so a third level landed past the content column and
+  became an indented verbatim block for every reader that is not Carve itself.
+
+- **Plain HTML and BBCode text no longer becomes Carve markup.** A literal
+  asterisk or underscore is not Carve markup (#1141), a hash in source text is
+  not a Carve tag (#1201), a delimiter the source already escaped is not
+  escaped twice (#1213), and a literal backslash survives the conversion
+  (#1215, #1219).
+
+- **`BbcodeToCarve` keeps code content literal and consumes `[noparse]`**
+  instead of emitting it (#1210, #1211).
+
+- **The Markdown importer stays on CommonMark plus GFM** (#1225), and keeps a
+  hard break and an indented code block - also when the hard break sits inside
+  a container (#1205, #1208).
+
+- **An abbreviation definition is written where it was authored** (#1160), and
+  a `+` line is not a list item, so the abbreviation definition below it is
+  collected (#1159).
+
+- **A fence ended by a container closer keeps its trailing blank line**
+  (#1178), and a verbatim block's span covers that trailing blank line (#1184).
+
+- **Footnote labels stay on one line** (#1188), and a second caption line does
+  not replace an attached table caption (#1200).
+
+- **Formatting keeps structure**: adjacent sibling lists stay separate through
+  fmt (#1171), a single-line list item stays on its marker line (#1223), and a
+  code span is padded on both sides while a multi-line list item keeps its list
+  (#1229).
+
+- **An escaped brace does not suppress the delimiter after it** (#1196).
+
+- **Attribute writing**: a value-less attribute is written as a boolean and
+  LANG is no longer folded (#1233), an attribute needs a separator before it
+  (#1236), and the semantic registry holds no element Carve already spells
+  (#1235).
+
+- **An invisible child does not change a block quote's framing** (#1179).
 
 ## [0.1.4] - 2026-08-10
 
