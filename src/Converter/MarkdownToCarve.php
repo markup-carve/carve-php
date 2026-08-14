@@ -101,6 +101,21 @@ class MarkdownToCarve
         $activeBulletCarve = null;
         $bulletRunBroken = true;
 
+        // Raw-HTML block tracking. `$htmlCloser` is the terminator pattern of an
+        // open CommonMark condition 1-5 block (`</script>`, `-->`, ...),
+        // `$htmlBreakOwed` records that such a block ended on the line just
+        // emitted, so the next non-blank line starts a block of its own, and
+        // `$htmlBlockOpen` marks a condition 6 or 7 block, which runs to the
+        // next blank line where a condition 1-5 block runs past one. Inside an
+        // open block nothing opens another, so the `</div>` closing a
+        // multi-line element stays part of it. Every kind ends where its
+        // container does, which `$htmlContainer` records.
+        $htmlCloser = null;
+        $htmlBreakOwed = false;
+        $htmlBlockOpen = false;
+        $htmlPrevHadContent = false;
+        $htmlContainer = null;
+
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $line = $lines[$i];
@@ -114,20 +129,27 @@ class MarkdownToCarve
             // transparent; a non-blank line pops items whose content starts to
             // its right. Code content never changes list tracking.
             if (!$inCodeBlock) {
-                $indent = strlen($line) - strlen(ltrim($line, " \t"));
+                // Columns, not bytes: a tab advances to the next four-column
+                // stop, so measuring it as one byte put `\tcode` to the LEFT of
+                // a two-column item and popped the item that holds it.
+                $indent = $this->indentWidth($line);
                 // A dedented line leaves a list item when a blank precedes it OR
                 // the line itself starts a block (heading, block quote, fence,
                 // thematic break) -- those interrupt lazy continuation (§10).
-                $startsBlock = preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1;
+                // A raw-HTML block opener interrupts lazy continuation the same
+                // way a heading or a fence does, so a dedented one leaves the
+                // item rather than being read as more of its paragraph.
+                $startsBlock = preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1
+                    || $this->htmlBlockInterrupts($trimmed);
                 if (
                     preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
                     && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
                 ) {
-                    $markerIndent = strlen($lm[1]);
+                    $markerIndent = $this->columnWidth($lm[1]);
                     while ($listCols !== [] && end($listCols) > $markerIndent) {
                         array_pop($listCols);
                     }
-                    $listCols[] = strlen($lm[0]);
+                    $listCols[] = $this->columnWidth($lm[0]);
                 } elseif ($trimmed !== '' && ($wasPrevBlank || $startsBlock)) {
                     while ($listCols !== [] && end($listCols) > $indent) {
                         array_pop($listCols);
@@ -204,6 +226,41 @@ class MarkdownToCarve
             $isList = ((bool)preg_match('/^[-*+]\s/', $trimmed) || $ordered !== null)
                 && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1);
 
+            $contentCol = $listCols === [] ? 0 : (int)end($listCols);
+
+            // A block-level HTML element is a BLOCK wherever it stands, and
+            // CommonMark's start conditions apply inside a container exactly as
+            // they do at document level. Without this the element folded into
+            // the paragraph above it - `> quoted` / `> <footer>x</footer>`
+            // migrated as one quoted paragraph, so the element ended up inside
+            // the `<p>` instead of beside it, and `<p>` takes phrasing content
+            // only. The separator carries the container's own markers, so the
+            // element stays where the source put it.
+            //
+            // The branches below emit their own separator, and doubling it
+            // would open a stray empty block - so the flag records which lines
+            // are already handled there.
+            $separatedByCaller = !($prevLineType === 'list' && $indent >= 1)
+                && (
+                    $isHeading
+                    || ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote')
+                    || ($isList && $prevLineType !== 'list' && $prevLineType !== 'blank')
+                );
+            $separator = $this->rawHtmlBlockSeparator(
+                $line,
+                $contentCol,
+                in_array($prevLineType, ['text', 'list', 'blockquote'], true),
+                $isBlank,
+                $htmlCloser,
+                $htmlBreakOwed,
+                $htmlBlockOpen,
+                $htmlPrevHadContent,
+                $htmlContainer,
+            );
+            if ($separator !== null && !$separatedByCaller) {
+                $result[] = $separator;
+            }
+
             if ($isBlank) {
                 $result[] = $line;
                 $prevLineType = 'blank';
@@ -217,11 +274,18 @@ class MarkdownToCarve
             // rewritten as markup. `    let x = *not bold*` migrated to
             // `    let x = /not bold/` - the code's asterisks silently changed.
             //
-            // The previous line must be blank, which is what keeps this safe:
-            // an indented line under a list item is item continuation, not
-            // code, and never reaches here.
-            if (($prevLineType === 'blank' || $prevLineType === 'code_fence') && preg_match('/^(?: {4,}|\t)/', $line)) {
-                $block = $this->collectIndentedCode($lines, $i);
+            // The indent that opens code is measured from the CONTAINER's
+            // content column, not from column 0. A line four columns past the
+            // column its item starts at is code; anything nearer is the item's
+            // own content, and reading it as code both changed its kind and
+            // moved it out of the item, because the fence was emitted at column
+            // 0. `- outer` / `  - inner` / blank / `    <footer>x</footer>`
+            // left the element fenced below the whole list.
+            if (
+                ($prevLineType === 'blank' || $prevLineType === 'code_fence')
+                && $this->indentWidth($line) >= $contentCol + 4
+            ) {
+                $block = $this->collectIndentedCode($lines, $i, $contentCol);
                 if ($prevLineType !== 'blank' && $result !== []) {
                     $result[] = '';
                 }
@@ -408,6 +472,309 @@ class MarkdownToCarve
         return $carve === '' ? $prefix : $prefix . "\n" . $carve;
     }
 
+    /**
+     * Tag names that open a CommonMark condition-6 HTML block, verbatim from
+     * the spec's list. `source` is deliberately absent - it was dropped from
+     * the list, so `<source>` after prose stays paragraph text.
+     *
+     * @var string
+     */
+    protected const HTML_BLOCK_TAGS = 'address|article|aside|base|basefont|blockquote|body|caption|center|col'
+        . '|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset'
+        . '|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol'
+        . '|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul';
+
+    /**
+     * The separator a raw-HTML block needs before the given line, or null when
+     * it needs none. Advances the two pieces of block state by reference.
+     *
+     * Two rules produce a separator. A start condition 1-6 opener INTERRUPTS an
+     * open paragraph, so the element becomes a block of its own; condition 7 -
+     * any other complete tag on a line by itself - does not, which is what
+     * keeps an inline `<span>` inline. And a condition 1-5 block ENDS on the
+     * line carrying its terminator, so a following line is a new block even
+     * with no blank between them.
+     *
+     * @param string $line The raw source line.
+     * @param int $contentCol Content column of the innermost enclosing list item.
+     * @param bool $paragraphOpen Whether the previous line left a paragraph open.
+     * @param bool $isBlank Whether this line is blank.
+     * @param string|null $htmlCloser Terminator pattern of the open condition 1-5 block.
+     * @param bool $htmlBreakOwed Whether such a block ended on the previous line.
+     * @param bool $htmlBlockOpen Whether a condition 6 or 7 block is open.
+     * @param bool $prevHadContent Whether the previous line carried content inside its container.
+     * @param string|null $htmlContainer Container the tracked block opened in.
+     */
+    protected function rawHtmlBlockSeparator(
+        string $line,
+        int $contentCol,
+        bool $paragraphOpen,
+        bool $isBlank,
+        ?string &$htmlCloser,
+        bool &$htmlBreakOwed,
+        bool &$htmlBlockOpen,
+        bool &$prevHadContent,
+        ?string &$htmlContainer,
+    ): ?string {
+        $rest = $isBlank ? '' : $this->stripContainerPrefix($line, $contentCol);
+        // A line that is nothing but its container's markers - `>` on its own -
+        // is that container's blank line, so no paragraph survives it.
+        $wasOpen = $paragraphOpen && $prevHadContent;
+        $prevHadContent = !$isBlank && $rest !== '';
+
+        if ($isBlank || $rest === '') {
+            // A condition 6 or 7 block ends at a blank line, and a blank already
+            // separates the Carve blocks either side of it, so the owed break is
+            // there. Conditions 1 to 5 run to their OWN terminator with blank
+            // lines inside them, so their closer survives one - dropping it put
+            // a break in the middle of a `<script>` and changed its contents.
+            $htmlBreakOwed = false;
+            $htmlBlockOpen = false;
+
+            return null;
+        }
+
+        // An HTML block belongs to the container it opened in. A line that
+        // leaves that container ends it, however the block would otherwise have
+        // run on - without this, `> <div>` / `> x` / `<footer>y</footer>` kept
+        // the dedented element attached to the quote it had already left.
+        $key = $this->containerKey($line, $contentCol);
+        if ($key !== $htmlContainer) {
+            $htmlCloser = null;
+            $htmlBlockOpen = false;
+        }
+        $htmlContainer = $key;
+
+        if ($htmlCloser !== null) {
+            if (preg_match($htmlCloser, $line) === 1) {
+                $htmlCloser = null;
+                $htmlBreakOwed = true;
+            }
+
+            return null;
+        }
+
+        if ($htmlBlockOpen) {
+            return null;
+        }
+
+        $separator = null;
+        if ($htmlBreakOwed) {
+            $separator = $this->containerSeparator($line, $contentCol);
+        } elseif ($wasOpen && $rest !== null && $this->htmlBlockInterrupts($rest)) {
+            $separator = $this->containerSeparator($line, $contentCol);
+        }
+        $htmlBreakOwed = false;
+
+        if ($rest === null) {
+            return $separator;
+        }
+
+        $closer = $this->htmlBlockCloser($rest);
+        if ($closer !== null) {
+            // An opener that carries its own terminator - `<!-- x -->` - is a
+            // one-line block, so the break is owed straight away.
+            if (preg_match($closer, $line) === 1) {
+                $htmlBreakOwed = true;
+            } else {
+                $htmlCloser = $closer;
+            }
+
+            return $separator;
+        }
+
+        // Condition 6 opens wherever it stands; condition 7 - any other
+        // complete tag alone on its line - only opens one where no paragraph is
+        // already running.
+        if ($this->htmlBlockInterrupts($rest) || (!$wasOpen && $this->isCompleteTagLine($rest))) {
+            $htmlBlockOpen = true;
+        }
+
+        return $separator;
+    }
+
+    /**
+     * A CommonMark condition-7 opener: one COMPLETE open or closing tag with
+     * nothing but whitespace after it.
+     *
+     * The full tag grammar, not an approximation of it. A line that only looks
+     * like a tag - `<x foo=>`, where the attribute has no value - opens no
+     * block, and treating it as one suppressed the next genuine opener.
+     */
+    protected function isCompleteTagLine(string $rest): bool
+    {
+        $name = '[A-Za-z][A-Za-z0-9-]*';
+        $value = '(?:[^ \t"\'=<>`]+|\'[^\']*\'|"[^"]*")';
+        $attribute = '(?:[ \t]+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:[ \t]*=[ \t]*' . $value . ')?)';
+
+        return preg_match('/^<' . $name . $attribute . '*[ \t]*\/?>[ \t]*$/', $rest) === 1
+            || preg_match('/^<\/' . $name . '[ \t]*>[ \t]*$/', $rest) === 1;
+    }
+
+    /**
+     * The line with its container prefix removed - the block quote markers,
+     * then the enclosing list item's content column.
+     *
+     * Null when the remainder is not where a block opener can stand: dedented
+     * out of the container, or four or more columns past its content column,
+     * where CommonMark reads indented code and indented code interrupts
+     * nothing.
+     */
+    protected function stripContainerPrefix(string $line, int $contentCol): ?string
+    {
+        $rest = $line;
+        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
+            $rest = substr($line, strlen($matches[0]));
+            // Inside a quote the item column belongs to the outer container, so
+            // the remainder is measured from the quote's own content column.
+            $contentCol = 0;
+        }
+
+        $relative = $this->indentWidth($rest) - $contentCol;
+        if ($relative < 0 || $relative > 3) {
+            return null;
+        }
+
+        return ltrim($rest, " \t");
+    }
+
+    /**
+     * What a blank line looks like in the container the given line sits in: its
+     * block quote markers, with the list indentation trimmed off the end.
+     *
+     * Only indentation the container actually owns is kept. A quote written at
+     * one to three columns is dedented on the way out, so its separator has to
+     * be dedented with it; the two columns in front of a quote INSIDE a list
+     * item are the item's, and stay.
+     */
+    protected function containerSeparator(string $line, int $contentCol): string
+    {
+        if (preg_match('/^([ \t]*)((?:>[ \t]*)*)/', $line, $matches) !== 1) {
+            return '';
+        }
+        $owned = substr($matches[1], 0, min(strlen($matches[1]), $contentCol));
+
+        return rtrim($owned . $matches[2]);
+    }
+
+    /**
+     * Identity of the container a line sits in: its content column and its
+     * block quote depth. Two lines share it exactly when they sit in the same
+     * container, which is what an HTML block's extent is bounded by.
+     */
+    protected function containerKey(string $line, int $contentCol): string
+    {
+        $depth = preg_match('/^([ \t]*)((?:>[ \t]*)*)/', $line, $matches) === 1
+            ? substr_count($matches[2], '>')
+            : 0;
+
+        return $contentCol . '|' . $depth;
+    }
+
+    /**
+     * Does this line open a CommonMark HTML block that may interrupt an open
+     * paragraph - start conditions 1 through 6?
+     *
+     * Condition 7 is deliberately excluded. It is the one that matches any
+     * complete tag, and it is the only one that cannot interrupt a paragraph,
+     * so excluding it is what keeps `<span>` on a continuation line inline.
+     */
+    protected function htmlBlockInterrupts(string $rest): bool
+    {
+        return $this->htmlBlockCloser($rest) !== null
+            || preg_match('/^<\/?(?:' . self::HTML_BLOCK_TAGS . ')(?:[ \t>]|\/>|$)/i', $rest) === 1;
+    }
+
+    /**
+     * The terminator pattern of a condition 1-5 HTML block opened by this line,
+     * or null when the line opens no such block. Conditions 6 and 7 have no
+     * terminator of their own - they run to the next blank line.
+     */
+    protected function htmlBlockCloser(string $rest): ?string
+    {
+        if (preg_match('/^<(?:script|pre|style|textarea)(?:[ \t>]|$)/i', $rest) === 1) {
+            // Any one of the four end tags closes any one of the four openers -
+            // the spec says outright that it "need not match the start tag",
+            // and `commonmark` 0.31.2 ends a `<script>` block on `</pre>`.
+            return '/<\/(?:script|pre|style|textarea)>/i';
+        }
+        if (str_starts_with($rest, '<!--')) {
+            return '/-->/';
+        }
+        if (str_starts_with($rest, '<?')) {
+            return '/\?>/';
+        }
+        if (str_starts_with($rest, '<![CDATA[')) {
+            return '/\]\]>/';
+        }
+        if (preg_match('/^<![A-Za-z]/', $rest) === 1) {
+            return '/>/';
+        }
+
+        return null;
+    }
+
+    /**
+     * Width of a line's leading whitespace in columns, tabs advancing to the
+     * next four-column stop as CommonMark counts them.
+     */
+    protected function indentWidth(string $line): int
+    {
+        $length = strlen($line);
+        $i = 0;
+        while ($i < $length && ($line[$i] === ' ' || $line[$i] === "\t")) {
+            $i++;
+        }
+
+        return $this->columnWidth(substr($line, 0, $i));
+    }
+
+    /**
+     * Width of a whole string in columns, on the same four-column tab stops.
+     */
+    protected function columnWidth(string $text): int
+    {
+        $width = 0;
+        $length = strlen($text);
+        for ($i = 0; $i < $length; $i++) {
+            $width += $text[$i] === "\t" ? 4 - ($width % 4) : 1;
+        }
+
+        return $width;
+    }
+
+    /**
+     * Remove a fixed number of COLUMNS of leading whitespace, on the same tab
+     * stops. A tab straddling the boundary gives back the columns it carries
+     * past it, as spaces, so the code below it keeps its own indentation.
+     */
+    protected function stripColumns(string $line, int $columns): string
+    {
+        $width = 0;
+        $i = 0;
+        $length = strlen($line);
+        while ($i < $length && $width < $columns) {
+            if ($line[$i] === ' ') {
+                $width++;
+                $i++;
+
+                continue;
+            }
+            if ($line[$i] !== "\t") {
+                break;
+            }
+
+            $step = 4 - ($width % 4);
+            if ($width + $step > $columns) {
+                return str_repeat(' ', $width + $step - $columns) . substr($line, $i + 1);
+            }
+            $width += $step;
+            $i++;
+        }
+
+        return substr($line, $i);
+    }
+
     protected function normalizeBlockquoteMarkers(string $line): string
     {
         $rest = $line;
@@ -541,14 +908,17 @@ class MarkdownToCarve
      * does. Trailing blanks belong to the document, so they are given back.
      *
      * Exactly one indent step is removed, which is what CommonMark strips;
-     * deeper indentation is the code's own and is kept.
+     * deeper indentation is the code's own and is kept. Inside a list item that
+     * leaves the body at the item's content column, so the fence goes there too
+     * - at column 0 it would carry the code out of the item.
      *
      * @param array<int, string> $lines
      * @param int $start
+     * @param int $contentCol Content column of the innermost enclosing list item.
      *
      * @return array{lines: array<int, string>, end: int}
      */
-    protected function collectIndentedCode(array $lines, int $start): array
+    protected function collectIndentedCode(array $lines, int $start, int $contentCol = 0): array
     {
         $lineCount = count($lines);
         $run = [];
@@ -560,7 +930,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if (!preg_match('/^(?: {4,}|\t)/', $line)) {
+            if ($this->indentWidth($line) < $contentCol + 4) {
                 break;
             }
             $run[] = $line;
@@ -569,8 +939,12 @@ class MarkdownToCarve
 
         $body = [];
         $longestRun = 0;
+        $margin = str_repeat(' ', $contentCol);
         foreach (array_slice($run, 0, $end - $start) as $line) {
-            $dedented = trim($line) === '' ? '' : (preg_replace('/^(?: {4}|\t)/', '', $line) ?? $line);
+            // Strip the container's columns plus the one indent step CommonMark
+            // takes, then put the container's columns back, so the body sits at
+            // the item's content column and its own indentation survives.
+            $dedented = trim($line) === '' ? '' : $margin . $this->stripColumns($line, $contentCol + 4);
             $body[] = $dedented;
             $length = strlen($dedented);
             for ($i = 0; $i < $length; $i++) {
@@ -580,7 +954,7 @@ class MarkdownToCarve
             }
         }
 
-        $fence = str_repeat('`', max(3, $longestRun + 1));
+        $fence = str_repeat(' ', $contentCol) . str_repeat('`', max(3, $longestRun + 1));
         $out = array_merge([$fence], $body, [$fence]);
         // Carve needs a blank line after a block; the caller resumes at `end`,
         // which is the first line the run did not take.
