@@ -75,6 +75,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as a span attribute; `kbd` and `abbr` previously needed
   `SemanticSpanExtension`.
 
+- Bumped the pinned spec corpus to carve `df0dbc4`, adding conformance coverage
+  for categories 306-315: a captioned quote over more than one block, the empty
+  inline note, the multi-letter ordered marker, a note's content recognizing no
+  note, footnotes in link and reference-link text, a note body's own references,
+  a reference link's text surviving its own frame, an inline note's content
+  resolving after the note, and PART 9R R2 - a footnote inside an unresolved
+  reference is not a reference (markup-carve/carve#1198). All 37 documents
+  already rendered byte-identically, so rendered output is unchanged; the bump
+  is what lets the corpus gate see it.
+
 - **`SemanticSpanExtension` is specified, and carries `cite`** (spec PART 9 §10,
   docs/extensions.md §11). It is a Tier-2 extension every engine ships rather
   than this package's own, so `[Dune]{cite}` joins `samp`, `var` and `dfn`, and
