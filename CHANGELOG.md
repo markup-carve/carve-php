@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`Lint\SemanticAttributeLinter`, this package's first AST-walking lint pass**
+  (#1131, #1132), with two rules `carve lint` now reports alongside the Markdown
+  habits. `semantic-attribute-value-ignored` reports a value on a semantic span
+  name that only selects its wrapper, so the value reaches no output
+  (`[x]{kbd="V"}`); `semantic-attribute-outside-span` reports a reserved name on
+  anything other than an ordinary span, where it stays a raw attribute
+  (`` `c`{kbd} ``). Both are tier-aware - pass `extensions` to lint the render
+  you publish - and `cite` on a block quote is never reported, because it is a
+  valid HTML attribute there. Rendered output is unchanged.
+
 - **Structural AST merge and patch APIs** (#1162). A three-way merge with
   explicit JSON-Pointer conflicts and optional base/ours/theirs/custom
   resolution, position-independent patch creation and replay, and

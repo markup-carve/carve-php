@@ -1,22 +1,30 @@
 # Linting
 
-`MarkdownHabitLinter` reports constructs that parse cleanly but almost certainly
-do not mean what the author intended. Every finding is a `LintWarning` carrying
-`line`, `column`, `rule`, `message`, `start` and `end`, mirroring the carve-js
-shape so the two engines report the same finding in the same terms. Offsets are
-byte offsets into the source you passed.
+Two passes report constructs that parse cleanly but almost certainly do not mean
+what the author intended. Every finding is a `LintWarning` carrying `line`,
+`column`, `rule`, `message`, `start` and `end`, mirroring the carve-js shape so
+the two engines report the same finding in the same terms. Offsets are byte
+offsets into the source you passed.
+
+`MarkdownHabitLinter` reads the **source**; `SemanticAttributeLinter` parses and
+walks the **AST**. They are separate classes because they answer separate
+questions, and neither can be expressed in the other's terms.
 
 ```php
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
+use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
 
-$warnings = (new MarkdownHabitLinter())->lint($source);
+$warnings = array_merge(
+    (new MarkdownHabitLinter())->lint($source),
+    (new SemanticAttributeLinter())->lint($source),
+);
 ```
 
 ```sh
 carve lint doc.crv
 ```
 
-`carve lint` exits non-zero when anything is reported.
+`carve lint` runs both and exits non-zero when anything is reported.
 
 ## Markdown habits
 
@@ -108,3 +116,105 @@ can see is the over-eager rule this design exists to avoid:
 
 A link's **label** is read, so `[@param](https://example.com)` reports the
 mention while the destination beside it does not.
+
+## Semantic span attributes
+
+On by default, and the first rules here that need a parse rather than a source
+scan. PART 9 §9 and §10 give seven names meaning on an ordinary
+`[content]{attrs}` span - `abbr`, `time` and `kbd` in core, and `samp`, `var`,
+`cite` and `dfn` once the `SemanticSpanExtension` is registered. Two things fall
+outside that scope with nothing marking the boundary.
+
+| rule | what it catches |
+|---|---|
+| `semantic-attribute-value-ignored` | a value on a name that only selects its wrapper, so the value reaches no output |
+| `semantic-attribute-outside-span` | a reserved name on anything other than a span, where it stays a raw attribute |
+
+```php
+use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
+
+$warnings = (new SemanticAttributeLinter())->lint($source);
+```
+
+Neither rule reports an engine defect: all three engines render these exactly as
+the clause reads, and this package's output is unchanged. What they report is
+that the clause's own scope loses something the author wrote.
+
+### A discarded value
+
+Only `abbr`, `dfn` and `time` carry an authored value into the output, as `title`
+or `datetime`. On every other name the value only picks the element:
+
+Input:
+
+```
+[Ctrl]{kbd="Control"}
+```
+
+Output:
+
+```html
+<p><kbd>Ctrl</kbd></p>
+```
+
+`Control` reaches no target on any renderer, so the rule says so.
+
+### A reserved name off-span
+
+§10 is scoped to an ordinary span, exactly. The same name on any other host
+stays an ordinary attribute, which is what it has always rendered:
+
+Input:
+
+```
+`c`{kbd}
+```
+
+Output:
+
+```html
+<p><code kbd="">c</code></p>
+```
+
+That is pre-existing and correct output - `kbd` was never a valid attribute of
+`code`. The wart is that one spelling now means two things depending on what it
+attaches to, and an author who learns `[x]{kbd}` from the docs and writes
+`` `c`{kbd} `` gets an invalid attribute and no signal.
+
+**`cite` on a block quote is never reported.** It is a URL attribute of
+`blockquote` and `q` in HTML, so a quote carrying one is the author getting
+exactly what they asked for:
+
+Input:
+
+```
+{cite="https://example.org/dune"}
+> Fear is the mind-killer.
+```
+
+Output:
+
+```html
+<blockquote cite="https://example.org/dune"><p>Fear is the mind-killer.</p></blockquote>
+```
+
+### Tell it which extensions you render with
+
+Both rules are tier-aware. A name the render does **not** turn into an element is
+an ordinary attribute everywhere, so its value reaches the output intact and
+neither rule applies. `lint($source)` therefore reads a **core** render, where
+only `abbr`, `time` and `kbd` are elements:
+
+```php
+// core: `cite` is an ordinary attribute, its value survives, nothing reported
+$warnings = $linter->lint('[x]{cite="V"}');
+
+// with the extension: `cite` selects <cite> and the value is dropped
+$warnings = $linter->lint('[x]{cite="V"}', [
+    'extensions' => [new SemanticSpanExtension()],
+]);
+```
+
+Pass what you pass to the converter. `carve lint` reads a core render, because
+the command line has no way to be told which extensions the document will be
+published through.

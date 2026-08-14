@@ -195,6 +195,44 @@ class CliTest extends TestCase
         $this->assertStringContainsString('platform-issue-reference', $result['out']);
     }
 
+    /**
+     * `carve lint` runs the AST pass too, and interleaves its findings with the
+     * source scan's in document order rather than appending one pass after the
+     * other.
+     */
+    public function testLintReportsSemanticAttributeRules(): void
+    {
+        $result = $this->runCliInput(
+            ['lint'],
+            "Press [Ctrl]{kbd=\"Control\"} now.\n\nA `c`{kbd} span and **bold**.\n",
+        );
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('-:1:7 semantic-attribute-value-ignored', $result['out']);
+        $this->assertStringContainsString('-:3:3 semantic-attribute-outside-span', $result['out']);
+        $this->assertLessThan(
+            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'semantic-attribute-outside-span'),
+            'findings on one line are ordered by column, across both passes',
+        );
+    }
+
+    /**
+     * The CLI reads a CORE render, so a name the SemanticSpan extension carries
+     * is an ordinary attribute here and nothing is reported - and `cite` on a
+     * quote is valid HTML, which is the exception the rule must not report.
+     */
+    public function testLintReadsACoreRenderAndSpareTheValidQuoteAttribute(): void
+    {
+        $result = $this->runCliInput(
+            ['lint'],
+            "[x]{cite=\"https://example.org/d\"}\n\n{cite=\"https://example.org/d\"}\n> q\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['out']);
+    }
+
     public function testLintRejectsUnknownPlatform(): void
     {
         $result = $this->runCliInput(['lint', '--platform', 'gihub'], "See #42\n");
