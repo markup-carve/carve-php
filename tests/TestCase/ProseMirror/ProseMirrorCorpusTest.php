@@ -225,8 +225,6 @@ class ProseMirrorCorpusTest extends TestCase
      * glob is how this file kept its own path after the spec moved the
      * examples out of `docs/`, and one of the two would have to be found
      * again next time.
-     *
-     * @throws \RuntimeException
      */
     private static function expectedCorpusSize(): int
     {
