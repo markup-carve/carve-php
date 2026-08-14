@@ -988,6 +988,12 @@ class ProseMirrorBridgeTest extends TestCase
             // bridge must not launder it into an explicit link.
             'autolink with a blocked scheme' => ["<vbscript:msgbox>\n"],
             'inline code attributes' => ["`code`{.cls}\n"],
+            // The other side of the empty-span declaration: a span WITH content
+            // has text for the mark, so it must be carried and reported clean.
+            // Without this, declaring every span degraded passes - and every
+            // span carrying one would drop out of the covered population with
+            // nothing to say so.
+            'span with content' => ["x [y]{.c}\n"],
             'alphabetic list' => ["a. apple\nb. pear\n"],
             'roman list' => ["iv. four\nv. five\n"],
             'parenthesis delimiter' => ["1) one\n"],
