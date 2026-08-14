@@ -353,6 +353,16 @@ class CarveCorpusTest extends TestCase
         'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
         'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
         'two-attributes-need-a-separator-between-them',
+        // Arrived with the same corpus bump as PART 11 §10e. Each names a rule
+        // this engine already implements, from a fix that landed before the
+        // corpus caught up: #1243 (math base class), #1241 (angle bracket) and
+        // #1244 (abbr inside an inline container). All eleven documents render
+        // byte-identically to their pinned HTML, so they are IMPLEMENTED rather
+        // than deferred.
+        'a-math-span-s-base-class-keeps-the-class-slot-in-place',
+        'a-marker-glued-to-a-name-opens-nothing',
+        'an-angle-bracket-is-escaped-only-where-it-opens-markup',
+        'an-abbreviation-expands-inside-an-inline-container',
     ];
 
     /**

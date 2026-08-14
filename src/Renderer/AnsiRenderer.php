@@ -727,30 +727,32 @@ class AnsiRenderer implements RendererInterface
         }
         $output = '';
 
-        // Caption floor: a fence header (`"src/app.js"`) and a grouping label
-        // (`[Node]`) are authored text. This target had a rule line already and
-        // put only the language on it, so both were dropped outright - the one
-        // thing docs/graceful-degradation.md says a target may never do. They
-        // join the rule rather than taking lines of their own, so a captioned
-        // fence still reads as one block. Ported from carve-js#1044.
-        $parts = [];
-        if ($lang !== null && $lang !== '') {
-            $parts[] = $lang;
-        }
+        // PART 11 §10e T1: a fence header (`"src/app.js"`) and a grouping label
+        // (`[Node]`) are authored text, and they RENDER THE WAY A DIV'S ALREADY
+        // DO - a bold standalone line each above the block, the title always
+        // before the label. renderDiv() below is that shape; a code fence
+        // carries the same two tokens in the same two slots of its info string,
+        // so it renders them the same way.
+        //
+        // Folding them into the rule line instead was measured and rejected by
+        // the clause: that line exists ONLY when the fence has a language, so a
+        // titled fence without one would have needed a header invented for it,
+        // and a fence carrying both tokens would have needed a separator
+        // invented too. The div's shape needs neither. So the language keeps the
+        // rule line to itself, which is the slot this target already gave it.
         $fenceHeader = $node->getHeader();
         if ($fenceHeader !== null && $fenceHeader !== '') {
-            $parts[] = $this->stripControls($fenceHeader);
+            $output .= $this->style($this->stripControls($fenceHeader), self::BOLD) . "\n\n";
         }
         $fenceLabel = $node->getLabel();
         if ($fenceLabel !== null && $fenceLabel !== '') {
-            $parts[] = '[' . $this->stripControls($fenceLabel) . ']';
+            $output .= $this->style($this->stripControls($fenceLabel), self::BOLD) . "\n\n";
         }
 
-        if ($parts !== []) {
-            $joined = implode(' ', $parts);
+        if ($lang !== null && $lang !== '') {
             $header = $this->useUnicode
-                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $joined . ' '
-                : '--- ' . $joined . ' ';
+                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $lang . ' '
+                : '--- ' . $lang . ' ';
             $output .= $this->style($header, self::DIM) . "\n";
         }
 
