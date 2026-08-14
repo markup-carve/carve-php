@@ -363,6 +363,22 @@ class CarveCorpusTest extends TestCase
         'a-marker-glued-to-a-name-opens-nothing',
         'an-angle-bracket-is-escaped-only-where-it-opens-markup',
         'an-abbreviation-expands-inside-an-inline-container',
+        // Arrived with the bump to the corpus that carries PART 9R R2. All ten
+        // categories, 37 documents, render byte-identically to their pinned
+        // HTML here, so each is IMPLEMENTED rather than deferred. The last one
+        // is the rule this bump was made for: a footnote inside an unresolved
+        // reference is not a reference (carve#1198), which this engine already
+        // decides the way the clause states.
+        'a-captioned-quote-holds-more-than-one-block',
+        'an-empty-inline-note-is-literal',
+        'a-multi-letter-ordered-marker-opens-no-list',
+        'a-note-s-content-recognizes-no-note',
+        'a-footnote-in-link-text-nests-the-anchors',
+        'a-footnote-in-reference-link-text-nests-the-anchors-too',
+        'a-note-body-s-own-references-resolve',
+        'a-reference-link-s-text-survives-its-own-frame',
+        'an-inline-note-s-content-resolves-after-the-note',
+        'a-footnote-in-an-unresolved-reference-is-not-a-reference',
     ];
 
     /**
