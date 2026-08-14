@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -451,6 +452,27 @@ class AnsiRenderer implements RendererInterface
      */
 
     /**
+     * The definitions whose expansion this render emits, so their line goes.
+     *
+     * PART 11 §10f, T2. Empty until render() fills it, which is what keeps a
+     * caller that dispatches a node directly on the §10a behavior: with nothing
+     * collected, no definition is consumed and every line survives.
+     *
+     * @var array<string, true>
+     */
+    protected array $consumedAbbreviationDefinitions = [];
+
+    /**
+     * Whether §10f drops this definition's line on this target.
+     */
+    protected function isAbbreviationDefinitionConsumed(string $abbr, string $expansion): bool
+    {
+        $key = ConsumedAbbreviationDefinitions::key($abbr, $expansion);
+
+        return isset($this->consumedAbbreviationDefinitions[$key]);
+    }
+
+    /**
      * Definitions the document holds only as map entries (the API path, see
      * Document::getAbbreviationDefinitionsNotInTree).
      */
@@ -458,6 +480,9 @@ class AnsiRenderer implements RendererInterface
     {
         $lines = [];
         foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            if ($this->isAbbreviationDefinitionConsumed($definition['abbr'], $definition['expansion'])) {
+                continue;
+            }
             $lines[] = $this->style(
                 '*[' . $this->stripControls($definition['abbr']) . ']: '
                     . $this->stripControls($definition['expansion']),
@@ -468,8 +493,23 @@ class AnsiRenderer implements RendererInterface
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
     }
 
+    /**
+     * PART 11 §10f T2: this target DROPS the line of a definition whose
+     * expansion it emits, and keeps every other one.
+     *
+     * The line goes because the same words would otherwise appear twice - once
+     * as `*[TERM]: expansion` and once as the `TERM (expansion)` this target has
+     * always printed at the occurrence. Where the expansion reaches no target
+     * the line is the only copy of the author's text, so it stays: that covers a
+     * term nothing references (§10a), a term an authored `abbr` outranks
+     * (PART 9 §9), and a definition a later one shadowed (PART 9R R3).
+     */
     protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
     {
+        if ($this->isAbbreviationDefinitionConsumed($child->getAbbr(), $child->getExpansion())) {
+            return '';
+        }
+
         return $this->style(
             '*[' . $this->stripControls($child->getAbbr()) . ']: '
                 . $this->stripControls($child->getExpansion()),
@@ -482,6 +522,10 @@ class AnsiRenderer implements RendererInterface
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        // ANSWERED FIRST, for the whole document: a definition line can be
+        // written above the occurrence that consumes it, so whether to emit the
+        // line is not knowable at the point the line is reached (PART 11 §10f).
+        $this->consumedAbbreviationDefinitions = ConsumedAbbreviationDefinitions::collect($document);
 
         // The definition renders WHERE IT WAS WRITTEN, from its node, because the
         // dispatch has an arm for it. This used to place the whole set at one end

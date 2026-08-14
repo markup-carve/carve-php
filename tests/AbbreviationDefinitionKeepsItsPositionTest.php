@@ -36,9 +36,26 @@ class AbbreviationDefinitionKeepsItsPositionTest extends TestCase
     {
         return [
             'carve' => ['carve', "a\n\n*[AB]: x\n\nb AB\n"],
-            'plain' => ['plainText', "a\n\n*[AB]: x\n\nb AB\n"],
+            // The line is gone on this target, because `b AB` consumes it and
+            // PART 11 §10f drops a consumed definition here. The position it
+            // would have kept is proved below on a definition nothing consumes,
+            // which is the only shape of it this target still writes.
+            'plain' => ['plainText', "a\n\nb AB (x)\n"],
             'markdown' => ['markdown', "a\n\n*[AB]: x\n\nb <abbr title=\"x\">AB</abbr>\n"],
         ];
+    }
+
+    /**
+     * The plain target's half of the position rule, on the definition it still
+     * writes: nothing references `AB`, so PART 11 §10a keeps the line and §10f
+     * leaves it where the author put it - between the two blocks, not at an end.
+     */
+    public function testAnUnconsumedDefinitionStaysBetweenTheTwoBlocksOnPlain(): void
+    {
+        $this->assertSame(
+            "a\n\n*[AB]: x\n\nb\n",
+            CarveConverter::plainText()->convert("a\n\n*[AB]: x\n\nb\n"),
+        );
     }
 
     #[DataProvider('midDocumentTargets')]

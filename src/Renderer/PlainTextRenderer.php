@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -54,6 +55,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -183,6 +185,27 @@ class PlainTextRenderer implements RendererInterface
      */
 
     /**
+     * The definitions whose expansion this render emits, so their line goes.
+     *
+     * PART 11 §10f, T2. Empty until render() fills it, which is what keeps a
+     * caller that dispatches a node directly on the §10a behavior: with nothing
+     * collected, no definition is consumed and every line survives.
+     *
+     * @var array<string, true>
+     */
+    protected array $consumedAbbreviationDefinitions = [];
+
+    /**
+     * Whether §10f drops this definition's line on this target.
+     */
+    protected function isAbbreviationDefinitionConsumed(string $abbr, string $expansion): bool
+    {
+        $key = ConsumedAbbreviationDefinitions::key($abbr, $expansion);
+
+        return isset($this->consumedAbbreviationDefinitions[$key]);
+    }
+
+    /**
      * Definitions the document holds only as map entries (the API path, see
      * Document::getAbbreviationDefinitionsNotInTree).
      */
@@ -190,6 +213,9 @@ class PlainTextRenderer implements RendererInterface
     {
         $lines = [];
         foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            if ($this->isAbbreviationDefinitionConsumed($definition['abbr'], $definition['expansion'])) {
+                continue;
+            }
             $lines[] = '*[' . $this->stripControls($definition['abbr']) . ']: '
                 . $this->stripControls($definition['expansion']);
         }
@@ -197,8 +223,23 @@ class PlainTextRenderer implements RendererInterface
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
     }
 
+    /**
+     * PART 11 §10f T2: this target DROPS the line of a definition whose
+     * expansion it emits, and keeps every other one.
+     *
+     * The line goes because the same words would otherwise appear twice - once
+     * as `*[TERM]: expansion` and once as the `TERM (expansion)` the occurrence
+     * now prints. Where the expansion reaches no target the line is the only
+     * copy of the author's text, so it stays: that covers a term nothing
+     * references (§10a), a term an authored `abbr` outranks (PART 9 §9), and a
+     * definition a later one shadowed (PART 9R R3).
+     */
     protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
     {
+        if ($this->isAbbreviationDefinitionConsumed($child->getAbbr(), $child->getExpansion())) {
+            return '';
+        }
+
         return '*[' . $this->stripControls($child->getAbbr()) . ']: '
             . $this->stripControls($child->getExpansion()) . "\n\n";
     }
@@ -208,6 +249,10 @@ class PlainTextRenderer implements RendererInterface
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        // ANSWERED FIRST, for the whole document: a definition line can be
+        // written above the occurrence that consumes it, so whether to emit the
+        // line is not knowable at the point the line is reached (PART 11 §10f).
+        $this->consumedAbbreviationDefinitions = ConsumedAbbreviationDefinitions::collect($document);
 
         // The definition renders WHERE IT WAS WRITTEN, from its node, because the
         // dispatch has an arm for it. This used to place the whole set at one end
@@ -326,6 +371,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
                 $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
+                $node instanceof Abbreviation => $this->renderAbbreviation($node),
                 $node instanceof Span => $this->renderSpan($node),
                 default => $this->renderChildren($node),
             };
@@ -335,15 +381,23 @@ class PlainTextRenderer implements RendererInterface
     }
 
     /**
+     * Set while rendering a span that carries an authored `abbr`.
+     *
+     * PART 9 §9 and markup-carve/carve#1127: the authored value OUTRANKS
+     * automatic expansion, and a resolved abbreviation inside such a span
+     * contributes only its visible text. This target had no automatic expansion
+     * to suppress until PART 11 §10f gave it one, so without this flag
+     * `[HTML]{abbr="Custom"}` over `*[HTML]: Hyper Text Markup Language` would
+     * come out `HTML (Hyper Text Markup Language) (Custom)`.
+     */
+    protected bool $suppressAutomaticAbbreviation = false;
+
+    /**
      * A span renders its children bare, EXCEPT for an authored `abbr`.
      *
-     * That is the one expansion this target has to print inline. The automatic
-     * case does not need it: the `*[TERM]: expansion` definition line is emitted
-     * verbatim, so the mapping survives once at the definition rather than at
-     * every occurrence. An AUTHORED value has no definition line to carry it, so
-     * dropping it loses the text outright - `[HTML]{abbr="Custom"}` came out as
-     * bare `HTML` with "Custom" nowhere in the output
-     * (markup-carve/carve#1176).
+     * An authored value has no definition line to fall back on, so dropping it
+     * loses the text outright - `[HTML]{abbr="Custom"}` came out as bare `HTML`
+     * with "Custom" nowhere in the output (markup-carve/carve#1176).
      *
      * Parentheses are already this target's idiom for an aside: an inline
      * footnote renders `(content)` here.
@@ -351,16 +405,52 @@ class PlainTextRenderer implements RendererInterface
     protected function renderSpan(Span $node): string
     {
         $authored = $node->getAttributes()['abbr'] ?? null;
-        if (!is_string($authored) || $authored === '') {
+        if (!is_string($authored)) {
             return $this->renderChildren($node);
         }
 
-        $inner = $this->renderChildren($node);
-        if (!$this->chargeAbbreviationExpansion($authored)) {
+        $previous = $this->suppressAutomaticAbbreviation;
+        $this->suppressAutomaticAbbreviation = true;
+
+        try {
+            $inner = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previous;
+        }
+
+        if ($authored === '' || !$this->chargeAbbreviationExpansion($authored)) {
             return $inner;
         }
 
         return $inner . ' (' . $this->stripControls($authored) . ')';
+    }
+
+    /**
+     * PART 11 §10f T2: `TERM (expansion)`, at every occurrence.
+     *
+     * The other half of the same clause. This target used to print the key
+     * alone and let the `*[TERM]: expansion` line carry the mapping once
+     * (markup-carve/carve#1178); §10f takes that line away wherever this
+     * expansion is emitted, so emitting neither would lose the author's text
+     * outright. Same shape the terminal already writes, without its dim styling.
+     */
+    protected function renderAbbreviation(Abbreviation $node): string
+    {
+        $text = $this->renderChildren($node);
+
+        // Inside a span carrying its own `abbr`, only the visible text
+        // (markup-carve/carve#1127).
+        if ($this->suppressAutomaticAbbreviation) {
+            return $text;
+        }
+
+        // DoS guard: once the cumulative expansion bytes would exceed the
+        // budget, degrade to plain key text (no parenthesized definition).
+        if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
+            return $text;
+        }
+
+        return $text . ' (' . $this->stripControls($node->getTitle()) . ')';
     }
 
     protected function renderHeadingRef(HeadingRef $node): string
@@ -375,9 +465,10 @@ class PlainTextRenderer implements RendererInterface
         }
 
         // Same expansion budget the other targets spend on this label, degrading
-        // to the authored target (carve-php#1061). This target expands nothing
-        // else - an abbreviation renders as its key here - which is why it had
-        // no budget until the crossref needed one.
+        // to the authored target (carve-php#1061). The budget arrived with this
+        // crossref, back when a crossref was the only thing this target expanded;
+        // PART 11 §10f added the second charge, an abbreviation occurrence, which
+        // spends the same budget here as it does on the terminal.
         //
         // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
         // (PART 9R R4, markup-carve/carve#957). Plain text spells no markup, so

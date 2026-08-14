@@ -56,6 +56,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A referenced abbreviation definition splits by target** (PART 11 §10f,
+  markup-carve/carve#1185). Where a definition's expansion is emitted, the
+  plain-text and terminal writers now drop its `*[TERM]: expansion` line and
+  print `TERM (expansion)` at every occurrence instead; the plain writer had
+  been printing neither, so an author's expansion reached no output at all.
+  Markdown keeps the line and the expansion beside it, because that spelling is
+  content on that target and is what lets the export round-trip, and the
+  canonical writer keeps every line for PART 11 §1. A definition whose expansion
+  reaches no target keeps its line on all four writers: one nothing references
+  (§10a), one an authored `abbr` outranks, and one a later definition of the
+  same term shadowed.
+
 - **A caption on a block quote is now that quote's attribution** (PART 9 §4a,
   markup-carve/carve#1159). `> To be` followed by `^ Hamlet` no longer parses as
   a `figure` wrapping a `block_quote`; it is a `block_quote` carrying an
