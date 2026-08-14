@@ -70,6 +70,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionObject;
 use Throwable;
 
@@ -102,6 +103,16 @@ class CarveRenderer implements RendererInterface
      * marker is a BLOCK line, and a cell's content is not one.
      */
     protected int $tableCellDepth = 0;
+
+    /**
+     * Inside an inline note's content, where `^[` opens nothing.
+     *
+     * PART 9 §16: a note's content is parsed with footnote recognition
+     * DISABLED, at every depth, in both directions. So the inner spelling is
+     * ordinary text there and the writer has nothing to escape
+     * (markup-carve/carve#1191).
+     */
+    protected int $inlineNoteDepth = 0;
 
     protected int $listDepth = 0;
 
@@ -1786,7 +1797,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
-            $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
+            $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
             $node instanceof SoftBreak => "\n",
             $node instanceof HardBreak => $this->inLineBlock > 0
@@ -2771,17 +2782,18 @@ class CarveRenderer implements RendererInterface
         $pattern = $this->escapeMode === self::ESCAPE_MODE_MINIMAL
             ? '/([\\\\`"\'^])/'
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/';
+        $insideNote = $this->inlineNoteDepth > 0;
 
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use ($text, $opensBlockLine): string {
+            static function (array $match) use ($text, $opensBlockLine, $insideNote): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
                 if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
                 }
-                if ($char === '^' && !self::caretOpensAConstruct($text, $offset)) {
+                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote)) {
                     return '^';
                 }
                 // A COLON only opens something at the start of a line - `::`
@@ -2873,17 +2885,67 @@ class CarveRenderer implements RendererInterface
         return $offset === 0 && $opensBlockLine;
     }
 
-    private static function caretOpensAConstruct(string $text, int $offset): bool
+    /**
+     * A note's content, rendered with footnote recognition off.
+     *
+     * The reader turns it off for the whole content at every depth, so the
+     * writer has to hold the same frame while it walks the children: in
+     * `^[a ^[b ^[c] d] e]` the parse finds ONE note and two runs of ordinary
+     * text, and the writer that escaped the inner carets wrote a document that
+     * no longer said that (markup-carve/carve#1191).
+     */
+    protected function renderInlineNoteContent(InlineFootnote $node): string
+    {
+        $this->inlineNoteDepth++;
+        try {
+            return $this->renderInlines($node->getChildren());
+        } finally {
+            $this->inlineNoteDepth--;
+        }
+    }
+
+    private static function caretOpensAConstruct(string $text, int $offset, bool $insideNote): bool
     {
         $next = $text[$offset + 1] ?? '';
-        // `^[` opens an inline footnote.
+        // `^[` opens an inline footnote - but only where a note can open at
+        // all. PART 9 §16 rules out three positions, and none of them needs an
+        // escape because the bare spelling re-parses as the same text
+        // (markup-carve/carve#1191).
         if ($next === '[') {
-            return true;
+            return !$insideNote && self::inlineNoteCouldOpen($text, $offset + 1);
         }
 
         // `{^` opens a braced superscript and `^}` closes one. Either half
         // bare would let the pair form around content it does not own.
         return ($text[$offset - 1] ?? '') === '{' || $next === '}';
+    }
+
+    /**
+     * Would the bracketed run at $openPos give a note a body to hold?
+     *
+     * "Empty or whitespace-only (`^[]`, `^[ ]`) is literal; an unclosed `^[…`
+     * is literal." Both are decided by the run itself, so ask the reader's own
+     * scan where it closes and look at what is inside. A run this text node
+     * does not close is one the document does not close either: the caret sits
+     * in a text node precisely because no note formed around it.
+     *
+     * @param string $text
+     * @param int $openPos
+     */
+    private static function inlineNoteCouldOpen(string $text, int $openPos): bool
+    {
+        $close = BracketScanner::balancedBracketEnd($text, $openPos);
+        if ($close === null) {
+            return false;
+        }
+
+        // The parser's whitespace set, not PHP's. `trim()` also strips a
+        // vertical tab and a NUL, which `parseInlineFootnote` does not, so an
+        // ingested `^[<VT>]` is a real note there and would have been written
+        // bare here - the one direction this rule must never get wrong.
+        $body = substr($text, $openPos + 1, $close - $openPos - 1);
+
+        return trim($body, StringUtil::WHITESPACE_CHARS) !== '';
     }
 
     /**
