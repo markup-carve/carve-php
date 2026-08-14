@@ -373,6 +373,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   writes too. Rendered HTML is unchanged - every affected spelling parses to
   the same document either way.
 
+- **An ingest refusal at a typed node union names the admitted types instead of
+  a field from the first branch.** `figure.target` admits an image, a table, a
+  code block or a paragraph. A payload putting a `block_quote` there was
+  refused, correctly, but the message read `$.children[0].target is missing
+  \`src\`, which the schema requires` - `src` being the required property of the
+  `image` branch, which is merely the first alternative the validator tries. A
+  producer reading that would add `src` to a block quote. It now reads
+  `$.children[0].target holds a "block_quote" node where the schema admits only
+  code_block, image, paragraph, table`, which is what carve-js says about the
+  same payload. A node whose type IS admitted and which is missing a required
+  field still names that field, so the change adds a story rather than
+  replacing one, and no payload changes from accepted to refused or back.
+
 - **`carve fmt` writes a bare caret where no inline note can open.** `^[` opens
   a note only where a note can form, and PART 9 §16 rules out three positions:
   an empty or whitespace-only body, an unclosed run, and anywhere inside a

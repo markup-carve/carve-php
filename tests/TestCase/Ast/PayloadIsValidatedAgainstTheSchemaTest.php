@@ -249,9 +249,9 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
                 'the AST schema does not name: ',
             ],
             // A `oneOf` that NO branch satisfies. `figure.target` is one of an
-            // image, a quote, a table, a code block or a paragraph; a heading
-            // is none of them, and the report has to say something rather than
-            // fall through as a match.
+            // image, a table, a code block or a paragraph; a heading is none
+            // of them, and the report names the admitted node types rather
+            // than a required field from whichever branch happens to be first.
             'a figure target that is none of its alternatives' => [
                 static function (array $d): array {
                     $d['children'][0] = [
@@ -263,7 +263,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                     return $d;
                 },
-                'target',
+                '$.children[0].target holds a "heading" node where the schema admits only code_block, image, paragraph, table',
             ],
             'a type the vocabulary does not hold' => [
                 static function (array $d): array {
@@ -285,6 +285,80 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
         $document = (new AstCodec())->decode(self::valid());
         $this->assertSame("<p>a</p>\n", (new HtmlRenderer())->render($document));
+    }
+
+    public function testFigureTargetReportsARefusedNodeTypeAndEveryAdmittedType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [
+                'type' => 'block_quote',
+                'children' => [
+                    ['type' => 'paragraph', 'children' => []],
+                ],
+            ],
+            'caption' => [],
+        ];
+
+        $violation = AstSchema::firstViolation($payload);
+
+        $this->assertSame(
+            '$.children[0].target holds a "block_quote" node where the schema admits only code_block, image, paragraph, table',
+            $violation,
+        );
+        $this->assertStringNotContainsString('src', (string)$violation);
+
+        try {
+            (new AstCodec())->decode($payload);
+            $this->fail('the decoder accepted a block quote as a figure target');
+        } catch (AstDecodeException $e) {
+            $this->assertStringContainsString((string)$violation, $e->getMessage());
+            $this->assertStringContainsString('PART 12 §12(d)', $e->getMessage());
+            $this->assertStringNotContainsString('src', $e->getMessage());
+        }
+    }
+
+    public function testFigureMayTargetACompleteImage(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image', 'src' => 'figure.png', 'alt' => 'Figure'],
+            'caption' => [],
+        ];
+
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    public function testFigureTargetReportsAMissingFieldForAnAdmittedNodeType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image'],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `src`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
+    }
+
+    public function testCompositionWithoutAStringNodeTypeKeepsTheFirstBranchFailure(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `type`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
     }
 
     /**
