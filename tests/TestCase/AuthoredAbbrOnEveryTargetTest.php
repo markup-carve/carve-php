@@ -24,9 +24,18 @@ use PHPUnit\Framework\TestCase;
  */
 class AuthoredAbbrOnEveryTargetTest extends TestCase
 {
+    /**
+     * The corpus shape: a document definition AND an authored value on the span.
+     *
+     * @var string
+     */
     private const WITH_DEFINITION = "*[HTML]: Hyper Text Markup Language\n\n[HTML]{abbr=\"Custom\"}\n";
 
-    /** No definition line at all, so nothing but the span can carry the value. */
+    /**
+     * No definition line at all, so nothing but the span can carry the value.
+     *
+     * @var string
+     */
     private const AUTHORED_ONLY = "[HTML]{abbr=\"Custom\"} only.\n";
 
     private function ansi(string $source): string
