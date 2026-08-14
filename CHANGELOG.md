@@ -163,6 +163,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The ProseMirror bridge declares the empty span it cannot carry** (#1257).
+  `x ^[]{.c}` came back from the round trip as `x ^` - the span and its class
+  gone, with neither `droppedTypes()` nor `degradedTypes()` reporting it. A mark
+  needs text to attach to, so a span with no content is not represented at all,
+  the way an empty link label already was; it is now declared instead of lost
+  silently. Rendered HTML is unchanged.
+
 - **The Markdown importer reads a block-level HTML element as a block inside a
   container** (#1247). CommonMark's HTML block start conditions apply inside a
   block quote or a list item exactly as they do at document level, and
