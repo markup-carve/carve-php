@@ -727,11 +727,30 @@ class AnsiRenderer implements RendererInterface
         }
         $output = '';
 
-        // Header with language
+        // Caption floor: a fence header (`"src/app.js"`) and a grouping label
+        // (`[Node]`) are authored text. This target had a rule line already and
+        // put only the language on it, so both were dropped outright - the one
+        // thing docs/graceful-degradation.md says a target may never do. They
+        // join the rule rather than taking lines of their own, so a captioned
+        // fence still reads as one block. Ported from carve-js#1044.
+        $parts = [];
         if ($lang !== null && $lang !== '') {
+            $parts[] = $lang;
+        }
+        $fenceHeader = $node->getHeader();
+        if ($fenceHeader !== null && $fenceHeader !== '') {
+            $parts[] = $this->stripControls($fenceHeader);
+        }
+        $fenceLabel = $node->getLabel();
+        if ($fenceLabel !== null && $fenceLabel !== '') {
+            $parts[] = '[' . $this->stripControls($fenceLabel) . ']';
+        }
+
+        if ($parts !== []) {
+            $joined = implode(' ', $parts);
             $header = $this->useUnicode
-                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $lang . ' '
-                : '--- ' . $lang . ' ';
+                ? self::BOX_TOP_LEFT . str_repeat(self::BOX_HORIZONTAL, 2) . ' ' . $joined . ' '
+                : '--- ' . $joined . ' ';
             $output .= $this->style($header, self::DIM) . "\n";
         }
 

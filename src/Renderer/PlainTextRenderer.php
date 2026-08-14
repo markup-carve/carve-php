@@ -451,7 +451,23 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        return $this->stripControls($node->getContent()) . "\n\n";
+        // Caption floor, the same one renderDiv() below already applies: a fence
+        // header (`"src/app.js"`) and a grouping label (`[Node]`) are authored
+        // text, and this target has nowhere to attach them, so they become
+        // standalone lines rather than being dropped. Header first when both are
+        // present, matching the div's title-then-label order. Ported from
+        // carve-js#1044.
+        $prefix = '';
+        $header = $node->getHeader();
+        if ($header !== null && $header !== '') {
+            $prefix .= $this->stripControls($header) . "\n\n";
+        }
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $prefix .= $this->stripControls($label) . "\n\n";
+        }
+
+        return $prefix . $this->stripControls($node->getContent()) . "\n\n";
     }
 
     protected function renderFigure(Figure $node): string

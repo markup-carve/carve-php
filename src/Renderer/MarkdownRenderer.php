@@ -1132,9 +1132,24 @@ class MarkdownRenderer implements RendererInterface
             $output .= '| ' . implode(' | ', $separators) . ' |' . "\n";
         }
 
-        $output .= implode("\n", $bodyRows) . "\n\n";
+        $output .= implode("\n", $bodyRows) . "\n";
 
-        return $output;
+        // A caption is authored text, and Markdown has no table-caption syntax -
+        // so it goes on its own line under the table rather than being dropped.
+        // Dropping it was the only place a presentation target discarded authored
+        // text outright, against the MUST in docs/graceful-degradation.md
+        // ("losing the click is fine; losing the words is not"). An image and a
+        // listing caption already degrade exactly this way, so the table stops
+        // being the odd one out. Ported from carve-js#1044.
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
+            if ($text !== '') {
+                $output .= $text . "\n";
+            }
+        }
+
+        return $output . "\n";
     }
 
     protected function renderLineBlock(LineBlock $node): string
