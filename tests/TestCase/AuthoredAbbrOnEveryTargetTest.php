@@ -94,19 +94,22 @@ class AuthoredAbbrOnEveryTargetTest extends TestCase
     }
 
     /**
-     * The asymmetry, stated as a test so it cannot be "simplified" away.
+     * The asymmetry this test used to state is gone, and PART 11 §10f is what
+     * removed it.
      *
-     * An AUTOMATIC expansion needs no parenthetical on this target: the
-     * `*[TERM]: expansion` definition line is emitted verbatim, so the mapping
-     * survives once at the definition rather than at every occurrence.
+     * An automatic expansion needed no parenthetical here for exactly one
+     * reason: the `*[TERM]: expansion` line was emitted verbatim, so the mapping
+     * survived once at the definition rather than at every occurrence. §10f
+     * takes that line away wherever the expansion is emitted, so this target now
+     * writes the same `TERM (expansion)` the terminal does, and an authored
+     * value and an automatic one differ only in where the words came from.
      */
-    public function testThePlainTargetLeavesAnAutomaticExpansionAlone(): void
+    public function testThePlainTargetPrintsAnAutomaticExpansionAndDropsTheLine(): void
     {
-        $out = $this->plain("*[HTML]: Long Form\n\nThe HTML key.\n");
-
-        $this->assertStringContainsString('*[HTML]: Long Form', $out);
-        $this->assertStringContainsString('The HTML key.', $out);
-        $this->assertStringNotContainsString('(Long Form)', $out);
+        $this->assertSame(
+            "The HTML (Long Form) key.\n",
+            $this->plain("*[HTML]: Long Form\n\nThe HTML key.\n"),
+        );
     }
 
     /**

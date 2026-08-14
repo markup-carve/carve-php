@@ -62,7 +62,9 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -451,13 +453,48 @@ class AnsiRenderer implements RendererInterface
      */
 
     /**
+     * The first private-use code point this target's definition placeholder
+     * prefers.
+     *
+     * @var int
+     */
+    protected const ABBREVIATION_SENTINEL_FIRST = 0xE100;
+
+    /**
+     * The expansions this render has actually emitted, keyed per §10f.
+     *
+     * @var array<string, true>
+     */
+    protected array $emittedAbbreviationExpansions = [];
+
+    /**
+     * One entry per definition line whose fate is still open, in the order the
+     * placeholders were written.
+     *
+     * @var array<int, array{key: string, line: string}>
+     */
+    protected array $deferredAbbreviationDefinitions = [];
+
+    /**
+     * The character the placeholders are wrapped in, or '' outside render().
+     */
+    protected string $abbreviationDefinitionSentinel = '';
+
+    /**
      * Definitions the document holds only as map entries (the API path, see
      * Document::getAbbreviationDefinitionsNotInTree).
+     *
+     * Read AFTER the body, so §10f is answered here from what was emitted
+     * rather than deferred.
      */
     protected function renderResidualAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
         foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $key = ConsumedAbbreviationDefinitions::key($definition['abbr'], $definition['expansion']);
+            if (isset($this->emittedAbbreviationExpansions[$key])) {
+                continue;
+            }
             $lines[] = $this->style(
                 '*[' . $this->stripControls($definition['abbr']) . ']: '
                     . $this->stripControls($definition['expansion']),
@@ -468,13 +505,74 @@ class AnsiRenderer implements RendererInterface
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
     }
 
+    /**
+     * PART 11 §10f T2: this target DROPS the line of a definition whose
+     * expansion it emits, and keeps every other one.
+     *
+     * The line goes because the same words would otherwise appear twice - once
+     * as `*[TERM]: expansion` and once as the `TERM (expansion)` this target has
+     * always printed at the occurrence. Where the expansion reaches no target
+     * the line is the only copy of the author's text, so it stays: that covers a
+     * term nothing references (§10a), a term an authored `abbr` outranks
+     * (PART 9 §9), a definition a later one shadowed (PART 9R R3), and the
+     * degraded case where the §25 expansion budget kept the occurrence from
+     * printing.
+     *
+     * WRITTEN AS A PLACEHOLDER, resolved once the body is finished, because the
+     * definition can be authored ABOVE the occurrence that consumes it and this
+     * target emits it where the author put it (carve-php#708). Dispatched
+     * outside render() there is no placeholder to resolve, so the line is
+     * written as §10a has it.
+     */
     protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
     {
-        return $this->style(
+        $line = $this->style(
             '*[' . $this->stripControls($child->getAbbr()) . ']: '
                 . $this->stripControls($child->getExpansion()),
             self::DIM,
-        ) . "\n\n";
+        );
+
+        if ($this->abbreviationDefinitionSentinel === '') {
+            return $line . "\n\n";
+        }
+
+        $index = count($this->deferredAbbreviationDefinitions);
+        $this->deferredAbbreviationDefinitions[$index] = [
+            'key' => ConsumedAbbreviationDefinitions::key($child->getAbbr(), $child->getExpansion()),
+            'line' => $line,
+        ];
+
+        return $this->placeholderFor($index) . "\n\n";
+    }
+
+    /**
+     * The placeholder standing in for one deferred definition line.
+     */
+    protected function placeholderFor(int $index): string
+    {
+        return $this->abbreviationDefinitionSentinel . $index . $this->abbreviationDefinitionSentinel;
+    }
+
+    /**
+     * Write each deferred definition line, or nothing where §10f drops it.
+     *
+     * The SEPARATORS around a placeholder are left alone and the blank-line
+     * normalisation below collapses what a dropped line leaves behind. Replacing
+     * the separator too would need the placeholder to survive a container
+     * verbatim, and a block quote rewrites the start of every line it holds.
+     */
+    protected function resolveAbbreviationDefinitions(string $text): string
+    {
+        foreach ($this->deferredAbbreviationDefinitions as $index => $deferred) {
+            $emitted = isset($this->emittedAbbreviationExpansions[$deferred['key']]);
+            $text = str_replace(
+                $this->placeholderFor($index),
+                $emitted ? '' : $deferred['line'],
+                $text,
+            );
+        }
+
+        return $text;
     }
 
     public function render(Document $document): string
@@ -482,6 +580,17 @@ class AnsiRenderer implements RendererInterface
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        // PART 11 §10f: a definition line can be written ABOVE the occurrence
+        // that consumes it, so whether to write it is not answerable when it is
+        // reached. It goes out as a placeholder and is resolved below, once the
+        // body has said which expansions it actually emitted.
+        $this->emittedAbbreviationExpansions = [];
+        $this->deferredAbbreviationDefinitions = [];
+        $this->abbreviationDefinitionSentinel = DocumentSentinels::pick(
+            DocumentSentinels::collectStrings($document),
+            1,
+            self::ABBREVIATION_SENTINEL_FIRST,
+        )[0];
 
         // The definition renders WHERE IT WAS WRITTEN, from its node, because the
         // dispatch has an arm for it. This used to place the whole set at one end
@@ -490,7 +599,7 @@ class AnsiRenderer implements RendererInterface
         // authored BETWEEN two blocks moved to an end. carve-js and carve-rs both
         // keep it in place, and this node exists precisely so this renderer can
         // too (carve-php#708).
-        $output = $this->renderChildren($document);
+        $output = $this->resolveAbbreviationDefinitions($this->renderChildren($document));
         $residual = $this->renderResidualAbbreviationDefinitions($document);
         if ($residual !== '') {
             $output = $document->hasAbbreviationsBeforeBody()
@@ -1367,6 +1476,11 @@ class AnsiRenderer implements RendererInterface
         if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
             return $text;
         }
+
+        // RECORDED HERE and nowhere earlier: this is the one place that knows
+        // the expansion is going out, which is what §10f keys the definition
+        // line's fate to.
+        $this->emittedAbbreviationExpansions[ConsumedAbbreviationDefinitions::keyOf($node)] = true;
 
         $title = $this->stripControls($node->getTitle());
 
