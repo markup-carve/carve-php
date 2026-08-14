@@ -17,7 +17,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   anything other than an ordinary span, where it stays a raw attribute
   (`` `c`{kbd} ``). Both are tier-aware - pass `extensions` to lint the render
   you publish - and `cite` on a block quote is never reported, because it is a
-  valid HTML attribute there. Rendered output is unchanged.
+  valid HTML attribute there. The off-span message closes by quoting the
+  attribute the render will contain: the value after the renderer's attribute
+  sanitizer, cut at 120 codepoints when it is longer, escaped the way the
+  renderer escapes it. So `` `c`{kbd="keyboard"} `` is reported as
+  `kbd="keyboard"` and `` `c`{kbd="javascript:alert(1)"} `` as `kbd=""`, each
+  naming what the output actually holds. Rendered output is unchanged.
 
 - **Structural AST merge and patch APIs** (#1162). A three-way merge with
   explicit JSON-Pointer conflicts and optional base/ours/theirs/custom
