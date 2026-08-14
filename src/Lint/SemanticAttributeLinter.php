@@ -80,6 +80,25 @@ class SemanticAttributeLinter
     ];
 
     /**
+     * Longest rendered value quoted back whole, in CODEPOINTS.
+     *
+     * Past it the diagnostic keeps its head and marks the cut, so a pasted
+     * paragraph in an attribute cannot push the sentence explaining the problem
+     * off the reader's screen. Counted in codepoints rather than bytes so the
+     * cut never lands in the middle of a UTF-8 sequence.
+     *
+     * @var int
+     */
+    private const QUOTED_VALUE_LIMIT = 120;
+
+    /**
+     * Marks a value the diagnostic cut, inside the quotes it was cut from.
+     *
+     * @var string
+     */
+    private const QUOTED_VALUE_ELLIPSIS = "\u{2026}";
+
+    /**
      * @param string $source
      * @param array<string, mixed> $options Supported: `extensions`, a list of
      *   `ExtensionInterface` instances the caller renders with. Anything else in
@@ -177,12 +196,13 @@ class SemanticAttributeLinter
                     "\u{00A7}",
                     $type,
                     $name,
-                    // The value the RENDERER emits, escaped the way it escapes
-                    // it. Naming a fixed empty value here would make the message
-                    // false as soon as the author wrote one, and an authored
-                    // value is the shape most worth reporting - `` `c`{kbd=…} ``
-                    // renders the value it was given.
-                    $renderer->escapeAttribute($attributes[$name]),
+                    // The value the RENDERER emits, cut if it is long, escaped
+                    // the way the renderer escapes it. Naming a fixed empty
+                    // value here would make the message false as soon as the
+                    // author wrote one, and an authored value is the shape most
+                    // worth reporting - `` `c`{kbd=…} `` renders the value it
+                    // was given.
+                    $this->quotedValue($renderer, $name, $attributes[$name]),
                 ),
             );
         }
@@ -190,6 +210,39 @@ class SemanticAttributeLinter
         foreach ($node->getChildren() as $child) {
             $this->collect($child, $elementNames, $renderer, $byteAt, $sourceLength, $warnings);
         }
+    }
+
+    /**
+     * The rendered value as the diagnostic quotes it: what the renderer writes,
+     * cut if it is long, escaped as the renderer escapes it.
+     *
+     * THE THREE STEPS RUN IN EXACTLY THAT ORDER AND NONE OF THEM COMMUTES:
+     *
+     * - The sanitizer reads the WHOLE value, so cutting first could quote a long
+     *   `javascript:…` payload back as a harmless-looking prefix while the
+     *   output holds an empty attribute.
+     * - Escaping last is what keeps the cut off the middle of an entity, which
+     *   would quote `&qu` at an author who wrote a quote.
+     *
+     * Each step is pinned by its own case in `SemanticAttributeLinterTest`,
+     * because a test that only checks the composed result passes for two of the
+     * six possible orders.
+     *
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     * @param string $name
+     * @param string $value
+     *
+     * @return string
+     */
+    private function quotedValue(HtmlRenderer $renderer, string $name, string $value): string
+    {
+        $rendered = $renderer->renderedAttributeValue($name, $value);
+        if (mb_strlen($rendered, 'UTF-8') <= self::QUOTED_VALUE_LIMIT) {
+            return $renderer->escapeAttribute($rendered);
+        }
+
+        return $renderer->escapeAttribute(mb_substr($rendered, 0, self::QUOTED_VALUE_LIMIT, 'UTF-8'))
+            . self::QUOTED_VALUE_ELLIPSIS;
     }
 
     /**

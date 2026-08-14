@@ -181,6 +181,41 @@ That is pre-existing and correct output - `kbd` was never a valid attribute of
 attaches to, and an author who learns `[x]{kbd}` from the docs and writes
 `` `c`{kbd} `` gets an invalid attribute and no signal.
 
+The message closes by quoting the attribute the render will contain, so it
+describes the output rather than the input. That is the value **after** the
+renderer's attribute sanitizer, cut at 120 codepoints when it is longer than
+that, and escaped the way the renderer escapes it. An authored value is quoted
+back:
+
+Input:
+
+```
+`c`{kbd="keyboard"}
+```
+
+Output:
+
+```html
+<p><code kbd="keyboard">c</code></p>
+```
+
+and the message ends `renders as kbd="keyboard".` A value the sanitizer blanks
+is reported as blank, because that is what the attribute holds:
+
+Input:
+
+```
+`c`{kbd="javascript:alert(1)"}
+```
+
+Output:
+
+```html
+<p><code kbd="">c</code></p>
+```
+
+and the message ends `renders as kbd="".`
+
 **`cite` on a block quote is never reported.** It is a URL attribute of
 `blockquote` and `q` in HTML, so a quote carrying one is the author getting
 exactly what they asked for:

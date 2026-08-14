@@ -158,6 +158,321 @@ class SemanticAttributeLinterTest extends TestCase
     }
 
     /**
+     * Every host shape this rule reports on, each carrying a VALUE.
+     *
+     * The rule was written against a code span, and the ticket named one. The
+     * walk reaches far more than that: these 22 shapes resolve to 20 distinct
+     * node types, and the message was wrong on all 20 the moment the value was
+     * one the renderer does not write verbatim. Two shapes fold into a type
+     * another shape already covers (a list item into `list`, an autolink into
+     * `link`) and are kept because they reach it by a different parse.
+     *
+     * 20 IS A MEASURED FLOOR, NOT A CEILING. It is the population that reports
+     * today; a node type that starts accepting attributes belongs here too.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function outsideSpanWithAValueProvider(): array
+    {
+        return [
+            'code span' => ['`c`{kbd="K"}', 'code'],
+            'link' => ['[t](http://e.com){kbd="K"}', 'link'],
+            'autolink' => ['<http://e.com>{kbd="K"}', 'link'],
+            'image' => ['![a](i.png){kbd="K"}', 'image'],
+            'paragraph' => ["{kbd=\"K\"}\nPara", 'paragraph'],
+            'heading' => ["{kbd=\"K\"}\n# H", 'heading'],
+            'block quote' => ["{kbd=\"K\"}\n> q", 'block_quote'],
+            'list' => ["{kbd=\"K\"}\n- a", 'list'],
+            'list item' => ["- a\n{kbd=\"K\"}\n- b", 'list'],
+            'table' => ["{kbd=\"K\"}\n| a |\n|---|\n| b |", 'table'],
+            'table row' => ["| a |{kbd=\"K\"}\n|---|\n| b |", 'table_row'],
+            'code block' => ["{kbd=\"K\"}\n```\nx\n```", 'code_block'],
+            'div' => ["{kbd=\"K\"}\n::: d\nx\n:::", 'div'],
+            'thematic break' => ["{kbd=\"K\"}\n---", 'thematic_break'],
+            'strong' => ['*b*{kbd="K"}', 'strong'],
+            'underline' => ['_u_{kbd="K"}', 'underline'],
+            'highlight' => ['=h={kbd="K"}', 'highlight'],
+            'superscript' => ['{^s^}{kbd="K"}', 'superscript'],
+            'subscript' => ['{,s,}{kbd="K"}', 'subscript'],
+            'symbol' => [':smile:{kbd="K"}', 'symbol'],
+            'literal inline' => ['!`v`{kbd="K"}', 'literal_inline'],
+            'footnote reference' => ["x[^f]{kbd=\"K\"}\n\n[^f]: n", 'footnote_ref'],
+        ];
+    }
+
+    /**
+     * The load-bearing test for markup-carve/carve-js#1058, over every host.
+     *
+     * It does NOT compare the message against a second copy of the expected
+     * value. It reads the attribute back OUT of the message and asserts the
+     * rendered HTML contains exactly that, so a message naming anything the
+     * renderer does not write fails it, whatever the reason. Run twice: once
+     * with a value the renderer writes verbatim, and once with a value its
+     * sanitizer blanks - which is the half that was wrong, and the half a test
+     * written from the authored text would have got backwards.
+     *
+     * @param string $source
+     * @param string $type
+     */
+    #[DataProvider('outsideSpanWithAValueProvider')]
+    public function testTheQuotedAttributeIsTheOneTheRenderEmits(string $source, string $type): void
+    {
+        foreach (['K', 'javascript:alert(1)'] as $authored) {
+            $document = str_replace('kbd="K"', sprintf('kbd="%s"', $authored), $source);
+            $message = $this->onlyOutsideSpanMessage($document);
+
+            $this->assertStringContainsString("on {$type} it stays a raw attribute", $message);
+            $this->assertSame(
+                1,
+                preg_match('/renders as (kbd="[^"]*")\.$/', $message, $quoted),
+                $message,
+            );
+            $this->assertStringContainsString(
+                $quoted[1],
+                (new CarveConverter())->convert($document),
+                sprintf('%s: the message names an attribute the render does not contain', $document),
+            );
+        }
+    }
+
+    /**
+     * The provider above is only worth its length if it really is the whole
+     * population. A shape that folded into a type another shape already covers
+     * would quietly shrink it.
+     */
+    public function testEveryHostTypeTheRuleReportsOnIsCovered(): void
+    {
+        $types = [];
+        foreach (self::outsideSpanWithAValueProvider() as [$source, $type]) {
+            $warnings = (new SemanticAttributeLinter())->lint($source);
+            $this->assertNotSame([], $warnings, $source);
+            $types[$type] = true;
+        }
+
+        $this->assertCount(20, $types, 'covered host types: ' . implode(', ', array_keys($types)));
+    }
+
+    /**
+     * The exact bytes, so a later edit cannot satisfy the reader above by
+     * quoting something merely present in the output - an `alt` or an `href`
+     * would pass a containment check too.
+     *
+     * @param string $rendered
+     *
+     * @return string
+     */
+    private function outsideSpanMessage(string $rendered): string
+    {
+        return sprintf(
+            '"kbd" is a semantic span attribute (PART 9 %s10) and only applies to an ordinary '
+                . '[content]{attrs} span; on code it stays a raw attribute and renders as kbd="%s".',
+            "\u{00A7}",
+            $rendered,
+        );
+    }
+
+    /**
+     * @param string $source
+     *
+     * @return string
+     */
+    private function onlyOutsideSpanMessage(string $source): string
+    {
+        $messages = [];
+        foreach ((new SemanticAttributeLinter())->lint($source) as $warning) {
+            if ($warning->rule === SemanticAttributeLinter::RULE_SEMANTIC_ATTRIBUTE_OUTSIDE_SPAN) {
+                $messages[] = $warning->message;
+            }
+        }
+        $this->assertCount(1, $messages, $source);
+
+        return $messages[0];
+    }
+
+    /**
+     * The empty value is the TRUE one here: the sanitizer blanks a dangerous
+     * scheme before the attribute is written. Quoting the authored text would be
+     * the same defect as the fixed `kbd=""` was, pointing the other way.
+     */
+    public function testTheSanitizerRunsBeforeTheValueIsQuoted(): void
+    {
+        $source = '`c`{kbd="javascript:alert(1)"}';
+
+        $this->assertSame($this->outsideSpanMessage(''), $this->onlyOutsideSpanMessage($source));
+        $this->assertSame(
+            '<p><code kbd="">c</code></p>',
+            trim((new CarveConverter())->convert($source)),
+        );
+    }
+
+    /**
+     * And it is not over-applied: `url(x)` is only dangerous in a `style`, so on
+     * any other name the renderer writes it and the message must say so.
+     */
+    public function testAValueTheSanitizerLeavesAloneIsQuotedInFull(): void
+    {
+        $this->assertSame(
+            $this->outsideSpanMessage('url(x)'),
+            $this->onlyOutsideSpanMessage('`c`{kbd="url(x)"}'),
+        );
+    }
+
+    public function testAValueOfExactlyTheLimitIsQuotedWhole(): void
+    {
+        $value = str_repeat('x', 120);
+
+        $this->assertSame(
+            $this->outsideSpanMessage($value),
+            $this->onlyOutsideSpanMessage(sprintf('`c`{kbd="%s"}', $value)),
+        );
+    }
+
+    public function testOneCharacterPastTheLimitIsCutAndMarked(): void
+    {
+        $this->assertSame(
+            $this->outsideSpanMessage(str_repeat('x', 120) . "\u{2026}"),
+            $this->onlyOutsideSpanMessage(sprintf('`c`{kbd="%s"}', str_repeat('x', 121))),
+        );
+    }
+
+    /**
+     * Cutting the ESCAPED text could land inside an entity and quote `&qu` at an
+     * author who wrote a quote. Each character here escapes to five, so a cut
+     * applied after escaping shows entity wreckage instead of 120 ampersands.
+     */
+    public function testTheCutHappensBeforeEscapingSoNoEntityIsSplit(): void
+    {
+        $this->assertSame(
+            $this->outsideSpanMessage(str_repeat('&amp;', 120) . "\u{2026}"),
+            $this->onlyOutsideSpanMessage(sprintf('`c`{kbd="%s"}', str_repeat('&', 200))),
+        );
+    }
+
+    /**
+     * And the sanitizer reads the WHOLE value, not the cut prefix.
+     *
+     * THE PADDING IS THE TEST. A dangerous scheme sits at the front, so cutting
+     * a `javascript:…` payload first leaves the scheme in the prefix and the
+     * sanitizer still blanks it - that fixture passes whichever way round the
+     * two run and pins nothing. The scheme has to be pushed PAST the cut for the
+     * orders to differ: the renderer strips leading whitespace before reading
+     * the scheme and blanks the value, while a cut-first linter sees 120 spaces,
+     * no colon, and quotes them at an author whose attribute rendered empty.
+     *
+     * The padding is built by repetition rather than written out, so no
+     * formatter can rewrite the run and leave the test passing while testing
+     * nothing.
+     */
+    public function testTheWholeValueIsSanitizedNotTheCutPrefix(): void
+    {
+        $padding = str_repeat(' ', 200);
+        $this->assertSame(200, strlen($padding), 'the padding must outrun the cut to mean anything');
+        $this->assertSame('20', bin2hex($padding[0]), 'the padding must be spaces, not a rewritten tab');
+
+        $source = sprintf('`c`{kbd="%sjavascript:alert(1)"}', $padding);
+
+        $this->assertSame($this->outsideSpanMessage(''), $this->onlyOutsideSpanMessage($source));
+        $this->assertStringContainsString(
+            'kbd=""',
+            (new CarveConverter())->convert($source),
+            'the renderer really does blank it, padding and all',
+        );
+
+        // And the plain shape, where the scheme is inside the cut either way.
+        $this->assertSame(
+            $this->outsideSpanMessage(''),
+            $this->onlyOutsideSpanMessage(sprintf('`c`{kbd="javascript:%s"}', str_repeat('a', 200))),
+        );
+    }
+
+    /**
+     * The cut counts CODEPOINTS, not bytes. Each character here is four bytes,
+     * so a byte cut would slice a UTF-8 sequence in half and quote a broken
+     * character back at the author.
+     */
+    public function testTheCutCountsCodepointsNotBytes(): void
+    {
+        $emoji = "\u{1F600}";
+
+        $this->assertSame(
+            $this->outsideSpanMessage(str_repeat($emoji, 120) . "\u{2026}"),
+            $this->onlyOutsideSpanMessage(sprintf('`c`{kbd="%s"}', str_repeat($emoji, 200))),
+        );
+    }
+
+    /**
+     * The two spellings the message has always had, kept as exact bytes now that
+     * everything around them moved: the boolean form really does render an empty
+     * value, and an authored one really does reach the output.
+     */
+    public function testTheBooleanAndAuthoredFormsAreBothQuotedExactly(): void
+    {
+        $this->assertSame($this->outsideSpanMessage(''), $this->onlyOutsideSpanMessage('`c`{kbd}'));
+        $this->assertSame(
+            '<p><code kbd="">c</code></p>',
+            trim((new CarveConverter())->convert('`c`{kbd}')),
+        );
+
+        $this->assertSame(
+            $this->outsideSpanMessage('keyboard'),
+            $this->onlyOutsideSpanMessage('`c`{kbd="keyboard"}'),
+        );
+        $this->assertSame(
+            '<p><code kbd="keyboard">c</code></p>',
+            trim((new CarveConverter())->convert('`c`{kbd="keyboard"}')),
+        );
+    }
+
+    /**
+     * The sibling rule was checked for the same assumption and does not carry
+     * it: its message interpolates the NAME twice and never a value, so there is
+     * nothing in it for the renderer to contradict.
+     *
+     * What it does assert is that the value reaches no output. That is pinned
+     * here for every reserved name that loses one, rather than for the single
+     * name the rule was written against.
+     *
+     * @param string $name
+     */
+    #[DataProvider('valueLosingNameProvider')]
+    public function testTheValueIgnoredMessageNamesNoValue(string $name): void
+    {
+        $source = sprintf('[x]{%s="LOSTVALUE"}', $name);
+        $options = $this->withExtension();
+
+        $messages = array_map(
+            static fn (LintWarning $warning): string => $warning->message,
+            (new SemanticAttributeLinter())->lint($source, $options),
+        );
+
+        $expected = sprintf(
+            'Value on the semantic attribute "%s" is discarded: it selects the <%s> element '
+                . 'and reaches no output. Only abbr, dfn and time carry a value (as title or datetime).',
+            $name,
+            $name,
+        );
+
+        $this->assertSame([$expected], $messages);
+
+        $converter = new CarveConverter();
+        $converter->addExtension(new SemanticSpanExtension());
+        $this->assertStringNotContainsString('LOSTVALUE', $converter->convert($source));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function valueLosingNameProvider(): array
+    {
+        return [
+            'kbd' => ['kbd'],
+            'samp' => ['samp'],
+            'var' => ['var'],
+            'cite' => ['cite'],
+        ];
+    }
+
+    /**
      * `cite` IS a URL attribute of `blockquote` in HTML, so a quote carrying one
      * is the author getting exactly what they asked for. This is the carve-out
      * the port shares with carve-js (markup-carve/carve-js#1022); without it the

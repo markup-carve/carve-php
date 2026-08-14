@@ -2484,6 +2484,31 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
+     * The value this renderer WRITES for a raw `name="…"` attribute, before
+     * escaping - which is to say the authored text unless the sanitizer above
+     * blanked it.
+     *
+     * The one place that answers "what does the output actually contain?" for a
+     * raw attribute, so a caller outside the renderer never has to answer it
+     * from a second copy of the rules. `SemanticAttributeLinter` quotes it in
+     * `semantic-attribute-outside-span` (markup-carve/carve-js#1058): naming the
+     * authored text there would describe an output that does not exist, because
+     * `{kbd="javascript:alert(1)"}` really does render `kbd=""`.
+     *
+     * The name is lowercased first, matching `sanitizeAttributes()`, so
+     * `{STYLE=…}` and `{style=…}` are judged by the same rule.
+     *
+     * @param string $name
+     * @param string $value
+     *
+     * @return string
+     */
+    public function renderedAttributeValue(string $name, string $value): string
+    {
+        return $this->sanitizeAttributeValue(strtolower($name), $value);
+    }
+
+    /**
      * Detect script-bearing / fetching constructs in a CSS `style` value.
      * Blanks the whole value rather than attempting CSS surgery: `expression()`
      * (legacy IE script), `url(...)` (can fetch or carry `javascript:`),
