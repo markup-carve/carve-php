@@ -42,6 +42,31 @@ class HtmlToCarve
     protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
     /**
+     * The seven HTML elements the compact semantic span spells exactly.
+     *
+     * `abbr`, `time` and `kbd` are core names; `samp`, `var`, `cite` and `dfn`
+     * only render as elements when SemanticSpanExtension is registered, so a
+     * core render returns `<span samp="">` rather than `<samp>`. That is still a
+     * kept semantic a reader can recover, where unwrapping discarded it.
+     *
+     * @var list<string>
+     */
+    protected const SEMANTIC_SPAN_ELEMENTS = ['abbr', 'time', 'kbd', 'samp', 'var', 'cite', 'dfn'];
+
+    /**
+     * The HTML attribute each semantic span name carries its value in.
+     *
+     * A name absent here has no value to carry and is always the bare boolean.
+     *
+     * @var array<string, string>
+     */
+    protected const SEMANTIC_SPAN_VALUE_ATTRIBUTE = [
+        'abbr' => 'title',
+        'dfn' => 'title',
+        'time' => 'datetime',
+    ];
+
+    /**
      * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
@@ -295,6 +320,9 @@ class HtmlToCarve
         }
 
         return match ($tag) {
+            // `datetime` is where <time> carries the value the span attribute
+            // takes, so it is represented rather than dropped.
+            'time' => $name === 'datetime',
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),
@@ -306,6 +334,13 @@ class HtmlToCarve
 
     protected function isKnownImportElement(string $tag): bool
     {
+        // The seven the compact semantic span spells are mapped, not unwrapped,
+        // so reporting `element-unwrapped` for them described a loss that had
+        // already stopped happening for four of them and never happens now.
+        if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true)) {
+            return true;
+        }
+
         return in_array($tag, [
             'html', 'body', 'div', 'section', 'article', 'main', 'header', 'footer', 'nav', 'address',
             'aside', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search', 'details', 'summary',
@@ -566,6 +601,8 @@ class HtmlToCarve
             'abbr' => $this->processSemanticSpan($node, 'abbr'),
             'samp' => $this->processSemanticSpan($node, 'samp'),
             'var' => $this->processSemanticSpan($node, 'var'),
+            'cite' => $this->processSemanticSpan($node, 'cite'),
+            'time' => $this->processSemanticSpan($node, 'time'),
             'q' => $this->processInlineQuote($node),
             'code' => $this->processCode($node),
             'pre' => $this->processPreBlock($node),
@@ -2839,7 +2876,7 @@ class HtmlToCarve
      * for round-trip support with SemanticSpanExtension.
      *
      * @param \DOMElement $node The semantic element
-     * @param string $type The element type (kbd, dfn, abbr, samp, var)
+     * @param string $type The element type (abbr, time, kbd, samp, var, cite, dfn)
      */
     protected function processSemanticSpan(DOMElement $node, string $type): string
     {
@@ -2857,19 +2894,27 @@ class HtmlToCarve
         // Build attribute parts
         $attrParts = [];
 
-        // For abbr and dfn, the title attribute becomes the attribute value
-        $title = $node->getAttribute('title');
-        if ($title !== '' && ($type === 'abbr' || $type === 'dfn')) {
-            // Escape quotes and backslashes in title
-            $escapedTitle = str_replace(['\\', '"'], ['\\\\', '\\"'], $title);
-            $attrParts[] = $type . '="' . $escapedTitle . '"';
+        // Three of the seven names carry a value, and each carries it in its own
+        // HTML attribute. That attribute becomes the span attribute's VALUE and
+        // is consumed here rather than riding along as a duplicate key.
+        $valueAttribute = self::SEMANTIC_SPAN_VALUE_ATTRIBUTE[$type] ?? null;
+        $value = $valueAttribute !== null ? $node->getAttribute($valueAttribute) : '';
+        if ($value !== '') {
+            // Escape quotes and backslashes in the value
+            $escapedValue = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+            $attrParts[] = $type . '="' . $escapedValue . '"';
         } else {
-            // For kbd or title-less dfn/abbr, use the attribute name as a flag.
+            // A name with no value, or one whose value attribute is absent, is
+            // spelled as the bare boolean attribute.
             $attrParts[] = $type;
         }
 
         // Add any other attributes (id, class, data-*)
-        $otherAttrs = $this->getElementAttributes($node, ['title']);
+        $skipAttributes = ['title'];
+        if ($valueAttribute !== null) {
+            $skipAttributes[] = $valueAttribute;
+        }
+        $otherAttrs = $this->getElementAttributes($node, $skipAttributes);
         if ($otherAttrs !== '') {
             $attrParts[] = $otherAttrs;
         }
