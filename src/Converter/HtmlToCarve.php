@@ -1180,9 +1180,19 @@ class HtmlToCarve
         return array_values(array_filter($classList, static fn (string $class): bool => $class !== ''));
     }
 
+    /**
+     * The canonical writer's quoting rule, which is the one the importer owes.
+     *
+     * This is `CarveRenderer::quoteAttrValue()`'s predicate, not a second
+     * opinion about it. A narrower charset here quoted `title="a=b"`,
+     * `title="é"` and `data-q="a&b"` where every writer - this engine's
+     * included - writes them bare, so the importer's output was rewritten the
+     * moment it met `carve fmt`, and it disagreed with carve-js and carve-rs on
+     * the same input.
+     */
     protected function quoteAttributeValue(string $value): string
     {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
+        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
             return $value;
         }
 
@@ -1345,7 +1355,14 @@ class HtmlToCarve
         // Get attributes from pre element (skip class on code since used for language)
         $attrs = $this->formatBlockAttributes($node);
 
-        return $attrs . "\n" . $backticks . $language . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
+        // One space between the fence and the language word, which is what the
+        // canonical writer emits: `carve fmt` rewrites ```` ```js ```` to
+        // ```` ``` js ```` in every engine. `docs/html-import.md` ends the
+        // import pipeline at that writer, so an importer spelling the opener
+        // its own formatter would rewrite is the same defect one construct over.
+        $opener = $backticks . ($language === '' ? '' : ' ' . $language);
+
+        return $attrs . "\n" . $opener . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
     }
 
     protected function extractRoundTripSource(DOMElement $node, string $tagName): ?string
@@ -2894,22 +2911,18 @@ class HtmlToCarve
         // Build attribute parts
         $attrParts = [];
 
-        // Three of the seven names carry a value, and each carries it in its own
-        // HTML attribute. That attribute becomes the span attribute's VALUE and
-        // is consumed here rather than riding along as a duplicate key.
         $valueAttribute = self::SEMANTIC_SPAN_VALUE_ATTRIBUTE[$type] ?? null;
-        $value = $valueAttribute !== null ? $node->getAttribute($valueAttribute) : '';
-        if ($value !== '') {
-            // Escape quotes and backslashes in the value
-            $escapedValue = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
-            $attrParts[] = $type . '="' . $escapedValue . '"';
-        } else {
-            // A name with no value, or one whose value attribute is absent, is
-            // spelled as the bare boolean attribute.
-            $attrParts[] = $type;
-        }
 
-        // Add any other attributes (id, class, data-*)
+        // The leftovers come FIRST. `docs/html-import.md` puts the canonical
+        // writer at the end of the import pipeline and makes it the byte-exact
+        // reference for a shared fixture, and the writer's slot order is
+        // `#id .class key=value boolean` - the order this importer's own
+        // getElementAttributes() already emits for every other element, and the
+        // order the spec spells this exact construct in
+        // (`[Tab]{#k .key kbd}`, blocks-and-attributes "Anything left over
+        // rides the outermost element"; corpus 71-attribute-edge-cases-11).
+        // Putting the consumed name first made <abbr id class title> and
+        // <span id class title> disagree inside one importer.
         $skipAttributes = ['title'];
         if ($valueAttribute !== null) {
             $skipAttributes[] = $valueAttribute;
@@ -2917,6 +2930,22 @@ class HtmlToCarve
         $otherAttrs = $this->getElementAttributes($node, $skipAttributes);
         if ($otherAttrs !== '') {
             $attrParts[] = $otherAttrs;
+        }
+
+        // Three of the seven names carry a value, and each carries it in its own
+        // HTML attribute. That attribute becomes the span attribute's VALUE and
+        // is consumed here rather than riding along as a duplicate key.
+        $value = $valueAttribute !== null ? $node->getAttribute($valueAttribute) : '';
+        if ($value !== '') {
+            // Quoted only where the canonical writer quotes. A hand-rolled
+            // always-quoted form spelled a value the writer immediately
+            // rewrites, so the importer's own output was not stable under
+            // `carve fmt`.
+            $attrParts[] = $type . '=' . $this->quoteAttributeValue($value);
+        } else {
+            // A name with no value, or one whose value attribute is absent, is
+            // spelled as the bare boolean attribute.
+            $attrParts[] = $type;
         }
 
         return '[' . $content . ']{' . implode(' ', $attrParts) . '}';
