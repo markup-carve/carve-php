@@ -238,6 +238,35 @@ class CliTest extends TestCase
         $this->assertSame('', $result['out']);
     }
 
+    /**
+     * `carve lint` runs the retired-spelling pass too, and orders its findings
+     * with the others rather than appending the pass at the end.
+     */
+    public function testLintReportsARetiredSpelling(): void
+    {
+        $result = $this->runCliInput(['lint'], "|{#x}< content |\n\n**bold**\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('-:1:2 table-cell-attribute-before-marker', $result['out']);
+        $this->assertLessThan(
+            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'table-cell-attribute-before-marker'),
+            'findings are ordered by position, across all three passes',
+        );
+    }
+
+    /**
+     * CONTROL. The migration TARGET reports nothing: a block that already sits
+     * after the marker run is the spelling the rule points at.
+     */
+    public function testLintSparesTheMigrationTarget(): void
+    {
+        $result = $this->runCliInput(['lint'], "|<{#x} content |\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['out']);
+    }
+
     public function testLintRejectsUnknownPlatform(): void
     {
         $result = $this->runCliInput(['lint', '--platform', 'gihub'], "See #42\n");

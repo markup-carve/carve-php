@@ -46,6 +46,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookkeeping no editor holds (caption numbers, escapes, smart typography,
   soft breaks).
 
+- **`Lint\RetiredSpellingLinter`**, reporting source written to a spelling
+  Carve has since redefined, with one rule `carve lint` now reports alongside
+  the others. `table-cell-attribute-before-marker` fires on a table cell whose
+  attribute block is immediately followed by `<`, `>` or `~` - the retired
+  order, where that sigil was the cell's alignment and is now content. The
+  message names both spellings, because only the author knows which was meant.
+
+  It is a REPORT and not a `fmt` rewrite by design: rewriting
+  `|{#x}< content |` to `|<{#x} content |` adds `text-align: left` and removes a
+  literal `<`, so a formatter doing it in the default path would break
+  `toHtml(fmt(x)) == toHtml(x)` on a document that renders correctly today.
+
 - **`Lint\SemanticAttributeLinter`, this package's first AST-walking lint pass**
   (#1131, #1132), with two rules `carve lint` now reports alongside the Markdown
   habits. `semantic-attribute-value-ignored` reports a value on a semantic span
@@ -130,6 +142,31 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mapping and the riding rule have one implementation in the renderer.
 
 ### Changed
+
+- **A cell's attributes bind after its kind and alignment markers** (PART 9 §5
+  T10, markup-carve/carve#1226). One order for both cell productions: `=`, then
+  the alignment marker, then the `{...}` block, glued to whatever precedes it -
+  `|={.x} h |`, `|=~{.x} h |`, `|>{.x} d |`, `|{.x} d |`. An attributed header
+  cell had no spelling before this, and the only shape available, `|{#x}=R|`, is
+  a data cell whose content starts with `=`, so the canonical writer turned
+  `<th id="x">R</th>` into `<td id="x">=R</td>`. The writer now emits the marker
+  run first and the round trip holds. `|={scope="colgroup"} a |` becomes
+  expressible with it, which is how §5 T9 documents reaching `colgroup` and
+  `rowgroup`.
+
+  ONE RELEASED SPELLING REINTERPRETS. `|{#x}< content |` was attributes then a
+  left-alignment marker; the `<` is no longer in a marker position, so it is
+  literal content and the cell is not aligned. It does not error, so a report
+  ships with it: the new lint rule below. Row attributes do not move - they
+  still glue to the row's closing pipe.
+
+- **An attributed header cell survives HTML import**, and the
+  `table-degraded` diagnostic "N header cell(s) become data cells" is gone with
+  the loss it named. A `th` carrying attributes is written `|={#x} R |` and
+  comes back a header cell; a head row whose cells carry attributes uses the
+  native marker form instead of falling back to a delimiter row, which used to
+  drop each cell's own alignment marker along with the header. The other
+  `table-degraded` cases are unchanged.
 
 - **A referenced abbreviation definition splits by target** (PART 11 §10f,
   markup-carve/carve#1185). Where a definition's expansion is emitted, the
