@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Document;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -101,5 +103,117 @@ class MarkdownCrossRefLinkTest extends TestCase
         $out = $this->md("See </#nope>.\n");
 
         $this->assertStringContainsString('</#nope>', $out);
+    }
+
+    /**
+     * A stored tree whose whole link text is ONE text node.
+     *
+     * Parsing never produces that shape here - it splits the run around the
+     * marker - so a control that has to see the marker beside other text in one
+     * node has to come in through the decoder. PART 12 §1a coalesces adjacent
+     * runs, so this is what a document that made a round trip looks like.
+     */
+    private function linkTextDocument(string $value): Document
+    {
+        return (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        [
+                            'type' => 'link',
+                            'href' => '/v',
+                            'children' => [
+                                ['type' => 'text', 'value' => $value],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    public function testUnresolvedReferenceInsideLinkTextStaysLiteralToo(): void
+    {
+        // A crossref inside a link would render as a nested anchor, so the
+        // resolver flattens it to a Text node before any renderer sees it. That
+        // is the one path on which the marker never reached renderHeadingRef(),
+        // so M1e escaped its `<` and one construct came out spelled two ways.
+        $this->assertSame("a [t</#nope>](/u) b\n", $this->md("a [t</#nope>](/u) b\n"));
+    }
+
+    public function testTheMarkerIsSpelledTheSameWhereverItStands(): void
+    {
+        // The rule, asserted as a rule rather than as two byte strings: the
+        // spelling of the emitted marker does not depend on its position.
+        $insideLink = $this->md("a [t</#nope>](/u) b\n");
+        $outsideLink = $this->md("a </#nope> b\n");
+
+        $this->assertStringContainsString('</#nope>', $outsideLink);
+        $this->assertStringContainsString('</#nope>', $insideLink);
+        $this->assertStringNotContainsString('\\<', $insideLink);
+    }
+
+    public function testTheReferenceLinkSpellingIsUnescapedAsWell(): void
+    {
+        // Corpus 313, the document that surfaced this
+        // (markup-carve/carve#1147). The reference resolves, so the link is
+        // written out in its inline form with the declined marker in its text.
+        $this->assertSame("a [t</#}>](/u) b\n", $this->md("a [t</#}>][r] b\n\n[r]: /u\n"));
+    }
+
+    public function testTheTargetInsideTheMarkerStillTakesTheHtmlPass(): void
+    {
+        // The writer's own `</#` and `>` stay literal; the id between them is
+        // author content and does not. `</#a<script>` emitted verbatim is a live
+        // tag in commonmark 0.31.2 and marked 18.0.9 alike, which is why the
+        // carve-out cannot simply pass the match through.
+        $out = $this->md("a [t</#a<script>x](/u) b\n");
+
+        $this->assertSame("a [t</#a&lt;script>x](/u) b\n", $out);
+        $this->assertStringNotContainsString('<script', $out);
+    }
+
+    public function testAnAmpersandInTheTargetIsEscapedInsideALinkToo(): void
+    {
+        $this->assertSame("a [t</#a&amp;b>x](/u) b\n", $this->md("a [t</#a&b>x](/u) b\n"));
+    }
+
+    public function testTextBesideTheMarkerInTheSameNodeIsStillEscaped(): void
+    {
+        // The control that keeps this a carve-out rather than "a text node
+        // holding a marker is emitted as it stands". `<b>` is a real hazard -
+        // it opens a tag in both readers - and M1e still escapes it, in the
+        // SAME node the exempt marker sits in.
+        //
+        // Ingested rather than parsed, which is also why the scan is not
+        // anchored: PART 12 §1a coalesces adjacent runs, so a stored tree can
+        // put the marker in the middle of a longer text node where parsing
+        // gives it one of its own.
+        $document = $this->linkTextDocument('t<b> </#nope> u');
+
+        $this->assertSame(
+            "[t\\<b> </#nope> u](/v)\n",
+            CarveConverter::markdown()->render($document),
+        );
+    }
+
+    public function testAnIncompleteMarkerInLinkTextIsStillEscaped(): void
+    {
+        // The second control, ingested for the same reason as the one above:
+        // parsing splits `t</#nope` into `t</` and `#nope`, so the run the
+        // pattern has to reject never reaches the carve-out in one piece.
+        //
+        // `</#nope` never closes, so it is not the crossref
+        // production and gets no exemption - a carve-out keyed on `</#` alone
+        // would leave this bare.
+        $document = $this->linkTextDocument('t</#nope u');
+
+        $this->assertSame(
+            "[t\\</#nope u](/v)\n",
+            CarveConverter::markdown()->render($document),
+        );
     }
 }

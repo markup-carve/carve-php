@@ -588,7 +588,7 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Table => $this->renderTable($node),
                 $node instanceof LineBlock => $this->renderLineBlock($node),
                 $node instanceof Footnote => $this->renderFootnote($node),
-                $node instanceof Text => $this->escapeText($this->stripControls($node->getContent())),
+                $node instanceof Text => $this->escapeUnresolvedCrossrefs($this->stripControls($node->getContent())),
                 // Keep the backslash so the literal stays literal when re-parsed as
                 // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
                 // ordered list. EscapedText only ever holds escaped ASCII
@@ -1499,6 +1499,61 @@ class MarkdownRenderer implements RendererInterface
         $title = htmlspecialchars($this->stripControls($node->getTitle()), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $text . '</abbr>';
+    }
+
+    /**
+     * The crossref production, spelled exactly as the parser spells it.
+     *
+     * Two producers for one production is how this class of defect starts, so
+     * the id ends at PART 7's four characters here as well.
+     *
+     * @var string
+     */
+    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \t\r\n]+)>/u';
+
+    /**
+     * Escape a text value, leaving any UNRESOLVED crossref marker readable.
+     *
+     * `</#nope>` is source the resolver declined. `renderHeadingRef()` already
+     * emits it with its own delimiters literal - "a reader can still act on
+     * `</#nope>`" (carve-php#1063) - but a crossref inside a LINK never reaches
+     * that method: `CrossReferenceResolver::headingRefToLabel()` flattens it to
+     * a Text node first, because a crossref inside a link would render as a
+     * nested anchor. So the marker arrived here as ordinary text and M1e escaped
+     * its `<`, and one engine spelled one construct two ways depending on where
+     * it stood. This was the only Markdown divergence carve-php had left across
+     * the 1006-document corpus (markup-carve/carve#1147).
+     *
+     * THE ESCAPE PROTECTS NOTHING, measured rather than assumed. A CommonMark
+     * tag name must begin with an ASCII letter, so `</#` opens nothing; through
+     * commonmark 0.31.2 and marked 18.0.9 the escaped and bare spellings of
+     * `a [t</#nope>](/u) b` parse to the same HTML. M1e's `/` case is written on
+     * the next character alone, which is right for `</b>` and over-broad here.
+     *
+     * THE TARGET STILL TAKES THE HTML PASS, which is not carve-out noise: the id
+     * is author content and may hold a `<`, and `</#a<script>` emitted verbatim
+     * is a live tag in both readers. Only the writer's own `</#` and `>` stay
+     * literal - the same split `renderHeadingRef()` makes.
+     *
+     * SCANNED, NOT ANCHORED. PART 12 §1a coalesces adjacent runs, so the marker
+     * is usually in the middle of a longer text node rather than alone in one.
+     */
+    protected function escapeUnresolvedCrossrefs(string $text): string
+    {
+        if (preg_match_all(self::UNRESOLVED_CROSSREF_PATTERN, $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $this->escapeText($text);
+        }
+
+        $out = '';
+        $last = 0;
+        foreach ($matches[0] as $index => $match) {
+            [$marker, $offset] = $match;
+            $out .= $this->escapeText(substr($text, $last, $offset - $last))
+                . '</#' . $this->escapeHtml($matches[1][$index][0]) . '>';
+            $last = $offset + strlen($marker);
+        }
+
+        return $out . $this->escapeText(substr($text, $last));
     }
 
     protected function escapeText(string $text): string
