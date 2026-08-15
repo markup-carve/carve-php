@@ -1061,7 +1061,9 @@ HTML;
         // to assert put `- ` alone on its line, which is not a marker, so the
         // item came back as a paragraph reading `-` with the container loose
         // beside it (markup-carve/carve-php#1224).
-        $this->assertSame("- ::: details\n  Title\n\n  Body\n  :::\n", $result);
+        // The summary is the disclosure's LABEL, so it is written as the
+        // opener's quoted title rather than as the first paragraph of the body.
+        $this->assertSame("- ::: details \"Title\"\n  Body\n  :::\n", $result);
         $this->assertStringContainsString(
             'class="details"',
             (new CarveConverter())->convert($result),
@@ -1672,8 +1674,7 @@ HTML;
         $html = '<details><summary>Click to expand</summary><p>Hidden content here</p></details>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString("::: details\n", $result);
-        $this->assertStringContainsString('Click to expand', $result);
+        $this->assertStringContainsString('::: details "Click to expand"' . "\n", $result);
         $this->assertStringContainsString('Hidden content here', $result);
     }
 
@@ -1745,8 +1746,7 @@ HTML;
         $result = $this->converter->convert($html);
 
         $this->assertStringContainsString('{#q1 .faq}', $result);
-        $this->assertStringContainsString("::: details\n", $result);
-        $this->assertStringContainsString('Question?', $result);
+        $this->assertStringContainsString('::: details "Question?"' . "\n", $result);
         $this->assertStringContainsString('Answer.', $result);
     }
 

@@ -74,11 +74,14 @@ class ListItemFirstPartTest extends TestCase
      */
     public function testAMultiLinePartPutsItsFirstLineOnTheMarker(): void
     {
+        // Two body paragraphs, so the part still holds the blank line this
+        // guards. The summary is no longer one of them: it is the disclosure's
+        // label and is written as the opener's quoted title.
         $carve = (new HtmlToCarve())->convert(
-            '<ul><li><details><summary>Title</summary><p>Body</p></details></li></ul>',
+            '<ul><li><details><summary>Title</summary><p>Body</p><p>More</p></details></li></ul>',
         );
 
-        $this->assertSame("- ::: details\n  Title\n\n  Body\n  :::\n", $carve);
+        $this->assertSame("- ::: details \"Title\"\n  Body\n\n  More\n  :::\n", $carve);
         $this->assertStringNotContainsString('<p>-</p>', $this->render($carve));
         $this->assertStringContainsString('class="details"', $this->render($carve));
     }

@@ -238,6 +238,34 @@ class HtmlToCarve
             $this->inspectTableStructure($node, $path, $diagnostics);
         }
 
+        if ($tag === 'details' && $this->isInsideTableCell($node)) {
+            // A pipe-table cell is one line of inline content, so the colon
+            // fence a disclosure needs cannot open inside one and the whole
+            // container degrades to its text (carve-php#1164). The degradation
+            // stands - a cell has no lines to give it - but the disclosure
+            // going missing is worth a line in the report.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Replaced <details> with its content inside a table cell; a pipe-table cell cannot hold a colon fence',
+                'info',
+                $path,
+            );
+        }
+
+        if ($tag === 'summary' && trim($node->textContent) !== '' && $this->detailsSummaryTitle($node) === null) {
+            // The label role is what goes: the text becomes ordinary block
+            // content inside the disclosure, and the widget comes back with
+            // the extension's default summary instead of this one.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Kept the <summary> text as block content; its label needs a quoted opener title, which cannot hold a quote or a line break',
+                'info',
+                $path,
+            );
+        }
+
         $elementIndex = 0;
         foreach ($node->childNodes as $child) {
             if (!$child instanceof DOMElement) {
@@ -543,6 +571,9 @@ class HtmlToCarve
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),
+            // The block attribute block carries it onto the rendered element,
+            // so the disclosure starts open again.
+            'details' => $name === 'open',
             'input' => in_array($name, ['type', 'checked', 'disabled'], true),
             'td', 'th' => in_array($name, ['rowspan', 'colspan', 'align'], true),
             default => false,
@@ -563,6 +594,11 @@ class HtmlToCarve
             'aside', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search', 'details', 'summary',
             'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em',
             'i', 'u', 's', 'strike',
+            // `q` is a mapping, not an unwrapping: its content comes back
+            // wrapped in quote characters, which is the representation Carve
+            // has for a quoted phrase. Nothing is replaced by span metadata
+            // and nothing is lost, so there was nothing to report.
+            'q',
             // `ins` sits next to its `del` twin: both have a marker of their
             // own (`{+ +}` and `{- -}`) and neither is unwrapped, so reporting
             // one as replaced by Carve span metadata described a loss that
@@ -1218,11 +1254,84 @@ class HtmlToCarve
     }
 
     /**
-     * Process details element (generic disclosure container)
+     * `<details>` becomes the `::: details` admonition DetailsExtension renders
+     * back as a disclosure widget.
+     *
+     * The `<summary>` is that widget's label, and the extension takes the label
+     * from the QUOTED TITLE on the opener line. Letting the summary fall
+     * through as ordinary block content kept its text but not its role: the
+     * round trip came back with the extension's default `<summary>Details</summary>`
+     * and the real label demoted to the first paragraph of the body.
      */
     protected function processDetails(DOMElement $node): string
     {
-        return $this->processGenericBlockContainer($node);
+        if ($this->tableCellDepth > 0) {
+            return $this->degradeToContent($node);
+        }
+
+        $summary = $this->findFirstDirectChildByTagName($node, 'summary');
+        if (!$summary instanceof DOMElement) {
+            return $this->processGenericBlockContainer($node);
+        }
+        $title = $this->detailsSummaryTitle($summary);
+        if ($title === null) {
+            return $this->processGenericBlockContainer($node);
+        }
+
+        $summary->parentNode?->removeChild($summary);
+        $attrs = $this->formatBlockAttributes($node);
+        $content = trim($this->processBlock($node));
+        $fence = $this->colonFenceFor($content);
+        $output = $attrs . $fence . ' details "' . $title . '"' . "\n";
+        if ($content !== '') {
+            $output .= $content . "\n";
+        }
+
+        return $output . $fence . "\n\n";
+    }
+
+    /**
+     * Does this element stand inside a table cell?
+     *
+     * The converter answers the same question with a depth counter it keeps
+     * while writing; the inspection walk has no such counter, so it reads the
+     * ancestors. It stops at the cell, which is where the counter would have
+     * been raised.
+     */
+    protected function isInsideTableCell(DOMElement $node): bool
+    {
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (in_array(strtolower($parent->tagName), ['td', 'th'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The quoted opener title this `<summary>` can be written as, or null.
+     *
+     * Null keeps the summary as ordinary block content, which loses the label
+     * but never the text. Two summaries cannot be written:
+     *
+     * - one holding a `"`. The title is delimited by quotes and the delimiter
+     *   has no escape here: `::: details "He said \"hi\""` does not open a
+     *   fence at all, it degrades the whole block to a paragraph.
+     * - one whose content needs more than a line - a list, several paragraphs -
+     *   which an opener line cannot hold.
+     *
+     * Inline markup is fine: the extension renders the title through the
+     * inline path, so `"A *b*"` reaches the summary as emphasis.
+     */
+    protected function detailsSummaryTitle(DOMElement $summary): ?string
+    {
+        $title = trim($this->processChildren($summary));
+        if ($title === '' || str_contains($title, '"') || str_contains($title, "\n")) {
+            return null;
+        }
+
+        return $title;
     }
 
     protected function processGenericBlockContainer(DOMElement $node): string

@@ -162,6 +162,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A `<summary>` imports as the disclosure's label.** `<details>` already
+  became a `::: details` admonition, but its `<summary>` fell through as
+  ordinary block content. `DetailsExtension` takes the label from the opener's
+  quoted title, so the round trip came back wearing the extension's default
+  `<summary>Details</summary>` with the real label demoted to the first
+  paragraph of the body. It is now written as that title, markup included, and
+  `open` is no longer reported as dropped - the attribute block carries it onto
+  the rendered element. A summary the opener line cannot hold (one containing
+  the `"` delimiter, or several blocks) keeps its text as block content and
+  says so with a diagnostic instead of passing in silence. A disclosure inside
+  a table cell, which degrades to its text because a pipe-table cell cannot
+  hold a colon fence, reports that too.
+
+- **`<q>` no longer reports an unwrapping that does not happen.** Its content
+  comes back wrapped in quote characters, which is the representation Carve has
+  for a quoted phrase, so nothing is replaced by span metadata and nothing is
+  lost.
+
 - **A table's header cells survive HTML import individually.** Header was read
   off the ROW: the first row holding any `<th>` became the header row, every
   cell in it was written as a header, and every `<th>` outside it lost its
