@@ -3517,6 +3517,12 @@ class HtmlToCarve
 
     protected function processFigure(DOMElement $node): string
     {
+        // A composite figure this converter's own HTML renderer produced
+        // (PART 9 §4c) goes back to its `::: figure` source.
+        if ($this->hasClass($node, 'carve-figure-group')) {
+            return $this->processFigureGroup($node);
+        }
+
         $output = "\n";
 
         // Find img, blockquote, and figcaption
@@ -3539,6 +3545,108 @@ class HtmlToCarve
         }
 
         return $output . "\n\n";
+    }
+
+    /**
+     * `<figure class="carve-figure-group">` back to `::: figure` source
+     * (PART 9 §4c; own-output round trip). The structural classes are
+     * render-time vocabulary, not authored, so they are dropped; everything
+     * else goes back on the attribute lines. The trailing `<figcaption>` is
+     * the group caption and comes back as the `^ ` line after the closer.
+     */
+    protected function processFigureGroup(DOMElement $node): string
+    {
+        $attrs = $this->formatBlockAttributesWithoutClass($node, 'carve-figure-group');
+
+        $panelsDiv = null;
+        foreach ($node->childNodes as $child) {
+            if (
+                $child instanceof DOMElement
+                && strtolower($child->tagName) === 'div'
+                && $this->hasClass($child, 'carve-figure-panels')
+            ) {
+                $panelsDiv = $child;
+
+                break;
+            }
+        }
+
+        $content = '';
+        if ($panelsDiv !== null) {
+            foreach ($panelsDiv->childNodes as $child) {
+                if (
+                    $child instanceof DOMElement
+                    && strtolower($child->tagName) === 'figure'
+                    && $this->hasClass($child, 'carve-figure-panel')
+                ) {
+                    $content .= $this->processFigurePanel($child);
+                } else {
+                    $content .= $this->processNode($child);
+                }
+            }
+        }
+        $content = trim($content);
+
+        $fence = $this->colonFenceFor($content);
+        $output = "\n" . $attrs . $fence . " figure\n";
+        if ($content !== '') {
+            $output .= $content . "\n";
+        }
+        $output .= $fence;
+
+        $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
+        if ($caption instanceof DOMElement) {
+            $captionText = rtrim($this->formatCaptionText(trim($this->processChildren($caption))), "\n");
+            if ($captionText !== '') {
+                $output .= "\n" . $captionText;
+            }
+        }
+
+        return $output . "\n\n";
+    }
+
+    /**
+     * One panel of a composite figure: the attribute line, the host content,
+     * then the panel caption's `^ ` line - the shape the inner caption rules
+     * re-attach on parse. A table panel's host keeps its own `<caption>`
+     * handling; the wrapper contributed nothing but the structural class.
+     */
+    protected function processFigurePanel(DOMElement $node): string
+    {
+        $attrs = $this->formatBlockAttributesWithoutClass($node, 'carve-figure-panel');
+
+        $body = '';
+        $captionText = '';
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+                $captionText = $this->formatCaptionText(trim($this->processChildren($child)));
+
+                continue;
+            }
+            $body .= $this->processNode($child);
+        }
+
+        $output = $attrs . trim($body) . "\n";
+        if ($captionText !== '') {
+            $output .= $captionText;
+        }
+
+        return $output . "\n";
+    }
+
+    /**
+     * The element's block-attribute line with ONE structural class removed.
+     */
+    protected function formatBlockAttributesWithoutClass(DOMElement $node, string $structuralClass): string
+    {
+        $classes = array_values(array_diff($this->getElementClassList($node), [$structuralClass]));
+        $originalClass = $node->getAttribute('class');
+        $node->setAttribute('class', implode(' ', $classes));
+        try {
+            return $this->formatBlockAttributes($node);
+        } finally {
+            $node->setAttribute('class', $originalClass);
+        }
     }
 
     protected function hasOnlySupportedFigureContent(DOMElement $node): bool

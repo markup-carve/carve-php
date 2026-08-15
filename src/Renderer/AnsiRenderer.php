@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -639,6 +640,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Comment => '', // Skip comments
+                $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
                 $node instanceof Section => $this->renderChildren($node),
@@ -1361,6 +1363,44 @@ class AnsiRenderer implements RendererInterface
         return str_contains($text, "\xE2")
             ? (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text)
             : $text;
+    }
+
+    /**
+     * A composite figure (grammar PART 11 §10g T2), same order as the plain
+     * text target: the GROUP caption first with its number resolved, a blank
+     * line, then each panel - its caption line, then its host's degradation -
+     * with a blank line between panels. Captions carry this target's usual
+     * caption styling.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $output = '';
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $output .= $this->renderCaption($caption);
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $panelCaption = null;
+                $host = '';
+                foreach ($child->getChildren() as $part) {
+                    if ($part instanceof Caption) {
+                        $panelCaption = $part;
+                    } else {
+                        $host .= $this->renderNode($part);
+                    }
+                }
+                if ($panelCaption !== null) {
+                    $output .= rtrim($this->renderCaption($panelCaption), "\n") . "\n";
+                }
+                $output .= rtrim($host, "\n") . "\n\n";
+            } else {
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        return $output;
     }
 
     protected function renderFigure(Figure $node): string

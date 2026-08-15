@@ -138,6 +138,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const FIGURE_GROUP = 'figure_group';
+
+    /**
+     * @var string
+     */
     public const CAPTION = 'caption';
 
     // Inline types
@@ -341,6 +346,7 @@ final class NodeType
             self::LINE_BLOCK,
             self::COMMENT,
             self::FIGURE,
+            self::FIGURE_GROUP,
             self::CAPTION,
             // Both definition kinds are in the normative Block vocabulary
             // (carve#771, ruled by carve#826). Without them here,

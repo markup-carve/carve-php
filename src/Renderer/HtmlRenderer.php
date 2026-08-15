@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -202,6 +203,7 @@ class HtmlRenderer implements RendererInterface
             ThematicBreak::class => 'renderThematicBreak',
             Div::class => 'renderDiv',
             Figure::class => 'renderFigure',
+            FigureGroup::class => 'renderFigureGroup',
             Caption::class => 'renderCaption',
             Table::class => 'renderTable',
             TableRow::class => 'renderTableRow',
@@ -1607,9 +1609,13 @@ class HtmlRenderer implements RendererInterface
         return str_replace("\u{00A0}", '&nbsp;', $html);
     }
 
-    protected function renderFigure(Figure $node): string
+    protected function renderFigure(Figure $node, ?string $leadingClass = null): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrArray = $this->getRenderableAttributes($node);
+        if ($leadingClass !== null) {
+            $attrArray = self::withLeadingClass($attrArray, $leadingClass);
+        }
+        $attrs = $this->renderAttributeArray($attrArray);
         $body = '';
 
         foreach ($node->getChildren() as $child) {
@@ -1630,6 +1636,76 @@ class HtmlRenderer implements RendererInterface
         // Caption is usually rendered as part of figure or table
         // This is a fallback if caption appears standalone
         return '<figcaption>' . $this->renderChildren($node) . "</figcaption>\n";
+    }
+
+    /**
+     * Class-first, the typed-container convention (PART 9 §4c): the structural
+     * class leads, authored classes merge after it DEDUPLICATED - the oracle's
+     * class merge keeps one token per name, so an authored copy of the
+     * structural class does not double it - and the id and remaining
+     * attributes follow in source order.
+     *
+     * @param array<string, string> $attrs
+     * @param string $leadingClass
+     *
+     * @return array<string, string>
+     */
+    protected static function withLeadingClass(array $attrs, string $leadingClass): array
+    {
+        $classes = [$leadingClass];
+        foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
+            if ($class !== '' && !in_array($class, $classes, true)) {
+                $classes[] = $class;
+            }
+        }
+        unset($attrs['class']);
+
+        return ['class' => implode(' ', $classes)] + $attrs;
+    }
+
+    /**
+     * A composite figure (PART 9 §4c, markup-carve/carve#1122).
+     *
+     * The corpus pins the byte shape (318-composite-figures): the group class
+     * leads, the panels div is UNCONDITIONAL - zero panels still wrap the
+     * preserved stray content - and a Figure panel renders as the `<figure>`
+     * its host already produces with `carve-figure-panel` leading its classes.
+     * A table does not render as a figure on its own, so its panel wrapper is
+     * explicit and the table keeps its own attributes and its own `<caption>`.
+     * No group caption, no trailing `<figcaption>`.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $attrs = $this->renderAttributeArray(
+            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group'),
+        );
+
+        $inner = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $inner .= $this->renderFigure($child, 'carve-figure-panel');
+            } elseif ($child instanceof Table) {
+                $table = rtrim($this->renderTable($child), "\n");
+                $inner .= "<figure class=\"carve-figure-panel\">\n"
+                    . $this->indentBlock($table, 2) . "\n</figure>\n";
+            } else {
+                $inner .= rtrim($this->renderNode($child), "\n") . "\n";
+            }
+        }
+
+        $body = "<div class=\"carve-figure-panels\">\n";
+        $inner = rtrim($inner, "\n");
+        if ($inner !== '') {
+            $body .= $this->indentBlock($inner, 2) . "\n";
+        }
+        $body .= "</div>\n";
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $body .= '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
+        }
+
+        return '<figure' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";
     }
 
     protected function renderTable(Table $node): string
@@ -2160,9 +2236,13 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderCaptionNumber(CaptionNumber $node): string
     {
+        // An unresolved placeholder stays LITERAL - the visible failure the
+        // language prefers to a silent one (PART 9 §4c: a `#` in a composite
+        // figure's PANEL caption has no sequence to draw from). The Markdown,
+        // plain-text and ANSI targets already render it this way.
         $number = $node->getNumber();
 
-        return $number === null ? '' : (string)$number;
+        return $number === null ? '#' : (string)$number;
     }
 
     protected function renderMention(Mention $node): string
