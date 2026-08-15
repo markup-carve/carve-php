@@ -287,31 +287,36 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $this->assertSame("<p>a</p>\n", (new HtmlRenderer())->render($document));
     }
 
+    /**
+     * A HEADING is the example on purpose: it is not a captionable host under any
+     * version of the clause, so this case does not move when the admitted set does.
+     * A `block_quote` would have read better and was rejected for exactly that
+     * reason - markup-carve/carve#1161 removed it from the set and
+     * markup-carve/carve#1213 puts it back.
+     */
     public function testFigureTargetReportsARefusedNodeTypeAndEveryAdmittedType(): void
     {
         $payload = self::valid();
         $payload['children'][0] = [
             'type' => 'figure',
             'target' => [
-                'type' => 'block_quote',
-                'children' => [
-                    ['type' => 'paragraph', 'children' => []],
-                ],
+                'type' => 'heading',
+                'level' => 1,
+                'children' => [],
             ],
             'caption' => [],
         ];
 
         $violation = AstSchema::firstViolation($payload);
 
-        $this->assertSame(
-            '$.children[0].target holds a "block_quote" node where the schema admits only code_block, image, paragraph, table',
-            $violation,
-        );
+        $this->assertNotNull($violation);
+        $this->assertStringContainsString('holds a "heading" node where the schema admits only', (string)$violation);
+        $this->assertStringContainsString('$.children[0].target', (string)$violation);
         $this->assertStringNotContainsString('src', (string)$violation);
 
         try {
             (new AstCodec())->decode($payload);
-            $this->fail('the decoder accepted a block quote as a figure target');
+            $this->fail('the decoder accepted a heading as a figure target');
         } catch (AstDecodeException $e) {
             $this->assertStringContainsString((string)$violation, $e->getMessage());
             $this->assertStringContainsString('PART 12 §12(d)', $e->getMessage());
