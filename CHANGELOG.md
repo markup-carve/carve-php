@@ -162,6 +162,31 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A table's header cells survive HTML import individually.** Header was read
+  off the ROW: the first row holding any `<th>` became the header row, every
+  cell in it was written as a header, and every `<th>` outside it lost its
+  header. So a row-head column (`<th>R</th><td>1</td>`) came back with both
+  cells as headers, a `<th>` in a later row came back as a data cell - and,
+  because the promoted row was also moved to the top, a table whose third row
+  held a `<th>` came back with its rows rearranged. Header is now a property of
+  the cell, written `|= R | 1 |` wherever it stands, and only a first row whose
+  cells are all headers is promoted to the head.
+
+- **A table structure Carve source cannot spell now says so.** A Carve pipe
+  table is a flat row list whose head is the leading run of header rows, and
+  Carve 0.1 source has no spelling for the explicit `rowGroups` partition the
+  AST can hold. A `<tfoot>`, a second `<tbody>`, a `<thead>` that does not match
+  that leading run, a second `<caption>`, and a header cell below the head that
+  also carries attributes each flattened in silence; each now emits a
+  `table-degraded` diagnostic naming what changed. The flattening itself is
+  unchanged and deliberate - a spelling for it would be a language change - and
+  an ordinary head/body table still reports nothing.
+
+- **A `<th>`'s generated `scope` is no longer reported as dropped.** The value
+  the renderer reproduces from the cell's position is skipped on the way in so a
+  round trip does not write the renderer's own output back as authored - it is
+  reproduced, not lost, and the report said otherwise.
+
 - **`<ol type="a">` imports as a numbering style, not a raw attribute.** The
   importer wrote a `{type=a}` attribute block above a decimal list. That
   renders an `<ol type="a">` again, which is why it looked done, but the tree
