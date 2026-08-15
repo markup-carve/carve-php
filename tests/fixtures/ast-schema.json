@@ -130,6 +130,12 @@
     ],
     "required": []
   },
+  "figure_group": {
+    "fields": [
+      "caption"
+    ],
+    "required": []
+  },
   "footnote": {
     "fields": [
       "label"

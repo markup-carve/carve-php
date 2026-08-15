@@ -9,6 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Composite figures: `::: figure` is a captionable host** (PART 9 §4c,
+  markup-carve/carve#1122). A bare `::: figure` container parses as the new
+  `figure_group` AST node: one figure holding ordered panels - its direct
+  captionable children (captioned images, quotes, code listings, display math,
+  and tables captioned or not) - with stray content preserved in place. The `^ `
+  line after the closing fence is the GROUP caption; the group draws ONE number
+  from its label's sequence and a panel id resolves `</#id>` as the group
+  number plus a letter ("Figure 2a"). An opener carrying a quoted title or
+  `[label]` stays a generic container, and groups do not nest. HTML renders the
+  corpus-pinned `carve-figure-group` / `carve-figure-panels` /
+  `carve-figure-panel` shape; the Markdown, plain-text and ANSI targets degrade
+  deterministically; `carve fmt` writes the authored form back; the AST wire
+  carries `figure_group` with inline `caption` content; and the HTML importer
+  turns the rendered shape back into `::: figure` source.
+
 - **The ProseMirror bridge carries every authored construct** (PART 12
   vocabulary, the schema map's former `unmapped` list). Figures with their
   captions - a captioned quote, image or code block used to vanish from the

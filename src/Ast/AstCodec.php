@@ -218,7 +218,8 @@ class AstCodec
         'definition_term.children',
         'delete.children', 'div.children', 'document.children',
         'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
-        'figure.caption', 'figure.target', 'footnote.children',
+        'figure.caption', 'figure.target', 'figure_group.children',
+        'footnote.children',
         'footnote.label', 'footnote_ref.id',
         'frontmatter.content', 'frontmatter.format',
         'heading.children', 'heading.level', 'heading_ref.target',
@@ -2380,7 +2381,13 @@ class AstCodec
     private static function captionFromWire(array $data): array
     {
         $caption = $data['caption'] ?? null;
-        if (($data['type'] ?? null) === 'table' && is_array($caption) && !isset($caption['type'])) {
+        // A table's caption and a composite figure's GROUP caption (PART 9
+        // §4c) are both inline content on the wire and a Caption block here.
+        if (
+            in_array($data['type'] ?? null, ['table', 'figure_group'], true)
+            && is_array($caption)
+            && !isset($caption['type'])
+        ) {
             $data['caption'] = ['type' => 'caption', 'children' => $caption];
         }
 

@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -612,6 +613,15 @@ class CarveRenderer implements RendererInterface
             return true;
         }
 
+        // The closing fence of a bare `::: figure` container is §4's sixth
+        // caption host (PART 9 §4c), so a paragraph starting with `^` right
+        // after a composite figure needs its escape - and the group's own
+        // caption, written by renderFigureGroup() itself, does not pass
+        // through here at all.
+        if ($block instanceof FigureGroup) {
+            return true;
+        }
+
         if ($block instanceof Image) {
             return UnresolvedReference::sourceOf($block) === null;
         }
@@ -691,6 +701,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
             $node instanceof DefinitionList => $withAttrs($this->renderDefinitionList($node)),
+            $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
             $node instanceof Comment => $this->renderComment($node),
@@ -1596,6 +1607,29 @@ class CarveRenderer implements RendererInterface
         }
 
         return $caption === '' ? $target : $target . "\n" . $caption;
+    }
+
+    /**
+     * The canonical writer emits the AUTHORED form (grammar PART 11 §10g): the
+     * bare `::: figure` opener - a figure_group has no title or label to spell
+     * - the children with one blank line between them, the closer at the
+     * opener's width, and the group caption as a `^ ` line after the closer.
+     * The caret is NOT escaped there: the group caption is the caption the
+     * closer hosts, not text in that position, and `\^ ` would re-parse as a
+     * paragraph and break `parse(fmt(x)) == parse(x)`.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $fence = $this->colonFenceFor($node);
+        $body = $this->renderColonFenceBody($node);
+        $out = $fence . ' figure' . self::fencedDivBody($body) . $fence;
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $out .= "\n^ " . $this->renderInlines($caption->getChildren());
+        }
+
+        return $out;
     }
 
     protected function renderRawBlock(RawBlock $node): string

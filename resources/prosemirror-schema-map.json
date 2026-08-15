@@ -279,6 +279,7 @@
     }
   },
   "unmapped": {
+    "figure_group": "composite figures (PART 9 4c) are not yet modeled; the bridge's figure node covers the panels it holds when they arrive as plain figures",
     "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",

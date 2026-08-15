@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -3500,6 +3501,22 @@ class BlockParser
             $title = $tm[2] ?? null;
         }
 
+        // PART 9 §4c (markup-carve/carve#1122): a BARE `::: figure` opener -
+        // the kind word and nothing else - is a composite figure, not a
+        // container. An opener carrying a quoted title or a `[label]` does NOT
+        // match the figure production and stays a generic Tier-2 div, title
+        // and label preserved losslessly; and GROUPS DO NOT NEST - a bare
+        // figure opener anywhere inside an open group's body, any depth, is a
+        // generic container too.
+        if (
+            $className === 'figure'
+            && $title === null
+            && $label === null
+            && $this->figureGroupDepth === 0
+        ) {
+            return $this->parseFigureGroup($parent, $lines, $start, $fenceLength);
+        }
+
         $div = new Div();
 
         // The opener `[label]` is inert structured metadata (NOT rendered); a
@@ -3571,6 +3588,77 @@ class BlockParser
         // (Pending block attributes were already applied before the
         // opener's own attributes above, per PART 9 §15 precedence.)
         $parent->appendChild($div);
+
+        return $i - $start;
+    }
+
+    /**
+     * Whether the parser is currently inside a `::: figure` composite-figure
+     * body. Groups do not nest (PART 9 §4c): while this is non-zero a bare
+     * figure opener at ANY depth builds a generic container instead.
+     */
+    protected int $figureGroupDepth = 0;
+
+    /**
+     * Parse a bare `::: figure` fence into a FigureGroup (PART 9 §4c).
+     *
+     * The body parses under the unchanged inner rules - the existing caption
+     * pass already forms the Figure panels inside - and the GROUP caption is
+     * not consumed here: the `^ ` line after the closing fence reaches
+     * tryParseCaption() like any other caption slot, which is what gives it
+     * the shared one-blank-line allowance for free.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $fenceLength
+     */
+    protected function parseFigureGroup(Node $parent, array $lines, int $start, int $fenceLength): int
+    {
+        $group = new FigureGroup();
+
+        // Leading block-attribute lines are the group's only attribute source
+        // (the opener is bare by definition); author source order is recorded
+        // for the formatter, exactly as for a div.
+        $authorOrder = [];
+        foreach (array_keys($this->pendingAttributes) as $name) {
+            $authorOrder[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
+        }
+        foreach ($this->pendingAttributes as $name => $value) {
+            if ($name === 'class') {
+                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
+                    if ($class !== '') {
+                        $group->addClass($class);
+                    }
+                }
+            } else {
+                $group->setAttribute($name, $value);
+            }
+        }
+        $group->setAttributeOrder($authorOrder);
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
+
+        $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
+        $innerLines = $body['lines'];
+        $innerLineMap = $body['lineMap'];
+        $i = $start + $body['consumed'];
+
+        $previousOffset = $this->lineOffset;
+        $this->lineOffset = $previousOffset + $start + 1;
+        $this->figureGroupDepth++;
+        try {
+            $this->parseBlocks($group, $innerLines, 0, $innerLineMap);
+        } finally {
+            $this->figureGroupDepth--;
+        }
+        // A dangling attribute line belongs to this container and dies at its
+        // boundary, exactly as in tryParseDiv() (carve#1028).
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
+        $this->lineOffset = $previousOffset;
+
+        $parent->appendChild($group);
 
         return $i - $start;
     }
@@ -9142,6 +9230,35 @@ class BlockParser
         $lastChild = $children[count($children) - 1];
 
         $linesConsumed = $i - $start;
+
+        // Handle FigureGroup - §4's SIXTH host (PART 9 §4c): a caption after
+        // the closing fence of a bare `::: figure` container is the caption of
+        // the WHOLE group. Only this kind; a `^ ` line after any other `:::`
+        // closer stays ordinary paragraph content.
+        if ($lastChild instanceof FigureGroup) {
+            // A SECOND `^ ` line does not replace an attached group caption -
+            // the same rule the table arm below spells out (carve-php#1199).
+            if ($lastChild->hasCaption()) {
+                return null;
+            }
+
+            $caption = new Caption();
+            $caption->setPos($this->wholeLineSpan($start));
+            $this->inlineParser->parse(
+                $caption,
+                $captionText,
+                $start,
+                true,
+                $this->contiguousMapFor($start, $lines[$start], $captionText),
+            );
+            $lastChild->setCaption($caption);
+            // The caption is the group's own child written after the closing
+            // fence, so the group's span reaches the end of the caption line -
+            // the same containment the table arm preserves (carve#565).
+            $this->widenSpanTo($lastChild, $caption->getPos());
+
+            return $linesConsumed;
+        }
 
         // Handle Table - add caption directly to table
         if ($lastChild instanceof Table) {

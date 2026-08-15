@@ -381,6 +381,7 @@ class CarveCorpusTest extends TestCase
         'a-footnote-in-an-unresolved-reference-is-not-a-reference',
         'an-image-s-alt-text-closes-where-a-link-s-text-closes',
         'an-editorial-comment-s-bracket-is-content-not-the-close',
+        'composite-figures',
     ];
 
     /**

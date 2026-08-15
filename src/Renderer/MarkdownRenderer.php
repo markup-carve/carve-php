@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -594,6 +595,7 @@ class MarkdownRenderer implements RendererInterface
                 // ordered list. EscapedText only ever holds escaped ASCII
                 // punctuation, all of which CommonMark allows a `\` before.
                 $node instanceof EscapedText => $this->renderEscapedText($node),
+                $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Abbreviation => $this->renderAbbreviation($node),
@@ -1470,6 +1472,47 @@ class MarkdownRenderer implements RendererInterface
     protected function renderCaption(Caption $node): string
     {
         return trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+    }
+
+    /**
+     * A composite figure (grammar PART 11 §10g T1). Markdown has no figure
+     * grouping, so this is the spelling the admonition title rule already
+     * uses for authored text with no native slot: panels in order, each host
+     * degraded as usual, each PANEL caption as an emphasized `*...*` paragraph
+     * after its host; preserved stray content in place; the GROUP caption
+     * last, as a bold `**...**` paragraph, its number resolved.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $output = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $panelCaption = null;
+                $host = '';
+                foreach ($child->getChildren() as $part) {
+                    if ($part instanceof Caption) {
+                        $panelCaption = $part;
+                    } else {
+                        $host .= $this->renderNode($part);
+                    }
+                }
+                $output .= rtrim($host, StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+                if ($panelCaption !== null) {
+                    $output .= '*' . trim($this->renderChildren($panelCaption), StringUtil::TRIMMABLE_WHITESPACE) . "*\n\n";
+                }
+            } else {
+                // A table panel keeps its caption inside its own degradation,
+                // and stray non-panel content is preserved in place.
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $output .= '**' . trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE) . "**\n\n";
+        }
+
+        return $output;
     }
 
     /**

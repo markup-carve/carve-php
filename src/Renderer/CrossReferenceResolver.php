@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
@@ -332,6 +333,23 @@ class CrossReferenceResolver
             return;
         }
 
+        if ($node instanceof FigureGroup) {
+            // PART 9 §4c: the group is ONE numbering unit. Its caption draws
+            // one number and registers the panel ids with letters; the PANELS
+            // draw nothing from the document sequence - a `#` in a panel
+            // caption stays literal - so they are skipped below, while stray
+            // non-panel content inside the group still numbers normally.
+            $this->resolveFigureGroupCaption($node, $tracker, $counters);
+            foreach ($node->getChildren() as $child) {
+                if (FigureGroup::isPanel($child)) {
+                    continue;
+                }
+                $this->resolveNumberedCaptionsInNode($child, $tracker, $counters, $depth + 1);
+            }
+
+            return;
+        }
+
         if ($node instanceof Figure) {
             $caption = $this->findFigureCaption($node);
             if ($caption !== null) {
@@ -350,6 +368,68 @@ class CrossReferenceResolver
             }
             $this->resolveNumberedCaptionsInNode($child, $tracker, $counters, $depth + 1);
         }
+    }
+
+    /**
+     * Number a composite figure's GROUP caption and register its crossref
+     * texts (PART 9 §4c, markup-carve/carve#1122).
+     *
+     * The group's own id resolves as "Label N"; each PANEL id resolves as
+     * "Label N" plus a letter by panel order among the panels (a..z, then aa,
+     * ab, ...). Panel ids register only when the group itself drew a number -
+     * an unnumbered group's panels are anchors but not caption crossref
+     * targets, exactly as an id on an uncaptioned figure is today.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\FigureGroup $group
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
+     * @param array<string, int> $counters
+     */
+    protected function resolveFigureGroupCaption(FigureGroup $group, HeadingIdTracker $tracker, array &$counters): void
+    {
+        $caption = $group->getCaption();
+        if ($caption === null) {
+            return;
+        }
+
+        $result = $this->captionTextBeforeNumber($caption);
+        $numberNode = $result['node'];
+        if (!$numberNode instanceof CaptionNumber) {
+            return;
+        }
+
+        $label = rtrim($result['text']);
+        $counters[$label] = ($counters[$label] ?? 0) + 1;
+        $number = $counters[$label];
+        $numberNode->setNumber($number);
+
+        $id = $group->getAttribute('id') ?? '';
+        if ($id !== '') {
+            $tracker->setTextForId($id, $label . ' ' . $number);
+        }
+
+        foreach ($group->getPanels() as $index => $panel) {
+            $panelId = $panel->getAttribute('id') ?? '';
+            if ($panelId !== '') {
+                $tracker->setTextForId($panelId, $label . ' ' . $number . self::panelLetter($index));
+            }
+        }
+    }
+
+    /**
+     * The letter a panel's position resolves to: a..z, then aa, ab, ...
+     * (spreadsheet-column style, zero-based).
+     */
+    protected static function panelLetter(int $index): string
+    {
+        $letter = '';
+        $index++;
+        while ($index > 0) {
+            $index--;
+            $letter = chr(97 + ($index % 26)) . $letter;
+            $index = intdiv($index, 26);
+        }
+
+        return $letter;
     }
 
     protected function findFigureCaption(Figure $figure): ?Caption
