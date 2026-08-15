@@ -182,7 +182,10 @@ class MarkdownHabitLinter
     }
 
     /**
-     * The fence delimiter opening or closing a verbatim block, if this line is one.
+     * The fence delimiter opening or closing a verbatim block, if this line is
+     * one. The recognition itself lives in `VerbatimFence` so this pass and the
+     * retired-spelling pass cannot disagree about what opens a fence; only the
+     * container strip below is this pass's own.
      */
     private function fenceDelimiter(string $line, bool $stripContainers = false): ?string
     {
@@ -190,7 +193,7 @@ class MarkdownHabitLinter
             $line = $this->stripContainerPrefix($line);
         }
 
-        return preg_match('/^\s*(`{3,}|~{3,})/', $line, $matches) === 1 ? $matches[1] : null;
+        return VerbatimFence::delimiter($line);
     }
 
     private function stripContainerPrefix(string $line): string

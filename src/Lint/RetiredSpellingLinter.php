@@ -66,8 +66,32 @@ class RetiredSpellingLinter
         $warnings = [];
         $offset = 0;
         $lineNumber = 0;
+        // A table row inside a fenced code or raw block is the construct being
+        // written ABOUT - this package's own docs show the retired spelling in
+        // one - so the scan skips it, exactly as the Markdown-habit pass does.
+        $inFence = false;
+        $fenceMarker = '';
         foreach (explode("\n", $source) as $line) {
             $lineNumber++;
+            $fence = VerbatimFence::delimiter($line);
+            if ($fence !== null) {
+                if (!$inFence) {
+                    $inFence = true;
+                    $fenceMarker = $fence;
+                } elseif (str_starts_with($fence, $fenceMarker)) {
+                    $inFence = false;
+                    $fenceMarker = '';
+                }
+
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            if ($inFence) {
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
             foreach ($this->retiredCellOrders($line) as $finding) {
                 $warnings[] = new LintWarning(
                     line: $lineNumber,

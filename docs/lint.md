@@ -308,3 +308,7 @@ literal `<`, so a formatter doing it in the default path would break
 A space in front of the sigil is unaffected: `|{#x} < content |` was content
 under both orders, so nothing was reinterpreted. So is a block that already sits
 after a marker - `|<{#x} content |` is the migration target, not the problem.
+
+Fenced code and raw blocks are skipped, as they are for the Markdown habits: a
+row inside one is the construct being written **about**, which is what every
+example on this page is.

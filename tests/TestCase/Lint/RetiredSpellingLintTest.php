@@ -130,6 +130,44 @@ class RetiredSpellingLintTest extends TestCase
     }
 
     /**
+     * A markup EXAMPLE is not a document. A source scan that reported inside a
+     * fenced block would fire on every page explaining the rule - this
+     * package's own `docs/lint.md` shows the retired spelling in one.
+     */
+    public function testAFencedExampleIsNotReported(): void
+    {
+        $this->assertSame([], $this->rules("```\n|{#x}< content |\n```\n"));
+        $this->assertSame([], $this->rules("~~~\n|{#x}< content |\n~~~\n"));
+        $this->assertSame([], $this->rules("```=html\n|{#x}< content |\n```\n"));
+    }
+
+    /**
+     * CONTROL. The fence has to CLOSE, or the skip would swallow the rest of
+     * the document and the rule would stop reporting after any code block.
+     */
+    public function testAFenceOnlySkipsItsOwnContent(): void
+    {
+        $this->assertSame(
+            [RetiredSpellingLinter::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER],
+            $this->rules("```\n|{#x}< fenced |\n```\n\n|{#x}> real |\n"),
+        );
+    }
+
+    /**
+     * The offsets survive the skip: a finding after a fenced block still points
+     * at its own bytes.
+     */
+    public function testOffsetsSurviveASkippedFence(): void
+    {
+        $source = "```\n|{#x}< fenced |\n```\n\n|{#x}> real |\n";
+        $warnings = $this->linter->lint($source);
+
+        $this->assertCount(1, $warnings);
+        $this->assertSame(5, $warnings[0]->line);
+        $this->assertSame('{#x}>', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
+    }
+
+    /**
      * THE REASON THIS IS A REPORT AND NOT A REWRITE. The two spellings render
      * differently, so applying the edit in the default `fmt` path would change
      * the output of a document that is already correct.
