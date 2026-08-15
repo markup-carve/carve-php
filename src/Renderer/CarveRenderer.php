@@ -1444,16 +1444,18 @@ class CarveRenderer implements RendererInterface
         // every body cell back aligned, so `parse(fmt(x)) == parse(x)` did not
         // hold (carve#359).
         //
-        // Two header shapes have no native spelling, because `header_cell` in
-        // the grammar is `'=' [alignment_marker] content` and admits neither an
-        // attribute block nor a span marker:
+        // ONE header shape still has no native spelling: `header_cell` is
+        // `'=' [alignment_marker] [cell_attributes] content` and admits no span
+        // marker, so
         //
         //     | < | b |     a span marker promoted to a header cell
-        //     |{.x} a | b | a header cell carrying attributes
         //
-        // Those keep a delimiter row to promote the first row, emitted BARE so
-        // the cells keep their own alignment markers and the delimiter cannot
-        // spill alignment down the column.
+        // keeps a delimiter row to promote the first row, emitted BARE so the
+        // cells keep their own alignment markers and the delimiter cannot spill
+        // alignment down the column. An ATTRIBUTED header cell is no longer in
+        // that set - PART 9 §5 T10 binds the block after the marker run, so
+        // `|={.x} a |` spells it directly and the delimiter row it used to need
+        // dropped both the marker and the cell's own alignment.
         $headerRow = isset($tableRows[0]) && $tableRows[0]->isHeader();
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -1478,7 +1480,7 @@ class CarveRenderer implements RendererInterface
                 if (!$cell instanceof TableCell) {
                     continue;
                 }
-                if ($cell->getSpanMarker() !== null || $this->renderAttrs($cell) !== '') {
+                if ($cell->getSpanMarker() !== null) {
                     $needsDelimiter = true;
 
                     break;
@@ -1545,8 +1547,9 @@ class CarveRenderer implements RendererInterface
         // alignment sigil, but takes the same shape so a row of span cells stays
         // readable.
         //
-        // A cell attribute stays GLUED to the pipe, where the grammar puts it;
-        // the space goes between it and the marker.
+        // A cell attribute block is GLUED to the pipe here, because a span cell
+        // has no marker run for it to bind after (PART 9 §5 T10); the space
+        // goes between it and the span marker.
         if ($cell->getSpanMarker() !== null) {
             if ($attrs === '') {
                 return ['text' => $cell->getSpanMarker(), 'tight' => false];
@@ -1555,7 +1558,13 @@ class CarveRenderer implements RendererInterface
             return ['text' => $attrs . ' ' . $cell->getSpanMarker(), 'tight' => true];
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
-        $prefix = $attrs . ($cell->isHeader() && $markHeader ? '=' : '') . $align;
+        // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
+        // of the `=` produced `|{#x}=R|`, which every reader takes as a DATA
+        // cell whose content starts with `=`, so a `<th id="x">R</th>` came back
+        // as `<td id="x">=R</td>` and PART 11 §1 failed on it. This order is
+        // meaning-preserving instead: `|={#x} R |` parses back to the node that
+        // was written.
+        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $attrs;
 
         $this->tableCellDepth++;
         try {
@@ -1580,13 +1589,24 @@ class CarveRenderer implements RendererInterface
         // consumed, so `|= ~x~|` is a header cell holding `~x~` again.
         //
         // The sigil set is read off the parser rather than listed again here.
-        // The three cases the scan is NOT live in are left alone: a cell
-        // carrying an attribute block has no tight marker at all (the parser
-        // says so where it calls parseTableCellMarker), a prefix that already
-        // ENDS in an alignment marker has spent the scan, and an unprefixed
-        // cell is padded, so the scan reads its space.
+        // The three cases the scan is NOT live in are left alone: a cell whose
+        // prefix ENDS in an attribute block has spent the scan there (the block
+        // binds after the markers, so everything past it is content), a prefix
+        // that already ends in an alignment marker has spent it too, and an
+        // unprefixed cell is padded, so the scan reads its space.
         if ($this->headerMarkerWouldReadAsAlignment($prefix, $align, $attrs, $content)) {
             return ['text' => $prefix . ' ' . $content, 'tight' => true];
+        }
+
+        // A block takes the separating space on both sides, which is the shape
+        // T10 spells: `|={.x} h |`. Without it `|={.x}h|` still round-trips,
+        // but the corpus writes the padded form. An empty cell takes one space,
+        // not two, so the output is idempotent rather than growing a column.
+        if ($attrs !== '') {
+            return [
+                'text' => $prefix . ' ' . $content . ($content === '' ? '' : ' '),
+                'tight' => true,
+            ];
         }
 
         return ['text' => $prefix . $content, 'tight' => $prefix !== ''];

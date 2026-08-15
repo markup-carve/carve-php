@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Block;
 
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -375,14 +376,25 @@ class TableParser
 
     /**
      * Parse table cells with their attributes.
-     * Cell attributes appear at the start: |{.class} content |
+     *
+     * PART 9 §5 T10: the kind marker comes first, then the alignment marker,
+     * then the attribute block - `|={.x} h |`, `|=~{.x} h |`, `|>{.x} d |`,
+     * `|{.x} d |`. The block is GLUED to whatever precedes it: to the marker
+     * run where the cell has one, to the opening `|` where it has none.
+     *
+     * The marker run is only consumed HERE when a block actually follows it. A
+     * cell without one keeps its markers in `content` and is read downstream by
+     * `BlockParser::parseTableCellMarker()`, which is where a lone `<`/`^` is
+     * still allowed to be a span marker rather than an alignment sigil.
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string, offset: int, cellOffset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
-     *   attributes is the raw `{...}` inner (empty when none); offset is where the
-     *   content begins in the original line, and verbatim says whether that stretch
-     *   is a byte-for-byte copy of it (see splitCells)
+     * @return array<array{content: string, attributes: string, marker: string, offset: int, cellOffset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
+     *   attributes is the raw `{...}` inner (empty when none); marker is the
+     *   marker run this method already stripped off `content` (empty unless it
+     *   found a block); offset is where the content begins in the original
+     *   line, and verbatim says whether that stretch is a byte-for-byte copy of
+     *   it (see splitCells)
      */
     public function parseTableCellsWithAttributes(string $line): array
     {
@@ -391,9 +403,10 @@ class TableParser
 
         foreach ($cells as $cell) {
             $cellContent = $cell['content'];
-            // Carried through so a cell can be placed in the source. An
-            // attribute block shifts the content right within its own cell, so
-            // the offset is adjusted below rather than reused as-is.
+            // Carried through so a cell can be placed in the source. A marker
+            // run and an attribute block both shift the content right within
+            // their own cell, so the offset is adjusted below rather than
+            // reused as-is.
             $cellOffset = $cell['offset'];
             $cellVerbatim = $cell['verbatim'];
             $cellRawLength = $cell['rawLength'];
@@ -401,32 +414,37 @@ class TableParser
             // The attribute string (raw inner of the `{...}`), empty when the
             // cell has none; applied later in source order via applyToNode.
             $attributes = '';
+            $marker = '';
             $content = $cellContent;
 
-            // A `{...}` GLUED to the opening pipe (index 0, no leading space)
-            // is the cell's attribute block; the rest, after optional
-            // whitespace, is the content. A space before the brace is ordinary
-            // content. The closing brace is found quote-aware (so a quoted `}`
-            // in a value is kept), and the WHOLE payload must be valid
-            // attribute syntax (§15) -- otherwise the `{` stays literal content.
-            if (isset($cellContent[0]) && $cellContent[0] === '{') {
-                $end = $this->findCellAttrEnd($cellContent);
+            // A `{...}` GLUED to the marker run - or to the opening pipe where
+            // the cell has no markers - is the cell's attribute block; the
+            // rest, after optional whitespace, is the content. A space before
+            // the brace is ordinary content. The closing brace is found
+            // quote-aware (so a quoted `}` in a value is kept), and the WHOLE
+            // payload must be valid attribute syntax (§15) -- otherwise the `{`
+            // stays literal content.
+            $markerLength = $this->cellMarkerRunLength($cellContent);
+            if (($cellContent[$markerLength] ?? '') === '{') {
+                $afterMarker = substr($cellContent, $markerLength);
+                $end = $this->findCellAttrEnd($afterMarker);
                 if ($end !== null) {
-                    $inner = substr($cellContent, 1, $end - 1);
+                    $inner = substr($afterMarker, 1, $end - 1);
                     if (
                         $inner !== ''
                         && !$this->isInlineMarker($inner)
                         && AttributeParser::isValidInlinePayload($inner)
                     ) {
                         $attributes = $inner;
-                        $rest = substr($cellContent, $end + 1);
+                        $marker = substr($cellContent, 0, $markerLength);
+                        $rest = substr($afterMarker, $end + 1);
                         // The slot between a cell attribute block and the
                         // cell content is `data_cell`'s own `{space}` run
                         // (PART 7), not a fresh one - so it takes a space and
                         // a tab after `{...}` is content, exactly as it is
                         // after a bare `|`.
                         $content = ltrim($rest, ' ');
-                        $cellOffset += $end + 1 + (strlen($rest) - strlen($content));
+                        $cellOffset += $markerLength + $end + 1 + (strlen($rest) - strlen($content));
                     }
                 }
             }
@@ -434,6 +452,7 @@ class TableParser
             $result[] = [
                 'content' => $content,
                 'attributes' => $attributes,
+                'marker' => $marker,
                 'offset' => $cellOffset,
                 // Where the CELL starts, before the offset above was advanced
                 // past an attribute block. The two are the same for a plain
@@ -449,6 +468,28 @@ class TableParser
         }
 
         return $result;
+    }
+
+    /**
+     * Length of the marker run glued to the start of a cell: an optional `=`
+     * (kind) and then an optional alignment sigil, in that order (PART 9 §5
+     * T10). Zero when the cell opens with neither.
+     *
+     * ONE SCAN, TWO READERS. `parseTableCellsWithAttributes()` needs the run's
+     * WIDTH to find the attribute block that binds after it, and
+     * `BlockParser::parseTableCellMarker()` needs the run's MEANING. Both read
+     * it from here, and the alignment sigils come off
+     * `BlockParser::TABLE_ALIGNMENT_MARKERS`, so the rule has one spelling
+     * rather than one per caller.
+     */
+    public function cellMarkerRunLength(string $cell): int
+    {
+        $length = ($cell[0] ?? '') === '=' ? 1 : 0;
+        if (isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$cell[$length] ?? ''])) {
+            $length++;
+        }
+
+        return $length;
     }
 
     /**

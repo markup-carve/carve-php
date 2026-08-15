@@ -382,6 +382,10 @@ class CarveCorpusTest extends TestCase
         'an-image-s-alt-text-closes-where-a-link-s-text-closes',
         'an-editorial-comment-s-bracket-is-content-not-the-close',
         'composite-figures',
+        // PART 9 §5 T10 (carve#1226). All six documents render byte-identically
+        // to their pinned HTML once the parser reads the marker run before the
+        // attribute block, so the category is IMPLEMENTED rather than deferred.
+        'cell-attributes-bind-after-the-kind-and-alignment-markers',
     ];
 
     /**

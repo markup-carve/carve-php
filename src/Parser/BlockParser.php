@@ -6860,24 +6860,22 @@ class BlockParser
      */
     protected function parseTableCellMarker(string $raw): array
     {
-        $header = false;
-        $rest = $raw;
+        // The run's WIDTH is measured once, in the table parser, because
+        // `parseTableCellsWithAttributes()` needs the same measurement to find
+        // the attribute block that binds after it (PART 9 §5 T10). Only the
+        // meaning is read here.
+        $run = $this->tableParser->cellMarkerRunLength($raw);
+        $prefix = substr($raw, 0, $run);
         // A leading `=` glued to the pipe marks a header cell and is stripped;
         // the remaining content is parsed inline. This holds even when the next
         // char is also `=` (`|==|` -> <th>=</th>, `|==x==|` -> header cell whose
         // content `=x==` renders <mark>x</mark>=), matching carve-js / carve-rs.
         // A SPACED `| ==x== |` is not a header cell: the leading space means
         // index 0 is not `=`, so it is left untouched here.
-        if (isset($rest[0]) && $rest[0] === '=') {
-            $header = true;
-            $rest = substr($rest, 1);
-        }
-        $align = self::TABLE_ALIGNMENT_MARKERS[$rest[0] ?? ''] ?? null;
-        if ($align !== null) {
-            $rest = substr($rest, 1);
-        }
+        $header = str_starts_with($prefix, '=');
+        $align = self::TABLE_ALIGNMENT_MARKERS[substr($prefix, $header ? 1 : 0)] ?? null;
 
-        return ['header' => $header, 'align' => $align, 'content' => $rest];
+        return ['header' => $header, 'align' => $align, 'content' => substr($raw, $run)];
     }
 
     /**
@@ -7027,6 +7025,7 @@ class BlockParser
             // Store cell contents and attributes for potential merging
             $mergedCells = array_map(fn ($c) => $c['content'], $cellsWithAttrs);
             $cellAttributes = array_map(fn ($c) => $c['attributes'], $cellsWithAttrs);
+            $cellMarkers = array_map(fn ($c) => $c['marker'], $cellsWithAttrs);
             $cellSourceChunks = [];
             foreach ($cellsWithAttrs as $idx => $cell) {
                 $cellSourceChunks[$idx] = $this->tableCellSourceChunks($i, $cell);
@@ -7058,6 +7057,7 @@ class BlockParser
                 $mergedCellsWithAttrs[] = [
                     'content' => $content,
                     'attributes' => $cellAttributes[$idx] ?? '',
+                    'marker' => $cellMarkers[$idx] ?? '',
                     'offset' => $original === null ? null : $original['offset'],
                     // Carried alongside `offset` everywhere a cell array is
                     // rebuilt: it is the one `rawLength` measures from.
@@ -7106,13 +7106,17 @@ class BlockParser
                 }
                 $examinedAny = true;
                 $content = $cellData['content'];
-                // An empty span cell (a `<`/`^` that became its own slot) and a
-                // cell carrying an attribute block are never `|=` header cells, so
-                // they never make the row a Carve all-header row (carve-js parity).
+                // An empty span cell (a `<`/`^` that became its own slot) is
+                // never a `|=` header cell. A cell carrying an attribute block
+                // now can be: PART 9 §5 T10 puts the block AFTER the marker
+                // run, so `|={.total} Total |` is a header cell and the row it
+                // sits in is a Carve all-header row. The marker the split
+                // already stripped is what decides it.
                 if (
                     $cellData['isEmpty']
-                    || $cellData['attributes'] !== ''
-                    || preg_match('/^=([^=]|$)/', $content) !== 1
+                    || ($cellData['attributes'] !== ''
+                        ? !str_starts_with($cellData['marker'], '=')
+                        : preg_match('/^=([^=]|$)/', $content) !== 1)
                 ) {
                     $isHeaderRow = false;
 
@@ -7183,12 +7187,18 @@ class BlockParser
 
                 // Parse the tight alignment/header marker. A header row fixes
                 // per-column alignment; a cell's own marker overrides it; a djot
-                // separator row is the final fallback. A cell carrying a `{...}`
-                // attribute block has no tight marker -- its content is literal
-                // (so `{.x} <` keeps the `<`).
-                $marker = $cellData['attributes'] !== ''
-                    ? ['align' => null, 'header' => false, 'content' => $cellData['content']]
-                    : $this->parseTableCellMarker($cellData['content']);
+                // separator row is the final fallback.
+                //
+                // A cell carrying a `{...}` attribute block reads its markers
+                // from the run the split already took off the FRONT of the
+                // block (PART 9 §5 T10), never from what follows it: everything
+                // after the block is content, which is what keeps the `<` in
+                // `|{#x}< content |` literal and the `=` in `|{#x}=R|` text.
+                $attributed = $cellData['attributes'] !== '';
+                $marker = $this->parseTableCellMarker($attributed ? $cellData['marker'] : $cellData['content']);
+                if ($attributed) {
+                    $marker['content'] = $cellData['content'];
+                }
                 if ($isHeaderRow && $marker['align'] !== null) {
                     $columnAligns[$col] = $marker['align'];
                 }
@@ -7321,11 +7331,11 @@ class BlockParser
      * `consumedColspanColumns` to know which columns must NOT become a new
      * open origin for a later row, exactly as if they had been dropped.
      *
-     * @param array<int, array{content: string, attributes: string, offset: int|null, cellOffset?: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
+     * @param array<int, array{content: string, attributes: string, marker: string, offset: int|null, cellOffset?: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
      *
-     * @return array{cells: array<array{content: string, attributes: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
+     * @return array{cells: array<array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>, consumedRowspanColumns: array<int>, consumedColspanColumns: array<int>}
      */
     protected function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
     {
@@ -7402,6 +7412,7 @@ class BlockParser
             $cells[] = [
                 'content' => $isEmpty ? '' : $cellData['content'],
                 'attributes' => $isEmpty ? '' : $cellData['attributes'],
+                'marker' => $isEmpty ? '' : $cellData['marker'],
                 'colspan' => max(1, $width),
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,
