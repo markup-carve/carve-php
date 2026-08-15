@@ -310,6 +310,13 @@ final class AstSchema
             return null;
         }
 
+        // THE THREE `return null`s BELOW ARE TYPE NARROWING, not guards against a
+        // schema this repo ships. Both unions the published schema writes today -
+        // `figure.target` and `definition_list.items` - are typed node unions, so
+        // the branch shapes always resolve; the checks exist because the values
+        // come out of decoded JSON as `mixed` and the function must be total for a
+        // union some later schema writes differently. They are therefore not
+        // reachable from any payload, which is why the tests do not cover them.
         $admitted = [];
         foreach ($branches as $branch) {
             /** @var array<mixed> $branch */
