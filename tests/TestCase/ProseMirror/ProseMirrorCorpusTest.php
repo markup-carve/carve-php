@@ -47,9 +47,16 @@ class ProseMirrorCorpusTest extends TestCase
      * by the improvements the comments above record; each raised the actual and
      * none moved the floor.
      *
+     * Rose from 493 to 782 when the bridge stopped dropping authored types:
+     * figures with their captions, line blocks, comments, raw blocks and
+     * inlines, literals, symbols, substitutions, inline footnotes, crossrefs,
+     * citation groups, link reference definitions - and with the definitions
+     * carried, `[text][label]` references (image references included) keep
+     * their spelling instead of degrading to the inline form.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 493;
+    private const MINIMUM_LOSSLESS = 782;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -78,9 +85,12 @@ class ProseMirrorCorpusTest extends TestCase
      * ({@see self::expectedCorpusSize()}), because that one may not drift at
      * all.
      *
+     * Rose from 631 to 843 with the authored-type coverage the lossless
+     * docblock above records.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 631;
+    private const MINIMUM_SURVIVING = 843;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug

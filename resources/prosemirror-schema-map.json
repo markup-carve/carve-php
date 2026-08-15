@@ -203,29 +203,92 @@
       "kind": "mark",
       "pm": "link",
       "notes": "profile vocabulary only: an autolink is a link whose text is its destination"
+    },
+    "figure": {
+      "kind": "node",
+      "pm": "carveFigure",
+      "notes": "content is the target block(s) plus a carveCaption child; a structured format's short caption rides as a second carveCaption carrying short=true"
+    },
+    "caption": {
+      "kind": "node",
+      "pm": "carveCaption",
+      "notes": "a figure's caption is a child; a table's caption is emitted as the table's leading carveCaption child, because it hangs off the table as state"
+    },
+    "section": {
+      "kind": "node",
+      "pm": "carveSection",
+      "notes": "a rendering wrapper: the bridge hoists its children through a carveSection node so the heading and body survive"
+    },
+    "line_block": {
+      "kind": "node",
+      "pm": "carveLineBlock",
+      "notes": "the `::: |` container; block children, every newline inside is a hard break. CarveKit's mode attr is editor bookkeeping"
+    },
+    "comment": {
+      "kind": "node",
+      "pm": [
+        "carveComment",
+        "carveCommentInline"
+      ],
+      "notes": "the text is the single text child, the codeBlock shape; the block attr distinguishes %% line comments from fenced comments. carveCommentInline is CarveKit's inline atom for a line comment after paragraph text and carries its text in a content attr"
+    },
+    "frontmatter": {
+      "kind": "node",
+      "pm": "carveFrontmatter",
+      "notes": "atom; content and format attrs"
+    },
+    "raw_block": {
+      "kind": "node",
+      "pm": "carveRawBlock",
+      "notes": "format attr; the payload is the single text child, the same shape codeBlock uses"
+    },
+    "link_reference_definition": {
+      "kind": "node",
+      "pm": "carveLinkRefDef",
+      "notes": "atom; label, href and title attrs. Carrying the definition is what lets a `[text][label]` reference keep its spelling"
+    },
+    "inline_footnote": {
+      "kind": "node",
+      "pm": "carveInlineNote",
+      "notes": "inline content; the number is a resolution artifact and is not carried"
+    },
+    "raw_inline": {
+      "kind": "node",
+      "pm": "carveRawInline",
+      "notes": "inline atom; content and format attrs"
+    },
+    "literal_inline": {
+      "kind": "node",
+      "pm": "carveLiteral",
+      "notes": "inline atom; content attr"
+    },
+    "substitution": {
+      "kind": "node",
+      "pm": "carveSubstitution",
+      "notes": "inline atom; oldText and newText attrs"
+    },
+    "symbol": {
+      "kind": "node",
+      "pm": "carveSymbol",
+      "notes": "inline atom; name attr"
+    },
+    "citation_group": {
+      "kind": "node",
+      "pm": "carveCitation",
+      "notes": "inline atom; raw and integral attrs, plus items whose prefix/locator/suffix are ProseMirror inline arrays"
+    },
+    "heading_ref": {
+      "kind": "node",
+      "pm": "carveCrossref",
+      "notes": "inline atom; target attr. The resolved href is a resolution artifact and is not carried"
     }
   },
   "unmapped": {
-    "figure": "figure / caption blocks are not modeled",
-    "caption": "figure / caption blocks are not modeled",
-    "abbreviation_def": "abbreviation definitions are document metadata, not editor content",
+    "abbreviation_def": "abbreviation definitions are document metadata: they ride on the doc node's attrs and are rebuilt as nodes on the way back",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
-    "citation_group": "citations are not modeled",
-    "comment": "comments are not represented in the editor model",
-    "frontmatter": "front matter is not modeled by the serializer",
-    "heading_ref": "cross-reference links to heading ids are not modeled",
-    "inline_footnote": "inline footnotes are not modeled",
-    "line_block": "line blocks are not modeled",
-    "link_reference_definition": "a link reference definition is document metadata, not editor content: it renders nothing and feeds the links and images that resolve its label",
-    "raw_block": "raw passthrough blocks are not modeled",
-    "raw_inline": "raw passthrough inlines are not modeled",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
-    "literal_inline": "inline literals are not modeled",
     "smart_punctuation": "smart-typography output is lossy on reparse, so it is not modeled",
-    "soft_break": "a soft break is whitespace in the ProseMirror model",
-    "substitution": "critic-substitute inline nodes are not modeled by the serializer",
-    "symbol": "symbol inline nodes are not modeled",
-    "section": "section wrappers are a rendering construct, not editor content"
+    "soft_break": "a soft break is whitespace in the ProseMirror model"
   }
 }

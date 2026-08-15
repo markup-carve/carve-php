@@ -6,19 +6,26 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
 use MarkupCarve\Carve\Ast\PayloadDepth;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -26,25 +33,32 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Subscript;
+use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
+use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
@@ -149,6 +163,14 @@ class ProseMirrorToCarve
             $carveDocument,
             (new HeadingReferenceCollector(new HeadingIdTracker()))->collect($carveDocument),
         );
+
+        // The same re-derivation for `[text][label]` references, against the
+        // `carveLinkRefDef` nodes the payload carried. A reference whose
+        // definition is gone - or points somewhere else now - is not a link
+        // any more once written, so it falls back to its inline form, which
+        // always renders correctly. Labels match exactly, the parser's own
+        // rule ("case-sensitive, no whitespace folding").
+        $this->confirmLabelReferences($carveDocument, $this->collectLinkReferenceDefinitions($carveDocument));
 
         // Restore document-level abbreviation definitions (carve-php#519). See
         // the note in ProseMirrorRenderer::render(): without these the marks
@@ -289,6 +311,38 @@ class ProseMirrorToCarve
             throw new RuntimeException('Every ProseMirror node needs a string type');
         }
 
+        // A figure's SHORT caption is state, not a child, so the generic child
+        // loop cannot restore it: the flag lives on the payload child's attrs
+        // and would be gone by the time the built Caption node arrives. The
+        // main caption stays an ordinary child, which is where the writer
+        // reads it.
+        if ($name === 'carveFigure') {
+            $figure = new Figure();
+            $this->applyAttributes($figure, $data);
+            foreach ($this->childrenOf($data) as $child) {
+                $childAttrs = is_array($child['attrs'] ?? null) ? $child['attrs'] : [];
+                if (($child['type'] ?? null) === 'carveCaption' && self::asBool($childAttrs['short'] ?? false)) {
+                    $shortCaption = [];
+                    foreach ($this->childrenOf($child) as $inlineChild) {
+                        foreach ($this->buildInlines($inlineChild) as $built) {
+                            if ($built instanceof InlineNode) {
+                                $shortCaption[] = $built;
+                            }
+                        }
+                    }
+                    $figure->setShortCaption($shortCaption);
+
+                    continue;
+                }
+                $built = $this->buildBlock($child);
+                if ($built !== null) {
+                    $figure->appendChild($built);
+                }
+            }
+
+            return $figure;
+        }
+
         // The renderer emits a table caption as this leading child; put it back
         // on the table as state.
         if ($name === 'carveCaption') {
@@ -315,13 +369,19 @@ class ProseMirrorToCarve
         $node = $this->instantiate($name, $data);
         $this->applyAttributes($node, $data);
 
-        if ($node instanceof CodeBlock) {
+        if ($node instanceof CodeBlock || $node instanceof RawBlock || $node instanceof Comment) {
             // Same asymmetry as inline code: the text is state, not children.
+            // A `carveCommentInline` payload carries its text in a `content`
+            // attr instead and has no children, so the attributes pass has
+            // already set it; joining an empty child list here must not erase
+            // that.
             $text = '';
             foreach ($this->childrenOf($data) as $child) {
                 $text .= self::asString($child['text'] ?? '');
             }
-            $this->setState($node, 'content', $text);
+            if (!($node instanceof Comment) || $text !== '' || $this->childrenOf($data) !== []) {
+                $this->setState($node, 'content', $text);
+            }
 
             return $node;
         }
@@ -906,6 +966,137 @@ class ProseMirrorToCarve
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     *
+     * @return array<string, string> label => href
+     */
+    protected function collectLinkReferenceDefinitions(Node $node): array
+    {
+        $definitions = [];
+        if ($node instanceof LinkReferenceDefinition) {
+            $definitions[$node->getLabel()] = $node->getHref();
+        }
+
+        // First definition wins on reparse, so a later duplicate must not
+        // shadow it here either.
+        foreach ($node->getChildren() as $child) {
+            foreach ($this->collectLinkReferenceDefinitions($child) as $label => $href) {
+                if (!array_key_exists($label, $definitions)) {
+                    $definitions[$label] = $href;
+                }
+            }
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, string> $definitions label => href
+     */
+    protected function confirmLabelReferences(Node $node, array $definitions): void
+    {
+        if ($node instanceof Link && !$node->isFromHeadingReference() && $node->getReferenceLabel() !== null) {
+            $href = $definitions[$node->getReferenceLabel()] ?? null;
+            if ($href === null || $href !== $node->getDestination()) {
+                $this->setState($node, 'referenceLabel', null);
+                $this->setState($node, 'rawReferenceLabel', null);
+            } else {
+                $this->confirmRawSpelling($node, (new HeadingIdTracker())->getPlainText($node));
+            }
+        }
+
+        // An image resolves by the same definitions; its destination is `src`.
+        if ($node instanceof Image && $node->getReferenceLabel() !== null) {
+            $href = $definitions[$node->getReferenceLabel()] ?? null;
+            if ($href === null || $href !== $node->getSource()) {
+                $this->setState($node, 'referenceLabel', null);
+                $this->setState($node, 'rawReferenceLabel', null);
+            } else {
+                $this->confirmRawSpelling($node, $node->getAlt());
+            }
+        }
+
+        foreach ($node->getChildren() as $child) {
+            $this->confirmLabelReferences($child, $definitions);
+        }
+    }
+
+    /**
+     * Keep the VERBATIM raw spelling only while its text half still says what
+     * the node says.
+     *
+     * The writer emits `rawReferenceLabel` byte for byte, text half included -
+     * so an editor that retyped the visible text of `[old][lbl]` while the
+     * attrs rode along would come back as `[old][lbl]`, the edit silently
+     * discarded. Same hazard as confirmAutolink(), one field over. The label
+     * itself survives this check: with the raw gone the writer builds
+     * `[text][label]` from the CURRENT text, which keeps both the edit and the
+     * reference spelling. Only the exact authored bytes (spacing, an attribute
+     * block written at the reference) are given up, and only when the text no
+     * longer matches them.
+     *
+     * The raw's text half is compared as PLAIN TEXT, through the same parse
+     * the label check uses, so `[*bold* x][l]` is not thrown away for merely
+     * containing markup. A raw whose bracket structure cannot be walked - a
+     * code span holding an unbalanced bracket - is dropped rather than
+     * trusted, which always renders correctly.
+     */
+    protected function confirmRawSpelling(Link|Image $node, string $currentText): void
+    {
+        $raw = $node->getRawReferenceLabel();
+        if ($raw === null) {
+            return;
+        }
+
+        $inner = self::bracketedTextHalf($raw);
+        $rawPlain = null;
+        if ($inner !== null) {
+            $parsed = (new CarveConverter())->parse($inner);
+            $rawPlain = (new HeadingIdTracker())->getPlainText($parsed);
+        }
+
+        $normalize = static fn (string $s): string => preg_replace('/\s+/', ' ', trim($s)) ?? $s;
+        if ($rawPlain === null || $normalize($rawPlain) !== $normalize($currentText)) {
+            $this->setState($node, 'rawReferenceLabel', null);
+        }
+    }
+
+    /**
+     * The source between a reference's first bracket pair - the text half of
+     * `[text][label]` / `![alt][label]` - or null when the brackets do not
+     * balance.
+     */
+    protected static function bracketedTextHalf(string $raw): ?string
+    {
+        $start = strpos($raw, '[');
+        if ($start === false) {
+            return null;
+        }
+
+        $depth = 0;
+        $length = strlen($raw);
+        for ($i = $start; $i < $length; $i++) {
+            $char = $raw[$i];
+            if ($char === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($char === '[') {
+                $depth++;
+            } elseif ($char === ']') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($raw, $start + 1, $i - $start - 1);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The label a collapsed reference over this text would resolve by.
      *
      * Deliberately the RESOLVER's own two steps rather than a second spelling
@@ -1094,8 +1285,8 @@ class ProseMirrorToCarve
                     'fromHeadingReference',
                     self::asBool($value),
                 ),
-                $node instanceof Link && $key === 'carveRef' => $this->setState($node, 'referenceLabel', self::asString($value)),
-                $node instanceof Link && $key === 'carveRawRef' => $this->setState($node, 'rawReferenceLabel', self::asString($value)),
+                ($node instanceof Link || $node instanceof Image) && $key === 'carveRef' => $this->setState($node, 'referenceLabel', self::asString($value)),
+                ($node instanceof Link || $node instanceof Image) && $key === 'carveRawRef' => $this->setState($node, 'rawReferenceLabel', self::asString($value)),
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
@@ -1109,6 +1300,26 @@ class ProseMirrorToCarve
                     ltrim(self::asString($value), ':'),
                 ),
                 ($node instanceof FootnoteRef || $node instanceof Footnote) && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
+                ($node instanceof RawBlock || $node instanceof RawInline) && $key === 'format' => $this->setState($node, 'format', self::asString($value)),
+                ($node instanceof RawInline || $node instanceof LiteralInline || $node instanceof Comment || $node instanceof Frontmatter)
+                    && $key === 'content' => $this->setState($node, 'content', self::asString($value)),
+                // The recorded width is a writer's concern and a floor it widens
+                // anyway, so the flag alone decides the spelling: a fenced
+                // comment gets the minimum width back.
+                $node instanceof Comment && $key === 'block' => $this->setState($node, 'fenceLength', self::asBool($value) ? 3 : null),
+                // CarveKit's line-block mode marker is editor bookkeeping.
+                $node instanceof LineBlock && $key === 'mode' => true,
+                $node instanceof Frontmatter && $key === 'format' => $this->setState($node, 'format', self::asString($value)),
+                $node instanceof LinkReferenceDefinition && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
+                $node instanceof LinkReferenceDefinition && $key === 'href' => $this->setState($node, 'href', self::asString($value)),
+                $node instanceof LinkReferenceDefinition && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
+                $node instanceof Symbol && $key === 'name' => $this->setState($node, 'name', self::asString($value)),
+                $node instanceof Substitution && $key === 'oldText' => $this->setState($node, 'oldText', self::asString($value)),
+                $node instanceof Substitution && $key === 'newText' => $this->setState($node, 'newText', self::asString($value)),
+                $node instanceof HeadingRef && $key === 'target' => $this->setState($node, 'targetId', self::asString($value)),
+                $node instanceof CitationGroup && $key === 'raw' => $this->setState($node, 'raw', self::asString($value)),
+                $node instanceof CitationGroup && $key === 'integral' => $this->setState($node, 'integral', self::asBool($value)),
+                $node instanceof CitationGroup && $key === 'items' => $this->applyCitationItems($node, $value),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
                 // A mention's visible name is a child Text node here, but
                 // tiptap/extension-mention is an atom that keeps it in `label`
@@ -1164,6 +1375,60 @@ class ProseMirrorToCarve
         if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) === 1) {
             $this->setState($node, 'typed', true);
         }
+    }
+
+    /**
+     * A citation item's prefix, locator and suffix arrive as ProseMirror
+     * inline arrays - the renderer emits them with its normal inline path, so
+     * they are rebuilt with this converter's. An entry without a string key is
+     * not an item and is skipped rather than coerced into one.
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\CitationGroup $node
+     * @param mixed $value
+     */
+    protected function applyCitationItems(CitationGroup $node, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return true;
+        }
+
+        $items = [];
+        foreach ($value as $entry) {
+            if (!is_array($entry) || !is_string($entry['key'] ?? null)) {
+                continue;
+            }
+            $item = [
+                'key' => $entry['key'],
+                'suppressAuthor' => self::asBool($entry['suppressAuthor'] ?? false),
+            ];
+            foreach (['prefix', 'locator', 'suffix'] as $inlineField) {
+                if (!is_array($entry[$inlineField] ?? null)) {
+                    continue;
+                }
+                /** @var array<int, array<string, mixed>> $payloads */
+                $payloads = array_values(array_filter($entry[$inlineField], 'is_array'));
+                $inlines = [];
+                foreach ($payloads as $payload) {
+                    foreach ($this->buildInlines($payload) as $built) {
+                        if ($built instanceof InlineNode) {
+                            $inlines[] = $built;
+                        }
+                    }
+                }
+                if ($inlines !== []) {
+                    $item[$inlineField] = $inlines;
+                }
+            }
+            foreach (['locatorLabel', 'locatorValue'] as $stringField) {
+                if (is_string($entry[$stringField] ?? null)) {
+                    $item[$stringField] = $entry[$stringField];
+                }
+            }
+            $items[] = $item;
+        }
+        $node->setItems($items);
+
+        return true;
     }
 
     /**
@@ -1352,6 +1617,21 @@ class ProseMirrorToCarve
         'definition_description' => DefinitionDescription::class,
         'mention' => Mention::class,
         'inline_extension' => InlineExtension::class,
+        'figure' => Figure::class,
+        'caption' => Caption::class,
+        'section' => Section::class,
+        'line_block' => LineBlock::class,
+        'comment' => Comment::class,
+        'frontmatter' => Frontmatter::class,
+        'raw_block' => RawBlock::class,
+        'link_reference_definition' => LinkReferenceDefinition::class,
+        'inline_footnote' => InlineFootnote::class,
+        'raw_inline' => RawInline::class,
+        'literal_inline' => LiteralInline::class,
+        'substitution' => Substitution::class,
+        'symbol' => Symbol::class,
+        'citation_group' => CitationGroup::class,
+        'heading_ref' => HeadingRef::class,
         'strong' => Strong::class,
         'emphasis' => Emphasis::class,
         'underline' => Underline::class,

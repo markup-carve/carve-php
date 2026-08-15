@@ -4,34 +4,44 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -162,6 +172,15 @@ class ProseMirrorRenderer
             return $children === [] ? null : ['type' => 'carveSection', 'content' => $children];
         }
 
+        // The definition child renders nothing here because it is already
+        // carried in full: render() puts the definitions, the authored list and
+        // the ordering flag on the doc node's attrs, and the converter rebuilds
+        // the nodes from them at the position the flag names. Reporting it
+        // dropped as well would tell a caller they lost something they did not.
+        if ($node instanceof AbbreviationDefinition) {
+            return null;
+        }
+
         $name = $this->proseMirrorName($node);
         if ($name === null) {
             $this->dropped[$type] = SchemaMap::unmappedReason($type) ?? 'no ProseMirror name for this type';
@@ -190,7 +209,7 @@ class ProseMirrorRenderer
             }
         }
 
-        if ($node instanceof CodeBlock) {
+        if ($node instanceof CodeBlock || $node instanceof RawBlock || $node instanceof Comment) {
             // The text lives in a property, not in children, so it has to be
             // emitted as the single text child ProseMirror expects.
             $code = $node->getContent();
@@ -201,6 +220,18 @@ class ProseMirrorRenderer
             $content = $this->isInlineContainer($node)
                 ? $this->renderInlines($node->getChildren(), [])
                 : $this->renderBlocks($node->getChildren());
+        }
+
+        if ($node instanceof Figure && $node->getShortCaption() !== null) {
+            // The short caption is state, not a child, so walking children
+            // alone loses it - the same shape as a table's caption. It rides as
+            // a second carveCaption flagged `short`, which is how the converter
+            // tells the two apart on the way back.
+            $content[] = [
+                'type' => 'carveCaption',
+                'attrs' => ['short' => true],
+                'content' => $this->renderInlines($node->getShortCaption(), []),
+            ];
         }
 
         if ($content !== []) {
@@ -375,6 +406,23 @@ class ProseMirrorRenderer
                 continue;
             }
 
+            if ($node instanceof Comment) {
+                // A comment after paragraph text consumes the line tail. In
+                // inline position it is CarveKit's `carveCommentInline` atom,
+                // whose text rides in a `content` attr - the block spelling
+                // holds its text as a child, which an inline atom cannot.
+                $inlineComment = [
+                    'type' => 'carveCommentInline',
+                    'attrs' => ['content' => $node->getContent()],
+                ];
+                if ($marks !== []) {
+                    $inlineComment['marks'] = $marks;
+                }
+                $out[] = $inlineComment;
+
+                continue;
+            }
+
             if ($node instanceof Code || $node instanceof CriticComment) {
                 // Same asymmetry inline: Carve holds the text on the node, while
                 // ProseMirror wants a text node carrying a mark. Both of these
@@ -446,10 +494,8 @@ class ProseMirrorRenderer
         return match (true) {
             $node instanceof SoftBreak => ' ',
             $node instanceof EscapedText => $node->getContent(),
-            $node instanceof LiteralInline => $node->getContent(),
             $node instanceof RawText => $node->getContent(),
             $node instanceof SmartPunctuation => $node->getGlyph(),
-            $node instanceof Symbol => $node->getName(),
             default => null,
         };
     }
@@ -602,6 +648,16 @@ class ProseMirrorRenderer
             if ($node->getTitle() !== null) {
                 $attrs['title'] = $node->getTitle();
             }
+            // An image takes a reference the way a link does, and its spelling
+            // is carried the same way - see the Link branch below. The
+            // converter re-confirms against the carveLinkRefDef nodes on the
+            // way back.
+            if ($node->getReferenceLabel() !== null) {
+                $attrs['carveRef'] = $node->getReferenceLabel();
+            }
+            if ($node->getRawReferenceLabel() !== null) {
+                $attrs['carveRawRef'] = $node->getRawReferenceLabel();
+            }
         } elseif ($node instanceof Mention) {
             // Mention extends Link, so this must come first or the Link branch
             // swallows it and the css class never reaches the editor.
@@ -629,19 +685,18 @@ class ProseMirrorRenderer
             // bridge, which is exactly what `fromHeadingReference` exists to
             // prevent in the canonical writer (carve-php#1006).
             //
-            // Only the HEADING class is carried, and that is the deciding
-            // asymmetry rather than a shortcut: a heading reference resolves
-            // against a `heading` node the bridge DOES carry, so writing the
-            // reference back reproduces the same link. A `[text][label]`
-            // reference resolves against a `link_reference_definition`, which
-            // the schema map declares unmapped, so the definition is gone by
-            // the time the writer runs - and `[text][label]` with no definition
-            // is not a link at all, it is the literal text `[text][label]`.
-            // Carrying the spelling there would turn a working link into
-            // prose; that loss is declared in noteUnrepresentableState()
-            // instead.
+            // BOTH reference classes carry their spelling now. A heading
+            // reference resolves against a `heading` node the bridge carries; a
+            // `[text][label]` reference resolves against a
+            // `link_reference_definition`, which the bridge carries as
+            // `carveLinkRefDef` - so in each case writing the reference back
+            // reproduces a working link. The converter re-confirms both against
+            // the tree it rebuilt, and a reference whose anchor is gone falls
+            // back to its inline form rather than becoming prose.
             if ($node->isFromHeadingReference()) {
                 $attrs['carveHeadingRef'] = true;
+            }
+            if ($node->isFromHeadingReference() || $node->getReferenceLabel() !== null) {
                 $referenceLabel = $node->getReferenceLabel();
                 if ($referenceLabel !== null) {
                     $attrs['carveRef'] = $referenceLabel;
@@ -670,6 +725,69 @@ class ProseMirrorRenderer
             // directive the author wrote. Without it a `:kbd[x]` comes back as
             // `:[x]`, which is not valid Carve at all.
             $attrs['carveSource'] = ':' . $node->getExtensionType();
+        } elseif ($node instanceof RawBlock || $node instanceof RawInline) {
+            $attrs['format'] = $node->getFormat();
+            if ($node instanceof RawInline) {
+                // Inline raw content is an atom: nothing in the editor shows
+                // it, so the text rides as an attr rather than a child.
+                $attrs['content'] = $node->getContent();
+            }
+        } elseif ($node instanceof Comment) {
+            // CarveKit's shape: the text is the single text child (the
+            // codeBlock asymmetry, handled in renderBlock), and `block` is what
+            // distinguishes a `%% x` line comment from a fenced one on the way
+            // back - the same flag PART 12 publishes as `comment.block`.
+            $attrs['block'] = $node->getFenceLength() !== null;
+        } elseif ($node instanceof Frontmatter) {
+            $attrs['content'] = $node->getContent();
+            $attrs['format'] = $node->getFormat();
+        } elseif ($node instanceof LinkReferenceDefinition) {
+            // The definition is what a `[text][label]` reference resolves
+            // against, so carrying it is what lets that reference keep its
+            // spelling (see the Link branch above).
+            $attrs['label'] = $node->getLabel();
+            $attrs['href'] = $node->getHref();
+            if ($node->getTitle() !== null) {
+                $attrs['title'] = $node->getTitle();
+            }
+        } elseif ($node instanceof LiteralInline) {
+            $attrs['content'] = $node->getContent();
+        } elseif ($node instanceof Symbol) {
+            $attrs['name'] = $node->getName();
+        } elseif ($node instanceof Substitution) {
+            $attrs['oldText'] = $node->getOldText();
+            $attrs['newText'] = $node->getNewText();
+        } elseif ($node instanceof HeadingRef) {
+            // The resolved href is a resolution artifact; the target is the
+            // authored identity, so only it is carried.
+            $attrs['target'] = $node->getTargetId();
+        } elseif ($node instanceof CitationGroup) {
+            $attrs['raw'] = $node->getRaw();
+            $attrs['integral'] = $node->isIntegral();
+            // An item's prefix, locator and suffix are inline ARRAYS living
+            // outside `children`, so a child walk cannot reach them - the same
+            // shape the PART 12 codec handles for the wire. Each rides as a
+            // ProseMirror inline array the converter rebuilds with its normal
+            // inline path.
+            $items = [];
+            foreach ($node->getItems() as $item) {
+                $encoded = [
+                    'key' => $item['key'],
+                    'suppressAuthor' => $item['suppressAuthor'],
+                ];
+                foreach (['prefix', 'locator', 'suffix'] as $inlineField) {
+                    if (isset($item[$inlineField])) {
+                        $encoded[$inlineField] = $this->renderInlines($item[$inlineField], []);
+                    }
+                }
+                foreach (['locatorLabel', 'locatorValue'] as $stringField) {
+                    if (isset($item[$stringField])) {
+                        $encoded[$stringField] = $item[$stringField];
+                    }
+                }
+                $items[] = $encoded;
+            }
+            $attrs['items'] = $items;
         } elseif ($node instanceof Div) {
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {
@@ -740,22 +858,6 @@ class ProseMirrorRenderer
                 // attribute had gone (carve-php#519).
                 $this->degraded['link'] = 'an authored href attribute is not carried, because promoting it '
                     . 'would change the link destination; it is dropped rather than round-tripped';
-            }
-            if (!$node->isFromHeadingReference() && $node->getReferenceLabel() !== null) {
-                // A `[text][label]` reference, whose spelling the bridge cannot
-                // carry. Its `link_reference_definition` is unmapped, so the
-                // definition is gone, and `[text][label]` without one is the
-                // literal text rather than a link - writing the reference back
-                // would lose the link itself. The destination is kept and the
-                // inline form written instead, which renders identically.
-                //
-                // A document reaching the bridge from source always drops the
-                // definition too, so it is already outside the covered set; one
-                // decoded from AST JSON need not carry a definition at all, and
-                // there this is the only record that a reference was flattened
-                // (carve-php#1006).
-                $this->degraded['link'] = 'a reference link resolved through a `[label]: url` definition is '
-                    . 'written as its inline form, because the definition it points at is not carried';
             }
         }
 
