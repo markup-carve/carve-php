@@ -543,6 +543,14 @@ class ProseMirrorRenderer
             };
         }
 
+        // A Mention answers `mention` for both flavors, so the type alone cannot
+        // pick between the two names the map lists for it. Without this a `#tag`
+        // arrived in the editor as a carveMention and rendered with the mention
+        // extension - and carve-grammars, reading the same map, emits carveTag.
+        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
+            $type = 'tag';
+        }
+
         return SchemaMap::nameFor($type);
     }
 

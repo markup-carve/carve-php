@@ -1189,6 +1189,13 @@ class ProseMirrorToCarve
             $itemAttrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
             $checked = self::asBool($itemAttrs['checked'] ?? false);
             $this->setState($node, 'taskMarker', $checked ? 'x' : ' ');
+        } elseif ($node instanceof Mention && $proseMirrorName === 'carveTag') {
+            // The name is the only place the flavor survives: the map resolves
+            // carveTag back to `mention`, and a Mention with no class reads as a
+            // link. carve-grammars sends this shape for every `#tag`, and
+            // without the class it came back spelled `@tag` - a different
+            // sigil, a different concept, and nothing reported.
+            $this->setState($node, 'cssClass', 'tag');
         } elseif ($node instanceof Mention && $proseMirrorName === 'mention') {
             // The stock spelling brings the stock shape: tiptap's mention is an
             // atom with `id`/`label` attrs and no css class, where CarveKit's
@@ -1504,7 +1511,11 @@ class ProseMirrorToCarve
             return false;
         }
 
-        $node->appendChild(new Text(str_starts_with($label, '@') ? $label : '@' . $label));
+        // The sigil follows the flavor the class records, not the stock `@`.
+        // A carveTag arrives with its name in `id` and no sigil anywhere, so
+        // hardcoding `@` here rewrote every tag into a mention.
+        $sigil = $node->getCssClass() === 'tag' ? '#' : '@';
+        $node->appendChild(new Text(str_starts_with($label, $sigil) ? $label : $sigil . $label));
 
         return true;
     }

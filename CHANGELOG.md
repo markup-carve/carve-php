@@ -177,6 +177,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A `#tag` stays a tag across the ProseMirror bridge.** The schema map gives
+  `mention` two ProseMirror names and says `carveTag` is the `#tag` flavor, but
+  a Mention reports type `mention` whichever flavor it is, so the renderer never
+  narrowed and every tag reached the editor as a `carveMention`. The direction
+  that lost content is the other one: a `carveTag` node - the shape
+  carve-grammars emits for every tag - resolved back to `mention` and the label
+  helper hardcoded the mention sigil, so a tag written in a Tiptap editor came
+  back spelled as a mention. A different sigil, a different concept, and nothing
+  reported dropped or degraded. Both directions now select the flavor by name.
+
 - **A `<summary>` imports as the disclosure's label.** `<details>` already
   became a `::: details` admonition, but its `<summary>` fell through as
   ordinary block content. `DetailsExtension` takes the label from the opener's

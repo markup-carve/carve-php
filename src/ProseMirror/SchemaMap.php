@@ -22,6 +22,28 @@ use RuntimeException;
 final class SchemaMap
 {
     /**
+     * Wire types the published map deliberately does not name.
+     *
+     * `tag` is a real PART 12 type this engine produces, but the spec
+     * classifies it under `mention` for profile purposes - profiles.md says the
+     * vocabulary "does not list" it - so carve-grammars has no `tag` key and
+     * should not grow one. Restating it as a local entry is how this copy stops
+     * being a copy, and the entry that was here did nothing anyway: the
+     * renderer asks by node type and a Mention answers `mention` whatever its
+     * flavor, so nothing ever read it. A dead entry that satisfies the
+     * has-a-decision test is a check that cannot fail.
+     *
+     * An alias resolves through the entry that owns the name instead. The
+     * ProseMirror name is spelled out because it selects the flavor: `mention`
+     * maps to both, and which one applies is the whole question here.
+     *
+     * @var array<string, array{through: string, pm: string}>
+     */
+    private const ALIASES = [
+        'tag' => ['through' => 'mention', 'pm' => 'carveTag'],
+    ];
+
+    /**
      * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>}|null
      */
     private static ?array $data = null;
@@ -32,6 +54,11 @@ final class SchemaMap
      */
     public static function nameFor(string $carveType): ?string
     {
+        $alias = self::aliasName($carveType);
+        if ($alias !== null) {
+            return $alias;
+        }
+
         $entry = self::data()['types'][$carveType] ?? null;
         if ($entry === null) {
             return null;
@@ -52,6 +79,11 @@ final class SchemaMap
      */
     public static function namesFor(string $carveType): array
     {
+        $alias = self::aliasName($carveType);
+        if ($alias !== null) {
+            return [$alias];
+        }
+
         $entry = self::data()['types'][$carveType] ?? null;
         if ($entry === null) {
             return [];
@@ -62,7 +94,36 @@ final class SchemaMap
 
     public static function isMark(string $carveType): bool
     {
+        $carveType = self::ALIASES[$carveType]['through'] ?? $carveType;
+
         return (self::data()['types'][$carveType]['kind'] ?? null) === 'mark';
+    }
+
+    /**
+     * The ProseMirror name an aliased wire type takes, or null when the type is
+     * not aliased.
+     *
+     * The name is only accepted when the entry it resolves through still lists
+     * it. Upstream renaming `carveTag`, or dropping it from the `mention`
+     * entry, must surface as a type with no decision - which the corpus test
+     * reports - rather than as this engine emitting a name CarveKit no longer
+     * registers.
+     */
+    private static function aliasName(string $carveType): ?string
+    {
+        $alias = self::ALIASES[$carveType] ?? null;
+        if ($alias === null) {
+            return null;
+        }
+
+        $entry = self::data()['types'][$alias['through']] ?? null;
+        if ($entry === null) {
+            return null;
+        }
+
+        $names = is_array($entry['pm']) ? $entry['pm'] : [$entry['pm']];
+
+        return in_array($alias['pm'], $names, true) ? $alias['pm'] : null;
     }
 
     /**
@@ -110,7 +171,7 @@ final class SchemaMap
      */
     public static function mappedTypes(): array
     {
-        return array_keys(self::data()['types']);
+        return array_merge(array_keys(self::data()['types']), array_keys(self::ALIASES));
     }
 
     /**
