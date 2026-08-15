@@ -3,7 +3,7 @@
   "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "115a2b619e72aad0da3547649915ee9563e579fd",
+    "commit": "e09b460c23fceaf532f724f3ef73e0b6a355d4f7",
     "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
   },
   "carveSpecVocabulary": "spec/docs/profiles.md",
@@ -20,7 +20,7 @@
     "heading": {
       "kind": "node",
       "pm": "heading",
-      "notes": "level attr; only `id` survives as an attribute"
+      "notes": "level plus authored id, classes, and key/value attributes"
     },
     "text": {
       "kind": "node",
@@ -41,8 +41,7 @@
     },
     "thematic_break": {
       "kind": "node",
-      "pm": "horizontalRule",
-      "notes": "carveMarker carries the authored thematic-break character"
+      "pm": "horizontalRule"
     },
     "list": {
       "kind": "node",
@@ -120,6 +119,30 @@
       "kind": "node",
       "pm": "definitionDescription"
     },
+    "figure": {
+      "kind": "node",
+      "pm": "carveFigure"
+    },
+    "caption": {
+      "kind": "node",
+      "pm": "carveCaption"
+    },
+    "line_block": {
+      "kind": "node",
+      "pm": "carveLineBlock"
+    },
+    "raw_block": {
+      "kind": "node",
+      "pm": "carveRawBlock"
+    },
+    "comment": {
+      "kind": "node",
+      "pm": [
+        "carveComment",
+        "carveCommentInline"
+      ],
+      "notes": "block attr distinguishes %% line comments from fenced comments"
+    },
     "mention": {
       "kind": "node",
       "pm": [
@@ -140,6 +163,56 @@
       "kind": "node",
       "pm": "carveEmbed",
       "notes": "partial: only media embeds are modeled, via the directive stamped in carveSource"
+    },
+    "frontmatter": {
+      "kind": "node",
+      "pm": "carveFrontmatter",
+      "notes": "atom; content and format attrs"
+    },
+    "link_reference_definition": {
+      "kind": "node",
+      "pm": "carveLinkRefDef",
+      "notes": "atom; label, href and title attrs. Carrying the definition is what lets a `[text][label]` reference keep its spelling"
+    },
+    "inline_footnote": {
+      "kind": "node",
+      "pm": "carveInlineNote",
+      "notes": "inline content; the number is a resolution artifact and is not carried"
+    },
+    "raw_inline": {
+      "kind": "node",
+      "pm": "carveRawInline",
+      "notes": "inline atom; content and format attrs"
+    },
+    "literal_inline": {
+      "kind": "node",
+      "pm": "carveLiteral",
+      "notes": "inline atom; content attr"
+    },
+    "substitution": {
+      "kind": "node",
+      "pm": "carveSubstitution",
+      "notes": "inline atom; oldText and newText attrs"
+    },
+    "symbol": {
+      "kind": "node",
+      "pm": "carveSymbol",
+      "notes": "inline atom; name attr"
+    },
+    "citation_group": {
+      "kind": "node",
+      "pm": "carveCitation",
+      "notes": "inline atom; raw and integral attrs, plus items whose prefix/locator/suffix are ProseMirror inline arrays"
+    },
+    "heading_ref": {
+      "kind": "node",
+      "pm": "carveCrossref",
+      "notes": "inline atom; target attr. The resolved href is a resolution artifact and is not carried"
+    },
+    "section": {
+      "kind": "node",
+      "pm": "carveSection",
+      "notes": "a rendering wrapper: the bridge hoists its children through a carveSection node so the heading and body survive"
     },
     "strong": {
       "kind": "mark",
@@ -203,88 +276,10 @@
       "kind": "mark",
       "pm": "link",
       "notes": "profile vocabulary only: an autolink is a link whose text is its destination"
-    },
-    "figure": {
-      "kind": "node",
-      "pm": "carveFigure",
-      "notes": "content is the target block(s) plus a carveCaption child; a structured format's short caption rides as a second carveCaption carrying short=true"
-    },
-    "caption": {
-      "kind": "node",
-      "pm": "carveCaption",
-      "notes": "a figure's caption is a child; a table's caption is emitted as the table's leading carveCaption child, because it hangs off the table as state"
-    },
-    "section": {
-      "kind": "node",
-      "pm": "carveSection",
-      "notes": "a rendering wrapper: the bridge hoists its children through a carveSection node so the heading and body survive"
-    },
-    "line_block": {
-      "kind": "node",
-      "pm": "carveLineBlock",
-      "notes": "the `::: |` container; block children, every newline inside is a hard break. CarveKit's mode attr is editor bookkeeping"
-    },
-    "comment": {
-      "kind": "node",
-      "pm": [
-        "carveComment",
-        "carveCommentInline"
-      ],
-      "notes": "the text is the single text child, the codeBlock shape; the block attr distinguishes %% line comments from fenced comments. carveCommentInline is CarveKit's inline atom for a line comment after paragraph text and carries its text in a content attr"
-    },
-    "frontmatter": {
-      "kind": "node",
-      "pm": "carveFrontmatter",
-      "notes": "atom; content and format attrs"
-    },
-    "raw_block": {
-      "kind": "node",
-      "pm": "carveRawBlock",
-      "notes": "format attr; the payload is the single text child, the same shape codeBlock uses"
-    },
-    "link_reference_definition": {
-      "kind": "node",
-      "pm": "carveLinkRefDef",
-      "notes": "atom; label, href and title attrs. Carrying the definition is what lets a `[text][label]` reference keep its spelling"
-    },
-    "inline_footnote": {
-      "kind": "node",
-      "pm": "carveInlineNote",
-      "notes": "inline content; the number is a resolution artifact and is not carried"
-    },
-    "raw_inline": {
-      "kind": "node",
-      "pm": "carveRawInline",
-      "notes": "inline atom; content and format attrs"
-    },
-    "literal_inline": {
-      "kind": "node",
-      "pm": "carveLiteral",
-      "notes": "inline atom; content attr"
-    },
-    "substitution": {
-      "kind": "node",
-      "pm": "carveSubstitution",
-      "notes": "inline atom; oldText and newText attrs"
-    },
-    "symbol": {
-      "kind": "node",
-      "pm": "carveSymbol",
-      "notes": "inline atom; name attr"
-    },
-    "citation_group": {
-      "kind": "node",
-      "pm": "carveCitation",
-      "notes": "inline atom; raw and integral attrs, plus items whose prefix/locator/suffix are ProseMirror inline arrays"
-    },
-    "heading_ref": {
-      "kind": "node",
-      "pm": "carveCrossref",
-      "notes": "inline atom; target attr. The resolved href is a resolution artifact and is not carried"
     }
   },
   "unmapped": {
-    "abbreviation_def": "abbreviation definitions are document metadata: they ride on the doc node's attrs and are rebuilt as nodes on the way back",
+    "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
