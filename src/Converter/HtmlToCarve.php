@@ -2635,10 +2635,7 @@ class HtmlToCarve
         $dlAttrs = $this->formatBlockAttributes($node);
         $output = $dlAttrs !== '' ? $dlAttrs . "\n" : '';
 
-        foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
+        foreach ($this->definitionListEntries($node) as $child) {
             $tag = strtolower($child->tagName);
             if ($tag === 'dt') {
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
@@ -2652,6 +2649,57 @@ class HtmlToCarve
         }
 
         return $output . "\n";
+    }
+
+    /**
+     * The `dt`/`dd` elements of a definition list, in document order.
+     *
+     * HTML5 gives `dl` two content models: term/definition elements as direct
+     * children, or one `div` per group wrapping them. Reading only the direct
+     * children saw nothing at all in the second form, so a div-wrapped list
+     * converted to an empty document - every term and every definition gone,
+     * with no diagnostic. Word, Google Docs and several editors emit the
+     * wrapped form because it is the one CSS grid can style.
+     *
+     * The wrapper is unwrapped transparently: it groups rows for styling and
+     * carries no meaning Carve's `::` form spells. Its attributes go the same
+     * way `dt`/`dd` attributes already do, since neither has a representation
+     * on a definition line.
+     *
+     * Only one level unwraps, which is the only level HTML5 allows. A `div`
+     * nested inside the wrapper is not a group and its terms stay unread,
+     * rather than the converter inventing a flattening the source did not say.
+     *
+     * @return list<\DOMElement>
+     */
+    protected function definitionListEntries(DOMElement $node): array
+    {
+        $entries = [];
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if ($tag === 'dt' || $tag === 'dd') {
+                $entries[] = $child;
+
+                continue;
+            }
+            if ($tag !== 'div') {
+                continue;
+            }
+            foreach ($child->childNodes as $wrapped) {
+                if (!$wrapped instanceof DOMElement) {
+                    continue;
+                }
+                $wrappedTag = strtolower($wrapped->tagName);
+                if ($wrappedTag === 'dt' || $wrappedTag === 'dd') {
+                    $entries[] = $wrapped;
+                }
+            }
+        }
+
+        return $entries;
     }
 
     /**

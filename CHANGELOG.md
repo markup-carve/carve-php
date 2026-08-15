@@ -162,6 +162,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A `div`-grouped definition list survives HTML import.** HTML5 gives `dl`
+  two content models - `dt`/`dd` as direct children, or one `div` per group
+  wrapping them - and only the first was read. The second converted to an
+  empty document: every term and every definition gone, with no diagnostic
+  saying so. Word, Google Docs and several editors emit the wrapped form
+  because it is the one CSS grid can style. The wrapper is now unwrapped
+  transparently, so both spellings import to the same definition list; its
+  attributes are dropped the way `dt`/`dd` attributes already are, neither
+  having a representation on a `::` line.
+
 - **An unresolved `</#id>` cross-reference stays readable in Markdown link
   text.** The marker was written `\</#nope>` inside a link and `</#nope>`
   everywhere else, so one construct had two spellings depending on where it
