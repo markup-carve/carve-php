@@ -162,6 +162,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An unresolved `</#id>` cross-reference stays readable in Markdown link
+  text.** The marker was written `\</#nope>` inside a link and `</#nope>`
+  everywhere else, so one construct had two spellings depending on where it
+  stood. A cross-reference inside a link would render as a nested anchor, so it
+  is flattened to text before any renderer runs, and on that one path the
+  marker missed the treatment `renderHeadingRef()` gives it. The writer's own
+  `</#` and `>` are now literal wherever the marker stands, while the id
+  between them still takes the HTML pass, so `</#a<script>` remains inert. This
+  was the last Markdown-target difference between this engine and carve-js
+  across the 1006-document corpus.
+
 - **A footnote inside an unresolved reference no longer publishes a number**
   (#1269). PART 9R R2 rules that such a note is not a reference: the reference
   degrades to its literal source, so the text it held is discarded and the note
