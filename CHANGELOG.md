@@ -162,6 +162,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`<ol type="a">` imports as a numbering style, not a raw attribute.** The
+  importer wrote a `{type=a}` attribute block above a decimal list. That
+  renders an `<ol type="a">` again, which is why it looked done, but the tree
+  carried `attrs.type` and never the `olType` field the style belongs in, so
+  every consumer reading the AST rather than the HTML saw a decimal list. The
+  attribute block is also only written for a top-level list, so a nested
+  `<ol type="i">` lost its style outright. All four styles are now written in
+  the marker itself - `a.`, `A.`, `i.`, `I.` - at any depth, and `type="1"` is
+  written as the plain decimal it means. Across 180 type/start/length
+  combinations, 142 now reach the tree as `olType` where none did before; the
+  remaining 38 have no marker spelling (an alphabetic sequence running past
+  `z`, or a one-item alphabetic list starting on a letter that reads as a
+  Roman numeral) and keep the attribute, which still renders the right `<ol>`.
+
+- **A list nested under an alphabetic or Roman marker keeps its indentation.**
+  The importer's cleanup pass recognized only `\d+.` as an ordered marker, so
+  an item written `a.` or `iv.` fell through to the branch that strips leading
+  whitespace, and a list nested under it dedented out of its parent.
+
+- **`<ins>` no longer reports an unwrapping that does not happen.** It has its
+  own `{+ +}` marker, like the `<del>` twin, but was missing from the elements
+  the importer knows - so every import of one carried a spurious
+  `element-unwrapped` diagnostic.
+
 - **A `div`-grouped definition list survives HTML import.** HTML5 gives `dl`
   two content models - `dt`/`dd` as direct children, or one `div` per group
   wrapping them - and only the first was read. The second converted to an

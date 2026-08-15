@@ -346,6 +346,11 @@ class HtmlToCarve
             'aside', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search', 'details', 'summary',
             'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em',
             'i', 'u', 's', 'strike',
+            // `ins` sits next to its `del` twin: both have a marker of their
+            // own (`{+ +}` and `{- -}`) and neither is unwrapped, so reporting
+            // one as replaced by Carve span metadata described a loss that
+            // does not happen.
+            'ins',
             'del', 'mark', 'sub', 'sup', 'code', 'pre', 'a', 'img', 'br', 'hr',
             'span', 'ul', 'ol',
             'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th',
@@ -1694,6 +1699,169 @@ class HtmlToCarve
         return $text;
     }
 
+    /**
+     * The single letters a Roman numeral is built from.
+     *
+     * An alphabetic marker that happens to be one of them reads as the Roman
+     * value when nothing else in the list contradicts it, which is why a
+     * one-item alphabetic list starting at `i`, `v`, `x`, `l`, `c`, `d` or `m`
+     * has no spelling of its own.
+     *
+     * @var list<string>
+     */
+    protected const ROMAN_LETTERS = ['i', 'v', 'x', 'l', 'c', 'd', 'm'];
+
+    /**
+     * @var array<string, int>
+     */
+    protected const ROMAN_VALUES = [
+        'M' => 1000,
+        'CM' => 900,
+        'D' => 500,
+        'CD' => 400,
+        'C' => 100,
+        'XC' => 90,
+        'L' => 50,
+        'XL' => 40,
+        'X' => 10,
+        'IX' => 9,
+        'V' => 5,
+        'IV' => 4,
+        'I' => 1,
+    ];
+
+    /**
+     * The numbering style this `ol` should be written with, or null for decimal.
+     *
+     * `<ol type="a">` used to leave a raw `{type=a}` attribute block above a
+     * decimal list. That renders an `<ol type="a">` again, which is why it
+     * looked done, but the tree carried `attrs.type` and never the `olType`
+     * field the style belongs in - so every consumer reading the AST rather
+     * than the HTML saw a decimal list. Worse, the attribute block is only
+     * written for a top-level list, so a nested `<ol type="i">` lost its style
+     * outright. Carve spells all four styles in the marker itself, so the
+     * marker is where the style goes.
+     *
+     * Null keeps the previous behavior, and deliberately: the two shapes below
+     * have no marker spelling at all, and a raw attribute that still renders
+     * the right `<ol>` beats markers that would re-parse as a different list.
+     */
+    protected function orderedListNumberingStyle(DOMElement $node): ?string
+    {
+        $type = $node->getAttribute('type');
+        if (!in_array($type, ['a', 'A', 'i', 'I'], true)) {
+            return null;
+        }
+
+        $start = $node->hasAttribute('start') ? (int)$node->getAttribute('start') : 1;
+        if ($start < 1) {
+            return null;
+        }
+        $count = max(1, $this->orderedListItemCount($node));
+        $last = $start + $count - 1;
+
+        if ($type === 'i' || $type === 'I') {
+            // A Roman marker is never mistaken for an alphabetic one: past the
+            // first item it is more than one letter, and on the first the
+            // parser resolves the overlap to Roman, which is what was meant.
+            // There is no upper bound, because the additive form above 3999
+            // (`MMMM.`) is one this parser reads and CarveRenderer already
+            // writes; a cutoff here would be this converter's own rule.
+            return $type;
+        }
+
+        // Alphabetic markers are a single letter, so the sequence has to stay
+        // inside a-z; `aa.` is not a marker and would come back as a paragraph.
+        if ($start > 26 || $last > 26) {
+            return null;
+        }
+
+        // Two or more items settle the Roman overlap by themselves - no two
+        // single-letter Roman numerals are consecutive, so `c. d.` can only be
+        // alphabetic. One item cannot, and reads as the Roman value.
+        if ($count < 2 && in_array(strtolower($this->alphabeticMarker($start)), self::ROMAN_LETTERS, true)) {
+            return null;
+        }
+
+        return $type;
+    }
+
+    /**
+     * How many items this list will actually write markers for.
+     */
+    protected function orderedListItemCount(DOMElement $node): int
+    {
+        $count = 0;
+        foreach ($node->childNodes as $child) {
+            if (
+                $child instanceof DOMElement
+                && strtolower($child->tagName) === 'li'
+                && !$child->hasAttribute('data-djot-inline-footnote')
+            ) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * The marker text for the nth item in a numbering style.
+     */
+    protected function orderedListMarkerText(int $number, ?string $style): string
+    {
+        if ($style === 'a' || $style === 'A') {
+            if ($number < 1 || $number > 26) {
+                // Outside a-z there is no alphabetic marker, and
+                // orderedListNumberingStyle() does not choose the style there.
+                // Should it ever be reached anyway, a decimal marker is a
+                // marker, where a letter past `z` is not one.
+                return (string)$number;
+            }
+            $letter = $this->alphabeticMarker($number);
+
+            return $style === 'a' ? strtolower($letter) : $letter;
+        }
+
+        return match ($style) {
+            'i' => strtolower($this->romanMarker($number)),
+            'I' => $this->romanMarker($number),
+            default => (string)$number,
+        };
+    }
+
+    /**
+     * The nth uppercase letter, counting from 1. Outside 1..26 there is no
+     * letter and the caller has already chosen a different marker.
+     */
+    protected function alphabeticMarker(int $number): string
+    {
+        return substr('ABCDEFGHIJKLMNOPQRSTUVWXYZ', $number - 1, 1);
+    }
+
+    /**
+     * The uppercase Roman numeral for a positive integer.
+     *
+     * Deliberately the same numeral CarveRenderer writes, additive form above
+     * 3999 included, so a list does not get one spelling on the way in and
+     * another on the way out. Its alphabetic companion is NOT copied: that one
+     * wraps past `z` with a modulo, which is right for a writer whose reader
+     * has the `start` alongside, and wrong here, where a wrapped letter would
+     * re-parse as a list starting somewhere else.
+     */
+    protected function romanMarker(int $number): string
+    {
+        $result = '';
+        foreach (self::ROMAN_VALUES as $numeral => $value) {
+            while ($number >= $value) {
+                $result .= $numeral;
+                $number -= $value;
+            }
+        }
+
+        return $result;
+    }
+
     protected function processList(DOMElement $node): string
     {
         $this->listDepth++;
@@ -1722,10 +1890,20 @@ class HtmlToCarve
             $marker = $this->alternatingBulletMarker($node);
         }
 
+        $olType = $isOrdered ? $this->orderedListNumberingStyle($node) : null;
+
         // Add leading newline for top-level lists to ensure blank line before
         if ($this->listDepth === 1) {
             // Add list-level attributes (skip 'start', 'data-marker', 'class' for task-list)
             $skipAttrs = $isOrdered ? ['start', 'data-marker'] : ['data-marker'];
+            if ($olType !== null || ($isOrdered && $node->getAttribute('type') === '1')) {
+                // The markers below carry the numbering style, so writing the
+                // attribute as well would say it twice - and as a raw attribute
+                // rather than as the `olType` the style belongs in. Decimal is
+                // what an absent style means, so `type="1"` needs no spelling
+                // at all.
+                $skipAttrs[] = 'type';
+            }
             if ($isTaskList) {
                 $skipAttrs[] = 'class';
                 $skipAttrs[] = 'data-type';
@@ -1754,7 +1932,9 @@ class HtmlToCarve
                     $checkbox = $isChecked ? '[x] ' : '[ ] ';
                 }
 
-                $prefix = $isOrdered ? $counter . $marker . ' ' : $marker . ' ' . $checkbox;
+                $prefix = $isOrdered
+                    ? $this->orderedListMarkerText($counter, $olType) . $marker . ' '
+                    : $marker . ' ' . $checkbox;
 
                 // Process list item content, separating nested lists from other content
                 $contentParts = [];
@@ -3421,8 +3601,15 @@ class HtmlToCarve
                 continue;
             }
 
-            // Preserve indentation for list items and track list context
-            if (preg_match('/^(\s*)([-*+]|\d+\.)\s/', $line, $m)) {
+            // Preserve indentation for list items and track list context.
+            //
+            // An ordered marker is not only decimal: `a.`, `A.`, `iv.` and
+            // `IV.` are markers too, and the parser reads them as such. While
+            // only `\d+\.` was recognized here, an alphabetic or Roman item
+            // fell through to the ltrim branch, so a list nested under one lost
+            // its indentation and dedented out of its parent - which only
+            // showed up once anything emitted those markers.
+            if (preg_match('/^(\s*)([-*+]|\d+\.|[A-Za-z]\.|[ivxlcdm]{2,}\.|[IVXLCDM]{2,}\.)\s/', $line, $m)) {
                 $result[] = $line;
                 $inDefinitionList = false;
                 $inList = true;
