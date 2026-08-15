@@ -120,7 +120,7 @@ class RetiredSpellingLinter
                     $sigil,
                     $sigil,
                     $block,
-                    self::ALIGNMENT_NAMES[$alignment] ?? $alignment,
+                    self::ALIGNMENT_NAMES[$alignment],
                     $block,
                     $sigil,
                     $sigil,

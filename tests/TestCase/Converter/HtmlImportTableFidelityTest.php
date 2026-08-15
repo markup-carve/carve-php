@@ -349,7 +349,7 @@ class HtmlImportTableFidelityTest extends TestCase
 
         $this->assertSame(
             "<table>\n"
-            . "  <thead><tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>"
+            . '  <thead><tr><th scope="col">A</th><th scope="col">B</th></tr>'
             . "<tr><th scope=\"col\" class=\"k\">C</th><th scope=\"col\">D</th></tr></thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td><td>2</td></tr>\n"
