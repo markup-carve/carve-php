@@ -1282,13 +1282,18 @@ HTML;
         $this->assertStringContainsString('<td class="c">x</td>', (new CarveConverter())->convert($carve));
     }
 
-    public function testHeaderCellAttributesAreGluedToTheOpeningPipe(): void
+    /**
+     * A HEADER cell's block glues to the `=` rather than to the pipe: PART 9 §5
+     * T10 binds the block after the marker run, which is the order that makes
+     * an attributed header cell spellable at all.
+     */
+    public function testHeaderCellAttributesAreGluedToTheHeaderMarker(): void
     {
         $carve = $this->converter->convert(
             '<table><tr><th class="c">h</th></tr><tr><td>x</td></tr></table>',
         );
 
-        $this->assertStringContainsString('|{.c} h |', $carve);
+        $this->assertStringContainsString('|={.c} h |', $carve);
         $this->assertStringContainsString('<th scope="col" class="c">h</th>', (new CarveConverter())->convert($carve));
     }
 

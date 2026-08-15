@@ -178,15 +178,6 @@ class HtmlImportTableFidelityTest extends TestCase
                 '<table><thead><tr><th>A</th><td>B</td></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>',
                 'The table head changes from 1 to 0 row(s)',
             ],
-            'a header cell below the head carrying attributes' => [
-                '<table><tr><th>H</th><th>H2</th></tr><tr><th class="k">R</th><td>1</td></tr></table>',
-                '1 header cell(s) become data cells',
-            ],
-            'a second leading header row carrying attributes' => [
-                '<table><tr><th>A</th><th>B</th></tr><tr><th class="k">C</th><th>D</th></tr>'
-                    . '<tr><td>1</td><td>2</td></tr></table>',
-                '1 header cell(s) become data cells',
-            ],
         ];
     }
 
@@ -290,8 +281,7 @@ class HtmlImportTableFidelityTest extends TestCase
     /**
      * CONTROL. Two leading header rows both reach the head: the second is
      * written with its own `|=` markers and the leading-run rule reads it back
-     * into the head. Only a cell that also carries attributes breaks that, and
-     * the case above reports it.
+     * into the head.
      */
     public function testTwoLeadingHeaderRowsBothReachTheHead(): void
     {
@@ -307,15 +297,66 @@ class HtmlImportTableFidelityTest extends TestCase
     }
 
     /**
-     * CONTROL. A header row whose cells carry attributes keeps the delimiter
-     * form, where the row after it is what promotes the cells - so those cells
-     * must NOT also take a marker.
+     * A header row whose cells carry attributes is written in the native form:
+     * PART 9 §5 T10 binds the block after the marker run, so `|={.k} A |` is a
+     * header cell that keeps both. It used to need the delimiter form, where
+     * the row below promotes the cells and no cell may carry a marker of its
+     * own.
      */
-    public function testAnAttributedHeadRowKeepsTheDelimiterForm(): void
+    public function testAnAttributedHeadRowUsesTheNativeMarkerForm(): void
     {
+        $html = '<table><tr><th class="k">A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>';
+
+        $this->assertSame("|={.k} A |= B |\n| 1 | 2 |\n", $this->converter->convert($html));
         $this->assertSame(
-            "|{.k} A | B |\n|---|---|\n| 1 | 2 |\n",
-            $this->converter->convert('<table><tr><th class="k">A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>'),
+            "<table>\n"
+            . "  <thead><tr><th scope=\"col\" class=\"k\">A</th><th scope=\"col\">B</th></tr></thead>\n"
+            . "  <tbody>\n"
+            . "    <tr><td>1</td><td>2</td></tr>\n"
+            . "  </tbody>\n"
+            . "</table>\n",
+            $this->reimport($html),
         );
+    }
+
+    /**
+     * An attributed header cell BELOW the head keeps both its attributes and
+     * its header, and reports no loss.
+     *
+     * This pair used to be the `table-degraded` case "N header cell(s) become
+     * data cells": the only shape available was `|{.k}= R |`, whose `=` is
+     * content, so the cell arrived as `<td class="k">=R</td>`. The report is
+     * gone because the loss is - the test measures the cell that comes back,
+     * not the wording of a diagnostic.
+     */
+    public function testAnAttributedHeaderCellBelowTheHeadSurvives(): void
+    {
+        $html = '<table><tr><th>H</th><th>H2</th></tr><tr><th class="k">R</th><td>1</td></tr></table>';
+
+        $this->assertStringContainsString('<th scope="row" class="k">R</th>', $this->reimport($html));
+        $this->assertSame([], $this->diagnosticCodes($html));
+    }
+
+    /**
+     * The same, for a SECOND leading header row: it depends on every one of its
+     * cells carrying `=` to stay in the head at all, so an attributed cell used
+     * to drop the row out of the head as well as out of the header.
+     */
+    public function testASecondLeadingHeaderRowKeepsItsAttributedCell(): void
+    {
+        $html = '<table><tr><th>A</th><th>B</th></tr><tr><th class="k">C</th><th>D</th></tr>'
+            . '<tr><td>1</td><td>2</td></tr></table>';
+
+        $this->assertSame(
+            "<table>\n"
+            . '  <thead><tr><th scope="col">A</th><th scope="col">B</th></tr>'
+            . "<tr><th scope=\"col\" class=\"k\">C</th><th scope=\"col\">D</th></tr></thead>\n"
+            . "  <tbody>\n"
+            . "    <tr><td>1</td><td>2</td></tr>\n"
+            . "  </tbody>\n"
+            . "</table>\n",
+            $this->reimport($html),
+        );
+        $this->assertSame([], $this->diagnosticCodes($html));
     }
 }

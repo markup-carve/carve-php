@@ -280,13 +280,9 @@ class SemanticAttributeLinter
     }
 
     /**
-     * The byte offset a codepoint offset names.
-     *
-     * A `SourceSpan` counts CODEPOINTS, because PART 12 §4 says so. A
-     * `LintWarning` carries BYTE offsets, because that is what a PHP caller
-     * slices a string with and what this package's other lint pass has always
-     * emitted - two rules in one `carve lint` run reporting in two different
-     * units would be a defect of its own.
+     * The byte offset a codepoint offset names. The conversion itself lives in
+     * `SourceOffsets`, so a second AST-walking pass cannot convert differently
+     * from this one.
      *
      * @param int $codepointOffset
      * @param array<int, int>|null $byteAt
@@ -294,37 +290,17 @@ class SemanticAttributeLinter
      */
     private function toByteOffset(int $codepointOffset, ?array $byteAt, int $sourceLength): int
     {
-        if ($byteAt === null) {
-            return min($codepointOffset, $sourceLength);
-        }
-
-        return $byteAt[$codepointOffset] ?? $sourceLength;
+        return SourceOffsets::toByte($codepointOffset, $byteAt, $sourceLength);
     }
 
     /**
-     * Byte offset of each codepoint, for codepoints 0..count, or null when the
-     * source is pure ASCII and the two units are the same number.
+     * Byte offset of each codepoint, or null when the source is pure ASCII.
      *
      * @return array<int, int>|null
      */
     private function byteOffsets(string $source): ?array
     {
-        if (!preg_match('/[\x80-\xFF]/', $source)) {
-            return null;
-        }
-
-        $map = [];
-        $length = strlen($source);
-        for ($i = 0; $i <= $length; $i++) {
-            // Continuation bytes (10xxxxxx) do not begin a codepoint, and the
-            // one past the end always does - a span may end at the document's
-            // last offset.
-            if ($i === $length || (ord($source[$i]) & 0xC0) !== 0x80) {
-                $map[] = $i;
-            }
-        }
-
-        return $map;
+        return SourceOffsets::map($source);
     }
 
     /**

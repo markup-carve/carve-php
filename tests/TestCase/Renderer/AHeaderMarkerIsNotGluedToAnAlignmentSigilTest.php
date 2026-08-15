@@ -89,13 +89,19 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     }
 
     /**
-     * CONTROL. A cell carrying an ATTRIBUTE BLOCK has no tight marker at all -
-     * the parser says so where it calls parseTableCellMarker - so its content is
-     * literal and no separator is written.
+     * CONTROL. A cell carrying an ATTRIBUTE BLOCK spends the alignment scan on
+     * the block: PART 9 §5 T10 binds it AFTER the marker run, so everything
+     * past the closing brace is content and no separating hazard is left.
+     *
+     * The written shape changed with T10 and the property did not. The block
+     * used to be spelled ahead of the `=`, where it made a header cell
+     * unspellable, so the writer fell back to a delimiter row (`|{.k}~x~|` over
+     * `|---|`). It now spells the header directly, and `~x~` is still
+     * strikethrough on the way back.
      */
     public function testACellWithAnAttributeBlockIsUnaffected(): void
     {
-        $this->assertSame("|{.k}~x~|\n|---|\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
+        $this->assertSame("|={.k} ~x~ |\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
         $this->assertRoundTrips("|{.k} ~x~ |\n|---|\n| y |\n");
     }
 

@@ -452,8 +452,8 @@ Rendering:
 
 Formatter:
   lint                Report markup that renders as something else: Markdown
-                      habits, and semantic span attributes that lose a value or
-                      sit outside a span
+                      habits, semantic span attributes that lose a value or sit
+                      outside a span, and source written to a retired spelling
   lint --platform NAME
                       Also report host autolinks a platform re-linkifies
                       (repeatable; off unless named)
@@ -522,6 +522,7 @@ if (($options['command'] ?? null) === 'lint') {
 
     $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
     $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
+    $retiredLinter = new MarkupCarve\Carve\Lint\RetiredSpellingLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -550,6 +551,7 @@ if (($options['command'] ?? null) === 'lint') {
         $warnings = array_merge(
             $linter->lint($source, ['platforms' => $options['platforms']]),
             $semanticLinter->lint($source),
+            $retiredLinter->lint($source),
         );
         usort(
             $warnings,
