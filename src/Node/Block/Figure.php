@@ -9,7 +9,7 @@ namespace MarkupCarve\Carve\Node\Block;
  *
  * Used to wrap:
  * - Images with captions → <figure><img>...<figcaption>...</figcaption></figure>
- * - Blockquotes with attribution → <figure><blockquote>...<figcaption>...</figcaption></figure>
+ * - Block quotes with captions → <figure><blockquote>...<figcaption>...</figcaption></figure>
  *
  * Tables with captions use the <caption> element inside the table instead.
  */

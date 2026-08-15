@@ -176,20 +176,16 @@ class HtmlImportSemanticSpanTest extends TestCase
         );
     }
 
-    /**
-     * A `<cite>` that is the quote's ATTRIBUTION keeps going to the caption
-     * line below the quote. Only an ordinary inline `<cite>` becomes a span.
-     */
-    public function testABlockQuoteAttributionCiteStaysAnAttribution(): void
+    public function testACiteInsideABlockQuoteIsOrdinaryQuotedContent(): void
     {
         $converter = new HtmlToCarve();
 
         $this->assertSame(
-            "> q\n^ Author",
+            "> q\n>\n> [Author]{cite}",
             trim($converter->convert('<blockquote><p>q</p><cite>Author</cite></blockquote>')),
         );
         $this->assertSame(
-            "> [C]{cite} said it\n^ Author",
+            "> [C]{cite} said it\n>\n> [Author]{cite}",
             trim($converter->convert(
                 '<blockquote><p><cite>C</cite> said it</p><cite>Author</cite></blockquote>',
             )),

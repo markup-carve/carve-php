@@ -98,21 +98,17 @@ class CaptionTrailingWhitespaceTest extends TestCase
     }
 
     /**
-     * The three remaining caption hosts. A code block becomes a figure with the
-     * same caption and a block quote takes an attribution instead, and all five
-     * `new Caption()` sites in the parser read ONE `$captionText` - so the rule
-     * is applied once, where that text is built, rather than five times where
-     * it is consumed.
+     * The three remaining caption hosts. A code block and a block quote each
+     * become a figure with the same caption, and all five `new Caption()` sites
+     * in the parser read ONE `$captionText` - so the rule is applied once,
+     * where that text is built, rather than five times where it is consumed.
      */
     public function testEveryCaptionHostDropsTheTrailingSpace(): void
     {
         // A code block's body is a scalar, not a text node, so the caption is
         // the whole of the first list.
         $this->assertSame(['Cap'], $this->textValues("```\ncode\n```\n^ Cap \n"));
-        // A quote's caption is its ATTRIBUTION (PART 9 §4a, carve#1159), which
-        // sorts before `children` on the wire - so the attribution text leads,
-        // the way a table caption does.
-        $this->assertSame(['Cap', 'q'], $this->textValues("> q\n\n^ Cap \n"));
+        $this->assertSame(['q', 'Cap'], $this->textValues("> q\n\n^ Cap \n"));
     }
 
     /**

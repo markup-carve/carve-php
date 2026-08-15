@@ -32,9 +32,7 @@
     "required": []
   },
   "block_quote": {
-    "fields": [
-      "attribution"
-    ],
+    "fields": [],
     "required": []
   },
   "caption_number": {

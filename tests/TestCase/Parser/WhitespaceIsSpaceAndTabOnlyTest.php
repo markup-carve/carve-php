@@ -243,8 +243,8 @@ class WhitespaceIsSpaceAndTabOnlyTest extends TestCase
     public function testAVerticalTabCaptionCaptionsABlockQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>q</p>\n  <footer>"
-                . self::VT . "</footer>\n</blockquote>\n",
+            "<figure>\n  <blockquote><p>q</p></blockquote>\n  <figcaption>"
+                . self::VT . "</figcaption>\n</figure>\n",
             $this->converter->convert("> q\n^ " . self::VT . "\n"),
         );
     }

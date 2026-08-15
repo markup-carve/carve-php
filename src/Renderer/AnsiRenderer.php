@@ -880,30 +880,6 @@ class AnsiRenderer implements RendererInterface
         $content = $this->renderChildren($node);
         $this->blockQuoteDepth--;
 
-        // Keeps the styling the caption had while a quote was a figure, so a
-        // terminal reader sees the same thing in a different place.
-        //
-        // PART 11 section 10c T2: it also carries the QUOTE BAR. The bar is
-        // already this target's marker for "inside the quote", and the
-        // attribution was the one line in the quote that did not get it - so the
-        // source read as a separate block that merely happened to follow.
-        // Nothing new is invented; the prefix the body lines already use is
-        // applied one line further. The caption's own trailing separator is
-        // trimmed BEFORE prefixing, or the bar would be drawn on blank lines and
-        // the quote would appear to continue past its end.
-        $attribution = $node->getAttribution();
-        if ($attribution !== null) {
-            $this->blockQuoteDepth++;
-            $bar = $this->getBlockQuotePrefix();
-            $this->blockQuoteDepth--;
-            $rendered = rtrim($this->renderCaption($attribution), "\n");
-            $prefixed = implode("\n", array_map(
-                fn (string $line): string => $bar . $line,
-                explode("\n", $rendered),
-            ));
-            $content = rtrim($content, "\n") . "\n" . rtrim($bar) . "\n" . $prefixed . "\n\n";
-        }
-
         return $content;
     }
 
