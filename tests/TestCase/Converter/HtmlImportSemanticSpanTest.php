@@ -27,8 +27,8 @@ class HtmlImportSemanticSpanTest extends TestCase
         return [
             // The three core names.
             'kbd' => ['<p>Press <kbd>Tab</kbd></p>', 'Press [Tab]{kbd}'],
-            'abbr with title' => ['<p><abbr title="HyperText">HTML</abbr></p>', '[HTML]{abbr="HyperText"}'],
-            'time with datetime' => ['<p><time datetime="2026-01-01">today</time></p>', '[today]{time="2026-01-01"}'],
+            'abbr with title' => ['<p><abbr title="HyperText">HTML</abbr></p>', '[HTML]{abbr=HyperText}'],
+            'time with datetime' => ['<p><time datetime="2026-01-01">today</time></p>', '[today]{time=2026-01-01}'],
             // The four SemanticSpanExtension adds.
             'samp' => ['<p><samp>out</samp></p>', '[out]{samp}'],
             'var' => ['<p><var>v</var></p>', '[v]{var}'],
@@ -89,7 +89,7 @@ class HtmlImportSemanticSpanTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><abbr class="x" id="z" title="y">A</abbr></p>');
 
-        $this->assertSame('[A]{abbr="y" #z .x}', trim($result->value));
+        $this->assertSame('[A]{#z .x abbr=y}', trim($result->value));
         $this->assertSame([], array_column($result->report()['diagnostics'], 'code'));
     }
 
@@ -97,7 +97,7 @@ class HtmlImportSemanticSpanTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><time id="z" datetime="2026-01-01">today</time></p>');
 
-        $this->assertSame('[today]{time="2026-01-01" #z}', trim($result->value));
+        $this->assertSame('[today]{#z time=2026-01-01}', trim($result->value));
         $this->assertSame([], array_column($result->report()['diagnostics'], 'code'));
     }
 
@@ -171,7 +171,7 @@ class HtmlImportSemanticSpanTest extends TestCase
         $this->assertSame('=m=', trim($converter->convert('<p><mark>m</mark></p>')));
         $this->assertSame('`c`', trim($converter->convert('<p><code>c</code></p>')));
         $this->assertSame(
-            "```js\nx()\n```",
+            "``` js\nx()\n```",
             trim($converter->convert('<pre><code class="language-js">x()</code></pre>')),
         );
     }
@@ -194,6 +194,51 @@ class HtmlImportSemanticSpanTest extends TestCase
                 '<blockquote><p><cite>C</cite> said it</p><cite>Author</cite></blockquote>',
             )),
         );
+    }
+
+    /**
+     * The importer's source output is what the canonical writer writes, byte
+     * for byte.
+     *
+     * `docs/html-import.md` ends the import pipeline at the canonical writer
+     * ("use the normal Carve writer for source output") and makes it the
+     * reference a shared fixture is compared against. This importer builds its
+     * source by hand, so nothing structural enforces that - and it drifted in
+     * three separate places: an always-quoted attribute value where the writer
+     * quotes only what it must, the consumed name ahead of `#id .class` where
+     * the writer's slot order puts it last, and a code fence with no space
+     * before the language word.
+     *
+     * Asserting the fixed point rather than the spellings is what makes this
+     * catch the next one: any output the writer would rewrite fails here,
+     * including a shape nobody thought to enumerate.
+     */
+    #[DataProvider('canonicalWriterProvider')]
+    public function testImporterOutputIsAFixedPointOfTheCanonicalWriter(string $html): void
+    {
+        $imported = (new HtmlToCarve())->convert($html);
+
+        $this->assertSame($imported, CarveConverter::carve()->convert($imported), $html);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function canonicalWriterProvider(): array
+    {
+        $cases = [
+            'abbr with an unquotable value' => '<p><abbr title="HyperText">HTML</abbr></p>',
+            'abbr with a value needing quotes' => '<p><abbr title="a b c">S</abbr></p>',
+            'abbr with a brace in the value' => '<p><abbr title="a}b">B</abbr></p>',
+            'time with a datetime' => '<p><time datetime="2026-01-01">today</time></p>',
+            'leftover id and class' => '<p><abbr class="x" id="z" title="y">A</abbr></p>',
+            'leftover id and class on a value-less name' => '<p><kbd id="k" class="c">Tab</kbd></p>',
+            'leftover data attribute' => '<p><kbd data-a="1" id="k">Tab</kbd></p>',
+            'a code block keeps its fence' => '<pre><code class="language-js">x()</code></pre>',
+            'an ordinary span, for contrast' => '<p><span id="z" class="x" title="t">s</span></p>',
+        ];
+
+        return array_map(static fn (string $html): array => [$html], $cases);
     }
 
     /**
