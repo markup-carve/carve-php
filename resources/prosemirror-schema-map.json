@@ -154,11 +154,6 @@
       ],
       "notes": "carveTag for the `#tag` flavor. `accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully."
     },
-    "tag": {
-      "kind": "node",
-      "pm": "carveTag",
-      "notes": "the `#tag` flavor of a mention, and its own AST type in PART 12 - the `mention` entry above names `carveTag` as its second ProseMirror name for the same node, so both wire types resolve to it."
-    },
     "inline_extension": {
       "kind": "node",
       "pm": "carveEmbed",
