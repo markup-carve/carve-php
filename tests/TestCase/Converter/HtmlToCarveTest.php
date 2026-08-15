@@ -514,7 +514,7 @@ class HtmlToCarveTest extends TestCase
     public function testCodeBlockWithLanguage(): void
     {
         $result = $this->converter->convert('<pre><code class="language-php">echo "hello";</code></pre>');
-        $this->assertStringContainsString("```php\n", $result);
+        $this->assertStringContainsString("``` php\n", $result);
     }
 
     public function testCodeBlockUsesDirectChildCodeElement(): void
@@ -522,7 +522,7 @@ class HtmlToCarveTest extends TestCase
         $html = '<pre><div><code>nested</code></div><code class="language-php">direct</code></pre>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString("```php\n", $result);
+        $this->assertStringContainsString("``` php\n", $result);
         $this->assertStringContainsString("direct\n", $result);
         $this->assertStringNotContainsString("nested\n```", $result);
     }
@@ -531,7 +531,7 @@ class HtmlToCarveTest extends TestCase
     {
         $result = $this->converter->convert('<pre><code class="language-c++">int main() {}</code></pre>');
 
-        $this->assertStringContainsString("```c++\n", $result);
+        $this->assertStringContainsString("``` c++\n", $result);
     }
 
     public function testLineBlockWithParagraphChildrenPreservesSeparateLines(): void
@@ -1188,7 +1188,7 @@ HTML;
         $this->assertStringContainsString('- Item 1', $result);
         $this->assertStringContainsString('- Item 2', $result);
         $this->assertStringContainsString('  - Nested item', $result);
-        $this->assertStringContainsString('```php', $result);
+        $this->assertStringContainsString('``` php', $result);
         $this->assertStringContainsString('> A quote', $result);
         $this->assertStringContainsString('*bold*', $result);
         $this->assertStringContainsString('/italic/', $result);
@@ -2434,9 +2434,11 @@ DJOT;
         $html = '<p>Press <kbd id="shortcut" class="key">Ctrl+S</kbd> to save.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[Ctrl+S]{kbd', $result);
-        $this->assertStringContainsString('#shortcut', $result);
-        $this->assertStringContainsString('.key', $result);
+        // Asserted whole rather than in fragments: the leftover id and class
+        // lead and the consumed name comes last, which is the canonical
+        // writer's slot order. Three contains-assertions passed under either
+        // order and let the two spellings drift apart.
+        $this->assertSame('Press [Ctrl+S]{#shortcut .key kbd} to save.', $result);
     }
 
     public function testNestedSemanticElements(): void
@@ -2469,9 +2471,9 @@ DJOT;
         $html = '<p>Output: <samp class="output" id="result">Success</samp></p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[Success]{samp', $result);
-        $this->assertStringContainsString('.output', $result);
-        $this->assertStringContainsString('#result', $result);
+        // The id leads even though the HTML wrote `class` first: the slot
+        // order is the writer's, not the source element's.
+        $this->assertSame('Output: [Success]{#result .output samp}', $result);
     }
 
     public function testVarElement(): void
@@ -2487,8 +2489,7 @@ DJOT;
         $html = '<p>Set <var class="math">y</var> to 5.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[y]{var', $result);
-        $this->assertStringContainsString('.math', $result);
+        $this->assertSame('Set [y]{.math var} to 5.', $result);
     }
 
     // ==================== Security: untrusted data-djot-src ====================
