@@ -351,57 +351,13 @@ class HtmlToCarve
             );
         }
 
+        // An attributed header cell USED to be reported here as a header the
+        // importer could not write: the only shape available was `|{#x}= R |`,
+        // whose `=` is content, so the cell arrived as a data cell. PART 9 §5
+        // T10 binds the block after the marker run, `|={#x} R |` spells it, and
+        // a diagnostic naming that loss would now fire on a document the
+        // grammar accepts and this importer deliberately produces.
         $this->inspectTableHeadSplit($node, $path, $diagnostics);
-        $this->inspectUnwritableHeaderCells($node, $path, $diagnostics);
-    }
-
-    /**
-     * Report a header cell that cannot carry its marker.
-     *
-     * `|= R | 1 |` spells a header cell exactly, but only on a bare cell: this
-     * parser reads the `=` in `|{#x}= R |` as content, so a header cell holding
-     * attributes arrives as a data cell. The attributes are kept and the header
-     * is not, which is the trade the report has to name.
-     *
-     * Only the FIRST row is exempt, and only when its cells are all headers:
-     * there the delimiter form promotes the whole row, so no cell needs a
-     * marker of its own. A second leading header row is not exempt - it depends
-     * on every one of its cells carrying `=` to stay in the head at all, so one
-     * attributed cell drops the row out of the head as well as out of the
-     * header.
-     *
-     * @param \DOMElement $node
-     * @param string $path
-     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
-     */
-    protected function inspectUnwritableHeaderCells(DOMElement $node, string $path, array &$diagnostics): void
-    {
-        $affected = 0;
-        foreach ($this->getDirectTableRows($node) as $index => $row) {
-            if ($index === 0 && $this->isAllHeaderRow($row)) {
-                continue;
-            }
-            foreach ($row->childNodes as $cell) {
-                if (!$cell instanceof DOMElement || strtolower($cell->tagName) !== 'th') {
-                    continue;
-                }
-                if ($this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell)) !== '') {
-                    $affected++;
-                }
-            }
-        }
-
-        if ($affected === 0) {
-            return;
-        }
-
-        $this->addImportDiagnostic(
-            $diagnostics,
-            'table-degraded',
-            $affected . ' header cell(s) become data cells; a cell cannot carry both attributes and the `=` marker',
-            'warning',
-            $path,
-        );
     }
 
     /**
@@ -2594,11 +2550,12 @@ class HtmlToCarve
                 // Serialize content, excluding colspan/rowspan from cell attributes.
                 $cellContent = $this->serializeTableCellContent($cell);
                 $cellAttrs = $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell));
-                if ($tag === 'th' && $cellAttrs === '') {
-                    // An attributed header cell has no body-row spelling here:
-                    // `|{#x}= R |` reads the `=` as content, so the marker is
-                    // only written on a bare cell. inspectTableStructure()
-                    // reports the header that cannot be written.
+                if ($tag === 'th') {
+                    // Every `th` gets the marker now. PART 9 §5 T10 binds the
+                    // attribute block AFTER the marker run, so `|={#x} R |`
+                    // spells an attributed header cell; before it, the only
+                    // available shape was `|{#x}= R |`, whose `=` reads as
+                    // content, and the marker had to be dropped.
                     $headerFlags[count($cells)] = true;
                 }
                 if ($cellAttrs !== '') {
@@ -2679,12 +2636,10 @@ class HtmlToCarve
         if ($headerRow !== null) {
             $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
 
-            // A header cell carrying an attribute block can't use the tight
-            // `|=` form unambiguously, so fall back to the separator form.
-            $headerHasCellAttrs = $headerAttributedCells !== [];
-
-            // Also fall back to separator form when header has span markers (`<`/`^`),
-            // because `|= < |` is not valid Carve syntax for a colspan continuation.
+            // Fall back to the separator form when the header has span markers
+            // (`<`/`^`), because `|= < |` is not valid Carve syntax for a
+            // colspan continuation. An attributed header cell no longer needs
+            // the fallback: T10 spells it as `|={#x} R |`.
             $headerHasSpanMarkers = false;
             foreach ($headerCells as $hc) {
                 if ($hc === '<' || $hc === '^') {
@@ -2694,14 +2649,18 @@ class HtmlToCarve
                 }
             }
 
-            if ($colWidthsAttr === '' && !$headerHasCellAttrs && !$headerHasSpanMarkers) {
+            if ($colWidthsAttr === '' && !$headerHasSpanMarkers) {
                 // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
                 // markers on the header cell), no separator row. Used unless the
                 // source was a GFM table (recorded via data-djot-col-widths).
                 $headerLine = '|';
                 foreach ($headerCells as $i => $cell) {
                     $marker = $this->tableAlignMarker($alignments[$i] ?? TableCell::ALIGN_DEFAULT);
-                    $headerLine .= '=' . $marker . ' ' . $cell . ' |';
+                    // The block is already at the head of an attributed cell's
+                    // string and glues to the marker run (T10), so that cell
+                    // takes no separating space here.
+                    $headerLine .= '=' . $marker
+                        . (isset($headerAttributedCells[$i]) ? '' : ' ') . $cell . ' |';
                 }
                 $output .= $headerLine . $headerRowAttrs . "\n";
             } else {
@@ -3036,15 +2995,13 @@ class HtmlToCarve
         $line = '|';
 
         foreach ($cells as $index => $cell) {
-            if (isset($attributed[$index])) {
-                $line .= $cell . ' |';
-
-                continue;
-            }
             // `|= x |` is a header cell wherever it stands: in the leading run
             // of header rows it is a column header, below it a row header. The
-            // marker is glued to the pipe, the space goes after it.
-            $line .= (isset($header[$index]) ? '=' : '') . ' ' . $cell . ' |';
+            // marker is glued to the pipe, the space goes after it - and an
+            // attribute block glues to the marker in turn (PART 9 §5 T10), so
+            // an attributed cell takes no space between the two.
+            $marker = isset($header[$index]) ? '=' : '';
+            $line .= $marker . (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
         }
 
         return $line;
