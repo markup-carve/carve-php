@@ -46,6 +46,17 @@ $report = $result->report();
 The existing `convert()` API remains unchanged. The CLI equivalent is
 `carve migrate --from html --report report.json input.html`.
 
+A table's head/body/foot sections are one of the things that report names. A
+Carve pipe table is a flat row list whose head is the leading run of header
+rows, and Carve 0.1 source has no spelling for the explicit partition the AST
+can hold, so a `<tfoot>`, a second `<tbody>`, or a `<thead>` that does not match
+that leading run flattens into the row list. That is deliberate - a spelling for
+it would be a language change, not an importer one - and each case emits a
+`table-degraded` diagnostic rather than passing in silence. Row-head columns are
+not affected: a `<th>` beside data cells has an exact spelling and round-trips,
+unless it also carries attributes, which no cell can hold alongside the header
+marker.
+
 Three more importers convert other markup to Carve, in the library as
 `MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
 as `carve migrate --from markdown|djot|bbcode`:

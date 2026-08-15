@@ -212,6 +212,13 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'style') {
                 $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+            } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
+                // The value this cell's position generates. It is skipped so a
+                // round trip does not write the renderer's own output back as
+                // if the author had typed it, and it comes back from the
+                // position on the way out - so it is reproduced, not dropped.
+                // Same predicate the converter uses, rather than a second one.
+                continue;
             } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
@@ -227,6 +234,10 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'table') {
+            $this->inspectTableStructure($node, $path, $diagnostics);
+        }
+
         $elementIndex = 0;
         foreach ($node->childNodes as $child) {
             if (!$child instanceof DOMElement) {
@@ -235,6 +246,212 @@ class HtmlToCarve
             $elementIndex++;
             $this->inspectImportNode($child, $path, $elementIndex, $diagnostics);
         }
+    }
+
+    /**
+     * Report what a table's structure loses on the way into Carve source.
+     *
+     * Carve 0.1 source has no spelling for the `rowGroups` partition the AST
+     * can hold (PART 12 §15): a pipe table is a flat row list whose head is the
+     * leading run of header rows. So a table foot, a second body group, or a
+     * head the leading-run rule will not reproduce all flatten on import, and
+     * until now they flattened in silence. They stay flattened - inventing a
+     * spelling is a language change, not an importer change - but the report
+     * now says which of them happened.
+     *
+     * Row-head columns are NOT in this list, and deliberately: `|= R | 1 |`
+     * spells a header cell beside data cells exactly, so that one is a mapping
+     * rather than a loss.
+     *
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectTableStructure(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $captions = 0;
+        $footRows = 0;
+        $bodyGroups = 0;
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $childTag = strtolower($child->tagName);
+            if ($childTag === 'caption') {
+                $captions++;
+
+                continue;
+            }
+            if ($childTag === 'tfoot') {
+                $footRows += $this->countChildRows($child);
+
+                continue;
+            }
+            if ($childTag === 'tbody' && $this->countChildRows($child) > 0) {
+                $bodyGroups++;
+            }
+        }
+
+        if ($captions > 1) {
+            // The parser's own rule is first-caption-wins, and the importer
+            // follows it rather than inventing a second one. The captions after
+            // the first are what is lost.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'table-degraded',
+                'Kept the first of ' . $captions . ' <caption> elements; a table has one caption',
+                'warning',
+                $path,
+            );
+        }
+        if ($footRows > 0) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'table-degraded',
+                'Moved ' . $footRows . ' <tfoot> row(s) into the table body; Carve source has no table foot',
+                'warning',
+                $path,
+            );
+        }
+        if ($bodyGroups > 1) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'table-degraded',
+                'Merged ' . $bodyGroups . ' <tbody> groups into one; Carve source has no body grouping',
+                'warning',
+                $path,
+            );
+        }
+
+        $this->inspectTableHeadSplit($node, $path, $diagnostics);
+        $this->inspectUnwritableHeaderCells($node, $path, $diagnostics);
+    }
+
+    /**
+     * Report a header cell that cannot carry its marker.
+     *
+     * `|= R | 1 |` spells a header cell exactly, but only on a bare cell: this
+     * parser reads the `=` in `|{#x}= R |` as content, so a header cell holding
+     * attributes arrives as a data cell. The attributes are kept and the header
+     * is not, which is the trade the report has to name.
+     *
+     * Only the FIRST row is exempt, and only when its cells are all headers:
+     * there the delimiter form promotes the whole row, so no cell needs a
+     * marker of its own. A second leading header row is not exempt - it depends
+     * on every one of its cells carrying `=` to stay in the head at all, so one
+     * attributed cell drops the row out of the head as well as out of the
+     * header.
+     *
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectUnwritableHeaderCells(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $affected = 0;
+        foreach ($this->getDirectTableRows($node) as $index => $row) {
+            if ($index === 0 && $this->isAllHeaderRow($row)) {
+                continue;
+            }
+            foreach ($row->childNodes as $cell) {
+                if (!$cell instanceof DOMElement || strtolower($cell->tagName) !== 'th') {
+                    continue;
+                }
+                if ($this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell)) !== '') {
+                    $affected++;
+                }
+            }
+        }
+
+        if ($affected === 0) {
+            return;
+        }
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'table-degraded',
+            $affected . ' header cell(s) become data cells; a cell cannot carry both attributes and the `=` marker',
+            'warning',
+            $path,
+        );
+    }
+
+    /**
+     * Report a head the leading-run rule will not give back.
+     *
+     * Carve derives the head from the rows themselves - the leading run of rows
+     * whose cells are all headers - so a `thead` that does not match that run
+     * comes back a different size. A header row inside a `tbody` right after
+     * the head joins the head on re-parse; a `thead` row holding a data cell
+     * leaves it.
+     *
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectTableHeadSplit(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $head = $this->findFirstDirectChildByTagName($node, 'thead');
+        if (!$head instanceof DOMElement) {
+            return;
+        }
+        $declared = $this->countChildRows($head);
+
+        $derived = 0;
+        foreach ($this->getDirectTableRows($node) as $row) {
+            if (!$this->isAllHeaderRow($row)) {
+                break;
+            }
+            $derived++;
+        }
+
+        if ($declared === $derived) {
+            return;
+        }
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'table-degraded',
+            'The table head changes from ' . $declared . ' to ' . $derived
+                . ' row(s); Carve derives it from the leading run of header rows',
+            'warning',
+            $path,
+        );
+    }
+
+    protected function countChildRows(DOMElement $section): int
+    {
+        $rows = 0;
+        foreach ($section->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'tr') {
+                $rows++;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A row every one of whose cells is a `th`, which is what makes a row a
+     * header row rather than a row holding a row-head column.
+     */
+    protected function isAllHeaderRow(DOMElement $row): bool
+    {
+        $cells = 0;
+        foreach ($row->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if ($tag === 'td') {
+                return false;
+            }
+            if ($tag === 'th') {
+                $cells++;
+            }
+        }
+
+        return $cells > 0;
     }
 
     /**
@@ -2227,7 +2444,16 @@ class HtmlToCarve
             // THIS converter wrote. Kept rather than re-sniffed off the string,
             // so a cell whose content merely starts with a brace is not glued.
             $attributedCells = [];
-            $isHeader = false;
+            // Indexes into $cells the source wrote as `th`. Header is a
+            // property of the CELL, not of the row: a row-head column is one
+            // `th` beside ordinary data cells, and `|= R | 1 |` spells exactly
+            // that. Reading it off the row instead promoted every cell in the
+            // row to a header, and dropped the header from every `th` outside
+            // the one row that got promoted.
+            /** @var array<int, true> $headerFlags */
+            $headerFlags = [];
+            $realCells = 0;
+            $headerCellCount = 0;
 
             // Logical column index, accounting for positions already occupied
             // by ongoing rowspans from previous rows.
@@ -2259,6 +2485,13 @@ class HtmlToCarve
                 // Serialize content, excluding colspan/rowspan from cell attributes.
                 $cellContent = $this->serializeTableCellContent($cell);
                 $cellAttrs = $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell));
+                if ($tag === 'th' && $cellAttrs === '') {
+                    // An attributed header cell has no body-row spelling here:
+                    // `|{#x}= R |` reads the `=` as content, so the marker is
+                    // only written on a bare cell. inspectTableStructure()
+                    // reports the header that cannot be written.
+                    $headerFlags[count($cells)] = true;
+                }
                 if ($cellAttrs !== '') {
                     $attributedCells[count($cells)] = true;
                     $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
@@ -2266,8 +2499,9 @@ class HtmlToCarve
                     $cells[] = $cellContent;
                 }
 
+                $realCells++;
                 if ($tag === 'th') {
-                    $isHeader = true;
+                    $headerCellCount++;
                 }
                 if (!isset($alignments[$logicalCol])) {
                     $alignments[$logicalCol] = $this->extractTableCellAlignment($cell);
@@ -2307,15 +2541,24 @@ class HtmlToCarve
                 $rowAttrs = $this->getElementAttributes($tr);
                 $rowAttrSuffix = $rowAttrs !== '' ? '{' . $rowAttrs . '}' : '';
 
-                $row = $this->buildTableRowLine($cells, $attributedCells) . $rowAttrSuffix;
+                // Only a row whose cells are ALL headers is a header row, and
+                // only the FIRST row emitted can be promoted to the head. The
+                // old rule took the first row holding ANY `th` and moved it to
+                // the top, so a table whose third row carried one came out with
+                // that row first - the rows themselves reordered.
+                $isHeaderRow = $realCells > 0 && $headerCellCount === $realCells;
 
-                if ($isHeader && $headerRow === null) {
-                    $headerRow = $row;
+                if ($isHeaderRow && $headerRow === null && $rows === []) {
+                    // The promoted row's cells are written bare: in the
+                    // delimiter form the row after it is what makes them
+                    // headers, and in the `|=` form the builder below writes
+                    // the marker itself.
+                    $headerRow = $this->buildTableRowLine($cells, $attributedCells) . $rowAttrSuffix;
                     $headerRowAttrs = $rowAttrSuffix;
                     $headerCells = $cells;
                     $headerAttributedCells = $attributedCells;
                 } else {
-                    $rows[] = $row;
+                    $rows[] = $this->buildTableRowLine($cells, $attributedCells, $headerFlags) . $rowAttrSuffix;
                 }
             }
         }
@@ -2677,13 +2920,22 @@ class HtmlToCarve
      *
      * @param array<int, string> $cells
      * @param array<int, true> $attributed Indexes of cells opening with an attribute block.
+     * @param array<int, true> $header Indexes of cells the source wrote as `th`.
      */
-    protected function buildTableRowLine(array $cells, array $attributed): string
+    protected function buildTableRowLine(array $cells, array $attributed, array $header = []): string
     {
         $line = '|';
 
         foreach ($cells as $index => $cell) {
-            $line .= (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
+            if (isset($attributed[$index])) {
+                $line .= $cell . ' |';
+
+                continue;
+            }
+            // `|= x |` is a header cell wherever it stands: in the leading run
+            // of header rows it is a column header, below it a row header. The
+            // marker is glued to the pipe, the space goes after it.
+            $line .= (isset($header[$index]) ? '=' : '') . ' ' . $cell . ' |';
         }
 
         return $line;
