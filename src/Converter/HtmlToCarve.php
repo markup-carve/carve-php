@@ -1180,9 +1180,19 @@ class HtmlToCarve
         return array_values(array_filter($classList, static fn (string $class): bool => $class !== ''));
     }
 
+    /**
+     * The canonical writer's quoting rule, which is the one the importer owes.
+     *
+     * This is `CarveRenderer::quoteAttrValue()`'s predicate, not a second
+     * opinion about it. A narrower charset here quoted `title="a=b"`,
+     * `title="é"` and `data-q="a&b"` where every writer - this engine's
+     * included - writes them bare, so the importer's output was rewritten the
+     * moment it met `carve fmt`, and it disagreed with carve-js and carve-rs on
+     * the same input.
+     */
     protected function quoteAttributeValue(string $value): string
     {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
+        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
             return $value;
         }
 

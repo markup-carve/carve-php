@@ -235,7 +235,10 @@ class HtmlImportSemanticSpanTest extends TestCase
             'leftover id and class on a value-less name' => '<p><kbd id="k" class="c">Tab</kbd></p>',
             'leftover data attribute' => '<p><kbd data-a="1" id="k">Tab</kbd></p>',
             'a code block keeps its fence' => '<pre><code class="language-js">x()</code></pre>',
+            'a value the writer leaves bare' => '<p><abbr title="a=b">x</abbr></p>',
+            'a non-ASCII value' => '<p><abbr title="é">x</abbr></p>',
             'an ordinary span, for contrast' => '<p><span id="z" class="x" title="t">s</span></p>',
+            'an ordinary span with a bare-able value' => '<p><span data-q="a&amp;b">x</span></p>',
         ];
 
         return array_map(static fn (string $html): array => [$html], $cases);
