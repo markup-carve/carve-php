@@ -514,7 +514,7 @@ class HtmlToCarveTest extends TestCase
     public function testCodeBlockWithLanguage(): void
     {
         $result = $this->converter->convert('<pre><code class="language-php">echo "hello";</code></pre>');
-        $this->assertStringContainsString("``` php\n", $result);
+        $this->assertStringContainsString("```php\n", $result);
     }
 
     public function testCodeBlockUsesDirectChildCodeElement(): void
@@ -522,7 +522,7 @@ class HtmlToCarveTest extends TestCase
         $html = '<pre><div><code>nested</code></div><code class="language-php">direct</code></pre>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString("``` php\n", $result);
+        $this->assertStringContainsString("```php\n", $result);
         $this->assertStringContainsString("direct\n", $result);
         $this->assertStringNotContainsString("nested\n```", $result);
     }
@@ -531,7 +531,7 @@ class HtmlToCarveTest extends TestCase
     {
         $result = $this->converter->convert('<pre><code class="language-c++">int main() {}</code></pre>');
 
-        $this->assertStringContainsString("``` c++\n", $result);
+        $this->assertStringContainsString("```c++\n", $result);
     }
 
     public function testLineBlockWithParagraphChildrenPreservesSeparateLines(): void
@@ -1185,7 +1185,7 @@ HTML;
         $this->assertStringContainsString('- Item 1', $result);
         $this->assertStringContainsString('- Item 2', $result);
         $this->assertStringContainsString('  - Nested item', $result);
-        $this->assertStringContainsString('``` php', $result);
+        $this->assertStringContainsString('```php', $result);
         $this->assertStringContainsString('> A quote', $result);
         $this->assertStringContainsString('*bold*', $result);
         $this->assertStringContainsString('/italic/', $result);
