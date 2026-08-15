@@ -1598,22 +1598,10 @@ class HtmlToCarve
 
     protected function processBlockquote(DOMElement $node): string
     {
-        // Check for attribution (footer or cite element)
-        $attributionNode = $this->findBlockquoteAttribution($node);
-        $attribution = $attributionNode !== null
-            ? trim($this->processChildren($attributionNode))
-            : null;
-
-        // Process content excluding attribution elements, preserving paragraph breaks
+        // Process content, preserving paragraph breaks.
         $parts = [];
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMText && trim($child->textContent) === '') {
-                continue;
-            }
-
-            // Skip the ONE element read as the attribution. Any other footer
-            // or cite is ordinary quoted content and stays in the body.
-            if ($child === $attributionNode) {
                 continue;
             }
 
@@ -1631,62 +1619,9 @@ class HtmlToCarve
             $quoted[] = $line === '' ? '>' : '> ' . rtrim($line);
         }
 
-        // A `footer`/`cite` is the quote's ATTRIBUTION, and Carve spells that as
-        // a caption line BELOW the quote (PART 9 §4a, carve#1159) - not as a
-        // second quoted paragraph, which is ordinary quoted content and comes
-        // back as such. Without this the renderer's own `<blockquote><footer>`
-        // did not survive a round trip through this importer.
-        //
-        // A caption folds its continuation lines like a paragraph, so a
-        // multi-line attribution needs the marker on its first line only.
-        if ($attribution !== null) {
-            $first = true;
-            foreach (explode("\n", $attribution) as $line) {
-                $quoted[] = ($first ? '^ ' : '') . rtrim($line);
-                $first = false;
-            }
-        }
-
         $attrs = $this->formatBlockAttributes($node);
 
         return $attrs . "\n" . implode("\n", $quoted) . "\n\n";
-    }
-
-    /**
-     * The `footer`/`cite` child that carries the quote's attribution, if any.
-     *
-     * The LAST one, because that is the element this renderer emits and the one
-     * an author puts after the quoted text. A quote has ONE attribution and the
-     * slot holds inline content, so an earlier footer cannot join it - it stays
-     * ordinary quoted content rather than being dropped, which is what taking
-     * the first one and skipping every other did.
-     */
-    protected function findBlockquoteAttribution(DOMElement $node): ?DOMElement
-    {
-        $found = null;
-        foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
-
-            $tag = strtolower($child->tagName);
-            if (($tag !== 'footer' && $tag !== 'cite') || trim($this->processChildren($child)) === '') {
-                continue;
-            }
-            // The slot holds INLINE content, so an element carrying blocks does
-            // not fit it. Flattening one would run its paragraphs together with
-            // no separator; leaving it an ordinary block inside the quote keeps
-            // every word, which is the better answer when the shape cannot be
-            // represented.
-            foreach ($child->childNodes as $inner) {
-                if ($inner instanceof DOMElement && in_array(strtolower($inner->tagName), $this->blockElements, true)) {
-                    continue 2;
-                }
-            }
-            $found = $child;
-        }
-
-        return $found;
     }
 
     /**

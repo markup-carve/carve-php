@@ -355,15 +355,6 @@ class ProseMirrorToCarve
 
                 continue;
             }
-            // The trailing `carveCaption` a quote carries is its ATTRIBUTION
-            // (PART 9 §4a), which is state on the quote rather than a child -
-            // appending it would publish a `caption` block inside the quote,
-            // which no schema names.
-            if ($built instanceof Caption && $node instanceof BlockQuote) {
-                $node->setAttribution($built);
-
-                continue;
-            }
             $node->appendChild($built);
         }
 

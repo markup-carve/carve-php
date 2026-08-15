@@ -262,7 +262,7 @@ DJOT;
         $this->assertFalse($converter->hasProfileViolations());
     }
 
-    public function testArticleProfileAllowsBlockquoteAttributions(): void
+    public function testArticleProfileAllowsBlockquoteCaptions(): void
     {
         $converter = new CarveConverter(profile: Profile::article());
         $djot = <<<'DJOT'
@@ -272,12 +272,9 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        // The attribution survives the profile filter, which has to walk a
-        // field it never had before (PART 9 §4a, carve#1159) - a filter that
-        // missed it would drop the name and keep the quote.
-        $this->assertStringNotContainsString('<figure>', $html);
+        $this->assertStringContainsString('<figure>', $html);
         $this->assertStringContainsString('<blockquote>', $html);
-        $this->assertStringContainsString('<footer>', $html);
+        $this->assertStringContainsString('<figcaption>', $html);
         $this->assertStringContainsString('Mahatma Gandhi', $html);
     }
 

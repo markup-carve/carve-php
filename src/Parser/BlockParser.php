@@ -9209,35 +9209,29 @@ class BlockParser
             return $linesConsumed;
         }
 
-        // Handle BlockQuote - the caption is its ATTRIBUTION (PART 9 SS4a)
+        // Handle BlockQuote - wrap in figure
         if ($lastChild instanceof BlockQuote) {
-            // NO FIGURE WRAPPER. A quote carrying a source is not a figure: it
-            // takes no number, and nothing walking the tree for figures finds
-            // it (carve#1159). The quote keeps its own attributes for the same
-            // reason - there is no outer node to move them to.
-            $attribution = new Caption();
-            $attribution->setPos($this->wholeLineSpan($start));
-            // PARSED WITHOUT CAPTION CONTEXT: a caption's bare `#` is the
-            // number placeholder, and an attribution has no number to place, so
-            // SS4a keeps it literal.
+            $figure = new Figure();
+
+            foreach ($lastChild->getAttributes() as $key => $value) {
+                $figure->setAttribute($key, $value);
+                $lastChild->removeAttribute($key);
+            }
+
+            $caption = new Caption();
+            $caption->setPos($this->wholeLineSpan($start));
             $this->inlineParser->parse(
-                $attribution,
+                $caption,
                 $captionText,
                 $start,
-                false,
+                true,
                 $this->contiguousMapFor($start, $lines[$start], $captionText),
             );
-            $lastChild->setAttribution($attribution);
-            // The attribution is written AFTER the quote, and it is the quote's
-            // own child, so the quote's span has to reach the end of that line.
-            // PART 12 §4: a span contains its children's spans, and "a container
-            // ends after its explicit closer when it has one, otherwise after
-            // its last placed child". Without this the attribution's inlines sat
-            // outside their own parent - a tree contradicting itself, which no
-            // renderer could show and which the containment sweep could not see
-            // either, because the attribution is not in `getChildren()`
-            // (carve-php#1249). The table arm above widens for the same reason.
-            $this->widenSpanTo($lastChild, $attribution->getPos());
+
+            $figure->appendChild($lastChild);
+            $figure->appendChild($caption);
+
+            $parent->replaceChild(count($children) - 1, $figure);
 
             return $linesConsumed;
         }

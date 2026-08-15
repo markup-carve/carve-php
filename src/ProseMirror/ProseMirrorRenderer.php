@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
-use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote;
@@ -202,20 +201,6 @@ class ProseMirrorRenderer
             $content = $this->isInlineContainer($node)
                 ? $this->renderInlines($node->getChildren(), [])
                 : $this->renderBlocks($node->getChildren());
-        }
-
-        if ($node instanceof BlockQuote) {
-            // Same asymmetry as a table caption, at the other end: a quote's
-            // attribution is state rather than a child (PART 9 §4a), so walking
-            // children alone loses the source of the quotation and nothing
-            // reports it. It goes LAST, where the author wrote it.
-            $attribution = $node->getAttribution();
-            if ($attribution !== null) {
-                $content[] = [
-                    'type' => 'carveCaption',
-                    'content' => $this->renderInlines($attribution->getChildren(), []),
-                ];
-            }
         }
 
         if ($content !== []) {

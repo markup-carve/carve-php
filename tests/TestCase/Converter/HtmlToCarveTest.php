@@ -926,13 +926,10 @@ HTML;
         $this->assertStringContainsString('> Quote text', $djot);
         $this->assertStringContainsString('^ Source', $djot);
 
-        // The caption comes back as the quote's ATTRIBUTION, not as a figure
-        // wrapping it (PART 9 §4a, carve#1159): `<figure>` is gone from the
-        // round trip and the source sits in a `<footer>` inside the quote.
         $htmlBack = $djotConverter->convert($djot);
-        $this->assertStringNotContainsString('<figure>', $htmlBack);
+        $this->assertStringContainsString('<figure>', $htmlBack);
         $this->assertStringContainsString('<blockquote>', $htmlBack);
-        $this->assertStringContainsString('<footer>Source</footer>', $htmlBack);
+        $this->assertStringContainsString('<figcaption>Source</figcaption>', $htmlBack);
     }
 
     // ==================== Complex Examples ====================
@@ -2149,45 +2146,32 @@ DJOT;
         $this->assertSame(trim($expected), $back);
     }
 
-    // ==================== Blockquote Attribution ====================
+    // ==================== Blockquote Footer and Cite Content ====================
 
-    /**
-     * A `footer` is the quote's ATTRIBUTION and Carve spells that as a caption
-     * line BELOW the quote (PART 9 §4a, carve#1159) - not as a second quoted
-     * paragraph, which is ordinary quoted content and comes back as such.
-     * Without this the renderer's own `<blockquote><footer>` did not survive a
-     * round trip through this importer.
-     */
-    public function testBlockquoteWithFooterAttribution(): void
+    public function testFooterInsideBlockquoteStaysQuotedContent(): void
     {
         $html = '<blockquote><p>To be or not to be</p><footer>— Shakespeare</footer></blockquote>';
         $result = trim($this->converter->convert($html));
 
         $expected = <<<'DJOT'
 > To be or not to be
-^ — Shakespeare
+>
+> — Shakespeare
 DJOT;
 
         $this->assertSame($expected, $result);
     }
 
-    public function testBlockquoteWithCiteAttribution(): void
+    public function testCiteInsideBlockquoteStaysQuotedContent(): void
     {
         $html = '<blockquote><p>Famous quote</p><cite>Author Name</cite></blockquote>';
         $result = trim($this->converter->convert($html));
 
         $this->assertStringContainsString('> Famous quote', $result);
-        $this->assertStringContainsString('^ Author Name', $result);
+        $this->assertStringContainsString('> [Author Name]{cite}', $result);
     }
 
-    /**
-     * The attribution slot holds INLINE content, so a footer carrying blocks
-     * does not fit it. Flattening one would run its paragraphs together with no
-     * separator, so it stays ordinary quoted content instead - every word
-     * survives, which is the better answer when the shape cannot be
-     * represented. carve-js and carve-rs agree byte for byte.
-     */
-    public function testAFooterCarryingBlocksStaysQuotedContent(): void
+    public function testFooterBlocksInsideBlockquoteKeepAllLinesQuoted(): void
     {
         $html = '<blockquote><p>quote</p><footer><p>By <strong>A</strong></p><p>Work</p></footer></blockquote>';
         $result = trim($this->converter->convert($html));
@@ -2203,28 +2187,7 @@ DJOT;
         $this->assertSame($expected, $result);
     }
 
-    /**
-     * A quote has ONE attribution, so a second footer cannot join it. The LAST
-     * is the one this renderer emits and the one an author puts after the
-     * quoted text; the earlier footer stays an ordinary block rather than being
-     * dropped, which is what taking the first and skipping every other did.
-     */
-    public function testTheLastFooterIsTheAttributionAndTheOthersStay(): void
-    {
-        $html = '<blockquote><footer>First</footer><p>To be</p><footer>Hamlet</footer></blockquote>';
-        $result = trim($this->converter->convert($html));
-
-        $expected = <<<'DJOT'
-> First
->
-> To be
-^ Hamlet
-DJOT;
-
-        $this->assertSame($expected, $result);
-    }
-
-    public function testBlockquoteWithoutAttribution(): void
+    public function testBlockquoteWithoutFooter(): void
     {
         $html = '<blockquote><p>Just a quote</p></blockquote>';
         $result = trim($this->converter->convert($html));

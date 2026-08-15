@@ -18,18 +18,12 @@ use PHPUnit\Framework\TestCase;
  */
 class CaptionStopsAtInvisibleLineTest extends TestCase
 {
-    /**
-     * The fixtures below host the caption on a QUOTE, whose `^ ` line is an
-     * attribution and renders `<footer>` rather than `<figcaption>` (PART 9
-     * §4a, carve#1159). What folds into the slot is the same question either
-     * way, so the helper reads whichever element the host produced.
-     */
     private function caption(string $source): string
     {
         $html = (new CarveConverter())->convert($source);
-        preg_match('/<(figcaption|footer)>(.*?)<\/\1>/s', $html, $m);
+        preg_match('/<figcaption>(.*?)<\/figcaption>/s', $html, $m);
 
-        return $m[2] ?? '';
+        return $m[1] ?? '';
     }
 
     public function testALinkDefinitionDoesNotJoinTheCaption(): void
@@ -41,7 +35,7 @@ class CaptionStopsAtInvisibleLineTest extends TestCase
     {
         $html = (new CarveConverter())->convert(">\n^ p\n[^f]: t\n");
 
-        $this->assertStringContainsString('<footer>p</footer>', $html);
+        $this->assertStringContainsString('<figcaption>p</figcaption>', $html);
     }
 
     public function testAnAbbreviationDefinitionDoesNotJoinTheCaption(): void

@@ -1861,15 +1861,6 @@ class AstCodec
      */
     private static function captionShape(array $encoded): array
     {
-        // PART 9 §4a: a quote's `attribution` is inline content on the wire for
-        // the same reason a caption is - the reference has no `caption` node
-        // type, and this engine stores one internally. Flattened here so both
-        // fields answer to one rule rather than two (carve#1159).
-        $attribution = $encoded['attribution'] ?? null;
-        if (is_array($attribution) && ($attribution['type'] ?? null) === 'caption') {
-            $encoded['attribution'] = $attribution['children'] ?? [];
-        }
-
         $caption = $encoded['caption'] ?? null;
         if (!is_array($caption) || ($caption['type'] ?? null) !== 'caption') {
             return $encoded;
@@ -2350,18 +2341,6 @@ class AstCodec
         $caption = $data['caption'] ?? null;
         if (($data['type'] ?? null) === 'table' && is_array($caption) && !isset($caption['type'])) {
             $data['caption'] = ['type' => 'caption', 'children' => $caption];
-        }
-
-        // PART 9 §4a: the mirror of the flattening in `captionShape`. On the
-        // wire an attribution is inline content; this engine models it with the
-        // same `caption` block it uses for a figure's caption (carve#1159).
-        $attribution = $data['attribution'] ?? null;
-        if (
-            ($data['type'] ?? null) === 'block_quote'
-            && is_array($attribution)
-            && !isset($attribution['type'])
-        ) {
-            $data['attribution'] = ['type' => 'caption', 'children' => $attribution];
         }
 
         return $data;
