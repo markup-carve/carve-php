@@ -378,8 +378,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `figure.target` was refused, correctly, and then described the wrong problem:
   it reported the required property of whichever branch the validator happened
   to try first, so a node of an inadmissible type was reported as an `image`
-  missing its `src`. A producer reading that would have added `src` to a block
-  quote. The message now names the offending type and the admitted set, which is
+  missing its `src`. A producer reading that would have added `src` to a
+  heading. The message now names the offending type and the admitted set, which is
   what carve-js says about the same payload. A node whose type IS admitted and
   which is missing a required field still names that field, so the change adds a
   story rather than replacing one, and no payload changes from accepted to

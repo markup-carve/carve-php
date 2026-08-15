@@ -263,7 +263,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                     return $d;
                 },
-                '$.children[0].target holds a "heading" node where the schema admits only code_block, image, paragraph, table',
+                '$.children[0].target holds a "heading" node where the schema admits only block_quote, code_block, image, paragraph, table',
             ],
             'a type the vocabulary does not hold' => [
                 static function (array $d): array {
@@ -291,8 +291,11 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
      * A HEADING is the example on purpose: it is not a captionable host under any
      * version of the clause, so this case does not move when the admitted set does.
      * A `block_quote` would have read better and was rejected for exactly that
-     * reason - markup-carve/carve#1161 removed it from the set and
-     * markup-carve/carve#1213 puts it back.
+     * reason: markup-carve/carve#1161 removed it from the set and
+     * markup-carve/carve#1213 has since put it back, so a case built on it
+     * would have asserted the opposite of the pinned schema within days. The
+     * admitted set in the expectation moves with the pin; the refused type
+     * does not.
      */
     public function testFigureTargetReportsARefusedNodeTypeAndEveryAdmittedType(): void
     {
