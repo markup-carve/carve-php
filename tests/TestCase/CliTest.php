@@ -53,16 +53,21 @@ class CliTest extends TestCase
         return ['out' => (string)$out, 'err' => (string)$err, 'exit' => $exit];
     }
 
-    public function testVersionReportsAReleasedChangelogSection(): void
+    /**
+     * That `--version` prints the constant is this test's whole subject. Whether
+     * the constant is the version that actually shipped is ReleaseVersionTest's,
+     * which compares it against the NEWEST cut changelog section - the check
+     * that used to live here only required the changelog to CONTAIN a section
+     * naming the constant, which every past release leaves behind, so a constant
+     * lagging the release passed it.
+     */
+    public function testVersionPrintsTheLibraryVersion(): void
     {
         $result = $this->runCliInput(['--version'], '');
-        $changelog = file_get_contents(dirname(__DIR__, 2) . '/CHANGELOG.md');
 
         $this->assertSame(0, $result['exit']);
         $this->assertSame('carve-php version ' . CarveConverter::LIB_VERSION . "\n", $result['out']);
         $this->assertSame('', $result['err']);
-        $this->assertIsString($changelog);
-        $this->assertStringContainsString('## [' . CarveConverter::LIB_VERSION . '] - ', $changelog);
     }
 
     /**

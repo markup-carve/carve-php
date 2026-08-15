@@ -46,12 +46,23 @@ class CarveConverter
     /**
      * Carve specification version implemented by this library.
      *
+     * Written into a document by `carve fmt --stamp` and compared against an
+     * existing stamp when deciding whether a document needs review, so a stale
+     * value tells a reader their document is current when it is not. Checked
+     * against the vendored grammar's `Version:` field by ReleaseVersionTest.
+     *
      * @var string
      */
     public const SPEC_VERSION = '0.1';
 
     /**
-     * Library version. Keep in sync with releases.
+     * Library version - the release this build is.
+     *
+     * Printed by `carve --version`, written into the provenance stamp, and
+     * quoted by embedders in bug reports. It is not kept correct by hand on
+     * release: ReleaseVersionTest compares it against the newest cut CHANGELOG
+     * section on every run, and CliTest against the versions documented in the
+     * README.
      *
      * @var string
      */
