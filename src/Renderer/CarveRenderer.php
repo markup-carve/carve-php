@@ -766,7 +766,16 @@ class CarveRenderer implements RendererInterface
             $parts[] = '[' . $this->writeFlatBracketRun($label) . ']';
         }
 
-        return $parts === [] ? '' : ' ' . implode(' ', $parts);
+        // NO SPACE between the fence run and the info string. `fenced_code_block`
+        // names the slot OPTIONAL and the no-space form CANONICAL: "The no-space
+        // form (```php) is canonical and is what the X->Carve converters emit."
+        // The reader stays lenient and accepts both, which is why a single-pass
+        // output check never caught this - ``` php re-parses to the same tree.
+        //
+        // The separators BETWEEN the parts are a different slot and stay: inside
+        // `code_fence_info` they are `space+`, mandatory, so ```php"t" is not a
+        // fence opener at all and joining without one would lose the header.
+        return implode(' ', $parts);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string

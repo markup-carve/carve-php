@@ -49,7 +49,7 @@ class ARawBracketedRunIsWrittenAsAuthoredTest extends TestCase
             'an admonition label holding a backslash' => ["::: note [a\\b]\nx\n:::\n"],
             'a div label holding a backslash' => ["::: [a\\b]\nx\n:::\n"],
             'a typed div label holding a backslash' => ["::: tip [a\\b]\nx\n:::\n"],
-            'a code-fence label holding a backslash' => ["``` php [a\\b]\nx\n```\n"],
+            'a code-fence label holding a backslash' => ["```php [a\\b]\nx\n```\n"],
             'a footnote id holding a backslash' => ["x [^a\\b]\n\n[^a\\b]: n\n"],
         ];
     }
@@ -98,7 +98,7 @@ class ARawBracketedRunIsWrittenAsAuthoredTest extends TestCase
         return [
             'an admonition label' => ["::: note [a\\b]\nx\n:::\n", 'a\\b'],
             'a div label' => ["::: [a\\b]\nx\n:::\n", 'a\\b'],
-            'a code-fence label' => ["``` php [a\\b]\nx\n```\n", 'a\\b'],
+            'a code-fence label' => ["```php [a\\b]\nx\n```\n", 'a\\b'],
         ];
     }
 

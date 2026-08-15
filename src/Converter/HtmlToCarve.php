@@ -1355,12 +1355,14 @@ class HtmlToCarve
         // Get attributes from pre element (skip class on code since used for language)
         $attrs = $this->formatBlockAttributes($node);
 
-        // One space between the fence and the language word, which is what the
-        // canonical writer emits: `carve fmt` rewrites ```` ```js ```` to
-        // ```` ``` js ```` in every engine. `docs/html-import.md` ends the
-        // import pipeline at that writer, so an importer spelling the opener
-        // its own formatter would rewrite is the same defect one construct over.
-        $opener = $backticks . ($language === '' ? '' : ' ' . $language);
+        // NO space between the fence and the language word. This importer had it
+        // right and was aligned onto the writer's spelling instead, because the
+        // writer was the one that was wrong: `fenced_code_block` states "The
+        // no-space form (```php) is canonical and is what the X->Carve
+        // converters emit", and an importer IS such a converter. The writer now
+        // emits the same form, so the alignment `docs/html-import.md` asks for
+        // holds in the direction the grammar names.
+        $opener = $backticks . $language;
 
         return $attrs . "\n" . $opener . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
     }

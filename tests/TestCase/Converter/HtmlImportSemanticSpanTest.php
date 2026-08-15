@@ -171,7 +171,7 @@ class HtmlImportSemanticSpanTest extends TestCase
         $this->assertSame('=m=', trim($converter->convert('<p><mark>m</mark></p>')));
         $this->assertSame('`c`', trim($converter->convert('<p><code>c</code></p>')));
         $this->assertSame(
-            "``` js\nx()\n```",
+            "```js\nx()\n```",
             trim($converter->convert('<pre><code class="language-js">x()</code></pre>')),
         );
     }
