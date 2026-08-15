@@ -6,10 +6,10 @@ mean what the author intended. Every finding is a `LintWarning` carrying `line`,
 the two engines report the same finding in the same terms. Offsets are byte
 offsets into the source you passed.
 
-`MarkdownHabitLinter` and `RetiredSpellingLinter` read the **source**;
-`SemanticAttributeLinter` parses and walks the **AST**. They are separate
-classes because they answer separate questions, and none can be expressed in
-another's terms.
+`MarkdownHabitLinter` reads the **source**; `SemanticAttributeLinter` and
+`RetiredSpellingLinter` parse and walk the **AST**. They are separate classes
+because they answer separate questions, and none can be expressed in another's
+terms.
 
 ```php
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
@@ -309,6 +309,9 @@ A space in front of the sigil is unaffected: `|{#x} < content |` was content
 under both orders, so nothing was reinterpreted. So is a block that already sits
 after a marker - `|<{#x} content |` is the migration target, not the problem.
 
-Fenced code and raw blocks are skipped, as they are for the Markdown habits: a
-row inside one is the construct being written **about**, which is what every
-example on this page is.
+The pass walks the AST and then reads the source each cell came from, rather
+than scanning lines for a row shape. A table row is a row wherever it stands -
+in a block quote, in a list item, at any content column its container gives it -
+and a line scan would have to reconstruct all of that to decide whether `|...|`
+is a row at all. It would also report a fenced **example** of the retired
+spelling as if it were a document, which is what every example on this page is.

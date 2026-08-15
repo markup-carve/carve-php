@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 
 /**
@@ -24,6 +25,14 @@ use MarkupCarve\Carve\Parser\BlockParser;
  * AFTER the kind and alignment markers, so that sigil is now ordinary content;
  * under the retired order it was the cell's alignment. Both readings parse, so
  * the message names both spellings and lets the author pick.
+ *
+ * IT WALKS THE AST AND THEN READS THE SOURCE THE CELL CAME FROM, rather than
+ * scanning lines for a row shape. A table row is a row wherever it stands: in a
+ * block quote, in a list item, at any content column its container gives it. A
+ * line scan would have to reconstruct all of that to decide whether `|...|` is
+ * a row at all, and would still report a fenced EXAMPLE of the retired spelling
+ * as if it were a document - this package's own `docs/lint.md` shows one. The
+ * parser has already answered both questions, so this asks it.
  *
  * ONLY A BLOCK AT THE CELL'S OWN START is reported, because that is the only
  * position where the two orders disagree. `|>{.x}< a |` carries its marker in
@@ -51,107 +60,98 @@ class RetiredSpellingLinter
         TableCell::ALIGN_CENTER => 'centered',
     ];
 
-    protected TableParser $tableParser;
-
-    public function __construct(?TableParser $tableParser = null)
-    {
-        $this->tableParser = $tableParser ?? new TableParser();
-    }
-
     /**
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
     public function lint(string $source): array
     {
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+
         $warnings = [];
-        $offset = 0;
-        $lineNumber = 0;
-        // A table row inside a fenced code or raw block is the construct being
-        // written ABOUT - this package's own docs show the retired spelling in
-        // one - so the scan skips it, exactly as the Markdown-habit pass does.
-        $inFence = false;
-        $fenceMarker = '';
-        foreach (explode("\n", $source) as $line) {
-            $lineNumber++;
-            $fence = VerbatimFence::delimiter($line);
-            if ($fence !== null) {
-                if (!$inFence) {
-                    $inFence = true;
-                    $fenceMarker = $fence;
-                } elseif (str_starts_with($fence, $fenceMarker)) {
-                    $inFence = false;
-                    $fenceMarker = '';
-                }
-
-                $offset += strlen($line) + 1;
-
-                continue;
-            }
-            if ($inFence) {
-                $offset += strlen($line) + 1;
-
-                continue;
-            }
-            foreach ($this->retiredCellOrders($line) as $finding) {
-                $warnings[] = new LintWarning(
-                    line: $lineNumber,
-                    column: $finding['column'] + 1,
-                    rule: self::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER,
-                    message: $finding['message'],
-                    start: $offset + $finding['column'],
-                    end: $offset + $finding['column'] + $finding['length'],
-                );
-            }
-            $offset += strlen($line) + 1;
-        }
+        $this->collect($converter->parse($source), $source, SourceOffsets::map($source), $warnings);
 
         return $warnings;
     }
 
     /**
-     * @return list<array{column: int, length: int, message: string}>
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param string $source
+     * @param array<int, int>|null $byteAt
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
      */
-    protected function retiredCellOrders(string $line): array
+    private function collect(Node $node, string $source, ?array $byteAt, array &$warnings): void
     {
-        if (!$this->tableParser->isTableRow($line)) {
-            return [];
+        if ($node instanceof TableCell) {
+            $warning = $this->retiredOrder($node, $source, $byteAt);
+            if ($warning !== null) {
+                $warnings[] = $warning;
+            }
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->collect($child, $source, $byteAt, $warnings);
+        }
+    }
+
+    /**
+     * The finding for one cell, or null when its source is not the retired
+     * order.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param string $source
+     * @param array<int, int>|null $byteAt
+     */
+    private function retiredOrder(TableCell $cell, string $source, ?array $byteAt): ?LintWarning
+    {
+        if ($cell->getAttributes() === []) {
+            return null;
+        }
+        $pos = $cell->getPos();
+        // A cell whose content was merged from a continuation row declines a
+        // position, and PART 12 §4 forbids inventing one. Without the span
+        // there is no source to read, so there is nothing to report on.
+        if ($pos === null) {
+            return null;
+        }
+        // The span covers the cell as written, marker run and block included,
+        // which is exactly the stretch the two orders disagree about. It counts
+        // CODEPOINTS and the slice below counts bytes, so it is converted first.
+        $length = strlen($source);
+        $start = SourceOffsets::toByte($pos->startOffset, $byteAt, $length);
+        $raw = substr($source, $start, SourceOffsets::toByte($pos->endOffset, $byteAt, $length) - $start);
+        if (($raw[0] ?? '') !== '{') {
+            return null;
+        }
+        $close = strpos($raw, '}');
+        if ($close === false) {
+            return null;
+        }
+        $sigil = $raw[$close + 1] ?? '';
+        $alignment = BlockParser::TABLE_ALIGNMENT_MARKERS[$sigil] ?? null;
+        if ($alignment === null) {
+            return null;
         }
 
-        $findings = [];
-        foreach ($this->tableParser->parseTableCellsWithAttributes($line) as $cell) {
-            // A block the parser took off a MARKER RUN is already in the T10
-            // position, so it is not the retired order.
-            if ($cell['attributes'] === '' || $cell['marker'] !== '') {
-                continue;
-            }
-            // The block occupies `{` + payload + `}` at the head of the raw
-            // cell, so the character after it is at a known index.
-            $blockWidth = strlen($cell['attributes']) + 2;
-            $sigil = $cell['raw'][$blockWidth] ?? '';
-            $alignment = BlockParser::TABLE_ALIGNMENT_MARKERS[$sigil] ?? null;
-            if ($alignment === null) {
-                continue;
-            }
+        $block = substr($raw, 0, $close + 1);
 
-            $block = substr($cell['raw'], 0, $blockWidth);
-            $findings[] = [
-                'column' => $cell['cellOffset'],
-                'length' => $blockWidth + 1,
-                'message' => sprintf(
-                    'The `%s` after this cell\'s attribute block is content, not alignment: '
-                        . 'a cell\'s attributes bind after its markers. Write `%s%s` for a %s cell, '
-                        . 'or leave `%s%s` as a literal `%s`.',
-                    $sigil,
-                    $sigil,
-                    $block,
-                    self::ALIGNMENT_NAMES[$alignment],
-                    $block,
-                    $sigil,
-                    $sigil,
-                ),
-            ];
-        }
-
-        return $findings;
+        return new LintWarning(
+            line: $pos->startLine,
+            column: $pos->startColumn,
+            rule: self::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER,
+            message: sprintf(
+                'The `%s` after this cell\'s attribute block is content, not alignment: '
+                    . 'a cell\'s attributes bind after its markers. Write `%s%s` for a %s cell, '
+                    . 'or leave `%s%s` as a literal `%s`.',
+                $sigil,
+                $sigil,
+                $block,
+                self::ALIGNMENT_NAMES[$alignment],
+                $block,
+                $sigil,
+                $sigil,
+            ),
+            start: $start,
+            end: $start + $close + 2,
+        );
     }
 }

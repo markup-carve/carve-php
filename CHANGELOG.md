@@ -46,9 +46,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookkeeping no editor holds (caption numbers, escapes, smart typography,
   soft breaks).
 
-- **`Lint\RetiredSpellingLinter`**, reporting source written to a spelling
-  Carve has since redefined, with one rule `carve lint` now reports alongside
-  the others. `table-cell-attribute-before-marker` fires on a table cell whose
+- **`Lint\RetiredSpellingLinter`**, an AST-walking pass reporting source
+  written to a spelling Carve has since redefined, with one rule `carve lint`
+  now reports alongside the others. `table-cell-attribute-before-marker` fires on a table cell whose
   attribute block is immediately followed by `<`, `>` or `~` - the retired
   order, where that sigil was the cell's alignment and is now content. The
   message names both spellings, because only the author knows which was meant.

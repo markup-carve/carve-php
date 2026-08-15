@@ -130,9 +130,10 @@ class RetiredSpellingLintTest extends TestCase
     }
 
     /**
-     * A markup EXAMPLE is not a document. A source scan that reported inside a
-     * fenced block would fire on every page explaining the rule - this
-     * package's own `docs/lint.md` shows the retired spelling in one.
+     * A markup EXAMPLE is not a document, and this pass never sees one: a
+     * fenced block holds no cells. A LINE SCAN would have reported here, on
+     * every page explaining the rule - including this package's own
+     * `docs/lint.md`, which shows the retired spelling in a fenced example.
      */
     public function testAFencedExampleIsNotReported(): void
     {
@@ -142,28 +143,83 @@ class RetiredSpellingLintTest extends TestCase
     }
 
     /**
-     * CONTROL. The fence has to CLOSE, or the skip would swallow the rest of
-     * the document and the rule would stop reporting after any code block.
+     * CONTROL. A fenced block does not stop the pass at the fence: a real cell
+     * after it is still reported, and at its own position.
      */
-    public function testAFenceOnlySkipsItsOwnContent(): void
-    {
-        $this->assertSame(
-            [RetiredSpellingLinter::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER],
-            $this->rules("```\n|{#x}< fenced |\n```\n\n|{#x}> real |\n"),
-        );
-    }
-
-    /**
-     * The offsets survive the skip: a finding after a fenced block still points
-     * at its own bytes.
-     */
-    public function testOffsetsSurviveASkippedFence(): void
+    public function testACellAfterAFencedExampleIsStillReported(): void
     {
         $source = "```\n|{#x}< fenced |\n```\n\n|{#x}> real |\n";
         $warnings = $this->linter->lint($source);
 
         $this->assertCount(1, $warnings);
         $this->assertSame(5, $warnings[0]->line);
+        $this->assertSame('{#x}>', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
+    }
+
+    /**
+     * A table row is a row wherever it stands. The rule reports it in a block
+     * quote, in a list item, and on a continuation line at a list item's
+     * content column - none of which begin with `|`, so a line scan looking for
+     * a row shape would have missed every one.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function containerProvider(): array
+    {
+        return [
+            'in a block quote' => ["> |{#x}< a |\n"],
+            'in a nested block quote' => ["> > |{#x}< a |\n"],
+            'in a list item' => ["- |{#x}< a |\n"],
+            'in an ordered item' => ["1. |{#x}< a |\n"],
+            'at an item content column' => ["- x\n\n  |{#x}< a |\n"],
+        ];
+    }
+
+    #[DataProvider('containerProvider')]
+    public function testAContainerDoesNotHideIt(string $source): void
+    {
+        $this->assertSame(
+            [RetiredSpellingLinter::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER],
+            $this->rules($source),
+        );
+    }
+
+    /**
+     * CONTROL for the pair above. These look like rows in a container and are
+     * not tables at all - a block quote marker takes a space, and so does a
+     * bullet - so nothing is reported and no marker-stripping heuristic gets to
+     * decide otherwise.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function containerShapedNonTableProvider(): array
+    {
+        return [
+            'a quote marker with no space' => [">|{#x}< a |\n"],
+            'a bullet with no space' => ["-|{#x}< a |\n"],
+            'a doubled quote marker' => [">> |{#x}< a |\n"],
+            'an indented line at top level' => ["  |{#x}< a |\n"],
+        ];
+    }
+
+    #[DataProvider('containerShapedNonTableProvider')]
+    public function testAContainerShapeThatIsNotATableIsNotReported(string $source): void
+    {
+        $this->assertStringNotContainsString('<table>', (new CarveConverter())->convert($source));
+        $this->assertSame([], $this->rules($source));
+    }
+
+    /**
+     * Offsets are BYTES, as the other passes emit them, while a source span
+     * counts codepoints. A multibyte cell ahead of the finding is where the two
+     * diverge.
+     */
+    public function testOffsetsAreBytes(): void
+    {
+        $source = "| ünïcøde |{#x}> b |\n";
+        $warnings = $this->linter->lint($source);
+
+        $this->assertCount(1, $warnings);
         $this->assertSame('{#x}>', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
     }
 
