@@ -163,6 +163,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **HTML import writes the source the canonical writer writes.** The import
+  pipeline ends at the Carve writer, and that writer is the byte-exact
+  reference a shared conformance fixture is compared against, but this importer
+  builds its source by hand and four spellings had drifted away from it. An
+  imported attribute value is now quoted only where the writer quotes it
+  (`<abbr title="HyperText">` gives `[HTML]{abbr=HyperText}`, and
+  `<span title="a=b">` gives `[x]{title=a=b}`); a semantic element's leftover
+  `id` and `class` now lead, with the consumed name last
+  (`[Tab]{#k .c kbd}`, not `[Tab]{kbd #k .c}`); and an imported code block puts
+  a space between the fence and the language word (` ``` js `). All four
+  brought carve-php in line with carve-js and carve-rs, which already agreed:
+  31 HTML shapes covering the seven semantic elements, leftover attributes,
+  values that do and do not need quoting, and the `<mark>` / inline `<code>` /
+  `<pre><code>` carve-outs now import byte-identically in all three engines.
+  Rendered HTML is unchanged - every affected spelling parses to the same
+  document either way.
+
 - **`carve fmt` writes a bare caret where no inline note can open.** `^[` opens
   a note only where a note can form, and PART 9 §16 rules out three positions:
   an empty or whitespace-only body, an unclosed run, and anywhere inside a
