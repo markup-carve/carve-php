@@ -162,6 +162,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A footnote inside an unresolved reference no longer publishes a number**
+  (#1269). PART 9R R2 rules that such a note is not a reference: the reference
+  degrades to its literal source, so the text it held is discarded and the note
+  gets no number, no endnote and no backlink. The rendered HTML already agreed;
+  the serialized AST did not, so `a [t[^1]][nope] b [^1] c` published
+  `number: 1` on both `footnote_ref` nodes when the page contains exactly one
+  noteref. Both note spellings are covered - `[^label]` and `^[content]` - and
+  a number arriving on the ingest path inside such a reference is cleared
+  rather than carried through. A bracketed run that never had a reference tail
+  (`a [t[^1]] b`) and a reference that resolves are unchanged: their notes are
+  references and keep their numbers.
+
 - **`carve fmt` writes a code fence with no space before its info string.** The
   canonical writer emitted the Djot spelling, so it rewrote the authored
   ` ```php ` to ` ``` php `. `fenced_code_block` names the no-space form
