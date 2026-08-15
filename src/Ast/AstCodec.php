@@ -25,6 +25,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
@@ -753,6 +754,16 @@ class AstCodec
      * An inline note's own content is never searched for footnotes: a note
      * inside a note has no rendered home. Parsing cannot build one (`[^b]`
      * inside `^[...]` stays text), but a decoded tree can carry one.
+     *
+     * AN UNRESOLVED REFERENCE'S TEXT IS NOT SEARCHED EITHER. PART 9R R1
+     * degrades such a reference to its literal source, so the text it holds is
+     * discarded rather than written into the document, and R2 rules that a note
+     * in that text "is not a reference": it gets no number, no endnote and no
+     * backlink (markup-carve/carve#1198). `HtmlRenderer::renderLink()` already
+     * returns the raw source BEFORE rendering its children, so nothing in there
+     * is rendered - numbering it anyway published a number naming a footnote the
+     * page does not contain, and in `a [t[^1]][nope] b [^1] c` it published the
+     * SAME number as the one live noteref a reader can see.
      */
     private static function numberFootnotes(Document $document): void
     {
@@ -769,6 +780,16 @@ class AstCodec
         /** @var array<int, \MarkupCarve\Carve\Node\Block\Footnote> $pending bodies to walk, in first-use order */
         $pending = [];
         $walk = static function (Node $node) use (&$walk, &$next, &$indexes, &$pending, $definitions): void {
+            if (UnresolvedReference::sourceOf($node) !== null) {
+                // CLEARED, not skipped, for the same reason the unresolved
+                // reference below is: the subtree renders nowhere, so a number
+                // carried in from the wire would name a footnote that is not in
+                // the document.
+                self::clearFootnoteNumbers($node);
+
+                return;
+            }
+
             if ($node instanceof InlineFootnote) {
                 $node->setNumber($next);
                 $next++;
@@ -823,6 +844,26 @@ class AstCodec
             foreach ($body->getChildren() as $child) {
                 $walk($child);
             }
+        }
+    }
+
+    /**
+     * Drop every footnote number inside a subtree that renders nowhere.
+     *
+     * The parse path never puts one there, but a decoded tree can arrive with
+     * one already set, and this engine republishes what it decodes. Both note
+     * spellings are cleared - a `[^label]` use and an `^[content]` note are the
+     * two things PART 9R R2 names - and the walk keeps descending, because the
+     * discarded text can hold a whole nested construct.
+     */
+    private static function clearFootnoteNumbers(Node $node): void
+    {
+        if ($node instanceof FootnoteRef || $node instanceof InlineFootnote) {
+            $node->setNumber(null);
+        }
+
+        foreach ($node->getChildren() as $child) {
+            self::clearFootnoteNumbers($child);
         }
     }
 
