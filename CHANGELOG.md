@@ -9,6 +9,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The ProseMirror bridge carries every authored construct** (PART 12
+  vocabulary, the schema map's former `unmapped` list). Figures with their
+  captions - a captioned quote, image or code block used to vanish from the
+  editor document whole - plus line blocks, comments, front matter, raw blocks
+  and raw inlines, inline literals, symbols, critic substitutions, inline
+  footnotes, crossrefs, citation groups and link reference definitions all
+  cross the bridge now, in both directions. A figure's short caption rides as
+  a second `carveCaption` child flagged `short`; a citation item's prefix,
+  locator and suffix ride as ProseMirror inline arrays the converter rebuilds
+  with its normal inline path.
+
+  With the definitions carried, a `[text][label]` reference - image
+  references included - keeps its spelling instead of degrading to the inline
+  form, re-confirmed on the way back exactly as heading references are: a
+  reference whose definition is gone or repointed falls back to the inline
+  form rather than becoming prose. An abbreviation definition child is no
+  longer double-reported as dropped while its content rides on the doc node's
+  attrs. On the corpus, lossless round trips rose from 493 documents to 782
+  and surviving round trips from 631 to 843; the still-unmapped remainder is
+  bookkeeping no editor holds (caption numbers, escapes, smart typography,
+  soft breaks).
+
 - **`Lint\SemanticAttributeLinter`, this package's first AST-walking lint pass**
   (#1131, #1132), with two rules `carve lint` now reports alongside the Markdown
   habits. `semantic-attribute-value-ignored` reports a value on a semantic span
