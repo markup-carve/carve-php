@@ -10,6 +10,7 @@ use function array_is_list;
 use function array_key_exists;
 use function dirname;
 use function file_get_contents;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_bool;
@@ -17,6 +18,7 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function json_decode;
+use function sort;
 use function sprintf;
 use function str_starts_with;
 use function substr;
@@ -260,7 +262,7 @@ final class AstSchema
             // A branch list is never EMPTY here - same assertion - so a failure
             // was recorded whenever none matched.
             if ($matched === 0 && $first !== null) {
-                return $first;
+                return self::typedNodeUnionMismatch($value, $schema[$keyword], $root, $path) ?? $first;
             }
         }
 
@@ -271,6 +273,77 @@ final class AstSchema
         }
 
         return null;
+    }
+
+    /**
+     * Why the value's own TYPE is not admitted here, when that is the reason
+     * no branch matched. Null whenever it is not, so the caller keeps the
+     * branch failure it already has.
+     *
+     * A union of typed node definitions - `figure.target`, `blockNode`,
+     * `inlineNode` - fails in two different ways, and the first branch's own
+     * complaint tells only one of them. A node whose type IS admitted but which
+     * is missing a field it requires wants that field named. A node of a type
+     * the position never admits wants the ADMITTED SET named: reporting the
+     * first branch's missing `src` for a `block_quote` at `figure.target` sends
+     * a producer to add `src` to a block quote.
+     *
+     * Both conditions are required before a message is built: the value has to
+     * identify itself as a node, and every branch has to pin a type constant.
+     * Otherwise the union is something else - a union of records, a mixed one -
+     * and this has nothing to say about it.
+     *
+     * @param mixed $value
+     * @param array<mixed> $branches
+     * @param array<string, mixed> $root
+     * @param string $path
+     *
+     * @return string|null
+     */
+    private static function typedNodeUnionMismatch(mixed $value, array $branches, array $root, string $path): ?string
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+        $type = $value['type'] ?? null;
+        if (!is_string($type)) {
+            return null;
+        }
+
+        // THE THREE `return null`s BELOW ARE TYPE NARROWING, not guards against a
+        // schema this repo ships. Both unions the published schema writes today -
+        // `figure.target` and `definition_list.items` - are typed node unions, so
+        // the branch shapes always resolve; the checks exist because the values
+        // come out of decoded JSON as `mixed` and the function must be total for a
+        // union some later schema writes differently. They are therefore not
+        // reachable from any payload, which is why the tests do not cover them.
+        $admitted = [];
+        foreach ($branches as $branch) {
+            /** @var array<mixed> $branch */
+            if (isset($branch['$ref']) && is_string($branch['$ref'])) {
+                $branch = self::resolve($branch['$ref'], $root);
+            }
+            $properties = $branch['properties'] ?? null;
+            if (!is_array($properties)) {
+                return null;
+            }
+            $declared = $properties['type'] ?? null;
+            if (!is_array($declared)) {
+                return null;
+            }
+            $constant = $declared['const'] ?? null;
+            if (!is_string($constant)) {
+                return null;
+            }
+            $admitted[] = $constant;
+        }
+
+        if (in_array($type, $admitted, true)) {
+            return null;
+        }
+        sort($admitted);
+
+        return sprintf('%s holds a "%s" node where the schema admits only %s', $path, $type, implode(', ', $admitted));
     }
 
     /**

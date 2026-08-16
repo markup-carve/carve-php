@@ -249,9 +249,9 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
                 'the AST schema does not name: ',
             ],
             // A `oneOf` that NO branch satisfies. `figure.target` is one of an
-            // image, a quote, a table, a code block or a paragraph; a heading
-            // is none of them, and the report has to say something rather than
-            // fall through as a match.
+            // image, a table, a code block or a paragraph; a heading is none
+            // of them, and the report names the admitted node types rather
+            // than a required field from whichever branch happens to be first.
             'a figure target that is none of its alternatives' => [
                 static function (array $d): array {
                     $d['children'][0] = [
@@ -263,7 +263,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                     return $d;
                 },
-                'target',
+                '$.children[0].target holds a "heading" node where the schema admits only block_quote, code_block, image, paragraph, table',
             ],
             'a type the vocabulary does not hold' => [
                 static function (array $d): array {
@@ -285,6 +285,88 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
         $document = (new AstCodec())->decode(self::valid());
         $this->assertSame("<p>a</p>\n", (new HtmlRenderer())->render($document));
+    }
+
+    /**
+     * A HEADING is the example on purpose: it is not a captionable host under any
+     * version of the clause, so this case does not move when the admitted set does.
+     * A `block_quote` would have read better and was rejected for exactly that
+     * reason: markup-carve/carve#1161 removed it from the set and
+     * markup-carve/carve#1213 has since put it back, so a case built on it
+     * would have asserted the opposite of the pinned schema within days. The
+     * admitted set in the expectation moves with the pin; the refused type
+     * does not.
+     */
+    public function testFigureTargetReportsARefusedNodeTypeAndEveryAdmittedType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [
+                'type' => 'heading',
+                'level' => 1,
+                'children' => [],
+            ],
+            'caption' => [],
+        ];
+
+        $violation = AstSchema::firstViolation($payload);
+
+        $this->assertNotNull($violation);
+        $this->assertStringContainsString('holds a "heading" node where the schema admits only', (string)$violation);
+        $this->assertStringContainsString('$.children[0].target', (string)$violation);
+        $this->assertStringNotContainsString('src', (string)$violation);
+
+        try {
+            (new AstCodec())->decode($payload);
+            $this->fail('the decoder accepted a heading as a figure target');
+        } catch (AstDecodeException $e) {
+            $this->assertStringContainsString((string)$violation, $e->getMessage());
+            $this->assertStringContainsString('PART 12 §12(d)', $e->getMessage());
+            $this->assertStringNotContainsString('src', $e->getMessage());
+        }
+    }
+
+    public function testFigureMayTargetACompleteImage(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image', 'src' => 'figure.png', 'alt' => 'Figure'],
+            'caption' => [],
+        ];
+
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    public function testFigureTargetReportsAMissingFieldForAnAdmittedNodeType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image'],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `src`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
+    }
+
+    public function testCompositionWithoutAStringNodeTypeKeepsTheFirstBranchFailure(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `type`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
     }
 
     /**

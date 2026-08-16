@@ -373,6 +373,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   writes too. Rendered HTML is unchanged - every affected spelling parses to
   the same document either way.
 
+- **An ingest refusal at a typed node union names the admitted types instead of
+  a field from the first branch.** A payload putting the wrong KIND of node at
+  `figure.target` was refused, correctly, and then described the wrong problem:
+  it reported the required property of whichever branch the validator happened
+  to try first, so a node of an inadmissible type was reported as an `image`
+  missing its `src`. A producer reading that would have added `src` to a
+  heading. The message now names the offending type and the admitted set, which is
+  what carve-js says about the same payload. A node whose type IS admitted and
+  which is missing a required field still names that field, so the change adds a
+  story rather than replacing one, and no payload changes from accepted to
+  refused or back.
+
 - **`carve fmt` writes a bare caret where no inline note can open.** `^[` opens
   a note only where a note can form, and PART 9 §16 rules out three positions:
   an empty or whitespace-only body, an unclosed run, and anywhere inside a
