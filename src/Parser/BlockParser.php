@@ -6183,6 +6183,15 @@ class BlockParser
                     ) {
                         break;
                     }
+                    // A term line is a CONTENT LINE, so the trailing-whitespace
+                    // rule applies to it as it does to a paragraph's: a
+                    // `whitespace` run at the end of one is dropped. The strip
+                    // is on the SOURCE line, before the term reaches the inline
+                    // parser, because a renderer cannot tell an authored
+                    // trailing space from one a construct produced - trimming
+                    // rendered output instead would eat the content of an
+                    // all-space verbatim span (markup-carve/carve#926).
+                    $nextLine = rtrim($nextLine, " \t");
                     $termLines[] = $nextLine;
                     $termText .= "\n" . $nextLine;
                     $i++;
