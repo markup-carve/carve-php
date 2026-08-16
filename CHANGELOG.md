@@ -16,6 +16,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the schema pins - `mode: "integral"`, absent when parenthetical - and the
   decoder maps it back to the boolean this engine keeps.
 
+- **A ProseMirror round trip keeps a mixed task list's plain sibling at
+  column zero** (carve-php#1287). The converter folded `taskList` to a
+  `bullet` list type, so a task list and the plain list split off beside it
+  became the same type - and the writer separated the two same-type
+  neighbors with the indented-second-list spelling, which moved the plain
+  list to a different content column on reparse. `task` is its own list
+  type, and with it restored the writer has nothing to separate.
+
 ### Added
 
 - **Composite figures: `::: figure` is a captionable host** (PART 9 §4c,
