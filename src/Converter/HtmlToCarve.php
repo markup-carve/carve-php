@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
+use SplObjectStorage;
 
 /**
  * Converts HTML to Djot markup
@@ -220,6 +221,10 @@ class HtmlToCarve
      */
     protected function inspectImportLoss(string $html): array
     {
+        // A fresh document means fresh elements, so the route memo starts empty
+        // and cannot answer for a table from a previous conversion.
+        $this->tableRouteCache = new SplObjectStorage();
+
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
         $doc = new DOMDocument();
@@ -443,7 +448,10 @@ class HtmlToCarve
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
                 continue;
-            } elseif (!$this->isRepresentedImportAttribute($tag, $name, $node)) {
+            } elseif (
+                !$this->isRepresentedImportAttribute($tag, $name)
+                || $this->isRepresentedAttributeLostHere($node, $tag, $name)
+            ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
@@ -931,14 +939,17 @@ class HtmlToCarve
     }
 
     /**
-     * Is this attribute carried into the Carve output rather than dropped?
+     * Is this attribute represented in Carve at all, as a tag/name question?
      *
-     * The node is needed because representation is not a property of the
-     * tag/name pair alone: the same attribute on the same element can be
-     * carried in one position and dropped in another (see the blockquote `cite`
-     * arm below).
+     * Deliberately still a pure two-argument predicate. Whether a REPRESENTED
+     * attribute survives at a particular POSITION is a second, separate
+     * question, asked by {@see self::isRepresentedAttributeLostHere()} at the
+     * call site - and it is kept separate rather than folded in here, because
+     * this method is protected on a non-final class and adding a parameter to
+     * it is a fatal incompatible-signature error for any subclass that
+     * overrides it.
      */
-    protected function isRepresentedImportAttribute(string $tag, string $name, ?DOMElement $node = null): bool
+    protected function isRepresentedImportAttribute(string $tag, string $name): bool
     {
         if ($name === 'title') {
             return true;
@@ -960,27 +971,11 @@ class HtmlToCarve
             // it teaches the reader to discount the `attribute-dropped` rows
             // that ARE real (carve-php#1337). carve-js stopped reporting it for
             // the same reason once it kept the value (carve-js#1125).
-            // …EXCEPT where the SERIALIZATION ROUTE drops it, which is not the
-            // same question as where the element sits.
-            //
-            // Inside a cell written as a PIPE row the attribute is genuinely
-            // gone: `formatBlockAttributes()` returns an empty string while
-            // `tableCellDepth > 0`, because a pipe cell has no line for a block
-            // attribute block to sit on (carve-php#1164). There the
-            // `attribute-dropped` row is true and must be kept.
-            //
-            // The same cell written as a LIST TABLE keeps it. With
-            // `listTableForBlockCells` on, a table with block-content cells goes
-            // through `processTableAsListTable()`, whose items are real block
-            // context - `{cite=u}` is written and reads back as
-            // `<blockquote cite="u">`. Reporting a loss there is the very defect
-            // this arm exists to remove.
-            //
-            // So representation is a property of the ROUTE, and the route is
-            // decided by `processTable()`. This asks that same condition rather
-            // than a second one: an ancestry test alone was right about the
-            // default and wrong whenever the opt-in was enabled.
-            'blockquote' => $name === 'cite' && ($node === null || !$this->isDroppedInATableCell($node)),
+            // The quote's source URL, kept on import by the ruling on
+            // markup-carve/carve#1286 and round-tripped as `{cite=…}`. Whether
+            // a given POSITION then drops it is asked separately - see
+            // `isRepresentedAttributeLostHere()`.
+            'blockquote' => $name === 'cite',
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),
@@ -1000,20 +995,52 @@ class HtmlToCarve
     }
 
     /**
-     * Will this element's block attributes be dropped by the table it sits in?
+     * A represented attribute that this POSITION nonetheless loses.
      *
-     * Only a PIPE row drops them. `processTable()` sends a table with
-     * block-content cells to `processTableAsListTable()` when
-     * `listTableForBlockCells` is on, and a list-table item is real block
-     * context that carries the attribute block through. The decision is read
-     * off the ancestor `<table>` with the converter's own condition, so the two
-     * cannot drift into disagreeing about the same document.
+     * Representation is a tag/name question; survival is a ROUTE question, and
+     * the two disagree in exactly one place today. Only a PIPE row drops block
+     * attributes: `formatBlockAttributes()` returns an empty string while
+     * `tableCellDepth > 0`, because a pipe cell has no line for a block
+     * attribute block to sit on (carve-php#1164). The same cell written as a
+     * LIST TABLE keeps it - `processTable()` hands a table with block-content
+     * cells to `processTableAsListTable()` when `listTableForBlockCells` is on,
+     * and a list-table item is real block context, so `{cite=u}` is written and
+     * reads back as `<blockquote cite="u">`.
+     *
+     * An ancestry test alone ("is there a `<td>` above me") was right about the
+     * default table and wrong about every document that enables the opt-in, so
+     * this reads the route off the ancestor `<table>` with the converter's own
+     * condition rather than a second one of its own.
+     */
+    protected function isRepresentedAttributeLostHere(DOMElement $node, string $tag, string $name): bool
+    {
+        if ($tag !== 'blockquote' || $name !== 'cite') {
+            return false;
+        }
+
+        return $this->tableRouteDropsBlockAttributes($node);
+    }
+
+    /**
+     * Does the table this node sits in write its cells as PIPE rows?
+     *
+     * MEMOIZED PER TABLE, and that is not a micro-optimization. The inspection
+     * walk asks this once per cited quote, while `tableHasBlockContentCell()`
+     * rebuilds and rescans the table's rows on every call - so a table with one
+     * cited quote per row cost O(quotes x rows) and a 800-row table took 5x
+     * longer than the same document on the previous revision, still climbing.
+     * Nothing bounded that work either: these attributes are represented, so
+     * they add no diagnostics and `maxDiagnostics` never trips.
+     *
+     * The cache is keyed by the table ELEMENT and holds a reference to it, so
+     * an object id cannot be recycled underneath it, and it is cleared per
+     * conversion by {@see self::resetImportRouteCache()}.
      *
      * A cell with no `<table>` ancestor cannot be reached by `processTable()`
-     * at all; it is treated as dropping, which is the conservative answer -
-     * a diagnostic too many is recoverable, a silent loss is not.
+     * at all and is treated as dropping - a diagnostic too many is recoverable,
+     * a silent loss is not.
      */
-    protected function isDroppedInATableCell(DOMElement $node): bool
+    protected function tableRouteDropsBlockAttributes(DOMElement $node): bool
     {
         if (!$this->isInsideTableCell($node)) {
             return false;
@@ -1024,7 +1051,14 @@ class HtmlToCarve
                 continue;
             }
 
-            return !($this->listTableForBlockCells && $this->tableHasBlockContentCell($parent));
+            // `offsetExists()` rather than `contains()`: the latter is
+            // deprecated as of PHP 8.5, which this package's CI matrix runs.
+            if (!$this->tableRouteCache->offsetExists($parent)) {
+                $this->tableRouteCache[$parent] = !($this->listTableForBlockCells
+                    && $this->tableHasBlockContentCell($parent));
+            }
+
+            return (bool)$this->tableRouteCache[$parent];
         }
 
         return true;
@@ -3654,6 +3688,19 @@ class HtmlToCarve
      * @var int
      */
     protected int $tableCellDepth = 0;
+
+    /**
+     * Per-table memo of "does this table write PIPE rows", for the inspection
+     * walk.
+     *
+     * Keyed by the `<table>` ELEMENT rather than by an object id, so the
+     * storage holds a reference and an id cannot be recycled beneath it. Reset
+     * at the top of every `inspectImportLoss()`, which builds a fresh
+     * DOMDocument, so nothing is carried between documents.
+     *
+     * @var \SplObjectStorage<\DOMElement, bool>
+     */
+    protected SplObjectStorage $tableRouteCache;
 
     /**
      * Degrade a wrapper to its own content, keeping the boundary it carried.

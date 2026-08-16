@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 /**
  * The import report does not announce a loss that did not happen.
@@ -294,6 +295,72 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
         $this->assertStringNotContainsString('#i', $this->carve($html));
         $this->assertStringNotContainsString('.x', $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
+    }
+
+    /**
+     * The represented predicate stays a TWO-ARGUMENT protected method.
+     *
+     * `HtmlToCarve` is not final and this method is not internal, so a
+     * downstream subclass may override it. Adding a parameter - even an
+     * optional one - makes such a subclass a fatal incompatible-signature
+     * error at class-declaration time, which no test of behavior would catch
+     * because the class never loads.
+     *
+     * The position question therefore lives in a separate helper rather than
+     * as a third argument here. This test declares the override the old way and
+     * fails to even load if that is undone.
+     */
+    public function testTheRepresentedPredicateKeepsItsOverridableSignature(): void
+    {
+        $subclass = new class extends HtmlToCarve {
+            protected function isRepresentedImportAttribute(string $tag, string $name): bool
+            {
+                return parent::isRepresentedImportAttribute($tag, $name);
+            }
+        };
+
+        $this->assertStringContainsString('cite=u', $subclass->convert('<blockquote cite="u"><p>q</p></blockquote>'));
+
+        $method = new ReflectionMethod(HtmlToCarve::class, 'isRepresentedImportAttribute');
+        $this->assertSame(2, $method->getNumberOfParameters());
+    }
+
+    /**
+     * The route answer is memoized per table, so the walk stays linear.
+     *
+     * `tableHasBlockContentCell()` rebuilds and rescans a table's rows on every
+     * call, and the inspection walk asks once per cited quote - so without a
+     * memo a table with one cited quote per row costs O(quotes x rows). Nothing
+     * else bounds it: these attributes are represented, so they emit no
+     * diagnostics and `maxDiagnostics` never trips.
+     *
+     * Asserted as a RATIO against the engine's own smaller run rather than a
+     * wall-clock threshold, so a slow or loaded machine cannot fail it. Doubling
+     * the rows roughly doubles the work when the memo is present; without it the
+     * same step measured over 3x.
+     */
+    public function testTheRouteAnswerIsMemoizedPerTable(): void
+    {
+        $time = static function (int $rows): float {
+            $body = str_repeat('<tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr>', $rows);
+            $start = microtime(true);
+            (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport('<table>' . $body . '</table>');
+
+            return microtime(true) - $start;
+        };
+
+        // Warm the autoloader and JIT-ish caches so the first sample is not the
+        // one that pays for them.
+        $time(50);
+
+        $small = $time(200);
+        $large = $time(400);
+
+        $this->assertLessThan(
+            2.6,
+            $large / max($small, 1.0e-6),
+            'doubling the rows should roughly double the work; a super-linear ratio means the per-table route memo is gone',
+        );
     }
 
     /**
