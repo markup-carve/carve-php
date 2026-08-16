@@ -9,6 +9,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML importer keeps a captioned code block's figure** (carve-php#1288).
+  `<figure><pre>...<figcaption>` - the engine's own output for a captioned
+  fence - imported as a bare fence plus a plain paragraph, so the `^` caption
+  association was gone and the figure did not survive the engine's own HTML.
+  A `pre` is a supported figure target now, beside the image and the block
+  quote that already were.
+
 - **The HTML importer reads the engine's own footnote reference back as a
   reference** (carve-php#1286). `<a id="fnrefN" href="#fnN"
   role="doc-noteref"><sup>N</sup></a>` imported as a literal link carrying a

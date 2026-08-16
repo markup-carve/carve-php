@@ -3601,9 +3601,10 @@ class HtmlToCarve
 
         $output = "\n";
 
-        // Find img, blockquote, and figcaption
+        // Find img, blockquote, pre, and figcaption
         $img = $this->findFirstDirectChildByTagName($node, 'img');
         $blockquote = $this->findFirstDirectChildByTagName($node, 'blockquote');
+        $pre = $this->findFirstDirectChildByTagName($node, 'pre');
         $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
 
         if ($this->hasOnlySupportedFigureContent($node) && $img instanceof DOMElement) {
@@ -3611,6 +3612,12 @@ class HtmlToCarve
         } elseif ($this->hasOnlySupportedFigureContent($node) && $blockquote instanceof DOMElement) {
             $output .= $this->processBlockquote($blockquote);
             // Remove the trailing blank line since caption follows immediately
+            $output = rtrim($output) . "\n";
+        } elseif ($this->hasOnlySupportedFigureContent($node) && $pre instanceof DOMElement) {
+            // A captioned code block is a figure whose target is the fence -
+            // the engine's own output shape. Importing it as a bare fence plus
+            // a plain paragraph lost the `^` association (carve-php#1288).
+            $output .= $this->processPreBlock($pre);
             $output = rtrim($output) . "\n";
         } else {
             return $this->processGenericFigureContent($node);
@@ -3748,7 +3755,7 @@ class HtmlToCarve
             return false;
         }
 
-        return in_array($contentChildren[0], ['img', 'blockquote'], true);
+        return in_array($contentChildren[0], ['img', 'blockquote', 'pre'], true);
     }
 
     protected function processGenericFigureContent(DOMElement $node): string

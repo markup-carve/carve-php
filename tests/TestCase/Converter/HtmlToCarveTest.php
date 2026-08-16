@@ -783,18 +783,21 @@ HTML;
         $this->assertSame("![Photo](photo.jpg)\n^ cap one\ncap two", $result);
     }
 
-    public function testFigureWithUnsupportedBlockContentFallsBackToPlainDjotBlocks(): void
+    public function testFigureWithACodeBlockKeepsItsCaption(): void
     {
+        // The engine's own shape for a captioned fence. It used to fall back
+        // to a bare fence plus a plain paragraph, losing the `^` association
+        // (carve-php#1288).
         $html = '<figure><pre><code>code</code></pre><figcaption>Cap</figcaption></figure>';
         $result = $this->converter->convert($html);
 
         $this->assertStringNotContainsString("``` =html\n", $result);
         $this->assertStringContainsString("```\ncode\n```", $result);
-        $this->assertStringContainsString("\nCap\n", $result);
+        $this->assertStringContainsString("\n^ Cap\n", $result);
 
         $htmlBack = (new CarveConverter(profile: Profile::article()))->convert($result);
         $this->assertStringContainsString('<pre><code>code', $htmlBack);
-        $this->assertStringContainsString('<p>Cap</p>', $htmlBack);
+        $this->assertStringContainsString('<figcaption>Cap</figcaption>', $htmlBack);
     }
 
     public function testFigureWithAttributesPrefersStructuredFigureOverRawHtml(): void
