@@ -30,17 +30,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   paragraph item loosens the whole list. Before, every list flattened tight
   and the item paragraphs were dropped.
 
-- **The MathML `alttext` diagnostic uses a code the spec admits.** Reading a
-  `<math>` element through its `alttext` reported `math-encoding-assumed`, a
-  ninth code: `resources/html-import-schema.json` closes the set at eight, so a
-  consumer validating a report against the spec's own schema had to reject it,
-  and carve-js exports those same eight as a union type. It is now
-  `element-unwrapped` at `info`, which is both one of the eight and the honest
-  one - the element is gone and its content came out through an attribute - and
-  which is what carve-js and carve-rs already report for that tier. Only the
-  code and the message text change; which elements are read, dropped or
-  preserved does not.
-
 - **Two adjacent ordered lists import as two lists** (carve-php#1290). With
   one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
   imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
@@ -278,9 +267,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (markup-carve/carve#1210 D6). The TeX comes from an `<annotation>` whose
   `encoding` is exactly `application/x-tex`, `text/x-tex` or `LaTeX`
   (case-insensitive) and which is a direct child of the element's own
-  `<semantics>`; failing that, from `alttext`, which now carries a
-  `math-encoding-assumed` info because MathML never declares what `alttext`
-  holds; failing both, the element carries no TeX at all.
+  `<semantics>`; failing that, from `alttext`, which carries an
+  `encoding-assumed` info because MathML never declares what `alttext` holds,
+  so the math node this produces is only correct while that guess is; failing
+  both, the element carries no TeX at all.
 
   Three changes a reader upgrading needs. The order reversed: `alttext` used to
   win, and a declared encoding now beats an undeclared attribute where the two

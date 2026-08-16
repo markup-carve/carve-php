@@ -357,16 +357,21 @@ class HtmlToCarve
         }
 
         if ($tier === 2) {
-            // `element-unwrapped`, not a code of this importer's own: the
-            // spec's `resources/html-import-schema.json` closes the code set at
-            // eight, so a ninth is a payload no consumer validating against it
-            // can accept, and carve-js exports the same eight as a union type.
-            // It is also the honest one of the eight - the element is gone and
-            // its content came out through an attribute - and it is what
-            // carve-js and carve-rs report for this tier (carve#1210 D6).
+            // `encoding-assumed`, which the spec added to the code set for
+            // exactly this case (carve#1235): MathML never says what `alttext`
+            // holds, so reading it as TeX is a guess, and the math node this
+            // produces is only correct while the guess is. The spec files that
+            // apart from `element-unwrapped` on purpose - unwrapping is a note
+            // about the input's structure and loses no meaning, while an
+            // assumed encoding is a warning about the OUTPUT, and a consumer
+            // told only that an element is gone cannot tell the two apart.
+            //
+            // `info`, matching carve-js: the spec maps no code to a severity,
+            // so raising this one would divide the engines over something
+            // nothing rules on.
             $this->addImportDiagnostic(
                 $diagnostics,
-                'element-unwrapped',
+                'encoding-assumed',
                 'Read <math> through its alttext: MathML does not declare the encoding of alttext, so TeX is assumed',
                 'info',
                 $path,
