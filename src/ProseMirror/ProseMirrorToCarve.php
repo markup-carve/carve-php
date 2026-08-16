@@ -1276,7 +1276,13 @@ class ProseMirrorToCarve
                     'spanMarker',
                     is_scalar($value) ? (string)$value : null,
                 ),
-                $node instanceof TableCell && $key === 'alignment' => $this->setState($node, 'alignment', self::asString($value)),
+                // An `alignment` on the wire IS the cell's own marker: the
+                // renderer publishes it only where the cell carries one, which
+                // is also how carve-rs reads it back. Recording that keeps the
+                // marker in the written form even where the column already
+                // aligns the same way.
+                $node instanceof TableCell && $key === 'alignment' => $this->setState($node, 'alignment', self::asString($value))
+                    && $this->setState($node, 'hasExplicitAlignment', true),
                 $node instanceof Image && $key === 'src' => $this->setState($node, 'source', self::asString($value)),
                 $node instanceof Image && $key === 'alt' => $this->setState($node, 'alt', self::asString($value)),
                 $node instanceof Link && $key === 'href' => $this->setState($node, 'destination', self::asString($value)),

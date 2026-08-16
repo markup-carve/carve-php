@@ -1499,6 +1499,7 @@ class CarveRenderer implements RendererInterface
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
                 $inherited = $headerRow
                     && $rowIndex > 0
+                    && !$cell->hasExplicitAlignment()
                     && ($headerAligns[$column] ?? null) === $cell->getAlignment();
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
                 $column++;
@@ -1523,18 +1524,38 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @param list<array{text: string, tight: bool}> $cells Rendered cells.
+     * @param list<string> $cells Rendered cells, each already padded.
      * @param string $attrs Row attributes.
      */
     protected function renderTableRow(array $cells, string $attrs): string
     {
-        return '|' . implode('|', array_map(static fn (array $cell): string => $cell['tight'] ? $cell['text'] : ' ' . $cell['text'] . ' ', $cells)) . '|' . $attrs;
+        return '|' . implode('|', $cells) . '|' . $attrs;
     }
 
     /**
-     * @return array{text: string, tight: bool}
+     * A cell's written form: its PREFIX glued to the opening pipe, then one
+     * space, then the content, then one space before the closing pipe.
+     *
+     * The prefix has to touch the pipe - a space in front of `=` or of an
+     * attribute block makes it literal content - but the CONTENT does not, and
+     * the padded form is the readable one. It is also the safe one: the
+     * alignment scan runs right after `|` or `|=` off the UNTRIMMED cell, so a
+     * glued content sigil was read as a marker nobody wrote. That used to be a
+     * guard listing the characters that merge; the space covers every cell.
+     *
+     * An EMPTY cell takes a single space, not two, so a column does not grow a
+     * space each time the document is formatted.
      */
-    protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): array
+    protected function padCell(string $prefix, string $content): string
+    {
+        if ($content === '') {
+            return $prefix . ' ';
+        }
+
+        return $prefix . ' ' . $content . ' ';
+    }
+
+    protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): string
     {
         $attrs = $this->renderAttrs($cell);
         // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
@@ -1551,11 +1572,7 @@ class CarveRenderer implements RendererInterface
         // has no marker run for it to bind after (PART 9 §5 T10); the space
         // goes between it and the span marker.
         if ($cell->getSpanMarker() !== null) {
-            if ($attrs === '') {
-                return ['text' => $cell->getSpanMarker(), 'tight' => false];
-            }
-
-            return ['text' => $attrs . ' ' . $cell->getSpanMarker(), 'tight' => true];
+            return $this->padCell($attrs, $cell->getSpanMarker());
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
         // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
@@ -1573,43 +1590,7 @@ class CarveRenderer implements RendererInterface
             $this->tableCellDepth--;
         }
 
-        // A PREFIXED CELL IS WRITTEN TIGHT, so the first character of the
-        // content is the character the parser's alignment scan reads. That scan
-        // runs at the position right after `|` or `|=` and consumes exactly one
-        // of `< > ~`, so a header cell whose content OPENS with one lost it:
-        // `| ~x~ |` was written `|=~x~|`, which reads back as CENTER alignment
-        // with the text `x~` - the strikethrough gone, and every cell in the
-        // column centered by a marker the author never wrote. `| <https://e.com> |`
-        // lost its anchor the same way through the LEFT marker
-        // (carve-php#1069 cause 5).
-        //
-        // ONE SPACE IS THE WHOLE FIX, and it is the same argument the span
-        // marker one branch above already carries (carve#710): the scan fires
-        // only on a GLUED sigil, and the content is trimmed once the prefix is
-        // consumed, so `|= ~x~|` is a header cell holding `~x~` again.
-        //
-        // The sigil set is read off the parser rather than listed again here.
-        // The three cases the scan is NOT live in are left alone: a cell whose
-        // prefix ENDS in an attribute block has spent the scan there (the block
-        // binds after the markers, so everything past it is content), a prefix
-        // that already ends in an alignment marker has spent it too, and an
-        // unprefixed cell is padded, so the scan reads its space.
-        if ($this->headerMarkerWouldReadAsAlignment($prefix, $align, $attrs, $content)) {
-            return ['text' => $prefix . ' ' . $content, 'tight' => true];
-        }
-
-        // A block takes the separating space on both sides, which is the shape
-        // T10 spells: `|={.x} h |`. Without it `|={.x}h|` still round-trips,
-        // but the corpus writes the padded form. An empty cell takes one space,
-        // not two, so the output is idempotent rather than growing a column.
-        if ($attrs !== '') {
-            return [
-                'text' => $prefix . ' ' . $content . ($content === '' ? '' : ' '),
-                'tight' => true,
-            ];
-        }
-
-        return ['text' => $prefix . $content, 'tight' => $prefix !== ''];
+        return $this->padCell($prefix, $content);
     }
 
     protected function renderFigure(Figure $node): string
@@ -2801,19 +2782,6 @@ class CarveRenderer implements RendererInterface
         $marker = array_search($align, BlockParser::TABLE_ALIGNMENT_MARKERS, true);
 
         return $marker === false ? '' : $marker;
-    }
-
-    /**
-     * Whether the emitted cell prefix would leave the parser's alignment scan
-     * live at the first character of `$content`, with that character being one
-     * the scan consumes.
-     */
-    protected function headerMarkerWouldReadAsAlignment(string $prefix, string $align, string $attrs, string $content): bool
-    {
-        return $prefix !== ''
-            && $attrs === ''
-            && $align === ''
-            && isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$content[0] ?? '']);
     }
 
     protected function escapeText(string $text, bool $opensBlockLine = false): string

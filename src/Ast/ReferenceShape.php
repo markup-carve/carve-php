@@ -187,7 +187,7 @@ final class ReferenceShape
         // Markdown - already resolves it fresh from the placeholders via
         // TableSpanGrid rather than trusting this field), so dropping it from
         // the wire loses nothing a consumer could read from it anyway.
-        'table_cell' => ['isHeader', 'rowspan', 'colspan'],
+        'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
         'div' => ['typed', 'header'],

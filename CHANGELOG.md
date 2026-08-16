@@ -143,6 +143,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Every table cell pads its content in the canonical form** (PART 11 §6e). A
+  cell carrying a prefix - the kind marker `=`, an alignment marker, an
+  attribute block - was written with its content glued to it, except when the
+  cell carried attributes, which this engine padded: `|=Heading|` beside
+  `|={.total} Total |`. One rule now covers every cell - `|= Heading |`,
+  `|={.total} Total |= 99 |` - with the prefix still glued to the opening pipe,
+  because a space in front of it makes it literal content. An empty cell takes
+  a single space. This also removes the guard that inserted a space only for
+  content beginning with `<`, `>` or `~`: those are read glued off the
+  untrimmed cell, and padding every cell covers the class without listing it.
+
 - **The HTML importer reads `<math>` through a three-tier lookup**
   (markup-carve/carve#1210 D6). The TeX comes from an `<annotation>` whose
   `encoding` is exactly `application/x-tex`, `text/x-tex` or `LaTeX`
@@ -235,6 +246,24 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   flattening items into prose.
 
 ### Fixed
+
+- **A table cell keeps the alignment marker it was written with, and the
+  writers spell it the way carve-js and carve-rs do.** Four defects, all of
+  them the same cell:
+  - The parser folded an explicit `>` into the column's alignment where the two
+    agreed, so `|=<{.h} Name |=>{.c} Score |` over `| Ann |>{.num} 9 |` lost
+    `align` on the body cell that carries the marker. The HTML was unaffected,
+    but the AST is a pinned wire contract and PART 9 section 319 binds the
+    marker to the CELL.
+  - The canonical Carve writer disagreed with the other two on a cell that
+    carries a marker or an attribute block. All three now write the padded form
+    PART 11 §6e states - see the entry above.
+  - The Markdown writer promoted a body cell's alignment into the column rule
+    (`| ---: |`). Markdown has no cell-level alignment, so only what the HEADER
+    declares belongs in the separator row.
+  - A list item or definition whose body was collected away wrote its marker
+    with the separator space still attached, leaving `"- "` and `": "` at the
+    end of a line.
 
 - **A `#tag` stays a tag across the ProseMirror bridge.** The schema map gives
   `mention` two ProseMirror names and says `carveTag` is the `#tag` flavor, but

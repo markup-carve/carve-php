@@ -645,7 +645,15 @@ class ProseMirrorRenderer
         } elseif ($node instanceof TableCell) {
             $attrs['colspan'] = $node->getColspan();
             $attrs['rowspan'] = $node->getRowspan();
-            if ($node->getAlignment() !== TableCell::ALIGN_DEFAULT) {
+            // The cell's OWN marker, not the one it inherits from the column.
+            // carve-rs writes `alignment` from `cell.align`, which its parser
+            // sets only where the cell carries a marker, so a body cell under
+            // an aligned header has no `alignment` there. This engine keeps the
+            // inherited value on the node for its HTML writer, so the flag is
+            // what separates the two - without it the bridge published an
+            // alignment carve-rs does not, and re-read it as a marker the
+            // author never wrote.
+            if ($node->hasExplicitAlignment() && $node->getAlignment() !== TableCell::ALIGN_DEFAULT) {
                 $attrs['alignment'] = $node->getAlignment();
             }
         } elseif ($node instanceof Image) {

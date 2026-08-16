@@ -150,7 +150,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $written = $this->fmt("|={#x} R |\n| 1 |\n");
 
         $this->assertStringNotContainsString('|{#x}=', $written);
-        $this->assertStringContainsString('|={#x} ', $written);
+        $this->assertStringContainsString('|={#x} R |', $written);
     }
 
     /**

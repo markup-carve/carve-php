@@ -2142,6 +2142,7 @@ class AstCodec
 
         if ($node instanceof TableCell && array_key_exists('header', $data)) {
             self::writeProperty($node, 'isHeader', $data['header'] === true);
+            $node->setExplicitAlignment(array_key_exists('align', $data));
 
             return;
         }
@@ -2226,6 +2227,10 @@ class AstCodec
      */
     private static function inheritsColumnAlignment(TableCell $cell): bool
     {
+        if ($cell->hasExplicitAlignment()) {
+            return false;
+        }
+
         $row = $cell->getParent();
         if (!$row instanceof TableRow) {
             return false;
