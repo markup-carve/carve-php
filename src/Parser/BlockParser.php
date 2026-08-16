@@ -101,9 +101,25 @@ class BlockParser
      * expanded nowhere and `fmt` dropped the line, while a link definition and a
      * footnote definition in the same position were both collected normally.
      *
+     * THE BARE DOT IS AN ORDERED MARKER AND BELONGS HERE. `. text` is a Carve
+     * addition with no CommonMark or Djot equivalent (`resources/grammar.ebnf`,
+     * `ordered_marker`, BARE DOT), so it is the marker least likely to have
+     * inherited a reference implementation's behavior - and every ordered
+     * alternative here required an enumerator BEFORE the delimiter, so it was
+     * the one marker that opened no item as far as this guard could see.
+     *
+     * A column-0 abbreviation definition after it was therefore collected, and
+     * PART 12 §7 says it is not one: the line "is an `abbreviation_definition`
+     * only as a direct child of the document. Written inside a block quote, a
+     * list item or a div, the line is not a definition at all: it is ordinary
+     * paragraph text, it defines nothing, and it is preserved as the text the
+     * author typed." Two wrong things happened together - the line stayed
+     * visible as lazy item text AND registered the term, so it expanded inside
+     * its own definition and anywhere else in the document (carve-php#1328).
+     *
      * @var string
      */
-    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) +[ \t]*[^ \t]/';
+    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) +[ \t]*[^ \t]/';
 
     /**
      * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
