@@ -888,6 +888,16 @@ class ProseMirrorToCarve
             return [new RawText(self::asString($attrs['carveSource'] ?? ''))];
         }
 
+        if ($name === 'carveEmptyMark') {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            $node = $this->emptyMarkNode(
+                self::asString($attrs['markType'] ?? ''),
+                is_array($attrs['markAttrs'] ?? null) ? $attrs['markAttrs'] : [],
+            );
+
+            return [$this->wrapInMarks($node, $data['marks'] ?? [])];
+        }
+
         if ($name === 'text') {
             $text = self::asString($data['text'] ?? '');
             $marks = is_array($data['marks'] ?? null) ? $data['marks'] : [];
@@ -1252,6 +1262,49 @@ class ProseMirrorToCarve
     }
 
     /**
+     * The construct a `carveEmptyMark` stands for, rebuilt with no children.
+     *
+     * The atom is a wire node, not a Carve type - the map declares it under
+     * `markCarrierNodes` - so it is read by the mark it NAMES rather than
+     * through the type table. A name the map does not admit as a `markType`
+     * would otherwise become an empty span and silently change the document,
+     * so it is refused the same way an unknown node name is
+     * (markup-carve/carve-grammars#240).
+     *
+     * @param string $markType
+     * @param array<string, mixed> $markAttrs
+     *
+     * @throws \RuntimeException When the mark is not one the map names.
+     */
+    protected function emptyMarkNode(string $markType, array $markAttrs): Node
+    {
+        if (!in_array($markType, ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete'], true)) {
+            throw new RuntimeException(sprintf(
+                'carveEmptyMark stands for a mark, and "%s" is not one the schema map names: '
+                    . 'expected link, carveSpan, carveAbbreviation, carveInsert or carveDelete',
+                $markType,
+            ));
+        }
+
+        if ($markType === 'carveAbbreviation') {
+            // `[]{abbr="..."}` as written. There is no term to match a
+            // definition against here, so the authored span is the only shape
+            // it can come back as.
+            $node = new Span();
+            $node->setAttribute('abbr', self::asString($markAttrs['title'] ?? ''));
+            unset($markAttrs['title']);
+            $this->applyAttributes($node, ['attrs' => $markAttrs]);
+
+            return $node;
+        }
+
+        $node = $this->instantiate($markType, ['attrs' => $markAttrs]);
+        $this->applyAttributes($node, ['attrs' => $markAttrs]);
+
+        return $node;
+    }
+
+    /**
      * @param string $proseMirrorName
      * @param array<string, mixed> $data
      *
@@ -1271,7 +1324,11 @@ class ProseMirrorToCarve
         // `preservationNodes`), not Carve types, and every path that can meet
         // an inline node can meet one - a table cell among them, which is where
         // three corpus documents still threw after the inline path learned it.
-        if (in_array($proseMirrorName, ['carveUnsupported', 'carveUnsupportedInline'], true)) {
+        // Read from the map's own section rather than listed again here: the
+        // map has THREE sections a bridge answers to, and a name restated in
+        // code is a copy that stops being one the moment upstream adds a
+        // fourth atom - which is exactly how `carveEmptyMark` arrived.
+        if ((SchemaMap::carrierNames()[$proseMirrorName] ?? null) === 'preservationNodes') {
             $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
 
             return new RawText(self::asString($attrs['carveSource'] ?? ''));
@@ -1475,6 +1532,9 @@ class ProseMirrorToCarve
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
                 $node instanceof Link && $key === 'carveReferenceDefinition' => true,
                 $key === 'carveKeyValues' => true,
+                // Replayed after the loop below, once every slot it names has
+                // actually been set on the node.
+                $key === 'carveAttrOrder' => true,
                 // A mention's visible name is a child Text node here, but
                 // tiptap/extension-mention is an atom that keeps it in `label`
                 // (`id` when unlabelled). Left as an attribute it becomes a
@@ -1529,11 +1589,39 @@ class ProseMirrorToCarve
             }
         }
 
+        // The authored run, in the order it was WRITTEN. Applied last because
+        // every setAttribute() above appends its own slot, so an order set
+        // earlier would be overwritten by the storage order it is there to
+        // correct. The writer already knows what to do with it: replay each
+        // named slot in sequence, skip one the document no longer has, and
+        // emit anything the order does not name after the ones it does.
+        if (array_key_exists('carveAttrOrder', $attrs)) {
+            $order = $this->attributeOrderFrom($attrs['carveAttrOrder']);
+            if ($order !== []) {
+                $node->setAttributeOrder($order);
+            }
+        }
+
         // Older payloads did not carry whether a `carveDiv` was opened with a
         // type word. Keep the historical single-class heuristic for those only.
         if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) >= 1) {
             $this->setState($node, 'typed', true);
         }
+    }
+
+    /**
+     * The slot list from a `carveAttrOrder`, with anything that is not a slot
+     * name dropped.
+     *
+     * @return list<string>
+     */
+    private function attributeOrderFrom(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, 'is_string'));
     }
 
     private function applyKeyValues(Node $node, mixed $value): bool

@@ -71,6 +71,13 @@ use MarkupCarve\Carve\Renderer\TableSpanGrid;
 class ProseMirrorRenderer
 {
     /**
+     * The marks the published map admits on the empty-mark carrier.
+     *
+     * @var list<string>
+     */
+    private const EMPTY_MARK_TYPES = ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete'];
+
+    /**
      * @var array<string, string>
      */
     private array $referenceDefinitionLines = [];
@@ -519,6 +526,16 @@ class ProseMirrorRenderer
                 if ($attrs !== []) {
                     $mark['attrs'] = $attrs;
                 }
+
+                $carrier = $this->emptyMarkCarrier($node, $mark);
+                if ($carrier !== null) {
+                    if ($marks !== []) {
+                        $carrier['marks'] = $marks;
+                    }
+                    $out[] = $carrier;
+
+                    continue;
+                }
                 // Descend with this mark added rather than emitting a node.
                 foreach ($this->renderInlines($node->getChildren(), [...$marks, $mark]) as $child) {
                     $out[] = $child;
@@ -935,6 +952,29 @@ class ProseMirrorRenderer
             $attrs['carveKeyValues'] = $keyValues;
         }
 
+        // The run's SPELLING, which the three slots above cannot hold between
+        // them: `id`, `class` and one `carveKeyValues` bag are a map, and a map
+        // has no order, so `{key=c .a #b}` came back regrouped as `{.a #b key=c}`
+        // - the same document, a different source. The AST records the authored
+        // slots, so the wire carries them verbatim and the writer replays them
+        // (markup-carve/carve-grammars#240).
+        //
+        // Only where the run actually produced one of those three. An
+        // abbreviation's `abbr` becomes the mark's `title`, and a structural
+        // class the author never wrote has no slot, so neither gets an order
+        // naming a slot the reading side would not find.
+        $order = $node->getAttributeOrder();
+        if (
+            $order !== []
+            && (
+                array_key_exists('id', $attrs)
+                || array_key_exists('class', $attrs)
+                || array_key_exists('carveKeyValues', $attrs)
+            )
+        ) {
+            $attrs['carveAttrOrder'] = $order;
+        }
+
         return $attrs;
     }
 
@@ -962,6 +1002,50 @@ class ProseMirrorRenderer
         return $merged;
     }
 
+    /**
+     * The atom a MARK WITH NO CONTENT crosses as, or null when the node has
+     * content and travels as a mark on its text.
+     *
+     * A ProseMirror mark cannot span zero characters, so walking the children
+     * of `[]{.x}`, `[](https://example.com)`, `{++}` or `{--}` produced nothing
+     * and the construct simply vanished - a document that was only an empty
+     * link came back EMPTY. The map's `markCarrierNodes` section names the atom
+     * that carries them instead, with the mark it stands for and that mark's
+     * own attributes (markup-carve/carve-grammars#240).
+     *
+     * Only the five the map admits as `markType`. An empty `{==}` highlight is
+     * the same shape with no name on the wire, so it stays a reported loss
+     * rather than becoming a vocabulary this schema does not define.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, mixed> $mark
+     *
+     * @return array<string, mixed>|null
+     */
+    private function emptyMarkCarrier(Node $node, array $mark): ?array
+    {
+        if ($node->getChildren() !== []) {
+            return null;
+        }
+        $markType = $mark['type'] ?? null;
+        if (!is_string($markType) || !in_array($markType, self::EMPTY_MARK_TYPES, true)) {
+            // Still nothing to attach the mark to, and now the only one left
+            // that way. Said out loud rather than dropped in silence, which is
+            // how the four above went unnoticed for as long as they did.
+            $this->degraded[$node->getType()] = 'a mark with no content has no text to carry it, and the '
+                . 'published schema names no carrier for this one';
+
+            return null;
+        }
+
+        $attrs = ['markType' => $markType];
+        if (($mark['attrs'] ?? []) !== []) {
+            $attrs['markAttrs'] = $mark['attrs'];
+        }
+
+        return ['type' => 'carveEmptyMark', 'attrs' => $attrs];
+    }
+
     private function renderAttributeRun(Node $node): string
     {
         $parts = [];
@@ -983,28 +1067,6 @@ class ProseMirrorRenderer
     }
 
     /**
-     * Whether the author wrote the attribute run in an order the wire cannot
-     * reproduce: a key/value before the id or a class, or a class before the id.
-     */
-    private function attributeRunIsReordered(Node $node): bool
-    {
-        $order = $node->getAttributeOrder();
-        if ($order === []) {
-            return false;
-        }
-        $rank = static fn (string $slot): int => match (true) {
-            $slot === '#id' => 0,
-            $slot === '.class' => 1,
-            default => 2,
-        };
-        $ranks = array_map($rank, $order);
-        $sorted = $ranks;
-        sort($sorted);
-
-        return $ranks !== $sorted;
-    }
-
-    /**
      * Records state the editor model has no place for.
      *
      * A type can map cleanly and still lose something: the NODE survives, one
@@ -1015,37 +1077,21 @@ class ProseMirrorRenderer
      */
     protected function noteUnrepresentableState(Node $node): void
     {
-        // ProseMirror attributes are an unordered map, and the canonical shape
-        // splits an authored run into `id`, `class` and one `carveKeyValues`
-        // bag. A run the author interleaved - `{key=c .a #b}` - therefore comes
-        // back grouped, `{.a #b key=c}`: same document, different spelling, and
-        // a formatter has to be able to reproduce what was written.
-        if ($this->attributeRunIsReordered($node)) {
-            $this->degraded[$node->getType()] = 'the authored order of an attribute run is not '
-                . 'representable: ProseMirror attributes are a map, and id, class and key/values are separate slots';
-        }
+        // An interleaved attribute run - `{key=c .a #b}` - is no longer one of
+        // these. ProseMirror attributes are still a map, but the authored slot
+        // order rides beside them in `carveAttrOrder` and the writer replays
+        // it, so the run comes back spelled as it was typed.
         if ($node instanceof Span && $node->getAttribute('lang') !== null) {
             $this->degraded['span'] = 'the language sigil and class slot share values but not source ordering in the editor shape';
         }
         if ($node instanceof Span && $node->getAttribute('abbr') !== null && $node->getAttribute('title') !== null) {
             $this->degraded['span'] = 'an authored title collides with the abbreviation mark title used for its expansion';
         }
-        if ($node instanceof Span && $node->getChildren() === []) {
-            // Same shape as the empty link below, and the same reason: a mark
-            // needs text to attach to, so a span with no content has nothing to
-            // carry it and the attributes it holds go with it. `x ^[]{.c}`
-            // came back as `x ^`, with neither report saying so.
-            $this->degraded['span'] = 'a span with no content has no text to carry the mark, '
-                . 'so neither it nor its attributes are represented';
-        }
+        // A span or a link with no content is no longer one of these either: a
+        // mark still cannot span zero characters, so the map names an atom that
+        // stands for the mark instead, and the bridge writes that.
 
         if ($node instanceof Link && !$node instanceof Mention) {
-            if ($node->getChildren() === []) {
-                // A mark needs text to attach to. An empty label has none, so
-                // the link does not merely change shape - it disappears.
-                $this->degraded['link'] = 'a link with an empty label has no text to carry the mark, '
-                    . 'so it is not represented at all';
-            }
             if (array_key_exists('href', $node->getAttributes())) {
                 // Deliberately NOT carried: an authored `{href=...}` must never
                 // reach the editor as a destination, because writing that model

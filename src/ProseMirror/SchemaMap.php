@@ -44,7 +44,7 @@ final class SchemaMap
     ];
 
     /**
-     * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>}|null
+     * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>}|null
      */
     private static ?array $data = null;
 
@@ -159,6 +159,42 @@ final class SchemaMap
     }
 
     /**
+     * The wire names that are NOT Carve types.
+     *
+     * The map has three sections a bridge has to read, not one. `types` is the
+     * vocabulary; `preservationNodes` and `markCarrierNodes` name the atoms a
+     * bridge writes for something the editor model has no node for at all - a
+     * construct with no editable shape, and a MARK WITH NO CONTENT. Reading
+     * only `types` is why `carveEmptyMark` had to be added here: a name absent
+     * from every section is an error rather than a skip, so a document that was
+     * only `[](https://example.com)` came back empty from one bridge and threw
+     * in the other (markup-carve/carve-grammars#240).
+     *
+     * @return array<string, string> ProseMirror name => the section that owns it
+     */
+    public static function carrierNames(): array
+    {
+        $names = [];
+        foreach (['preservationNodes', 'markCarrierNodes'] as $section) {
+            /** @var array<string, mixed> $entries */
+            $entries = self::data()[$section] ?? [];
+            foreach ($entries as $name => $entry) {
+                // `about` is the section's own prose, not a node.
+                if (is_array($entry)) {
+                    $names[(string)$name] = $section;
+                }
+            }
+        }
+
+        return $names;
+    }
+
+    public static function isCarrierName(string $proseMirrorName): bool
+    {
+        return array_key_exists($proseMirrorName, self::carrierNames());
+    }
+
+    /**
      * @return array<string, string> type => reason
      */
     public static function unmapped(): array
@@ -177,7 +213,7 @@ final class SchemaMap
     /**
      * @throws \RuntimeException
      *
-     * @return array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>}
+     * @return array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>}
      */
     private static function data(): array
     {
@@ -191,7 +227,7 @@ final class SchemaMap
             throw new RuntimeException(sprintf('Cannot read the ProseMirror schema map at %s', $path));
         }
 
-        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>} $data */
+        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>} $data */
         $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         self::$data = $data;
 

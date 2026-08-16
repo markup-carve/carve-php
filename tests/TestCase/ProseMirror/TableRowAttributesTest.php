@@ -41,7 +41,10 @@ class TableRowAttributesTest extends TestCase
         $document = (new CarveConverter())->parse("| a |{.head}\n|---|\n| b |\n");
         $payload = (new ProseMirrorRenderer())->render($document);
 
+        // The authored SLOT ORDER rides along with the attribute, here as
+        // everywhere else a run reaches the wire: a row can be written
+        // `{key=v .head}` too, and a map has no order to reproduce that from.
         $rows = $payload['content'][0]['content'] ?? [];
-        $this->assertSame(['class' => 'head'], $rows[0]['attrs'] ?? null);
+        $this->assertSame(['class' => 'head', 'carveAttrOrder' => ['.class']], $rows[0]['attrs'] ?? null);
     }
 }

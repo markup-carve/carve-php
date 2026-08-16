@@ -73,9 +73,15 @@ class ProseMirrorCorpusTest extends TestCase
      * by 131 in the same change. Both counts are measured against the corpus
      * this branch pins; the pair before them was measured on the same one.
      *
+     * Rose from 791 to 809 when the bridge began CARRYING three of the things
+     * it had been declaring lost: the authored order of an attribute run, an
+     * attribute run on inline code, and a mark with no content
+     * (markup-carve/carve-grammars#240). Eighteen documents rejoined the
+     * fully-covered population because nothing about them is degraded any more.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 791;
+    private const MINIMUM_LOSSLESS = 809;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -116,9 +122,13 @@ class ProseMirrorCorpusTest extends TestCase
      * panel is wrapped the way the fixtures spell it, and the preservation
      * atoms another bridge writes are read instead of refused.
      *
+     * Rose from 1014 to 1024 with the carried attribute-run order and the
+     * empty-mark carrier: ten documents whose spelling the round trip used to
+     * regroup now come back byte-identical.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 1014;
+    private const MINIMUM_SURVIVING = 1024;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
