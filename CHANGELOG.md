@@ -304,6 +304,38 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A delimited `{% x %}` comment no longer deletes the rest of the paragraph
+  across a ProseMirror round trip** (PART 9 §21a). Both halves of this land in
+  the same release as the spelling itself, so no released version ever behaved
+  this way; it is recorded because the loss was silent and a reader of the two
+  entries above would otherwise assume the bridge covered the new spelling.
+  The bridge carried a comment's text but not which of the two spellings
+  produced it, so an editor round trip respelled every delimited comment as a
+  line comment - and `%%` runs to the end of the line, so it swallowed
+  everything after it. Written:
+
+  ```
+  foo {% bar %} baz
+  ```
+
+  came back as:
+
+  ```
+  foo  %% bar baz
+  ```
+
+  which renders `<p>foo</p>` instead of `<p>foo  baz</p>`. With the comment
+  first in the paragraph the whole paragraph was lost. Nothing reported it:
+  the renderer's `dropped` and `degraded` lists were both empty, because the
+  loss happened on the way back, in the spelling. The `delimited` flag PART 12
+  publishes on the wire now rides on the payload too, in both directions and
+  in both the inline and block spellings.
+
+  A comment inside a **table cell** was dropped outright, in both spellings.
+  A comment's node class is filed under blocks whichever way it was written, so
+  the cell path took the inline atom for a block and recursed into children it
+  does not have. That rendered identically, which is why nothing caught it.
+
 - **An attribute block reaches a nested list written with no blank line before
   it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
   above a nested list was discarded:
