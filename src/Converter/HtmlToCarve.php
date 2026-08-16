@@ -67,6 +67,18 @@ class HtmlToCarve
     ];
 
     /**
+     * The `<annotation>` encodings that declare TeX, lowercased.
+     *
+     * Matched exactly against the whole value, never as a substring: `tex` is a
+     * substring of `text/plain`, so the substring test this replaces read a
+     * plain-text payload as an equation. `MathType-MTEF` is the same mistake
+     * from the other side - a declared encoding that is emphatically not TeX.
+     *
+     * @var list<string>
+     */
+    protected const MATH_TEX_ENCODINGS = ['application/x-tex', 'text/x-tex', 'latex'];
+
+    /**
      * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
@@ -206,6 +218,18 @@ class HtmlToCarve
             return;
         }
 
+        if ($tag === 'math') {
+            // Report the element, then stop. Its attributes and its children
+            // are neither dropped nor unwrapped: `display` and `alttext` are
+            // read by the mapping, and the token stream below is consumed
+            // whole. Walking into it produced a row per `<mi>` and `<mn>`,
+            // each claiming a span that is never emitted, and none of them
+            // naming `<math>` as the thing at stake.
+            $this->inspectMath($node, $path, $diagnostics);
+
+            return;
+        }
+
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
             if (str_starts_with($name, 'on')) {
@@ -274,6 +298,52 @@ class HtmlToCarve
             $elementIndex++;
             $this->inspectImportNode($child, $path, $elementIndex, $diagnostics);
         }
+    }
+
+    /**
+     * Report what a `<math>` element loses, off the same tier decision the
+     * converter makes (`resolveMathTex()`), so the two cannot drift.
+     *
+     * Tier 1 is lossless and says nothing. Tier 2 read an attribute whose
+     * encoding MathML never declared, which is an assumption worth recording.
+     * Tier 3 has no TeX at all: `roundtrip` keeps the element verbatim and so
+     * loses nothing, while `safe` and `semantic` drop it, and that is the one
+     * case where the report has to name `<math>` itself.
+     *
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectMath(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $tier = $this->resolveMathTex($node)['tier'];
+        if ($tier === 1) {
+            return;
+        }
+
+        if ($tier === 2) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'math-encoding-assumed',
+                'Read the <math> alttext as TeX; MathML does not declare what alttext contains',
+                'info',
+                $path,
+            );
+
+            return;
+        }
+
+        if ($this->trustedRoundTrip) {
+            return;
+        }
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'element-dropped',
+            'Dropped <math>: no TeX annotation and no alttext, and its children are a token stream, not an equation',
+            'warning',
+            $path,
+        );
     }
 
     /**
@@ -1917,42 +1987,84 @@ class HtmlToCarve
     }
 
     /**
-     * Process MathML element to Djot math syntax
+     * Turn a `<math>` element into Carve math, or into nothing.
      *
-     * Attempts to extract LaTeX from:
-     * 1. alttext attribute
-     * 2. annotation element with encoding="application/x-tex" or "LaTeX"
-     * 3. Falls back to text content
+     * Tiers 1 and 2 have TeX to write. Tier 3 does not, and the children are
+     * not a substitute for it, so `roundtrip` keeps the element verbatim and
+     * the untrusted modes drop it - the report names it, from the same tier
+     * decision this reads (`inspectMath()`).
      */
     protected function processMath(DOMElement $node): string
     {
-        $isDisplay = $node->getAttribute('display') === 'block';
-
-        // Try alttext attribute first (common in MathJax output)
-        $latex = $node->getAttribute('alttext');
-        if ($latex !== '') {
-            return $this->renderMath($latex, $isDisplay);
+        $resolved = $this->resolveMathTex($node);
+        if ($resolved['content'] !== '') {
+            return $this->renderMath($resolved['content'], $node->getAttribute('display') === 'block');
         }
 
-        // Look for annotation element with LaTeX encoding
-        $annotations = $node->getElementsByTagName('annotation');
-        foreach ($annotations as $annotation) {
-            $encoding = $annotation->getAttribute('encoding');
-            if (stripos($encoding, 'tex') !== false || stripos($encoding, 'latex') !== false) {
-                $latex = trim($annotation->textContent);
-                if ($latex !== '') {
-                    return $this->renderMath($latex, $isDisplay);
+        if ($this->trustedRoundTrip) {
+            return $this->processRawHtmlInlineElement($node);
+        }
+
+        return '';
+    }
+
+    /**
+     * Resolve the TeX a `<math>` element carries. Three tiers, in this order.
+     *
+     * 1. An `<annotation>` whose `encoding` declares TeX exactly and which is
+     *    a direct child of the element's own `<semantics>`. Its text is the
+     *    content verbatim, `{\displaystyle ...}` wrapper and all: Carve math
+     *    content is opaque TeX and rewriting it is a second decision.
+     * 2. Else `alttext`. MathML does not declare what `alttext` holds, so
+     *    reading it as TeX is an assumption - hence tier 2, and hence the
+     *    `info` the report carries for it.
+     * 3. Else there is no TeX in the source, and the children are not an
+     *    answer. They are a token stream whose concatenation is meaningless:
+     *    `<mfrac><mn>1</mn><mn>2</mn></mfrac>` concatenates to `12`, one half
+     *    read back as twelve. That is a plausible wrong value rather than
+     *    visible degradation, so it survives review - which is why this
+     *    returns empty and the caller drops the element instead.
+     *
+     * Order matters and is the reverse of what this importer did before
+     * (carve#1210 D6): where a declared encoding and an undeclared attribute
+     * disagree, the declared one wins.
+     *
+     * The annotation must be a DIRECT child of a DIRECT-child `<semantics>`.
+     * `getElementsByTagName()` is recursive, so the previous lookup pulled TeX
+     * out of an `<annotation>` nested inside an `<annotation-xml>` payload as
+     * if the element had declared it at top level.
+     *
+     * @param \DOMElement $node
+     *
+     * @return array{tier: int, content: string}
+     */
+    protected function resolveMathTex(DOMElement $node): array
+    {
+        foreach ($node->childNodes as $semantics) {
+            if (!$semantics instanceof DOMElement || strtolower($semantics->tagName) !== 'semantics') {
+                continue;
+            }
+            foreach ($semantics->childNodes as $annotation) {
+                if (!$annotation instanceof DOMElement || strtolower($annotation->tagName) !== 'annotation') {
+                    continue;
+                }
+                $encoding = strtolower(trim($annotation->getAttribute('encoding')));
+                if (!in_array($encoding, self::MATH_TEX_ENCODINGS, true)) {
+                    continue;
+                }
+                $content = trim($annotation->textContent);
+                if ($content !== '') {
+                    return ['tier' => 1, 'content' => $content];
                 }
             }
         }
 
-        // Fall back to rendered MathML text, excluding annotation payloads.
-        $text = trim($this->extractMathText($node));
-        if ($text !== '') {
-            return $this->renderMath($text, $isDisplay);
+        $alttext = trim($node->getAttribute('alttext'));
+        if ($alttext !== '') {
+            return ['tier' => 2, 'content' => $alttext];
         }
 
-        return '';
+        return ['tier' => 3, 'content' => ''];
     }
 
     protected function renderMath(string $content, bool $isDisplay): string
@@ -1961,27 +2073,6 @@ class HtmlToCarve
         $backticks = StringUtil::findSafeCodeFence($content, 1);
 
         return $delimiter . $backticks . $content . $backticks . $delimiter;
-    }
-
-    protected function extractMathText(DOMNode $node): string
-    {
-        if ($node instanceof DOMText) {
-            return $node->textContent;
-        }
-
-        if ($node instanceof DOMElement) {
-            $tag = strtolower($node->tagName);
-            if ($tag === 'annotation' || $tag === 'annotation-xml') {
-                return '';
-            }
-        }
-
-        $text = '';
-        foreach ($node->childNodes as $child) {
-            $text .= $this->extractMathText($child);
-        }
-
-        return $text;
     }
 
     /**

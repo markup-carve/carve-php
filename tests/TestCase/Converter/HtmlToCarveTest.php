@@ -2273,12 +2273,15 @@ DJOT;
         $this->assertSame('$`E = mc^2`$', $result);
     }
 
-    public function testMathMLTextFallback(): void
+    public function testMathMLWithoutTexIsDropped(): void
     {
+        // carve#1210 D6: the children are a token stream, so concatenating
+        // them invents an equation the source never carried. Untrusted modes
+        // drop the element and the loss report names it.
         $html = '<math><mi>x</mi><mo>+</mo><mi>y</mi></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`x+y`$', $result);
+        $this->assertSame('', $result);
     }
 
     public function testMathMLInParagraph(): void
@@ -2289,12 +2292,12 @@ DJOT;
         $this->assertSame('Equation: $`a + b`$ here', $result);
     }
 
-    public function testMathMLFallbackIgnoresNonTexAnnotations(): void
+    public function testMathMLNonTexAnnotationIsNotTexAndLeavesNoMath(): void
     {
         $html = '<math><semantics><mi>x</mi><mo>+</mo><mi>y</mi><annotation encoding="application/mathml-presentation+xml">ignored</annotation></semantics></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`x+y`$', $result);
+        $this->assertSame('', $result);
     }
 
     public function testMathMLUsesSafeFenceWhenLatexContainsBackticks(): void

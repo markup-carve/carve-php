@@ -57,6 +57,14 @@ not affected: a `<th>` beside data cells has an exact spelling and round-trips,
 unless it also carries attributes, which no cell can hold alongside the header
 marker.
 
+A `<math>` element is another. Its TeX is read from an `<annotation>` declaring
+`application/x-tex`, `text/x-tex` or `LaTeX` as a direct child of the element's
+`<semantics>`, else from `alttext` with a `math-encoding-assumed` info, since
+MathML does not declare what `alttext` holds. An element carrying neither has no
+TeX to give: `roundtrip` keeps it verbatim, while `safe` and `semantic` drop it
+with an `element-dropped` warning rather than concatenate its children, which
+would read `<mfrac><mn>1</mn><mn>2</mn></mfrac>` back as `12`.
+
 Three more importers convert other markup to Carve, in the library as
 `MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
 as `carve migrate --from markdown|djot|bbcode`:

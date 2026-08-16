@@ -143,6 +143,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The HTML importer reads `<math>` through a three-tier lookup**
+  (markup-carve/carve#1210 D6). The TeX comes from an `<annotation>` whose
+  `encoding` is exactly `application/x-tex`, `text/x-tex` or `LaTeX`
+  (case-insensitive) and which is a direct child of the element's own
+  `<semantics>`; failing that, from `alttext`, which now carries a
+  `math-encoding-assumed` info because MathML never declares what `alttext`
+  holds; failing both, the element carries no TeX at all.
+
+  Three changes a reader upgrading needs. The order reversed: `alttext` used to
+  win, and a declared encoding now beats an undeclared attribute where the two
+  disagree. The encoding test is an exact match on the whole value instead of a
+  substring search for `tex`, so `encoding="text/plain"` is no longer read as an
+  equation, and the lookup no longer reaches through the subtree, so an
+  `<annotation>` buried inside an `<annotation-xml>` payload no longer answers
+  for the element. And the last tier drops instead of degrading: an element with
+  no TeX used to import as its children concatenated, so
+  `<math><mfrac><mn>1</mn><mn>2</mn></mfrac></math>` arrived as `12` - one half
+  written back as twelve, a plausible wrong value rather than a visible gap.
+  Documents that imported such an element now lose it and get an
+  `element-dropped` warning naming `<math>` in its place. `roundtrip` is
+  unaffected in substance: it keeps the whole element as a raw-HTML inline.
+
 - **A cell's attributes bind after its kind and alignment markers** (PART 9 §5
   T10, markup-carve/carve#1226). One order for both cell productions: `=`, then
   the alignment marker, then the `{...}` block, glued to whatever precedes it -
