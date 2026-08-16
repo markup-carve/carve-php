@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -381,33 +382,180 @@ class SourcePositionTest extends TestCase
      */
 
     /**
-     * A verse line's indent is REWRITTEN one placeholder per space, so it spans
-     * exactly the characters it replaced and is placeable. The corpus-wide
-     * wrong-span guard cannot cover this on its own: without a position the
-     * node is simply skipped there, so absence looks identical to correctness.
+     * A SPACE indent declines a position for the same reason a tab one does,
+     * now that it is no longer a node of its own.
+     *
+     * It used to be one, because each stanza line - in fact each
+     * whitespace-delimited segment of one - was parsed separately, and the
+     * indent was appended between those parses with a span the parser built
+     * directly. That per-segment parse is exactly what stopped an unclosed
+     * inline run at the line ending, so it is gone: the stanza is expanded and
+     * parsed once, and the placeholders arrive as ordinary text
+     * (markup-carve/carve-php#1327).
+     *
+     * The indent therefore merges into the text that follows it, and a text
+     * node holding placeholders can carry no VERIFIED span: the map checks that
+     * the bytes a span selects equal the node's own text, and U+E000 is three
+     * bytes where the space it replaced is one. PART 12 §4 asks for no position
+     * rather than a wrong one, so the node declines - a NARROWING, never a
+     * wrong span, and the same answer this engine already gave for a tab.
+     *
+     * The break beside it keeps its span, which is the half that would
+     * otherwise have gone quietly: see
+     * {@see self::testAVerseBreakIsStillPlacedOverItsLineEnding()}.
      */
-    public function testAVerseIndentIsPlacedOverTheSpacesItReplaced(): void
+    public function testAVerseIndentMergesIntoItsLineAndDeclinesAPosition(): void
     {
         $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
 
-        $indent = null;
+        $merged = null;
         foreach (self::walk($document) as $node) {
-            if ($node instanceof Text && $node->getContent() === str_repeat("\u{E000}", 2)) {
-                $indent = $node;
+            if ($node instanceof Text && str_contains($node->getContent(), "\u{E000}")) {
+                $merged = $node;
 
                 break;
             }
         }
 
-        $this->assertNotNull($indent, 'the verse indent did not become its own node');
-        $pos = $indent->getPos();
-        $this->assertNotNull($pos, 'a one-for-one rewrite must still be placed');
+        $this->assertNotNull($merged, 'the verse indent was not found');
         $this->assertSame(
-            '  ',
-            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
-            'the span does not cover the two spaces the placeholders replaced',
+            str_repeat("\u{E000}", 2) . 'Violets are blue.',
+            $merged->getContent(),
+            'the indent is part of its line rather than a node of its own',
         );
+        $this->assertNull($merged->getPos(), 'placeholder text cannot carry a verified span');
+    }
+
+    /**
+     * The line ending keeps its own span, in the form a line ending has.
+     *
+     * The break is no longer appended by the block layer with a span it chose;
+     * it is the soft break the single parse produced, promoted. Its offsets are
+     * resolved through the stanza's map, which needs a segment for the joined
+     * newline - no literal run reaches it, so without one the break resolved
+     * its start and not its end and lost its position entirely.
+     */
+    public function testAVerseBreakIsStillPlacedOverItsLineEnding(): void
+    {
+        $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $break = null;
+        foreach (self::walk($document) as $node) {
+            if ($node instanceof HardBreak) {
+                $break = $node;
+
+                break;
+            }
+        }
+
+        $this->assertNotNull($break, 'the stanza break was not found');
+        $pos = $break->getPos();
+        $this->assertNotNull($pos, 'the line ending is measured and must be placed');
+        $this->assertSame(
+            "\n",
+            substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
+            'the span does not cover the newline that ends the line',
+        );
+        $this->assertSame(2, $pos->startLine);
+        $this->assertSame(3, $pos->endLine);
+        $this->assertSame(1, $pos->endColumn);
+    }
+
+    /**
+     * The break lands on the NEWLINE even when a dropped space sits before it.
+     *
+     * The discriminating shape, and the one a fixture on well-formed input
+     * cannot reach. A line ending's text offset means two things at once - the
+     * exclusive end of the text before it, and the start of the newline - and
+     * they are the same byte until a trailing one-column run is dropped. Then
+     * they are one apart, and a break resolved through the map took the earlier
+     * reading and was stamped over the discarded space: a span selecting `" "`
+     * where the node is a line ending. Wrong, not merely absent, which is the
+     * grade PART 12 §4 cares about.
+     *
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function breakShapeProvider(): array
+    {
+        return [
+            'nothing between the text and the ending' => ["::: |\na b\nc\n:::\n", 9],
+            'a dropped one-column trailing run' => ["::: |\na b \nc\n:::\n", 10],
+            'a preserved trailing gap' => ["::: |\na b  \nc\n:::\n", 11],
+            'a leading indent on the NEXT line' => ["::: |\na b\n  c\n:::\n", 9],
+        ];
+    }
+
+    #[DataProvider('breakShapeProvider')]
+    public function testTheBreakCoversTheNewlineAndNothingElse(string $source, int $expectedStart): void
+    {
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if (!$node instanceof HardBreak) {
+                continue;
+            }
+
+            $pos = $node->getPos();
+            $this->assertNotNull($pos, 'the line ending is measured and must be placed');
+            $this->assertSame($expectedStart, $pos->startOffset);
+            $this->assertSame(
+                "\n",
+                substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
+                'the span must select the newline, not the whitespace before it',
+            );
+
+            return;
+        }
+
+        $this->fail('no break was found');
+    }
+
+    /**
+     * A NESTED line block places its text, prefix and all.
+     *
+     * The stanza is handed lines a container has already stripped its prefix
+     * from, so a column measured against them is short by that width when it is
+     * mapped from the physical line start. The span then selects the wrong
+     * bytes, the check that a span covers the node's own text rejects it, and
+     * every inline node in the stanza silently loses its position - a failure
+     * that is invisible at the top level, where the prefix is empty, and so
+     * exactly the kind a top-level-only fixture cannot see.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function nestedLineBlockProvider(): array
+    {
+        return [
+            'in a block quote' => ["> ::: |\n> alpha\n> beta\n> :::\n"],
+            'in a list item' => ["- ::: |\n  alpha\n  beta\n  :::\n"],
+            'in a quote inside a list item' => ["- > ::: |\n  > alpha\n  > beta\n  > :::\n"],
+        ];
+    }
+
+    #[DataProvider('nestedLineBlockProvider')]
+    public function testANestedLineBlockStillPlacesItsText(string $source): void
+    {
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        $seen = [];
+        foreach (self::walk($document) as $node) {
+            if (!$node instanceof Text || !in_array($node->getContent(), ['alpha', 'beta'], true)) {
+                continue;
+            }
+
+            $pos = $node->getPos();
+            $this->assertNotNull($pos, "'{$node->getContent()}' lost its position");
+            $this->assertSame(
+                $node->getContent(),
+                substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
+                'the span does not select the text the node holds',
+            );
+            $seen[] = $node->getContent();
+        }
+
+        $this->assertSame(['alpha', 'beta'], $seen);
     }
 
     /**
