@@ -116,8 +116,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from its label's sequence and a panel id resolves `</#id>` as the group
   number plus a letter ("Figure 2a"). An opener carrying a quoted title or
   `[label]` stays a generic container, and groups do not nest. HTML renders the
-  corpus-pinned `carve-figure-group` / `carve-figure-panels` /
-  `carve-figure-panel` shape; the Markdown, plain-text and ANSI targets degrade
+  corpus-pinned flat `carve-figure-group` / `carve-figure-panel` shape (panels
+  directly inside the group figure, per HTML's figure content model and
+  Pandoc's subfigure output); the Markdown, plain-text and ANSI targets degrade
   deterministically; `carve fmt` writes the authored form back; the AST wire
   carries `figure_group` with inline `caption` content; and the HTML importer
   turns the rendered shape back into `::: figure` source.

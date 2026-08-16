@@ -3769,31 +3769,23 @@ class HtmlToCarve
     {
         $attrs = $this->formatBlockAttributesWithoutClass($node, 'carve-figure-group');
 
-        $panelsDiv = null;
+        // FLAT shape: panels and preserved stray content are DIRECT children
+        // of the group figure - no wrapper element - and the group's own
+        // `<figcaption>` is the direct child handled below (a panel's caption
+        // sits inside the panel figure, so it never matches here).
+        $content = '';
         foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+                continue;
+            }
             if (
                 $child instanceof DOMElement
-                && strtolower($child->tagName) === 'div'
-                && $this->hasClass($child, 'carve-figure-panels')
+                && strtolower($child->tagName) === 'figure'
+                && $this->hasClass($child, 'carve-figure-panel')
             ) {
-                $panelsDiv = $child;
-
-                break;
-            }
-        }
-
-        $content = '';
-        if ($panelsDiv !== null) {
-            foreach ($panelsDiv->childNodes as $child) {
-                if (
-                    $child instanceof DOMElement
-                    && strtolower($child->tagName) === 'figure'
-                    && $this->hasClass($child, 'carve-figure-panel')
-                ) {
-                    $content .= $this->processFigurePanel($child);
-                } else {
-                    $content .= $this->processNode($child);
-                }
+                $content .= $this->processFigurePanel($child);
+            } else {
+                $content .= $this->processNode($child);
             }
         }
         $content = trim($content);

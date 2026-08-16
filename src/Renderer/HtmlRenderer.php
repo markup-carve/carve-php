@@ -1667,10 +1667,10 @@ class HtmlRenderer implements RendererInterface
      * A composite figure (PART 9 §4c, markup-carve/carve#1122).
      *
      * The corpus pins the byte shape (318-composite-figures): the group class
-     * leads, the panels div is UNCONDITIONAL - zero panels still wrap the
-     * preserved stray content - and a Figure panel renders as the `<figure>`
-     * its host already produces with `carve-figure-panel` leading its classes.
-     * A table does not render as a figure on its own, so its panel wrapper is
+     * leads, panels and preserved stray content are DIRECT children of the
+     * group figure, and a Figure panel renders as the `<figure>` its host
+     * already produces with `carve-figure-panel` leading its classes. A table
+     * does not render as a figure on its own, so its panel wrapper is
      * explicit and the table keeps its own attributes and its own `<caption>`.
      * No group caption, no trailing `<figcaption>`.
      */
@@ -1680,32 +1680,36 @@ class HtmlRenderer implements RendererInterface
             self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group'),
         );
 
-        $inner = '';
+        // FLAT: panels and preserved stray content nest DIRECTLY inside the
+        // group figure, the group caption last. HTML's figure content model is
+        // one figcaption first-or-last plus flow content, and a figure is
+        // itself flow content, so the wrapper div added nothing the element
+        // does not already provide - and Pandoc's subfigure HTML output has
+        // the same flat shape.
+        $body = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Figure) {
-                $inner .= $this->renderFigure($child, 'carve-figure-panel');
+                $body .= $this->renderFigure($child, 'carve-figure-panel');
             } elseif ($child instanceof Table) {
                 $table = rtrim($this->renderTable($child), "\n");
-                $inner .= "<figure class=\"carve-figure-panel\">\n"
+                $body .= "<figure class=\"carve-figure-panel\">\n"
                     . $this->indentBlock($table, 2) . "\n</figure>\n";
             } else {
-                $inner .= rtrim($this->renderNode($child), "\n") . "\n";
+                $body .= rtrim($this->renderNode($child), "\n") . "\n";
             }
         }
-
-        $body = "<div class=\"carve-figure-panels\">\n";
-        $inner = rtrim($inner, "\n");
-        if ($inner !== '') {
-            $body .= $this->indentBlock($inner, 2) . "\n";
-        }
-        $body .= "</div>\n";
 
         $caption = $node->getCaption();
         if ($caption !== null) {
             $body .= '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
         }
 
-        return '<figure' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";
+        $body = rtrim($body, "\n");
+        if ($body === '') {
+            return '<figure' . $attrs . ">\n</figure>\n";
+        }
+
+        return '<figure' . $attrs . ">\n" . $this->indentBlock($body, 2) . "\n</figure>\n";
     }
 
     protected function renderTable(Table $node): string
