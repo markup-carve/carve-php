@@ -31,6 +31,42 @@ trait EscapesCarveConstructs
     protected const BRACED_DELIMITER_CHARS = '^,=+-~/#*_';
 
     /**
+     * A source language that spells none of these delimiters itself.
+     *
+     * HTML and BBCode text: every delimiter below is literal there, so nothing
+     * is held back from escaping.
+     *
+     * The three constants here are the PROFILES the shared escaper corpus
+     * defines (`tests/spec/tests/corpus-escape/README.md`), named so a call
+     * site states which one it passes instead of repeating the characters. The
+     * literals were spelled inline at three call sites before, which is a set a
+     * converter could drift out of with nothing to say so; `EscaperCorpusTest`
+     * now asserts they equal the corpus's, and the same corpus runs against the
+     * escaper under each of them.
+     *
+     * @var array<string, string>
+     */
+    protected const HANDLED_PLAIN = [];
+
+    /**
+     * Markdown, for `MarkdownToCarve`.
+     *
+     * `*` and `_` are emphasis and `~` is GFM strikethrough, all of which that
+     * converter rewrites into Carve itself. Freezing them here would freeze the
+     * markup instead of protecting the text.
+     *
+     * @var array<string, string>
+     */
+    protected const HANDLED_MARKDOWN = ['braced' => '*_', 'bare' => '*_~'];
+
+    /**
+     * Djot, for `DjotToCarve`.
+     *
+     * @var array<string, string>
+     */
+    protected const HANDLED_DJOT = ['braced' => '=+-*_^~', 'bare' => '~*_'];
+
+    /**
      * Double every backslash, for a source language that has no backslash
      * escape of its own.
      *

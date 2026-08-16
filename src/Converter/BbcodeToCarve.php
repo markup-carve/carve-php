@@ -217,7 +217,10 @@ class BbcodeToCarve
         // BBCode has no backslash escape either, so a backslash here is the
         // author's character. Doubled after the tags and code spans are stashed,
         // so only real text is touched.
-        $text = $this->escapePlainCarveInlineSyntax($this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))));
+        $text = $this->escapePlainCarveInlineSyntax(
+            $this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))),
+            self::HANDLED_PLAIN,
+        );
 
         return preg_replace_callback(
             '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u',

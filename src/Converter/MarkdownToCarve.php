@@ -1089,7 +1089,7 @@ class MarkdownToCarve
         // tildes, so `~b~` is struck and the pass below carries it into Carve,
         // which spells strikethrough the same way. Escaping it here froze it as
         // literal text, and the double form's rule could then never see it.
-        $line = $this->escapePlainCarveInlineSyntax($line, ['braced' => '*_', 'bare' => '*_~']);
+        $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
 
         $stash = [];
         $hold = function (string $span) use (&$stash): string {
