@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The MathML `alttext` diagnostic uses a code the spec admits.** Reading a
+  `<math>` element through its `alttext` reported `math-encoding-assumed`, a
+  ninth code: `resources/html-import-schema.json` closes the set at eight, so a
+  consumer validating a report against the spec's own schema had to reject it,
+  and carve-js exports those same eight as a union type. It is now
+  `element-unwrapped` at `info`, which is both one of the eight and the honest
+  one - the element is gone and its content came out through an attribute - and
+  which is what carve-js and carve-rs already report for that tier. Only the
+  code and the message text change; which elements are read, dropped or
+  preserved does not.
+
 - **Two adjacent ordered lists import as two lists** (carve-php#1290). With
   one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
   imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
