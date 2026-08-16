@@ -391,6 +391,24 @@ class CarveCorpusTest extends TestCase
         // label was never significant here, so the category arrives IMPLEMENTED
         // rather than deferred.
         'the-canonical-writer-glues-a-code-fence-to-its-info-string',
+        // Arrived with the bump to carve 8a9724d. Four categories, 28 documents,
+        // every one of them byte-identical to its pinned HTML here - verified
+        // per document through CarveConverter and again through `bin/carve`
+        // before being listed, because an unverified entry turns a real
+        // divergence into a green run, which is the only thing this list is for.
+        //
+        // Each names a rule this engine already decides the way the clause
+        // states, three of them from fixes that landed before the corpus caught
+        // up: the `{% %}` comment spelling (carve#1247, carve-php#1318 for the
+        // ProseMirror half), an attribute block above a no-blank-line nested
+        // list (carve#1238, carve-php#1313), and a block attached after an
+        // invisible line (carve#1266). The last is carve#1269: an abbreviation
+        // line in an item body is the paragraph it renders, which PART 12 §7
+        // rules by scope - carve-php#1319 and carve-php#1320 are its two halves.
+        'delimited-comments',
+        'an-attribute-block-reaches-the-nested-list-it-precedes',
+        'a-block-attached-after-an-invisible-line-leaves-the-item-tight',
+        'an-abbreviation-definition-in-an-item-body-is-paragraph-text',
     ];
 
     /**

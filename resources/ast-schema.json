@@ -35,7 +35,7 @@
     "link_reference_definition": {
       "type": "object",
       "title": "link_reference_definition (block)",
-      "description": "The `[label]: /url \"title\" {attrs}` definition line. Renders nothing in HTML itself; it feeds every link or image that resolves the label (PART 9R R1). Hoisted to the document like the other two definition kinds (PART 12 section 7), so a definition authored inside a container is a child of the document and its `pos` still says where it was written.",
+      "description": "The `[label]: /url \"title\" {attrs}` definition line. Renders nothing in HTML itself; it feeds every link or image that resolves the label (PART 9R R1). Hoisted to the document like the footnote definition (PART 12 section 7; an abbreviation definition inside a container is not a definition at all, so nothing is hoisted), so a definition authored inside a container is a child of the document and its `pos` still says where it was written.",
       "required": [
         "type",
         "label",
@@ -760,7 +760,8 @@
           "const": "code"
         },
         "value": {
-          "type": "string"
+          "type": "string",
+          "description": "May contain U+E000, the NO-BREAK SPACE SENTINEL. This content is verbatim, so the sentinel here is a U+E000 the author typed rather than one the parser resolved from an escaped space; on the wire the two are the same character and carry the same rule. A consumer MUST map U+E000 to its target's no-break space, or to an ordinary space where the target has none, and MUST NOT emit it. See `text.value` for the full sentinel rule."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -783,7 +784,8 @@
           "const": "code_block"
         },
         "content": {
-          "type": "string"
+          "type": "string",
+          "description": "May contain U+E000, the NO-BREAK SPACE SENTINEL. This content is verbatim, so the sentinel here is a U+E000 the author typed rather than one the parser resolved from an escaped space; on the wire the two are the same character and carry the same rule. A consumer MUST map U+E000 to its target's no-break space, or to an ordinary space where the target has none, and MUST NOT emit it. See `text.value` for the full sentinel rule."
         },
         "lang": {
           "type": "string"
@@ -892,7 +894,7 @@
     "definition_list": {
       "type": "object",
       "title": "definition_list (block)",
-      "description": "Its items are the `<dt>` / `<dd>` sequence, in document order: a run of `definition_term` nodes followed by the `definition_description` nodes they share. The grouping is not published because it is not a shared fact - two engines that published it grouped the same document differently while rendering the same list - and because a plain object can carry no `pos`, which left a term the only content in a serialized document an editor could not navigate to (PART 12 \u00a74).",
+      "description": "Its items are the `<dt>` / `<dd>` sequence, in document order: a run of `definition_term` nodes followed by the `definition_description` nodes they share. The grouping is not published because it is not a shared fact - two engines that published it grouped the same document differently while rendering the same list - and because a plain object can carry no `pos`, which left a term the only content in a serialized document an editor could not navigate to (PART 12 §4).",
       "required": [
         "type",
         "items"
@@ -1097,7 +1099,7 @@
           "const": "figure"
         },
         "target": {
-          "description": "The captioned block: an image, block quote, table, code block or paragraph. What a captioned host is called and counted as comes from the caption's label, never from the host (PART 9 \u00a74b); for a quote the HTML Standard also requires the attribution outside the `blockquote`.",
+          "description": "The captioned block: an image, block quote, table, code block or paragraph. What a captioned host is called and counted as comes from the caption's label, never from the host (PART 9 §4b); for a quote the HTML Standard also requires the attribution outside the `blockquote`.",
           "oneOf": [
             {
               "$ref": "#/$defs/image"
@@ -1141,7 +1143,7 @@
     "figure_group": {
       "type": "object",
       "title": "figure_group (block)",
-      "description": "A composite figure (PART 9 \u00a74c, carve#1122): one figure-numbering unit whose direct captionable children - ordinary `figure` and `table` nodes among `children`, in source order - are its panels. There is no `panels` array: a consumer derives the panel list the way the renderer does, by type, in order, and non-panel stray content is preserved in place between them. Discriminated by `type` rather than by shape: every `figure` carries a `target`, this node deliberately does not, and probing for the missing field instead of the type string would break the day either shape grows a field. No title, no label, no `shortCaption`, no legend fields - the group's one authored metadata channel is `caption`, and the rest is carve#1118/carve#1121 design space, not claimed here.",
+      "description": "A composite figure (PART 9 §4c, carve#1122): one figure-numbering unit whose direct captionable children - ordinary `figure` and `table` nodes among `children`, in source order - are its panels. There is no `panels` array: a consumer derives the panel list the way the renderer does, by type, in order, and non-panel stray content is preserved in place between them. Discriminated by `type` rather than by shape: every `figure` carries a `target`, this node deliberately does not, and probing for the missing field instead of the type string would break the day either shape grows a field. No title, no label, no `shortCaption`, no legend fields - the group's one authored metadata channel is `caption`, and the rest is carve#1118/carve#1121 design space, not claimed here.",
       "required": [
         "type",
         "children"
@@ -1303,7 +1305,7 @@
         },
         "attrs": {
           "$ref": "#/$defs/attrs",
-          "description": "`id` holds the heading's id whether the author wrote `{#id}` or it was slugged from the heading text. A GENERATED id is assigned during resolution and is a resolution result under PART 12 \u00a75, serialized because recomputing it means replaying every earlier heading and the dedup suffix rule (`Notes`, then `Notes-2`) - a consumer holding only the tree cannot derive it."
+          "description": "`id` holds the heading's id whether the author wrote `{#id}` or it was slugged from the heading text. A GENERATED id is assigned during resolution and is a resolution result under PART 12 §5, serialized because recomputing it means replaying every earlier heading and the dedup suffix rule (`Notes`, then `Notes-2`) - a consumer holding only the tree cannot derive it."
         },
         "pos": {
           "$ref": "#/$defs/pos"
@@ -1328,7 +1330,7 @@
         },
         "href": {
           "type": "string",
-          "description": "The resolved destination (`#` + the heading's id), present only where the crossref resolved. PART 12 \u00a73a: the resolution is published beside the authored construct, not in place of it."
+          "description": "The resolved destination (`#` + the heading's id), present only where the crossref resolved. PART 12 §3a: the resolution is published beside the authored construct, not in place of it."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -2245,7 +2247,8 @@
           "const": "literal_inline"
         },
         "content": {
-          "type": "string"
+          "type": "string",
+          "description": "May contain U+E000, the NO-BREAK SPACE SENTINEL. This content is verbatim, so the sentinel here is a U+E000 the author typed rather than one the parser resolved from an escaped space; on the wire the two are the same character and carry the same rule. A consumer MUST map U+E000 to its target's no-break space, or to an ordinary space where the target has none, and MUST NOT emit it. See `text.value` for the full sentinel rule."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -2388,7 +2391,8 @@
           "type": "string"
         },
         "content": {
-          "type": "string"
+          "type": "string",
+          "description": "Byte-for-byte passthrough to the named target. U+E000 here is NOT the no-break space sentinel that `text.value`, `code.value`, `code_block.content` and `literal_inline.content` carry: raw content is handed to its target unexamined, so a U+E000 in it is a byte the author put there and a consumer MUST leave it alone. Mapping it would corrupt the payload this node exists to carry."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -2865,7 +2869,7 @@
         },
         "value": {
           "type": "string",
-          "description": "May contain U+E000, which stands for a NO-BREAK SPACE the parser resolved from an escaped space (`\\ `) or from preserved line-block indentation (PART 9 section 23). It is distinct from a literal U+00A0 in the source, which is published as itself. A consumer MUST map U+E000 to its target's no-break space, or to an ordinary space where the target has none, and MUST NOT emit it."
+          "description": "May contain U+E000, the NO-BREAK SPACE SENTINEL. Three things put it here: an escaped space (`\\ `), the preserved indentation of a line block (PART 9 section 23), and a U+E000 the author typed. A line block's indentation is a RUN of the sentinel, one per preserved space, so a four-space indent is four U+E000 resolving to four no-break spaces - the source a consumer that has only seen `\\ ` will miss. The sentinel is distinct from a literal U+00A0 in the source, which is published as itself. A consumer MUST map U+E000 to its target's no-break space, or to an ordinary space where the target has none, and MUST NOT emit it. The same sentinel may appear on `code.value`, `code_block.content` and `literal_inline.content`; `raw_block.content` is byte-for-byte passthrough and is deliberately excluded."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
