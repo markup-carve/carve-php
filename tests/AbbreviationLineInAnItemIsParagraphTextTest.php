@@ -137,4 +137,70 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
         $this->assertStringContainsString("<li>a\n*[HTML]: Hyper Text</li>", $html);
         $this->assertStringNotContainsString('<abbr', $html);
     }
+
+    /**
+     * THE LOOK-BEHIND SITE.
+     *
+     * The classification sat at two places and the looseness predicate is only
+     * one of them. §17 L1b asks what stands BEHIND an invisible line, because an
+     * invisible line is neither the second paragraph nor a separator that can
+     * stand between the blank and one - so a scan walks past it. That scan
+     * counted the abbreviation line invisible too and stepped over it, and with
+     * nothing visible left it reported the item as holding nothing after the
+     * blank. The first line after the blank really IS invisible here, so the
+     * predicate fixed in #1319 never gets asked about the abbreviation.
+     *
+     * @return void
+     */
+    public function testAnInvisibleLineAheadOfItDoesNotHideTheParagraph(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            (new CarveConverter())->convert("- a\n\n  %% c\n  *[A]: a\n"),
+        );
+    }
+
+    /**
+     * The same shape reached through a link reference definition, which is
+     * collected out of the item and so leaves nothing of itself behind.
+     *
+     * @return void
+     */
+    public function testAReferenceDefinitionAheadOfItDoesNotHideTheParagraph(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            (new CarveConverter())->convert("- a\n\n  [r]: /u\n  *[A]: a\n"),
+        );
+    }
+
+    /**
+     * An attribute line ahead of it attaches to the paragraph the abbreviation
+     * line makes, which is the same reading from the other end: the block the
+     * attributes were written for is that paragraph.
+     *
+     * @return void
+     */
+    public function testAnAttributeLineAheadOfItAttachesToThatParagraph(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p>\n    <p class=\"x\">*[A]: a</p>\n  </li>\n</ul>\n",
+            (new CarveConverter())->convert("- a\n\n  {.x}\n  *[A]: a\n"),
+        );
+    }
+
+    /**
+     * Control for the scan itself: with a genuinely invisible line the only
+     * thing after the blank, there is no second paragraph and the item stays
+     * tight. The scan must keep walking past THOSE.
+     *
+     * @return void
+     */
+    public function testTwoInvisibleLinesAfterTheBlankStillLeaveTheItemTight(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a</li>\n</ul>\n<p>See <a href=\"/u\">x</a>.</p>\n",
+            (new CarveConverter())->convert("- a\n\n  %% c\n  [r]: /u\n\nSee [x][r].\n"),
+        );
+    }
 }
