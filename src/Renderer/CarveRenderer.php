@@ -1499,6 +1499,7 @@ class CarveRenderer implements RendererInterface
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
                 $inherited = $headerRow
                     && $rowIndex > 0
+                    && !$cell->hasExplicitAlignment()
                     && ($headerAligns[$column] ?? null) === $cell->getAlignment();
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
                 $column++;
@@ -1596,17 +1597,6 @@ class CarveRenderer implements RendererInterface
         // unprefixed cell is padded, so the scan reads its space.
         if ($this->headerMarkerWouldReadAsAlignment($prefix, $align, $attrs, $content)) {
             return ['text' => $prefix . ' ' . $content, 'tight' => true];
-        }
-
-        // A block takes the separating space on both sides, which is the shape
-        // T10 spells: `|={.x} h |`. Without it `|={.x}h|` still round-trips,
-        // but the corpus writes the padded form. An empty cell takes one space,
-        // not two, so the output is idempotent rather than growing a column.
-        if ($attrs !== '') {
-            return [
-                'text' => $prefix . ' ' . $content . ($content === '' ? '' : ' '),
-                'tight' => true,
-            ];
         }
 
         return ['text' => $prefix . $content, 'tight' => $prefix !== ''];

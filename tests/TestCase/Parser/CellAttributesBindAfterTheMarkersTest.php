@@ -134,7 +134,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
     {
         $source = "|={#x} R |\n| 1 |\n";
 
-        $this->assertSame("|={#x} R |\n| 1 |\n", $this->fmt($source));
+        $this->assertSame("|={#x}R|\n| 1 |\n", $this->fmt($source));
         $this->assertStringContainsString('<th scope="col" id="x">R</th>', $this->html($source));
         $this->assertSame($this->html($source), $this->html($this->fmt($source)));
         $this->assertSame($this->fmt($source), $this->fmt($this->fmt($source)));
@@ -150,7 +150,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $written = $this->fmt("|={#x} R |\n| 1 |\n");
 
         $this->assertStringNotContainsString('|{#x}=', $written);
-        $this->assertStringContainsString('|={#x} ', $written);
+        $this->assertStringContainsString('|={#x}R|', $written);
     }
 
     /**

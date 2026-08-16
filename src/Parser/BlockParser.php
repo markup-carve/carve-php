@@ -6975,13 +6975,19 @@ class BlockParser
                         foreach ($lastRow->getChildren() as $cell) {
                             if ($cell instanceof TableCell) {
                                 $alignment = $alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT;
-                                // Preserve rowspan and colspan from original cell
+                                // The delimiter row is where a GFM table
+                                // DECLARES its column alignment, so a header
+                                // cell promoted here carries alignment of its
+                                // own - the same shape carve-rs publishes for
+                                // `|:---|---:|`, and what keeps the markers in
+                                // the written form after a ProseMirror trip.
                                 $headerCell = new TableCell(
                                     true,
                                     $alignment,
                                     $cell->getRowspan(),
                                     $cell->getColspan(),
                                     $cell->getSpanMarker(),
+                                    isset($alignments[$cellIndex]),
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributes());
@@ -7164,7 +7170,10 @@ class BlockParser
                     $alignment = $columnAligns[$col]
                         ?? $alignments[$col]
                         ?? TableCell::ALIGN_DEFAULT;
-                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan);
+                    // The alignment here is the COLUMN's, taken so the empty
+                    // cell lines up; the cell carries no marker of its own, so
+                    // it is not explicit.
+                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan, null, false);
                     $cell->setSpanMarker($cellData['spanMarker']);
                     // The marker character occupies a real slice of this line,
                     // so the cell gets a position the same way an ordinary cell
@@ -7209,7 +7218,22 @@ class BlockParser
                 // A cell carries its own `=` marker even in a body row, so a
                 // `|=` cell in a data row becomes a row header (<th> inside
                 // <tbody>). The row stays a body row; only the cell is a header.
-                $cell = new TableCell($isHeaderRow || $marker['header'], $alignment, 1, $colspan);
+                // The cell's OWN alignment, which is what the writers and the
+                // ProseMirror bridge may spell: its marker, or - on a header
+                // cell - the GFM delimiter row, which is where `|:---|---:|`
+                // declares the column. A body cell that merely INHERITS the
+                // column's alignment carries none of its own, which is the
+                // shape carve-rs publishes.
+                $explicitAlign = $marker['align'] !== null
+                    || (($isHeaderRow || $marker['header']) && ($alignments[$col] ?? null) !== null);
+                $cell = new TableCell(
+                    $isHeaderRow || $marker['header'],
+                    $alignment,
+                    1,
+                    $colspan,
+                    null,
+                    $explicitAlign,
+                );
                 if ($cellData['attributes'] !== '') {
                     // Apply in source order (matching inline attributes and
                     // carve-js), not via setAttributes() which reorders.

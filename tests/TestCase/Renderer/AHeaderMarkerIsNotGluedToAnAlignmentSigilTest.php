@@ -101,7 +101,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testACellWithAnAttributeBlockIsUnaffected(): void
     {
-        $this->assertSame("|={.k} ~x~ |\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
+        $this->assertSame("|={.k}~x~|\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
         $this->assertRoundTrips("|{.k} ~x~ |\n|---|\n| y |\n");
     }
 

@@ -236,6 +236,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A table cell keeps the alignment marker it was written with, and the
+  writers spell it the way carve-js and carve-rs do.** Four defects, all of
+  them the same cell:
+  - The parser folded an explicit `>` into the column's alignment where the two
+    agreed, so `|=<{.h} Name |=>{.c} Score |` over `| Ann |>{.num} 9 |` lost
+    `align` on the body cell that carries the marker. The HTML was unaffected,
+    but the AST is a pinned wire contract and PART 9 section 319 binds the
+    marker to the CELL.
+  - The canonical Carve writer padded a cell that carries a marker or an
+    attribute block: `|={.total} Total |` where the other engines write
+    `|={.total}Total|`. A prefixed cell is glued, which is what the corpus
+    already pins for a bare marker.
+  - The Markdown writer promoted a body cell's alignment into the column rule
+    (`| ---: |`). Markdown has no cell-level alignment, so only what the HEADER
+    declares belongs in the separator row.
+  - A list item or definition whose body was collected away wrote its marker
+    with the separator space still attached, leaving `"- "` and `": "` at the
+    end of a line.
+
 - **A `#tag` stays a tag across the ProseMirror bridge.** The schema map gives
   `mention` two ProseMirror names and says `carveTag` is the `#tag` flavor, but
   a Mention reports type `mention` whichever flavor it is, so the renderer never

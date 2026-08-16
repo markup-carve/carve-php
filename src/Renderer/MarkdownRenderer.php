@@ -943,7 +943,7 @@ class MarkdownRenderer implements RendererInterface
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
-                $output .= $prefix . $firstLine . "\n";
+                $output .= ($firstLine === '' ? rtrim($prefix, ' ') : $prefix . $firstLine) . "\n";
 
                 if ($lines) {
                     // Every continuation line moves to this item's content
@@ -995,7 +995,9 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        return ': ' . trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
+
+        return ':' . ($content === '' ? '' : ' ' . $content) . "\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -1086,7 +1088,7 @@ class MarkdownRenderer implements RendererInterface
                 }
                 if (is_array($cell) && isset($cell['content']) && is_string($cell['content'])) {
                     $cells[] = $cell['content'];
-                    if (!$row['isHeader'] && !isset($alignments[$index])) {
+                    if ($row['isHeader'] && !isset($alignments[$index])) {
                         $alignments[$index] = is_string($cell['alignment'] ?? null)
                             ? $cell['alignment']
                             : TableCell::ALIGN_DEFAULT;
