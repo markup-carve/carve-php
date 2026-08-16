@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
  *
  * 1. An `<annotation>` declaring a TeX encoding, exactly, as a direct child of
  *    the element's own `<semantics>`.
- * 2. Else `alttext`, plus an `info` saying the encoding was assumed.
+ * 2. Else `alttext`, plus an `encoding-assumed` `info` saying the encoding was
+ *    assumed.
  * 3. Else no TeX exists. `roundtrip` keeps the element verbatim; `safe` and
  *    `semantic` drop it and the report names it. The children are never
  *    concatenated: MathML's children are a token stream, and reading
@@ -113,6 +114,19 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
      * Tier 2, and the `info` that goes with it. MathML does not declare what
      * `alttext` holds, so reading it as TeX is an assumption the report has to
      * record.
+     *
+     * `encoding-assumed` is the code the spec added for this exact case
+     * (`markup-carve/carve#1235`), and it files it apart from
+     * `element-unwrapped` on purpose: unwrapping is a note about the input's
+     * structure and loses no meaning, while an assumed encoding is a warning
+     * about the OUTPUT - the math node this produces is only correct while the
+     * guess is, and it may hold something that is not TeX at all. A consumer
+     * told only that an element is gone cannot tell those apart, and that is
+     * the one signal it could act on.
+     *
+     * The severity stays `info`, matching carve-js. The spec maps no code to a
+     * severity, so raising this one would divide the engines over something
+     * nothing rules on.
      */
     public function testAlttextAloneIsTakenAsTexWithAnInfo(): void
     {
@@ -122,7 +136,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
         $this->assertSame(
             [
                 [
-                    'code' => 'element-unwrapped',
+                    'code' => 'encoding-assumed',
                     'message' => 'Read <math> through its alttext: MathML does not declare the encoding of alttext, so TeX is assumed',
                     'severity' => 'info',
                     'path' => '/div[1]/p[1]/math[1]',
@@ -262,5 +276,66 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
 
         $this->assertSame('Bare 1/2 here.', trim($result->value));
         $this->assertSame([], $result->report()['diagnostics']);
+    }
+
+    /**
+     * The code this importer emits has to be one the published schema admits,
+     * read out of the schema rather than copied into a list here. This is what
+     * a ninth code of the importer's own broke, and it is read from the pinned
+     * `tests/spec` so a code that leaves the enum fails here rather than in a
+     * consumer.
+     *
+     * The second assertion is the one that keeps the first honest: a test that
+     * only checked membership would pass if the arm went back to any of the
+     * other admitted codes.
+     */
+    public function testTheAssumedEncodingCodeIsOneThePublishedSchemaAdmits(): void
+    {
+        $schemaJson = file_get_contents(dirname(__DIR__, 2) . '/spec/resources/html-import-schema.json');
+        $this->assertNotFalse($schemaJson);
+        $schema = json_decode($schemaJson, true, flags: JSON_THROW_ON_ERROR);
+        $codes = $schema['properties']['diagnostics']['items']['properties']['code']['enum'];
+        $severities = $schema['properties']['diagnostics']['items']['properties']['severity']['enum'];
+
+        $this->assertContains('encoding-assumed', $codes);
+
+        $report = (new HtmlToCarve())
+            ->convertWithReport('<p><math alttext="a + b"><mrow><mi>a</mi></mrow></math></p>')
+            ->report();
+
+        $this->assertSame(['encoding-assumed'], array_column($report['diagnostics'], 'code'));
+        foreach ($report['diagnostics'] as $diagnostic) {
+            $this->assertContains($diagnostic['code'], $codes);
+            $this->assertContains($diagnostic['severity'], $severities);
+        }
+    }
+
+    /**
+     * The distinction the spec draws, stated as a test rather than left to the
+     * code string alone. Tier 2 unwraps nothing that the report should call an
+     * unwrapping: the loss it names is about the OUTPUT, whose content is TeX
+     * only while the guess holds.
+     *
+     * The tier-1 and tier-3 rows beside it are controls. If the arm ever
+     * reported the assumption for a tier that did not make one, or stopped
+     * reporting it for the tier that did, exactly one of these three moves.
+     */
+    public function testOnlyTheTierThatGuessesReportsAnAssumedEncoding(): void
+    {
+        $importer = new HtmlToCarve();
+        $declared = '<p><math alttext="ASSUMED"><semantics><mrow><mi>x</mi></mrow>'
+            . '<annotation encoding="application/x-tex">DECLARED</annotation></semantics></math></p>';
+        $assumed = '<p><math alttext="a + b"><mrow><mi>a</mi></mrow></math></p>';
+        $neither = '<p><math><mfrac><mn>1</mn><mn>2</mn></mfrac></math></p>';
+
+        $this->assertSame([], array_column($importer->convertWithReport($declared)->report()['diagnostics'], 'code'));
+        $this->assertSame(
+            ['encoding-assumed'],
+            array_column($importer->convertWithReport($assumed)->report()['diagnostics'], 'code'),
+        );
+        $this->assertSame(
+            ['element-dropped'],
+            array_column($importer->convertWithReport($neither)->report()['diagnostics'], 'code'),
+        );
     }
 }
