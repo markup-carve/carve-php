@@ -9,6 +9,8 @@ use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use ReflectionProperty;
+use SplObjectStorage;
 
 /**
  * The import report does not announce a loss that did not happen.
@@ -399,6 +401,29 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             $large / max($small, 1.0e-6),
             'doubling the rows should roughly double the work; a super-linear ratio means the per-table route memo is gone',
         );
+    }
+
+    /**
+     * The route memo is RELEASED when inspection ends, not merely reset later.
+     *
+     * Its keys are `<table>` elements, `SplObjectStorage` holds them strongly,
+     * and a DOM element keeps its owner document alive - so a populated memo
+     * pins the entire inspected document for as long as the converter lives.
+     * Converters are reusable and long-lived by design, which is exactly when
+     * that matters, so the memo is cleared in a `finally` rather than on the
+     * next call.
+     */
+    public function testTheRouteMemoDoesNotOutliveTheInspection(): void
+    {
+        $converter = new HtmlToCarve();
+        $converter->convertWithReport(
+            '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>',
+        );
+
+        $cache = (new ReflectionProperty(HtmlToCarve::class, 'tableRouteCache'))->getValue($converter);
+
+        $this->assertInstanceOf(SplObjectStorage::class, $cache);
+        $this->assertCount(0, $cache, 'the memo must not pin the inspected DOM after the walk returns');
     }
 
     /**

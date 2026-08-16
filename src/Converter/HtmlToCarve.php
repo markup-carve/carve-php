@@ -235,10 +235,22 @@ class HtmlToCarve
 
         $diagnostics = [];
         $root = $doc->documentElement ?? $doc;
-        if ($isDocument) {
-            $this->inspectImportDocumentContainers($root, $diagnostics);
+
+        try {
+            if ($isDocument) {
+                $this->inspectImportDocumentContainers($root, $diagnostics);
+            }
+            $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
+        } finally {
+            // RELEASED HERE, not merely reset on the next call. The memo keys
+            // are `<table>` ELEMENTS and `SplObjectStorage` holds them
+            // strongly, and a DOM element keeps its owner document alive - so
+            // leaving the memo populated pins the whole inspected document for
+            // as long as the converter lives. A converter is reusable and
+            // long-lived by design, which is exactly the case where that
+            // matters. `finally`, so a throwing walk cannot leave it pinned.
+            $this->tableRouteCache = new SplObjectStorage();
         }
-        $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
 
         return $diagnostics;
     }
