@@ -347,6 +347,46 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   definition - still keeps the item tight, and the no-blank-line variant still
   folds as lazy text.
 
+  The classification sat at a second, independent site: §17 L1b asks what
+  stands BEHIND an invisible line, since such a line is neither the second
+  paragraph nor a separator that can stand between the blank and one, so a scan
+  walks past it. That scan counted the abbreviation line invisible too and
+  stepped over it, and with nothing visible left reported the item as holding
+  nothing after the blank. So the item reached through a line that really is
+  invisible stayed tight where the first fix alone did not reach it. Written:
+
+  ```
+  - a
+
+    %% c
+    *[A]: a
+  ```
+
+  rendered as:
+
+  ```html
+  <ul>
+    <li>a
+      *[A]: a
+    </li>
+  </ul>
+  ```
+
+  and now renders as:
+
+  ```html
+  <ul>
+    <li><p>a</p>
+      <p>*[A]: a</p>
+    </li>
+  </ul>
+  ```
+
+  A link reference definition or an attribute line ahead of it reads the same
+  way, and an attribute line attaches to the paragraph the abbreviation line
+  makes. With only genuinely invisible lines after the blank there is still no
+  second paragraph, and the item is still tight.
+
 - **An attribute block reaches a nested list written with no blank line before
   it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
   above a nested list was discarded:

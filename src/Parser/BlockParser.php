@@ -10288,7 +10288,18 @@ class BlockParser
             }
 
             $stripped = IndentationHelper::stripLeadingColumns($line, $contentIndent);
-            if ($this->isInvisibleOrAttributeLine($stripped)) {
+            // The second half of PART 12 §7's consequence. §7 recognizes an
+            // abbreviation definition only as a direct child of the document,
+            // and every line this scan walks sits in an ITEM BODY - so the same
+            // shape here is ordinary paragraph text that RENDERS. It is the
+            // visible line the scan exists to find, not a line to step over.
+            // The looseness predicate stopped counting it invisible in #1319;
+            // this scan is the OTHER site that carried the classification, and
+            // it answers a different shape: reached through a line that really
+            // is invisible, the abbreviation line was skipped like one more of
+            // them, and the item was reported as holding nothing behind the
+            // blank (markup-carve/carve#1269).
+            if ($this->isInvisibleOrAttributeLine($stripped, false)) {
                 continue;
             }
 
