@@ -137,16 +137,27 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
      * of its rows were decided by the INFO-STRING parse rather than by the slot:
      * ```` ```<TAB>js ```` fell back because `js` was unreachable behind a tab,
      * not because the tab failed the slot. With nothing after the run the info
-     * parse has nothing to refuse, and the slot check is the only thing left -
-     * and it was reached too late to fire, because `rtrim()` had already
-     * deleted the tab it was meant to see. So ```` ```<TAB> ```` opened a bare
-     * code block while ```` ```<TAB>js ```` correctly did not (carve-php#1329).
+     * parse has nothing to refuse, and the slot check is the only thing left.
      *
-     * `<SP><TAB>` is deliberately absent: there the slot IS filled by a space
-     * and the tab is TRAILING, which this engine tolerates by the decision
-     * recorded at the opener (carve-php#951). It is pinned as a control in
-     * {@see self::testATrailingRunAfterAFilledSlotStillOpens()} so the two
-     * cannot be confused for one rule.
+     * WHAT IS LEFT HERE AFTER carve#1295, and why it is no longer the tab. The
+     * ruling split this line by POSITION: a run before content is a SEPARATOR
+     * and the slot rule governs, a run at end of line is TRAILING whitespace and
+     * PART 2 drops it. So the tab rows moved out of this provider and into
+     * {@see self::trailingRunOpenerProvider()} - with nothing after it, a tab
+     * here is trailing and the fence OPENS.
+     *
+     * The vertical tab and the form feed stay, and they stay for a reason that
+     * has nothing to do with the tab ruling: PART 1 spells the terminal
+     * `whitespace = ' ' | '\t'`, so neither of them is whitespace in this
+     * language at all. They are ordinary CONTENT sitting in the info-string
+     * position, `language_info` cannot match them, and the opener falls back -
+     * exactly as it would for any other unmatchable token. Nothing about
+     * trailing-whitespace stripping reaches them, because there is no trailing
+     * whitespace on those lines.
+     *
+     * That is why they are not merely redundant rows: if a future narrowing
+     * widened PART 2's trailing-whitespace set past `space` and `tab`, these two
+     * would flip and this provider is what notices.
      *
      * Both fence characters, because the slot is read once for either and a fix
      * that reached only the backtick path would be invisible here otherwise.
@@ -156,10 +167,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     public static function emptyInfoOpenerProvider(): array
     {
         $rows = [];
-        foreach (self::NON_SPACE_RUNS as $runName => $run) {
-            if ($run === " \t") {
-                continue;
-            }
+        foreach (['a vertical tab' => "\v", 'a form feed' => "\f"] as $runName => $run) {
             foreach (['a backtick fence' => '```', 'a tilde fence' => '~~~'] as $fenceName => $fence) {
                 $rows["{$fenceName}, {$runName}"] = ["{$fence}{$run}"];
             }
@@ -174,6 +182,133 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         $fence = substr($opener, 0, 3);
 
         $this->assertStringNotContainsString('<pre', $this->html("{$opener}\nx\n{$fence}\n"));
+    }
+
+    /**
+     * A whitespace run at END OF LINE is trailing, and the fence opens.
+     *
+     * THE OTHER HALF OF THE POSITION SPLIT (carve#1295). The rule that shipped
+     * as "a tab after the opener disqualifies the fence" reached a position it
+     * does not own. With nothing after it the tab is not filling a slot, because
+     * there is no content for it to be a separator FROM - it is trailing
+     * whitespace, PART 2 drops it, and what is left is a bare fence opener,
+     * which opens.
+     *
+     * The asymmetry that makes the overshoot visible, and the reason this is not
+     * a taste call: ```` ```<SP><SP><SP> ```` opened and ```` ```<TAB> ````
+     * refused. Two whitespace-only tails, two answers, told apart by nothing but
+     * which whitespace character the author typed. The grammar already refuses
+     * that shape of rule at MARKER REQUIRES CONTENT - "The rule ignores trailing
+     * whitespace, so `-` and `- ` behave identically (an editor stripping the
+     * trailing space cannot change the meaning)" - and an editor stripping a
+     * trailing TAB must not change this line's meaning either. Every row here is
+     * a line some editor's save hook rewrites into the bare `` ``` `` on the
+     * last row.
+     *
+     * `<TAB><SP>` and `<SP><TAB>` are both here, in both orders, because a fix
+     * that inspected only the FIRST or only the LAST character of the run would
+     * pass one and fail the other.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function trailingRunOpenerProvider(): array
+    {
+        $runs = [
+            'a tab' => "\t",
+            'two tabs' => "\t\t",
+            'a tab then a space' => "\t ",
+            'a space then a tab' => " \t",
+            'a run of spaces' => '   ',
+            'nothing at all (the stripped form)' => '',
+        ];
+
+        $rows = [];
+        foreach ($runs as $runName => $run) {
+            foreach (['a backtick fence' => '```', 'a tilde fence' => '~~~'] as $fenceName => $fence) {
+                $rows["{$fenceName}, {$runName}"] = ["{$fence}{$run}"];
+            }
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('trailingRunOpenerProvider')]
+    public function testATrailingRunAloneStillOpensTheFence(string $opener): void
+    {
+        $fence = substr($opener, 0, 3);
+
+        // Asserted as "the block opened AND the run reached neither the info
+        // string nor the content". A fence that opened and carried the tab into
+        // a language class would satisfy a bare `<pre` check while still
+        // treating the trailing run as a token.
+        $out = $this->html("{$opener}\nx\n{$fence}\n");
+
+        $this->assertStringContainsString('<pre><code>x', $out);
+        $this->assertStringNotContainsString('class="language-', $out);
+    }
+
+    /**
+     * The SEPARATOR half, at the same slot, one row per fence character.
+     *
+     * The other side of the split, kept adjacent on purpose: with content after
+     * it the very same tab IS a separator, does not satisfy the `space`
+     * terminal, and the fence does not open. Without this pair the narrowing
+     * above could be taken all the way to "a tab after the opener is always
+     * fine", which is what carve#1295 explicitly did not rule.
+     *
+     * THIS IS NOW THE ENFORCEMENT, not a second opinion on it. Narrowing the
+     * opener's explicit slot test to "content follows" left a test that could
+     * not fail - `language_info` already refuses a tab-led info string two
+     * branches later - so it was removed rather than shipped as decoration.
+     * What holds the separator half up is therefore this behavior test and the
+     * language-token character class, and the two are one edit apart: widen
+     * `[A-Za-z0-9_\-+#./]+` to admit whitespace and these rows go red, which is
+     * exactly the coupling a dead guard would have hidden.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function separatorRunOpenerProvider(): array
+    {
+        $rows = [];
+        foreach (['a tab' => "\t", 'a tab then a space' => "\t ", 'two tabs' => "\t\t"] as $runName => $run) {
+            foreach (['a backtick fence' => '```', 'a tilde fence' => '~~~'] as $fenceName => $fence) {
+                $rows["{$fenceName}, {$runName} before content"] = ["{$fence}{$run}js"];
+            }
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('separatorRunOpenerProvider')]
+    public function testARunBeforeContentStillRefusesToOpen(string $opener): void
+    {
+        $fence = substr($opener, 0, 3);
+        $out = $this->html("{$opener}\nx\n{$fence}\n");
+
+        $this->assertStringNotContainsString('<pre', $out);
+        $this->assertStringNotContainsString('language-js', $out);
+    }
+
+    /**
+     * The CLOSER is not touched by this ruling, and that is a claim worth
+     * pinning.
+     *
+     * A closer takes no content after its marker, so a tab there is ALWAYS
+     * trailing and never a separator - the position split has only one side at
+     * this end of the run. carve-php already accepts a tab-padded closer, which
+     * carve#1295 confirms is correct, and carve-rs is the engine that changes.
+     *
+     * This test exists because the natural instinct when narrowing the opener is
+     * to sweep both ends of the fence toward one answer. They are governed by
+     * the same clause and land on OPPOSITE sides of it, so a change at the
+     * closer would be a regression rather than consistency.
+     */
+    public function testATabPaddedCloserStillCloses(): void
+    {
+        $out = $this->html("```php\nx\n```\t\n");
+
+        $this->assertStringContainsString('<pre><code class="language-php">x', $out);
+        $this->assertStringNotContainsString('```', $out);
     }
 
     /**
@@ -371,8 +506,18 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         // three sites reached the three different widths through three
         // different mechanisms, so a shrinking run list is a real regression in
         // what this file proves, not a tidy-up.
+        //
+        // `emptyInfoOpenerProvider()` went from 8 rows to 4 at carve#1295, and
+        // that is the one shrink here that is NOT a regression: the tab and
+        // tab-space rows did not disappear, they MOVED to
+        // `trailingRunOpenerProvider()` with their expectation inverted, because
+        // the ruling put a run at end of line on the other side of the split.
+        // The two counts below are asserted together so the move stays visible
+        // as a move - deleting those rows outright now fails the second count.
         $this->assertCount(5, self::NON_SPACE_RUNS);
-        $this->assertCount(8, self::emptyInfoOpenerProvider());
+        $this->assertCount(4, self::emptyInfoOpenerProvider());
+        $this->assertCount(12, self::trailingRunOpenerProvider());
+        $this->assertCount(6, self::separatorRunOpenerProvider());
         $this->assertCount(4, self::emptyInfoSpacedOpenerProvider());
         $this->assertCount(30, self::codeFenceOpenerProvider());
         $this->assertCount(9, self::spacedCodeFenceOpenerProvider());

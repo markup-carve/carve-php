@@ -71,19 +71,47 @@ class FencedBlockParser
         // was empty. The EMPTY-INFO shape is the one the slot check could not
         // reach (carve-php#1329).
         //
-        // A whitespace character that is not `space` does not satisfy the slot,
-        // so the fence does not open and the line falls back to a paragraph.
-        // The div fence has always been strict here for the same reason, and it
-        // reads its raw tail before trimming; this is that shape, minus the
-        // div's refusal of the GLUED form, since ```` ```php ```` takes no
-        // separator at all.
-        $tail = $matches[2];
-        $slot = $tail[0] ?? '';
-        if ($slot !== ' ' && $slot !== '' && strpos(StringUtil::WHITESPACE_CHARS, $slot) !== false) {
-            return null;
-        }
-
-        $info = rtrim($tail, StringUtil::WHITESPACE_CHARS);
+        // POSITION DECIDES, and the explicit slot test that used to stand here
+        // is gone because it could no longer fire (carve#1295). The ruling split
+        // this line in two, and the halves never overlap:
+        //
+        // - a run BEFORE content is a SEPARATOR. The slot rule governs, the
+        //   `space` terminal is not satisfied, and the fence does not open:
+        //   ```` ```<TAB>php ```` is prose.
+        // - a run at END OF LINE with nothing after it is TRAILING whitespace.
+        //   PART 2 drops it, and the fence opens normally: ```` ```<TAB> ```` is
+        //   a bare code block.
+        //
+        // Read as "a tab anywhere after the fence run disqualifies the opener",
+        // the slot rule reached a position it does not own: this engine refused
+        // ```` ```<TAB> ```` while opening ```` ```<SP><SP><SP> ```` - two tails
+        // that are ENTIRELY whitespace, two answers, told apart by nothing but
+        // which whitespace character the author typed. The grammar already
+        // refuses that shape of rule at MARKER REQUIRES CONTENT: "The rule
+        // ignores trailing whitespace, so `-` and `- ` behave identically (an
+        // editor stripping the trailing space cannot change the meaning)." An
+        // editor stripping a trailing TAB must not change this line either.
+        //
+        // This engine's own frontmatter opener already split it this way -
+        // ```` ---<TAB> ```` consumes the block, ```` ---<TAB>yaml ```` falls
+        // back - so the fence opener was the outlier inside carve-php rather
+        // than a second reading of the rule.
+        //
+        // WHY NO GUARD REPLACES IT. Narrowed to "refuse only when content
+        // follows", the test became one that cannot fail. When it would fire,
+        // `$info` begins with that same non-space whitespace character, and two
+        // branches below `language_info` refuses it: the character is neither
+        // `"` nor `[`, so the language branch runs, and `[A-Za-z0-9_\-+#./]+`
+        // cannot match a tab. Every input it would have caught returns null
+        // there instead. Measured as well as argued - across 504 opener shapes
+        // (both fence characters, seven whitespace runs, nine info tails, in a
+        // paragraph, a blockquote, a list item and a div, rendered to HTML,
+        // Markdown and canonical Carve) removing it changed no output at all.
+        // A check that cannot fail is worse than no check: it tells the next
+        // reader the slot is defended when the info parse is what defends it.
+        // The separator half is pinned by a BEHAVIOR test instead, so a future
+        // widening of the language token cannot quietly take it with it.
+        $info = rtrim($matches[2], StringUtil::WHITESPACE_CHARS);
         if (($info[0] ?? '') === ' ') {
             $info = substr($info, 1);
         }
