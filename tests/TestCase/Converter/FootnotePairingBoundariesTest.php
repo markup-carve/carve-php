@@ -18,6 +18,15 @@ use PHPUnit\Framework\TestCase;
  */
 class FootnotePairingBoundariesTest extends TestCase
 {
+    /**
+     * One note with a marked back-link, for the cases whose subject is the
+     * reference site rather than the note.
+     *
+     * @var string
+     */
+    protected const NOTE = '<section class="footnotes"><ol><li id="fn1"><p>The note.'
+        . '<a href="#fnref1" class="footnote-back">&#8617;</a></p></li></ol></section>';
+
     protected function importAsWord(string $html): string
     {
         return (new HtmlToCarve(importAdapter: 'word'))->convert($html);
@@ -227,6 +236,59 @@ class FootnotePairingBoundariesTest extends TestCase
         $imported = $this->importAsWord($html);
 
         $this->assertSame("Body[^1].\n\n[^1]: The note.\n", $imported);
+    }
+
+    /**
+     * A `<sup>` holding more than the reference is not the reference's site.
+     *
+     * Only a superscript that wraps the anchor and nothing else is replaced
+     * with it; one that also carries an element of its own keeps its content,
+     * and the reference binds inside it.
+     */
+    public function testASupHoldingMoreThanTheReferenceSurvives(): void
+    {
+        $html = '<p>Body<sup><a href="#fn1" class="footnote-ref" id="fnref1">1</a><span>*</span></sup> t.</p>'
+            . self::NOTE;
+
+        $imported = $this->importAsWord($html);
+        $rendered = (new CarveConverter())->convert($imported);
+
+        $this->assertStringContainsString('Body{^[^1]*^} t.', $imported);
+        $this->assertStringContainsString('role="doc-noteref"', $rendered);
+        $this->assertStringContainsString('*</sup>', $rendered);
+    }
+
+    /**
+     * The same where the superscript's extra content is text rather than an
+     * element - here brackets, which must not read as a wiki link on the way
+     * back through the parser.
+     */
+    public function testASupHoldingTextBesideTheReferenceSurvives(): void
+    {
+        $html = '<p>Body<sup>[<a href="#fn1" class="footnote-ref" id="fnref1">1</a>]</sup> t.</p>'
+            . self::NOTE;
+
+        $imported = $this->importAsWord($html);
+        $rendered = (new CarveConverter())->convert($imported);
+
+        $this->assertStringContainsString('Body{^[[^1]]^} t.', $imported);
+        $this->assertStringContainsString('<sup>[<a id="fnref1" href="#fn1" role="doc-noteref">', $rendered);
+    }
+
+    /**
+     * A separator written AFTER the notes is chrome too. The search only takes
+     * what precedes the first note, so this one survives to pruning, which is
+     * what stops it importing as a thematic break.
+     */
+    public function testASeparatorAfterTheNotesDoesNotSurvive(): void
+    {
+        $html = '<p>Body<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> t.</p>'
+            . '<div class="footnotes"><ol><li id="fn1"><p>The note.'
+            . '<a href="#fnref1" class="footnote-back">&#8617;</a></p></li></ol><hr /></div>';
+
+        $imported = $this->importAsWord($html);
+
+        $this->assertSame("Body[^1] t.\n\n[^1]: The note.\n", $imported);
     }
 
     /**
