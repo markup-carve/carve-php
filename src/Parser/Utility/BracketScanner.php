@@ -42,7 +42,7 @@ final class BracketScanner
      * Find the balanced closing `]` for a bracketed inline run.
      *
      * An escaped bracket is opaque, and so are the two runs whose content is
-     * LITERAL: a code span and an editorial comment. Neither resolves an
+     * LITERAL: a code span, an editorial comment, and a braced author comment. Neither resolves an
      * escape, so a `]` inside one is content that no backslash could have
      * spelled (markup-carve/carve#403).
      *
@@ -73,6 +73,15 @@ final class BracketScanner
 
             if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
                 $commentEnd = strpos($text, '#}', $pos + 2);
+                if ($commentEnd !== false) {
+                    $pos = $commentEnd + 2;
+
+                    continue;
+                }
+            }
+
+            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '%') {
+                $commentEnd = strpos($text, '%}', $pos + 2);
                 if ($commentEnd !== false) {
                     $pos = $commentEnd + 2;
 

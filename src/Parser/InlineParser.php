@@ -733,6 +733,31 @@ class InlineParser
                 continue;
             }
 
+            // Delimited inline comment: unlike `%%`, this may begin anywhere
+            // in the run and prose resumes after the first `%}`. An opener
+            // without a closer is ordinary text. Code and raw spans remain
+            // opaque because their backtick handler consumes them as a unit.
+            if ($char === '{' && $nextChar === '%') {
+                $close = strpos($text, '%}', $pos + 2);
+                if ($close !== false) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $content = substr($text, $pos + 2, $close - $pos - 2);
+                    if (str_starts_with($content, ' ')) {
+                        $content = substr($content, 1);
+                    }
+                    if (str_ends_with($content, ' ')) {
+                        $content = substr($content, 0, -1);
+                    }
+                    $comment = new Comment($content, null, true);
+                    $this->placeAt($comment, $pos, $close + 2);
+                    $parent->appendChild($comment);
+                    $pos = $close + 2;
+
+                    continue;
+                }
+            }
+
             if ($char === '#' && $this->isCaptionNumberPlaceholder($text, $pos)) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
@@ -2807,6 +2832,18 @@ class InlineParser
         while ($searchPos < $length) {
             $char = $text[$searchPos];
 
+            // A delimited comment is transparent to the surrounding span: a
+            // delimiter in its body cannot close the span that contains it.
+            if ($char === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+                $commentEnd = strpos($text, '%}', $searchPos + 2);
+                if ($commentEnd !== false) {
+                    $searchPos = $commentEnd + 2;
+                    $scanSkipped = true;
+
+                    continue;
+                }
+            }
+
             // Skip over attribute blocks {....} respecting quotes
             if ($char === '{') {
                 $attrEnd = $this->findAttributeEnd($text, $searchPos);
@@ -2988,6 +3025,15 @@ class InlineParser
 
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
+            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+                $commentEnd = strpos($text, '%}', $searchPos + 2);
+                if ($commentEnd !== false) {
+                    $searchPos = $commentEnd + 2;
+
+                    continue;
+                }
+            }
+
             if ($text[$searchPos] === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
