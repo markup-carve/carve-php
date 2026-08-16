@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use Closure;
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
@@ -600,31 +602,121 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
             $lines = $this->splitOnSoftBreaks($block->getChildren());
             $kept = [];
+            $nodes = [];
             foreach ($lines as $line) {
                 $definition = $this->asDefinition($line);
-                if ($definition !== null) {
-                    $this->definitions[$definition['key']] = $definition['value'];
-                } else {
+                if ($definition === null) {
                     $kept[] = $line;
+
+                    continue;
                 }
+
+                $this->definitions[$definition['key']] = $definition['value'];
+                $nodes[] = $this->definitionNode($definition, $line);
             }
 
-            if (count($kept) === count($lines)) {
+            if ($nodes === []) {
                 continue;
             }
 
             if ($kept === []) {
-                $document->removeChild($block);
+                $document->replaceChildWithMany($block, $nodes);
 
                 continue;
             }
 
+            // A paragraph mixing prose lines with definition lines keeps ONE
+            // paragraph holding the prose, and the definitions follow it. Not
+            // source order, deliberately: splitting the prose around them would
+            // turn one `<p>` into two, and PART 12 §18 moves the tree without
+            // moving rendered output on any target.
             while ($block->removeChildAt(0) !== null) {
             }
             foreach ($this->joinWithSoftBreaks($kept) as $node) {
                 $block->appendChild($node);
             }
+            // INSERTED AFTER THE BLOCK, not spliced in with the block as its
+            // own replacement: `replaceChildWithMany()` clears the old child's
+            // parent pointer last, so passing the paragraph on both sides left
+            // it in the document's children with `getParent() === null` - a
+            // node any parent-walking traversal reads as detached.
+            $children = $document->getChildren();
+            $index = array_search($block, $children, true);
+            if ($index === false) {
+                continue;
+            }
+            array_splice($children, $index + 1, 0, $nodes);
+            $document->setChildren($children);
         }
+    }
+
+    /**
+     * The authored definition line as a node (PART 12 §18).
+     *
+     * `key` and the entry come from the same read `asDefinition()` already did -
+     * the node is not a second parse of the line, so the tree and the
+     * resolution table cannot disagree about what the author wrote. `attrs`
+     * carries the `{author= year=}` metadata block the clause names, and only
+     * that: `data-cite-refs-def` is this engine's own marker on the group and
+     * PART 12 §3 forbids publishing an internal field.
+     *
+     * `pos` spans the WHOLE authored line, from the `[` of `[@key]` through the
+     * last inline of the entry. Losing it was the defect: a consumed line has no
+     * position, so nothing could reproduce it and an AST round trip deleted it
+     * from the document (markup-carve/carve#1276).
+     *
+     * @param array{key: string, value: array{entry: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, author?: string, year?: string}} $definition
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $line
+     */
+    protected function definitionNode(array $definition, array $line): CitationDefinition
+    {
+        $node = new CitationDefinition($definition['key']);
+        foreach (['author', 'year'] as $name) {
+            if (isset($definition['value'][$name])) {
+                $node->setAttribute($name, $definition['value'][$name]);
+            }
+        }
+        foreach ($definition['value']['entry'] as $child) {
+            $node->appendChild($child);
+        }
+        $node->setPos(self::lineSpan($line));
+
+        return $node;
+    }
+
+    /**
+     * The span from the first positioned inline on the line to the last.
+     *
+     * Null when position tracking is off, and null rather than a partial span
+     * when either end is missing - PART 12 §4 forbids inventing a position.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $line
+     */
+    protected static function lineSpan(array $line): ?SourceSpan
+    {
+        $first = null;
+        $last = null;
+        foreach ($line as $node) {
+            $span = $node->getPos();
+            if ($span === null) {
+                continue;
+            }
+            $first ??= $span;
+            $last = $span;
+        }
+
+        if ($first === null || $last === null) {
+            return null;
+        }
+
+        return new SourceSpan(
+            $first->startLine,
+            $last->endLine,
+            $first->startColumn,
+            $last->endColumn,
+            $first->startOffset,
+            $last->endOffset,
+        );
     }
 
     /**
@@ -1036,6 +1128,15 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         if ($node instanceof CitationGroup) {
             $callback($node);
 
+            return;
+        }
+
+        // A definition's ENTRY is not a use site. Its inlines used to leave the
+        // tree with the line, so a `[@a]: see [@b]` entry never reached this
+        // walk; now that PART 12 §18 keeps them, the subtree has to be skipped
+        // or `@b` would gain a number and a back-link it never had - rendered
+        // output moving on a tree-only change (markup-carve/carve#1276).
+        if ($node instanceof CitationDefinition) {
             return;
         }
 

@@ -466,6 +466,7 @@
     }
   },
   "unmapped": {
+    "citation_definition": "the bibliography definition line (PART 12 §18) is not yet modeled; CarveKit registers no node for it, and emitting a name the editor schema never defined is worse than dropping it. The references list the Citations extension renders is what an editor holds today",
     "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",

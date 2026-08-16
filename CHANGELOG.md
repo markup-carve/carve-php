@@ -40,6 +40,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A bibliography definition line is a node on the wire.** `[@key]: {author=
+  year=} entry` is a `citation_definition` carrying the key without its sigil,
+  the entry as inline `children`, the metadata block as `attrs`, and its
+  position - PART 12 section 18, shaped after the link reference definition
+  rather than after the footnote. The line used to be consumed while the
+  Citations extension collected definitions, so it was not in the tree at all:
+  it had no position, nothing could reproduce it, and an AST round trip deleted
+  it from the document. Rendered output is unchanged on every target, which is
+  why no fixture ever saw the difference: the definition renders nothing where
+  it sits and its entry renders in the references list either way. Tier-2, so
+  only a parse with the Citations extension enabled produces one.
+
 - **A `carveDiv` says how its class was written.** `carveTyped` distinguishes
   `::: sidebar` from `{.sidebar}` above a bare `:::` - one ProseMirror node
   serves both Carve types, and without it an attributed div came back as a typed
