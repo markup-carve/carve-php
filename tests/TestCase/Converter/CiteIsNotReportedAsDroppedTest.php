@@ -255,6 +255,44 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             'a list-table item keeps it' => [$inCell, true],
             'a plain quote keeps it' => ['<blockquote cite="u"><p>q</p></blockquote>', false],
             'a list item keeps it' => ['<ul><li><blockquote cite="u"><p>q</p></blockquote></li></ul>', false],
+            // A CAPTION LOSES IT, and the round trip is what says so. The
+            // importer writes the attribute block through the caption-line
+            // slot, which carries inline content only, so the source reads
+            // `^ {cite=u}` and renders `<caption>{cite=u}</caption>` with the
+            // quote's attribute gone. Reading only the CARVE would call this
+            // preserved, because the characters `cite=u` are present - they are
+            // just text. The round trip is the honest oracle, which is why this
+            // test renders rather than grepping the source.
+            //
+            // The mangling predates this predicate and is not fixed here; what
+            // is asserted is only that a real loss is reported.
+            'a top-level caption loses it' => [
+                '<table><caption><blockquote cite="u"><p>q</p></blockquote></caption>'
+                    . '<tr><td>x</td></tr></table>',
+                false,
+            ],
+            'a nested caption loses it too' => [
+                '<table><tr><td><table><caption><blockquote cite="u"><p>q</p></blockquote>'
+                    . '</caption><tr><td>x</td></tr></table></td></tr></table>',
+                true,
+            ],
+            // A cell with no owning table is never reached by `processTable()`,
+            // so nothing raises the cell depth and the attribute block is
+            // written normally. Both flag states, because the route never even
+            // gets to be consulted here.
+            'a td fragment with no table keeps it' => ['<td><blockquote cite="u"><p>q</p></blockquote></td>', false],
+            'a td fragment with no table keeps it, opt-in on' => [
+                '<td><blockquote cite="u"><p>q</p></blockquote></td>',
+                true,
+            ],
+            // The nearest table is the INNER one here and it is a cell, not a
+            // caption - the row that keeps the cell walk honest next to the
+            // caption rows above.
+            'a cell in a nested table keeps it' => [
+                '<table><tr><td><table><tr><td><blockquote cite="u"><p>q</p></blockquote>'
+                    . '</td></tr></table></td></tr></table>',
+                true,
+            ],
         ];
     }
 

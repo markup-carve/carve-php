@@ -1022,46 +1022,85 @@ class HtmlToCarve
     }
 
     /**
-     * Does the table this node sits in write its cells as PIPE rows?
+     * Will the table that SERIALIZES this node write it into a pipe row?
      *
-     * MEMOIZED PER TABLE, and that is not a micro-optimization. The inspection
-     * walk asks this once per cited quote, while `tableHasBlockContentCell()`
-     * rebuilds and rescans the table's rows on every call - so a table with one
-     * cited quote per row cost O(quotes x rows) and a 800-row table took 5x
-     * longer than the same document on the previous revision, still climbing.
-     * Nothing bounded that work either: these attributes are represented, so
-     * they add no diagnostics and `maxDiagnostics` never trips.
+     * Two steps, and the order is the whole rule: find the nearest enclosing
+     * CELL, then find the table that OWNS that cell. Walking to the nearest
+     * `<table>` ancestor instead is wrong whenever the two differ - a
+     * `<blockquote>` in the CAPTION of a table nested inside an outer cell has
+     * the inner table as its nearest table, but the inner table is not what
+     * serializes it. `processTable()` writes a caption before descending into
+     * any cell, so `tableCellDepth` is still zero there and the attribute
+     * survives; the cell that governs it is the OUTER one, whose own table may
+     * well take the list-table route.
      *
-     * The cache is keyed by the table ELEMENT and holds a reference to it, so
-     * an object id cannot be recycled underneath it, and it is cleared per
-     * conversion by {@see self::resetImportRouteCache()}.
+     * NO OWNING TABLE MEANS NO LOSS. A `<td>` in an accepted fragment with no
+     * `<table>` around it is never reached by `processTable()` at all, so
+     * `tableCellDepth` is never raised and the attribute block is written
+     * normally. Reporting a drop there was a false positive - and the earlier
+     * "conservative" default of reporting was conservative in the wrong
+     * direction, since the failure it produced was the very kind of untrue row
+     * this whole predicate exists to remove.
      *
-     * A cell with no `<table>` ancestor cannot be reached by `processTable()`
-     * at all and is treated as dropping - a diagnostic too many is recoverable,
-     * a silent loss is not.
+     * MEMOIZED PER TABLE. `tableHasBlockContentCell()` rebuilds and rescans a
+     * table's rows on every call and the walk asks once per cited quote, so an
+     * unmemoized lookup cost O(quotes x rows) - an 800-row table measured 5x
+     * slower and still climbing. Nothing bounded it either: these attributes
+     * are represented, so they emit no diagnostics and `maxDiagnostics` never
+     * trips. The cache is keyed by the table ELEMENT, so it holds a reference
+     * and an object id cannot be recycled beneath it, and it is cleared per
+     * conversion by `inspectImportLoss()`.
      */
     protected function tableRouteDropsBlockAttributes(DOMElement $node): bool
     {
-        if (!$this->isInsideTableCell($node)) {
+        // A CAPTION LOSES IT WHEREVER THE TABLE SITS. `processTable()` writes a
+        // caption through the caption-line slot, which carries inline content
+        // only - the attribute block is emitted as caption TEXT, so the source
+        // reads `^ {cite=u}` and renders `<caption>{cite=u}</caption>` with the
+        // quote's attribute gone. That is a real loss and is reported, and it
+        // is checked before the cell walk because it does not depend on the
+        // route: a top-level table's caption loses it exactly as a nested one
+        // does. (The mangling itself long predates this predicate and is not
+        // fixed here.)
+        if ($this->enclosingImportElement($node, ['caption']) !== null) {
+            return true;
+        }
+
+        $cell = $this->enclosingImportElement($node, ['td', 'th']);
+        if ($cell === null) {
             return false;
         }
 
-        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (strtolower($parent->tagName) !== 'table') {
-                continue;
-            }
-
-            // `offsetExists()` rather than `contains()`: the latter is
-            // deprecated as of PHP 8.5, which this package's CI matrix runs.
-            if (!$this->tableRouteCache->offsetExists($parent)) {
-                $this->tableRouteCache[$parent] = !($this->listTableForBlockCells
-                    && $this->tableHasBlockContentCell($parent));
-            }
-
-            return (bool)$this->tableRouteCache[$parent];
+        $table = $this->enclosingImportElement($cell, ['table']);
+        if ($table === null) {
+            return false;
         }
 
-        return true;
+        // `offsetExists()` rather than `contains()`, which PHP 8.5 deprecates
+        // and this package's CI matrix runs.
+        if (!$this->tableRouteCache->offsetExists($table)) {
+            $this->tableRouteCache[$table] = !($this->listTableForBlockCells
+                && $this->tableHasBlockContentCell($table));
+        }
+
+        return (bool)$this->tableRouteCache[$table];
+    }
+
+    /**
+     * The nearest ancestor of `$node` whose tag is one of `$tags`, or null.
+     *
+     * @param \DOMElement $node
+     * @param array<int, string> $tags lowercase tag names
+     */
+    protected function enclosingImportElement(DOMElement $node, array $tags): ?DOMElement
+    {
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (in_array(strtolower($parent->tagName), $tags, true)) {
+                return $parent;
+            }
+        }
+
+        return null;
     }
 
     protected function isKnownImportElement(string $tag): bool
