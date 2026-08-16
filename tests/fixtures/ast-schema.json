@@ -70,6 +70,7 @@
   "comment": {
     "fields": [
       "content",
+      "delimited",
       "block"
     ],
     "required": []

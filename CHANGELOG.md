@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Delimited inline comments are now recognized, which is a behavior change.**
+  `foo {% bar %} baz` previously rendered its braces and now hides the middle,
+  producing `foo  baz`. The new `braced-comment-in-a-template-source` lint rule
+  reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
+  source reached the parser as text; it never rewrites the source.
+
 ### Fixed
 
 - **HTML import names the `<colgroup>` it drops.** A table's column

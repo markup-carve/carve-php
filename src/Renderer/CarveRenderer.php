@@ -1651,6 +1651,9 @@ class CarveRenderer implements RendererInterface
     protected function renderComment(Comment $node): string
     {
         $content = $node->getContent();
+        if ($node->isDelimited()) {
+            return '{% ' . $content . ' %}';
+        }
         $recorded = $node->getFenceLength();
         if ($recorded === null && !str_contains($content, "\n")) {
             return '%% ' . $content;
@@ -1784,7 +1787,9 @@ class CarveRenderer implements RendererInterface
                     $lineHostsCaption = $lineNodeCount === 1 && self::inlineHostsACaption($node);
                     $captionCanOpen = false;
                 } elseif ($node instanceof Comment) {
-                    $out .= ' %% ' . $node->getContent();
+                    $out .= $node->isDelimited()
+                        ? $this->renderComment($node)
+                        : ' %% ' . $node->getContent();
                     $lineNodeCount++;
                     $lineHostsCaption = false;
                     $captionCanOpen = false;

@@ -14,6 +14,7 @@ class Comment extends BlockNode implements ContentNodeInterface
     public function __construct(
         protected string $content = '',
         protected ?int $fenceLength = null,
+        protected bool $delimited = false,
     ) {
     }
 
@@ -25,6 +26,11 @@ class Comment extends BlockNode implements ContentNodeInterface
     public function getFenceLength(): ?int
     {
         return $this->fenceLength;
+    }
+
+    public function isDelimited(): bool
+    {
+        return $this->delimited;
     }
 
     public function getType(): string

@@ -50,9 +50,8 @@ class S4ConformanceTest extends TestCase
         $this->assertSame("<p><strong>x</strong>{}</p>\n", $this->c->convert('*x*{}'));
         $this->assertSame("<p><span>x</span>{}</p>\n", $this->c->convert('[x]{}{}'));
         $this->assertSame("<p><span>x</span></p>\n", $this->c->convert('[x]{}'));
-        // `{% ... %}` is not a comment (only `%%`/`%%%` are); a `%`-bearing brace
-        // is an invalid attribute block and stays literal, matching carve-js/rs.
-        $this->assertSame("<p>a{% note %}</p>\n", $this->c->convert('a{% note %}'));
+        // A braced comment is an inline construct, not an attribute block.
+        $this->assertSame("<p>a</p>\n", $this->c->convert('a{% note %}'));
     }
 
     public function testInlineAttributeBlockIsSingleLine(): void
