@@ -92,6 +92,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The `word` and `google-docs` HTML import adapters read footnote-shaped
+  HTML as footnotes** (markup-carve/carve#1210). Word, Google Docs, LibreOffice
+  and pre-3.x Pandoc each spell a footnote differently and none of them with
+  the DPUB-ARIA roles the importer reads, so their notes arrived as a literal
+  link beside an orphaned list. Passing `--adapter word` or
+  `--adapter google-docs` (or the `importAdapter` constructor argument) now
+  binds each reference to its note and writes real `[^N]` references and
+  definitions. The pair is matched through the fragment each anchor addresses
+  and the back-link the note carries, so nothing depends on a vendor class name
+  or on the `fn1`/`fnref1` id convention; back-links and the marker anchors
+  they sit on are dropped as generated navigation, as is the rule separating
+  the notes from the body. A reference with no target stays the link the HTML
+  spelled, and a definition nothing references stays ordinary visible content.
+  `generic` is unchanged and still reads only what a Carve engine writes.
+
 - **Composite figures: `::: figure` is a captionable host** (PART 9 §4c,
   markup-carve/carve#1122). A bare `::: figure` container parses as the new
   `figure_group` AST node: one figure holding ordered panels - its direct
