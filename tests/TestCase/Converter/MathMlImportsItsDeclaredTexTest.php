@@ -122,8 +122,8 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
         $this->assertSame(
             [
                 [
-                    'code' => 'math-encoding-assumed',
-                    'message' => 'Read the <math> alttext as TeX; MathML does not declare what alttext contains',
+                    'code' => 'element-unwrapped',
+                    'message' => 'Read <math> through its alttext: MathML does not declare the encoding of alttext, so TeX is assumed',
                     'severity' => 'info',
                     'path' => '/div[1]/p[1]/math[1]',
                 ],

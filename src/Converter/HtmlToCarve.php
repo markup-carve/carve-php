@@ -323,10 +323,17 @@ class HtmlToCarve
         }
 
         if ($tier === 2) {
+            // `element-unwrapped`, not a code of this importer's own: the
+            // spec's `resources/html-import-schema.json` closes the code set at
+            // eight, so a ninth is a payload no consumer validating against it
+            // can accept, and carve-js exports the same eight as a union type.
+            // It is also the honest one of the eight - the element is gone and
+            // its content came out through an attribute - and it is what
+            // carve-js and carve-rs report for this tier (carve#1210 D6).
             $this->addImportDiagnostic(
                 $diagnostics,
-                'math-encoding-assumed',
-                'Read the <math> alttext as TeX; MathML does not declare what alttext contains',
+                'element-unwrapped',
+                'Read <math> through its alttext: MathML does not declare the encoding of alttext, so TeX is assumed',
                 'info',
                 $path,
             );
