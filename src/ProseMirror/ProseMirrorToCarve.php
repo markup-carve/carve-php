@@ -53,6 +53,8 @@ use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
 use MarkupCarve\Carve\Node\Inline\Strong;
@@ -86,6 +88,11 @@ use RuntimeException;
  */
 class ProseMirrorToCarve
 {
+    /**
+     * @var array<string, string>
+     */
+    private array $incomingAbbreviations = [];
+
     /**
      * How deeply an incoming ProseMirror payload may nest.
      *
@@ -158,6 +165,13 @@ class ProseMirrorToCarve
         }
 
         $this->droppedAttributes = [];
+
+        $rootAttrs = is_array($document['attrs'] ?? null) ? $document['attrs'] : [];
+        $incomingAbbreviations = $rootAttrs['carveAbbreviations'] ?? [];
+        $this->incomingAbbreviations = is_array($incomingAbbreviations) ? array_filter(
+            $incomingAbbreviations,
+            'is_string',
+        ) : [];
 
         $carveDocument = new Document();
         foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
@@ -345,6 +359,21 @@ class ProseMirrorToCarve
                         }
                     }
                     $figure->setShortCaption($shortCaption);
+
+                    continue;
+                }
+                // A figure's IMAGE panel crosses wrapped in a paragraph, which
+                // is what the ProseMirror schema takes in a figure. Unwrap that
+                // one shape and nothing else: a paragraph holding anything else
+                // - display math, prose - is a block the figure captions, and
+                // flattening it to inlines dropped the whole panel.
+                $paragraphImage = ($child['type'] ?? null) === 'paragraph'
+                    ? $this->loneParagraphImage($child)
+                    : null;
+                if ($paragraphImage !== null) {
+                    foreach ($this->buildInlines($paragraphImage) as $built) {
+                        $figure->appendChild($built);
+                    }
 
                     continue;
                 }
@@ -580,7 +609,13 @@ class ProseMirrorToCarve
         $inlineRun = [];
 
         foreach ($children as $child) {
-            if ($this->isInlinePayload($child)) {
+            if (($child['type'] ?? null) === 'carveUnsupported') {
+                $attrs = is_array($child['attrs'] ?? null) ? $child['attrs'] : [];
+                $source = self::asString($attrs['carveSource'] ?? '');
+                $preserved = new Paragraph();
+                $preserved->appendChild(new RawText($source));
+                $builtNodes = [$preserved];
+            } elseif ($this->isInlinePayload($child)) {
                 $builtNodes = $this->buildInlines($child);
             } else {
                 $block = $this->buildBlock($child);
@@ -847,6 +882,12 @@ class ProseMirrorToCarve
             throw new RuntimeException('Every ProseMirror node needs a string type');
         }
 
+        if ($name === 'carveUnsupportedInline') {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+
+            return [new RawText(self::asString($attrs['carveSource'] ?? ''))];
+        }
+
         if ($name === 'text') {
             $text = self::asString($data['text'] ?? '');
             $marks = is_array($data['marks'] ?? null) ? $data['marks'] : [];
@@ -881,6 +922,19 @@ class ProseMirrorToCarve
 
                     return [$this->wrapInMarks($node, array_values($marks))];
                 }
+            }
+
+            if (str_contains($text, "\n")) {
+                $nodes = [];
+                foreach (preg_split('/(\n)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
+                    if ($part === "\n") {
+                        $nodes[] = $this->wrapInMarks(new SoftBreak(), $marks);
+                    } elseif ($part !== '') {
+                        $nodes[] = $this->wrapInMarks(new Text($part), $marks);
+                    }
+                }
+
+                return $nodes;
             }
 
             return [$this->wrapInMarks(new Text($text), $marks)];
@@ -1165,8 +1219,28 @@ class ProseMirrorToCarve
             $markType = $entry['type'];
             /** @var array<string, mixed> $mark */
             $mark = $entry;
-            $wrapper = $this->instantiate($markType, $mark);
-            $this->applyAttributes($wrapper, $mark);
+            if ($markType === 'carveAbbreviation') {
+                $markAttrs = is_array($mark['attrs'] ?? null) ? $mark['attrs'] : [];
+                $title = self::asString($markAttrs['title'] ?? '');
+                // Matched by TERM, not by expansion alone. An authored
+                // `[foo]{abbr="HyperText Markup Language"}` beside a
+                // `*[HTML]: HyperText Markup Language` definition shares the
+                // expansion and is not that abbreviation - rebuilding it as one
+                // wrote back plain `foo` and lost the span entirely.
+                $term = self::plainTextOf($node);
+                if ($term !== '' && ($this->incomingAbbreviations[$term] ?? null) === $title) {
+                    $wrapper = new Abbreviation($title);
+                } else {
+                    $wrapper = new Span();
+                    $wrapper->setAttribute('abbr', $title);
+                    if (array_key_exists('carveKeyValues', $markAttrs)) {
+                        $this->applyKeyValues($wrapper, $markAttrs['carveKeyValues']);
+                    }
+                }
+            } else {
+                $wrapper = $this->instantiate($markType, $mark);
+                $this->applyAttributes($wrapper, $mark);
+            }
             $wrapper->appendChild($node);
             if ($wrapper instanceof Link) {
                 $this->confirmAutolink($wrapper);
@@ -1190,6 +1264,17 @@ class ProseMirrorToCarve
         $factory = $this->factories[$proseMirrorName] ?? null;
         if ($factory !== null) {
             return $factory($data);
+        }
+
+        // The PRESERVATION nodes another bridge writes for a construct it has
+        // no editable node for. They are on the wire (the map's
+        // `preservationNodes`), not Carve types, and every path that can meet
+        // an inline node can meet one - a table cell among them, which is where
+        // three corpus documents still threw after the inline path learned it.
+        if (in_array($proseMirrorName, ['carveUnsupported', 'carveUnsupportedInline'], true)) {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+
+            return new RawText(self::asString($attrs['carveSource'] ?? ''));
         }
 
         $carveType = SchemaMap::carveTypeFor($proseMirrorName);
@@ -1288,8 +1373,10 @@ class ProseMirrorToCarve
                 // arrive as a plain `title` attribute, which came back as BOTH
                 // the fence's quoted title and an added `{title=...}` line
                 // above it; its `[label]` had nothing carrying it at all.
-                $node instanceof CodeBlock && $key === 'carveFenceTitle' => $this->setState($node, 'header', self::asString($value)),
-                $node instanceof CodeBlock && $key === 'carveFenceLabel' => $this->setState($node, 'label', self::asString($value)),
+                $node instanceof CodeBlock && in_array($key, ['carveHeader', 'carveFenceTitle'], true)
+                    => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof CodeBlock && in_array($key, ['carveLabel', 'carveFenceLabel'], true)
+                    => $this->setState($node, 'label', self::asString($value)),
                 // Only when carveFenceTitle is ABSENT. A payload predating it
                 // put the fence's title in `title`, so that is the best guess
                 // available; but when both are present the `title` is the
@@ -1302,13 +1389,20 @@ class ProseMirrorToCarve
                 //
                 // has two titles on purpose.
                 $node instanceof CodeBlock && $key === 'title'
+                    && !array_key_exists('carveHeader', $attrs)
                     && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
                 $node instanceof ListBlock && $key === 'start' => $this->setState($node, 'start', self::asInt($value)),
-                $node instanceof ListBlock && $key === 'tight' => $this->setState($node, 'tight', self::asBool($value)),
+                $node instanceof ListBlock && in_array($key, ['carveTight', 'tight'], true) => $this->setState($node, 'tight', self::asBool($value)),
                 $node instanceof ListBlock && $key === 'carveBareMarker' => $this->setState($node, 'bareMarker', self::asBool($value)),
-                $node instanceof ListBlock && $key === 'carveListStyle' => $this->setState($node, 'style', self::asString($value)),
-                $node instanceof ListBlock && $key === 'carveListMarker' => $this->setState($node, 'marker', self::asString($value)),
+                $node instanceof ListBlock && in_array($key, ['carveOlType', 'carveListStyle'], true) => $this->setState($node, 'style', self::asString($value)),
+                $node instanceof ListBlock && in_array($key, ['carveDelim', 'carveListMarker'], true) => $this->setState($node, 'marker', self::asString($value)),
                 $node instanceof ThematicBreak && $key === 'carveMarker' => true,
+                $node instanceof TableCell && $key === 'textAlign' && in_array(
+                    self::asString($value),
+                    [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT],
+                    true,
+                ) => $this->setState($node, 'alignment', self::asString($value))
+                    && $this->setState($node, 'hasExplicitAlignment', true),
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(
@@ -1347,7 +1441,7 @@ class ProseMirrorToCarve
                 $node instanceof Div && $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
                 $node instanceof Div && $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
                 $node instanceof Abbreviation && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
-                $node instanceof InlineExtension && $key === 'carveSource' => $this->setState(
+                $node instanceof InlineExtension && in_array($key, ['name', 'carveSource'], true) => $this->setState(
                     $node,
                     'extensionType',
                     ltrim(self::asString($value), ':'),
@@ -1379,6 +1473,8 @@ class ProseMirrorToCarve
                 $node instanceof CitationGroup && $key === 'integral' => $this->setState($node, 'integral', self::asBool($value)),
                 $node instanceof CitationGroup && $key === 'items' => $this->applyCitationItems($node, $value),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
+                $node instanceof Link && $key === 'carveReferenceDefinition' => true,
+                $key === 'carveKeyValues' => true,
                 // A mention's visible name is a child Text node here, but
                 // tiptap/extension-mention is an atom that keeps it in `label`
                 // (`id` when unlabelled). Left as an attribute it becomes a
@@ -1401,6 +1497,11 @@ class ProseMirrorToCarve
         }
 
         foreach ($attrs as $key => $value) {
+            if ($key === 'carveKeyValues') {
+                $this->applyKeyValues($node, $value);
+
+                continue;
+            }
             if (($consumed[$key] ?? false) === true) {
                 continue;
             }
@@ -1430,9 +1531,23 @@ class ProseMirrorToCarve
 
         // Older payloads did not carry whether a `carveDiv` was opened with a
         // type word. Keep the historical single-class heuristic for those only.
-        if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) === 1) {
+        if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) >= 1) {
             $this->setState($node, 'typed', true);
         }
+    }
+
+    private function applyKeyValues(Node $node, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return true;
+        }
+        foreach ($value as $key => $item) {
+            if (is_scalar($item)) {
+                $node->setAttribute((string)$key, self::asString($item));
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1581,6 +1696,42 @@ class ProseMirrorToCarve
         $reflection->getProperty($property)->setValue($node, $value);
 
         return true;
+    }
+
+    /**
+     * The single IMAGE a figure's paragraph wrapper holds, or null when the
+     * paragraph is anything else.
+     *
+     * @param array<string, mixed> $paragraph
+     *
+     * @return array<string, mixed>|null
+     */
+    private function loneParagraphImage(array $paragraph): ?array
+    {
+        $children = $this->childrenOf($paragraph);
+        if (count($children) !== 1) {
+            return null;
+        }
+        $only = $children[0];
+
+        return ($only['type'] ?? null) === 'image' ? $only : null;
+    }
+
+    /**
+     * The plain text a built inline carries, for matching an abbreviation to
+     * the definition that expanded it.
+     */
+    private static function plainTextOf(Node $node): string
+    {
+        if ($node instanceof Text) {
+            return $node->getContent();
+        }
+        $text = '';
+        foreach ($node->getChildren() as $child) {
+            $text .= self::plainTextOf($child);
+        }
+
+        return $text;
     }
 
     protected function newNode(string $carveType): Node

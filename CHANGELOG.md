@@ -7,7 +7,56 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The ProseMirror bridge speaks the published wire shape.** The map named the
+  node a Carve type becomes and left the attributes to each implementation, so
+  this bridge and carve-grammars produced different documents for the same
+  source - `tight` against `carveTight`, a flat `data-x` against
+  `carveKeyValues`, table spans present in one and absent from the other - each
+  round-tripping perfectly on its own. A document stored by one and read by the
+  other lost its list tightness, its reference spelling and its cell spans, and
+  90 of the 1025 documents crossing this way were refused outright while another
+  339 came back rendering differently.
+
+  Now: authored key/values travel in one `carveKeyValues` map; a list carries
+  `carveTight`, `carveOlType` and `carveDelim`; a link mark carries
+  `carveReferenceDefinition` rather than the attributes the definition transfers
+  to it; a table cell omits a span of 1, carries its alignment as `textAlign`
+  and holds a paragraph the way the editor's schema requires; an inline
+  extension carries its `name`; a figure's image panel is wrapped in a
+  paragraph; an abbreviation is the `carveAbbreviation` mark; a code fence's
+  metadata is `carveHeader`/`carveLabel`; and a soft break crosses as a NEWLINE
+  rather than a space that joins two authored lines into one.
+
+  `resources/prosemirror-wire-fixtures.json` - a copy of the set carve-grammars
+  publishes - pins all 31 constructs in both directions.
+
+- **The preservation atoms another bridge writes are read, not refused.**
+  `carveUnsupported` and `carveUnsupportedInline` carry the exact source of a
+  construct the other side had no editable node for; they are on the wire now
+  (the map's `preservationNodes`), and this bridge writes their source back
+  verbatim instead of rejecting the document.
+
 ### Added
+
+- **A `carveDiv` says how its class was written.** `carveTyped` distinguishes
+  `::: sidebar` from `{.sidebar}` above a bare `:::` - one ProseMirror node
+  serves both Carve types, and without it an attributed div came back as a typed
+  one.
+
+- **The renderer reports two losses it always had**: the authored ORDER of an
+  attribute run, which the wire splits into `id`, `class` and one
+  `carveKeyValues` bag, and a soft break, whose text survives as a newline while
+  the node does not.
+
+### Fixed
+
+- **A display math block with a caption survives the round trip.** Unwrapping a
+  figure's paragraph wrapper for every panel flattened the math to an inline the
+  figure could not hold, and the whole panel was dropped; only an image panel is
+  unwrapped now.
+
 
 - **`Lint\FigureGroupLinter`, the five composite-figure rules** (PART 9 §4c;
   markup-carve/carve-php#1308). A tree-walking pass fed from the parsed
