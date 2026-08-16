@@ -335,6 +335,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A comment's node class is filed under blocks whichever way it was written, so
   the cell path took the inline atom for a block and recursed into children it
   does not have. That rendered identically, which is why nothing caught it.
+- **An abbreviation line in a list item is the paragraph it renders**
+  (markup-carve/carve#1267). PART 12 §7 says `*[A]: a` is a definition only as
+  a direct child of the document; inside a container "the line is not a
+  definition at all: it is ordinary paragraph text". This engine rendered that
+  text and, deciding the item's looseness, counted the same line among the
+  invisible constructs - the bucket holding comments and the two collected
+  definition kinds, all of which really do render nothing. So `- a` + blank +
+  `  *[A]: a` came out tight, where carve-js and carve-rs wrap both paragraphs.
+  A definition at the same column that IS collected - a reference or footnote
+  definition - still keeps the item tight, and the no-blank-line variant still
+  folds as lazy text.
 
 - **An attribute block reaches a nested list written with no blank line before
   it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
