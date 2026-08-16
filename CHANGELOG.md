@@ -146,8 +146,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `toHtml(fmt(x)) == toHtml(x)` on a document that renders correctly today.
 
 - **`Lint\SemanticAttributeLinter`, this package's first AST-walking lint pass**
-  (#1131, #1132), with two rules `carve lint` now reports alongside the Markdown
-  habits. `semantic-attribute-value-ignored` reports a value on a semantic span
+  (markup-carve/carve#1131, markup-carve/carve#1132), with two rules
+  `carve lint` now reports alongside the Markdown habits.
+  `semantic-attribute-value-ignored` reports a value on a semantic span
   name that only selects its wrapper, so the value reaches no output
   (`[x]{kbd="V"}`); `semantic-attribute-outside-span` reports a reserved name on
   anything other than an ordinary span, where it stays a raw attribute
@@ -817,7 +818,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   An abbreviation keeps its escape: its definition is read as `[A-Za-z0-9]+`, so
   neither character can reach it.
 
-- **The ProseMirror bridge declares the empty span it cannot carry** (#1257).
+- **The ProseMirror bridge declares the empty span it cannot carry** (#1259).
   `x ^[]{.c}` came back from the round trip as `x ^` - the span and its class
   gone, with neither `droppedTypes()` nor `degradedTypes()` reporting it. A mark
   needs text to attach to, so a span with no content is not represented at all,
