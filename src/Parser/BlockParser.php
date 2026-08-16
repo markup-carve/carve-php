@@ -6772,44 +6772,254 @@ class BlockParser
             $this->sourceLineFor($lines[$lastIndex][1]),
         );
 
+        // ONE PARSE FOR THE WHOLE STANZA, and the break comes back out of it.
+        //
+        // Each line used to be handed to the inline parser on its own, with a
+        // HardBreak appended between them unconditionally. That made the line
+        // ending a hard boundary no inline construct could cross, and PART 2
+        // says the opposite: an unclosed inline verbatim run "renders as a
+        // `<code>` span to the end of the BLOCK". A line block is a block like
+        // any other, so the run reaches its end here too - and the break the
+        // run swallows produces no `<br>` at all, because it is content inside
+        // the span rather than a sibling of it (markup-carve/carve#1282).
+        //
+        // It was never only verbatim: math, inline literal, an inline footnote
+        // and emphasis all closed at the line ending for the same reason, since
+        // all of them are decided by one pass over one string.
+        //
+        // So the stanza is joined and parsed once, and the SOFT breaks the
+        // parser produces for the newlines it did not swallow are promoted to
+        // hard ones afterwards - the same order the `::: \` hard-break block
+        // already uses, and the reason that sibling never had this defect.
+        $texts = [];
+        $segments = [];
+        $endingSegments = [];
+        $lineEndings = [];
+        $offsetInStanza = 0;
         foreach ($lines as $index => [$line, $lineNumber]) {
-            $this->appendLineBlockLine($paragraph, $line, $lineNumber);
-            if ($index < $lastIndex) {
-                // The break IS the line ending, so its extent is the newline
-                // that terminates this stanza line.
-                $hardBreak = new HardBreak();
-                $hardBreak->setPos($this->endOfLineSpan($lineNumber));
-                $paragraph->appendChild($hardBreak);
+            [$expanded, $runs] = $this->expandLineBlockLine($line, $lineNumber);
+            foreach ($runs as [$offsetInLine, $sourceColumn, $length]) {
+                $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber];
             }
+            $texts[] = $expanded;
+            if ($index < $lastIndex) {
+                // THE JOINED NEWLINE NEEDS A SEGMENT OF ITS OWN, so a break can
+                // be resolved at all: no literal run reaches it, because a
+                // preserved trailing gap or a dropped one-column run can sit
+                // between the last mapped byte and the line ending.
+                //
+                // It is enough to IDENTIFY the break, not to place it - see the
+                // promotion below for why the two are different here.
+                $lineEndings[] = [
+                    $offsetInStanza + strlen($expanded),
+                    $lineNumber,
+                ];
+                // LAST IN THE LIST, because lookup takes the FIRST segment
+                // covering an offset and this one deliberately overlaps its
+                // neighbours at both ends. A line ending's offset is also the
+                // exclusive end of the text before it, and its end is also the
+                // first offset of the line after it; the run segments own both
+                // of those readings, so this one must only answer where no run
+                // does - which is exactly the case it exists for, a line whose
+                // ending no literal run reaches.
+                $endingSegments[] = [
+                    $offsetInStanza + strlen($expanded),
+                    strlen($this->sourceLines[$this->sourceLineFor($lineNumber)] ?? $line),
+                    1,
+                    $lineNumber,
+                ];
+            }
+            // +1 for the "\n" the join inserts after this line.
+            $offsetInStanza += strlen($expanded) + 1;
         }
+
+        $this->inlineParser->parse(
+            $paragraph,
+            implode("\n", $texts),
+            $lines[0][1],
+            sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments)),
+        );
+        $this->convertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
 
         $lineBlock->appendChild($paragraph);
     }
 
     /**
-     * Append a single line-block line, preserving significant whitespace.
+     * A stanza's source map: one segment per run the expansion left untouched.
+     *
+     * The preserved runs cannot be mapped and are deliberately skipped. Each
+     * placeholder stands for one source column, but U+E000 is three bytes in
+     * UTF-8 where the space it replaced is one, so a placeholder run and its
+     * source slice have different lengths and no single segment describes both.
+     * A tab is worse still, widening up to four placeholders out of one
+     * character. Leaving those regions unmapped means the nodes covering them
+     * get no position, which PART 12 §4 rates well above a wrong one.
+     *
+     * @param list<array{0: int, 1: int, 2: int, 3: int}> $segments
+     *
+     * @return \MarkupCarve\Carve\Parser\SourceMap|null
+     */
+    private function lineBlockMap(array $segments): ?SourceMap
+    {
+        if (!$this->trackPositions || $segments === []) {
+            return null;
+        }
+
+        $map = new SourceMap();
+        $any = false;
+        foreach ($segments as [$textOffset, $sourceColumn, $length, $lineNumber]) {
+            $sourceLine = $this->sourceLineFor($lineNumber);
+            $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+            if ($lineStart === null || $length <= 0) {
+                continue;
+            }
+            // THE COLUMN IS MEASURED AGAINST THE LINE THE STANZA WAS HANDED,
+            // which a container has already stripped its prefix from. Mapping
+            // it straight from the physical line start put every span inside a
+            // quoted or listed line block short by the prefix width, the check
+            // that a span selects the node's own text then failed, and the
+            // nodes lost their positions - visibly, and only when nested.
+            $prefix = $this->currentContentColumns[$sourceLine] ?? 0;
+            $map->add(
+                $textOffset,
+                $lineStart + $prefix + $sourceColumn,
+                $length,
+                $sourceLine + 1,
+                $prefix + $sourceColumn + 1,
+            );
+            $any = true;
+        }
+
+        return $any ? $map->withSource($this->positionSource(), $this->positionIndex) : null;
+    }
+
+    /**
+     * Promote a paragraph's own soft breaks to hard ones.
+     *
+     * Only DIRECT children, which is the whole point: a soft break the inline
+     * parser buried inside a verbatim span, a footnote body or an emphasis run
+     * is content belonging to that construct, and a `<br>` there would be the
+     * old per-line split reintroduced one level down.
+     */
+
+    /**
+     * Promote a paragraph's own soft breaks to hard ones.
+     *
+     * Only DIRECT children, which is the whole point: a soft break the inline
+     * parser buried inside a verbatim span, a footnote body or an emphasis run
+     * is content belonging to that construct, and a `<br>` there would be the
+     * old per-line split reintroduced one level down.
+     *
+     * THE BREAK IS PLACED FROM ITS LINE, NOT FROM THE MAP. Resolving it through
+     * the map is what IDENTIFIES which line ending survived - breaks and line
+     * endings are both in document order, and a swallowed ending is simply one
+     * that no break claims - but the resolved offset is not a span the break
+     * can keep. A text offset at the end of a line means two things at once:
+     * the exclusive end of the text before it, and the start of the newline.
+     * Those are the same byte until a trailing one-column run is dropped, and
+     * then they are one apart, so no single map answers both and the first
+     * segment covering the offset wins. Letting the break take that answer put
+     * it on the discarded space instead of the newline - a WRONG span, which
+     * PART 12 §4 rates below no span at all.
+     *
+     * So the text keeps the map and the break is stamped from its own line,
+     * which is where a line ending's extent was always measured.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
+     * @param list<array{0: int, 1: int}> $lineEndings Text offset and line number, ascending.
+     */
+    protected function convertParagraphSoftBreaksToHardBreaks(Paragraph $paragraph, array $lineEndings = []): void
+    {
+        $count = count($lineEndings);
+        $next = 0;
+        foreach ($paragraph->getChildren() as $index => $inline) {
+            if (!$inline instanceof SoftBreak) {
+                continue;
+            }
+
+            $pos = $inline->getPos();
+            $span = $pos;
+            if ($pos !== null) {
+                while ($next < $count && ($this->lineEndingStart($lineEndings[$next][1]) ?? $pos->startOffset) < $pos->startOffset) {
+                    $next++;
+                }
+                if ($next < $count) {
+                    $span = $this->endOfLineSpan($lineEndings[$next][1]);
+                    $next++;
+                }
+            }
+
+            $hardBreak = new HardBreak();
+            $hardBreak->setPos($span);
+            $paragraph->replaceChild($index, $hardBreak);
+        }
+    }
+
+    /**
+     * A line ending's start, in the unit the AST counts. Used for MATCHING a
+     * break to its line, never as the break's own span.
+     */
+    private function lineEndingStart(int $index): ?int
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return null;
+        }
+
+        return $this->positionIndex?->codepointAt($lineStart + strlen($this->sourceLines[$sourceLine] ?? ''));
+    }
+
+    /**
+     * Expand one line-block line, preserving significant whitespace.
      *
      * Leading indentation is always kept (even a single column). An inner or
      * trailing run of TWO OR MORE columns is a medial gap (inline alignment,
      * e.g. the caesura of Old English verse) and is kept too; a lone inner space
      * stays an ordinary, collapsible space so a long line can still wrap between
-     * words. Preserved columns are emitted via the internal non-breaking-space
+     * words. Preserved columns become the internal non-breaking-space
      * placeholder (U+E000), which each renderer converts (HTML &nbsp;, Markdown
      * U+00A0, plain space) and which never collides with a literal U+00A0 in the
      * author's text. Tabs expand to four-column stops.
+     *
+     * A PURE STRING TRANSFORM, and that is the fix. It used to append inline
+     * NODES, which forced a separate inline parse per line - and, because a
+     * preserved run also flushed, per whitespace-delimited segment WITHIN a
+     * line. Every one of those parses was a fresh pass over a fresh string, so
+     * no inline construct could reach past the nearest gap. Returning the
+     * rewritten text instead lets the caller join the stanza and parse it once.
+     *
+     * The returned runs are the regions the expansion did NOT rewrite, each as
+     * `[offset in the expanded line, column in the source line, byte length]`.
+     * Those map one-for-one: a literal character is copied unchanged, and a
+     * one-column inner run is exactly one source character replaced by one
+     * space. Preserved runs are not returned at all, since no segment can
+     * describe them - see {@see self::lineBlockMap()}.
+     *
+     * @param string $line
+     * @param int $lineNo
+     *
+     * @return array{0: string, 1: list<array{0: int, 1: int, 2: int}>}
      */
-    protected function appendLineBlockLine(Paragraph $paragraph, string $line, int $lineNo): void
+    protected function expandLineBlockLine(string $line, int $lineNo): array
     {
         $length = strlen($line);
         $offset = 0;
         $column = 0;
-        $text = '';
+        $expanded = '';
+        $runs = [];
+        $runStartInSource = null;
+        $runStartInExpanded = 0;
         $seenContent = false;
 
         while ($offset < $length) {
             $char = $line[$offset];
             if ($char !== ' ' && $char !== "\t") {
-                $text .= $char;
+                if ($runStartInSource === null) {
+                    $runStartInSource = $offset;
+                    $runStartInExpanded = strlen($expanded);
+                }
+                $expanded .= $char;
                 $seenContent = true;
                 $column++;
                 $offset++;
@@ -6818,7 +7028,7 @@ class BlockParser
             }
 
             $width = 0;
-            $runStart = $offset;
+            $wsStart = $offset;
             while ($offset < $length && ($line[$offset] === ' ' || $line[$offset] === "\t")) {
                 if ($line[$offset] === "\t") {
                     $width += 4 - (($column + $width) % 4);
@@ -6830,30 +7040,11 @@ class BlockParser
             $column += $width;
 
             if (!$seenContent || $width >= 2) {
-                if ($text !== '') {
-                    $this->inlineParser->parse(
-                        $paragraph,
-                        $text,
-                        $lineNo,
-                        sourceMap: $this->contiguousMapFor($lineNo, $this->sourceLines[$this->sourceLineFor($lineNo)] ?? '', $text),
-                    );
-                    $text = '';
+                if ($runStartInSource !== null) {
+                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource];
+                    $runStartInSource = null;
                 }
-                // The indent's own node. Each placeholder stands for exactly
-                // one source SPACE, so the run spans the same characters it
-                // replaced and is placeable - a value differing from its slice
-                // by a one-for-one substitution still covers its region.
-                //
-                // A TAB is the exception: it widens to up to four placeholders
-                // from one character, so `$width` and the source run's length
-                // disagree and any span would be too long. That run declines,
-                // per run rather than per line (carve-rs#411 draws the same
-                // line for the same reason).
-                $indent = new Text(str_repeat("\u{E000}", $width));
-                if ($width === $offset - $runStart) {
-                    $indent->setPos($this->verseIndentSpan($lineNo, $runStart, $offset));
-                }
-                $paragraph->appendChild($indent);
+                $expanded .= str_repeat("\u{E000}", $width);
 
                 continue;
             }
@@ -6866,20 +7057,36 @@ class BlockParser
             // What is left here is §23's one-column case, and at the end of a
             // line it is the only kind of whitespace still standing.
             if ($offset >= $length) {
+                // The open run ends where the DROPPED whitespace begins, not
+                // where the line does. Carrying it to the line end left the run
+                // one byte longer than the text it describes, and since lookup
+                // takes the first segment covering an offset, the line ending's
+                // own segment was shadowed: the break landed on the discarded
+                // space instead of the newline. A wrong span, which §4 rates
+                // below no span at all.
+                if ($runStartInSource !== null) {
+                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource];
+                    $runStartInSource = null;
+                }
+
                 break;
             }
 
-            $text .= ' ';
+            // One source character, one space: the run stays mappable, so it
+            // continues whatever literal run is already open rather than
+            // breaking it.
+            if ($runStartInSource === null) {
+                $runStartInSource = $wsStart;
+                $runStartInExpanded = strlen($expanded);
+            }
+            $expanded .= ' ';
         }
 
-        if ($text !== '') {
-            $this->inlineParser->parse(
-                $paragraph,
-                $text,
-                $lineNo,
-                sourceMap: $this->contiguousMapFor($lineNo, $this->sourceLines[$this->sourceLineFor($lineNo)] ?? '', $text),
-            );
+        if ($runStartInSource !== null) {
+            $runs[] = [$runStartInExpanded, $runStartInSource, $offset - $runStartInSource];
         }
+
+        return [$expanded, $runs];
     }
 
     /**
@@ -8544,34 +8751,6 @@ class BlockParser
         return $this->positionIndex?->span(
             $start,
             $start + strlen($content),
-            $sourceLine + 1,
-            $sourceLine + 1,
-            $lineStart,
-            $lineStart,
-        );
-    }
-
-    /**
-     * The span of a verse line's leading whitespace run, in the original source.
-     *
-     * `$from` and `$to` are byte offsets into the line as the line-block parser
-     * sees it, which is the source line - a verse line is not re-indented.
-     */
-    private function verseIndentSpan(int $index, int $from, int $to): ?SourceSpan
-    {
-        if (!$this->trackPositions || $to <= $from) {
-            return null;
-        }
-
-        $sourceLine = $this->sourceLineFor($index);
-        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
-        if ($lineStart === null) {
-            return null;
-        }
-
-        return $this->positionIndex?->span(
-            $lineStart + $from,
-            $lineStart + $to,
             $sourceLine + 1,
             $sourceLine + 1,
             $lineStart,
