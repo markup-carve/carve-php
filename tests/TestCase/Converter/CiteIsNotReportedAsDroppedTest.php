@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionProperty;
+use SplObjectStorage;
 
 /**
  * The import report does not announce a loss that did not happen.
@@ -58,6 +62,18 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     private function carve(string $html): string
     {
         return trim((new HtmlToCarve())->convertWithReport($html)->value);
+    }
+
+    /**
+     * `[carve, wasReported]` with the list-table serializer switched on.
+     *
+     * @return array{0: string, 1: bool}
+     */
+    private function listTableImport(string $html): array
+    {
+        $result = (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport($html);
+
+        return [trim($result->value), $result->diagnostics !== []];
     }
 
     /**
@@ -198,6 +214,107 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
+     * THE ROUTE decides, not the ancestry - the list-table serializer keeps it.
+     *
+     * With `listTableForBlockCells` on, `processTable()` sends a table with
+     * block-content cells to `processTableAsListTable()`, whose items are real
+     * block context. The attribute block is written there and reads back as
+     * `<blockquote cite="u">`, so nothing is lost and nothing may be reported.
+     *
+     * This is why the represented question asks the converter's OWN route
+     * condition rather than "is there a `<td>` above me". An ancestry test is
+     * right about the default pipe table and wrong about every document that
+     * enables the opt-in - it would report a loss that the round trip disproves.
+     */
+    public function testTheListTableRouteKeepsCiteAndIsSilent(): void
+    {
+        [$carve, $reported] = $this->listTableImport(
+            '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>',
+        );
+
+        $this->assertStringContainsString('list-table', $carve);
+        $this->assertStringContainsString('{cite=u}', $carve);
+        $this->assertFalse($reported, 'the list-table route keeps cite, so nothing is dropped');
+    }
+
+    /**
+     * The invariant both halves of this class are really asserting.
+     *
+     * A report is honest exactly when "was it reported" matches "did the round
+     * trip lose it". Asserting the two together, over the routes that disagree,
+     * is stronger than asserting either side's expected string: it fails for a
+     * false positive AND for a false negative, without either test needing to
+     * know which way the converter happens to answer today.
+     *
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function routeProvider(): array
+    {
+        $inCell = '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>';
+
+        return [
+            'a pipe row drops it' => [$inCell, false],
+            'a list-table item keeps it' => [$inCell, true],
+            'a plain quote keeps it' => ['<blockquote cite="u"><p>q</p></blockquote>', false],
+            'a list item keeps it' => ['<ul><li><blockquote cite="u"><p>q</p></blockquote></li></ul>', false],
+            // A CAPTION LOSES IT, and the round trip is what says so. The
+            // importer writes the attribute block through the caption-line
+            // slot, which carries inline content only, so the source reads
+            // `^ {cite=u}` and renders `<caption>{cite=u}</caption>` with the
+            // quote's attribute gone. Reading only the CARVE would call this
+            // preserved, because the characters `cite=u` are present - they are
+            // just text. The round trip is the honest oracle, which is why this
+            // test renders rather than grepping the source.
+            //
+            // The mangling predates this predicate and is not fixed here; what
+            // is asserted is only that a real loss is reported.
+            'a top-level caption loses it' => [
+                '<table><caption><blockquote cite="u"><p>q</p></blockquote></caption>'
+                    . '<tr><td>x</td></tr></table>',
+                false,
+            ],
+            'a nested caption loses it too' => [
+                '<table><tr><td><table><caption><blockquote cite="u"><p>q</p></blockquote>'
+                    . '</caption><tr><td>x</td></tr></table></td></tr></table>',
+                true,
+            ],
+            // A cell with no owning table is never reached by `processTable()`,
+            // so nothing raises the cell depth and the attribute block is
+            // written normally. Both flag states, because the route never even
+            // gets to be consulted here.
+            'a td fragment with no table keeps it' => ['<td><blockquote cite="u"><p>q</p></blockquote></td>', false],
+            'a td fragment with no table keeps it, opt-in on' => [
+                '<td><blockquote cite="u"><p>q</p></blockquote></td>',
+                true,
+            ],
+            // The nearest table is the INNER one here and it is a cell, not a
+            // caption - the row that keeps the cell walk honest next to the
+            // caption rows above.
+            'a cell in a nested table keeps it' => [
+                '<table><tr><td><table><tr><td><blockquote cite="u"><p>q</p></blockquote>'
+                    . '</td></tr></table></td></tr></table>',
+                true,
+            ],
+        ];
+    }
+
+    #[DataProvider('routeProvider')]
+    public function testTheReportAgreesWithTheRoundTrip(string $html, bool $listTable): void
+    {
+        $result = (new HtmlToCarve(listTableForBlockCells: $listTable))->convertWithReport($html);
+        $survived = str_contains((new CarveConverter())->convert($result->value), 'cite="u"');
+        $reported = $result->diagnostics !== [];
+
+        $this->assertSame(
+            !$survived,
+            $reported,
+            $survived
+                ? 'cite survived the round trip, so no attribute-dropped may be reported'
+                : 'cite was lost, so attribute-dropped must be reported',
+        );
+    }
+
+    /**
      * The same blind spot for `id` and `class`, recorded rather than fixed.
      *
      * These are represented unconditionally and have been since long before
@@ -218,6 +335,95 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
         $this->assertStringNotContainsString('#i', $this->carve($html));
         $this->assertStringNotContainsString('.x', $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
+    }
+
+    /**
+     * The represented predicate stays a TWO-ARGUMENT protected method.
+     *
+     * `HtmlToCarve` is not final and this method is not internal, so a
+     * downstream subclass may override it. Adding a parameter - even an
+     * optional one - makes such a subclass a fatal incompatible-signature
+     * error at class-declaration time, which no test of behavior would catch
+     * because the class never loads.
+     *
+     * The position question therefore lives in a separate helper rather than
+     * as a third argument here. This test declares the override the old way and
+     * fails to even load if that is undone.
+     */
+    public function testTheRepresentedPredicateKeepsItsOverridableSignature(): void
+    {
+        $subclass = new class extends HtmlToCarve {
+            protected function isRepresentedImportAttribute(string $tag, string $name): bool
+            {
+                return parent::isRepresentedImportAttribute($tag, $name);
+            }
+        };
+
+        $this->assertStringContainsString('cite=u', $subclass->convert('<blockquote cite="u"><p>q</p></blockquote>'));
+
+        $method = new ReflectionMethod(HtmlToCarve::class, 'isRepresentedImportAttribute');
+        $this->assertSame(2, $method->getNumberOfParameters());
+    }
+
+    /**
+     * The route answer is memoized per table, so the walk stays linear.
+     *
+     * `tableHasBlockContentCell()` rebuilds and rescans a table's rows on every
+     * call, and the inspection walk asks once per cited quote - so without a
+     * memo a table with one cited quote per row costs O(quotes x rows). Nothing
+     * else bounds it: these attributes are represented, so they emit no
+     * diagnostics and `maxDiagnostics` never trips.
+     *
+     * Asserted as a RATIO against the engine's own smaller run rather than a
+     * wall-clock threshold, so a slow or loaded machine cannot fail it. Doubling
+     * the rows roughly doubles the work when the memo is present; without it the
+     * same step measured over 3x.
+     */
+    public function testTheRouteAnswerIsMemoizedPerTable(): void
+    {
+        $time = static function (int $rows): float {
+            $body = str_repeat('<tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr>', $rows);
+            $start = microtime(true);
+            (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport('<table>' . $body . '</table>');
+
+            return microtime(true) - $start;
+        };
+
+        // Warm the autoloader and JIT-ish caches so the first sample is not the
+        // one that pays for them.
+        $time(50);
+
+        $small = $time(200);
+        $large = $time(400);
+
+        $this->assertLessThan(
+            2.6,
+            $large / max($small, 1.0e-6),
+            'doubling the rows should roughly double the work; a super-linear ratio means the per-table route memo is gone',
+        );
+    }
+
+    /**
+     * The route memo is RELEASED when inspection ends, not merely reset later.
+     *
+     * Its keys are `<table>` elements, `SplObjectStorage` holds them strongly,
+     * and a DOM element keeps its owner document alive - so a populated memo
+     * pins the entire inspected document for as long as the converter lives.
+     * Converters are reusable and long-lived by design, which is exactly when
+     * that matters, so the memo is cleared in a `finally` rather than on the
+     * next call.
+     */
+    public function testTheRouteMemoDoesNotOutliveTheInspection(): void
+    {
+        $converter = new HtmlToCarve();
+        $converter->convertWithReport(
+            '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>',
+        );
+
+        $cache = (new ReflectionProperty(HtmlToCarve::class, 'tableRouteCache'))->getValue($converter);
+
+        $this->assertInstanceOf(SplObjectStorage::class, $cache);
+        $this->assertCount(0, $cache, 'the memo must not pin the inspected DOM after the walk returns');
     }
 
     /**
