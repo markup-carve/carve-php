@@ -4885,6 +4885,10 @@ class BlockParser
                 $list->setTight(false);
             }
 
+            // The previous item ends HERE, so its pending-attribute run ends
+            // here too (§15 A4).
+            $this->endListItemAttributeScope();
+
             /** @var string|null $taskMarker */
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
@@ -5106,6 +5110,11 @@ class BlockParser
             $list->appendChild($listItem);
         }
 
+        // The last item ends with the list, so a run still pending here found
+        // no block inside it and attaches to nothing - it must not reach the
+        // block that follows the list at document level (§15 A4).
+        $this->endListItemAttributeScope();
+
         // Apply the saved attributes to the list
         if ($listAttributes !== []) {
             $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
@@ -5116,17 +5125,14 @@ class BlockParser
     }
 
     /**
-     * Parse a list item's block stream, with the pending-attribute run scoped
-     * to that item.
+     * Parse ONE CHUNK of a list item's block stream.
      *
-     * §15 A2a floats a pending attribute to the next VISIBLE block and A4
-     * drops a run that reaches the end with nothing to attach to. The item
-     * boundary is such an end: an attribute written inside one item that finds
-     * no block there attaches to nothing, rather than reaching into the NEXT
-     * item's paragraph - which would make a `{...}` line's effect depend on
-     * where the list happens to break. The state is parser-global, so without
-     * this the run simply survived into the sibling's parse
-     * (carve-php#757, markup-carve/carve-js#620).
+     * An item's body is not always a single stream: the continuation collector
+     * stops at a nested marker reaching the item's content column so the list
+     * parser can own the sub-list, which splits the same item across two calls
+     * here. So a chunk end is NOT an item end, and the pending-attribute run
+     * survives it - see endListItemAttributeScope() for where the run really
+     * ends.
      *
      * @param \MarkupCarve\Carve\Node\Node $item
      * @param array<string> $lines
@@ -5138,6 +5144,29 @@ class BlockParser
         if ($lineMap !== null && $lineMap !== []) {
             $this->repairNestedParagraphSuffixes($item, $lineMap[0]);
         }
+    }
+
+    /**
+     * End the pending-attribute run that a list item scopes.
+     *
+     * §15 A2a floats a pending attribute to the next VISIBLE block and A4
+     * drops a run that reaches the end with nothing to attach to. The ITEM
+     * boundary is such an end: an attribute written inside one item that finds
+     * no block there attaches to nothing, rather than reaching into the NEXT
+     * item's paragraph - which would make a `{...}` line's effect depend on
+     * where the list happens to break. The state is parser-global, so without
+     * this the run simply survived into the sibling's parse
+     * (carve-php#757, markup-carve/carve-js#620).
+     *
+     * This used to fire at the end of every CHUNK, which is a boundary the item
+     * does not have: the collector splits an item at a nested marker, so
+     * `{.x}` on the line before that marker was stranded at the end of one
+     * chunk with the nested list at the start of the next and was discarded,
+     * while the same line before a paragraph, quote or fence - none of which
+     * break the chunk - attached normally (markup-carve/carve#1238).
+     */
+    private function endListItemAttributeScope(): void
+    {
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
     }

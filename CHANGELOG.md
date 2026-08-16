@@ -17,6 +17,41 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An attribute block reaches a nested list written with no blank line before
+  it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
+  above a nested list was discarded:
+
+  ```
+  - a
+    {.x}
+    - b
+  ```
+
+  now attributes the nested list, as the ruling states - an attribute block
+  attaches to the block that follows it, and a nested list is a block:
+
+  ```html
+  <ul>
+    <li>a
+      <ul class="x">
+        <li>b</li>
+      </ul>
+    </li>
+  </ul>
+  ```
+
+  The same line above a paragraph, quote or fence in that position already
+  attached, as did the identical three lines one nesting level up, so this was
+  the only block type that lost them. An item's body is not one stream - the
+  continuation collector stops at a marker reaching the item's content column
+  so the list parser can own the sub-list - and the pending run was dropped at
+  that chunk end as if the item had ended. It is now scoped to the item, so it
+  also survives a chunk whose tail is the attribute line (`- a` / `  para` /
+  `  {.x}` / `  - b`). Where the item genuinely ends the run still attaches to
+  nothing: it does not reach the next item or the block after the list.
+  Tight/loose is untouched, and the marker-abutting form `-{.x} item`, which
+  attributes the `<li>`, is a separate mechanism and unchanged.
+
 - **HTML import names the `<colgroup>` it drops.** A table's column
   description left the document whole, while the report called it
   `element-unwrapped` at `info` and promised Carve span metadata that is never
