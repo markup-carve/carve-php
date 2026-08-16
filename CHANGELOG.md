@@ -9,6 +9,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **HTML import names the `<colgroup>` it drops.** A table's column
+  description left the document whole, while the report called it
+  `element-unwrapped` at `info` and promised Carve span metadata that is never
+  written, plus a second row under each `<col>` inside it saying the same.
+  Carve has no column model - a table's columns are only the cells its rows
+  carry - and whether it should get one is a language question
+  (`markup-carve/carve#1092`), so the drop stands; what it gets is
+  `element-dropped` at `warning` under the `<colgroup>`'s own path, covering
+  the columns and attributes it takes with it. The wording is verbatim from
+  carve-rs and carve-js, so the three engines report the drop in the same
+  words. A `<colgroup>` that is not a table's child is a different case and
+  keeps `element-unwrapped`: this importer's parser leaves such an element
+  where the markup put it and its content does reach the output.
+
 - **The Markdown importer keeps the constructs Carve spells like the source
   literal** (markup-carve/carve#1130's dialect ruling: CommonMark plus GFM is
   the contract). `a $`x+y` b`, `a !`x` b` and `a :term[x] b` are no Markdown
