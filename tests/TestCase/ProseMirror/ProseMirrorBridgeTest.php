@@ -105,6 +105,9 @@ class ProseMirrorBridgeTest extends TestCase
             'ordered list' => ["3. a\n4. b\n"],
             'loose list' => ["- one\n\n- two\n"],
             'task list' => ["- [ ] open\n- [x] done\n"],
+            // The plain item splits into its own list; it must come back at
+            // column zero, not as an indented second list (carve-php#1287).
+            'task list with a plain sibling' => ["- [ ] open\n- [x] done\n\n- plain\n"],
             'table' => ["|= A |= B |\n| 1 | 2 |\n"],
             'table with caption' => ["|= A |\n| 1 |\n^ Caption\n"],
             'table spans' => ["| a | b |\n| c | < |\n"],

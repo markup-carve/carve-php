@@ -1184,7 +1184,17 @@ class ProseMirrorToCarve
         // State the map records as several ProseMirror names has to be put back:
         // the name is the only place that information survives.
         if ($node instanceof ListBlock) {
-            $this->setState($node, 'listType', $proseMirrorName === 'orderedList' ? 'ordered' : 'bullet');
+            // `task` is its own list type, not a bullet list whose items happen
+            // to carry markers. Folding it to `bullet` made a task list and the
+            // plain list beside it the same type, so the writer separated the
+            // two with the indented-second-list spelling - and the one-space
+            // indent moved the plain list to a different content column on
+            // reparse (carve-php#1287).
+            $this->setState($node, 'listType', match ($proseMirrorName) {
+                'orderedList' => 'ordered',
+                'taskList' => 'task',
+                default => 'bullet',
+            });
         } elseif ($node instanceof ListItem && $proseMirrorName === 'taskItem') {
             $itemAttrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
             $checked = self::asBool($itemAttrs['checked'] ?? false);
