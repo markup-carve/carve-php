@@ -60,6 +60,76 @@ class InlineParser
     protected int $currentLine = 0;
 
     /**
+     * Byte offsets of every line ending in the text the BLOCK was handed.
+     *
+     * Built once per block, and only when diagnostics are being collected, so
+     * a diagnostic's coordinates cost a search rather than a rescan. Counting
+     * the newlines before the position each time is quadratic in the number of
+     * diagnostics, which is the shape a document of faults has.
+     *
+     * @var list<int>
+     */
+    protected array $lineBreakOffsets = [];
+
+    /**
+     * Where the text currently being parsed starts in the block's text.
+     *
+     * A NESTED parse - a link's text, an emphasis body - is handed a substring
+     * and restarts its cursor at 0, so counting within that substring alone
+     * loses every line before it and reports the fault too high in the
+     * document. The origin accumulates instead, exactly as the source map's
+     * shift does, so a position is always resolved against the whole block.
+     */
+    protected int $textOrigin = 0;
+
+    /**
+     * The source line and 1-based column of `$pos` in the text being parsed.
+     *
+     * `$currentLine` is the line the BLOCK starts on, and a block can be many
+     * lines: a folded paragraph, a line block's whole stanza. Reporting it for
+     * every position puts every diagnostic in such a block on its first line,
+     * and reports an offset into the block as if it were a column.
+     *
+     * A line block was right by construction until its stanza became a single
+     * parse rather than one parse per line (markup-carve/carve-php#1327); a
+     * paragraph had been reporting its own first line for far longer. One rule,
+     * one place.
+     *
+     * @param int $pos
+     *
+     * @return array{0: int, 1: int}
+     */
+    protected function lineAndColumnAt(int $pos): array
+    {
+        $absolute = $this->textOrigin + max(0, $pos);
+        $breaks = $this->lineBreakOffsets;
+        if ($breaks === []) {
+            return [$this->currentLine, $absolute + 1];
+        }
+
+        // How many line endings sit strictly before the position.
+        $low = 0;
+        $high = count($breaks);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($breaks[$mid] < $absolute) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        // Before the first line ending, the position is on the block's own
+        // first line and its column is the offset itself.
+        $previous = $breaks[$low - 1] ?? null;
+        if ($low === 0 || $previous === null) {
+            return [$this->currentLine, $absolute + 1];
+        }
+
+        return [$this->currentLine + $low, $absolute - $previous];
+    }
+
+    /**
      * Custom inline patterns: array of [pattern => callback]
      * Callback receives (string $match, array $groups, InlineParser $parser)
      * and should return a Node or null
@@ -456,6 +526,17 @@ class InlineParser
         $this->textBufferRewritten = false;
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
+        $this->textOrigin = 0;
+        // Only when a diagnostic can actually be kept: this is one pass over
+        // the block, and the default parse has no use for it.
+        $this->lineBreakOffsets = [];
+        if ($this->blockParser->collectsWarnings() && str_contains($text, "\n")) {
+            $offset = 0;
+            while (($offset = strpos($text, "\n", $offset)) !== false) {
+                $this->lineBreakOffsets[] = $offset;
+                $offset++;
+            }
+        }
         $previousCaptionContext = $this->captionContextEnabled;
         $previousCaptionNumberEmitted = $this->captionNumberEmitted;
         $this->captionContextEnabled = $captionContext;
@@ -513,9 +594,15 @@ class InlineParser
         $outerStart = $this->textBufferStart;
         $outerRewritten = $this->textBufferRewritten;
 
+        $outerOrigin = $this->textOrigin;
+
         $this->sourceMap = $outer?->shifted($offsetInParent);
         $this->textBufferStart = null;
         $this->textBufferRewritten = false;
+        // The same accumulation the map's shift makes, for the same reason: the
+        // nested cursor restarts at 0 and its positions still have to name a
+        // place in the whole block.
+        $this->textOrigin = $outerOrigin + $offsetInParent;
 
         try {
             $this->parseInlines($parent, $text, $footnoteRecognitionEnabled);
@@ -523,6 +610,7 @@ class InlineParser
             $this->sourceMap = $outer;
             $this->textBufferStart = $outerStart;
             $this->textBufferRewritten = $outerRewritten;
+            $this->textOrigin = $outerOrigin;
         }
     }
 
@@ -2420,7 +2508,8 @@ class InlineParser
                 // tree, so it does not exist yet (R1; carve-php#572). Flag it
                 // so the parser knows a second pass is worth running.
                 $this->blockParser->markCollapsedReferenceUnresolved();
-                $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
+                [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
+                $this->blockParser->addUndefinedReferenceWarning($ref, $warnLine, $warnColumn);
                 $endPos = $refEnd + 1;
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
@@ -4168,7 +4257,8 @@ class InlineParser
 
         // Warn if footnote is not defined
         if (!$this->blockParser->hasFootnote($label)) {
-            $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
+            [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
+            $this->blockParser->addUndefinedFootnoteWarning($label, $warnLine, $warnColumn);
 
             // An UNRESOLVED footnote reference RENDERS literally as `[^label]`,
             // but it is still a footnote_ref node - which is what lets it keep a

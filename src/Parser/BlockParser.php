@@ -799,6 +799,17 @@ class BlockParser
     }
 
     /**
+     * Whether diagnostics are being collected at all.
+     *
+     * Read by the inline parser so it does not compute a diagnostic's
+     * coordinates for a diagnostic nobody will keep.
+     */
+    public function collectsWarnings(): bool
+    {
+        return $this->collectWarnings;
+    }
+
+    /**
      * Enable or disable warning collection
      */
     public function setCollectWarnings(bool $collect): self
@@ -6799,7 +6810,7 @@ class BlockParser
         foreach ($lines as $index => [$line, $lineNumber]) {
             [$expanded, $runs] = $this->expandLineBlockLine($line, $lineNumber);
             foreach ($runs as [$offsetInLine, $sourceColumn, $length]) {
-                $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber];
+                $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber, false];
             }
             $texts[] = $expanded;
             if ($index < $lastIndex) {
@@ -6814,19 +6825,22 @@ class BlockParser
                     $offsetInStanza + strlen($expanded),
                     $lineNumber,
                 ];
-                // LAST IN THE LIST, because lookup takes the FIRST segment
+                // A FALLBACK SEGMENT, because lookup takes the FIRST segment
                 // covering an offset and this one deliberately overlaps its
                 // neighbours at both ends. A line ending's offset is also the
                 // exclusive end of the text before it, and its end is also the
                 // first offset of the line after it; the run segments own both
                 // of those readings, so this one must only answer where no run
                 // does - which is exactly the case it exists for, a line whose
-                // ending no literal run reaches.
+                // ending no literal run reaches. Keeping it out of the primary
+                // list is also what leaves that list TILING, and so searchable
+                // rather than scanned.
                 $endingSegments[] = [
                     $offsetInStanza + strlen($expanded),
                     strlen($this->sourceLines[$this->sourceLineFor($lineNumber)] ?? $line),
                     1,
                     $lineNumber,
+                    true,
                 ];
             }
             // +1 for the "\n" the join inserts after this line.
@@ -6855,7 +6869,9 @@ class BlockParser
      * character. Leaving those regions unmapped means the nodes covering them
      * get no position, which PART 12 §4 rates well above a wrong one.
      *
-     * @param list<array{0: int, 1: int, 2: int, 3: int}> $segments
+     * @param list<array{0: int, 1: int, 2: int, 3: int, 4: bool}> $segments Text
+     *   offset, source column, byte length, line number, and whether the
+     *   segment answers only where no other one does.
      *
      * @return \MarkupCarve\Carve\Parser\SourceMap|null
      */
@@ -6867,7 +6883,7 @@ class BlockParser
 
         $map = new SourceMap();
         $any = false;
-        foreach ($segments as [$textOffset, $sourceColumn, $length, $lineNumber]) {
+        foreach ($segments as [$textOffset, $sourceColumn, $length, $lineNumber, $fallback]) {
             $sourceLine = $this->sourceLineFor($lineNumber);
             $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
             if ($lineStart === null || $length <= 0) {
@@ -6880,13 +6896,23 @@ class BlockParser
             // that a span selects the node's own text then failed, and the
             // nodes lost their positions - visibly, and only when nested.
             $prefix = $this->currentContentColumns[$sourceLine] ?? 0;
-            $map->add(
-                $textOffset,
-                $lineStart + $prefix + $sourceColumn,
-                $length,
-                $sourceLine + 1,
-                $prefix + $sourceColumn + 1,
-            );
+            if ($fallback) {
+                $map->addFallback(
+                    $textOffset,
+                    $lineStart + $prefix + $sourceColumn,
+                    $length,
+                    $sourceLine + 1,
+                    $prefix + $sourceColumn + 1,
+                );
+            } else {
+                $map->add(
+                    $textOffset,
+                    $lineStart + $prefix + $sourceColumn,
+                    $length,
+                    $sourceLine + 1,
+                    $prefix + $sourceColumn + 1,
+                );
+            }
             $any = true;
         }
 
