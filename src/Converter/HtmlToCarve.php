@@ -4379,11 +4379,12 @@ class HtmlToCarve
             $block = $parent;
         }
 
+        // The root itself is never a note: taking it would move every block in
+        // the document into one. `body` and `html` need no test of their own -
+        // neither is a definition block, so the loop above climbs past them and
+        // runs off the top instead of stopping there.
         $owner = $block->ownerDocument;
         if ($owner !== null && $block === $owner->documentElement) {
-            return null;
-        }
-        if (in_array(strtolower($block->tagName), ['body', 'html'], true)) {
             return null;
         }
 
@@ -4721,22 +4722,19 @@ class HtmlToCarve
      */
     protected function rewriteFootnoteSites(DOMDocument $doc, array $definitions): void
     {
-        if ($definitions === []) {
-            return;
-        }
-
         $section = $doc->createElement('section');
         $section->setAttribute('role', 'doc-endnotes');
         $list = $doc->createElement('ol');
         $section->appendChild($list);
 
-        $this->removeFootnoteSeparator($definitions[0]['block']);
-
         $containers = [];
         $label = 0;
-        foreach ($definitions as $definition) {
+        foreach ($definitions as $index => $definition) {
             $label++;
             $block = $definition['block'];
+            if ($index === 0) {
+                $this->removeFootnoteSeparator($block);
+            }
 
             $identities = [];
             foreach ($definition['refs'] as $reference) {
