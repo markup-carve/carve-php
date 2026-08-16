@@ -943,6 +943,16 @@ class HtmlToCarve
             // `datetime` is where <time> carries the value the span attribute
             // takes, so it is represented rather than dropped.
             'time' => $name === 'datetime',
+            // The quote's source URL, kept on import by the ruling on
+            // markup-carve/carve#1286 and round-tripped as `{cite=…}`. It was
+            // absent from this list while the converter kept it, so every
+            // imported `<blockquote cite>` produced a diagnostic announcing a
+            // loss that did not happen - and a report that describes a
+            // surviving attribute as dropped costs more than silence, because
+            // it teaches the reader to discount the `attribute-dropped` rows
+            // that ARE real (carve-php#1337). carve-js stopped reporting it for
+            // the same reason once it kept the value (carve-js#1125).
+            'blockquote' => $name === 'cite',
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),
