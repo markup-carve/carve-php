@@ -54,9 +54,14 @@ class ProseMirrorCorpusTest extends TestCase
      * carried, `[text][label]` references (image references included) keep
      * their spelling instead of degrading to the inline form.
      *
+     * Rose from 782 to 794 when the copy of the published map caught up with
+     * carve-grammars and the bridge grew a composite figure: `figure_group` was
+     * declared unmapped in a map copy eleven commits behind, so nine documents
+     * reported the type dropped and came back as a plain div.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 782;
+    private const MINIMUM_LOSSLESS = 794;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -88,9 +93,12 @@ class ProseMirrorCorpusTest extends TestCase
      * Rose from 631 to 843 with the authored-type coverage the lossless
      * docblock above records.
      *
+     * Rose from 843 to 855 with the composite figure the lossless docblock
+     * above records.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 843;
+    private const MINIMUM_SURVIVING = 855;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug

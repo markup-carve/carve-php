@@ -20,6 +20,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   numbering resolver's own, and the message wording mirrors carve-js so a
   cross-engine report reads the same.
 
+- **The ProseMirror bridge carries a composite figure** (PART 9 section 4c). The
+  vendored copy of the published schema map was eleven commits behind
+  carve-grammars and still declared `figure_group` unmapped, so the bridge
+  reported the type dropped and a composite figure crossed as a plain `carveDiv`
+  holding its panels - and a `carveFigureGroup` arriving from an editor was
+  refused outright. The map copy is refreshed, the group renders as
+  `carveFigureGroup` with its caption as the trailing `carveCaption` child the
+  map describes, and the converter builds it back with the caption as state
+  rather than as a stray child block. Corpus round trip: 794 documents lossless
+  (was 782) and 855 surviving (was 843).
+
 - **The `word` and `google-docs` HTML import adapters read footnote-shaped
   HTML as footnotes** (markup-carve/carve#1210). Word, Google Docs, LibreOffice
   and pre-3.x Pandoc each spell a footnote differently and none of them with

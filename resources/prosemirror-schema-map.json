@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently.",
+  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "e09b460c23fceaf532f724f3ef73e0b6a355d4f7",
+    "commit": "578a6315eb195b46cd082ca93a8b5be720be95bb",
     "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
   },
   "carveSpecVocabulary": "spec/docs/profiles.md",
@@ -105,6 +105,7 @@
     "admonition": {
       "kind": "node",
       "pm": "carveDiv",
+      "aliasOf": "div",
       "notes": "profile vocabulary only: an admonition is a div with a type class"
     },
     "definition_list": {
@@ -123,6 +124,11 @@
       "kind": "node",
       "pm": "carveFigure"
     },
+    "figure_group": {
+      "kind": "node",
+      "pm": "carveFigureGroup",
+      "notes": "a composite figure (PART 9 §4c): children in source order, the panels being the figure and table nodes among them. The group caption rides as a trailing carveCaption child even though it is authored below the closing fence. Deliberately no target, no title, no label - a bridge discriminates on the TYPE, never by probing for the target a figure has and this does not"
+    },
     "caption": {
       "kind": "node",
       "pm": "carveCaption"
@@ -137,10 +143,7 @@
     },
     "comment": {
       "kind": "node",
-      "pm": [
-        "carveComment",
-        "carveCommentInline"
-      ],
+      "pm": ["carveComment", "carveCommentInline"],
       "notes": "block attr distinguishes %% line comments from fenced comments"
     },
     "mention": {
@@ -270,11 +273,11 @@
     "autolink": {
       "kind": "mark",
       "pm": "link",
+      "aliasOf": "link",
       "notes": "profile vocabulary only: an autolink is a link whose text is its destination"
     }
   },
   "unmapped": {
-    "figure_group": "composite figures (PART 9 4c) are not yet modeled; the bridge's figure node covers the panels it holds when they arrive as plain figures",
     "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
