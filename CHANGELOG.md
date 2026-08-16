@@ -30,7 +30,33 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than a space that joins two authored lines into one.
 
   `resources/prosemirror-wire-fixtures.json` - a copy of the set carve-grammars
-  publishes - pins all 31 constructs in both directions.
+  publishes - pins all 35 constructs in both directions.
+
+- **The bridge carries the attribute run the author typed, and the marks that
+  hold no text.** Three kinds of state crossed as a report of loss rather than
+  as content, and all three are invisible in rendered HTML, which is why they
+  needed saying:
+
+  - The authored SLOT ORDER of a run. `id`, `class` and one `carveKeyValues`
+    bag are a map, and a map has none, so `[x]{key=c .a #b}` came back regrouped
+    as `[x]{.a #b key=c}`. The order rides beside them in `carveAttrOrder` and
+    the writer replays it: each named slot in sequence, a slot the document no
+    longer has skipped, an attribute the order does not name appended after the
+    ones it does. Two things are genuinely not recoverable and are not faked -
+    value quoting (`k=1` against `k="1"`), and classes interleaved with other
+    slots, which the AST's own order collapses to one position.
+  - An attribute run on inline code. The `code` mark takes `id`, `class`,
+    `carveKeyValues` and `carveAttrOrder`, the same four slots as every other
+    attributed node.
+  - A mark with no content. A ProseMirror mark cannot span zero characters, so
+    `[](https://example.com)`, `[]{.a}`, `{++}` and `{--}` had nothing to attach
+    to and vanished - a paragraph that was only an empty link came back empty.
+    They cross as the schema's `carveEmptyMark` atom, which names the mark it
+    stands for and holds that mark's own attributes.
+
+  `SchemaMap` reads the map's `markCarrierNodes` and `preservationNodes`
+  sections alongside `types`, so a wire node that is not a Carve type is
+  recognized from the map rather than from a list restated in code.
 
 - **The preservation atoms another bridge writes are read, not refused.**
   `carveUnsupported` and `carveUnsupportedInline` carry the exact source of a
