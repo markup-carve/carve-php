@@ -10311,7 +10311,12 @@ class BlockParser
         // which is the blank line showing through (carve-php#744). The blank
         // before a following SIBLING marker is a different clause and still
         // loosens; that one is decided by the caller, not here.
-        if ($this->isInvisibleOrAttributeLine($line)) {
+        // `abbreviationCounts: false`: this predicate only ever sees lines
+        // inside an item body, and PART 12 §7 says an abbreviation definition
+        // is one only as a direct child of the document. Here the same shape is
+        // ordinary paragraph text that RENDERS, so it is exactly the second
+        // paragraph §17 L1 asks about (carve#1267).
+        if ($this->isInvisibleOrAttributeLine($line, false)) {
             return true;
         }
 
