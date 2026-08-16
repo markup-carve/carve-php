@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use Closure;
 use MarkupCarve\Carve\CarveConverter;
 
 /**
@@ -106,9 +107,43 @@ trait ScalingGuardTrait
     ): void {
         $smallRepeats ??= self::SCALE_SMALL_REPEATS;
         $largeRepeats = $smallRepeats * intdiv(self::SCALE_LARGE_REPEATS, self::SCALE_SMALL_REPEATS);
-        $small = str_repeat($fragment, $smallRepeats) . $suffix;
-        $large = str_repeat($fragment, $largeRepeats) . $suffix;
 
+        $this->assertConversionScalesLinearly(
+            static function (string $input) use ($converter): void {
+                $converter->convert($input);
+            },
+            str_repeat($fragment, $smallRepeats) . $suffix,
+            str_repeat($fragment, $largeRepeats) . $suffix,
+            $label !== '' ? $label : $fragment,
+            $smallRepeats,
+            $largeRepeats,
+        );
+    }
+
+    /**
+     * The measurement itself, over any conversion and any pair of inputs.
+     *
+     * Split out so a shape that is not one fragment repeated - an HTML import
+     * whose references and definitions grow in two places at once - is measured
+     * by THIS calibration rather than by a second spelling of it.
+     *
+     * @param \Closure $convert Runs the conversion under test on one input.
+     * @param string $small Smaller sample.
+     * @param string $large Larger sample, the same shape at a whole multiple.
+     * @param string $label Identifies the shape in failure output.
+     * @param int $smallRepeats Units in the smaller sample.
+     * @param int $largeRepeats Units in the larger sample.
+     *
+     * @return void
+     */
+    protected function assertConversionScalesLinearly(
+        Closure $convert,
+        string $small,
+        string $large,
+        string $label,
+        int $smallRepeats,
+        int $largeRepeats,
+    ): void {
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
 
@@ -116,7 +151,7 @@ trait ScalingGuardTrait
         // small sample is the same shape as the large one, so it warms the same
         // caches; priming with the large sample as well bought nothing and cost
         // a full 50000-repeat convert per data set.
-        $converter->convert($small);
+        $convert($small);
 
         $smallPerByte = [];
         $largePerByte = [];
@@ -131,11 +166,11 @@ trait ScalingGuardTrait
             // that -- observed as a 2.59x reading for a shape that measures a
             // flat 1.00-1.04x across a 16x range when run alone.
             if ($round % 2 === 0) {
-                $elapsedSmall = $this->timeConvert($converter, $small);
-                $elapsedLarge = $this->timeConvert($converter, $large);
+                $elapsedSmall = $this->timeConvert($convert, $small);
+                $elapsedLarge = $this->timeConvert($convert, $large);
             } else {
-                $elapsedLarge = $this->timeConvert($converter, $large);
-                $elapsedSmall = $this->timeConvert($converter, $small);
+                $elapsedLarge = $this->timeConvert($convert, $large);
+                $elapsedSmall = $this->timeConvert($convert, $small);
             }
 
             $smallPerByte[] = $elapsedSmall / $smallBytes;
@@ -145,7 +180,7 @@ trait ScalingGuardTrait
             $worstLarge = max($worstLarge, $elapsedLarge);
         }
 
-        $shape = $label !== '' ? $label : $fragment;
+        $shape = $label;
 
         $this->assertLessThan(
             self::SCALE_MAX_SECONDS,
@@ -181,17 +216,17 @@ trait ScalingGuardTrait
     }
 
     /**
-     * One timed convert(), in seconds.
+     * One timed conversion, in seconds.
      *
-     * @param \MarkupCarve\Carve\CarveConverter $converter Converter under test.
+     * @param \Closure $convert Runs the conversion under test on one input.
      * @param string $input Input to convert.
      *
      * @return float
      */
-    private function timeConvert(CarveConverter $converter, string $input): float
+    private function timeConvert(Closure $convert, string $input): float
     {
         $start = hrtime(true);
-        $converter->convert($input);
+        $convert($input);
 
         return (hrtime(true) - $start) / 1e9;
     }

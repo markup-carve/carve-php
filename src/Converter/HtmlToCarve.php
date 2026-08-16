@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use DOMComment;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
@@ -66,6 +67,39 @@ class HtmlToCarve
         'dfn' => 'title',
         'time' => 'datetime',
     ];
+
+    /**
+     * The import adapters whose input can carry footnote-shaped HTML.
+     *
+     * Word and Google Docs are the two the portable adapter list names for
+     * word-processor exports, and the recognition below is shape-driven, so
+     * the same pass reads LibreOffice's and pre-3.x Pandoc's spellings too.
+     * `generic` deliberately stays out: it takes arbitrary HTML, where a
+     * mutually linked anchor pair is not proof of a footnote, and the caller
+     * naming an adapter is the declaration of provenance that makes the
+     * recognition safe.
+     *
+     * @var list<string>
+     */
+    protected const FOOTNOTE_SHAPED_ADAPTERS = ['word', 'google-docs'];
+
+    /**
+     * The elements a footnote definition body can be spelled as.
+     *
+     * @var list<string>
+     */
+    protected const FOOTNOTE_DEFINITION_BLOCKS = ['li', 'div', 'section', 'aside', 'p', 'td', 'blockquote'];
+
+    /**
+     * The elements a per-footnote wrapper can be spelled as.
+     *
+     * Word wraps each definition in `<div style='mso-element:footnote' id=ftn1>`
+     * and LibreOffice in `<div id="sdfootnote1">`, so the block holding the
+     * body is one level above the paragraph the back-anchor sits in.
+     *
+     * @var list<string>
+     */
+    protected const FOOTNOTE_WRAPPER_BLOCKS = ['div', 'li', 'section', 'aside'];
 
     /**
      * The `<annotation>` encodings that declare TeX, lowercased.
@@ -754,6 +788,10 @@ class HtmlToCarve
 
         // Extract abbreviation definitions from template element (round-trip support)
         $this->extractAbbreviationDefinitions($doc);
+
+        // Rewrite an editor's footnote-shaped HTML into the shape the core
+        // policy below already reads. Adapter-gated; see the method.
+        $this->normalizeAdapterFootnotes($doc);
 
         $djot = $this->processNode($doc->documentElement ?? $doc);
 
@@ -4149,6 +4187,760 @@ class HtmlToCarve
         }
 
         return $formatted;
+    }
+
+    /**
+     * Rewrite an editor's footnote-shaped HTML into the shape the core policy
+     * already reads: `<a role="doc-noteref" href="#fnN">` in the body, and a
+     * `<section role="doc-endnotes">` holding one `<li id="fnN">` per note.
+     *
+     * Word, Google Docs, LibreOffice and pre-3.x Pandoc all spell the same
+     * structure, and none of them with the DPUB-ARIA roles this importer
+     * recognizes, so their footnotes imported as a literal link beside an
+     * orphaned list: the reference kept its `#fn1` href and the note body
+     * became an ordinary list item or paragraph.
+     *
+     * What all of them DO share is a MUTUALLY LINKED ANCHOR PAIR - the body
+     * reference points at the definition and the definition points back at the
+     * reference. That pair is the signature matched here, so nothing depends on
+     * a vendor class name or on the `fn1`/`fnref1` id convention. LibreOffice's
+     * `sdfootnote1anc`/`sdfootnote1sym` and Word's `_ftnref1`/`_ftn1` pair by
+     * exactly the same rule as Pandoc's `fnref1`/`fn1`.
+     *
+     * The spec permits this shape of work - "Adapters may normalize
+     * editor-specific markup before the core policy" (docs/html-import.md,
+     * "Required API surface") - but it does NOT rule on footnote import, so
+     * every decision below is this importer's, written down rather than left
+     * silent.
+     */
+    protected function normalizeAdapterFootnotes(DOMDocument $doc): void
+    {
+        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
+            return;
+        }
+
+        $elements = $this->documentElements($doc);
+        $order = [];
+        foreach ($elements as $index => $element) {
+            $order[spl_object_id($element)] = $index;
+        }
+
+        $targets = $this->footnoteFragmentTargets($elements);
+        $candidates = $this->resolveFootnotePairDirection(
+            $this->footnotePairCandidates($elements, $targets),
+            $order,
+        );
+        if ($candidates === []) {
+            return;
+        }
+
+        $this->rewriteFootnoteSites($doc, $this->attachRemainingFootnoteReferences(
+            $elements,
+            $this->groupFootnoteDefinitions($candidates, $order),
+        ));
+    }
+
+    /**
+     * Every element in the document, in document order.
+     *
+     * Snapshotted into an array because the caller mutates the tree, and
+     * because holding the DOMElement objects is what keeps `spl_object_id()`
+     * stable for the identity maps built from them.
+     *
+     * @return list<\DOMElement>
+     */
+    protected function documentElements(DOMDocument $doc): array
+    {
+        $elements = [];
+        /** @var \DOMNodeList<\DOMElement> $all */
+        $all = $doc->getElementsByTagName('*');
+        foreach ($all as $element) {
+            $elements[] = $element;
+        }
+
+        return $elements;
+    }
+
+    /**
+     * Map every same-document fragment name to the element it addresses.
+     *
+     * `id` first and `name` second, in two passes rather than one, so an `id`
+     * always wins over the legacy `<a name>` form when both spell the same
+     * fragment.
+     *
+     * @param list<\DOMElement> $elements
+     *
+     * @return array<string, \DOMElement>
+     */
+    protected function footnoteFragmentTargets(array $elements): array
+    {
+        $targets = [];
+        foreach ($elements as $element) {
+            $id = $element->getAttribute('id');
+            if ($id !== '' && !isset($targets[$id])) {
+                $targets[$id] = $element;
+            }
+        }
+
+        foreach ($elements as $element) {
+            if (strtolower($element->tagName) !== 'a') {
+                continue;
+            }
+            $name = $element->getAttribute('name');
+            if ($name !== '' && !isset($targets[$name])) {
+                $targets[$name] = $element;
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * Every anchor that could be a footnote reference, with the block it would
+     * bind to.
+     *
+     * @param list<\DOMElement> $elements
+     * @param array<string, \DOMElement> $targets
+     *
+     * @return list<array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}>
+     */
+    protected function footnotePairCandidates(array $elements, array $targets): array
+    {
+        $anchors = [];
+        $used = [];
+        foreach ($elements as $element) {
+            if (strtolower($element->tagName) !== 'a') {
+                continue;
+            }
+            $href = $element->getAttribute('href');
+            if (!str_starts_with($href, '#')) {
+                continue;
+            }
+            $fragment = substr($href, 1);
+            if ($fragment === '' || !isset($targets[$fragment])) {
+                continue;
+            }
+            $anchors[] = [$element, $fragment];
+            $used[$fragment] = true;
+        }
+
+        $candidates = [];
+        foreach ($anchors as [$anchor, $fragment]) {
+            $block = $this->resolveFootnoteDefinitionBlock($targets[$fragment], $used);
+            if ($block === null || $this->nodeContains($block, $anchor)) {
+                continue;
+            }
+
+            $identity = $this->anchorIdentity($anchor);
+            $mutual = $identity !== '' && $this->blockLinksTo($block, $identity);
+            if (!$mutual && !$this->isFootnoteReferenceMarked($anchor)) {
+                continue;
+            }
+
+            $candidates[] = ['ref' => $anchor, 'block' => $block, 'fragment' => $fragment, 'mutual' => $mutual];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * The block a reference's target belongs to.
+     *
+     * The target itself when it is already a block (Pandoc's `<li id="fn1">`),
+     * otherwise the nearest block ancestor of the anchor the fragment names.
+     * Then ONE guarded climb, because Word and LibreOffice wrap each note in a
+     * dedicated `<div id=...>` and the body can be several paragraphs inside
+     * it: the climb only happens into a wrapper that carries an id and holds
+     * exactly one referenced target, which is what keeps a shared container
+     * (Google Docs' one trailing `<div>` around every note) from swallowing
+     * its siblings.
+     *
+     * @param \DOMElement $target
+     * @param array<string, bool> $used
+     */
+    protected function resolveFootnoteDefinitionBlock(DOMElement $target, array $used): ?DOMElement
+    {
+        $block = $target;
+        while (!in_array(strtolower($block->tagName), self::FOOTNOTE_DEFINITION_BLOCKS, true)) {
+            $parent = $block->parentNode;
+            if (!$parent instanceof DOMElement) {
+                return null;
+            }
+            $block = $parent;
+        }
+
+        $parent = $block->parentNode;
+        if (
+            $parent instanceof DOMElement
+            && in_array(strtolower($parent->tagName), self::FOOTNOTE_WRAPPER_BLOCKS, true)
+            && $parent->getAttribute('id') !== ''
+            && $this->countFootnoteTargets($parent, $used) === 1
+        ) {
+            $block = $parent;
+        }
+
+        $owner = $block->ownerDocument;
+        if ($owner !== null && $block === $owner->documentElement) {
+            return null;
+        }
+        if (in_array(strtolower($block->tagName), ['body', 'html'], true)) {
+            return null;
+        }
+
+        return $block;
+    }
+
+    /**
+     * How many referenced fragment targets this element holds, itself included.
+     *
+     * @param \DOMElement $node
+     * @param array<string, bool> $used
+     */
+    protected function countFootnoteTargets(DOMElement $node, array $used): int
+    {
+        $count = $this->isFootnoteFragmentTarget($node, $used) ? 1 : 0;
+        /** @var \DOMNodeList<\DOMElement> $descendants */
+        $descendants = $node->getElementsByTagName('*');
+        foreach ($descendants as $descendant) {
+            if ($this->isFootnoteFragmentTarget($descendant, $used)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param array<string, bool> $used
+     */
+    protected function isFootnoteFragmentTarget(DOMElement $node, array $used): bool
+    {
+        $id = $node->getAttribute('id');
+        if ($id !== '' && isset($used[$id])) {
+            return true;
+        }
+
+        if (strtolower($node->tagName) !== 'a') {
+            return false;
+        }
+
+        $name = $node->getAttribute('name');
+
+        return $name !== '' && isset($used[$name]);
+    }
+
+    /**
+     * Keep one side of every mutually linked anchor pair.
+     *
+     * The pair is symmetric, so both directions produce a candidate and one of
+     * them is the back-link reading as a reference. An explicit marker decides
+     * where there is one; otherwise document order does, because a footnote
+     * reference precedes the note it opens in every export shape measured.
+     *
+     * @param list<array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}> $candidates
+     * @param array<int, int> $order
+     *
+     * @return list<array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}>
+     */
+    protected function resolveFootnotePairDirection(array $candidates, array $order): array
+    {
+        $byReference = [];
+        foreach ($candidates as $index => $candidate) {
+            $byReference[spl_object_id($candidate['ref'])] = $index;
+        }
+
+        $kept = [];
+        foreach ($candidates as $candidate) {
+            $inverse = $this->inverseFootnoteCandidate($candidates, $byReference, $candidate);
+            if ($inverse !== null && $this->footnoteReferenceSideWins($inverse, $candidate, $order)) {
+                continue;
+            }
+
+            $kept[] = $candidate;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * The candidate that reads the same mutual pair from the other end.
+     *
+     * Found through the back anchor the candidate's own block holds rather
+     * than by comparing every candidate with every other: a document with a
+     * thousand notes made that scan a thousand times a thousand containment
+     * walks, and the anchor names the inverse directly.
+     *
+     * @param list<array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}> $candidates
+     * @param array<int, int> $byReference
+     * @param array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool} $candidate
+     *
+     * @return array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}|null
+     */
+    protected function inverseFootnoteCandidate(array $candidates, array $byReference, array $candidate): ?array
+    {
+        $identity = $this->anchorIdentity($candidate['ref']);
+        if ($identity === '') {
+            return null;
+        }
+
+        /** @var \DOMNodeList<\DOMElement> $anchors */
+        $anchors = $candidate['block']->getElementsByTagName('a');
+        foreach ($anchors as $anchor) {
+            if ($anchor->getAttribute('href') !== '#' . $identity) {
+                continue;
+            }
+
+            $index = $byReference[spl_object_id($anchor)] ?? null;
+            if ($index === null) {
+                continue;
+            }
+            if ($this->nodeContains($candidates[$index]['block'], $candidate['ref'])) {
+                return $candidates[$index];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool} $first
+     * @param array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool} $second
+     * @param array<int, int> $order
+     */
+    protected function footnoteReferenceSideWins(array $first, array $second, array $order): bool
+    {
+        $firstMarked = $this->isFootnoteReferenceMarked($first['ref']);
+        $secondMarked = $this->isFootnoteReferenceMarked($second['ref']);
+        if ($firstMarked !== $secondMarked) {
+            return $firstMarked;
+        }
+
+        $firstBack = $this->isFootnoteBacklinkMarked($first['ref']);
+        $secondBack = $this->isFootnoteBacklinkMarked($second['ref']);
+        if ($firstBack !== $secondBack) {
+            return $secondBack;
+        }
+
+        return ($order[spl_object_id($first['ref'])] ?? 0) < ($order[spl_object_id($second['ref'])] ?? 0);
+    }
+
+    /**
+     * One entry per definition block, carrying every reference bound to it.
+     *
+     * @param list<array{ref: \DOMElement, block: \DOMElement, fragment: string, mutual: bool}> $candidates
+     * @param array<int, int> $order
+     *
+     * @return list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}>
+     */
+    protected function groupFootnoteDefinitions(array $candidates, array $order): array
+    {
+        $groups = [];
+        foreach ($candidates as $candidate) {
+            $key = spl_object_id($candidate['block']);
+            if (!isset($groups[$key])) {
+                $groups[$key] = ['block' => $candidate['block'], 'refs' => [], 'fragments' => []];
+            }
+            $groups[$key]['refs'][] = $candidate['ref'];
+            if (!in_array($candidate['fragment'], $groups[$key]['fragments'], true)) {
+                $groups[$key]['fragments'][] = $candidate['fragment'];
+            }
+        }
+
+        // A block that contains another definition block is a container, not a
+        // note: keeping both would move a subtree into two places at once. The
+        // containers are found by climbing from each block, which costs one
+        // walk per note rather than one per PAIR of notes.
+        $byBlock = [];
+        foreach ($groups as $key => $group) {
+            $byBlock[spl_object_id($group['block'])] = $key;
+        }
+        foreach ($groups as $group) {
+            $ancestor = $group['block']->parentNode;
+            while ($ancestor !== null) {
+                $key = $byBlock[spl_object_id($ancestor)] ?? null;
+                if ($key !== null) {
+                    unset($groups[$key]);
+                }
+                $ancestor = $ancestor->parentNode;
+            }
+        }
+
+        return $this->sortFootnoteDefinitions(array_values($groups), $order);
+    }
+
+    /**
+     * Bind every remaining anchor that addresses a confirmed note.
+     *
+     * Once a block IS a footnote definition, an anchor pointing at it is a
+     * reference to it whatever it looks like. This matters for the second and
+     * later reference to one note: only one of them can be the back-link's
+     * target, so the mutual pair that confirmed the note cannot confirm them,
+     * and without this they stayed literal links beside a `[^1]`.
+     *
+     * @param list<\DOMElement> $elements
+     * @param list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}> $definitions
+     *
+     * @return list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}>
+     */
+    protected function attachRemainingFootnoteReferences(array $elements, array $definitions): array
+    {
+        $byFragment = [];
+        foreach ($definitions as $index => $definition) {
+            foreach ($definition['fragments'] as $fragment) {
+                $byFragment[$fragment] = $index;
+            }
+        }
+
+        // Which elements sit inside a note, computed once: asking each anchor
+        // whether it is inside any note walked the tree once per anchor and
+        // per note, which is quadratic on a document that is mostly notes.
+        $inside = [];
+        foreach ($definitions as $definition) {
+            $inside[spl_object_id($definition['block'])] = true;
+            /** @var \DOMNodeList<\DOMElement> $descendants */
+            $descendants = $definition['block']->getElementsByTagName('*');
+            foreach ($descendants as $descendant) {
+                $inside[spl_object_id($descendant)] = true;
+            }
+        }
+
+        /** @var array<int, list<\DOMElement>> $extra */
+        $extra = [];
+
+        foreach ($elements as $element) {
+            if (strtolower($element->tagName) !== 'a') {
+                continue;
+            }
+            $href = $element->getAttribute('href');
+            if (!str_starts_with($href, '#')) {
+                continue;
+            }
+            $index = $byFragment[substr($href, 1)] ?? null;
+            if ($index === null) {
+                continue;
+            }
+
+            if (isset($inside[spl_object_id($element)])) {
+                continue;
+            }
+
+            if (!in_array($element, $definitions[$index]['refs'], true)) {
+                $extra[$index][] = $element;
+            }
+        }
+
+        $bound = [];
+        foreach ($definitions as $index => $definition) {
+            $bound[] = [
+                'block' => $definition['block'],
+                'refs' => array_merge($definition['refs'], $extra[$index] ?? []),
+                'fragments' => $definition['fragments'],
+            ];
+        }
+
+        return $bound;
+    }
+
+    /**
+     * @param list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}> $definitions
+     * @param array<int, int> $order
+     *
+     * @return list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}>
+     */
+    protected function sortFootnoteDefinitions(array $definitions, array $order): array
+    {
+        usort($definitions, function (array $first, array $second) use ($order): int {
+            return ($order[spl_object_id($first['block'])] ?? 0) <=> ($order[spl_object_id($second['block'])] ?? 0);
+        });
+
+        return $definitions;
+    }
+
+    protected function anchorIdentity(DOMElement $anchor): string
+    {
+        $id = $anchor->getAttribute('id');
+
+        return $id !== '' ? $id : $anchor->getAttribute('name');
+    }
+
+    protected function blockLinksTo(DOMElement $block, string $fragment): bool
+    {
+        /** @var \DOMNodeList<\DOMElement> $anchors */
+        $anchors = $block->getElementsByTagName('a');
+        foreach ($anchors as $anchor) {
+            if ($anchor->getAttribute('href') === '#' . $fragment) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * `footnoteRef` is Pandoc 1.x's spelling of `footnote-ref`, which it used
+     * together with a back-link carrying no attributes at all.
+     */
+    protected function isFootnoteReferenceMarked(DOMElement $anchor): bool
+    {
+        return $anchor->getAttribute('role') === 'doc-noteref'
+            || $this->hasClass($anchor, 'footnote-ref')
+            || $this->hasClass($anchor, 'footnoteRef');
+    }
+
+    protected function isFootnoteBacklinkMarked(DOMElement $anchor): bool
+    {
+        return $anchor->getAttribute('role') === 'doc-backlink'
+            || $this->hasClass($anchor, 'footnote-back');
+    }
+
+    protected function nodeContains(DOMNode $ancestor, DOMNode $node): bool
+    {
+        $current = $node->parentNode;
+        while ($current !== null) {
+            if ($current === $ancestor) {
+                return true;
+            }
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    /**
+     * Move the recognized notes into one `<section role="doc-endnotes">` and
+     * point every reference at it.
+     *
+     * Labels are assigned 1..N over the definitions in document order rather
+     * than parsed out of the ids: an id is generated navigation an engine
+     * regenerates on the way out, and `_ftn1` or `sdfootnote1sym` is not a
+     * label any Carve source could carry anyway.
+     *
+     * @param \DOMDocument $doc
+     * @param list<array{block: \DOMElement, refs: list<\DOMElement>, fragments: list<string>}> $definitions
+     */
+    protected function rewriteFootnoteSites(DOMDocument $doc, array $definitions): void
+    {
+        if ($definitions === []) {
+            return;
+        }
+
+        $section = $doc->createElement('section');
+        $section->setAttribute('role', 'doc-endnotes');
+        $list = $doc->createElement('ol');
+        $section->appendChild($list);
+
+        $this->removeFootnoteSeparator($definitions[0]['block']);
+
+        $containers = [];
+        $label = 0;
+        foreach ($definitions as $definition) {
+            $label++;
+            $block = $definition['block'];
+
+            $identities = [];
+            foreach ($definition['refs'] as $reference) {
+                $identity = $this->anchorIdentity($reference);
+                if ($identity !== '') {
+                    $identities[] = $identity;
+                }
+            }
+            $this->stripFootnoteBacklinks($block, $identities, $definition['fragments']);
+
+            $item = $doc->createElement('li');
+            $item->setAttribute('id', 'fn' . $label);
+            while ($block->firstChild !== null) {
+                $item->appendChild($block->firstChild);
+            }
+            $list->appendChild($item);
+
+            foreach ($definition['refs'] as $reference) {
+                $site = $this->footnoteReferenceSite($reference);
+                $replacement = $doc->createElement('a');
+                $replacement->setAttribute('role', 'doc-noteref');
+                $replacement->setAttribute('href', '#fn' . $label);
+                $replacement->appendChild($doc->createElement('sup', (string)$label));
+                $site->parentNode?->replaceChild($replacement, $site);
+            }
+
+            $container = $block->parentNode;
+            $block->parentNode?->removeChild($block);
+            if ($container instanceof DOMElement) {
+                $containers[spl_object_id($container)] = $container;
+            }
+        }
+
+        // Keyed by identity, because every note in one list names the SAME
+        // container: pruning it once per note walked that list's children once
+        // per note, which is quadratic on a document that is mostly notes.
+        foreach ($containers as $container) {
+            $this->pruneEmptyFootnoteContainer($container);
+        }
+
+        $host = $doc->getElementsByTagName('body')->item(0) ?? $doc->documentElement;
+        $host?->appendChild($section);
+    }
+
+    /**
+     * Remove the rule that separates the notes from the body.
+     *
+     * Every producer measured emits one, and it is chrome rather than content:
+     * Pandoc puts `<hr />` inside the section, Word `<br clear=all><hr ...>`
+     * inside the footnote-list div, Google Docs a bare `<hr class="cN">` as a
+     * sibling of the notes. Only the first two would be swept up by pruning an
+     * emptied container, so the separator is looked for explicitly - at the
+     * first note, and at each of its ancestors, taking only what immediately
+     * precedes it.
+     */
+    protected function removeFootnoteSeparator(DOMElement $first): void
+    {
+        $node = $first;
+        while (true) {
+            $previous = $node->previousSibling;
+            while ($previous !== null && $this->isFootnoteChromeText($previous)) {
+                $previous = $previous->previousSibling;
+            }
+
+            if ($previous instanceof DOMElement && in_array(strtolower($previous->tagName), ['hr', 'br'], true)) {
+                $previous->parentNode?->removeChild($previous);
+
+                continue;
+            }
+
+            if ($previous !== null) {
+                return;
+            }
+
+            $parent = $node->parentNode;
+            if (!$parent instanceof DOMElement || in_array(strtolower($parent->tagName), ['body', 'html'], true)) {
+                return;
+            }
+            $node = $parent;
+        }
+    }
+
+    /**
+     * Whether a node is part of the separator's packaging rather than content.
+     *
+     * Word's downlevel-revealed conditionals - `<![if !supportFootnotes]>` and
+     * the matching `<![endif]>` - are not comments, so an HTML parser hands
+     * them back as TEXT nodes. They bracket the `<br clear=all><hr>` inside the
+     * footnote-list div, so without recognizing them the emptied container
+     * keeps text, survives pruning, and imports as a paragraph that spells the
+     * conditional out.
+     */
+    protected function isFootnoteChromeText(DOMNode $node): bool
+    {
+        if ($node instanceof DOMComment) {
+            return true;
+        }
+
+        if (!$node instanceof DOMText) {
+            return false;
+        }
+
+        $text = trim($node->textContent);
+
+        return $text === '' || preg_match('/^(<!\[if[^\]]*\]>|<!\[endif\]>)+$/i', $text) === 1;
+    }
+
+    /**
+     * Remove the navigation an engine regenerates: the back-link, and the
+     * marker anchor Word, Google Docs and LibreOffice put it on.
+     *
+     * Carried into the note body it would render as a stray link to a fragment
+     * that no longer exists, and the visible marker it wraps (`[1]`, `1`, the
+     * return arrow) would be written into the note's own text.
+     *
+     * @param \DOMElement $block
+     * @param list<string> $referenceIdentities
+     * @param list<string> $fragments
+     */
+    protected function stripFootnoteBacklinks(DOMElement $block, array $referenceIdentities, array $fragments): void
+    {
+        $anchors = [];
+        /** @var \DOMNodeList<\DOMElement> $found */
+        $found = $block->getElementsByTagName('a');
+        foreach ($found as $anchor) {
+            $anchors[] = $anchor;
+        }
+
+        foreach ($anchors as $anchor) {
+            $href = $anchor->getAttribute('href');
+            $pointsBack = $href !== '' && in_array(substr($href, 1), $referenceIdentities, true) && str_starts_with($href, '#');
+            $isMarker = str_starts_with($href, '#') && in_array($this->anchorIdentity($anchor), $fragments, true);
+            if (!$this->isFootnoteBacklinkMarked($anchor) && !$pointsBack && !$isMarker) {
+                continue;
+            }
+
+            $parent = $anchor->parentNode;
+            $anchor->parentNode?->removeChild($anchor);
+            if (
+                $parent instanceof DOMElement
+                && in_array(strtolower($parent->tagName), ['sup', 'span'], true)
+                && trim($parent->textContent) === ''
+                && $parent->getElementsByTagName('*')->length === 0
+            ) {
+                $parent->parentNode?->removeChild($parent);
+            }
+        }
+    }
+
+    /**
+     * The node a reference occupies: the anchor, or the `<sup>` that holds
+     * nothing but the anchor.
+     *
+     * Google Docs and Pandoc put the `<sup>` outside the anchor, so replacing
+     * only the anchor would leave `{^...^}` wrapped around the reference.
+     */
+    protected function footnoteReferenceSite(DOMElement $reference): DOMElement
+    {
+        $parent = $reference->parentNode;
+        if (!$parent instanceof DOMElement || strtolower($parent->tagName) !== 'sup') {
+            return $reference;
+        }
+
+        foreach ($parent->childNodes as $child) {
+            if ($child instanceof DOMElement && $child !== $reference) {
+                return $reference;
+            }
+            if ($child instanceof DOMText && trim($child->textContent) !== '') {
+                return $reference;
+            }
+        }
+
+        return $parent;
+    }
+
+    /**
+     * Drop a container the notes left empty, so the `<hr>` and the `<ol>` that
+     * held them do not import as a thematic break beside an empty list.
+     */
+    protected function pruneEmptyFootnoteContainer(?DOMNode $node): void
+    {
+        while ($node instanceof DOMElement) {
+            $owner = $node->ownerDocument;
+            if ($owner !== null && $node === $owner->documentElement) {
+                return;
+            }
+            if (in_array(strtolower($node->tagName), ['body', 'html'], true)) {
+                return;
+            }
+            foreach ($node->childNodes as $child) {
+                if ($this->isFootnoteChromeText($child)) {
+                    continue;
+                }
+                if ($child instanceof DOMElement && in_array(strtolower($child->tagName), ['hr', 'br'], true)) {
+                    continue;
+                }
+
+                return;
+            }
+
+            $parent = $node->parentNode;
+            $node->parentNode?->removeChild($node);
+            $node = $parent;
+        }
     }
 
     /**
