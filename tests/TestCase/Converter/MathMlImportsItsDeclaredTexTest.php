@@ -46,7 +46,9 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
      * A `display="block"` element taken verbatim from the ar5iv HTML of
      * arXiv:1706.03762, LaTeXML output. `display="block"` selects the display
      * delimiter, and the TeX arrives byte for byte, backslashes and braces
-     * intact.
+     * intact. `intent` is the one thing this element loses, and it is reported:
+     * stopping the walk at `<math>` stops the descent into the token stream,
+     * not the element's own attributes.
      */
     public function testAr5ivBlockElementKeepsItsTexByteForByte(): void
     {
@@ -56,7 +58,39 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
             '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`$$',
             trim($result->value),
         );
-        $this->assertSame([], $result->report()['diagnostics']);
+        $this->assertSame(
+            [
+                [
+                    'code' => 'attribute-dropped',
+                    'message' => 'Dropped unsupported attribute intent on <math>',
+                    'severity' => 'info',
+                    'path' => '/div[1]/math[1]',
+                ],
+            ],
+            $result->report()['diagnostics'],
+        );
+    }
+
+    /**
+     * An active attribute on a mapped `<math>` is still reported. The report
+     * walk stops descending at `<math>`, and stopping one line earlier would
+     * have called an element carrying an event handler a lossless import.
+     */
+    public function testAnActiveAttributeOnAMappedMathIsStillReported(): void
+    {
+        $html = '<math onclick="evil()" style="color:red"><semantics><mrow><mi>x</mi></mrow>'
+            . '<annotation encoding="application/x-tex">x</annotation></semantics></math>';
+
+        $result = (new HtmlToCarve())->convertWithReport($html);
+
+        $this->assertSame('$`x`$', trim($result->value));
+        $this->assertSame(
+            [['attribute-dropped', 'warning'], ['style-unmapped', 'info']],
+            array_map(
+                static fn (array $d): array => [$d['code'], $d['severity']],
+                $result->report()['diagnostics'],
+            ),
+        );
     }
 
     /**

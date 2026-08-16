@@ -218,18 +218,6 @@ class HtmlToCarve
             return;
         }
 
-        if ($tag === 'math') {
-            // Report the element, then stop. Its attributes and its children
-            // are neither dropped nor unwrapped: `display` and `alttext` are
-            // read by the mapping, and the token stream below is consumed
-            // whole. Walking into it produced a row per `<mi>` and `<mn>`,
-            // each claiming a span that is never emitted, and none of them
-            // naming `<math>` as the thing at stake.
-            $this->inspectMath($node, $path, $diagnostics);
-
-            return;
-        }
-
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
             if (str_starts_with($name, 'on')) {
@@ -246,6 +234,18 @@ class HtmlToCarve
             } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
+        }
+
+        if ($tag === 'math') {
+            // Report the element, then stop - AFTER the attribute loop above,
+            // so a `<math onclick=...>` still reports its handler. What stops
+            // is the descent: the token stream below is consumed whole rather
+            // than unwrapped, and walking it produced a row per `<mi>` and
+            // `<mn>` claiming span metadata that is never emitted, with none
+            // of those rows naming `<math>` as the thing at stake.
+            $this->inspectMath($node, $path, $diagnostics);
+
+            return;
         }
 
         if (!$this->isKnownImportElement($tag)) {
@@ -601,6 +601,12 @@ class HtmlToCarve
             // so the disclosure starts open again.
             'details' => $name === 'open',
             'input' => in_array($name, ['type', 'checked', 'disabled'], true),
+            // `display` picks the math delimiter and `alttext` is the tier-2
+            // content, so both are read rather than dropped. `xmlns` declares
+            // the namespace the element already is - it carries no authored
+            // meaning, and it is on every `<math>` in the wild, so reporting
+            // it would put a row under every equation on a Wikipedia page.
+            'math' => in_array($name, ['display', 'alttext', 'xmlns'], true),
             'td', 'th' => in_array($name, ['rowspan', 'colspan', 'align'], true),
             default => false,
         };
