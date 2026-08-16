@@ -165,6 +165,40 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
   source reached the parser as text; it never rewrites the source.
 
+- **An HTML import diagnostic's `path` follows one convention shared with
+  carve-js and carve-rs** (markup-carve/carve#1257). The field is a
+  human-readable locator: it borrows XPath's notation but is not an XPath
+  expression and must not be resolved as one. Three rules make the string. The
+  path starts at the top level of the fragment the importer was handed, so
+  neither the `<div>` this importer wraps a fragment in nor an authored
+  `<html>`/`<body>` is named. `[n]` is the position among ALL of the parent's
+  child nodes, text included, rather than among its element children. And the
+  path names the traversal the conversion performs, so a table's rows are
+  flattened out of `<thead>`/`<tbody>` and numbered across the whole table, and
+  a list's items are numbered among the items. For this input:
+
+  ```html
+  <table><thead><tr><th>h</th></tr></thead><tbody><tr><td onclick="x()">c</td></tr></tbody></table>
+  ```
+
+  the dropped handler is reported at:
+
+  ```
+  /table[1]/tr[2]/td[1]
+  ```
+
+  where this engine spelled it:
+
+  ```
+  /div[1]/table[1]/tbody[2]/tr[1]/td[1]
+  ```
+
+  One node had three names across the three engines and nothing compared them.
+  The shared contract fixtures now check `path` alongside `code`, `message` and
+  `severity`. A `<html>`, `<head>` or `<body>` element still reports its own
+  attribute losses under its own name - that is the one thing a path names
+  outside the fragment, because a diagnostic about the `<body>` has to say so.
+
 - **Every table cell pads its content in the canonical form** (PART 11 §6e). A
   cell carrying a prefix - the kind marker `=`, an alignment marker, an
   attribute block - was written with its content glued to it, except when the

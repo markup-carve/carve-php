@@ -220,7 +220,8 @@ class HtmlToCarve
      */
     protected function inspectImportLoss(string $html): array
     {
-        $wrapped = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1 ? $html : '<div>' . $html . '</div>';
+        $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
+        $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
         $doc = new DOMDocument();
         $doc->encoding = 'UTF-8';
         libxml_use_internal_errors(true);
@@ -229,24 +230,102 @@ class HtmlToCarve
 
         $diagnostics = [];
         $root = $doc->documentElement ?? $doc;
-        $this->inspectImportNode($root, '', 1, $diagnostics);
+        if ($isDocument) {
+            $this->inspectImportDocumentContainers($root, $diagnostics);
+        }
+        $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
 
         return $diagnostics;
     }
 
     /**
-     * @param \DOMNode $node
+     * The nodes a reported path counts from.
+     *
+     * A path names the fragment the importer was handed, so neither the `<div>`
+     * this method's caller wraps a fragment in to give libxml a single root nor
+     * an authored `<html>`/`<head>`/`<body>` may appear in one: the wrapper is
+     * the importer's own invention, and the document elements are a shape the
+     * other engines' fragment parser never builds. Both are removed here, so
+     * the walk itself has one rule for every node it reaches.
+     *
+     * `<head>` and `<body>` children run into a single sequence, which is what
+     * a fragment parse of the same document produces.
+     *
+     * @param \DOMNode $root
+     * @param bool $isDocument
+     *
+     * @return list<\DOMNode>
+     */
+    protected function importTopLevelNodes(DOMNode $root, bool $isDocument): array
+    {
+        $top = [];
+        foreach ($root->childNodes as $child) {
+            $tag = $child instanceof DOMElement ? strtolower($child->tagName) : '';
+            if ($isDocument && ($tag === 'head' || $tag === 'body')) {
+                foreach ($child->childNodes as $inner) {
+                    $top[] = $inner;
+                }
+
+                continue;
+            }
+            $top[] = $child;
+        }
+
+        return $top;
+    }
+
+    /**
+     * Walk a run of sibling nodes, numbering each one among ALL of them.
+     *
+     * The index is a position among every child node, text and comments
+     * included, not among the element children alone - the other engines count
+     * it that way, so an element after a text node is the second child and not
+     * the first. Only elements are descended into; a text node still takes its
+     * number.
+     *
+     * @param iterable<\DOMNode> $nodes
      * @param string $parentPath
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     * @param list<string> $skipTags Tag names numbered by a caller instead.
+     */
+    protected function inspectImportNodes(iterable $nodes, string $parentPath, array &$diagnostics, array $skipTags = []): void
+    {
+        $index = 0;
+        foreach ($nodes as $child) {
+            $index++;
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            if (in_array(strtolower($child->tagName), $skipTags, true)) {
+                continue;
+            }
+            $this->inspectImportNode($child, $this->importChildPath($parentPath, $child, $index), $diagnostics);
+        }
+    }
+
+    /**
+     * @param string $parentPath
+     * @param \DOMElement $node
      * @param int $index
+     *
+     * @return string
+     */
+    protected function importChildPath(string $parentPath, DOMElement $node, int $index): string
+    {
+        return $parentPath . '/' . strtolower($node->tagName) . '[' . $index . ']';
+    }
+
+    /**
+     * @param \DOMNode $node
+     * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      */
-    protected function inspectImportNode(DOMNode $node, string $parentPath, int $index, array &$diagnostics): void
+    protected function inspectImportNode(DOMNode $node, string $path, array &$diagnostics): void
     {
         if (!$node instanceof DOMElement) {
             return;
         }
         $tag = strtolower($node->tagName);
-        $path = $parentPath . '/' . $tag . '[' . $index . ']';
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
 
@@ -279,23 +358,7 @@ class HtmlToCarve
             return;
         }
 
-        foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->name);
-            if (str_starts_with($name, 'on')) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
-            } elseif ($name === 'style') {
-                $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
-            } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
-                // The value this cell's position generates. It is skipped so a
-                // round trip does not write the renderer's own output back as
-                // if the author had typed it, and it comes back from the
-                // position on the way out - so it is reproduced, not dropped.
-                // Same predicate the converter uses, rather than a second one.
-                continue;
-            } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
-            }
-        }
+        $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
 
         if ($tag === 'math') {
             // Report the element, then stop - AFTER the attribute loop above,
@@ -351,13 +414,209 @@ class HtmlToCarve
             );
         }
 
-        $elementIndex = 0;
-        foreach ($node->childNodes as $child) {
+        $this->inspectImportChildren($node, $tag, $path, $diagnostics);
+    }
+
+    /**
+     * Report what an element's own attributes lose.
+     *
+     * Split out of the walk because the document elements are inspected for
+     * their attributes without being walked into.
+     *
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportAttributes(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+    {
+        foreach ($node->attributes as $attribute) {
+            $name = strtolower($attribute->name);
+            if (str_starts_with($name, 'on')) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'style') {
+                $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+            } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
+                // The value this cell's position generates. It is skipped so a
+                // round trip does not write the renderer's own output back as
+                // if the author had typed it, and it comes back from the
+                // position on the way out - so it is reproduced, not dropped.
+                // Same predicate the converter uses, rather than a second one.
+                continue;
+            } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
+            }
+        }
+    }
+
+    /**
+     * Report what the DOCUMENT ELEMENTS themselves lose.
+     *
+     * `<html>`, `<head>` and `<body>` are not part of the fragment a path
+     * counts from, so they never appear in the path of a node inside one. They
+     * can still carry attributes the conversion drops - the handler on a
+     * `<body onload=...>` is gone from the output - and a diagnostic about one
+     * of these elements has to name the element, so it is named where the
+     * parse put it. That is the one place a path names something outside the
+     * fragment, and it is the only name available.
+     *
+     * The sibling engines cannot report this at all: their fragment parser
+     * deletes these elements before the importer sees them, so there is no
+     * spelling to converge with here - and staying silent to match would drop a
+     * loss this importer really makes.
+     *
+     * @param \DOMNode $root
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportDocumentContainers(DOMNode $root, array &$diagnostics): void
+    {
+        if (!$root instanceof DOMElement) {
+            return;
+        }
+        $tag = strtolower($root->tagName);
+        $path = '/' . $tag . '[1]';
+        $this->inspectImportAttributes($root, $tag, $path, $diagnostics);
+        if ($tag !== 'html') {
+            return;
+        }
+
+        $index = 0;
+        foreach ($root->childNodes as $child) {
+            $index++;
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $elementIndex++;
-            $this->inspectImportNode($child, $path, $elementIndex, $diagnostics);
+            $childTag = strtolower($child->tagName);
+            if ($childTag !== 'head' && $childTag !== 'body') {
+                continue;
+            }
+            $this->inspectImportAttributes($child, $childTag, $this->importChildPath($path, $child, $index), $diagnostics);
+        }
+    }
+
+    /**
+     * Number a node's children the way the CONVERSION reads them.
+     *
+     * A path names the importer's traversal, not the parsed tree, so the
+     * containers the converter reads through a shape of their own are numbered
+     * through that shape here as well:
+     *
+     * - a list numbers its `<li>` children among the items, so the whitespace
+     *   between two items does not move the second one to `li[4]`;
+     * - a table numbers its rows across the whole table and its cells among the
+     *   cells of their row, so a `<tbody>` never reaches a cell's path.
+     *
+     * Everything else counts among all child nodes.
+     *
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportChildren(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+    {
+        if ($tag === 'table') {
+            $this->inspectImportTableChildren($node, $path, $diagnostics);
+
+            return;
+        }
+
+        if ($tag === 'ul' || $tag === 'ol') {
+            $this->inspectImportListChildren($node, $path, $diagnostics);
+
+            return;
+        }
+
+        if ($tag === 'tr') {
+            $this->inspectImportRowChildren($node, $path, $diagnostics);
+
+            return;
+        }
+
+        if (in_array($tag, ['thead', 'tbody', 'tfoot'], true) && $this->isDirectTableChild($node)) {
+            // The section is named where it sits, because it carries attributes
+            // of its own; its rows are numbered by the table above it.
+            $this->inspectImportNodes($node->childNodes, $path, $diagnostics, ['tr']);
+
+            return;
+        }
+
+        $this->inspectImportNodes($node->childNodes, $path, $diagnostics);
+    }
+
+    /**
+     * A table's rows are flattened out of their sections and numbered across
+     * the whole table, which is how the converter reads them: the row groups
+     * have no Carve spelling, so a path through one would name a container the
+     * output does not have.
+     *
+     * The sections are still walked where they sit, for the attributes they
+     * carry themselves.
+     *
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportTableChildren(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $this->inspectImportNodes($node->childNodes, $path, $diagnostics, ['tr']);
+
+        $row = 0;
+        foreach ($this->getDirectTableRows($node) as $tr) {
+            $row++;
+            $this->inspectImportNode($tr, $path . '/tr[' . $row . ']', $diagnostics);
+        }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportListChildren(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $item = 0;
+        $index = 0;
+        foreach ($node->childNodes as $child) {
+            $index++;
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            if (strtolower($child->tagName) === 'li') {
+                $item++;
+                $this->inspectImportNode($child, $path . '/li[' . $item . ']', $diagnostics);
+
+                continue;
+            }
+            // Not an item, so it has no number in the list the converter
+            // builds. It keeps its position among the child nodes rather than
+            // going unreported, which would lose the diagnostics it owes.
+            $this->inspectImportNode($child, $this->importChildPath($path, $child, $index), $diagnostics);
+        }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportRowChildren(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $cell = 0;
+        $index = 0;
+        foreach ($node->childNodes as $child) {
+            $index++;
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if ($tag === 'td' || $tag === 'th') {
+                $cell++;
+                $this->inspectImportNode($child, $path . '/' . $tag . '[' . $cell . ']', $diagnostics);
+
+                continue;
+            }
+            $this->inspectImportNode($child, $this->importChildPath($path, $child, $index), $diagnostics);
         }
     }
 
