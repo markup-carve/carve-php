@@ -3431,6 +3431,24 @@ class HtmlToCarve
             return $this->processRawInline($node);
         }
 
+        // The engine's own mention and hashtag output:
+        // <span class="mention"><strong>@alice</strong></span> and the same
+        // shape with class="tag" around #tag. Imported as an attributed span
+        // it double-wrapped on reparse - the inner @name parsed as a mention
+        // again, adding a layer per HTML round trip (carve-php#1291). The bare
+        // sigil spelling is exactly what the renderer re-emits.
+        $mentionClass = ['mention' => '@', 'tag' => '#'];
+        $class = trim($node->getAttribute('class'));
+        if (isset($mentionClass[$class])) {
+            $text = trim($node->textContent);
+            if (
+                str_starts_with($text, $mentionClass[$class])
+                && preg_match('/^[@#][\w-]+$/u', $text) === 1
+            ) {
+                return $text;
+            }
+        }
+
         $content = $this->processChildren($node);
 
         // Use getElementAttributes to get all attributes including data-*

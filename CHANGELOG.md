@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML importer reads the engine's own mention and hashtag spans back
+  as the bare sigil** (carve-php#1291).
+  `<span class="mention"><strong>@alice</strong></span>` imported as
+  `[*@alice*]{.mention}`, whose inner `@alice` parsed as a mention again -
+  one more wrapper per HTML round trip. The shortcut requires the whole span
+  text to be a single sigil token, so an authored span that merely carries
+  the class stays a span.
+
+### Fixed
+
 - **The HTML importer keeps an authored heading id, and adjacent sections
   stay separate** (carve-php#1289, carve-php#1297). The renderer moves a
   heading's id onto its `<section>` wrapper, authored and generated alike,
