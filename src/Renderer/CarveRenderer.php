@@ -1202,9 +1202,16 @@ class CarveRenderer implements RendererInterface
 
     protected function canRenderTypedDiv(Div $node): bool
     {
+        // Only the OPENER class decides. Requiring exactly one class meant a
+        // class-carrying attribute line above a typed custom div (`{.sidebar}`
+        // + `::: widget "Title"`) fell through to the untyped writer, which
+        // has no title slot - so the quoted title was dropped and one fmt pass
+        // changed the rendered HTML (carve-php#1284). Extra classes are the
+        // attribute line's business; withFencedDivAttrs() already writes them
+        // back there with the opener excluded.
         $classes = $node->getClassList();
 
-        return count($classes) === 1
+        return $classes !== []
             && !in_array($classes[0], ['hardbreaks', 'line-block'], true)
             && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1;
     }
