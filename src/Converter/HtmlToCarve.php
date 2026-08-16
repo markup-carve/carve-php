@@ -2317,7 +2317,13 @@ class HtmlToCarve
         // Get marker from data attribute (for round-trip fidelity)
         $marker = $node->getAttribute('data-marker');
         if ($isOrdered) {
-            $marker = $marker ?: '.';
+            // Same rule the bullets follow below: two back-to-back <ol>s with
+            // the same numbering style would merge into one loose list on
+            // reparse (`1. a` / `1. b` is one list of two items), and Carve
+            // separates sibling lists by their DELIM - so the delimiter
+            // alternates `.`/`)` across adjacent ordered siblings
+            // (carve-php#1290).
+            $marker = $marker ?: $this->alternatingOrderedDelim($node);
         } elseif ($marker === '' || $marker === '+') {
             // No explicit marker (or a stray `+`, which is the continuation
             // marker, not a Carve bullet): pick `-`/`*` by the parity of
@@ -2532,6 +2538,30 @@ class HtmlToCarve
      *
      * @return string `-` or `*`
      */
+    protected function alternatingOrderedDelim(DOMElement $node): string
+    {
+        $prev = $node->previousElementSibling;
+        if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'ol') {
+            return $this->resolveOrderedDelim($prev) === '.' ? ')' : '.';
+        }
+
+        return '.';
+    }
+
+    /**
+     * Resolve the delimiter an <ol> emits: its explicit data-marker when set,
+     * otherwise the alternating default.
+     */
+    protected function resolveOrderedDelim(DOMElement $node): string
+    {
+        $marker = $node->getAttribute('data-marker');
+        if ($marker !== '') {
+            return $marker;
+        }
+
+        return $this->alternatingOrderedDelim($node);
+    }
+
     protected function alternatingBulletMarker(DOMElement $node): string
     {
         $prev = $node->previousElementSibling;

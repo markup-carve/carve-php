@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Two adjacent ordered lists import as two lists** (carve-php#1290). With
+  one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
+  imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
+  merged and the second's numbering was gone. The delimiter now alternates
+  `.`/`)` across adjacent ordered siblings, the same rule bullet lists
+  already follow with `-`/`*`; an explicit `data-marker` still wins.
+
+### Fixed
+
 - **The HTML importer reads the engine's own mention and hashtag spans back
   as the bare sigil** (carve-php#1291).
   `<span class="mention"><strong>@alice</strong></span>` imported as
