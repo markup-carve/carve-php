@@ -268,6 +268,31 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             //
             // The mangling predates this predicate and is not fixed here; what
             // is asserted is only that a real loss is reported.
+            // A FIGCAPTION IS THE SAME SLOT, and it does not need a table at
+            // all - which is what makes it a slot rule rather than a route
+            // rule. `processFigure()` writes a figcaption through the same
+            // caption-line slot `processTable()` uses, so the attribute block
+            // becomes caption text there too. Asserted at top level AND inside
+            // a list-routed cell: reading the route first would have called the
+            // second one preserved and stayed silent on a real loss.
+            'a top-level figcaption loses it' => [
+                '<figure><img src="x"><figcaption><blockquote cite="u"><p>q</p>'
+                    . '</blockquote></figcaption></figure>',
+                false,
+            ],
+            'a figcaption inside a list-routed cell loses it' => [
+                '<table><tr><td><figure><img src="x"><figcaption><blockquote cite="u"><p>q</p>'
+                    . '</blockquote></figcaption></figure></td></tr></table>',
+                true,
+            ],
+            // The control that keeps the figcaption rows from passing for the
+            // wrong reason: a figure whose caption is ordinary text does not
+            // make an unrelated quote lose anything.
+            'a figure with a plain caption keeps an outside quote' => [
+                '<figure><img src="x"><figcaption>hi</figcaption></figure>'
+                    . '<blockquote cite="u"><p>q</p></blockquote>',
+                false,
+            ],
             'a top-level caption loses it' => [
                 '<table><caption><blockquote cite="u"><p>q</p></blockquote></caption>'
                     . '<tr><td>x</td></tr></table>',

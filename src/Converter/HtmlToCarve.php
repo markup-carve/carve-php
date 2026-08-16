@@ -1065,16 +1065,23 @@ class HtmlToCarve
      */
     protected function tableRouteDropsBlockAttributes(DOMElement $node): bool
     {
-        // A CAPTION LOSES IT WHEREVER THE TABLE SITS. `processTable()` writes a
-        // caption through the caption-line slot, which carries inline content
-        // only - the attribute block is emitted as caption TEXT, so the source
-        // reads `^ {cite=u}` and renders `<caption>{cite=u}</caption>` with the
-        // quote's attribute gone. That is a real loss and is reported, and it
-        // is checked before the cell walk because it does not depend on the
-        // route: a top-level table's caption loses it exactly as a nested one
-        // does. (The mangling itself long predates this predicate and is not
-        // fixed here.)
-        if ($this->enclosingImportElement($node, ['caption']) !== null) {
+        // A CAPTION SLOT LOSES IT, WHEREVER THAT SLOT SITS. Both `<caption>`
+        // (written by `processTable()`) and `<figcaption>` (written by
+        // `processFigure()`) go through the caption-LINE slot, which carries
+        // inline content only - the attribute block is emitted as caption TEXT,
+        // so the source reads `^ {cite=u}` and the render puts those characters
+        // inside the caption with the quote's own attribute gone.
+        //
+        // Checked before the cell walk because it does not depend on any table
+        // at all: a `<figcaption>` at top level loses it exactly as one inside a
+        // list-routed cell does, and a top-level `<caption>` exactly as a nested
+        // one. Reading the route first would have called the list-table cases
+        // preserved and stayed silent on a real loss.
+        //
+        // (The flattening itself long predates this predicate - block content in
+        // a caption slot degrades to text generally, not only attribute blocks -
+        // and is not fixed here. See carve-php#1346.)
+        if ($this->enclosingImportElement($node, ['caption', 'figcaption']) !== null) {
             return true;
         }
 
