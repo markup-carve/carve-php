@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -423,7 +424,12 @@ class ProseMirrorToCarve
         }
 
         foreach ($this->buildBlockPositionChildren($this->childrenOf($data)) as $built) {
-            if ($built instanceof Caption && $node instanceof Table) {
+            if ($built instanceof Caption && ($node instanceof Table || $node instanceof FigureGroup)) {
+                // A caption is STATE on both, not a child: a table's is written
+                // above it and a composite figure's below the closing fence,
+                // and neither renderer walks it as content. Left in `children`
+                // the group would gain a stray caption block and lose the one
+                // authored channel it has (PART 9 section 4c).
                 $node->setCaption($built);
 
                 continue;
@@ -1674,6 +1680,7 @@ class ProseMirrorToCarve
         'mention' => Mention::class,
         'inline_extension' => InlineExtension::class,
         'figure' => Figure::class,
+        'figure_group' => FigureGroup::class,
         'caption' => Caption::class,
         'section' => Section::class,
         'line_block' => LineBlock::class,

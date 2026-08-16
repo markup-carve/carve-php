@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
@@ -220,6 +221,20 @@ class ProseMirrorRenderer
             $content = $this->isInlineContainer($node)
                 ? $this->renderInlines($node->getChildren(), [])
                 : $this->renderBlocks($node->getChildren());
+        }
+
+        if ($node instanceof FigureGroup && $node->hasCaption()) {
+            // The GROUP caption is authored below the closing fence and hangs
+            // off the node as state, so walking children alone drops it. It
+            // rides as the TRAILING carveCaption child, which is the shape the
+            // published map describes and the shape the converter reads back.
+            $caption = $node->getCaption();
+            if ($caption !== null) {
+                $content[] = [
+                    'type' => 'carveCaption',
+                    'content' => $this->renderInlines($caption->getChildren(), []),
+                ];
+            }
         }
 
         if ($node instanceof Figure && $node->getShortCaption() !== null) {

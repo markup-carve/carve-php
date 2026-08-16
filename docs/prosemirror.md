@@ -60,11 +60,16 @@ $renderer->droppedTypes();    // ['comment' => 'comments are not represented …
 $renderer->degradedTypes();   // ['soft_break' => 'a soft break is whitespace …']
 ```
 
-- **Dropped** - the content is gone: comments, figures with captions, frontmatter,
-  cross-reference links, line blocks, inline footnotes, raw passthrough.
+- **Dropped** - the content is gone: smart typography, and a caption NUMBER,
+  which is a resolution artifact rather than editor content. The list used to be
+  much longer - comments, figures with captions, frontmatter, cross-references,
+  line blocks, inline footnotes and raw passthrough are all carried now.
 - **Degraded** - the node type is gone but the text survives: a soft break becomes
   a space, a smart quote becomes its glyph, an escaped character becomes the
   character. Dropping these instead would run words together or lose a character.
+
+Ask the renderer rather than trusting this list: which types land where is a
+property of one bridge at one version, and both directions of that list move.
 
 An application storing documents should assert both are empty rather than trust
 them:
@@ -90,9 +95,9 @@ Current state, and both numbers are ratchets:
 
 | | count |
 |---|---|
-| corpus documents | 810 |
-| fully covered, byte-identical HTML | 493 |
-| surviving the round trip, covered or not | 631 |
+| corpus documents | 1025 |
+| fully covered, byte-identical HTML | 794 |
+| surviving the round trip, covered or not | 855 |
 | fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
 
