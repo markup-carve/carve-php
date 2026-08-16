@@ -9,6 +9,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown importer keeps the constructs Carve spells like the source
+  literal** (markup-carve/carve#1130's dialect ruling: CommonMark plus GFM is
+  the contract). `a $`x+y` b`, `a !`x` b` and `a :term[x] b` are no Markdown
+  construct in any flavour and are now escaped unconditionally instead of
+  becoming a math span, a literal span or an extension call. Four more are
+  real syntax in some flavour, so each stays literal unless its new
+  constructor flag opts in: `convertInlineFootnotes` (`a ^[note] b`, Pandoc),
+  `convertAbbreviations` (`*[HTML]: HyperText`, PHP Markdown Extra),
+  `convertFencedDivs` (`::: note`, Pandoc/Quarto), and `convertAttributes`
+  (`[t]{.c}` spans and `{.cls}` lines, Pandoc/kramdown). All default off,
+  following the `convertMath`/`convertHighlight` precedent: under-converting
+  leaves readable text, while inventing markup the source did not have makes
+  the migrated document render differently from anything its author saw.
+
+- **The HTML importer keeps a loose list loose.** A source list whose items
+  hold an explicit `<p>` imports with a blank line between the items - Carve's
+  spelling of looseness - so the paragraph-ness of the source survives; a
+  bare-text item stays tight. Decided per list, as CommonMark does: one
+  paragraph item loosens the whole list. Before, every list flattened tight
+  and the item paragraphs were dropped.
+
 - **The MathML `alttext` diagnostic uses a code the spec admits.** Reading a
   `<math>` element through its `alttext` reported `math-encoding-assumed`, a
   ninth code: `resources/html-import-schema.json` closes the set at eight, so a

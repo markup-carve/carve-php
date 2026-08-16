@@ -496,6 +496,11 @@ class MarkdownToCarveTest extends TestCase
                 '\%% line',
                 '<p>%% line</p>',
             ],
+            'escapes a lone brace line, which is a block-attribute line in Carve' => [
+                '{x}',
+                '\{x}',
+                '<p>{x}</p>',
+            ],
             'escapes braced highlight literal' => [
                 'a {=x=} b',
                 'a \{\=x=} b',
@@ -570,7 +575,12 @@ class MarkdownToCarveTest extends TestCase
             'spaced equals' => ['x = y = z'],
             'approximate tilde' => ['approx ~5'],
             'single percent' => ['a 50% of b'],
-            'plain braces' => ['{x}'],
+            // `a {x} b` mid-text stays bare - the brace follows no closer, so
+            // it attaches to nothing. `{x}` ALONE on a line moved to the
+            // escaping provider: that position is a block-attribute line in
+            // Carve (`x` is a boolean attribute), so left bare the text
+            // vanished from the render (markup-carve/carve#1130).
+            'plain braces mid-text' => ['a {x} b'],
             'plain brackets' => ['[x]'],
             'plain angle brackets' => ['<x>'],
             'plain pipes' => ['|x|'],

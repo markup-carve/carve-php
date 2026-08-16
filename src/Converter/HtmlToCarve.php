@@ -2399,11 +2399,41 @@ class HtmlToCarve
             $output .= $listAttrs . "\n";
         }
 
+        // A LOOSE source list - an item holding an explicit <p> - stays loose:
+        // the items are separated by a blank line, which is Carve's spelling
+        // of looseness, so the paragraph-ness of the source survives the trip.
+        // A bare-text item stays tight, which is the inverse ruling: the two
+        // directions are one predicate read off the source's own markup
+        // (markup-carve/carve#1210). Decided per LIST, as CommonMark does -
+        // one paragraph item loosens the whole list.
+        $isLoose = false;
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement || strtolower($child->tagName) !== 'li') {
+                continue;
+            }
+            foreach ($child->childNodes as $liChild) {
+                if ($liChild instanceof DOMElement && strtolower($liChild->tagName) === 'p') {
+                    $isLoose = true;
+
+                    break 2;
+                }
+            }
+        }
+
+        $firstItem = true;
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
                 if ($child->hasAttribute('data-djot-inline-footnote')) {
                     continue;
                 }
+
+                // The blank line between loose items, unless the previous
+                // item's own trailing content (a nested list, a multi-block
+                // part) already left one.
+                if ($isLoose && !$firstItem && !str_ends_with($output, "\n\n")) {
+                    $output .= "\n";
+                }
+                $firstItem = false;
 
                 $indent = str_repeat('  ', $this->listDepth - 1);
 
