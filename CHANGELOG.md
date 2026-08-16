@@ -9,6 +9,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A typed custom div keeps its quoted title under a class-carrying
+  attribute line** (carve-php#1284). The typed writer required exactly one
+  class, so `{.sidebar}` above `::: widget "Title"` fell through to the
+  untyped writer - which has no title slot - and one fmt pass dropped the
+  title and its `admonition-title` heading from the rendered HTML. Only the
+  OPENER class decides now; the extra classes were always the attribute
+  line's business and are written back there with the opener excluded.
+
 - **An integral citation group survives its own wire trip** (carve-php#1285).
   The encoder published the internal boolean `integral`, a field
   `$defs.citation_group` does not allow, so `decode(encode(x))` threw for
