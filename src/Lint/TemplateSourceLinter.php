@@ -26,47 +26,48 @@ class TemplateSourceLinter
         $comments = [];
         $this->collectDelimitedComments($document, $comments);
 
-        $hasTemplateTag = false;
-        foreach ($comments as $comment) {
-            $content = trim($comment->getContent(), " \t\r\n");
-            if (preg_match('/^(?:raw|endraw|endif|endfor|endblock|(?:if|for|block)[ \t\r\n]+.+)$/s', $content) === 1) {
-                $hasTemplateTag = true;
-
-                break;
-            }
-        }
-        if (!$hasTemplateTag) {
-            return [];
-        }
-
         $byteAt = SourceOffsets::map($source);
         $sourceLength = strlen($source);
         $warnings = [];
         foreach ($comments as $comment) {
-            $pos = $comment->getPos();
-            if ($pos === null) {
-                $warnings[] = new LintWarning(
-                    1,
-                    1,
-                    self::RULE_BRACED_COMMENT_IN_A_TEMPLATE_SOURCE,
-                    $this->message(),
-                    0,
-                    0,
-                );
-
+            $content = trim($comment->getContent(), " \t\r\n");
+            if (preg_match('/^(?:raw|endraw|endif|endfor|endblock|(?:if|for|block)[ \t\r\n]+.+)$/s', $content) !== 1) {
                 continue;
             }
-            $warnings[] = new LintWarning(
-                $pos->startLine,
-                $pos->startColumn,
-                self::RULE_BRACED_COMMENT_IN_A_TEMPLATE_SOURCE,
-                $this->message(),
-                SourceOffsets::toByte($pos->startOffset, $byteAt, $sourceLength),
-                SourceOffsets::toByte($pos->endOffset, $byteAt, $sourceLength),
-            );
+
+            $warnings[] = $this->warningForComment($comment, $byteAt, $sourceLength);
         }
 
         return $warnings;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Comment $comment
+     * @param array<int, int>|null $byteAt
+     * @param int $sourceLength
+     */
+    private function warningForComment(Comment $comment, ?array $byteAt, int $sourceLength): LintWarning
+    {
+        $pos = $comment->getPos();
+        if ($pos === null) {
+            return new LintWarning(
+                1,
+                1,
+                self::RULE_BRACED_COMMENT_IN_A_TEMPLATE_SOURCE,
+                $this->message(),
+                0,
+                0,
+            );
+        }
+
+        return new LintWarning(
+            $pos->startLine,
+            $pos->startColumn,
+            self::RULE_BRACED_COMMENT_IN_A_TEMPLATE_SOURCE,
+            $this->message(),
+            SourceOffsets::toByte($pos->startOffset, $byteAt, $sourceLength),
+            SourceOffsets::toByte($pos->endOffset, $byteAt, $sourceLength),
+        );
     }
 
     private function message(): string

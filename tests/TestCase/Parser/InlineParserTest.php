@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -75,6 +76,42 @@ class InlineParserTest extends TestCase
         }
 
         return false;
+    }
+
+    public function testUnterminatedDelimitedCommentOpenerIsText(): void
+    {
+        $paragraph = $this->parseInline('{%');
+
+        $this->assertInstanceOf(Text::class, $this->getFirstChild($paragraph));
+        $this->assertSame('{%', $this->getFirstChild($paragraph)->getContent());
+    }
+
+    public function testDelimitedCommentCloserMustArriveBeforeParagraphEnd(): void
+    {
+        $paragraph = $this->parseInline('before {% comment without a closer');
+
+        $this->assertFalse($this->containsNodeOfType($paragraph, Comment::class));
+        $children = $paragraph->getChildren();
+        $this->assertCount(2, $children);
+        $this->assertInstanceOf(Text::class, $children[1]);
+        $this->assertSame('{% comment without a closer', $children[1]->getContent());
+    }
+
+    public function testEscapedDelimitedCommentOpenerIsNotAComment(): void
+    {
+        $paragraph = $this->parseInline('\\{% hidden %}');
+
+        $this->assertFalse($this->containsNodeOfType($paragraph, Comment::class));
+        $this->assertInstanceOf(EscapedText::class, $this->getFirstChild($paragraph));
+    }
+
+    public function testDelimitedCommentTrimsOnePaddingSpace(): void
+    {
+        $paragraph = $this->parseInline('{% padded %}');
+        $comment = $this->getFirstChild($paragraph);
+
+        $this->assertInstanceOf(Comment::class, $comment);
+        $this->assertSame('padded', $comment->getContent());
     }
 
     public function testParseText(): void
