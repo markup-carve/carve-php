@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML importer keeps an authored heading id, and adjacent sections
+  stay separate** (carve-php#1289, carve-php#1297). The renderer moves a
+  heading's id onto its `<section>` wrapper, authored and generated alike,
+  and outside round-trip mode the importer dropped every one - so
+  `{#custom}` came back as a text-derived id and its anchors broke after one
+  HTML round trip. An id matching the tracker's slug of the heading text is
+  generation and is left to regeneration; anything else is authored and
+  kept. Two adjacent sections also glued their headings into one line
+  (`## A## B`), because the section handler returned its block content with
+  the trailing separation trimmed off.
+
 - **The HTML importer keeps a captioned code block's figure** (carve-php#1288).
   `<figure><pre>...<figcaption>` - the engine's own output for a captioned
   fence - imported as a bare fence plus a plain paragraph, so the `^` caption

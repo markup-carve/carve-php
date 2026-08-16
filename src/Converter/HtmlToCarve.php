@@ -11,6 +11,7 @@ use DOMText;
 use DOMXPath;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 
@@ -1008,7 +1009,11 @@ class HtmlToCarve
 
         // If we have an explicit ID and a heading, combine ID with heading's attributes
         $prefix = '';
-        if ($hasExplicitId && $sectionId !== '' && $firstHeading !== null) {
+        if (
+            $sectionId !== ''
+            && $firstHeading !== null
+            && ($hasExplicitId || $this->sectionIdLooksAuthored($sectionId, $firstHeading))
+        ) {
             // Get heading's attributes (class, etc.) excluding id
             $headingAttrs = $this->getElementAttributes($firstHeading, ['id', 'data-djot-explicit-id', 'data-djot-source-level']);
 
@@ -1024,10 +1029,40 @@ class HtmlToCarve
             $firstHeading->setAttribute('data-djot-attrs-handled', '1');
         }
 
-        // Process section content as a normal block
+        // Process section content as a normal block. processBlock() trims its
+        // own trailing separation, so it is restored here - without it two
+        // adjacent sections glued their headings into one line (`## A## B`),
+        // and an attribute-line prefix could land inline on the previous
+        // heading (carve-php#1289).
         $content = $this->processBlock($node);
 
-        return $prefix . $content;
+        return $prefix . $content . "\n\n";
+    }
+
+    /**
+     * Whether a section wrapper's id was authored, outside round-trip mode.
+     *
+     * The renderer moves a heading's id onto its `<section>`, authored and
+     * generated alike, and only round-trip mode stamps which one it was. An
+     * authored id used to be dropped here wholesale, so `{#custom}` came back
+     * as a text-derived id and every `#custom` anchor broke after one HTML
+     * round trip (carve-php#1289). The generated id is re-derivable - it is
+     * the tracker's slug of the heading text - so an id that MATCHES that slug
+     * is treated as generated and left to regeneration, and anything else is
+     * authored and kept. A permalink or numbering extension changes the
+     * heading's visible text, which makes the comparison conservative: an id
+     * it cannot confirm as generated is kept, which re-renders identically
+     * either way.
+     */
+    protected function sectionIdLooksAuthored(string $sectionId, DOMElement $heading): bool
+    {
+        $expected = (new HeadingIdTracker())->getIdForText(trim($heading->textContent));
+
+        // A duplicate heading's dedup id (`-2`) differs from the slug and is
+        // KEPT, deliberately: written back as an authored id it renders the
+        // same HTML, while stripping it would also strip a real authored
+        // `{#a-2}` and break its anchors - the ambiguity has no third reading.
+        return strcasecmp($sectionId, $expected) !== 0;
     }
 
     /**
