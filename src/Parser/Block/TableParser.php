@@ -261,7 +261,36 @@ class TableParser
         // that one byte to become an offset in the original line.
         $line = $this->stripRowAttributes($line);
         $line = rtrim($line, " \t");
-        $line = substr($line, 1, -1);
+
+        // AN ESCAPED CLOSING PIPE IS CONTENT, NOT THE TERMINATOR
+        // (markup-carve/carve#1293). Chopping the last byte unconditionally
+        // assumed the row's final `|` was always a delimiter. On `| a b \|` it
+        // took the ESCAPED pipe as the terminator and left the backslash
+        // orphaned at the end of the cell, where the inline parser read it as a
+        // hard break - so the row rendered `a b <br>` and the literal pipe the
+        // author asked for was gone.
+        //
+        // The deciding fact is that this splitter was never escape-blind: the
+        // scan below already honors `\|` mid-cell, so `| a \| b | c |` has
+        // always given `a | b` + `c`. The escape was respected at every position
+        // except the last one, which is a position exception with nothing behind
+        // it. `\|` is also the only way to put a literal pipe in a cell, so
+        // under the terminator reading it stopped working in exactly the place
+        // an author most naturally reaches for it.
+        //
+        // PARITY, not "is the previous byte a backslash". A doubled `\\` is an
+        // escaped BACKSLASH, which leaves the `|` after it unescaped and
+        // therefore still the terminator: `| a b \\|` closes the row and the
+        // cell holds a single `\`. Only an ODD run of backslashes escapes the
+        // pipe. Counting the run is what tells the two apart.
+        //
+        // The row is still a table either way. `isTableRow()` asks whether the
+        // line ends with the `|` BYTE and an escaped pipe is one, which is why
+        // this stays a cell-splitting question and no row detection changes
+        // here; carve-js reaches a table by the same route.
+        $line = $this->closingPipeIsEscaped($line)
+            ? substr($line, 1)
+            : substr($line, 1, -1);
         $shift = 1;
 
         // Fast path: with no code spans (backticks) and no escaped pipes, every
@@ -384,6 +413,32 @@ class TableParser
         }
 
         return $result;
+    }
+
+    /**
+     * Does this row's final `|` carry an escape, making it content?
+     *
+     * Counts the backslash run immediately before the closing pipe and reads its
+     * PARITY: an odd run escapes the pipe (`\|`, `\\\|`), an even one does not
+     * (`\\|`), because each pair is itself an escaped backslash. A test for "the
+     * previous byte is a backslash" would get `\\|` wrong in the direction that
+     * silently eats the row terminator.
+     *
+     * @param string $line The row, already stripped of row attributes and
+     *   trailing whitespace
+     */
+    private function closingPipeIsEscaped(string $line): bool
+    {
+        if (!str_ends_with($line, '|')) {
+            return false;
+        }
+
+        $backslashes = 0;
+        for ($i = strlen($line) - 2; $i >= 0 && $line[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 1;
     }
 
     /**
