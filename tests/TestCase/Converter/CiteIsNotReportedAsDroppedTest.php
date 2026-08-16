@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -58,6 +59,18 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     private function carve(string $html): string
     {
         return trim((new HtmlToCarve())->convertWithReport($html)->value);
+    }
+
+    /**
+     * `[carve, wasReported]` with the list-table serializer switched on.
+     *
+     * @return array{0: string, 1: bool}
+     */
+    private function listTableImport(string $html): array
+    {
+        $result = (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport($html);
+
+        return [trim($result->value), $result->diagnostics !== []];
     }
 
     /**
@@ -195,6 +208,69 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
 
         $this->assertStringContainsString('cite=u', $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
+    }
+
+    /**
+     * THE ROUTE decides, not the ancestry - the list-table serializer keeps it.
+     *
+     * With `listTableForBlockCells` on, `processTable()` sends a table with
+     * block-content cells to `processTableAsListTable()`, whose items are real
+     * block context. The attribute block is written there and reads back as
+     * `<blockquote cite="u">`, so nothing is lost and nothing may be reported.
+     *
+     * This is why the represented question asks the converter's OWN route
+     * condition rather than "is there a `<td>` above me". An ancestry test is
+     * right about the default pipe table and wrong about every document that
+     * enables the opt-in - it would report a loss that the round trip disproves.
+     */
+    public function testTheListTableRouteKeepsCiteAndIsSilent(): void
+    {
+        [$carve, $reported] = $this->listTableImport(
+            '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>',
+        );
+
+        $this->assertStringContainsString('list-table', $carve);
+        $this->assertStringContainsString('{cite=u}', $carve);
+        $this->assertFalse($reported, 'the list-table route keeps cite, so nothing is dropped');
+    }
+
+    /**
+     * The invariant both halves of this class are really asserting.
+     *
+     * A report is honest exactly when "was it reported" matches "did the round
+     * trip lose it". Asserting the two together, over the routes that disagree,
+     * is stronger than asserting either side's expected string: it fails for a
+     * false positive AND for a false negative, without either test needing to
+     * know which way the converter happens to answer today.
+     *
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function routeProvider(): array
+    {
+        $inCell = '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>';
+
+        return [
+            'a pipe row drops it' => [$inCell, false],
+            'a list-table item keeps it' => [$inCell, true],
+            'a plain quote keeps it' => ['<blockquote cite="u"><p>q</p></blockquote>', false],
+            'a list item keeps it' => ['<ul><li><blockquote cite="u"><p>q</p></blockquote></li></ul>', false],
+        ];
+    }
+
+    #[DataProvider('routeProvider')]
+    public function testTheReportAgreesWithTheRoundTrip(string $html, bool $listTable): void
+    {
+        $result = (new HtmlToCarve(listTableForBlockCells: $listTable))->convertWithReport($html);
+        $survived = str_contains((new CarveConverter())->convert($result->value), 'cite="u"');
+        $reported = $result->diagnostics !== [];
+
+        $this->assertSame(
+            !$survived,
+            $reported,
+            $survived
+                ? 'cite survived the round trip, so no attribute-dropped may be reported'
+                : 'cite was lost, so attribute-dropped must be reported',
+        );
     }
 
     /**

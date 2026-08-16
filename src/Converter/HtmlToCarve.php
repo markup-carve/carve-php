@@ -960,18 +960,27 @@ class HtmlToCarve
             // it teaches the reader to discount the `attribute-dropped` rows
             // that ARE real (carve-php#1337). carve-js stopped reporting it for
             // the same reason once it kept the value (carve-js#1125).
-            // …EXCEPT inside a table cell, where it is genuinely dropped and the
-            // diagnostic is true. `formatBlockAttributes()` returns an empty
-            // string while `tableCellDepth > 0`, because a cell has no line for
-            // a block attribute block to sit on (carve-php#1164) - so the quote
-            // comes back without its source URL and a reader needs to be told.
+            // …EXCEPT where the SERIALIZATION ROUTE drops it, which is not the
+            // same question as where the element sits.
             //
-            // Representation is therefore a property of the POSITION as well as
-            // the tag/name pair, which is why this arm asks the node. Answering
-            // it unconditionally traded one false report for another: the
-            // report stopped lying about the common case and started staying
-            // silent about a real loss in the uncommon one.
-            'blockquote' => $name === 'cite' && ($node === null || !$this->isInsideTableCell($node)),
+            // Inside a cell written as a PIPE row the attribute is genuinely
+            // gone: `formatBlockAttributes()` returns an empty string while
+            // `tableCellDepth > 0`, because a pipe cell has no line for a block
+            // attribute block to sit on (carve-php#1164). There the
+            // `attribute-dropped` row is true and must be kept.
+            //
+            // The same cell written as a LIST TABLE keeps it. With
+            // `listTableForBlockCells` on, a table with block-content cells goes
+            // through `processTableAsListTable()`, whose items are real block
+            // context - `{cite=u}` is written and reads back as
+            // `<blockquote cite="u">`. Reporting a loss there is the very defect
+            // this arm exists to remove.
+            //
+            // So representation is a property of the ROUTE, and the route is
+            // decided by `processTable()`. This asks that same condition rather
+            // than a second one: an ancestry test alone was right about the
+            // default and wrong whenever the opt-in was enabled.
+            'blockquote' => $name === 'cite' && ($node === null || !$this->isDroppedInATableCell($node)),
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),
@@ -988,6 +997,37 @@ class HtmlToCarve
             'td', 'th' => in_array($name, ['rowspan', 'colspan', 'align'], true),
             default => false,
         };
+    }
+
+    /**
+     * Will this element's block attributes be dropped by the table it sits in?
+     *
+     * Only a PIPE row drops them. `processTable()` sends a table with
+     * block-content cells to `processTableAsListTable()` when
+     * `listTableForBlockCells` is on, and a list-table item is real block
+     * context that carries the attribute block through. The decision is read
+     * off the ancestor `<table>` with the converter's own condition, so the two
+     * cannot drift into disagreeing about the same document.
+     *
+     * A cell with no `<table>` ancestor cannot be reached by `processTable()`
+     * at all; it is treated as dropping, which is the conservative answer -
+     * a diagnostic too many is recoverable, a silent loss is not.
+     */
+    protected function isDroppedInATableCell(DOMElement $node): bool
+    {
+        if (!$this->isInsideTableCell($node)) {
+            return false;
+        }
+
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (strtolower($parent->tagName) !== 'table') {
+                continue;
+            }
+
+            return !($this->listTableForBlockCells && $this->tableHasBlockContentCell($parent));
+        }
+
+        return true;
     }
 
     protected function isKnownImportElement(string $tag): bool
