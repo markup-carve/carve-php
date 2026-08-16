@@ -62,8 +62,20 @@ class TableParser
             return false;
         }
 
-        // Verify the line truly ends with | outside of code spans
-        return $this->lineEndsWithPipeOutsideCodeSpan($lineWithoutRowAttrs);
+        // An UNTERMINATED verbatim run in a cell does not un-make the row. A row
+        // is split into cells at BLOCK level, before any inline parsing runs -
+        // which is what lets a separator row work at all - so a run that never
+        // closes is an inline fact reported inside a cell that already exists.
+        // Requiring the closing `|` to sit outside every run asked an inline
+        // question at block level, and answered it the one way no other
+        // malformed inline is answered anywhere in Carve: by dissolving the
+        // block. It also contradicted this same parser one line down, where the
+        // identical row under a header separator was a table
+        // (markup-carve/carve#1284).
+        //
+        // The closing pipe is a DELIMITER either way: splitCells() removes it
+        // before it scans for runs, so no code span can swallow it.
+        return true;
     }
 
     /**
