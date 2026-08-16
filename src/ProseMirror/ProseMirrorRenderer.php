@@ -411,9 +411,16 @@ class ProseMirrorRenderer
                 // inline position it is CarveKit's `carveCommentInline` atom,
                 // whose text rides in a `content` attr - the block spelling
                 // holds its text as a child, which an inline atom cannot.
+                //
+                // `delimited` is the PART 9 section 21a `{% x %}` form, and it
+                // is the one attribute here that cannot be inferred back: a
+                // `%%` comment runs to end of line, so dropping the flag does
+                // not re-spell the comment, it DELETES the rest of the
+                // paragraph. It is the same field PART 12 publishes as
+                // `comment.delimited`.
                 $inlineComment = [
                     'type' => 'carveCommentInline',
-                    'attrs' => ['content' => $node->getContent()],
+                    'attrs' => ['content' => $node->getContent(), 'delimited' => $node->isDelimited()],
                 ];
                 if ($marks !== []) {
                     $inlineComment['marks'] = $marks;
@@ -754,6 +761,11 @@ class ProseMirrorRenderer
             // distinguishes a `%% x` line comment from a fenced one on the way
             // back - the same flag PART 12 publishes as `comment.block`.
             $attrs['block'] = $node->getFenceLength() !== null;
+            // No parser puts a `{% x %}` at block level - it is inline by
+            // construction - but an ingested PART 12 payload can, and the
+            // Carve writer honours it there, so the block spelling has to
+            // carry the flag too or that document comes back as `%% x`.
+            $attrs['delimited'] = $node->isDelimited();
         } elseif ($node instanceof Frontmatter) {
             $attrs['content'] = $node->getContent();
             $attrs['format'] = $node->getFormat();

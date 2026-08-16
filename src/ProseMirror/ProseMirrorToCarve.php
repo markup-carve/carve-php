@@ -109,6 +109,19 @@ class ProseMirrorToCarve
     ];
 
     /**
+     * ProseMirror names that are the INLINE spelling of a Carve type whose node
+     * class is filed under blocks.
+     *
+     * Only `comment` has two spellings, and the map lists them in one entry
+     * (`carveComment`, `carveCommentInline`) with no field saying which is
+     * which - so this is the position that entry does not record, not a second
+     * copy of the mapping. The renderer picks between the same two names.
+     *
+     * @var array<string>
+     */
+    private const INLINE_ONLY_NAMES = ['carveCommentInline'];
+
+    /**
      * @var array<string, string> attribute name => why it could not be carried
      */
     protected array $droppedAttributes = [];
@@ -728,6 +741,17 @@ class ProseMirrorToCarve
             throw new RuntimeException('Every ProseMirror node needs a string type');
         }
 
+        // A comment is one Carve type with two spellings, and BOTH are modelled
+        // by `Node\Block\Comment` - so the class test below, which is the whole
+        // of this predicate, answers "block" for the inline atom as well. In a
+        // table cell that sent the atom down the lifting path, which recurses
+        // into children an atom does not have, and the comment was gone with
+        // nothing reported. The renderer already chose the name from the
+        // position it found the node in; this reads that choice back.
+        if (in_array($name, self::INLINE_ONLY_NAMES, true)) {
+            return false;
+        }
+
         $node = $this->instantiate($name, $data);
 
         return !($node instanceof InlineNode);
@@ -1330,6 +1354,11 @@ class ProseMirrorToCarve
                 // anyway, so the flag alone decides the spelling: a fenced
                 // comment gets the minimum width back.
                 $node instanceof Comment && $key === 'block' => $this->setState($node, 'fenceLength', self::asBool($value) ? 3 : null),
+                // The `{% x %}` form (PART 9 section 21a). Unconsumed it would
+                // become an author attribute AND leave the comment spelled
+                // `%%`, which runs to end of line - so the text after it in the
+                // paragraph is deleted, not re-spelled.
+                $node instanceof Comment && $key === 'delimited' => $this->setState($node, 'delimited', self::asBool($value)),
                 // CarveKit's line-block mode marker is editor bookkeeping.
                 $node instanceof LineBlock && $key === 'mode' => true,
                 $node instanceof Frontmatter && $key === 'format' => $this->setState($node, 'format', self::asString($value)),
