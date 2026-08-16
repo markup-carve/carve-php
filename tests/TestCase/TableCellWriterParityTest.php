@@ -20,7 +20,7 @@ class TableCellWriterParityTest extends TestCase
     }
 
     #[DataProvider('prefixedCellProvider')]
-    public function testCanonicalWriterGluesPrefixedCells(string $source, string $expected): void
+    public function testCanonicalWriterPadsPrefixedCells(string $source, string $expected): void
     {
         self::assertSame($expected, CarveConverter::toCarve($source));
     }
@@ -32,17 +32,17 @@ class TableCellWriterParityTest extends TestCase
     {
         yield 'attribute and promoted header marker' => [
             "|{.highlight} Total | 99 |\n| --- | --- |\n",
-            "|={.highlight}Total|=99|\n",
+            "|={.highlight} Total |= 99 |\n",
         ];
 
         yield 'attribute before content that starts with equals' => [
             "|{#x}=R|\n",
-            "|{#x}=R|\n",
+            "|{#x} =R |\n",
         ];
 
         yield 'body alignment and attributes' => [
             "|= Item |= Cost |\n| Pen |>{.num} 9 |\n",
-            "|=Item|=Cost|\n| Pen |>{.num}9|\n",
+            "|= Item |= Cost |\n| Pen |>{.num} 9 |\n",
         ];
     }
 

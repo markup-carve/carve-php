@@ -17,8 +17,8 @@ class RaggedTableFmtTest extends TestCase
     {
         return [
             'ordinary rows' => ["| ~x~ |\n| a | b |\n", "| ~x~ |\n| a | b |\n"],
-            'short body row' => ["| |x |\n|---|\n| y |\n", "|=|=x|\n| y |\n"],
-            'short header row' => ["| h |\n|---|\n| |x |\n", "|=h|\n|  | x |\n"],
+            'short body row' => ["| |x |\n|---|\n| y |\n", "|= |= x |\n| y |\n"],
+            'short header row' => ["| h |\n|---|\n| |x |\n", "|= h |\n| | x |\n"],
         ];
     }
 

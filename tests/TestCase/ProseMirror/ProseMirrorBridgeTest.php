@@ -187,7 +187,7 @@ class ProseMirrorBridgeTest extends TestCase
         $html = (new CarveConverter())->render($document);
         $roundTripped = (new CarveConverter())->parse($source);
 
-        $this->assertSame("|=Kopf A|\n| A1 |\n", $source);
+        $this->assertSame("|= Kopf A |\n| A1 |\n", $source);
         $this->assertSame($html, (new CarveConverter())->render($roundTripped));
     }
 

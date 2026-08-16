@@ -12,16 +12,13 @@ use PHPUnit\Framework\TestCase;
  * PART 11 section 1: `to_html(fmt(x)) == to_html(x)`, on a table header cell.
  *
  * The parser's alignment scan runs at the character right after `|` or `|=` and
- * consumes exactly one of `< > ~`. A prefixed cell is written TIGHT, so the
- * first character of the content is the character that scan reads: `| ~x~ |`
- * came out `|=~x~|`, which re-reads as CENTER alignment with the text `x~` -
- * the strikethrough gone and every cell in the column centered by a marker the
- * author never wrote (carve-php#1069 cause 5).
+ * consumes exactly one of `< > ~`. Prefixed cells therefore keep their prefix
+ * glued to the opening pipe and put a padding space before content: `| ~x~ |`
+ * becomes `|= ~x~ |`, preserving the strikethrough instead of re-reading its
+ * opening sigil as CENTER alignment (carve-php#1069 cause 5).
  *
- * One space between the marker and the content is the whole fix, and it is the
- * argument the lone span marker one branch above already carries (carve#710):
- * the scan fires only on a GLUED sigil, and the content is trimmed once the
- * prefix is consumed.
+ * The canonical padding space prevents the scan from reaching content, while
+ * the prefix remains in the marker position where it can be parsed.
  */
 class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
 {
@@ -45,7 +42,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     public function testAHeaderCellOpeningWithTheCenterSigilKeepsItsStrikethrough(): void
     {
         $source = "| ~x~ |\n|---|\n| y |\n";
-        $this->assertSame("|= ~x~|\n| y |\n", $this->fmt($source));
+        $this->assertSame("|= ~x~ |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
         $out = $this->html($this->fmt($source));
         $this->assertStringContainsString('<s>x</s>', $out);
@@ -55,7 +52,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     public function testAHeaderCellOpeningWithTheLeftSigilKeepsItsAnchor(): void
     {
         $source = "| <https://e.com> |\n|---|\n| y |\n";
-        $this->assertSame("|= <https://e.com>|\n| y |\n", $this->fmt($source));
+        $this->assertSame("|= <https://e.com> |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
         $out = $this->html($this->fmt($source));
         $this->assertStringContainsString('<a href="https://e.com">', $out);
@@ -84,7 +81,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testABodyCellIsUnaffected(): void
     {
-        $this->assertSame("|=h|\n| ~x~ |\n", $this->fmt("| h |\n|---|\n| ~x~ |\n"));
+        $this->assertSame("|= h |\n| ~x~ |\n", $this->fmt("| h |\n|---|\n| ~x~ |\n"));
         $this->assertRoundTrips("| h |\n|---|\n| ~x~ |\n");
     }
 
@@ -101,7 +98,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testACellWithAnAttributeBlockIsUnaffected(): void
     {
-        $this->assertSame("|={.k}~x~|\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
+        $this->assertSame("|={.k} ~x~ |\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
         $this->assertRoundTrips("|{.k} ~x~ |\n|---|\n| y |\n");
     }
 
@@ -111,30 +108,30 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testARowAttributeIsUnaffected(): void
     {
-        $this->assertSame("|= ~x~|{.r}\n| y |\n", $this->fmt("| ~x~ |{.r}\n|---|\n| y |\n"));
+        $this->assertSame("|= ~x~ |{.r}\n| y |\n", $this->fmt("| ~x~ |{.r}\n|---|\n| y |\n"));
         $this->assertRoundTrips("| ~x~ |{.r}\n|---|\n| y |\n");
     }
 
     /**
      * CONTROL, and the reading this ticket invites that is wrong: the delimiter
-     * row is still rewritten as `|=`. `| a |` round-trips through `|=a|` today,
+     * row is still rewritten as `|=`. `| a |` round-trips through `|= a |` today,
      * so the rewrite is not the defect and no mutation of the separator moves
      * this row.
      */
     public function testTheDelimiterRowIsStillRewrittenAsAHeaderMarker(): void
     {
-        $this->assertSame("|=a|\n| b |\n", $this->fmt("| a |\n|---|\n| b |\n"));
+        $this->assertSame("|= a |\n| b |\n", $this->fmt("| a |\n|---|\n| b |\n"));
         $this->assertRoundTrips("| a |\n|---|\n| b |\n");
     }
 
     /**
-     * A prefix that already ENDS in an alignment marker has spent the scan, so
-     * a sigil opening the content is content and no separator is written.
+     * A prefix that ends in an alignment marker is still followed by canonical
+     * padding, and a sigil opening the content remains content.
      */
-    public function testACellWhoseOwnAlignmentMarkerAlreadySpentTheScanStaysTight(): void
+    public function testACellWhoseOwnAlignmentMarkerAlreadySpentTheScanIsPadded(): void
     {
         $source = "|=~ ~x~ |\n| y |\n";
-        $this->assertSame("|=~~x~|\n| y |\n", $this->fmt($source));
+        $this->assertSame("|=~ ~x~ |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
     }
 }
