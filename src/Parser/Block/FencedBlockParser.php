@@ -61,7 +61,29 @@ class FencedBlockParser
         // (carve#912). What is left over then reaches the info string, where
         // `language_info` cannot match a space, and the opener falls back to an
         // inline verbatim span in a paragraph.
-        $info = rtrim($matches[2], StringUtil::WHITESPACE_CHARS);
+        //
+        // ORDER, and it was the third trap: the slot has to be read off the RAW
+        // tail, because `rtrim()` runs first and a tail that is ONLY a tab
+        // collapses to `''`. The leading-space test then never saw the tab at
+        // all, `$info` came out empty, and the fence opened - so ```` ```<TAB>
+        // ```` opened a bare code block while ```` ```<TAB>php ```` correctly
+        // fell back, the difference being nothing but whether the info string
+        // was empty. The EMPTY-INFO shape is the one the slot check could not
+        // reach (carve-php#1329).
+        //
+        // A whitespace character that is not `space` does not satisfy the slot,
+        // so the fence does not open and the line falls back to a paragraph.
+        // The div fence has always been strict here for the same reason, and it
+        // reads its raw tail before trimming; this is that shape, minus the
+        // div's refusal of the GLUED form, since ```` ```php ```` takes no
+        // separator at all.
+        $tail = $matches[2];
+        $slot = $tail[0] ?? '';
+        if ($slot !== ' ' && $slot !== '' && strpos(StringUtil::WHITESPACE_CHARS, $slot) !== false) {
+            return null;
+        }
+
+        $info = rtrim($tail, StringUtil::WHITESPACE_CHARS);
         if (($info[0] ?? '') === ' ') {
             $info = substr($info, 1);
         }

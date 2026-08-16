@@ -129,6 +129,94 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     }
 
     /**
+     * The opener slot with an EMPTY info string, one row per run per fence
+     * character.
+     *
+     * THE SHAPE EVERY TEMPLATE ABOVE MISSED. `codeFenceOpenerProvider()` puts a
+     * non-empty token after the run in all six of its templates, so all thirty
+     * of its rows were decided by the INFO-STRING parse rather than by the slot:
+     * ```` ```<TAB>js ```` fell back because `js` was unreachable behind a tab,
+     * not because the tab failed the slot. With nothing after the run the info
+     * parse has nothing to refuse, and the slot check is the only thing left -
+     * and it was reached too late to fire, because `rtrim()` had already
+     * deleted the tab it was meant to see. So ```` ```<TAB> ```` opened a bare
+     * code block while ```` ```<TAB>js ```` correctly did not (carve-php#1329).
+     *
+     * `<SP><TAB>` is deliberately absent: there the slot IS filled by a space
+     * and the tab is TRAILING, which this engine tolerates by the decision
+     * recorded at the opener (carve-php#951). It is pinned as a control in
+     * {@see self::testATrailingRunAfterAFilledSlotStillOpens()} so the two
+     * cannot be confused for one rule.
+     *
+     * Both fence characters, because the slot is read once for either and a fix
+     * that reached only the backtick path would be invisible here otherwise.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function emptyInfoOpenerProvider(): array
+    {
+        $rows = [];
+        foreach (self::NON_SPACE_RUNS as $runName => $run) {
+            if ($run === " \t") {
+                continue;
+            }
+            foreach (['a backtick fence' => '```', 'a tilde fence' => '~~~'] as $fenceName => $fence) {
+                $rows["{$fenceName}, {$runName}"] = ["{$fence}{$run}"];
+            }
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('emptyInfoOpenerProvider')]
+    public function testANonSpaceRunAloneDoesNotOpenAFence(string $opener): void
+    {
+        $fence = substr($opener, 0, 3);
+
+        $this->assertStringNotContainsString('<pre', $this->html("{$opener}\nx\n{$fence}\n"));
+    }
+
+    /**
+     * The empty-info control: the slot's own spelling still opens the fence.
+     *
+     * Without this, narrowing the slot to reject everything would pass every
+     * row above. Both the filled slot and the canonical no-separator form are
+     * here, since they are two different paths through the same three lines.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function emptyInfoSpacedOpenerProvider(): array
+    {
+        return [
+            'a backtick fence, one space' => ['``` '],
+            'a tilde fence, one space' => ['~~~ '],
+            'a backtick fence, no separator at all' => ['```'],
+            'a tilde fence, no separator at all' => ['~~~'],
+        ];
+    }
+
+    #[DataProvider('emptyInfoSpacedOpenerProvider')]
+    public function testAnEmptyInfoStringStillOpensOnASpace(string $opener): void
+    {
+        $fence = substr($opener, 0, 3);
+
+        $this->assertStringContainsString('<pre', $this->html("{$opener}\nx\n{$fence}\n"));
+    }
+
+    /**
+     * A run AFTER a slot the space already filled is trailing, and tolerated.
+     *
+     * The slot rule is about the character that fills the SLOT. Trailing
+     * whitespace is not a slot in the grammar, so it stays as tolerant as it
+     * was; narrowing it is a separate question the issue explicitly left open.
+     * This row is what keeps a fix for the slot from being mistaken for one.
+     */
+    public function testATrailingRunAfterAFilledSlotStillOpens(): void
+    {
+        $this->assertStringContainsString('<pre', $this->html("``` \t\nx\n```\n"));
+    }
+
+    /**
      * The frontmatter format slot, one row per run.
      *
      * @return array<string, array{0: string}>
@@ -284,6 +372,8 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         // different mechanisms, so a shrinking run list is a real regression in
         // what this file proves, not a tidy-up.
         $this->assertCount(5, self::NON_SPACE_RUNS);
+        $this->assertCount(8, self::emptyInfoOpenerProvider());
+        $this->assertCount(4, self::emptyInfoSpacedOpenerProvider());
         $this->assertCount(30, self::codeFenceOpenerProvider());
         $this->assertCount(9, self::spacedCodeFenceOpenerProvider());
         $this->assertCount(2, self::runFilledOpenerSlotProvider());
