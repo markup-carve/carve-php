@@ -32,18 +32,80 @@ final class SourceMap
     private array $segments = [];
 
     /**
+     * Segments consulted only where no primary segment answers.
+     *
+     * A line ending is the one thing a map has to describe that no run of text
+     * covers, and its offset deliberately COLLIDES with its neighbours at both
+     * ends: it begins where the text before it ends, and it ends where the line
+     * after it begins. The runs own both of those readings, so an ending must
+     * answer strictly last. Keeping it out of the primary list is what lets the
+     * primary list stay tiling, and therefore searchable.
+     *
+     * @var list<array{int, int, int, int, int}>
+     */
+    private array $fallbackSegments = [];
+
+    /**
+     * Whether `$segments` is ordered and non-overlapping, so it can be searched
+     * rather than scanned.
+     *
+     * Every map this parser builds is: one segment per source line, or per run
+     * of text a rewrite left alone, laid down left to right. The flag exists
+     * because the property is not GUARANTEED by the API - a caller may add
+     * segments in any order - and a search over a list that is not tiling would
+     * silently answer with a different segment than the scan does.
+     */
+    private bool $tiling = true;
+
+    private int $tilingEnd = PHP_INT_MIN;
+
+    /**
+     * @see self::$tiling
+     */
+    /**
+     * How far every lookup is displaced from the segments as recorded.
+     *
+     * @see self::shifted()
+     */
+    private int $shift = 0;
+
+    private bool $fallbackTiling = true;
+
+    private int $fallbackTilingEnd = PHP_INT_MIN;
+
+    /**
      * Record that `$length` bytes at `$textOffset` in the built string came
      * from `$sourceOffset` in the source, on 1-based `$line` starting at
      * 1-based `$column`.
      */
     public function add(int $textOffset, int $sourceOffset, int $length, int $line, int $column): void
     {
+        $textOffset += $this->shift;
+        if ($textOffset < $this->tilingEnd) {
+            $this->tiling = false;
+        }
+        $this->tilingEnd = $textOffset + $length;
         $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column];
+    }
+
+    /**
+     * Record a segment that answers only where {@see self::add()} segments do not.
+     *
+     * @see self::$fallbackSegments
+     */
+    public function addFallback(int $textOffset, int $sourceOffset, int $length, int $line, int $column): void
+    {
+        $textOffset += $this->shift;
+        if ($textOffset < $this->fallbackTilingEnd) {
+            $this->fallbackTiling = false;
+        }
+        $this->fallbackTilingEnd = $textOffset + $length;
+        $this->fallbackSegments[] = [$textOffset, $sourceOffset, $length, $line, $column];
     }
 
     public function isEmpty(): bool
     {
-        return $this->segments === [];
+        return $this->segments === [] && $this->fallbackSegments === [];
     }
 
     /**
@@ -57,19 +119,89 @@ final class SourceMap
      */
     public function resolve(int $textOffset): ?array
     {
-        foreach ($this->segments as [$textStart, $sourceStart, $length, $line, $column]) {
-            $delta = $textOffset - $textStart;
-            if ($delta < 0) {
-                continue;
+        $textOffset += $this->shift;
+
+        return $this->resolveIn($this->segments, $this->tiling, $textOffset)
+            ?? $this->resolveIn($this->fallbackSegments, $this->fallbackTiling, $textOffset);
+    }
+
+    /**
+     * The first segment of `$segments` covering `$textOffset`, resolved.
+     *
+     * FIRST, not any - two segments meet at every boundary, because the end of
+     * a segment is itself a valid position, and the two answers differ once a
+     * rewrite dropped a character between them. The scan returns the earlier
+     * one and the search has to agree with it exactly.
+     *
+     * A TILING list is searched instead of scanned. Lookup is called once per
+     * node and the list holds one segment per source line - or, in a line
+     * block, one per run of text between preserved gaps - so a scan is
+     * quadratic in the size of the block. A 2000-line paragraph already spent
+     * seconds inside this function, and a line block reached the same shape
+     * when its stanza became a single parse (carve-php#1327). On a tiling list
+     * at most two segments can cover one offset and they are adjacent, so the
+     * walk back off the search result is bounded.
+     *
+     * When the list is not tiling the scan is kept, because then an earlier and
+     * longer segment can cover an offset that a later one does not, and only a
+     * scan finds it.
+     *
+     * @param list<array{int, int, int, int, int}> $segments
+     * @param bool $tiling
+     * @param int $textOffset
+     *
+     * @return array{int, int, int}|null
+     */
+    private function resolveIn(array $segments, bool $tiling, int $textOffset): ?array
+    {
+        if (!$tiling || count($segments) < 16) {
+            foreach ($segments as [$textStart, $sourceStart, $length, $line, $column]) {
+                $delta = $textOffset - $textStart;
+                if ($delta < 0) {
+                    continue;
+                }
+                // The end of a segment is a valid position: it is where an
+                // exclusive endOffset lands for a node that runs to end of line.
+                if ($delta <= $length) {
+                    return [$sourceStart + $delta, $line, $column + $delta];
+                }
             }
-            // The end of a segment is a valid position: it is where an
-            // exclusive endOffset lands for a node that runs to end of line.
-            if ($delta <= $length) {
-                return [$sourceStart + $delta, $line, $column + $delta];
-            }
+
+            return null;
         }
 
-        return null;
+        // The last segment starting at or before the offset.
+        $low = 0;
+        $high = count($segments) - 1;
+        $found = -1;
+        while ($low <= $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($segments[$mid][0] <= $textOffset) {
+                $found = $mid;
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+        if ($found < 0) {
+            return null;
+        }
+
+        // Back to the EARLIEST segment that still covers it, which is the one
+        // the scan would have returned. At most one step on a tiling list, and
+        // the loop is written as a loop rather than a single test so a list
+        // with zero-length segments cannot slip past it.
+        while ($found > 0 && $segments[$found - 1][0] + $segments[$found - 1][2] >= $textOffset) {
+            $found--;
+        }
+
+        [$textStart, $sourceStart, $length, $line, $column] = $segments[$found];
+        $delta = $textOffset - $textStart;
+        if ($delta < 0 || $delta > $length) {
+            return null;
+        }
+
+        return [$sourceStart + $delta, $line, $column + $delta];
     }
 
     /**
@@ -202,12 +334,18 @@ final class SourceMap
 
     public function shifted(int $delta): self
     {
-        $shifted = new self();
-        $shifted->source = $this->source;
-        $shifted->index = $this->index;
-        foreach ($this->segments as [$textStart, $sourceStart, $length, $line, $column]) {
-            $shifted->segments[] = [$textStart - $delta, $sourceStart, $length, $line, $column];
-        }
+        // A VIEW, not a copy. This is called once per nested inline parse - per
+        // emphasis run, per link text - and it used to rebuild every segment
+        // each time, so a block with N segments and N nested constructs copied
+        // N*N of them. A 2000-line paragraph moved four million segments and
+        // spent seconds doing it, and a line block joined it the moment its
+        // stanza became a single parse (carve-php#1327).
+        //
+        // The shift is carried instead and applied at lookup, so the segment
+        // lists are shared. PHP copies them lazily, and nothing here writes to
+        // them.
+        $shifted = clone $this;
+        $shifted->shift += $delta;
 
         return $shifted;
     }
