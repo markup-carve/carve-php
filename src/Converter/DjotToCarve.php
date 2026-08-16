@@ -235,7 +235,7 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if ($masked[$i] === ' ' && $source[$i] !== "\n") {
                 if ($plain !== '') {
-                    $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_^~', 'bare' => '~*_']);
+                    $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
                     $plain = '';
                 }
                 $result .= $source[$i];
@@ -247,7 +247,7 @@ class DjotToCarve
         }
 
         if ($plain !== '') {
-            $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_^~', 'bare' => '~*_']);
+            $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
         }
 
         return $result;
