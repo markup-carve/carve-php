@@ -977,6 +977,35 @@ class CarveRenderer implements RendererInterface
         return $node instanceof Paragraph || $node instanceof Image || $node instanceof Figure;
     }
 
+    /**
+     * Whether the WRITTEN form of a block opens with a block-attributes line.
+     *
+     * The three kinds above fold into an open paragraph one column in because
+     * their canonical source is a bare inline run. That stops being true the
+     * moment the writer has to put the block's attributes on a line of their
+     * own ahead of it: `block_attributes` is one of PART 9 §10's INVISIBLE
+     * CONSTRUCTS, so it INTERRUPTS the open paragraph and the block below it
+     * opens its own.
+     *
+     * So this is not a preference between two spellings. Where the attribute
+     * line is written, the fold the continuation marker exists to prevent
+     * cannot happen, and the marker costs a construct the document did not
+     * have. The marker form and the indented form render the same document in
+     * carve-php, carve-js and carve-rs alike - and the
+     * indented one is what the corpus source and carve-rs write, so writing the
+     * marker was this engine disagreeing with carve-rs (markup-carve/carve#1275).
+     *
+     * A paragraph whose own text is `{...}` does not reach this: the writer
+     * escapes that leading brace (`\{.c\}`), precisely so it cannot come back
+     * as attributes.
+     */
+    protected function opensWithAnAttributeLine(string $rendered): bool
+    {
+        $first = explode("\n", $rendered, 2)[0];
+
+        return (bool)preg_match('/^\{.*\}$/', $first);
+    }
+
     protected function adjacentBlocksMerge(Node $left, Node $right): bool
     {
         if ($left::class !== $right::class) {
@@ -1098,7 +1127,12 @@ class CarveRenderer implements RendererInterface
                 if (
                     $atMarkerColumn
                     || ($next !== null && $this->adjacentBlocksMerge($child, $next))
-                    || (!$separated && $previous instanceof Paragraph && $this->foldsIntoAnOpenParagraph($child))
+                    || (
+                        !$separated
+                        && $previous instanceof Paragraph
+                        && $this->foldsIntoAnOpenParagraph($child)
+                        && !$this->opensWithAnAttributeLine($rendered)
+                    )
                 ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;

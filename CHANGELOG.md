@@ -326,6 +326,34 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Carve target writes no `+` continuation marker where a block-attributes
+  line already interrupts** (markup-carve/carve#1275). The writer emits the
+  marker so that a paragraph attached to a list item cannot come back folded
+  into the paragraph above it as a lazy continuation. A block carrying
+  attributes is written with a `{…}` line of its own ahead of it, and
+  `block_attributes` is one of PART 9 §10's INVISIBLE CONSTRUCTS - it
+  interrupts an open paragraph - so the fold that rule prevents cannot happen
+  and the marker added a construct the document did not have:
+
+  ```
+  - a
+  +
+  {.x}
+  para
+  ```
+
+  is now written the way its source and carve-rs already wrote it:
+
+  ```
+  - a
+    {.x}
+    para
+  ```
+
+  Both spell the same document; the marker form stays readable. An attributed
+  IMAGE keeps the marker, because its attributes are written inline
+  (`![a](i.png){.c}`) and no attribute line interrupts.
+
 - **A delimited `{% x %}` comment no longer deletes the rest of the paragraph
   across a ProseMirror round trip** (PART 9 §21a). Both halves of this land in
   the same release as the spelling itself, so no released version ever behaved
