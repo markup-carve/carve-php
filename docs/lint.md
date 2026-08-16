@@ -257,6 +257,31 @@ Pass what you pass to the converter. `carve lint` reads a core render, because
 the command line has no way to be told which extensions the document will be
 published through.
 
+## Composite figures
+
+On by default. The five PART 9 §4c rules, each reporting a shape that parses
+cleanly and renders less than it looks like it does. A tree-walking pass:
+panel counts, nesting context and the demoted opener exist only in the parsed
+document, so no source scan can see them.
+
+| rule | what it catches |
+|---|---|
+| `figure-group-nested` | a `::: figure` opener inside a composite figure's body; nesting is rejected, so the inner fence stays a generic container |
+| `figure-group-opener-metadata` | a `::: figure` opener carrying a quoted title or `[label]`; the figure production takes neither, so the fence stays a generic container with both preserved |
+| `figure-group-panel-number` | a `#` placeholder in a PANEL caption; panels are not sequence units, so the placeholder stays a literal `#` - number the group caption instead |
+| `figure-group-empty` | a `::: figure` group with no captionable panel |
+| `figure-group-single-panel` | a `::: figure` group holding a single panel; a plain captioned figure renders the same content without the group wrapper |
+
+```php
+use MarkupCarve\Carve\Lint\FigureGroupLinter;
+
+$warnings = (new FigureGroupLinter())->lint($source);
+```
+
+The panel predicate is the numbering resolver's own (`FigureGroup::isPanel()`),
+so what the lint counts and what the resolver registers cannot drift apart, and
+the message wording mirrors carve-js so a cross-engine report reads the same.
+
 ## Retired spellings
 
 On by default. A retired spelling is a construct Carve has since redefined: the

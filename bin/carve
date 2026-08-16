@@ -524,6 +524,7 @@ if (($options['command'] ?? null) === 'lint') {
     $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
     $retiredLinter = new MarkupCarve\Carve\Lint\RetiredSpellingLinter();
     $templateSourceLinter = new MarkupCarve\Carve\Lint\TemplateSourceLinter();
+    $figureGroupLinter = new MarkupCarve\Carve\Lint\FigureGroupLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -554,6 +555,7 @@ if (($options['command'] ?? null) === 'lint') {
             $semanticLinter->lint($source),
             $retiredLinter->lint($source),
             $templateSourceLinter->lint($source),
+            $figureGroupLinter->lint($source),
         );
         usort(
             $warnings,

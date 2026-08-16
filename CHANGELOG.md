@@ -9,6 +9,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`Lint\FigureGroupLinter`, the five composite-figure rules** (PART 9 §4c;
+  markup-carve/carve-php#1308). A tree-walking pass fed from the parsed
+  document - panel counts, nesting context and the demoted opener are
+  invisible to a source scan - reporting `figure-group-nested`,
+  `figure-group-opener-metadata`, `figure-group-panel-number`,
+  `figure-group-empty` and `figure-group-single-panel`, each a shape that
+  parses cleanly and renders less than it looks like it does. Wired into
+  `carve lint` beside the existing passes; the panel predicate is the
+  numbering resolver's own, and the message wording mirrors carve-js so a
+  cross-engine report reads the same.
+
 - **The `word` and `google-docs` HTML import adapters read footnote-shaped
   HTML as footnotes** (markup-carve/carve#1210). Word, Google Docs, LibreOffice
   and pre-3.x Pandoc each spell a footnote differently and none of them with
