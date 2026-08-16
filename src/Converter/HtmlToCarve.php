@@ -253,6 +253,32 @@ class HtmlToCarve
             return;
         }
 
+        if ($tag === 'colgroup' && $this->isDirectTableChild($node)) {
+            // A table's column description has nowhere to land: Carve has no
+            // column model, and whether it should get one is a language
+            // question (`markup-carve/carve#1092`) rather than this importer's
+            // to answer. The drop stands, and now says so instead of claiming
+            // an unwrapping that does not happen - the table walk reads rows,
+            // so the element and everything under it left the document while
+            // the report called it `element-unwrapped` and put a second row
+            // under each `<col>` naming span metadata that is never written.
+            //
+            // Reported before the attribute loop, like the active elements
+            // above: the whole element goes, and its own attributes go with it.
+            //
+            // Wording verbatim from `markup-carve/carve-rs#1006`, so the three
+            // engines report the drop in the same words.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-dropped',
+                'Dropped <colgroup>: Carve has no column model, and a table\'s columns are only the cells its rows carry',
+                'warning',
+                $path,
+            );
+
+            return;
+        }
+
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
             if (str_starts_with($name, 'on')) {
@@ -333,6 +359,23 @@ class HtmlToCarve
             $elementIndex++;
             $this->inspectImportNode($child, $path, $elementIndex, $diagnostics);
         }
+    }
+
+    /**
+     * Whether this element sits directly inside a `<table>`.
+     *
+     * The parser behind this importer is libxml's, which does not run the HTML5
+     * "in table" insertion mode, so it keeps a `<colgroup>` wherever the markup
+     * put one - including outside any table, where the element is genuinely
+     * unwrapped rather than dropped and its children still reach the output.
+     * The drop is a property of the table walk, so the report asks the same
+     * question the walk answers to rather than trusting the tag name alone.
+     */
+    protected function isDirectTableChild(DOMElement $node): bool
+    {
+        $parent = $node->parentNode;
+
+        return $parent instanceof DOMElement && strtolower($parent->tagName) === 'table';
     }
 
     /**
