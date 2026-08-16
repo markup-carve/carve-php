@@ -60,19 +60,23 @@ class HtmlImportReportTest extends TestCase
                 basename($fixture),
             );
 
-            // The fixtures state a `message` and a `severity` for every
-            // diagnostic too, and reading back only the codes left both
-            // unchecked: the event-handler message could be reworded to
-            // anything, or emptied, and the whole suite stayed green.
+            // The fixtures state a `message`, a `severity` and - for one of
+            // them - a `path` for every diagnostic too, and reading back only
+            // the codes left all three unchecked: the event-handler message
+            // could be reworded to anything, or emptied, and the whole suite
+            // stayed green.
             //
-            // `path` is checked by `testTheFixturePathShapeDivergesFromTheSharedContract`
-            // instead, because this engine does not currently produce the
-            // fixture's shape and a loop that skipped the field in silence
-            // would be the same unchecked column again.
+            // `path` is the field that mattered most here. It went unread while
+            // three engines each spelled it their own way, which is exactly how
+            // the disagreement survived (`markup-carve/carve#1257`); an
+            // unchecked column is what lets the next one start.
             foreach ($expectedReport['diagnostics'] as $index => $diagnostic) {
                 $where = basename($fixture) . ' #' . $index;
                 $this->assertArrayHasKey($index, $actual, $where);
-                foreach (['message', 'severity'] as $field) {
+                foreach (['message', 'severity', 'path'] as $field) {
+                    if (!array_key_exists($field, $diagnostic)) {
+                        continue;
+                    }
                     $this->assertSame($diagnostic[$field], $actual[$index][$field] ?? null, $where . ' ' . $field);
                 }
             }
@@ -80,25 +84,15 @@ class HtmlImportReportTest extends TestCase
     }
 
     /**
-     * DIVERGENCE, pinned rather than skipped.
+     * The one shared fixture that states a `path` is answered with that path.
      *
-     * One shared fixture states a `path`, and this engine answers it with a
-     * different string in two independent ways:
-     *
-     * - a `/div[1]` prefix nobody else has. A fragment is wrapped in a `<div>`
-     *   before parsing, so the wrapper the importer invented for itself is
-     *   numbered into every path it reports.
-     * - a different index basis. The fixture counts a child among ALL of its
-     *   parent's child nodes, text included; this engine counts among element
-     *   children only, so the eleventh node is the sixth element.
-     *
-     * Neither is a difference the `code`-only comparison could ever have shown,
-     * and both are decisions with an owner: whether the engines agree on
-     * `path` at all is a maintainer's call. This states what this engine
-     * produces so the call can be checked against it, and so a change to either
-     * rule lands here rather than in a consumer diffing reports across engines.
+     * It reads `/p[1]/kbd[11]`, counting the `<kbd>` among ALL eleven child
+     * nodes of its paragraph rather than among the six element children, and
+     * with no wrapper of the importer's own in front of it. Asserted by its
+     * literal value as well as through the loop above, so the expectation
+     * cannot quietly follow this engine if the engine moves.
      */
-    public function testTheFixturePathShapeDivergesFromTheSharedContract(): void
+    public function testTheFixturePathIsTheSharedContractPath(): void
     {
         $fixture = dirname(__DIR__, 2) . '/spec/tests/html-import/semantic-span-attributes';
         $html = file_get_contents($fixture . '/input.html');
@@ -110,7 +104,7 @@ class HtmlImportReportTest extends TestCase
         $actual = (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics'];
 
         $this->assertSame('/p[1]/kbd[11]', $expectedReport['diagnostics'][0]['path']);
-        $this->assertSame('/div[1]/p[1]/kbd[6]', $actual[0]['path']);
+        $this->assertSame('/p[1]/kbd[11]', $actual[0]['path']);
     }
 
     public function testDiagnosticsLimitIsTyped(): void

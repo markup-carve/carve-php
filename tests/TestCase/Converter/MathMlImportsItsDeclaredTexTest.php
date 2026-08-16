@@ -65,7 +65,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute intent on <math>',
                     'severity' => 'info',
-                    'path' => '/div[1]/math[1]',
+                    'path' => '/math[1]',
                 ],
             ],
             $result->report()['diagnostics'],
@@ -139,7 +139,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
                     'code' => 'encoding-assumed',
                     'message' => 'Read <math> through its alttext: MathML does not declare the encoding of alttext, so TeX is assumed',
                     'severity' => 'info',
-                    'path' => '/div[1]/p[1]/math[1]',
+                    'path' => '/p[1]/math[1]',
                 ],
             ],
             $result->report()['diagnostics'],
@@ -163,7 +163,9 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
                     'code' => 'element-dropped',
                     'message' => 'Dropped <math>: no TeX annotation and no alttext, and its children are a token stream, not an equation',
                     'severity' => 'warning',
-                    'path' => '/div[1]/p[1]/math[1]',
+                    // `math[2]`, not `math[1]`: the `Bare ` text ahead of it is
+                    // the paragraph's first child node and takes the number.
+                    'path' => '/p[1]/math[2]',
                 ],
             ],
             $result->report()['diagnostics'],

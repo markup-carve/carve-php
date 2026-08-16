@@ -46,6 +46,25 @@ $report = $result->report();
 The existing `convert()` API remains unchanged. The CLI equivalent is
 `carve migrate --from html --report report.json input.html`.
 
+Each diagnostic carries a `path` locating what was lost. It is a human-readable
+locator that all three engines spell the same way, and although it borrows
+XPath's notation it is **not** an XPath expression - do not resolve it as one.
+It starts at the top level of the fragment handed to the importer, so no wrapper
+of the importer's own and no authored `<html>`/`<body>` appears in it; `[n]` is
+the position among all of the parent's child nodes, text included; and it names
+the traversal the conversion performs, so a table's rows are flattened out of
+`<thead>`/`<tbody>` and numbered across the whole table. For this input:
+
+~~~ html
+<table><thead><tr><th>h</th></tr></thead><tbody><tr><td onclick="x()">c</td></tr></tbody></table>
+~~~
+
+the dropped handler is reported at:
+
+~~~
+/table[1]/tr[2]/td[1]
+~~~
+
 A table's head/body/foot sections are one of the things that report names. A
 Carve pipe table is a flat row list whose head is the leading run of header
 rows, and Carve 0.1 source has no spelling for the explicit partition the AST

@@ -93,7 +93,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
                     'code' => 'element-dropped',
                     'message' => self::MESSAGE,
                     'severity' => 'warning',
-                    'path' => '/div[1]/table[1]/colgroup[1]',
+                    'path' => '/table[1]/colgroup[1]',
                 ],
             ],
             $this->rows($this->diagnostics($html)),
@@ -149,9 +149,9 @@ class ADroppedColgroupSaysSoTest extends TestCase
         $html = '<table><colgroup></colgroup><colgroup span="3"></colgroup><tr><td>a</td></tr></table>';
 
         $paths = $this->droppedPaths($html);
-        $this->assertSame(['/div[1]/table[1]/colgroup[1]', '/div[1]/table[1]/colgroup[2]'], $paths);
+        $this->assertSame(['/table[1]/colgroup[1]', '/table[1]/colgroup[2]'], $paths);
         $this->assertCount(2, array_unique($paths));
-        $this->assertNotContains('/div[1]/table[1]', $paths);
+        $this->assertNotContains('/table[1]', $paths);
     }
 
     /**
@@ -166,14 +166,14 @@ class ADroppedColgroupSaysSoTest extends TestCase
         $html = '<table><caption>C</caption><colgroup><col></colgroup>'
             . '<thead><tr><th>h</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>';
 
-        $this->assertSame(['/div[1]/table[1]/colgroup[2]'], $this->droppedPaths($html));
+        $this->assertSame(['/table[1]/colgroup[2]'], $this->droppedPaths($html));
     }
 
     public function testReportsItUnderTheTablesOwnPlaceInTheDocument(): void
     {
         $html = '<blockquote><table><colgroup><col></colgroup><tr><td>a</td></tr></table></blockquote>';
 
-        $this->assertSame(['/div[1]/blockquote[1]/table[1]/colgroup[1]'], $this->droppedPaths($html));
+        $this->assertSame(['/blockquote[1]/table[1]/colgroup[1]'], $this->droppedPaths($html));
     }
 
     /**
@@ -244,7 +244,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
 
         $this->assertSame([], $this->droppedPaths('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
         $this->assertSame(
-            ['/div[1]/table[1]/col[1]', '/div[1]/table[1]/col[1]', '/div[1]/table[1]/col[2]'],
+            ['/table[1]/col[1]', '/table[1]/col[1]', '/table[1]/col[2]'],
             array_column($rows, 'path'),
         );
         $this->assertSame(
@@ -263,7 +263,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
 
         $this->assertSame(['element-dropped', 'element-unwrapped'], array_column($rows, 'code'));
         $this->assertSame(
-            ['/div[1]/table[1]/colgroup[1]', '/div[1]/table[1]/col[2]'],
+            ['/table[1]/colgroup[1]', '/table[1]/col[2]'],
             array_column($rows, 'path'),
         );
     }
