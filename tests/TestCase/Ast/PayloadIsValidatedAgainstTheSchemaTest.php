@@ -453,14 +453,11 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
         $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
 
-        // PART 9 §21a is on the draft spec branch while this repository must
-        // keep the released corpus pin. Admit only that branch's one schema
-        // addition until the next pin moves; every other byte-equivalent JSON
-        // value must still match the checked-out specification.
-        unset($vendoredSchema['$defs']['comment']['properties']['delimited']);
-        $vendoredSchema['$defs']['comment']['properties']['block']['description'] =
-            'True for the fenced `%%%` block form, false for an inline `%%` comment.';
-
+        // NO CARVE-OUT. PART 9 §21a's `comment.delimited` was admitted here
+        // while it lived on a draft spec branch and this repository had to keep
+        // the released corpus pin; the pin has moved past it, so the exemption
+        // is gone with it. An allowance kept after its reason expires does not
+        // fail, it just stops comparing the field it names.
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 
