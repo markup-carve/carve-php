@@ -640,12 +640,16 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             // parent pointer last, so passing the paragraph on both sides left
             // it in the document's children with `getParent() === null` - a
             // node any parent-walking traversal reads as detached.
-            $children = $document->getChildren();
-            $index = array_search($block, $children, true);
-            if ($index === false) {
-                continue;
+            $children = [];
+            foreach ($document->getChildren() as $child) {
+                $children[] = $child;
+                if ($child !== $block) {
+                    continue;
+                }
+                foreach ($nodes as $definition) {
+                    $children[] = $definition;
+                }
             }
-            array_splice($children, $index + 1, 0, $nodes);
             $document->setChildren($children);
         }
     }

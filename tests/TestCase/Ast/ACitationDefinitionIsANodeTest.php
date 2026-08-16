@@ -320,9 +320,12 @@ class ACitationDefinitionIsANodeTest extends TestCase
         /** @var array<mixed> $enum */
         $enum = AstSchema::schema()['$defs']['blockNode']['properties']['type']['enum'] ?? [];
         if (!in_array('citation_definition', $enum, true)) {
-            $this->expectException(AstDecodeException::class);
-            $this->expectExceptionMessageMatches('/citation_definition/');
-            $this->codec->decode($payload);
+            try {
+                $this->codec->decode($payload);
+                $this->fail('the pinned schema does not name the type, so §12(d) must refuse the payload');
+            } catch (AstDecodeException $exception) {
+                $this->assertStringContainsString('citation_definition', $exception->getMessage());
+            }
 
             return;
         }
