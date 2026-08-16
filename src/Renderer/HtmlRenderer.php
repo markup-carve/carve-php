@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -193,6 +194,13 @@ class HtmlRenderer implements RendererInterface
             Heading::class => 'renderHeading',
             CodeBlock::class => 'renderCodeBlock',
             Comment::class => '',
+            // PART 12 §18. The bibliography line renders nothing where it
+            // sits; its entry renders in the references list the Citations
+            // extension builds. The dispatch table's fallback is
+            // renderChildren(), so WITHOUT this entry the entry's inlines would
+            // land in the document flow - HTML moving on a change that must not
+            // move it (markup-carve/carve#1276).
+            CitationDefinition::class => '',
             RawBlock::class => 'renderRawBlock',
             BlockQuote::class => 'renderBlockQuote',
             DefinitionList::class => 'renderDefinitionList',

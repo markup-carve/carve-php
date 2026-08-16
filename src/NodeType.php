@@ -131,6 +131,15 @@ final class NodeType
     public const LINK_REFERENCE_DEFINITION = 'link_reference_definition';
 
     /**
+     * The `[@key]: {author= year=} entry` bibliography line (PART 12 §18).
+     *
+     * Tier-2: only a parse with the Citations extension enabled produces one.
+     *
+     * @var string
+     */
+    public const CITATION_DEFINITION = 'citation_definition';
+
+    /**
      * @var string
      */
     public const FIGURE = 'figure';
@@ -355,6 +364,10 @@ final class NodeType
             // through isNodeAllowed().
             self::ABBREVIATION_DEF,
             self::LINK_REFERENCE_DEFINITION,
+            // The third definition kind with a node of its own (PART 12 §18).
+            // Tier-2, exactly as `citation_group` below is: a profile names it
+            // whether or not the extension that produces it is enabled.
+            self::CITATION_DEFINITION,
         ];
     }
 

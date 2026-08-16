@@ -41,6 +41,12 @@
     ],
     "required": []
   },
+  "citation_definition": {
+    "fields": [
+      "key"
+    ],
+    "required": []
+  },
   "citation_group": {
     "fields": [
       "items",

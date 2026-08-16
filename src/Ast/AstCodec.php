@@ -211,6 +211,7 @@ class AstCodec
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
         'autolink.href', 'autolink.text', 'block_quote.children',
+        'citation_definition.children', 'citation_definition.key',
         'citation_group.items', 'citation_group.raw',
         'code.value', 'code_block.content', 'comment.block',
         'comment.content', 'critic_comment.text',

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -640,6 +641,13 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Comment => '', // Skip comments
+                // PART 12 §18. The definition renders nothing where it sits
+                // on every target; its entry renders in the references list the
+                // Citations extension builds. Without this arm the default
+                // branch renders the entry's children into the flow, which is
+                // rendered output moving on a tree change that must not move it
+                // (markup-carve/carve#1276).
+                $node instanceof CitationDefinition => '',
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),

@@ -10,6 +10,7 @@ use MarkupCarve\Carve\LinkPolicy;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -302,7 +303,13 @@ class ProfileFilter
             || $node instanceof Frontmatter
             || $node instanceof Footnote
             || $node instanceof AbbreviationDefinition
-            || $node instanceof LinkReferenceDefinition;
+            || $node instanceof LinkReferenceDefinition
+            // The third definition kind, on the same argument (PART 12 §18):
+            // the `[@key]: entry` line renders nothing where it sits, so a
+            // `to_text` downgrade has nothing to substitute for it. What it
+            // feeds - the `citation_group` at the use site and the references
+            // list - are separate nodes a profile denies separately.
+            || $node instanceof CitationDefinition;
     }
 
     protected function resolveFootnoteRefs(Document $document): void

@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -718,6 +719,15 @@ class CarveRenderer implements RendererInterface
                 ? ''
                 : $this->renderLinkReferenceDefinition($node),
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
+            // PART 12 §18 gives the bibliography line a node; it does NOT move
+            // rendered output on any target, and this writer is a target. The
+            // line was dropped when the collect pass consumed it and it is
+            // dropped here, so `fmt` is byte-identical either way
+            // (markup-carve/carve#1276). Writing it back is a separate change
+            // to what this renderer emits, not a consequence of the node
+            // existing - without this arm the default branch would emit the
+            // entry's inlines as a bare paragraph, which is neither.
+            $node instanceof CitationDefinition => '',
             default => $this->renderBlocks($node->getChildren()),
         };
     }
