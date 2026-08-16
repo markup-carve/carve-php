@@ -1824,7 +1824,33 @@ class AstCodec
             ));
         }
 
-        return self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded))));
+        return self::citationShape(self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded)))));
+    }
+
+    /**
+     * The `[+@...]` group marker is `mode: "integral"` on the wire, absent when
+     * parenthetical - the shape `$defs.citation_group` pins with
+     * `additionalProperties: false`. This engine keeps a boolean `integral`,
+     * which reached the wire under its internal name and made the codec's own
+     * output schema-invalid: `decode(encode(x))` threw for every integral
+     * group (carve-php#1285).
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function citationShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'citation_group' || !array_key_exists('integral', $encoded)) {
+            return $encoded;
+        }
+
+        if ($encoded['integral'] === true) {
+            $encoded['mode'] = 'integral';
+        }
+        unset($encoded['integral']);
+
+        return $encoded;
     }
 
     /**
@@ -2328,6 +2354,24 @@ class AstCodec
     }
 
     /**
+     * `mode: "integral"` back to the boolean this engine keeps. See
+     * citationShape() for the outbound half.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function citationFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) === 'citation_group' && array_key_exists('mode', $data)) {
+            $data['integral'] = $data['mode'] === 'integral';
+            unset($data['mode']);
+        }
+
+        return $data;
+    }
+
+    /**
      * `delim` back to the single `marker` field this engine keeps.
      *
      * @param array<string, mixed> $data
@@ -2440,7 +2484,7 @@ class AstCodec
         // back to the tree it came from - which is what PART 12 §6's round trip
         // asks for, and what the loss check verifies. Both were caught by that
         // check rather than by review.
-        $data = self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))));
+        $data = self::citationFromWire(self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data)))));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
