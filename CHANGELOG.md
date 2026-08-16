@@ -7,156 +7,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
-
-- **Delimited inline comments are now recognized, which is a behavior change.**
-  `foo {% bar %} baz` previously rendered its braces and now hides the middle,
-  producing `foo  baz`. The new `braced-comment-in-a-template-source` lint rule
-  reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
-  source reached the parser as text; it never rewrites the source.
-
-### Fixed
-
-- **An attribute block reaches a nested list written with no blank line before
-  it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
-  above a nested list was discarded:
-
-  ```
-  - a
-    {.x}
-    - b
-  ```
-
-  now attributes the nested list, as the ruling states - an attribute block
-  attaches to the block that follows it, and a nested list is a block:
-
-  ```html
-  <ul>
-    <li>a
-      <ul class="x">
-        <li>b</li>
-      </ul>
-    </li>
-  </ul>
-  ```
-
-  The same line above a paragraph, quote or fence in that position already
-  attached, as did the identical three lines one nesting level up, so this was
-  the only block type that lost them. An item's body is not one stream - the
-  continuation collector stops at a marker reaching the item's content column
-  so the list parser can own the sub-list - and the pending run was dropped at
-  that chunk end as if the item had ended. It is now scoped to the item, so it
-  also survives a chunk whose tail is the attribute line (`- a` / `  para` /
-  `  {.x}` / `  - b`). Where the item genuinely ends the run still attaches to
-  nothing: it does not reach the next item or the block after the list.
-  Tight/loose is untouched, and the marker-abutting form `-{.x} item`, which
-  attributes the `<li>`, is a separate mechanism and unchanged.
-
-- **HTML import names the `<colgroup>` it drops.** A table's column
-  description left the document whole, while the report called it
-  `element-unwrapped` at `info` and promised Carve span metadata that is never
-  written, plus a second row under each `<col>` inside it saying the same.
-  Carve has no column model - a table's columns are only the cells its rows
-  carry - and whether it should get one is a language question
-  (`markup-carve/carve#1092`), so the drop stands; what it gets is
-  `element-dropped` at `warning` under the `<colgroup>`'s own path, covering
-  the columns and attributes it takes with it. The wording is verbatim from
-  carve-rs and carve-js, so the three engines report the drop in the same
-  words. A `<colgroup>` that is not a table's child is a different case and
-  keeps `element-unwrapped`: this importer's parser leaves such an element
-  where the markup put it and its content does reach the output.
-
-- **The Markdown importer keeps the constructs Carve spells like the source
-  literal** (markup-carve/carve#1130's dialect ruling: CommonMark plus GFM is
-  the contract). `a $`x+y` b`, `a !`x` b` and `a :term[x] b` are no Markdown
-  construct in any flavour and are now escaped unconditionally instead of
-  becoming a math span, a literal span or an extension call. Four more are
-  real syntax in some flavour, so each stays literal unless its new
-  constructor flag opts in: `convertInlineFootnotes` (`a ^[note] b`, Pandoc),
-  `convertAbbreviations` (`*[HTML]: HyperText`, PHP Markdown Extra),
-  `convertFencedDivs` (`::: note`, Pandoc/Quarto), and `convertAttributes`
-  (`[t]{.c}` spans and `{.cls}` lines, Pandoc/kramdown). All default off,
-  following the `convertMath`/`convertHighlight` precedent: under-converting
-  leaves readable text, while inventing markup the source did not have makes
-  the migrated document render differently from anything its author saw.
-
-- **The HTML importer keeps a loose list loose.** A source list whose items
-  hold an explicit `<p>` imports with a blank line between the items - Carve's
-  spelling of looseness - so the paragraph-ness of the source survives; a
-  bare-text item stays tight. Decided per list, as CommonMark does: one
-  paragraph item loosens the whole list. Before, every list flattened tight
-  and the item paragraphs were dropped.
-
-- **Two adjacent ordered lists import as two lists** (carve-php#1290). With
-  one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
-  imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
-  merged and the second's numbering was gone. The delimiter now alternates
-  `.`/`)` across adjacent ordered siblings, the same rule bullet lists
-  already follow with `-`/`*`; an explicit `data-marker` still wins.
-
-### Fixed
-
-- **The HTML importer reads the engine's own mention and hashtag spans back
-  as the bare sigil** (carve-php#1291).
-  `<span class="mention"><strong>@alice</strong></span>` imported as
-  `[*@alice*]{.mention}`, whose inner `@alice` parsed as a mention again -
-  one more wrapper per HTML round trip. The shortcut requires the whole span
-  text to be a single sigil token, so an authored span that merely carries
-  the class stays a span.
-
-### Fixed
-
-- **The HTML importer keeps an authored heading id, and adjacent sections
-  stay separate** (carve-php#1289, carve-php#1297). The renderer moves a
-  heading's id onto its `<section>` wrapper, authored and generated alike,
-  and outside round-trip mode the importer dropped every one - so
-  `{#custom}` came back as a text-derived id and its anchors broke after one
-  HTML round trip. An id matching the tracker's slug of the heading text is
-  generation and is left to regeneration; anything else is authored and
-  kept. Two adjacent sections also glued their headings into one line
-  (`## A## B`), because the section handler returned its block content with
-  the trailing separation trimmed off.
-
-- **The HTML importer keeps a captioned code block's figure** (carve-php#1288).
-  `<figure><pre>...<figcaption>` - the engine's own output for a captioned
-  fence - imported as a bare fence plus a plain paragraph, so the `^` caption
-  association was gone and the figure did not survive the engine's own HTML.
-  A `pre` is a supported figure target now, beside the image and the block
-  quote that already were.
-
-- **The HTML importer reads the engine's own footnote reference back as a
-  reference** (carve-php#1286). `<a id="fnrefN" href="#fnN"
-  role="doc-noteref"><sup>N</sup></a>` imported as a literal link carrying a
-  superscript span, the definition it pointed at went unused, and the
-  endnotes section vanished on the next render - so the engine's own
-  footnote output did not round-trip. The label is derived from the `#fnN`
-  fragment, the same derivation the definition side applies to the list
-  item's id, and a round-trip-mode inline footnote is untouched: its data
-  attributes are the richer record and keep precedence.
-
-- **A typed custom div keeps its quoted title under a class-carrying
-  attribute line** (carve-php#1284). The typed writer required exactly one
-  class, so `{.sidebar}` above `::: widget "Title"` fell through to the
-  untyped writer - which has no title slot - and one fmt pass dropped the
-  title and its `admonition-title` heading from the rendered HTML. Only the
-  OPENER class decides now; the extra classes were always the attribute
-  line's business and are written back there with the opener excluded.
-
-- **An integral citation group survives its own wire trip** (carve-php#1285).
-  The encoder published the internal boolean `integral`, a field
-  `$defs.citation_group` does not allow, so `decode(encode(x))` threw for
-  every document holding a `[+@...]` group. The wire now carries the shape
-  the schema pins - `mode: "integral"`, absent when parenthetical - and the
-  decoder maps it back to the boolean this engine keeps.
-
-- **A ProseMirror round trip keeps a mixed task list's plain sibling at
-  column zero** (carve-php#1287). The converter folded `taskList` to a
-  `bullet` list type, so a task list and the plain list split off beside it
-  became the same type - and the writer separated the two same-type
-  neighbors with the indented-second-list spelling, which moved the plain
-  list to a different content column on reparse. `task` is its own list
-  type, and with it restored the writer has nothing to separate.
-
 ### Added
 
 - **The `word` and `google-docs` HTML import adapters read footnote-shaped
@@ -309,6 +159,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Delimited inline comments are now recognized, which is a behavior change.**
+  `foo {% bar %} baz` previously rendered its braces and now hides the middle,
+  producing `foo  baz`. The new `braced-comment-in-a-template-source` lint rule
+  reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
+  source reached the parser as text; it never rewrites the source.
+
 - **Every table cell pads its content in the canonical form** (PART 11 §6e). A
   cell carrying a prefix - the kind marker `=`, an alignment marker, an
   attribute block - was written with its content glued to it, except when the
@@ -413,6 +269,142 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   flattening items into prose.
 
 ### Fixed
+
+- **An attribute block reaches a nested list written with no blank line before
+  it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
+  above a nested list was discarded:
+
+  ```
+  - a
+    {.x}
+    - b
+  ```
+
+  now attributes the nested list, as the ruling states - an attribute block
+  attaches to the block that follows it, and a nested list is a block:
+
+  ```html
+  <ul>
+    <li>a
+      <ul class="x">
+        <li>b</li>
+      </ul>
+    </li>
+  </ul>
+  ```
+
+  The same line above a paragraph, quote or fence in that position already
+  attached, as did the identical three lines one nesting level up, so this was
+  the only block type that lost them. An item's body is not one stream - the
+  continuation collector stops at a marker reaching the item's content column
+  so the list parser can own the sub-list - and the pending run was dropped at
+  that chunk end as if the item had ended. It is now scoped to the item, so it
+  also survives a chunk whose tail is the attribute line (`- a` / `  para` /
+  `  {.x}` / `  - b`). Where the item genuinely ends the run still attaches to
+  nothing: it does not reach the next item or the block after the list.
+  Tight/loose is untouched, and the marker-abutting form `-{.x} item`, which
+  attributes the `<li>`, is a separate mechanism and unchanged.
+
+- **HTML import names the `<colgroup>` it drops.** A table's column
+  description left the document whole, while the report called it
+  `element-unwrapped` at `info` and promised Carve span metadata that is never
+  written, plus a second row under each `<col>` inside it saying the same.
+  Carve has no column model - a table's columns are only the cells its rows
+  carry - and whether it should get one is a language question
+  (`markup-carve/carve#1092`), so the drop stands; what it gets is
+  `element-dropped` at `warning` under the `<colgroup>`'s own path, covering
+  the columns and attributes it takes with it. The wording is verbatim from
+  carve-rs and carve-js, so the three engines report the drop in the same
+  words. A `<colgroup>` that is not a table's child is a different case and
+  keeps `element-unwrapped`: this importer's parser leaves such an element
+  where the markup put it and its content does reach the output.
+
+- **The Markdown importer keeps the constructs Carve spells like the source
+  literal** (markup-carve/carve#1130's dialect ruling: CommonMark plus GFM is
+  the contract). `a $`x+y` b`, `a !`x` b` and `a :term[x] b` are no Markdown
+  construct in any flavour and are now escaped unconditionally instead of
+  becoming a math span, a literal span or an extension call. Four more are
+  real syntax in some flavour, so each stays literal unless its new
+  constructor flag opts in: `convertInlineFootnotes` (`a ^[note] b`, Pandoc),
+  `convertAbbreviations` (`*[HTML]: HyperText`, PHP Markdown Extra),
+  `convertFencedDivs` (`::: note`, Pandoc/Quarto), and `convertAttributes`
+  (`[t]{.c}` spans and `{.cls}` lines, Pandoc/kramdown). All default off,
+  following the `convertMath`/`convertHighlight` precedent: under-converting
+  leaves readable text, while inventing markup the source did not have makes
+  the migrated document render differently from anything its author saw.
+
+- **The HTML importer keeps a loose list loose.** A source list whose items
+  hold an explicit `<p>` imports with a blank line between the items - Carve's
+  spelling of looseness - so the paragraph-ness of the source survives; a
+  bare-text item stays tight. Decided per list, as CommonMark does: one
+  paragraph item loosens the whole list. Before, every list flattened tight
+  and the item paragraphs were dropped.
+
+- **Two adjacent ordered lists import as two lists** (carve-php#1290). With
+  one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
+  imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
+  merged and the second's numbering was gone. The delimiter now alternates
+  `.`/`)` across adjacent ordered siblings, the same rule bullet lists
+  already follow with `-`/`*`; an explicit `data-marker` still wins.
+
+- **The HTML importer reads the engine's own mention and hashtag spans back
+  as the bare sigil** (carve-php#1291).
+  `<span class="mention"><strong>@alice</strong></span>` imported as
+  `[*@alice*]{.mention}`, whose inner `@alice` parsed as a mention again -
+  one more wrapper per HTML round trip. The shortcut requires the whole span
+  text to be a single sigil token, so an authored span that merely carries
+  the class stays a span.
+
+- **The HTML importer keeps an authored heading id, and adjacent sections
+  stay separate** (carve-php#1289, carve-php#1297). The renderer moves a
+  heading's id onto its `<section>` wrapper, authored and generated alike,
+  and outside round-trip mode the importer dropped every one - so
+  `{#custom}` came back as a text-derived id and its anchors broke after one
+  HTML round trip. An id matching the tracker's slug of the heading text is
+  generation and is left to regeneration; anything else is authored and
+  kept. Two adjacent sections also glued their headings into one line
+  (`## A## B`), because the section handler returned its block content with
+  the trailing separation trimmed off.
+
+- **The HTML importer keeps a captioned code block's figure** (carve-php#1288).
+  `<figure><pre>...<figcaption>` - the engine's own output for a captioned
+  fence - imported as a bare fence plus a plain paragraph, so the `^` caption
+  association was gone and the figure did not survive the engine's own HTML.
+  A `pre` is a supported figure target now, beside the image and the block
+  quote that already were.
+
+- **The HTML importer reads the engine's own footnote reference back as a
+  reference** (carve-php#1286). `<a id="fnrefN" href="#fnN"
+  role="doc-noteref"><sup>N</sup></a>` imported as a literal link carrying a
+  superscript span, the definition it pointed at went unused, and the
+  endnotes section vanished on the next render - so the engine's own
+  footnote output did not round-trip. The label is derived from the `#fnN`
+  fragment, the same derivation the definition side applies to the list
+  item's id, and a round-trip-mode inline footnote is untouched: its data
+  attributes are the richer record and keep precedence.
+
+- **A typed custom div keeps its quoted title under a class-carrying
+  attribute line** (carve-php#1284). The typed writer required exactly one
+  class, so `{.sidebar}` above `::: widget "Title"` fell through to the
+  untyped writer - which has no title slot - and one fmt pass dropped the
+  title and its `admonition-title` heading from the rendered HTML. Only the
+  OPENER class decides now; the extra classes were always the attribute
+  line's business and are written back there with the opener excluded.
+
+- **An integral citation group survives its own wire trip** (carve-php#1285).
+  The encoder published the internal boolean `integral`, a field
+  `$defs.citation_group` does not allow, so `decode(encode(x))` threw for
+  every document holding a `[+@...]` group. The wire now carries the shape
+  the schema pins - `mode: "integral"`, absent when parenthetical - and the
+  decoder maps it back to the boolean this engine keeps.
+
+- **A ProseMirror round trip keeps a mixed task list's plain sibling at
+  column zero** (carve-php#1287). The converter folded `taskList` to a
+  `bullet` list type, so a task list and the plain list split off beside it
+  became the same type - and the writer separated the two same-type
+  neighbors with the indented-second-list spelling, which moved the plain
+  list to a different content column on reparse. `task` is its own list
+  type, and with it restored the writer has nothing to separate.
 
 - **A table cell keeps the alignment marker it was written with, and the
   writers spell it the way carve-js and carve-rs do.** Four defects, all of
