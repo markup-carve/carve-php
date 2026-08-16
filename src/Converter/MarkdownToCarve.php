@@ -51,10 +51,51 @@ class MarkdownToCarve
      */
     protected bool $convertHighlight = false;
 
-    public function __construct(bool $convertMath = false, bool $convertHighlight = false)
-    {
+    /**
+     * When true, carry `^[body]` across as a Carve inline footnote (Pandoc's
+     * spelling). Default false: CommonMark and GFM read it as literal text,
+     * and left bare the note's text moved to the foot of the document
+     * (markup-carve/carve#1130).
+     */
+    protected bool $convertInlineFootnotes = false;
+
+    /**
+     * When true, carry `*[HTML]: HyperText` across as a Carve abbreviation
+     * definition (PHP Markdown Extra's spelling). Default false: in CommonMark
+     * the line is a paragraph, and left bare it disappeared from the render
+     * while every later `HTML` became an `<abbr>`.
+     */
+    protected bool $convertAbbreviations = false;
+
+    /**
+     * When true, carry `::: note` fences across as Carve containers (Pandoc /
+     * Quarto fenced divs). Default false: in CommonMark both fence lines are
+     * paragraph text, and left bare they disappeared from the render and
+     * wrapped everything between them.
+     */
+    protected bool $convertFencedDivs = false;
+
+    /**
+     * When true, carry `[t]{.c}` spans and `{.cls}` lines across as Carve
+     * attributes (Pandoc / kramdown). Default false: CommonMark renders the
+     * braces as text, and left bare they attached live attributes.
+     */
+    protected bool $convertAttributes = false;
+
+    public function __construct(
+        bool $convertMath = false,
+        bool $convertHighlight = false,
+        bool $convertInlineFootnotes = false,
+        bool $convertAbbreviations = false,
+        bool $convertFencedDivs = false,
+        bool $convertAttributes = false,
+    ) {
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
+        $this->convertInlineFootnotes = $convertInlineFootnotes;
+        $this->convertAbbreviations = $convertAbbreviations;
+        $this->convertFencedDivs = $convertFencedDivs;
+        $this->convertAttributes = $convertAttributes;
     }
 
     /**
@@ -1144,6 +1185,11 @@ class MarkdownToCarve
             $line = preg_replace($pattern, $replacement, $line) ?? $line;
         }
 
+        $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
+        if (!$this->convertAttributes) {
+            $line = $this->escapeAttributeListsThatAttach($line);
+        }
+
         // Restore stashes and protected spans until stable: a protected or
         // stashed span may itself contain placeholders (e.g. a reference
         // definition that wrapped an already-protected URL), so one pass is
@@ -1155,6 +1201,121 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    /**
+     * Escape the Carve constructs that CommonMark and GFM read as ORDINARY
+     * TEXT (markup-carve/carve#1130; the carve-js#1060 rule set).
+     *
+     * `escapePlainCarveInlineSyntax` covers the constructs whose spelling is a
+     * delimiter run. It cannot cover the ones spelled as a bracket, a marker
+     * column or a sigil-plus-code-span, and every one of those reached the
+     * migrated document live. Two are no Markdown construct in ANY flavour, so
+     * they are escaped unconditionally:
+     *
+     *   a $`x+y` c a math span - the source says `$` then a code span
+     *   a !`x` c a literal span - the `!` and the code formatting vanish
+     *   a :term[x] b an extension call - the source says a colon then text
+     *
+     * Three more are real syntax somewhere, so each is escaped unless its
+     * constructor flag opts in: the inline footnote (Pandoc), the abbreviation
+     * definition (PHP Markdown Extra), and the fenced div (Pandoc, Quarto).
+     * The reasoning is the dialect ruling's: under-converting leaves readable
+     * text, while inventing markup the source did not have makes the migrated
+     * document render differently from anything its author saw.
+     *
+     * @param string $line
+     * @param array<string> $protected The protected spans, so a sigil can be checked against the code span it precedes.
+     */
+    protected function escapeCarveConstructsSpelledLikeText(string $line, array $protected): string
+    {
+        // `$`x`` / `$$`x`` (math) and `!`x`` (literal). The code span is a
+        // placeholder by now, so the sigil is matched against the placeholder
+        // and the stored span is checked to BE a code span rather than some
+        // other protected construct. EVERY dollar of the run is escaped, not
+        // just the first: in `\$$`x`` the second dollar still opens math.
+        $line = preg_replace_callback('/(?<!\\\\)(\$+|!)\x00P(\d+)\x00/', function (array $match) use ($protected): string {
+            if (!str_starts_with($protected[(int)$match[2]] ?? '', '`')) {
+                return $match[0];
+            }
+            $escaped = '';
+            foreach (str_split($match[1]) as $char) {
+                $escaped .= '\\' . $char;
+            }
+
+            return $escaped . substr($match[0], strlen($match[1]));
+        }, $line) ?? $line;
+
+        // `:name[…]` calls an extension. The opener needs no left boundary -
+        // Carve reads `foo:term[x]` as an extension call the same as
+        // ` :term[x]` - so the rule takes none either. `at 10:30[x]` is
+        // untouched because the name must start with a letter.
+        $line = preg_replace_callback('/(?<!\\\\):(?=[A-Za-z][A-Za-z0-9-]*\[)/', static fn (): string => '\\:', $line) ?? $line;
+
+        if (!$this->convertInlineFootnotes) {
+            // `^[body]` is an inline footnote: the text moves to the foot of
+            // the document. A footnote REFERENCE is untouched - the caret in
+            // `a[^1]` is followed by the label, not by a bracket.
+            $line = preg_replace_callback('/(?<!\\\\)\^(?=\[)/', static fn (): string => '\\^', $line) ?? $line;
+        }
+
+        if (!$this->convertAbbreviations) {
+            // `*[HTML]: HyperText` defines an abbreviation: the definition
+            // line disappears from the render and every later `HTML` becomes
+            // an `<abbr>`. Carve wants the space after the colon, so `*[A]:x`
+            // is already literal.
+            $line = preg_replace_callback('/^(?=\*\[[^\]\n]+\]:[ \t])/m', static fn (): string => '\\', $line) ?? $line;
+        }
+
+        if (!$this->convertFencedDivs) {
+            // `::: name` opens a div and `:::` closes it: both fence lines
+            // disappear from the render and everything between them is
+            // wrapped. Carve wants a space or a line end after the colons, so
+            // `:::note` is already literal.
+            $line = preg_replace_callback('/^(?=:{3,}([ \t]|$))/m', static fn (): string => '\\', $line) ?? $line;
+        }
+
+        return $line;
+    }
+
+    /**
+     * Escape a `{…}` attribute list that would ATTACH to the construct before
+     * it (Pandoc / kramdown spelling; markup-carve/carve#1130).
+     *
+     * Runs after the delimiter rewrites, not with the rest of the escaping,
+     * because what a list attaches to is decided by what precedes it and half
+     * of those things do not exist yet earlier in the pass: `a *x*{.c} b`
+     * becomes `a /x/{.c} b` first, and a link, image, code span or autolink is
+     * a placeholder by then - `\x00` covers every placeholder in one
+     * lookbehind, since each ends with the sentinel byte. A list attaches to a
+     * Carve inline element and to nothing else, so `a x{.c} b` is left alone:
+     * the character before the brace has to be a closer. The standalone
+     * `{.cls}` line is the block-attribute form and is escaped the same way.
+     *
+     * A braced DELIMITER pair is not an attribute list and must not be escaped
+     * as one: Carve reads `{,x,}` as a subscript wherever it stands, and this
+     * converter emits that form itself for `<sub>x</sub>`.
+     */
+    protected function escapeAttributeListsThatAttach(string $line): string
+    {
+        $escapeUnlessDelimiterPair = function (array $match): string {
+            $interior = $match[1];
+            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1) {
+                return $match[0];
+            }
+            // A TAG opener at the head of the payload needs escaping too: the
+            // general tag rule skips a `#` behind an unescaped `{`, and
+            // escaping the brace here takes that premise away, so `{#id}`
+            // came out as `\{` plus a live `#id` tag. Only the head position
+            // is affected; `{.a #b}` is escaped by the general rule already.
+            $interior = preg_replace('/^#(?=[A-Za-z0-9-])/', '\\\\#', $interior) ?? $interior;
+
+            return '\\{' . $interior . '}';
+        };
+
+        $line = preg_replace_callback('/(?<=\x00|[\]\/*_~=,^}])\{([^}\n]*)\}/', $escapeUnlessDelimiterPair, $line) ?? $line;
+
+        return preg_replace_callback('/^\{([^}\n]*)\}(?=[ \t]*$)/m', $escapeUnlessDelimiterPair, $line) ?? $line;
     }
 
     /**
