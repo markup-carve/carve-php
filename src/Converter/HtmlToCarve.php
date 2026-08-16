@@ -443,7 +443,7 @@ class HtmlToCarve
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
                 continue;
-            } elseif (!$this->isRepresentedImportAttribute($tag, $name)) {
+            } elseif (!$this->isRepresentedImportAttribute($tag, $name, $node)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
@@ -930,7 +930,15 @@ class HtmlToCarve
         return 'row';
     }
 
-    protected function isRepresentedImportAttribute(string $tag, string $name): bool
+    /**
+     * Is this attribute carried into the Carve output rather than dropped?
+     *
+     * The node is needed because representation is not a property of the
+     * tag/name pair alone: the same attribute on the same element can be
+     * carried in one position and dropped in another (see the blockquote `cite`
+     * arm below).
+     */
+    protected function isRepresentedImportAttribute(string $tag, string $name, ?DOMElement $node = null): bool
     {
         if ($name === 'title') {
             return true;
@@ -952,7 +960,18 @@ class HtmlToCarve
             // it teaches the reader to discount the `attribute-dropped` rows
             // that ARE real (carve-php#1337). carve-js stopped reporting it for
             // the same reason once it kept the value (carve-js#1125).
-            'blockquote' => $name === 'cite',
+            // …EXCEPT inside a table cell, where it is genuinely dropped and the
+            // diagnostic is true. `formatBlockAttributes()` returns an empty
+            // string while `tableCellDepth > 0`, because a cell has no line for
+            // a block attribute block to sit on (carve-php#1164) - so the quote
+            // comes back without its source URL and a reader needs to be told.
+            //
+            // Representation is therefore a property of the POSITION as well as
+            // the tag/name pair, which is why this arm asks the node. Answering
+            // it unconditionally traded one false report for another: the
+            // report stopped lying about the common case and started staying
+            // silent about a real loss in the uncommon one.
+            'blockquote' => $name === 'cite' && ($node === null || !$this->isInsideTableCell($node)),
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
             'ol' => in_array($name, ['start', 'type'], true),

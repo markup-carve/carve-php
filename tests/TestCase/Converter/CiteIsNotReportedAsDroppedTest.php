@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -139,6 +140,84 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             [['attribute-dropped', 'info', 'Dropped unsupported attribute foo on <blockquote>']],
             $this->diagnostics($html),
         );
+    }
+
+    /**
+     * INSIDE A TABLE CELL the attribute really is dropped, so it is reported.
+     *
+     * Representation is a property of the POSITION as well as the tag/name
+     * pair. `formatBlockAttributes()` returns an empty string while the
+     * serializer is inside a cell, because a cell has no line for a block
+     * attribute block to sit on (carve-php#1164) - so the quote comes back
+     * without its source URL, and here the `attribute-dropped` row is TRUE.
+     *
+     * Answering the represented question on the tag/name pair alone traded one
+     * false report for another: the report stopped lying about the common case
+     * and started staying silent about a real loss in this one. Both halves are
+     * asserted in this class so neither can be fixed by breaking the other.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function tableCellProvider(): array
+    {
+        return [
+            'in a td' => ['<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>'],
+            'in a th' => ['<table><tr><th><blockquote cite="u"><p>q</p></blockquote></th></tr></table>'],
+            // Not a direct child: the question is the ancestry, not the parent.
+            'nested deeper inside a td' => [
+                '<table><tr><td><div><blockquote cite="u"><p>q</p></blockquote></div></td></tr></table>',
+            ],
+        ];
+    }
+
+    #[DataProvider('tableCellProvider')]
+    public function testCiteInsideATableCellIsDroppedAndSaidSo(string $html): void
+    {
+        // The loss is asserted first: without it this test would still pass if
+        // the cell learned to carry the attribute, and would then be demanding
+        // a diagnostic for something no longer lost.
+        $this->assertStringNotContainsString('cite=u', $this->carve($html));
+        $this->assertSame(
+            [['attribute-dropped', 'info', 'Dropped unsupported attribute cite on <blockquote>']],
+            $this->diagnostics($html),
+        );
+    }
+
+    /**
+     * A list item is NOT a table cell, so the exemption still applies there.
+     *
+     * The control against fixing the cell case by reporting everywhere a
+     * blockquote is nested. A list item CAN carry the attribute block, and does.
+     */
+    public function testCiteInsideAListItemIsStillKeptAndSilent(): void
+    {
+        $html = '<ul><li><blockquote cite="u"><p>q</p></blockquote></li></ul>';
+
+        $this->assertStringContainsString('cite=u', $this->carve($html));
+        $this->assertSame([], $this->diagnostics($html));
+    }
+
+    /**
+     * The same blind spot for `id` and `class`, recorded rather than fixed.
+     *
+     * These are represented unconditionally and have been since long before
+     * `cite` joined them, so a blockquote's `id`/`class` inside a cell is
+     * dropped SILENTLY today. That is the same context-blindness this class
+     * fixes for `cite`, and it is older and wider - every unconditionally
+     * represented name has it.
+     *
+     * It is left alone here because widening the fix would add diagnostics to
+     * documents that never had them, which is a separate change with its own
+     * blast radius. Pinned so it is a known gap with a red test attached rather
+     * than a silent one.
+     */
+    public function testTheSameGapForIdAndClassIsRecordedNotFixed(): void
+    {
+        $html = '<table><tr><td><blockquote id="i" class="x"><p>q</p></blockquote></td></tr></table>';
+
+        $this->assertStringNotContainsString('#i', $this->carve($html));
+        $this->assertStringNotContainsString('.x', $this->carve($html));
+        $this->assertSame([], $this->diagnostics($html));
     }
 
     /**
