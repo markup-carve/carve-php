@@ -7,6 +7,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An integral citation group survives its own wire trip** (carve-php#1285).
+  The encoder published the internal boolean `integral`, a field
+  `$defs.citation_group` does not allow, so `decode(encode(x))` threw for
+  every document holding a `[+@...]` group. The wire now carries the shape
+  the schema pins - `mode: "integral"`, absent when parenthetical - and the
+  decoder maps it back to the boolean this engine keeps.
+
 ### Added
 
 - **Composite figures: `::: figure` is a captionable host** (PART 9 §4c,
