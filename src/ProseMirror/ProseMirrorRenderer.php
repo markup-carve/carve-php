@@ -71,6 +71,16 @@ use MarkupCarve\Carve\Renderer\TableSpanGrid;
 class ProseMirrorRenderer
 {
     /**
+     * @var array<string, string>
+     */
+    private array $referenceDefinitionLines = [];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    private array $referenceDefinitionAttributes = [];
+
+    /**
      * @var array<string, string> carve type => reason
      */
     protected array $dropped = [];
@@ -87,6 +97,18 @@ class ProseMirrorRenderer
     {
         $this->dropped = [];
         $this->degraded = [];
+        $this->referenceDefinitionLines = [];
+        $this->referenceDefinitionAttributes = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
+                $line = '[' . $child->getLabel() . ']: ' . $child->getHref();
+                if ($child->getTitle() !== null) {
+                    $line .= ' "' . $child->getTitle() . '"';
+                }
+                $this->referenceDefinitionLines[$child->getLabel()] = $line . ' ' . $this->renderAttributeRun($child);
+                $this->referenceDefinitionAttributes[$child->getLabel()] = $child->getAttributes();
+            }
+        }
 
         $doc = [
             'type' => 'doc',
@@ -223,6 +245,12 @@ class ProseMirrorRenderer
                 : $this->renderBlocks($node->getChildren());
         }
 
+        if ($node instanceof Figure && isset($content[0]) && ($content[0]['type'] ?? null) === 'image') {
+            $content[0] = ['type' => 'paragraph', 'content' => [$content[0]]];
+        }
+
+        $content = $this->mergeTextNodes($content);
+
         if ($node instanceof FigureGroup && $node->hasCaption()) {
             // The GROUP caption is authored below the closing fence and hangs
             // off the node as state, so walking children alone drops it. It
@@ -326,8 +354,13 @@ class ProseMirrorRenderer
     {
         $out = ['type' => $cell->isHeader() ? 'tableHeader' : 'tableCell'];
         $attrs = $this->attributesFor($cell);
-        $attrs['colspan'] = $colspan;
-        $attrs['rowspan'] = $rowspan;
+        unset($attrs['colspan'], $attrs['rowspan']);
+        if ($colspan !== 1) {
+            $attrs['colspan'] = $colspan;
+        }
+        if ($rowspan !== 1) {
+            $attrs['rowspan'] = $rowspan;
+        }
         // A BLOCKED span marker is content, not a span. `| < | b |` has no cell
         // to its left to continue into, so the parser keeps the marker on the
         // cell and renders it empty - and an empty cell is all the editor saw,
@@ -338,18 +371,20 @@ class ProseMirrorRenderer
         // `carveSpanMarker` follows `carveSource`: a lossless escape hatch for
         // the exact thing the author wrote, which the editor carries but does
         // not interpret.
+        // The cell's OWN alignment marker, which is what the wire spells as
+        // `textAlign` - the name Tiptap's own table extension uses. Without it
+        // an alignment row crossed as an author attribute and came back as
+        // `|={textAlign=left}`, which is an attribute run rather than a marker.
+        if ($cell->hasExplicitAlignment() && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
+            $attrs['textAlign'] = $cell->getAlignment();
+        }
         $marker = $cell->getSpanMarker();
         if ($marker !== null && $marker !== '') {
             $attrs['carveSpanMarker'] = $marker;
         }
         $out['attrs'] = $attrs;
 
-        $content = $this->isInlineContainer($cell)
-            ? $this->renderInlines($cell->getChildren(), [])
-            : $this->renderBlocks($cell->getChildren());
-        if ($content !== []) {
-            $out['content'] = $content;
-        }
+        $out['content'] = [['type' => 'paragraph', 'content' => $this->renderInlines($cell->getChildren(), [])]];
 
         return $out;
     }
@@ -409,6 +444,12 @@ class ProseMirrorRenderer
             // does not, so an AST round-trip will not be identical.
             $asText = $this->degradeToText($node);
             if ($asText !== null) {
+                // Reported even where the text round-trips exactly - a soft
+                // break comes back as a newline now, and the NODE is still
+                // gone. Suppressing it would move documents into the
+                // fully-covered population without the bridge carrying any
+                // more than it did, which is a measurement moving rather than
+                // a bridge improving.
                 $this->degraded[$type] = SchemaMap::unmappedReason($type) ?? 'degraded to text';
                 if ($asText !== '') {
                     $textNode = ['type' => 'text', 'text' => $asText];
@@ -470,7 +511,10 @@ class ProseMirrorRenderer
             }
 
             if (SchemaMap::isMark($type)) {
-                $mark = ['type' => (string)SchemaMap::nameFor($type)];
+                // An abbreviation is authored as `[text]{abbr="..."}` - a span
+                // carrying one key - and the map gives it a mark of its own.
+                $isAbbreviation = $node instanceof Span && $node->getAttribute('abbr') !== null;
+                $mark = ['type' => $isAbbreviation ? 'carveAbbreviation' : (string)SchemaMap::nameFor($type)];
                 $attrs = $this->attributesFor($node);
                 if ($attrs !== []) {
                     $mark['attrs'] = $attrs;
@@ -514,7 +558,7 @@ class ProseMirrorRenderer
     protected function degradeToText(Node $node): ?string
     {
         return match (true) {
-            $node instanceof SoftBreak => ' ',
+            $node instanceof SoftBreak => "\n",
             $node instanceof EscapedText => $node->getContent(),
             $node instanceof RawText => $node->getContent(),
             $node instanceof SmartPunctuation => $node->getGlyph(),
@@ -624,11 +668,11 @@ class ProseMirrorRenderer
             // to say which values are the construct's own.
             $header = $node->getHeader();
             if ($header !== null) {
-                $attrs['carveFenceTitle'] = $header;
+                $attrs['carveHeader'] = $header;
             }
             $fenceLabel = $node->getLabel();
             if ($fenceLabel !== null && $fenceLabel !== '') {
-                $attrs['carveFenceLabel'] = $fenceLabel;
+                $attrs['carveLabel'] = $fenceLabel;
             }
         } elseif ($node instanceof ListBlock) {
             // The writer reads exactly three things off a list to decide how to
@@ -647,7 +691,7 @@ class ProseMirrorRenderer
                 // this, `a. apple` comes back `1. apple` and the visible label
                 // changes.
                 if ($node->getStyle() !== null) {
-                    $attrs['carveListStyle'] = $node->getStyle();
+                    $attrs['carveOlType'] = $node->getStyle();
                 }
             }
             // Section 11: a different marker character starts a NEW list, so
@@ -655,18 +699,16 @@ class ProseMirrorRenderer
             // (carve#286). That makes the marker structural, not decoration.
             $marker = $node->getMarker();
             if ($marker !== null && in_array($marker, [')', '*'], true)) {
-                $attrs['carveListMarker'] = $marker;
+                $attrs['carveDelim'] = $marker;
             }
             // Looseness decides whether items render their paragraphs, so it is
             // content, not styling: without it a loose list comes back tight.
-            $attrs['tight'] = $node->isTight();
+            $attrs['carveTight'] = $node->isTight();
         } elseif ($node instanceof ListItem) {
             if ($node->isTask()) {
                 $attrs['checked'] = $node->isCompleted();
             }
         } elseif ($node instanceof TableCell) {
-            $attrs['colspan'] = $node->getColspan();
-            $attrs['rowspan'] = $node->getRowspan();
             // The cell's OWN marker, not the one it inherits from the column.
             // carve-rs writes `alignment` from `cell.align`, which its parser
             // sets only where the cell carries a marker, so a body cell under
@@ -743,6 +785,9 @@ class ProseMirrorRenderer
                 if ($rawReferenceLabel !== null) {
                     $attrs['carveRawRef'] = $rawReferenceLabel;
                 }
+                if ($referenceLabel !== null && isset($this->referenceDefinitionLines[$referenceLabel])) {
+                    $attrs['carveReferenceDefinition'] = $this->referenceDefinitionLines[$referenceLabel];
+                }
             }
         } elseif ($node instanceof Math) {
             $attrs['src'] = $node->getContent();
@@ -762,7 +807,7 @@ class ProseMirrorRenderer
             // `carveSource` is the schema's lossless escape hatch: the exact
             // directive the author wrote. Without it a `:kbd[x]` comes back as
             // `:[x]`, which is not valid Carve at all.
-            $attrs['carveSource'] = ':' . $node->getExtensionType();
+            $attrs['name'] = $node->getExtensionType();
         } elseif ($node instanceof RawBlock || $node instanceof RawInline) {
             $attrs['format'] = $node->getFormat();
             if ($node instanceof RawInline) {
@@ -844,8 +889,12 @@ class ProseMirrorRenderer
             if ($header !== null) {
                 $attrs['title'] = $header;
             }
+            // Which SPELLING the author used: the kind word on the opener, or
+            // an attribute run above a bare `:::`. One ProseMirror node serves
+            // both `div` and `admonition`, so without this the two cannot be
+            // told apart and an attributed div comes back as a typed one
+            // (markup-carve/carve-grammars#239).
             $attrs['carveTyped'] = $node->isTyped();
-            $attrs['carveAttrs'] = $node->getAttributes();
         }
 
         // Author attributes fill in around the structural ones; they never
@@ -854,14 +903,105 @@ class ProseMirrorRenderer
         // refuses to promote - so letting it win here would hand the editor a
         // destination the document does not have, and writing that model back
         // out would make it the real one.
+        return $attrs + $this->authoredAttributesFor($node);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function authoredAttributesFor(Node $node): array
+    {
+        $attrs = [];
+        $keyValues = [];
         foreach ($node->getAttributes() as $key => $value) {
             if (array_key_exists($key, $attrs)) {
                 continue;
             }
-            $attrs[$key] = $value;
+            if (
+                $node instanceof Link && $node->getReferenceLabel() !== null
+                && ($this->referenceDefinitionAttributes[$node->getReferenceLabel()][$key] ?? null) === $value
+            ) {
+                continue;
+            }
+            if ($node instanceof Span && $key === 'abbr') {
+                $attrs['title'] = $value;
+            } elseif ($key === 'id' || $key === 'class') {
+                $attrs[$key] = $value;
+            } else {
+                $keyValues[$key] = $value;
+            }
+        }
+        if ($keyValues !== []) {
+            $attrs['carveKeyValues'] = $keyValues;
         }
 
         return $attrs;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $content
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeTextNodes(array $content): array
+    {
+        $merged = [];
+        foreach ($content as $item) {
+            $last = array_key_last($merged);
+            if (
+                $last !== null && ($item['type'] ?? null) === 'text' && ($merged[$last]['type'] ?? null) === 'text'
+                && ($item['marks'] ?? []) === [] && ($merged[$last]['marks'] ?? []) === []
+                && is_string($item['text'] ?? null) && is_string($merged[$last]['text'] ?? null)
+            ) {
+                $merged[$last]['text'] .= $item['text'];
+            } else {
+                $merged[] = $item;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function renderAttributeRun(Node $node): string
+    {
+        $parts = [];
+        foreach ($node->getAttributes() as $key => $value) {
+            if ($key === 'id') {
+                $parts[] = '#' . $value;
+            } elseif ($key === 'class') {
+                foreach (preg_split('/\s+/', trim($value)) ?: [] as $class) {
+                    $parts[] = '.' . $class;
+                }
+            } else {
+                $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1
+                    ? $key . '=' . $value
+                    : $key . '="' . str_replace(['\\', '"'], ['\\\\', '\\"'], (string)$value) . '"';
+            }
+        }
+
+        return '{' . implode(' ', $parts) . '}';
+    }
+
+    /**
+     * Whether the author wrote the attribute run in an order the wire cannot
+     * reproduce: a key/value before the id or a class, or a class before the id.
+     */
+    private function attributeRunIsReordered(Node $node): bool
+    {
+        $order = $node->getAttributeOrder();
+        if ($order === []) {
+            return false;
+        }
+        $rank = static fn (string $slot): int => match (true) {
+            $slot === '#id' => 0,
+            $slot === '.class' => 1,
+            default => 2,
+        };
+        $ranks = array_map($rank, $order);
+        $sorted = $ranks;
+        sort($sorted);
+
+        return $ranks !== $sorted;
     }
 
     /**
@@ -875,6 +1015,21 @@ class ProseMirrorRenderer
      */
     protected function noteUnrepresentableState(Node $node): void
     {
+        // ProseMirror attributes are an unordered map, and the canonical shape
+        // splits an authored run into `id`, `class` and one `carveKeyValues`
+        // bag. A run the author interleaved - `{key=c .a #b}` - therefore comes
+        // back grouped, `{.a #b key=c}`: same document, different spelling, and
+        // a formatter has to be able to reproduce what was written.
+        if ($this->attributeRunIsReordered($node)) {
+            $this->degraded[$node->getType()] = 'the authored order of an attribute run is not '
+                . 'representable: ProseMirror attributes are a map, and id, class and key/values are separate slots';
+        }
+        if ($node instanceof Span && $node->getAttribute('lang') !== null) {
+            $this->degraded['span'] = 'the language sigil and class slot share values but not source ordering in the editor shape';
+        }
+        if ($node instanceof Span && $node->getAttribute('abbr') !== null && $node->getAttribute('title') !== null) {
+            $this->degraded['span'] = 'an authored title collides with the abbreviation mark title used for its expansion';
+        }
         if ($node instanceof Span && $node->getChildren() === []) {
             // Same shape as the empty link below, and the same reason: a mark
             // needs text to attach to, so a span with no content has nothing to

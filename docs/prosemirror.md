@@ -37,6 +37,20 @@ The bridge builds from the AST instead, and reports what it could not carry -
 that is gone while its text survives. Prefer it for anything you intend to
 store and read back.
 
+## The wire shape, not only the names
+
+`resources/prosemirror-wire-fixtures.json` is a copy of the fixture set
+carve-grammars publishes: one Carve source per construct and the exact
+ProseMirror document a bridge must produce for it, attribute names included.
+`WireFixturesTest` asserts both directions against it.
+
+The map alone was not enough. It named the node a Carve type becomes and left
+the attributes to each implementation, so this bridge wrote `carveRef` and
+`tight` where carve-grammars wrote `ref` and nothing at all - each perfectly
+round-tripping on its own, and neither able to read the other's documents
+without loss. Refresh the fixtures the way the map is refreshed: copy them, and
+bump the commit in `_provenance`.
+
 ## Where the names come from
 
 Node and mark names are **not** defined here. They come from
@@ -95,11 +109,17 @@ Current state, and both numbers are ratchets:
 
 | | count |
 |---|---|
-| corpus documents | 1025 |
-| fully covered, byte-identical HTML | 794 |
-| surviving the round trip, covered or not | 855 |
+| corpus documents | 1053 |
+| fully covered, byte-identical HTML | 791 |
+| surviving the round trip, covered or not | 1014 |
 | fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
+
+The first number FELL when the renderer began reporting two losses it always
+had - the authored order of an attribute run, and a soft break, whose text now
+round-trips as a newline while the node is still gone. Neither document lost
+anything it used to carry. The second number is the one that guards fidelity,
+and it rose by 131.
 
 ## Application node types
 

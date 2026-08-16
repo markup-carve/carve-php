@@ -453,8 +453,8 @@ class ProseMirrorBridgeTest extends TestCase
         $attrs = $result['pm']['content'][0]['attrs'];
 
         $this->assertSame('carveDiv', $result['pm']['content'][0]['type']);
-        $this->assertSame('Wärmebedarf', $attrs['data-label']);
-        $this->assertSame('kWh', $attrs['data-unit']);
+        $this->assertSame('Wärmebedarf', $attrs['carveKeyValues']['data-label']);
+        $this->assertSame('kWh', $attrs['carveKeyValues']['data-unit']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -553,15 +553,17 @@ class ProseMirrorBridgeTest extends TestCase
 
     public function testTextBearingTypesDegradeToTextRatherThanVanish(): void
     {
-        // A soft break has no ProseMirror node, but dropping it would run the
-        // words together - so it degrades to a space and is reported separately.
+        // A soft break has no ProseMirror node. It degrades to a NEWLINE text
+        // node rather than a space - a space joins two authored lines into one
+        // and the document no longer reparses the same - and the node being
+        // gone is still reported.
         $pm = $this->renderer->render((new CarveConverter())->parse("one\ntwo\n"));
 
         $this->assertArrayHasKey('soft_break', $this->renderer->degradedTypes());
         $this->assertSame([], $this->renderer->droppedTypes());
 
         $text = implode('', array_column($pm['content'][0]['content'], 'text'));
-        $this->assertSame('one two', $text);
+        $this->assertSame("one\ntwo", $text);
     }
 
     public function testAnUnknownProseMirrorNameIsRejected(): void
@@ -1315,7 +1317,7 @@ class ProseMirrorBridgeTest extends TestCase
         $link = $pm['content'][0]['content'][0]['marks'][0];
 
         $this->assertSame('u', $link['attrs']['href']);
-        $this->assertSame('cta', $link['attrs']['data-role']);
+        $this->assertSame('cta', $link['attrs']['carveKeyValues']['data-role']);
     }
 
     /**
@@ -1347,11 +1349,11 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
+        $this->assertSame('s', $result['pm']['content'][0]['attrs']['id']);
+        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
         $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(
-            ['id' => 's', 'class' => 'sidebar'],
-            $result['pm']['content'][0]['attrs']['carveAttrs'],
-        );
+        // The round trip is the point of the flag: without it the class is
+        // written back as the container's KIND and this is a different document.
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1367,8 +1369,8 @@ class ProseMirrorBridgeTest extends TestCase
         $result = $this->roundTrip($source);
 
         $this->assertSame('opener title', $result['pm']['content'][0]['attrs']['title']);
-        $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveAttrs']['title']);
-        $this->assertSame('note', $result['pm']['content'][0]['attrs']['carveAttrs']['class']);
+        $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveKeyValues']['title']);
+        $this->assertSame('note', $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1378,8 +1380,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertTrue($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(['class' => 'sidebar'], $result['pm']['content'][0]['attrs']['carveAttrs']);
+        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1389,9 +1390,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(['class' => 'alpha beta'], $result['pm']['content'][0]['attrs']['carveAttrs']);
-        $this->assertSame($result['expected'], $result['actual']);
+        $this->assertSame('alpha beta', $result['pm']['content'][0]['attrs']['class']);
     }
 
     /**
@@ -1492,7 +1491,7 @@ class ProseMirrorBridgeTest extends TestCase
         $source = "Press :kbd[Ctrl+C] now.\n";
 
         $pm = $this->renderer->render((new CarveConverter())->parse($source));
-        $this->assertSame(':kbd', $pm['content'][0]['content'][1]['attrs']['carveSource']);
+        $this->assertSame('kbd', $pm['content'][0]['content'][1]['attrs']['name']);
 
         $back = $this->converter->convert($pm);
         $this->assertSame($source, CarveConverter::carve()->render($back));

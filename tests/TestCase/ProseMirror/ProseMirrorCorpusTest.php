@@ -59,9 +59,23 @@ class ProseMirrorCorpusTest extends TestCase
      * declared unmapped in a map copy eleven commits behind, so nine documents
      * reported the type dropped and came back as a plain div.
      *
+     * FELL from 821 to 791 when the renderer began reporting two more losses it
+     * had always had: the authored ORDER of an attribute run, which the wire
+     * splits into `id`, `class` and one `carveKeyValues` bag, and a soft break,
+     * which still has no node of its own even though its text now round-trips
+     * as a newline. Seven documents left the fully-covered population for the
+     * first reason and the rest for the second. Neither lost anything it used
+     * to carry - what changed is that the measurement stopped calling a
+     * document fully covered while it quietly lost its spelling. The docblock
+     * above records the same kind of correction at 336 -> 329.
+     *
+     * The number that guards FIDELITY is MINIMUM_SURVIVING below, and it rose
+     * by 131 in the same change. Both counts are measured against the corpus
+     * this branch pins; the pair before them was measured on the same one.
+     *
      * @var int
      */
-    private const MINIMUM_LOSSLESS = 794;
+    private const MINIMUM_LOSSLESS = 791;
 
     /**
      * Documents that survive the round trip, COVERED OR NOT.
@@ -96,9 +110,15 @@ class ProseMirrorCorpusTest extends TestCase
      * Rose from 843 to 855 with the composite figure the lossless docblock
      * above records.
      *
+     * Rose from 883 to 1014 when the bridge adopted the published wire shape: a
+     * soft break crosses as a newline rather than a space that joins two
+     * authored lines into one, a table cell holds a paragraph, a figure's image
+     * panel is wrapped the way the fixtures spell it, and the preservation
+     * atoms another bridge writes are read instead of refused.
+     *
      * @var int
      */
-    private const MINIMUM_SURVIVING = 855;
+    private const MINIMUM_SURVIVING = 1014;
 
     /**
      * Fully-covered documents that still differ. Every one is a fidelity bug
