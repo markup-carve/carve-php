@@ -9,6 +9,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML importer reads the engine's own footnote reference back as a
+  reference** (carve-php#1286). `<a id="fnrefN" href="#fnN"
+  role="doc-noteref"><sup>N</sup></a>` imported as a literal link carrying a
+  superscript span, the definition it pointed at went unused, and the
+  endnotes section vanished on the next render - so the engine's own
+  footnote output did not round-trip. The label is derived from the `#fnN`
+  fragment, the same derivation the definition side applies to the list
+  item's id, and a round-trip-mode inline footnote is untouched: its data
+  attributes are the richer record and keep precedence.
+
 - **A typed custom div keeps its quoted title under a class-carrying
   attribute line** (carve-php#1284). The typed writer required exactly one
   class, so `{.sidebar}` above `::: widget "Title"` fell through to the

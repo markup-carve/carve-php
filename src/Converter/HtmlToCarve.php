@@ -1799,6 +1799,25 @@ class HtmlToCarve
             return '[' . $content . ']{.' . $cssClass . '}';
         }
 
+        // The engine's own footnote reference outside round-trip mode:
+        // <a id="fnrefN" href="#fnN" role="doc-noteref"><sup>N</sup></a>.
+        // Without this it imported as a literal link carrying a superscript
+        // span, the definition it pointed at went unused, and the endnotes
+        // section vanished on the next render (carve-php#1286). The label is
+        // derived from the fragment the same way the definition side derives
+        // it from the list item's id, so the pair stays bound. AFTER the
+        // data-djot branches: a round-trip-mode inline footnote carries the
+        // same role, and its data attributes are the richer record.
+        if (
+            $node->getAttribute('role') === 'doc-noteref'
+            && str_starts_with($node->getAttribute('href'), '#fn')
+        ) {
+            $label = substr($node->getAttribute('href'), 3);
+            if ($label !== '' && !str_contains($label, ' ')) {
+                return '[^' . $label . ']';
+            }
+        }
+
         $href = $node->getAttribute('href');
         $text = trim($this->processChildren($node));
         $title = $node->getAttribute('title');
