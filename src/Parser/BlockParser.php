@@ -11302,6 +11302,61 @@ class BlockParser
             return $state;
         }
 
+        // A LIST ITEM IS DECIDED BY THE BLOCK INSIDE IT, exactly as the quote
+        // above is, and for the same clause: PART 1 S4 asks whether an open
+        // paragraph is on the STACK, and an item is a container, so the answer
+        // is its own last block's.
+        //
+        // Without this branch the fallback below read a marker line as prose,
+        // so every nested item reported an open paragraph whatever it held. The
+        // clause names this case explicitly - "it binds even where the
+        // unmatched container is a LIST ITEM whose last block is a container"
+        // (markup-carve/carve#1280) - and this engine answered it only at depth
+        // 1, where the marker line never reaches this tracker at all: the item's
+        // own lead arrives with the marker already off. From depth 2 the lead
+        // IS a marker line, and the rule stopped applying
+        // (markup-carve/carve-php#1403, markup-carve/carve-php#1404).
+        //
+        // Depth 3 folded one level in rather than not at all, which is the same
+        // fact seen from the other end: one level of the walk was missing, not
+        // the rule.
+        //
+        // A LOOP AND NOT A RECURSIVE CALL PER MARKER. The answer is the same
+        // either way - each step only takes a marker off - but `- - - ... x`
+        // is a line, so its marker count is bounded by the line length rather
+        // than by the document, and a stack frame per marker turns one long
+        // line into a stack overflow. The single recursive step below is on the
+        // CONTENT, which is where a quote or a comment one level in is decided.
+        //
+        // AFTER the thematic break above, which a spaced `- - -` would
+        // otherwise take from it, and after the heading, which decides by the
+        // LEAD and would lose that fact one level down.
+        $markerInfo = $this->listParser->parseListItemMarker($line);
+        if ($markerInfo !== null) {
+            $markerContent = $line;
+            while ($markerInfo !== null) {
+                $markerContent = $markerInfo['content'];
+                $markerInfo = $this->listParser->parseListItemMarker($markerContent);
+            }
+            $inner = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $markerContent);
+            // ONLY A BLOCK THAT FINISHES ON THE LEAD LINE ANSWERS HERE. A code
+            // fence or a `:::` opener CONTINUES onto lines this step never
+            // sees - they arrive at this tracker, one container out, where they
+            // are not the nested item's content - so the recursion has not read
+            // the block it would be reporting on. Reporting anyway ended the
+            // outer item on the fence's first body line, which changed what the
+            // item CONTAINS and not just where the lazy line went: `- - ::: note`
+            // / `b` / `:::` turned a literal `::: note` into a real admonition
+            // and moved `b` out of the item. carve-js and carve-rs both leave
+            // an unfinished opener as prose here, and so does the fallback
+            // below, so this falls through to it.
+            if (!$inner['inFence'] && !$inner['inDiv'] && !$inner['absorbingFence']) {
+                $state['openParagraph'] = $inner['openParagraph'];
+
+                return $state;
+            }
+        }
+
         // Any other non-blank line belongs to a paragraph-bearing block (plain
         // paragraph, blockquote, heading text). Treat the trailing block
         // as having an open paragraph and let the existing lazy-continuation
