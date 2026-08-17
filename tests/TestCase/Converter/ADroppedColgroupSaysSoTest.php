@@ -229,14 +229,17 @@ class ADroppedColgroupSaysSoTest extends TestCase
      *
      * This engine parses with libxml, which has no insertion modes. The `<col>`
      * arrives as a DIRECT child of the `<table>`, no wrapper is implied, and
-     * the same input therefore reports `element-unwrapped` at `info` under the
-     * `<col>`'s own path instead of `element-dropped` at `warning` under a
-     * `<colgroup>`'s. That is a real cross-engine difference on legal HTML, and
-     * it is a maintainer's call whether the answer is a `col` arm here or a
-     * different parser; scanning for `<col>` on the quiet would have hidden the
-     * question. This test states what arrives so the answer can be checked
-     * against it, and so the day the parser starts implying the wrapper is the
-     * day this test says so.
+     * the row therefore sits under the `<col>`'s own path rather than under a
+     * `<colgroup>`'s.
+     *
+     * THE CODE AND SEVERITY NOW AGREE with the sibling engines, because the
+     * code is read off the outcome: a bare `<col>` puts nothing in the emitted
+     * document, so it is dropped rather than unwrapped (carve-php#1377). What
+     * remains of the divergence is the PATH, and whether the answer to that is
+     * a `col` arm here or a different parser is still a maintainer's call.
+     * This test states what arrives so the answer can be checked against it,
+     * and so the day the parser starts implying the wrapper is the day this
+     * test says so.
      */
     public function testTheBareColShapeDivergesFromTheSiblingEngines(): void
     {
@@ -248,20 +251,23 @@ class ADroppedColgroupSaysSoTest extends TestCase
             array_column($rows, 'path'),
         );
         $this->assertSame(
-            ['attribute-dropped', 'element-unwrapped', 'element-unwrapped'],
+            ['attribute-dropped', 'element-dropped', 'element-dropped'],
             array_column($rows, 'code'),
         );
     }
 
     /**
      * The explicit wrapper and the bare `<col>` after it are two separate
-     * shapes here, and only the first is the element this change reports.
+     * shapes here, reported under two separate paths.
+     *
+     * Both are dropped: the wrapper by the arm that names it, the bare `<col>`
+     * by the outcome, which finds nothing of it in the emitted document.
      */
     public function testAnExplicitWrapperDoesNotAdoptTheColumnsAfterIt(): void
     {
         $rows = $this->rows($this->diagnostics('<table><colgroup><col></colgroup><col><tr><td>a</td></tr></table>'));
 
-        $this->assertSame(['element-dropped', 'element-unwrapped'], array_column($rows, 'code'));
+        $this->assertSame(['element-dropped', 'element-dropped'], array_column($rows, 'code'));
         $this->assertSame(
             ['/table[1]/colgroup[1]', '/table[1]/col[2]'],
             array_column($rows, 'path'),
