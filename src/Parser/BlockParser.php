@@ -62,12 +62,19 @@ class BlockParser
     /**
      * Initial trailing-block tracker state for list-item lazy continuation.
      *
-     * `openParagraph` starts true: an empty item (no block yet) can absorb a
-     * lazy line. See advanceTrailingBlockState().
+     * `openParagraph` starts FALSE: a container that has collected no line yet
+     * holds no block, and PART 1 S4 asks whether an OPEN PARAGRAPH is on the
+     * stack - "nothing" is not one. It started true on the reading that an
+     * empty item can absorb a lazy line, which no shape reaches: every seeding
+     * site advances the tracker over the container's first line before the gate
+     * reads it, so the only line that could leave the initial value standing is
+     * one the tracker passes through unchanged - a COMMENT. `- %% c` / `tail`
+     * is exactly that shape, and the old default made the empty item swallow
+     * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}
      */
-    private const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => true, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -4608,7 +4615,14 @@ class BlockParser
                     // ends in an OPEN paragraph (family-D rule). After a CLOSED
                     // block (fenced code, table, div) the dedented line ends the
                     // item instead of being absorbed.
-                    $subTrailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+                    //
+                    // NOT THE LEAD. This stream is the item's POST-BLANK nested
+                    // content, so the item's lead is the marker line that was
+                    // read further up and the first line HERE is a later block.
+                    // Left at the constant's `true`, `- text` / blank / `  # N`
+                    // / `lazy` read the heading as the item's lead and pushed
+                    // `lazy` out of an item that plainly still holds `text`.
+                    $subTrailingState = ['isLead' => false] + self::INITIAL_TRAILING_BLOCK_STATE;
                     // Whether the collected stream already holds list content;
                     // sibling markers inside it are the nested list's own
                     // business and must not get a loosening blank injected.
@@ -4957,14 +4971,16 @@ class BlockParser
             // rescanning all collected lines. `openParagraph` is false when the
             // trailing top-level block is a fenced code block or a table (no
             // open paragraph for a dedented line to fold into).
+            //
+            // THE MARKER LINE IS NOT A SPECIAL COLUMN. A table written there
+            // used to re-arm `openParagraph`, on the reading that it "owns" the
+            // following lazy line. S4 has no such ownership: it asks what the
+            // container's last block left open, and a completed table leaves
+            // nothing wherever it was written. The carve-out made `- | a | b |`
+            // followed by a column-0 line fold that line into the item, while
+            // the same table one line lower ended it (corpus 326-3).
             $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
             $trailingState = $this->advanceTrailingBlockState($trailingState, $itemContent);
-            // A table written on the marker line owns the following lazy line
-            // even though an ordinary completed table does not expose a
-            // paragraph. This is the marker-line S4 ownership case.
-            if ($this->tableParser->isTableRow($itemContent)) {
-                $trailingState['openParagraph'] = true;
-            }
 
             // First-block item (Carve): `- +` opens an item whose body is the
             // flush-left block that follows, with no indentation. A lone `+` as
@@ -5642,9 +5658,9 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $trailingState
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -10090,41 +10106,6 @@ class BlockParser
     }
 
     /**
-     * Whether a line is a quote marker with nothing after it, at any depth.
-     *
-     * `> > q` holds a paragraph; `> >` holds none, and PART 1 S4 then gives a
-     * following column-0 line nothing to fold into.
-     *
-     * THE QUESTION IS EMPTINESS, not prefix stripping - but it was ANSWERED
-     * with a fourth open-coded copy of the marker walk, and the copy was looser
-     * than the rule the parser applies two functions away. Two shapes came out
-     * of that disagreement, and in both of them the parser BUILDS a paragraph
-     * while this said there was none, so a dedented line failed to fold into a
-     * paragraph that was right there (markup-carve/carve-php#969):
-     *
-     *  - `><SP><SP>>` - two spaces between the markers. The copy `ltrim`ed between
-     *    markers, so it read a second marker where {@see ContainerPrefix} reads
-     *    one marker and the content ` >`.
-     *  - `> <VT>` - the copy's `trim()` ran on the DEFAULT charlist,
-     *    `" \t\n\r\0\x0B"`, which holds a vertical tab. A blank line holds
-     *    spaces and tabs and nothing else (carve-php#967), so a vertical tab is
-     *    content: `> <FF>` folded and `> <VT>` did not, the two decided by a
-     *    charlist rather than by a rule.
-     *
-     * The walk is {@see ContainerPrefix}'s now, and the surrounding whitespace
-     * is the blank-line class rather than PHP's default.
-     */
-    protected function isEmptyQuoteLine(string $line): bool
-    {
-        $rest = trim($line, " \t");
-        if (ContainerPrefix::quoteContent($rest) === null) {
-            return false;
-        }
-
-        return ContainerPrefix::stripQuoteMarkers($rest) === '';
-    }
-
-    /**
      * Advance the trailing-block tracker by one collected item content line.
      *
      * Tracks the kind of the item's most recent top-level block so the
@@ -10146,10 +10127,10 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}
      */
     protected function advanceTrailingBlockState(array $state, string $line): array
     {
@@ -10161,6 +10142,13 @@ class BlockParser
         // the later fence opens a real div (carve#891).
         $wasAbsorbing = $state['absorbingFence'];
         $state['absorbingFence'] = false;
+        // `isLead` is true for exactly the FIRST line handed to this tracker -
+        // the container's LEAD, which for a list item is its marker-line
+        // content and for the recursive quote step below is the quote's first
+        // line. Only the heading branch reads it. Cleared here so every branch
+        // sees one consistent answer for the line after.
+        $wasLead = $state['isLead'];
+        $state['isLead'] = false;
 
         if ($state['inFence']) {
             // Inside a fenced code block: stay code (no open paragraph) until
@@ -10328,11 +10316,113 @@ class BlockParser
             return $state;
         }
 
-        // A quote marker with NOTHING after it opens a quote holding no
-        // paragraph, so a column-0 line has nothing to fold into and the item
-        // closes (PART 1 S4: NO OPEN PARAGRAPH, NO LAZY LINE). `> q` does hold
-        // one and still folds - one rule, opposite answers (carve#572).
-        if ($this->isEmptyQuoteLine($line)) {
+        // A QUOTE IS DECIDED BY THE BLOCK INSIDE IT, not by being a quote.
+        // PART 1 S4 asks whether an open paragraph is on the stack; a quote is
+        // a container, so the answer is its own last block's. `> q` holds an
+        // open paragraph and a column-0 line folds into it; `>` alone holds
+        // nothing and the item closes (carve#572); `> # H` holds a HEADING,
+        // which is closed, and the item closes there too (corpus 326-11).
+        //
+        // Recursing on the quote's content is what makes those one rule rather
+        // than three: the marker-only case is the blank-line branch one level
+        // in, and the heading case is the heading branch one level in. Spelled
+        // as an `isEmptyQuoteLine` special case, only the degenerate answer was
+        // reachable and every non-empty quote reported an open paragraph.
+        // RTRIM ONLY, and then {@see ContainerPrefix} alone. The two halves are
+        // separate rules and each was got wrong by the obvious spelling:
+        //
+        //  - NOT ltrim. `>  >` is ONE marker and the content ` >`, so stripping
+        //    the leading space before the recursive step re-reads that content
+        //    as a second marker with an empty tail - the two-spellings defect
+        //    carve-php#969 removed, reintroduced one recursion deeper.
+        //  - BUT rtrim. Trailing whitespace is dropped from a content line, so
+        //    `> >` and `> >` plus a tab are the same line, and the parser builds
+        //    an empty quote for both. Reading the tab as content made them
+        //    disagree (carve-php#967 is the same class one level up).
+        $quoteContent = ContainerPrefix::quoteContent(rtrim($line, " \t"));
+        if ($quoteContent !== null) {
+            $inner = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $quoteContent);
+            $state['openParagraph'] = $inner['openParagraph'];
+
+            return $state;
+        }
+
+        // PART 1 S4: NO OPEN PARAGRAPH, NO LAZY LINE. Every block below CLOSES
+        // when its own line ends, so it leaves nothing on the stack for a
+        // column-0 line to continue and the container ends there (corpus 326).
+        //
+        // Listed rather than derived because the tracker's fallback is "prose
+        // unless proven otherwise", and each of these is a line the fallback
+        // read as prose:
+        //
+        //  - a HEADING and a THEMATIC BREAK are one-line blocks with no
+        //    paragraph after them;
+        //  - a LINK REFERENCE and a FOOTNOTE DEFINITION are consumed as
+        //    metadata, leaving the container with no visible trailing block;
+        //  - a FLOATING ATTRIBUTE attaches FORWARD, so it is not a paragraph a
+        //    line behind it could join. Left as prose here it did worse than
+        //    fold the line in: the attribute then landed ON the folded line.
+        //
+        // The two facts stay separate below: `absorbingFence` already tracked a
+        // heading and a thematic break as paragraph-ENDING while this reported
+        // an open paragraph anyway. That disagreement inside one function is
+        // what this resolves.
+        // A COMMENT IS TRANSPARENT, WHICH IS NEITHER OF THE TWO ANSWERS. §24 C3
+        // keeps it invisible at any column and closing nothing, so it must
+        // leave `openParagraph` exactly as it found it: `- a` / `%% c` / `b`
+        // folds `b` into `a`'s paragraph (corpus 183, 214-2) while `- %% c` /
+        // `tail` ends an item that never held a paragraph at all (corpus 326-5).
+        // Answering `false` got the second and broke the first; answering
+        // `true` does the reverse. Only "unchanged" gets both, and it is the
+        // reason INITIAL_TRAILING_BLOCK_STATE now starts CLOSED - an item whose
+        // first line is a comment has to inherit "nothing open" from somewhere.
+        if ($this->isCommentLineOrFence($line)) {
+            return $state;
+        }
+
+        // A HEADING CLOSES THE CONTAINER ONLY WHEN IT IS THE LEAD, and unlike
+        // the comment above that is MEASURED from the corpus rather than read
+        // off a clause. Two pinned documents put the same heading on either
+        // side of the answer:
+        //
+        //   - # H        `tail` is a NEW TOP-LEVEL BLOCK (corpus 326)
+        //   tail
+        //
+        //   - b          `lazy` FOLDS INTO THE ITEM (corpus 75-4, nested)
+        //     # N
+        //   lazy
+        //
+        // The heading is the container's own last block in both, so neither
+        // "always closes" nor "never closes" fits. What separates them is
+        // whether the container OPENS with it: an item whose lead is a heading
+        // never held a paragraph, while an item that leads with text still is
+        // one and a heading written under it does not end the item.
+        //
+        // NOT "whatever the state already was" - that reading passes this pair
+        // and then loses `- text` / blank / `  # N` / `lazy`, where the blank
+        // has cleared the flag and the heading has to put it back. The lead is
+        // the fact; the running flag is not.
+        //
+        // It is also why the branches that DO close unconditionally - a table
+        // and a fence above, a thematic break and a definition below - are not
+        // joined by a heading here.
+        if (preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line) === 1) {
+            $state['openParagraph'] = !$wasLead;
+
+            return $state;
+        }
+
+        // THE REST CLOSE, AND ARE TESTED AT COLUMN 0, which is this tracker's
+        // convention: its docblock says the lines arrive stripped to
+        // content-relative indentation, so a block of the CONTAINER's own sits
+        // at column 0 and an indented line belongs to something nested inside
+        // it. The existing branches already read the line that way - a code
+        // fence opener and a table row are tested unindented.
+        if (
+            preg_match('/^([-*_])\1{2,}[ \t]*$/', $line) === 1
+            || $this->isReferenceDefinitionLine($line)
+            || $this->isBlockAttributeLine($line)
+        ) {
             $state['openParagraph'] = false;
 
             return $state;

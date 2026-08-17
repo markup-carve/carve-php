@@ -440,37 +440,14 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * The eighteen below arrived with the bump to carve b6917ab and are FOUR
-     * parser rules, not eighteen bugs. Each rule is a container-boundary
-     * decision this engine makes one block too late, so the documents group by
-     * rule rather than by symptom.
+     * The nine below arrived with the bump to carve b6917ab and are THREE
+     * parser rules, not nine bugs. Each rule is a container-boundary decision
+     * this engine makes one block too late, so the documents group by rule
+     * rather than by symptom.
      *
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        // RULE 1 (carve corpus 326). A column-0 line after a container's last
-        // block, when that block left no paragraph open, ends the container.
-        // This engine continues it lazily instead, so `tail` joins the item
-        // that a heading, table, break, comment or definition had already
-        // finished.
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open'
-            => 'A column-0 line after an item whose last block left no paragraph open is lazily continued into the item instead of ending the list.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-3'
-            => 'Same rule, after a pipe table in an item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-4'
-            => 'Same rule, after a thematic break in an item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-5'
-            => 'Same rule, after a line comment in an item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-6'
-            => 'Same rule, after a delimited comment in an item; the comment body also stays inside the item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-7'
-            => 'Same rule, after a link reference definition in an item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-8'
-            => 'Same rule, after a footnote definition in an item.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-9'
-            => 'Same rule, after a floating attribute in an item; the attribute then lands on the continued paragraph.',
-        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-11'
-            => 'Same rule, after a heading inside a blockquote inside an item.',
         // RULE 2 (carve corpus 327). A continuation marker attaches exactly ONE
         // block, and the attached block's extent is the boundary. This engine
         // keeps the container open past it, so the NEXT block is attached too.
