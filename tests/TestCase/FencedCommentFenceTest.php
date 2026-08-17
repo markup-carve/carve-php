@@ -505,6 +505,121 @@ class FencedCommentFenceTest extends TestCase
     }
 
     /**
+     * A quote INSIDE an item defers too, at every prefix that reaches it.
+     *
+     * The quote-only prefixes were read by stripping every marker from position
+     * 0 and the item-only ones by walking indents and list markers, so a
+     * document that INTERLEAVES the two matched neither spelling: the fence was
+     * never entered and the definition under it registered, one prefix further
+     * than markup-carve/carve-php#1405 went (markup-carve/carve-php#1413).
+     *
+     * The rows go two prefixes deep in each direction because the walk is what
+     * changed, not one shape in it - `- > >` and `- - >` reach the same fence by
+     * different sequences, and a walk that only learned the first would leave
+     * the second registering. Both kinds the quoted rows above cover are asked
+     * again here, so a prefix that leaks for one kind cannot hide behind the
+     * other.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function nestedPrefixCommentDefersProvider(): array
+    {
+        return [
+            'quote in an item, link reference' => [
+                "- > %%%\n  > [r]: /url\n  > %%%\n\nSee [r][].\n",
+                "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n"
+                    . "<p>See [r][].</p>\n",
+            ],
+            'quote in an item, footnote' => [
+                "- > %%%\n  > [^f]: note\n  > %%%\n\nSee [^f].\n",
+                "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n"
+                    . "<p>See [^f].</p>\n",
+            ],
+            'two quotes in an item' => [
+                "- > > %%%\n  > > [r]: /url\n  > > %%%\n\nSee [r][].\n",
+                "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n\n      </blockquote>\n"
+                    . "    </blockquote>\n  </li>\n</ul>\n<p>See [r][].</p>\n",
+            ],
+            'a quote in two items' => [
+                "- - > %%%\n    > [r]: /url\n    > %%%\n\nSee [r][].\n",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n"
+                    . "      </li>\n    </ul>\n  </li>\n</ul>\n<p>See [r][].</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('nestedPrefixCommentDefersProvider')]
+    public function testNestedPrefixCommentDefers(string $input, string $expected): void
+    {
+        $this->assertSame($expected, (new CarveConverter())->convert($input));
+    }
+
+    public function testAnItemsQuotedCommentCloses(): void
+    {
+        // The deferral rows above hold nothing below the comment, so a region
+        // that never closed would render the same page. This one does: if the
+        // closer is not matched at the interleaved prefix it opened at, the
+        // region stays open and the definition below stops being collected
+        // while the block parser goes on rendering the page normally.
+        $input = "- > %%%\n  > hidden\n  > %%%\n\n[r]: /url\n\nSee [r][].\n";
+
+        $this->assertSame(
+            "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n"
+                . "<p>See <a href=\"/url\">r</a>.</p>\n",
+            (new CarveConverter())->convert($input),
+        );
+    }
+
+    /**
+     * An item's quoted opener needs its closer at the SAME prefix.
+     *
+     * The bound from markup-carve/carve-php#1405 one prefix over. Reading the
+     * interleaved opener without carrying its prefix into the closer index
+     * would pair `- > %%%` with a top-level `> %%%` far below and suppress
+     * every definition in between - a worse defect than the gap. Every row here
+     * registers.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function nestedPrefixOpenerNeedsItsOwnCloserProvider(): array
+    {
+        return [
+            'no closer at all' => ["- > %%%\n  > [r]: /url\n\nSee [r][].\n"],
+            // The quote inside the item ended at the blank, so the `> %%%`
+            // below is a top-level quote's fence and not this one's.
+            'closer in a top-level quote' => ["- > %%%\n  > [r]: /url\n\n> %%%\n\nSee [r][].\n"],
+            'closer back at column 0' => ["- > %%%\n  > [r]: /url\n\n%%%\n\nSee [r][].\n"],
+            'closer of the wrong width' => ["- > %%%\n  > [r]: /url\n  > %%%%\n\nSee [r][].\n"],
+            // Spelled at the fence's own prefix, so the closer index finds it -
+            // and the BOUND is what refuses it, because the blank line ended
+            // the quote inside the item. This is the row the index alone does
+            // not cover.
+            'closer at the same prefix past a blank' => [
+                "- > %%%\n  > [r]: /url\n\nxxx\n\n  > %%%\n\nSee [r][].\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('nestedPrefixOpenerNeedsItsOwnCloserProvider')]
+    public function testNestedPrefixOpenerNeedsItsOwnCloser(string $input): void
+    {
+        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+    }
+
+    public function testAListMarkerDoesNotCloseAFence(): void
+    {
+        // The walk reads a list marker for an OPENER only. A fence opens on the
+        // line that opens its item, but a closer is a CONTINUATION line, where
+        // a marker opens a new item instead. Reading markers on both sides
+        // would let `- %%%` close the top-level fence above it - and the
+        // definition BETWEEN the two is what makes that observable, because a
+        // fence with no closer opens nothing and suppresses nothing.
+        $input = "%%%\n[r]: /url\n- %%%\n\nSee [r][].\n";
+
+        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+    }
+
+    /**
      * The container bound is memoized per DEPTH as well as per column.
      *
      * Same shape as testContainerScopedOpenersDoNotWalkTheTailPerOpener one

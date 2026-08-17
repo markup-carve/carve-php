@@ -52,30 +52,55 @@ use MarkupCarve\Carve\Util\StringUtil;
  * prefixed opener is admitted only when its closer arrives before the container
  * ends {@see self::firstEscape()}. markup-carve/carve-rs#1052 landed the bound
  * in the same change for the same reason.
+ *
+ * THE PREFIX IS A SEQUENCE, NOT A DEPTH AND A COLUMN. Reading every quote
+ * marker first and every list marker after left the two kinds unable to
+ * interleave, and a document that interleaves them is the ordinary one: `- >`
+ * opens an item and then a quote inside it. That spelling matched no opener at
+ * all, so the fence was never entered and the definition under it registered -
+ * one prefix further than the quote-only gap above (markup-carve/carve-php#1413).
+ *
+ * ```
+ * - > %%%
+ *   > [r]: /url
+ *   > %%%
+ *
+ * See [r][].
+ * ```
+ *
+ * So the prefix is carried as the ORDERED list of indent columns its quote
+ * markers sit at {@see self::prefixOn()}, and the same walk reads the opener,
+ * indexes the closers and tests the bound. `> %%%` is `[0]`, `- > %%%` is
+ * `[2]`, `- - > > %%%` is `[4, 0]`, and a fence with no quote at all is `[]` -
+ * so the pure shapes key exactly as the depth did, and the mixed ones now key
+ * at all. A closer reproduces the opener's list with SPACES where the opener
+ * wrote markers, which is why the walk counts a list marker as indentation
+ * rather than as a step of its own.
  */
 class PrepassCommentFence
 {
     /**
-     * Closer line indexes, ascending, keyed by blockquote depth and then by
+     * Closer line indexes, ascending, keyed by quote-prefix key and then by
      * EXACT `%` run width.
      *
-     * Keyed by DEPTH because a closer is read at the depth its fence opened at,
-     * exactly as {@see PrepassFenceTracker::atQuoteDepth()} reads a code fence's:
-     * a `> > %%%` is quoted comment content rather than the closer of a
-     * `> %%%`. Keyed by width EXACTLY because `%%%%` does not close a `%%%`
-     * fence and a `%%%` does not close a `%%%%` one.
+     * Keyed by the PREFIX because a closer is read at the prefix its fence
+     * opened at, the same way {@see PrepassFenceTracker::atQuoteDepth()} reads a
+     * code fence's depth: a `> > %%%` is quoted comment content rather than the
+     * closer of a `> %%%`, and a top-level `> %%%` is not the closer of an
+     * item's `- > %%%`. Keyed by width EXACTLY because `%%%%` does not close a
+     * `%%%` fence and a `%%%` does not close a `%%%%` one.
      *
-     * A line contributes at most ONE entry: every stage above its own depth
-     * still leads with a `>`, so only the fully unquoted stage can lead with a
-     * `%` run. The index therefore spells the same class as
-     * {@see self::closesHere()} rather than a wider one.
+     * A line contributes at most ONE entry: {@see self::prefixOn()} walks a
+     * single deterministic prefix, so there is one width a line can close at.
+     * The index therefore spells the same class as {@see self::closesHere()}
+     * rather than a wider one.
      *
-     * @var array<int, array<int, array<int, int>>>
+     * @var array<string, array<int, array<int, int>>>
      */
     protected array $closers = [];
 
     /**
-     * Memo for {@see self::firstEscape()}: "depth:column" => [asked at, answer].
+     * Memo for {@see self::firstEscape()}: "prefix:column" => [asked at, answer].
      *
      * Once the first line below `from` that leaves a container is known, it is
      * still the answer for every query in `from .. at`. Without the memo a
@@ -92,9 +117,11 @@ class PrepassCommentFence
     protected int $length = 0;
 
     /**
-     * The blockquote depth the open fence was read at.
+     * Indent columns of the quote markers the open fence was read behind.
+     *
+     * @var array<int>
      */
-    protected int $quoteDepth = 0;
+    protected array $quotes = [];
 
     /**
      * @param array<string> $lines
@@ -102,13 +129,22 @@ class PrepassCommentFence
     public function __construct(protected array $lines)
     {
         foreach ($lines as $index => $line) {
-            foreach (ContainerPrefix::quoteStages($line) as $depth => $stage) {
-                $run = self::leadingRun($stage);
-                if ($run >= 3) {
-                    $this->closers[$depth][$run][] = $index;
-                }
+            [$quotes, $rest] = self::prefixOn($line, false);
+            $run = strspn($rest, '%');
+            if ($run >= 3) {
+                $this->closers[self::key($quotes)][$run][] = $index;
             }
         }
+    }
+
+    /**
+     * The index key for a quote prefix.
+     *
+     * @param array<int> $quotes
+     */
+    protected static function key(array $quotes): string
+    {
+        return implode(',', $quotes);
     }
 
     /**
@@ -129,9 +165,9 @@ class PrepassCommentFence
      */
     public function advance(string $line): void
     {
-        if ($this->closesHere($line, $this->quoteDepth, $this->length)) {
+        if ($this->closesHere($line, $this->quotes, $this->length)) {
             $this->length = 0;
-            $this->quoteDepth = 0;
+            $this->quotes = [];
         }
     }
 
@@ -149,13 +185,20 @@ class PrepassCommentFence
         if ($opener === null) {
             return false;
         }
-        [$column, $length, $quoteDepth] = $opener;
+        [$quotes, $column, $length] = $opener;
 
         // An indented fence is the CONTAINER's, and only the container's. Below
         // the item's content column it is §24 C3 residual indent rather than
         // the item's content, and with no item open at all a top-level comment
         // may hold its own body below its fence - reading either as a
         // container-scoped fence mispairs the delimiters.
+        //
+        // The column tested is the one INSIDE the innermost quote, which is
+        // where the callers measure the content column they hand in
+        // (markup-carve/carve#658). A prefix ending in a quote marker leaves no
+        // indent to test and skips this; what bounds THAT shape is the
+        // container test below, which walks the quote indents against every
+        // line under the fence.
         if ($column > 0 && ($contentColumn === 0 || $column < $contentColumn)) {
             return false;
         }
@@ -163,83 +206,118 @@ class PrepassCommentFence
         // Only a fence that CLOSES opens the opaque region. An unterminated
         // `%%%` degrades to a single-line comment, and treating it as open
         // suppresses every definition in the rest of the document.
-        $closer = $this->firstCloserAfter($quoteDepth, $length, $lineIndex);
+        $closer = $this->firstCloserAfter($quotes, $length, $lineIndex);
         if ($closer === null) {
             return false;
         }
 
         // A fence with no container prefix at all has nothing to be bounded by.
-        if ($quoteDepth === 0 && $column === 0) {
+        if ($quotes === [] && $column === 0) {
             $this->length = $length;
-            $this->quoteDepth = 0;
+            $this->quotes = [];
 
             return true;
         }
 
-        if ($closer >= $this->firstEscape($lineIndex, $quoteDepth, $column)) {
+        if ($closer >= $this->firstEscape($lineIndex, $quotes, $column)) {
             return false;
         }
 
         $this->length = $length;
-        $this->quoteDepth = $quoteDepth;
+        $this->quotes = $quotes;
 
         return true;
     }
 
     /**
-     * Does this line close a fence of `$length` opened at `$quoteDepth`?
+     * Does this line close a fence of `$length` opened behind `$quotes`?
      *
-     * Read at ANY column once the quote markers are off - the closer carries
-     * the container's indentation, and the fence has no way to know how much of
-     * it the writer used. Trailing text is allowed, so `%%% end` closes a `%%%`
-     * fence, and the run must match the opener's width EXACTLY.
+     * Read at ANY column once the quote prefix is off - the closer carries the
+     * container's indentation, and the fence has no way to know how much of it
+     * the writer used. The quote prefix itself is NOT read at any column: a
+     * marker one column off is a different container, which is what keeps a
+     * top-level `> %%%` from closing an item's `- > %%%`. Trailing text is
+     * allowed, so `%%% end` closes a `%%%` fence, and the run must match the
+     * opener's width EXACTLY.
+     *
+     * @param string $line The raw line, container prefixes still attached.
+     * @param array<int> $quotes Indent columns of the open fence's quote markers.
+     * @param int $length The open fence's `%` run width.
      */
-    protected function closesHere(string $line, int $quoteDepth, int $length): bool
+    protected function closesHere(string $line, array $quotes, int $length): bool
     {
-        $stage = ContainerPrefix::quoteStages($line)[$quoteDepth] ?? null;
+        [$lineQuotes, $rest] = self::prefixOn($line, false);
 
-        return $stage !== null && self::leadingRun($stage) === $length;
+        return $lineQuotes === $quotes && strspn($rest, '%') === $length;
     }
 
     /**
-     * The `%` run this line leads with once its indentation is removed, or 0.
-     */
-    protected static function leadingRun(string $line): int
-    {
-        return strspn(ltrim($line, " \t"), '%');
-    }
-
-    /**
-     * The column, width and blockquote depth of a fence opening here, or null.
+     * The quote prefix, column and width of a fence opening here, or null.
      *
-     * Blockquote markers come off FIRST and only from position 0, which is
-     * where every other reader of this document takes them off: an indented
-     * `> ` is inside something else, and eating that indentation loses the very
-     * column the fence has to reach (markup-carve/carve-php#788). The column is
-     * then measured INSIDE the quote, because that is where the callers measure
-     * the content column they pass in (markup-carve/carve#658).
+     * The opener is read past leading whitespace, past blockquote markers and
+     * past any list markers on the fence's own line, because §28 names no
+     * column and no container: `- %%%` opens at the item's content column
+     * rather than at 0 (corpus 337), and `- - %%%` at 4.
      *
-     * Past that, the opener is read past leading whitespace AND past any list
-     * markers on the fence's own line, so `- %%%` opens at the item's content
-     * column rather than at 0 (corpus 337). Whitespace is re-trimmed between
-     * markers, so `- - %%%` opens at 4.
-     *
-     * @return array{0: int, 1: int, 2: int}|null [column, width, quote depth]
+     * @return array{0: array<int>, 1: int, 2: int}|null [quote indents, column, width]
      */
     protected static function openerOn(string $line): ?array
     {
-        $rest = $line;
-        $quoteDepth = 0;
-        while (($content = ContainerPrefix::quoteContent($rest)) !== null) {
-            $rest = $content;
-            $quoteDepth++;
-        }
+        [$quotes, $rest, $column] = self::prefixOn($line, true);
+        $run = strspn($rest, '%');
 
+        return $run >= 3 ? [$quotes, $column, $run] : null;
+    }
+
+    /**
+     * Walk one line's container prefix.
+     *
+     * Whitespace, blockquote markers and - for an opener - list markers, in
+     * whatever order the line spells them, until none of the three matches. The
+     * quote markers are returned as the INDENT COLUMN each one sits at, which
+     * is the shape a closer can reproduce with spaces where the opener wrote
+     * markers. `column` is the indentation left over inside the innermost
+     * quote, which no closer has to match {@see self::closesHere()} and the
+     * bound does {@see self::firstEscape()}.
+     *
+     * A quote marker is taken only at position 0 of the view it sits in, which
+     * is where every other reader of this document takes one off. What changed
+     * for markup-carve/carve-php#1413 is that the view can now be an item's
+     * content rather than only the whole line: an indented `> ` is inside
+     * something, and the walk records the column of the something instead of
+     * eating it (markup-carve/carve-php#788).
+     *
+     * LIST MARKERS ARE READ ONLY FOR AN OPENER. A fence opens on the line that
+     * opens its item, so `- %%%` is a fence; a CLOSER is a continuation line,
+     * where a marker would open a new item rather than continue the one the
+     * fence is in. Reading them on both sides would make `- %%%` close a
+     * top-level `%%%` fence.
+     *
+     * @return array{0: array<int>, 1: string, 2: int} [quote indents, remainder, column]
+     */
+    protected static function prefixOn(string $line, bool $markers): array
+    {
+        $quotes = [];
+        $rest = $line;
         $column = 0;
         while (true) {
             $trimmed = ltrim($rest, " \t");
             $column = self::advanceColumns(substr($rest, 0, strlen($rest) - strlen($trimmed)), $column);
             $rest = $trimmed;
+
+            $content = ContainerPrefix::quoteContent($rest);
+            if ($content !== null) {
+                $quotes[] = $column;
+                $rest = $content;
+                $column = 0;
+
+                continue;
+            }
+
+            if (!$markers) {
+                break;
+            }
+
             $stripped = self::stripListMarker($rest);
             if ($stripped === $rest) {
                 break;
@@ -248,9 +326,7 @@ class PrepassCommentFence
             $rest = $stripped;
         }
 
-        $run = strspn($rest, '%');
-
-        return $run >= 3 ? [$column, $run, $quoteDepth] : null;
+        return [$quotes, $rest, $column];
     }
 
     /**
@@ -285,11 +361,15 @@ class PrepassCommentFence
     }
 
     /**
-     * The first closer of this width and depth strictly after `$lineIndex`.
+     * The first closer of this width and prefix strictly after `$lineIndex`.
+     *
+     * @param array<int> $quotes Indent columns of the fence's quote markers.
+     * @param int $length The fence's `%` run width.
+     * @param int $lineIndex The opener's line index; the closer is strictly below it.
      */
-    protected function firstCloserAfter(int $quoteDepth, int $length, int $lineIndex): ?int
+    protected function firstCloserAfter(array $quotes, int $length, int $lineIndex): ?int
     {
-        $positions = $this->closers[$quoteDepth][$length] ?? [];
+        $positions = $this->closers[self::key($quotes)][$length] ?? [];
         $low = 0;
         $high = count($positions);
         while ($low < $high) {
@@ -309,14 +389,19 @@ class PrepassCommentFence
      * The first line below `$openAt` that leaves the fence's own container.
      *
      * Two ways out, and the fence is bounded by whichever comes first. A line
-     * that no longer reaches `$openColumn` has left the ITEM; a line that no
-     * longer carries `$quoteDepth` markers has left the QUOTE - and a blank
-     * line carries none, which is exactly why a blank ends a quoted comment
-     * while it passes straight through an item's.
+     * that no longer reaches a column the prefix claims has left the ITEM at
+     * that column; a line that no longer carries a marker the prefix claims has
+     * left that QUOTE - and a blank line carries no marker at all, which is
+     * exactly why a blank ends a quoted comment while it passes straight
+     * through an item's.
+     *
+     * @param int $openAt The opener's line index.
+     * @param array<int> $quotes Indent columns of the fence's quote markers.
+     * @param int $openColumn The fence's indent inside its innermost quote.
      */
-    protected function firstEscape(int $openAt, int $quoteDepth, int $openColumn): int
+    protected function firstEscape(int $openAt, array $quotes, int $openColumn): int
     {
-        $key = $quoteDepth . ':' . $openColumn;
+        $key = self::key($quotes) . ':' . $openColumn;
         $memo = $this->dedents[$key] ?? null;
         if ($memo !== null && $memo[0] <= $openAt && $openAt < $memo[1]) {
             return $memo[1];
@@ -325,16 +410,7 @@ class PrepassCommentFence
         $count = count($this->lines);
         $at = $count;
         for ($index = $openAt + 1; $index < $count; $index++) {
-            $stage = ContainerPrefix::quoteStages($this->lines[$index])[$quoteDepth] ?? null;
-            if ($stage === null) {
-                $at = $index;
-
-                break;
-            }
-            if (IndentationHelper::isBlankLine($stage)) {
-                continue;
-            }
-            if (IndentationHelper::getLeadingColumns($stage) < $openColumn) {
+            if (self::escapesOn($this->lines[$index], $quotes, $openColumn)) {
                 $at = $index;
 
                 break;
@@ -343,5 +419,42 @@ class PrepassCommentFence
         $this->dedents[$key] = [$openAt, $at];
 
         return $at;
+    }
+
+    /**
+     * Has this line left the container the prefix describes?
+     *
+     * @param string $line The raw line, container prefixes still attached.
+     * @param array<int> $quotes Indent columns of the fence's quote markers.
+     * @param int $openColumn The fence's indent inside its innermost quote.
+     */
+    protected static function escapesOn(string $line, array $quotes, int $openColumn): bool
+    {
+        $view = $line;
+        foreach ($quotes as $indent) {
+            // Nothing to carry the marker: a blank line ends every quote it
+            // sits under, however deep the prefix took it.
+            if (IndentationHelper::isBlankLine($view)) {
+                return true;
+            }
+            if (IndentationHelper::getLeadingColumns($view) < $indent) {
+                return true;
+            }
+            $content = ContainerPrefix::quoteContent(
+                IndentationHelper::stripLeadingColumns($view, $indent),
+            );
+            if ($content === null) {
+                return true;
+            }
+            $view = $content;
+        }
+
+        // A blank line INSIDE the innermost container reaches no column and
+        // ends nothing - it is the item's own paragraph break.
+        if (IndentationHelper::isBlankLine($view)) {
+            return false;
+        }
+
+        return IndentationHelper::getLeadingColumns($view) < $openColumn;
     }
 }
