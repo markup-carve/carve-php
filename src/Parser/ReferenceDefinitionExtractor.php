@@ -63,11 +63,13 @@ class ReferenceDefinitionExtractor
         // resolved against text the author commented out - invisible in the
         // output and active in the link table (carve-php#778). The footnote
         // pass beside this one already tracked it; this one did not.
-        $commentFenceLen = 0;
+        //
         // WHERE the fence sits, when it opens and when it closes: one spelling,
-        // shared with the footnote and abbreviation prepasses. It reads the
-        // opener past an indent and past a list marker, and bounds an indented
-        // one by its container (markup-carve/carve#1311, corpus 335-341).
+        // shared with the footnote and abbreviation prepasses, and its own
+        // state so no caller can carry half of it. It reads the opener past an
+        // indent, past a quote marker and past a list marker, and bounds a
+        // prefixed one by its container (markup-carve/carve#1311, corpus
+        // 335-341; markup-carve/carve#1341).
         $commentFence = new PrepassCommentFence($lines);
         $contentColumns = new ListContentColumns();
         // A FOOTNOTE BODY is a container like any other: a definition written
@@ -152,10 +154,8 @@ class ReferenceDefinitionExtractor
 
             // A comment fence's closer is a leading `%` run of the SAME length;
             // trailing text is allowed, so `%%% end` closes a `%%%` fence.
-            if ($commentFenceLen > 0) {
-                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
-                    $commentFenceLen = 0;
-                }
+            if ($commentFence->isOpen()) {
+                $commentFence->advance($line);
                 $i++;
 
                 continue;
@@ -165,9 +165,7 @@ class ReferenceDefinitionExtractor
             // `::: |` inside a comment is comment text and opens no verse
             // (carve-php#698) - and after the open-region tests above, because
             // a `%%%` inside verse is verse text and opens no comment.
-            $openedComment = $commentFence->opensAt($line, $i, $contentCol);
-            if ($openedComment !== null) {
-                $commentFenceLen = $openedComment;
+            if ($commentFence->opensOn($line, $i, $contentCol)) {
                 $i++;
 
                 continue;

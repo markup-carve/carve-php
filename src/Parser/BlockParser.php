@@ -1278,11 +1278,11 @@ class BlockParser
         // longer registers either. That is an intended behaviour change: a
         // comment renders nothing, and carve-js has never registered from
         // inside one.
-        $commentFenceLen = 0;
+        //
         // WHERE the fence sits, when it opens and when it closes, spelled once
         // for all three definition prepasses {@see PrepassCommentFence}. It
         // indexes the closers in a single pass and memoizes the container bound
-        // per column, so no opener rescans the tail -- which is what
+        // per depth and column, so no opener rescans the tail -- which is what
         // testDistinctWidthFenceOpenersDoNotRescanPerOpener forbids, and
         // `%%% x`, `%%%% x`, ... is all openers and no closers.
         $commentFence = new PrepassCommentFence($lines);
@@ -1375,10 +1375,8 @@ class BlockParser
             // A comment fence's closer is a leading `%` run of the SAME length --
             // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
             // only a bare fence missed real closers and left the state open.
-            if ($commentFenceLen > 0) {
-                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
-                    $commentFenceLen = 0;
-                }
+            if ($commentFence->isOpen()) {
+                $commentFence->advance($line);
                 // The body is opaque: a code fence opener in there is comment
                 // TEXT, and letting it reach the fence scanner below opened a
                 // code block that swallowed the real comment closer.
@@ -1394,9 +1392,7 @@ class BlockParser
             //
             // Still BEFORE the line-block opener below: a `::: |` inside a
             // comment is comment text and opens no verse (carve-php#698).
-            $openedComment = $commentFence->opensAt($line, $i, $contentCol);
-            if ($openedComment !== null) {
-                $commentFenceLen = $openedComment;
+            if ($commentFence->opensOn($line, $i, $contentCol)) {
                 $i++;
 
                 continue;
@@ -1856,11 +1852,16 @@ class BlockParser
         // The abbreviation collector reaches its lines by a different path than
         // the other two, which is why widening those left this one behind.
         //
-        // Read at column 0 only: PART 12 §7 recognizes the definition at
-        // document level, so a line an indented comment could hide has already
-        // been disqualified by `$divs` or `$inListItem` below.
+        // Asked at column 0: PART 12 §7 recognizes the definition at document
+        // level, so a line an indented or QUOTED comment could hide has already
+        // been disqualified - by `$divs` or `$inListItem` below, or by the
+        // anchored pattern itself. That is why this pass alone was already
+        // right about `> %%%` / `> *[AB]: x` / `> %%%` while the other two
+        // registered from inside it (markup-carve/carve#1341): a leak that
+        // sorts definitions by KIND is a leak rather than a reading of §28.
+        // The shared fence still tracks the quoted region here, so the three
+        // passes cannot drift back apart over which lines are a comment's.
         $commentFence = new PrepassCommentFence($lines);
-        $commentFenceLen = 0;
         // PART 12 §7 recognizes an abbreviation definition only at document
         // level. The pattern is anchored, so a block quote or list marker
         // prefix already disqualifies a line. Two containers add no prefix of
@@ -1899,17 +1900,13 @@ class BlockParser
 
                 continue;
             }
-            if ($commentFenceLen > 0) {
-                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
-                    $commentFenceLen = 0;
-                }
+            if ($commentFence->isOpen()) {
+                $commentFence->advance($line);
                 $i++;
 
                 continue;
             }
-            $openedComment = $commentFence->opensAt($line, $i, 0);
-            if ($openedComment !== null) {
-                $commentFenceLen = $openedComment;
+            if ($commentFence->opensOn($line, $i, 0)) {
                 $i++;
 
                 continue;
