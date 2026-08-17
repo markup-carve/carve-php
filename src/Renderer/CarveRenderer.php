@@ -1823,7 +1823,14 @@ class CarveRenderer implements RendererInterface
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if ($node instanceof HardBreak && $this->inLineBlock > 0) {
-                    $out .= $this->verseLineBreak($out, $i === $count - 1);
+                    // ONLY THE STANZA'S OWN LAST NODE ENDS THE PARAGRAPH. A
+                    // break nested inside an emphasis run ends that run's list
+                    // instead, and dropping its newline there closed the
+                    // emphasis with an escaped delimiter (`/a\/`). The parser
+                    // never builds that tree - the promotion in
+                    // BlockParser::convertParagraphSoftBreaksToHardBreaks()
+                    // reaches direct children only - but an imported AST can.
+                    $out .= $this->verseLineBreak($out, $i === $count - 1 && $this->inlineDepth === 1);
                     $captionCanOpen = false;
                     $isFirstInlineLine = false;
                     $lineNodeCount = 0;
@@ -1950,18 +1957,29 @@ class CarveRenderer implements RendererInterface
         if ($line === '') {
             return true;
         }
-        if (!str_ends_with($line, ' ') || str_ends_with($line, '  ')) {
+
+        // A run of TWO OR MORE columns is already NBSP CONTENT (§23 MEDIAL
+        // GAPS): the parser keeps it without help, and a backslash there would
+        // be syntax the author did not write.
+        if (str_ends_with($line, '  ')) {
             return false;
         }
-
-        // An ODD run of backslashes before the space escapes it, and an escaped
-        // space is content the parser keeps whatever follows.
-        $backslashes = 0;
-        for ($i = strlen($line) - 2; $i >= 0 && $line[$i] === '\\'; $i--) {
-            $backslashes++;
+        if (str_ends_with($line, ' ')) {
+            return true;
         }
 
-        return $backslashes % 2 === 0;
+        // AN ESCAPED SPACE IS NOT EXEMPT, though it looks like content rather
+        // than line-trailing whitespace. The line block drops a lone trailing
+        // COLUMN before the inline reader ever sees the escape, so `a\ ` comes
+        // back as `a\` - a hard break with the non-breaking space gone. The
+        // backslash is what stops the column being dropped, so the test is on
+        // the column and not on what put it there.
+        //
+        // A run of two or more escaped spaces has already been rewritten to
+        // the writer's own protected-space sentinel by
+        // {@see self::resolveIndentPlaceholder()}, so it does not reach here
+        // and is content for the same reason a medial gap is.
+        return str_ends_with($line, "\u{E000}");
     }
 
     /**

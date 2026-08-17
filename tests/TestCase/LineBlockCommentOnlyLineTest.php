@@ -481,6 +481,14 @@ class LineBlockCommentOnlyLineTest extends TestCase
                 "::: |\na\n%% c\nb\n:::\n",
                 "::: |\na\n%% c\n:::\n",
                 "::: |\na\nx %% c\nb\n:::\n",
+                // The run shapes. A comment whose line an unclosed run reaches
+                // has no boundary of its own to sit at, so the writer has to
+                // put it back on the empty line the removal left - otherwise
+                // that line is BLANK on the way in, ends the stanza, and the
+                // comment is published besides.
+                "::: |\na `b\n%% c\nd\n:::\n",
+                "::: |\na `b\n%% c\n%% d\ne\n:::\n",
+                "::: |\na `b\n%% c\nd\n\ne `f\n%% g\nh\n:::\n",
             ] as $source
         ) {
             $formatted = CarveConverter::toCarve($source);
