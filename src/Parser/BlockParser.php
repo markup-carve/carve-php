@@ -2971,8 +2971,14 @@ class BlockParser
      * Only set when both ends resolve to a recorded line, and never overwritten:
      * a parser that already placed a node more precisely than "these whole
      * lines" knows better than this does.
+     *
+     * `$endBytesOnEndLine` narrows the last line to the bytes the block KEPT.
+     * Whole-line geometry is right wherever the line is taken whole, and a line
+     * block's content rule drops a trailing one-column run - so the paragraph
+     * covered a space its content does not contain (carve-php#1363). Passed in
+     * rather than derived here, because the rule belongs to the construct.
      */
-    private function stampBlockSpan(Node $node, int $startLine, int $endLine): void
+    private function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
     {
         if ($node->getPos() !== null) {
             return;
@@ -2996,7 +3002,7 @@ class BlockParser
             return;
         }
 
-        $endOffset = $end + strlen($this->sourceLines[$endLine] ?? '');
+        $endOffset = $end + ($endBytesOnEndLine ?? strlen($this->sourceLines[$endLine] ?? ''));
         // PART 12 §4: begin at the markup that opens THIS block, not at the
         // container prefix that carried its line (carve#913).
         $opening = $start + ($this->currentContentColumns[$startLine] ?? 0);
@@ -7244,10 +7250,12 @@ class BlockParser
         // absent one (#669). A tab expands to indent sentinels and shifts every
         // offset after it WITHIN a line, which is why the inline text stays
         // unplaced - but the line's own start and end are unaffected.
+        [, , $keptOnLastLine] = $this->expandLineBlockLine($lines[$lastIndex][0], $lines[$lastIndex][1]);
         $this->stampBlockSpan(
             $paragraph,
             $this->sourceLineFor($lines[0][1]),
             $this->sourceLineFor($lines[$lastIndex][1]),
+            $keptOnLastLine,
         );
 
         // ONE PARSE FOR THE WHOLE STANZA, and the break comes back out of it.
@@ -7275,7 +7283,7 @@ class BlockParser
         $lineEndings = [];
         $offsetInStanza = 0;
         foreach ($lines as $index => [$line, $lineNumber]) {
-            [$expanded, $runs] = $this->expandLineBlockLine($line, $lineNumber);
+            [$expanded, $runs, $kept] = $this->expandLineBlockLine($line, $lineNumber);
             foreach ($runs as [$offsetInLine, $sourceColumn, $length]) {
                 $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber, false];
             }
@@ -7489,14 +7497,21 @@ class BlockParser
      * space. Preserved runs are not returned at all, since no segment can
      * describe them - see {@see self::lineBlockMap()}.
      *
+     * The third value is the byte length of the line the expansion KEPT: the
+     * whole line, unless it ended in a dropped one-column whitespace run. It is
+     * what a span over the line has to stop at, and it is returned from here
+     * rather than re-derived at the call site because the drop rule below is
+     * the only place that decides it (carve-php#1363).
+     *
      * @param string $line
      * @param int $lineNo
      *
-     * @return array{0: string, 1: list<array{0: int, 1: int, 2: int}>}
+     * @return array{0: string, 1: list<array{0: int, 1: int, 2: int}>, 2: int}
      */
     protected function expandLineBlockLine(string $line, int $lineNo): array
     {
         $length = strlen($line);
+        $kept = $length;
         $offset = 0;
         $column = 0;
         $expanded = '';
@@ -7561,6 +7576,11 @@ class BlockParser
                     $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource];
                     $runStartInSource = null;
                 }
+                // The line KEEPS nothing past here, so neither may a span over
+                // it. A paragraph stamped with whole-line geometry covered this
+                // discarded space, and §4 has a span end immediately after the
+                // last codepoint the construct owns (carve-php#1363).
+                $kept = $wsStart;
 
                 break;
             }
@@ -7579,7 +7599,7 @@ class BlockParser
             $runs[] = [$runStartInExpanded, $runStartInSource, $offset - $runStartInSource];
         }
 
-        return [$expanded, $runs];
+        return [$expanded, $runs, $kept];
     }
 
     /**
