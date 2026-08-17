@@ -234,8 +234,93 @@ final class SourceMap
         if ($from === null || $to === null) {
             return null;
         }
+        if (!$this->spansOneRun($start, $end)) {
+            return null;
+        }
 
         return [$from[0], $to[0], $from[1], $to[1], $from[0] - ($from[2] - 1), $to[0] - ($to[2] - 1)];
+    }
+
+    /**
+     * Do the segments this range covers form ONE run of the source?
+     *
+     * Both ends resolving is not enough. A cell rebuilt from a `+` continuation
+     * row is two authored chunks joined with a space, and the markup between
+     * them - the row's closing `|`, the continuation marker - is in neither.
+     * A run left open across that boundary resolves at both ends and the span
+     * between them covers markup the value does not contain, so a consumer
+     * slicing the source by it reads text the node never held. PART 12 §4 has a
+     * node assembled from discontiguous source publish NO position rather than
+     * a misleading one, which is what carve-js and carve-rs do here
+     * (carve-php#1361).
+     *
+     * The test is that every gap between consecutive covering segments is the
+     * SAME SIZE in the built string and in the source. A joined line qualifies:
+     * the `\n` is one byte on both sides. The chunk join does not: one space in
+     * the built string against the whole of `` | `` plus a newline plus `+ `.
+     * Sizes rather than adjacency, because the newline join IS a gap and every
+     * multi-line span crosses one.
+     *
+     * Only asked of a TILING list. A list built out of order can have an
+     * earlier segment cover an offset a later one does not, so walking it in
+     * list order would compare segments that are not neighbours - and no map
+     * this parser builds out of order needs the check.
+     *
+     * ENTERED BY SEARCH, walked only across the range. Scanning the whole list
+     * per span is what {@see self::resolveIn()} was rewritten to stop doing:
+     * one segment per source line times one lookup per node is quadratic in the
+     * size of the block, and a 2000-line paragraph spent minutes here before
+     * this loop started where the range does (carve-php#1327 is the same shape
+     * one function up, and SourceMapLookupScaleTest is the guard that caught
+     * this one within a single change).
+     */
+    private function spansOneRun(int $start, int $end): bool
+    {
+        if (!$this->tiling) {
+            return true;
+        }
+
+        $start += $this->shift;
+        $end += $this->shift;
+        $count = count($this->segments);
+
+        // The last segment starting at or before the range, then back to the
+        // earliest one still covering it - the same walk resolveIn() does, for
+        // the same reason: two segments meet at every boundary.
+        $low = 0;
+        $high = $count - 1;
+        $index = 0;
+        while ($low <= $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->segments[$mid][0] <= $start) {
+                $index = $mid;
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+        while ($index > 0 && $this->segments[$index - 1][0] + $this->segments[$index - 1][2] > $start) {
+            $index--;
+        }
+
+        $previousTextEnd = null;
+        $previousSourceEnd = 0;
+        for (; $index < $count; $index++) {
+            [$textStart, $sourceStart, $length] = $this->segments[$index];
+            if ($textStart >= $end) {
+                break;
+            }
+            if ($textStart + $length <= $start) {
+                continue;
+            }
+            if ($previousTextEnd !== null && $textStart - $previousTextEnd !== $sourceStart - $previousSourceEnd) {
+                return false;
+            }
+            $previousTextEnd = $textStart + $length;
+            $previousSourceEnd = $sourceStart + $length;
+        }
+
+        return true;
     }
 
     /**
