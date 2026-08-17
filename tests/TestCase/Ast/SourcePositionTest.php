@@ -147,11 +147,12 @@ class SourcePositionTest extends TestCase
                 if (self::applyEscapes($selected) === $node->getContent()) {
                     continue;
                 }
-                // A verse line's indent is the other rewrite: each leading
-                // SPACE becomes one U+E000, so the span covers the same
-                // characters while the text differs in exactly those positions.
-                // One-for-one, which is why it is placed at all - a tab widens
-                // to several and declines instead.
+                // A verse line's preserved whitespace is the other rewrite:
+                // each SPACE of it becomes one U+E000, wherever on the line the
+                // run sits, so the span covers the same characters while the
+                // text differs in exactly those positions. One-for-one, which is
+                // why it is placed at all - a tab widens to several and declines
+                // instead.
                 if (self::isVerseIndent($selected, $node->getContent())) {
                     continue;
                 }
@@ -382,10 +383,9 @@ class SourcePositionTest extends TestCase
      */
 
     /**
-     * A SPACE indent declines a position for the same reason a tab one does,
-     * now that it is no longer a node of its own.
+     * A SPACE indent merges into its line and is placed WITH it.
      *
-     * It used to be one, because each stanza line - in fact each
+     * It used to be a node of its own, because each stanza line - in fact each
      * whitespace-delimited segment of one - was parsed separately, and the
      * indent was appended between those parses with a span the parser built
      * directly. That per-segment parse is exactly what stopped an unclosed
@@ -393,18 +393,22 @@ class SourcePositionTest extends TestCase
      * parsed once, and the placeholders arrive as ordinary text
      * (markup-carve/carve-php#1327).
      *
-     * The indent therefore merges into the text that follows it, and a text
-     * node holding placeholders can carry no VERIFIED span: the map checks that
-     * the bytes a span selects equal the node's own text, and U+E000 is three
-     * bytes where the space it replaced is one. PART 12 §4 asks for no position
-     * rather than a wrong one, so the node declines - a NARROWING, never a
-     * wrong span, and the same answer this engine already gave for a tab.
+     * The merged node then declined for a while, because the map could only say
+     * that N source bytes became N built bytes and U+E000 is three bytes where
+     * the space it replaced is one. That was a real omission rather than a §4
+     * exemption - carve-rs publishes the span, and the source under it really is
+     * the whitespace the sentinels stand for - so the map carries the rewrite
+     * now and the node is placed again (carve-php#1351).
      *
-     * The break beside it keeps its span, which is the half that would
-     * otherwise have gone quietly: see
+     * A TAB is the one that still declines, and
+     * {@see self::testATabIndentDeclinesAPosition()} keeps it declining: it
+     * widens to a variable number of placeholders, so no count of source bytes
+     * stands behind them.
+     *
+     * The break beside it keeps its own span: see
      * {@see self::testAVerseBreakIsStillPlacedOverItsLineEnding()}.
      */
-    public function testAVerseIndentMergesIntoItsLineAndDeclinesAPosition(): void
+    public function testAVerseIndentMergesIntoItsLineAndIsPlacedWithIt(): void
     {
         $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
@@ -424,7 +428,16 @@ class SourcePositionTest extends TestCase
             $merged->getContent(),
             'the indent is part of its line rather than a node of its own',
         );
-        $this->assertNull($merged->getPos(), 'placeholder text cannot carry a verified span');
+
+        $pos = $merged->getPos();
+        $this->assertNotNull($pos, 'the spaced form has an honest span and must publish it');
+        // ASSERTED AS THE SLICE, not as offsets alone. carve-rs publishes 21-40
+        // for this document, and those numbers only mean something if they
+        // select the indentation together with the line it belongs to.
+        $this->assertSame(
+            '  Violets are blue.',
+            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
+        );
     }
 
     /**
@@ -579,17 +592,46 @@ class SourcePositionTest extends TestCase
     }
 
     /**
-     * Whether `$content` is `$selected` with every space rewritten to the
+     * Whether `$content` is `$selected` with some of its spaces rewritten to the
      * generated-NBSP placeholder, which is what a line block does to a verse
-     * line's indent.
+     * line's preserved whitespace.
+     *
+     * IT IS NOT ONLY THE INDENT, and it is not a whole node. This used to
+     * require the selection to be nothing BUT spaces, which was true while the
+     * indent was a node of its own; the stanza is now expanded and parsed once,
+     * so the placeholders merge into the line's text and sit at its start, in
+     * its middle or at its end (carve-php#1351). Every other byte still has to
+     * match exactly, so the rule stays as strict as the escape one beside it -
+     * a span over the wrong region would have to differ from its text in
+     * nothing but spaces.
      */
     private static function isVerseIndent(string $selected, string $content): bool
     {
-        if ($selected === '' || trim($selected, ' ') !== '') {
-            return false;
+        $read = 0;
+        $wrote = 0;
+        $sentinel = "\u{E000}";
+        $width = strlen($sentinel);
+        $length = strlen($selected);
+        $rewrote = false;
+        while ($read < $length) {
+            if ($selected[$read] === ' ' && substr($content, $wrote, $width) === $sentinel) {
+                $read++;
+                $wrote += $width;
+                $rewrote = true;
+
+                continue;
+            }
+            if (($content[$wrote] ?? null) !== $selected[$read]) {
+                return false;
+            }
+            $read++;
+            $wrote++;
         }
 
-        return str_repeat("\u{E000}", strlen($selected)) === $content;
+        // A run that rewrote NOTHING is the plain comparison the caller already
+        // made and rejected, so saying yes to it here would turn this into a
+        // second chance rather than a second rule.
+        return $rewrote && $wrote === strlen($content);
     }
 
     private static function applyEscapes(string $slice): string

@@ -7356,8 +7356,8 @@ class BlockParser
         $offsetInStanza = 0;
         foreach ($lines as $index => [$line, $lineNumber]) {
             [$expanded, $runs, $kept] = $this->expandLineBlockLine($line, $lineNumber);
-            foreach ($runs as [$offsetInLine, $sourceColumn, $length]) {
-                $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber, false];
+            foreach ($runs as [$offsetInLine, $sourceColumn, $length, $sourceLength]) {
+                $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber, false, $sourceLength];
             }
             $texts[] = $expanded;
             if ($index < $lastIndex) {
@@ -7388,6 +7388,7 @@ class BlockParser
                     1,
                     $lineNumber,
                     true,
+                    1,
                 ];
             }
             // +1 for the "\n" the join inserts after this line.
@@ -7406,19 +7407,27 @@ class BlockParser
     }
 
     /**
-     * A stanza's source map: one segment per run the expansion left untouched.
+     * A stanza's source map: one segment per run of the expansion a segment can
+     * describe.
      *
-     * The preserved runs cannot be mapped and are deliberately skipped. Each
-     * placeholder stands for one source column, but U+E000 is three bytes in
-     * UTF-8 where the space it replaced is one, so a placeholder run and its
-     * source slice have different lengths and no single segment describes both.
-     * A tab is worse still, widening up to four placeholders out of one
-     * character. Leaving those regions unmapped means the nodes covering them
-     * get no position, which PART 12 §4 rates well above a wrong one.
+     * A preserved run of PLAIN SPACES is one of them, through a shape that
+     * records both lengths. Each placeholder stands for one source column, but
+     * U+E000 is three bytes in UTF-8 where the space it replaced is one, so an
+     * ordinary segment - which maps N source bytes onto N built bytes - cannot
+     * describe it, and the whole region used to be left out. Everything over it
+     * then went unplaced, including three corpus documents another engine places
+     * (carve-php#1351).
      *
-     * @param list<array{0: int, 1: int, 2: int, 3: int, 4: bool}> $segments Text
-     *   offset, source column, byte length, line number, and whether the
-     *   segment answers only where no other one does.
+     * A preserved run holding a TAB still is skipped. A tab widens to between
+     * one and four placeholders depending on the column it starts at, so no
+     * fixed count of source bytes stands behind its sentinels, and a node over
+     * it gets no position - which PART 12 §4 rates well above a wrong one.
+     *
+     * @param list<array{0: int, 1: int, 2: int, 3: int, 4: bool, 5: int}> $segments
+     *   Text offset, source column, byte length in the built string, line
+     *   number, whether the segment answers only where no other one does, and
+     *   byte length in the source - which differs from the built length exactly
+     *   for a rewritten run.
      *
      * @return \MarkupCarve\Carve\Parser\SourceMap|null
      */
@@ -7430,7 +7439,7 @@ class BlockParser
 
         $map = new SourceMap();
         $any = false;
-        foreach ($segments as [$textOffset, $sourceColumn, $length, $lineNumber, $fallback]) {
+        foreach ($segments as [$textOffset, $sourceColumn, $length, $lineNumber, $fallback, $sourceLength]) {
             $sourceLine = $this->sourceLineFor($lineNumber);
             $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
             if ($lineStart === null || $length <= 0) {
@@ -7448,6 +7457,14 @@ class BlockParser
                     $textOffset,
                     $lineStart + $prefix + $sourceColumn,
                     $length,
+                    $sourceLine + 1,
+                    $prefix + $sourceColumn + 1,
+                );
+            } elseif ($sourceLength !== $length) {
+                $map->addSentinelRun(
+                    $textOffset,
+                    $lineStart + $prefix + $sourceColumn,
+                    $sourceLength,
                     $sourceLine + 1,
                     $prefix + $sourceColumn + 1,
                 );
@@ -7562,12 +7579,17 @@ class BlockParser
      * no inline construct could reach past the nearest gap. Returning the
      * rewritten text instead lets the caller join the stanza and parse it once.
      *
-     * The returned runs are the regions the expansion did NOT rewrite, each as
-     * `[offset in the expanded line, column in the source line, byte length]`.
-     * Those map one-for-one: a literal character is copied unchanged, and a
-     * one-column inner run is exactly one source character replaced by one
-     * space. Preserved runs are not returned at all, since no segment can
-     * describe them - see {@see self::lineBlockMap()}.
+     * The returned runs are the regions a segment can describe, each as
+     * `[offset in the expanded line, column in the source line, byte length in
+     * the expanded line, byte length in the source]`. The two lengths are equal
+     * for a region the expansion did not rewrite: a literal character is copied
+     * unchanged, and a one-column inner run is exactly one source character
+     * replaced by one space. They DIFFER for a preserved run of plain spaces,
+     * which becomes one three-byte sentinel per source column - a shape
+     * {@see \MarkupCarve\Carve\Parser\SourceMap::addSentinelRun()} carries and
+     * an ordinary segment cannot (carve-php#1351). A preserved run holding a TAB
+     * is still not returned at all, because a tab widens to between one and four
+     * columns and no fixed correspondence describes it.
      *
      * The third value is the byte length of the line the expansion KEPT: the
      * whole line, unless it ended in a dropped one-column whitespace run. It is
@@ -7578,7 +7600,7 @@ class BlockParser
      * @param string $line
      * @param int $lineNo
      *
-     * @return array{0: string, 1: list<array{0: int, 1: int, 2: int}>, 2: int}
+     * @return array{0: string, 1: list<array{0: int, 1: int, 2: int, 3: int}>, 2: int}
      */
     protected function expandLineBlockLine(string $line, int $lineNo): array
     {
@@ -7621,10 +7643,30 @@ class BlockParser
 
             if (!$seenContent || $width >= 2) {
                 if ($runStartInSource !== null) {
-                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource];
+                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource, $wsStart - $runStartInSource];
                     $runStartInSource = null;
                 }
-                $expanded .= str_repeat("\u{E000}", $width);
+                // A run of PLAIN SPACES is one sentinel per source character,
+                // so the map can carry it as a rewritten run and the nodes over
+                // it keep their positions (carve-php#1351). A tab is the one
+                // thing that breaks the correspondence - it widens to between
+                // one and four columns depending on where it starts - so a run
+                // holding one is left unmapped exactly as before, which is why
+                // the tab form of this construct is unplaceable in every engine
+                // rather than merely unplaced in this one.
+                //
+                // NO SECOND SPELLING of that rule here. A width test would pass
+                // a run whose tabs happen to widen by one each, and the map
+                // would then hold a segment claiming more source columns than
+                // the run has - which OVERLAPS the literal run after it, leaves
+                // the segment list non-tiling, and costs every other node in the
+                // stanza its position. `SourceMap::addSentinelRun()` asks the
+                // source the same question when it verifies a span, so the rule
+                // is written once and checked once.
+                if (!str_contains(substr($line, $wsStart, $offset - $wsStart), "\t")) {
+                    $runs[] = [strlen($expanded), $wsStart, $width * strlen(SourceMap::INDENT_SENTINEL), $width];
+                }
+                $expanded .= str_repeat(SourceMap::INDENT_SENTINEL, $width);
 
                 continue;
             }
@@ -7645,7 +7687,7 @@ class BlockParser
                 // space instead of the newline. A wrong span, which §4 rates
                 // below no span at all.
                 if ($runStartInSource !== null) {
-                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource];
+                    $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource, $wsStart - $runStartInSource];
                     $runStartInSource = null;
                 }
                 // The line KEEPS nothing past here, so neither may a span over
@@ -7668,7 +7710,7 @@ class BlockParser
         }
 
         if ($runStartInSource !== null) {
-            $runs[] = [$runStartInExpanded, $runStartInSource, $offset - $runStartInSource];
+            $runs[] = [$runStartInExpanded, $runStartInSource, $offset - $runStartInSource, $offset - $runStartInSource];
         }
 
         return [$expanded, $runs, $kept];

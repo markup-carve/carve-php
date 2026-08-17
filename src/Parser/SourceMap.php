@@ -19,7 +19,11 @@ use MarkupCarve\Carve\Ast\SourceSpan;
  * This carries it. A map is a list of segments, each recording where a run of
  * text in the built string started in the source:
  *
- *   [textOffset, sourceOffset, length, line, columnAtSourceOffset]
+ *   [textOffset, sourceOffset, length, line, columnAtSourceOffset, sourceLength]
+ *
+ * `sourceLength` is `length` for every run the parser copied through, which is
+ * almost all of them. It differs only where the layout REWROTE a run into
+ * something of another size - see {@see self::addSentinelRun()}.
  *
  * Lookup is a scan over segments, which are few (one per source line) and in
  * order, so it stays cheap even though it is called per node.
@@ -27,7 +31,18 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 final class SourceMap
 {
     /**
-     * @var list<array{int, int, int, int, int}>
+     * The indent placeholder a line block's layout writes, one per source
+     * column of preserved whitespace.
+     *
+     * Named here because this is where the rewrite has to be UNDONE: the map is
+     * the only thing that knows which source columns a sentinel run stands for.
+     *
+     * @var string
+     */
+    public const INDENT_SENTINEL = "\u{E000}";
+
+    /**
+     * @var list<array{int, int, int, int, int, int}>
      */
     private array $segments = [];
 
@@ -41,7 +56,7 @@ final class SourceMap
      * answer strictly last. Keeping it out of the primary list is what lets the
      * primary list stay tiling, and therefore searchable.
      *
-     * @var list<array{int, int, int, int, int}>
+     * @var list<array{int, int, int, int, int, int}>
      */
     private array $fallbackSegments = [];
 
@@ -74,6 +89,16 @@ final class SourceMap
     private int $fallbackTilingEnd = PHP_INT_MIN;
 
     /**
+     * Whether any segment maps a run onto a run of a DIFFERENT size.
+     *
+     * Only {@see self::addSentinelRun()} sets it, and only a line block's
+     * stanza reaches that. It is what selects the verification a span gets: a
+     * map without it compares the source bytes to the node's text directly,
+     * exactly as before, so no other construct's spans can move.
+     */
+    private bool $rewritten = false;
+
+    /**
      * Record that `$length` bytes at `$textOffset` in the built string came
      * from `$sourceOffset` in the source, on 1-based `$line` starting at
      * 1-based `$column`.
@@ -85,7 +110,41 @@ final class SourceMap
             $this->tiling = false;
         }
         $this->tilingEnd = $textOffset + $length;
-        $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column];
+        $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column, $length];
+    }
+
+    /**
+     * Record that `$columns` source bytes at `$sourceOffset` were REWRITTEN into
+     * one indent sentinel each, so they occupy `$columns * 3` bytes of the built
+     * string at `$textOffset`.
+     *
+     * A line block preserves its whitespace as content: PART 2 §23 turns a
+     * leading run, and any inner run of two columns or more, into that many
+     * non-breaking spaces, carried through the parse as
+     * {@see self::INDENT_SENTINEL}. {@see self::add()} cannot describe the
+     * result, because that method maps N source bytes onto N built bytes and
+     * this run is one source byte onto three - which is why the whole region
+     * used to be left out of the map, and why every node covering it declined
+     * (carve-php#1351).
+     *
+     * ONLY A RUN OF PLAIN SPACES qualifies. A tab widens to a variable number
+     * of columns, so its sentinels stand for no fixed count of source bytes and
+     * no segment describes them either - those stay unmapped, which is what
+     * makes the tab form of this construct genuinely unplaceable in every
+     * engine rather than merely unplaced in this one. The spaces are checked
+     * again when a span is verified {@see self::rebuild()}, so a caller that
+     * gets this wrong loses the span rather than publishing a false one.
+     */
+    public function addSentinelRun(int $textOffset, int $sourceOffset, int $columns, int $line, int $column): void
+    {
+        $textOffset += $this->shift;
+        $length = $columns * strlen(self::INDENT_SENTINEL);
+        if ($textOffset < $this->tilingEnd) {
+            $this->tiling = false;
+        }
+        $this->tilingEnd = $textOffset + $length;
+        $this->rewritten = true;
+        $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column, $columns];
     }
 
     /**
@@ -100,7 +159,7 @@ final class SourceMap
             $this->fallbackTiling = false;
         }
         $this->fallbackTilingEnd = $textOffset + $length;
-        $this->fallbackSegments[] = [$textOffset, $sourceOffset, $length, $line, $column];
+        $this->fallbackSegments[] = [$textOffset, $sourceOffset, $length, $line, $column, $length];
     }
 
     public function isEmpty(): bool
@@ -146,7 +205,7 @@ final class SourceMap
      * longer segment can cover an offset that a later one does not, and only a
      * scan finds it.
      *
-     * @param list<array{int, int, int, int, int}> $segments
+     * @param list<array{int, int, int, int, int, int}> $segments
      * @param bool $tiling
      * @param int $textOffset
      *
@@ -155,7 +214,7 @@ final class SourceMap
     private function resolveIn(array $segments, bool $tiling, int $textOffset): ?array
     {
         if (!$tiling || count($segments) < 16) {
-            foreach ($segments as [$textStart, $sourceStart, $length, $line, $column]) {
+            foreach ($segments as [$textStart, $sourceStart, $length, $line, $column, $sourceLength]) {
                 $delta = $textOffset - $textStart;
                 if ($delta < 0) {
                     continue;
@@ -163,7 +222,7 @@ final class SourceMap
                 // The end of a segment is a valid position: it is where an
                 // exclusive endOffset lands for a node that runs to end of line.
                 if ($delta <= $length) {
-                    return [$sourceStart + $delta, $line, $column + $delta];
+                    return self::at($sourceStart, $line, $column, $delta, $length, $sourceLength);
                 }
             }
 
@@ -195,13 +254,41 @@ final class SourceMap
             $found--;
         }
 
-        [$textStart, $sourceStart, $length, $line, $column] = $segments[$found];
+        [$textStart, $sourceStart, $length, $line, $column, $sourceLength] = $segments[$found];
         $delta = $textOffset - $textStart;
         if ($delta < 0 || $delta > $length) {
             return null;
         }
 
-        return [$sourceStart + $delta, $line, $column + $delta];
+        return self::at($sourceStart, $line, $column, $delta, $length, $sourceLength);
+    }
+
+    /**
+     * `$delta` bytes into a segment, in source terms.
+     *
+     * A copied-through run advances one for one. A REWRITTEN run advances one
+     * source byte per unit of built string {@see self::addSentinelRun()}, so an
+     * offset that lands PART WAY THROUGH a unit names no source byte at all and
+     * gets no position - PART 12 §4 takes an absent one over an invented one.
+     * The parser never asks for such an offset, because a sentinel is not a
+     * delimiter and no node can begin or end inside one; the arithmetic refuses
+     * it rather than rounding, so a caller that starts asking is told.
+     *
+     * @return array{int, int, int}|null
+     */
+    private static function at(int $sourceStart, int $line, int $column, int $delta, int $length, int $sourceLength): ?array
+    {
+        if ($sourceLength === $length) {
+            return [$sourceStart + $delta, $line, $column + $delta];
+        }
+
+        $unit = intdiv($length, $sourceLength);
+        if ($unit * $sourceLength !== $length || $delta % $unit !== 0) {
+            return null;
+        }
+        $advanced = intdiv($delta, $unit);
+
+        return [$sourceStart + $advanced, $line, $column + $advanced];
     }
 
     /**
@@ -319,7 +406,7 @@ final class SourceMap
         $previousTextEnd = null;
         $previousSourceEnd = 0;
         for (; $index < $count; $index++) {
-            [$textStart, $sourceStart, $length] = $this->segments[$index];
+            [$textStart, $sourceStart, $length, , , $sourceLength] = $this->segments[$index];
             if ($textStart >= $end) {
                 break;
             }
@@ -330,7 +417,7 @@ final class SourceMap
                 return false;
             }
             $previousTextEnd = $textStart + $length;
-            $previousSourceEnd = $sourceStart + $length;
+            $previousSourceEnd = $sourceStart + $sourceLength;
         }
 
         return true;
@@ -425,6 +512,29 @@ final class SourceMap
         return substr($this->source, $bytes[0], $bytes[1] - $bytes[0]);
     }
 
+    /**
+     * The built string a range came from, with THIS layer's rewrites undone but
+     * no others.
+     *
+     * The two rewrites COMPOSE, and a caller that knows only its own drops a
+     * position it could have published. The block layer rewrites first - a
+     * preserved run of spaces into sentinels - and the inline layer rewrites
+     * second, turning `\ ` into one more sentinel. A stanza line carrying both -
+     * an indented `a` followed by an escaped space and a `b` - satisfies neither
+     * check alone: the raw source has spaces where the text has block sentinels,
+     * and this map's replay still has `\ ` where the text has an inline
+     * sentinel. Undoing them in the order they were applied
+     * puts the caller's own rewrite last, where it can finish the job
+     * (carve-php#1351).
+     *
+     * Falls back to the raw slice for a map that rewrote nothing, which is what
+     * every caller got before and what almost every map still is.
+     */
+    public function produced(int $start, int $end): ?string
+    {
+        return $this->rewritten ? $this->rebuild($start, $end) : $this->slice($start, $end);
+    }
+
     public function spanRange(int $start, int $end): ?SourceSpan
     {
         return $this->span($start, $end);
@@ -497,12 +607,115 @@ final class SourceMap
         }
 
         if ($this->source !== null) {
-            $selected = substr($this->source, $bytes[0], $bytes[1] - $bytes[0]);
-            if ($selected !== $text) {
+            // A map that rewrote a run cannot answer the question by comparing
+            // bytes: its node's text holds three bytes of sentinel where the
+            // source holds one space, so the two differ by construction. It is
+            // asked the other way instead - REPLAY the source through the
+            // rewrite the map recorded and require that it produces the text -
+            // which is the same check `InlineParser::rewrittenSpan()` makes for
+            // the one rewrite the inline layer performs, and just as strict.
+            $produced = $this->rewritten
+                ? $this->rebuild($start, $start + strlen($text))
+                : substr($this->source, $bytes[0], $bytes[1] - $bytes[0]);
+            if ($produced !== $text) {
                 return null;
             }
         }
 
         return $this->convert($bytes);
+    }
+
+    /**
+     * The built string this map says `[$start, $end)` was produced from, or null
+     * when it says nothing about some of it.
+     *
+     * Walks the segments the range covers and replays each: a copied run
+     * contributes its source bytes, a sentinel run contributes one sentinel per
+     * source column {@see self::addSentinelRun()}. A HOLE is a refusal, not a
+     * skip - the built string is contiguous, so a region no segment describes is
+     * a region the map cannot vouch for, and a comparison that quietly stitched
+     * across it would accept a node whose text spans markup the range also
+     * covers.
+     *
+     * The sentinel run's source is required to be SPACES. That is the rewrite
+     * the map claims happened, and checking it here is what keeps a tab-widened
+     * run out even if a producer offered one: a tab stands for a variable number
+     * of columns, so the count a segment records would be a guess.
+     *
+     * ENTERED BY SEARCH and walked only across the range, the shape
+     * {@see self::resolveIn()} and {@see self::spansOneRun()} were both rewritten
+     * into after one lookup per node over one segment per line went quadratic
+     * (carve-php#1327). The walk is bounded by the segments the NODE covers,
+     * which is at most its own length, so it cannot exceed the byte comparison
+     * it replaces.
+     */
+    private function rebuild(int $start, int $end): ?string
+    {
+        if ($this->source === null || !$this->tiling || $this->segments === []) {
+            return null;
+        }
+
+        $start += $this->shift;
+        $end += $this->shift;
+        $count = count($this->segments);
+
+        $low = 0;
+        $high = $count - 1;
+        $index = 0;
+        while ($low <= $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->segments[$mid][0] <= $start) {
+                $index = $mid;
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+
+        // ONE COPIED-THROUGH SEGMENT COVERING THE WHOLE RANGE is the common
+        // case even here - only a node that actually touches a preserved gap
+        // needs replaying, and a stanza has more nodes than gaps. Answering it
+        // with the substr the non-rewritten path would have used keeps the cost
+        // of carrying the gaps off every other node in the block: replaying
+        // everything measured 22% more per byte on a stanza where every line has
+        // both a gap and a nested construct, and this takes that back.
+        [$textStart, $sourceStart, $length, , , $sourceLength] = $this->segments[$index];
+        if ($sourceLength === $length && $textStart <= $start && $textStart + $length >= $end) {
+            return substr($this->source, $sourceStart + ($start - $textStart), $end - $start);
+        }
+
+        $cursor = $start;
+        $out = '';
+        for (; $index < $count && $cursor < $end; $index++) {
+            [$textStart, $sourceStart, $length, , , $sourceLength] = $this->segments[$index];
+            if ($textStart + $length <= $cursor) {
+                continue;
+            }
+            if ($textStart > $cursor) {
+                return null;
+            }
+            $offsetInSegment = $cursor - $textStart;
+            $take = min($length - $offsetInSegment, $end - $cursor);
+            if ($sourceLength === $length) {
+                $out .= substr($this->source, $sourceStart + $offsetInSegment, $take);
+                $cursor += $take;
+
+                continue;
+            }
+
+            $unit = intdiv($length, $sourceLength);
+            if ($unit * $sourceLength !== $length || $offsetInSegment % $unit !== 0 || $take % $unit !== 0) {
+                return null;
+            }
+            $columns = intdiv($take, $unit);
+            $consumed = substr($this->source, $sourceStart + intdiv($offsetInSegment, $unit), $columns);
+            if ($consumed !== str_repeat(' ', $columns)) {
+                return null;
+            }
+            $out .= str_repeat(self::INDENT_SENTINEL, $columns);
+            $cursor += $take;
+        }
+
+        return $cursor === $end ? $out : null;
     }
 }
