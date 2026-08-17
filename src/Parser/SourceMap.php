@@ -234,7 +234,7 @@ final class SourceMap
         if ($from === null || $to === null) {
             return null;
         }
-        if (!$this->spansOneRun($start, $end)) {
+        if ($this->joinedFromChunks && !$this->spansOneRun($start, $end)) {
             return null;
         }
 
@@ -244,15 +244,27 @@ final class SourceMap
     /**
      * Do the segments this range covers form ONE run of the source?
      *
-     * Both ends resolving is not enough. A cell rebuilt from a `+` continuation
-     * row is two authored chunks joined with a space, and the markup between
-     * them - the row's closing `|`, the continuation marker - is in neither.
-     * A run left open across that boundary resolves at both ends and the span
-     * between them covers markup the value does not contain, so a consumer
-     * slicing the source by it reads text the node never held. PART 12 §4 has a
-     * node assembled from discontiguous source publish NO position rather than
-     * a misleading one, which is what carve-js and carve-rs do here
-     * (carve-php#1361).
+     * ASKED ONLY OF A MAP JOINED FROM CHUNKS {@see self::joinedFromChunks()}.
+     * A cell rebuilt from a `+` continuation row is two authored chunks joined
+     * with a space, and the markup between them - the row's closing `|`, the
+     * continuation marker - is in neither. A run left open across that boundary
+     * resolves at both ends and the span between them covers markup the value
+     * does not contain, so a consumer slicing the source by it reads text the
+     * node never held. PART 12 §4 has a node assembled from discontiguous
+     * source publish NO position rather than a misleading one, which is what
+     * carve-js and carve-rs do here (carve-php#1361).
+     *
+     * ASKED OF EVERY MAP IT WAS AN OVER-REACH, and a measured one. A block's
+     * position is an EXTENT rather than a slice of its value - §4 has it begin
+     * at the markup that opens the construct (markup-carve/carve#913) - so a
+     * value that is not a byte-for-byte slice of the range is the normal case,
+     * not a reason to omit. An INDENTED fence folds into a verbatim run whose
+     * map has a gap per line for the stripped indentation, and the check read
+     * that as reassembly and dropped three honest spans carve-js and carve-rs
+     * both publish (carve-php#1369). Gap geometry cannot tell the two apart:
+     * both are a source gap wider than the built one. What tells them apart is
+     * WHO BUILT THE MAP, and only the rebuilt cell joins chunks that are not
+     * its own.
      *
      * The test is that every gap between consecutive covering segments is the
      * SAME SIZE in the built string and in the source. A joined line qualifies:
@@ -266,13 +278,14 @@ final class SourceMap
      * list order would compare segments that are not neighbours - and no map
      * this parser builds out of order needs the check.
      *
-     * ENTERED BY SEARCH, walked only across the range. Scanning the whole list
-     * per span is what {@see self::resolveIn()} was rewritten to stop doing:
-     * one segment per source line times one lookup per node is quadratic in the
-     * size of the block, and a 2000-line paragraph spent minutes here before
-     * this loop started where the range does (carve-php#1327 is the same shape
-     * one function up, and SourceMapLookupScaleTest is the guard that caught
-     * this one within a single change).
+     * ENTERED BY SEARCH, walked only across the range - the shape
+     * {@see self::resolveIn()} was rewritten into, where one segment per source
+     * line times one lookup per node was quadratic in the size of the block
+     * (carve-php#1327). Asked of every map, this walk reproduced that within a
+     * single change and SourceMapLookupScaleTest caught it. Asked only of a
+     * chunk-joined map the advantage is no longer measurable, because such a
+     * map holds one segment per authored chunk rather than one per line; the
+     * search stays because it is the entry point either way and costs nothing.
      */
     private function spansOneRun(int $start, int $end): bool
     {
@@ -284,9 +297,13 @@ final class SourceMap
         $end += $this->shift;
         $count = count($this->segments);
 
-        // The last segment starting at or before the range, then back to the
-        // earliest one still covering it - the same walk resolveIn() does, for
-        // the same reason: two segments meet at every boundary.
+        // The last segment starting at or before the range. No walk back off
+        // it, unlike resolveIn(): that one has to pick between two segments
+        // MEETING at an offset, and this one only has to find the first
+        // segment OVERLAPPING the range. An earlier segment could overlap only
+        // by extending past this one's start, which is exactly what makes a
+        // list non-tiling - and a non-tiling list returned above. The walk was
+        // copied across with resolveIn()'s shape and could not fire.
         $low = 0;
         $high = $count - 1;
         $index = 0;
@@ -299,10 +316,6 @@ final class SourceMap
                 $high = $mid - 1;
             }
         }
-        while ($index > 0 && $this->segments[$index - 1][0] + $this->segments[$index - 1][2] > $start) {
-            $index--;
-        }
-
         $previousTextEnd = null;
         $previousSourceEnd = 0;
         for (; $index < $count; $index++) {
@@ -433,6 +446,28 @@ final class SourceMap
         $shifted->shift += $delta;
 
         return $shifted;
+    }
+
+    /**
+     * Whether this map joins chunks the node does not own.
+     *
+     * Set by the ONE builder that does it {@see \MarkupCarve\Carve\Parser\BlockParser}
+     * for a table cell rebuilt from `+` continuation rows. Every other map's
+     * gaps are inside the region its node covers - a stripped indent, a
+     * preserved run - and a span across them is honest.
+     */
+    private bool $joinedFromChunks = false;
+
+    /**
+     * Mark this map as joining chunks the node does not own.
+     *
+     * @see self::spansOneRun()
+     */
+    public function joinedFromChunks(): self
+    {
+        $this->joinedFromChunks = true;
+
+        return $this;
     }
 
     public function withSource(string $source, ?PositionIndex $index = null): self
