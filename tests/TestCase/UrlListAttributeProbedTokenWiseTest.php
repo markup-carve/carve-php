@@ -444,4 +444,75 @@ class UrlListAttributeProbedTokenWiseTest extends TestCase
             $this->render('[z](safe.html){title="javascript:alert(1)"}'),
         );
     }
+
+    /**
+     * THE TOKEN PASS IS ADDED TO THE VALUE-WIDE PROBE, NOT SUBSTITUTED FOR IT,
+     * and this is the row that proves it.
+     *
+     * A whitespace-separated scheme is the case where the two passes disagree
+     * in the dangerous direction. `java script:alert(1)` splits into `java` and
+     * `script:alert(1)`; NEITHER token is a dangerous scheme, so a token-ONLY
+     * implementation lets it through - while the value-wide probe blanks it,
+     * because its strip removes the very space the whitespace split just
+     * treated as a boundary. Token-only therefore denies strictly LESS than
+     * this engine denied before the rule landed, which would be a security
+     * regression shipped as a security fix.
+     *
+     * THE CORPUS CANNOT CATCH THIS. A token-only implementation passes all ten
+     * of the pinned documents and every other document in the suite, so nothing
+     * in the conformance run would report three engines diverging on a security
+     * boundary. That is what this test is for: a future refactor to token-only
+     * fails here, loudly, rather than silently (markup-carve/carve-js#1164).
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function whitespaceSplitSchemeProvider(): array
+    {
+        return [
+            'srcset' => [
+                '![a](safe.png){srcset="java script:alert(1)"}',
+                '<img src="safe.png" alt="a" srcset="">',
+            ],
+            'imagesrcset' => [
+                '![a](safe.png){imagesrcset="java script:alert(1)"}',
+                '<img src="safe.png" alt="a" imagesrcset="">',
+            ],
+            'ping' => [
+                '[y](safe.html){ping="java script:alert(1)"}',
+                '<p><a href="safe.html" ping="">y</a></p>',
+            ],
+            'attributionsrc' => [
+                '[y](safe.html){attributionsrc="java script:alert(1)"}',
+                '<p><a href="safe.html" attributionsrc="">y</a></p>',
+            ],
+            'ping with a tab' => [
+                "[y](safe.html){ping=\"java\tscript:alert(1)\"}",
+                '<p><a href="safe.html" ping="">y</a></p>',
+            ],
+        ];
+    }
+
+    #[DataProvider('whitespaceSplitSchemeProvider')]
+    public function testASchemeSplitByWhitespaceIsStillBlankedInAUrlList(
+        string $carve,
+        string $expected,
+    ): void {
+        $this->assertSame($expected, $this->render($carve));
+    }
+
+    /**
+     * The same value on a PROSE attribute, which is what the URL-list names
+     * must not fall behind.
+     *
+     * If this passes and the provider above fails, the token pass replaced the
+     * value-wide probe instead of joining it, and a URL-list attribute is now
+     * more permissive than `title`.
+     */
+    public function testTheProseAttributeBlanksTheSameSplitScheme(): void
+    {
+        $this->assertSame(
+            '<p><a href="safe.html" title="">z</a></p>',
+            $this->render('[z](safe.html){title="java script:alert(1)"}'),
+        );
+    }
 }
