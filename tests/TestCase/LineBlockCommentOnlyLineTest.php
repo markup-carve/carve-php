@@ -366,6 +366,76 @@ class LineBlockCommentOnlyLineTest extends TestCase
         $this->assertStringContainsString("a<br>\n<br>\nb", $html);
     }
 
+    public function testFormattingKeepsTheCommentAtTheStartOfItsLine(): void
+    {
+        // `carve fmt` used to write the marker with a SEPARATOR SPACE in front
+        // of it. Leading whitespace in verse is preserved content, so the
+        // formatted line no longer started with `%%`, the reparse read the
+        // marker as ordinary text, and the formatter PUBLISHED the comment it
+        // was handed. carve-rs writes no space here; this is now byte-identical
+        // to what it emits.
+        $source = <<<'CARVE'
+        ::: |
+        a
+        %% secret
+        b
+        :::
+
+        CARVE;
+
+        $expected = <<<'CARVE'
+        ::: |
+        a
+        %% secret
+        b
+        :::
+
+        CARVE;
+
+        $this->assertSame($expected, CarveConverter::toCarve($source));
+    }
+
+    public function testFormattingAComentOnlyVerseLineRoundTrips(): void
+    {
+        // PART 10's invariant: toHtml(fmt(x)) == toHtml(x). The first-line form
+        // failed it before this change too, so it is pinned alongside.
+        foreach (
+            [
+                "::: |\n%% c\nb\n:::\n",
+                "::: |\na\n%% c\nb\n:::\n",
+                "::: |\na\n%% c\n:::\n",
+                "::: |\na\nx %% c\nb\n:::\n",
+            ] as $source
+        ) {
+            $formatted = CarveConverter::toCarve($source);
+
+            $this->assertSame(
+                $this->convert($source),
+                $this->convert($formatted),
+                'fmt changed the rendering of: ' . $source,
+            );
+            $this->assertStringNotContainsString('%%', $this->convert($formatted));
+        }
+    }
+
+    public function testFormattingIsIdempotentOnAVerseComment(): void
+    {
+        $once = CarveConverter::toCarve("::: |\na\n%% c\nb\n:::\n");
+
+        $this->assertSame($once, CarveConverter::toCarve($once));
+    }
+
+    public function testATrailingCommentKeepsItsSeparatorSpace(): void
+    {
+        // The other side of the same branch: a comment that FOLLOWS text still
+        // needs the space, or the marker would weld onto the word before it and
+        // stop being a marker at all (§21: `a%%b` is literal).
+        $formatted = CarveConverter::toCarve("a %% c\n");
+
+        $this->assertSame("a %% c\n", $formatted);
+        $this->assertSame($this->convert("a %% c\n"), $this->convert($formatted));
+    }
+
     public function testTheRuleHoldsInsideAListItem(): void
     {
         $source = <<<'CARVE'

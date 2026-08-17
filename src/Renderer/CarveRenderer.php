@@ -1840,9 +1840,25 @@ class CarveRenderer implements RendererInterface
                     $lineHostsCaption = $lineNodeCount === 1 && self::inlineHostsACaption($node);
                     $captionCanOpen = false;
                 } elseif ($node instanceof Comment) {
+                    // THE SEPARATOR SPACE IS ONLY A SEPARATOR. §21 recognizes
+                    // `%%` after whitespace OR at the start of its line, so a
+                    // comment that already STARTS its line has nothing to
+                    // separate from and must not be given a space it did not
+                    // have.
+                    //
+                    // Everywhere else that space was cosmetic, which is why it
+                    // went unnoticed: leading whitespace is stripped on the way
+                    // back in. A LINE BLOCK is the one place it is not - there
+                    // leading whitespace is preserved CONTENT (§23), so the
+                    // space pushes the marker off column 0, the reparse reads
+                    // `%%` as ordinary verse, and `carve fmt` both breaks its
+                    // own `toHtml(fmt(x)) == toHtml(x)` invariant and PUBLISHES
+                    // the comment text the author hid. carve-rs emits no space
+                    // here and round-trips; carve-js emits one and does not.
+                    $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
-                        : ' %% ' . $node->getContent();
+                        : $separator . '%% ' . $node->getContent();
                     $lineNodeCount++;
                     $lineHostsCaption = false;
                     $captionCanOpen = false;
