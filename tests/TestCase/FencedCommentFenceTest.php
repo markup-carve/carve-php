@@ -11,6 +11,23 @@ use PHPUnit\Framework\TestCase;
 class FencedCommentFenceTest extends TestCase
 {
     /**
+     * @var string
+     */
+    protected const FOOTNOTE_CALL = '<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>';
+
+    /**
+     * @var string
+     */
+    protected const FOOTNOTE_SECTION = "<section role=\"doc-endnotes\">\n"
+        . "  <hr>\n"
+        . "  <ol>\n"
+        . "    <li id=\"fn1\">\n"
+        . "      <p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p>\n"
+        . "    </li>\n"
+        . "  </ol>\n"
+        . "</section>\n";
+
+    /**
      * @return array<string, array{string, string}>
      */
     public static function pinnedFencedCommentProvider(): array
@@ -261,5 +278,249 @@ class FencedCommentFenceTest extends TestCase
         $html = (new CarveConverter())->convert($input);
 
         $this->assertStringContainsString('visible', $html);
+    }
+
+    /**
+     * A definition inside a QUOTED comment registers nothing, per KIND.
+     *
+     * The fence itself was never in doubt: the block parser read the comment
+     * and closed the quote as an empty blockquote, which is why every row below
+     * still expects one. What leaked was registration - the definition was
+     * active in the link and footnote tables while absent from the page.
+     *
+     * The rows are per kind rather than one aggregate because the leak SORTED
+     * BY KIND, and that is what identified it as leakage rather than a
+     * competing reading of PART 9 section 28: this engine registered the link
+     * reference and the footnote, carve-js only the link reference. A rule an
+     * engine was following would not sort definitions by kind
+     * (markup-carve/carve#1341).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function quotedCommentDefersEveryKindProvider(): array
+    {
+        return [
+            'link reference' => [
+                "> %%%\n> [r]: /url\n> %%%\n\nSee [r][].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See [r][].</p>\n",
+            ],
+            'footnote' => [
+                "> %%%\n> [^f]: note\n> %%%\n\nSee [^f].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See [^f].</p>\n",
+            ],
+            // Already right before the fence learned about quotes, and right
+            // for a reason of its own: PART 12 section 7 recognizes an
+            // abbreviation definition at DOCUMENT level, so the anchored
+            // pattern refuses a quoted one whether or not a comment hides it.
+            // Pinned here so the row that was correct by accident stays
+            // correct on purpose.
+            'abbreviation' => [
+                "> %%%\n> *[AB]: abbrev\n> %%%\n\nThe AB here.\n",
+                "<blockquote>\n\n</blockquote>\n<p>The AB here.</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('quotedCommentDefersEveryKindProvider')]
+    public function testQuotedCommentDefersEveryKind(string $input, string $expected): void
+    {
+        $this->assertSame($expected, (new CarveConverter())->convert($input));
+    }
+
+    /**
+     * The two spellings that were already pinned, per kind.
+     *
+     * These are CONTROLS, not new coverage. Reading the opener past a quote
+     * marker touches the one place all three columns are decided, and breaking
+     * either of these is worse than the gap that motivated the change.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function unprefixedCommentStillDefersProvider(): array
+    {
+        return [
+            'link reference at column 0' => [
+                "%%%\n[r]: /url\n%%%\n\nSee [r][].\n",
+                "<p>See [r][].</p>\n",
+            ],
+            'link reference at an item content column' => [
+                "- %%%\n  [r]: /url\n  %%%\n\nSee [r][].\n",
+                "<ul>\n  <li></li>\n</ul>\n<p>See [r][].</p>\n",
+            ],
+            'footnote at column 0' => [
+                "%%%\n[^f]: note\n%%%\n\nSee [^f].\n",
+                "<p>See [^f].</p>\n",
+            ],
+            'footnote at an item content column' => [
+                "- %%%\n  [^f]: note\n  %%%\n\nSee [^f].\n",
+                "<ul>\n  <li></li>\n</ul>\n<p>See [^f].</p>\n",
+            ],
+            'abbreviation at column 0' => [
+                "%%%\n*[AB]: abbrev\n%%%\n\nThe AB here.\n",
+                "<p>The AB here.</p>\n",
+            ],
+            'abbreviation at an item content column' => [
+                "- %%%\n  *[AB]: abbrev\n  %%%\n\nThe AB here.\n",
+                "<ul>\n  <li></li>\n</ul>\n<p>The AB here.</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('unprefixedCommentStillDefersProvider')]
+    public function testUnprefixedCommentStillDefers(string $input, string $expected): void
+    {
+        $this->assertSame($expected, (new CarveConverter())->convert($input));
+    }
+
+    /**
+     * Each kind still registers where NO comment hides it.
+     *
+     * Without these the rows above pass on an engine that has stopped
+     * collecting the kind entirely, which is the same page for the reader and a
+     * different defect.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function definitionKindStillRegistersProvider(): array
+    {
+        return [
+            'link reference in a quote' => [
+                "> [r]: /url\n\nSee [r][].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See <a href=\"/url\">r</a>.</p>\n",
+            ],
+            'footnote in a quote' => [
+                "> [^f]: note\n\nSee [^f].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See " . self::FOOTNOTE_CALL . ".</p>\n" . self::FOOTNOTE_SECTION,
+            ],
+            // Not quoted: PART 12 section 7 is document level, so a quoted
+            // abbreviation definition renders as the text it is. The collector
+            // is alive at column 0, which is what has to stay true for the
+            // quoted abbreviation row above to mean anything.
+            'abbreviation at column 0' => [
+                "*[AB]: abbrev\n\nThe AB here.\n",
+                "<p>The <abbr title=\"abbrev\">AB</abbr> here.</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('definitionKindStillRegistersProvider')]
+    public function testDefinitionKindStillRegisters(string $input, string $expected): void
+    {
+        $this->assertSame($expected, (new CarveConverter())->convert($input));
+    }
+
+    /**
+     * A quoted opener whose closer is not in the same quote opens NOTHING.
+     *
+     * Widening the opener alone is a worse defect than the gap it closes: the
+     * block parser degrades an opener with no closer in its container to a
+     * one-line comment, so a prepass that enters the region on a far closer
+     * suppresses every definition between the two. Every row here registers.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function quotedOpenerNeedsItsCloserInTheQuoteProvider(): array
+    {
+        return [
+            'no closer at all' => ["> %%%\n> [r]: /url\n\nSee [r][].\n"],
+            // A blank ends the quote, so the closer below it is a DIFFERENT
+            // quote's - pinned for the block parser by
+            // testFencedCommentInABlockQuoteEndsAtABlankLine, and the prepasses
+            // have to agree or the page and the link table disagree.
+            'closer below a blank line' => ["> %%%\n> [r]: /url\n\n> %%%\n\nSee [r][].\n"],
+            'closer back at column 0' => ["> %%%\n> [r]: /url\n\n%%%\n\nSee [r][].\n"],
+            // A nested quote's fence is quoted comment CONTENT, so it is not
+            // the outer closer - read at the depth the fence opened at, exactly
+            // as a quoted code fence's closer is.
+            'closer one quote deeper' => ["> %%%\n> > %%%\n> [r]: /url\n\nSee [r][].\n"],
+            'closer of the wrong width' => ["> %%%\n> [r]: /url\n> %%%%\n\nSee [r][].\n"],
+        ];
+    }
+
+    #[DataProvider('quotedOpenerNeedsItsCloserInTheQuoteProvider')]
+    public function testQuotedOpenerNeedsItsCloserInTheQuote(string $input): void
+    {
+        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+    }
+
+    public function testANestedQuotesFenceDoesNotCloseTheOuterOne(): void
+    {
+        // The `> > %%%` is comment body; the `> %%%` below it closes, so the
+        // definition between them is the comment's and registers nothing.
+        $input = "> %%%\n> > %%%\n> [r]: /url\n> %%%\n\nSee [r][].\n";
+
+        $this->assertSame(
+            "<blockquote>\n\n</blockquote>\n<p>See [r][].</p>\n",
+            (new CarveConverter())->convert($input),
+        );
+    }
+
+    public function testAQuotedItemsCommentDefersAtItsContentColumn(): void
+    {
+        // Both prefixes at once: the quote marker comes off first and the
+        // column is measured inside the quote, which is where the prepasses
+        // already measure the content column they hand the fence (carve#658).
+        $input = "> - %%%\n>   [r]: /url\n>   %%%\n\nSee [r][].\n";
+
+        $this->assertSame(
+            "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>See [r][].</p>\n",
+            (new CarveConverter())->convert($input),
+        );
+    }
+
+    /**
+     * The container bound is memoized per DEPTH as well as per column.
+     *
+     * Same shape as testContainerScopedOpenersDoNotWalkTheTailPerOpener one
+     * prefix over: every opener is a distinct width inside one quote, so no
+     * opener closes another and none can share a per-width answer; the filler
+     * between them and the blank that ends the quote grows quadratically; and
+     * every closer sits past that blank, so each walk runs to the end of the
+     * quote rather than stopping early.
+     *
+     * Keying the memo by column alone would answer a quoted opener with a
+     * top-level opener's bound, so the key carries both and this input is what
+     * keeps the memo reachable at depth.
+     */
+    public function testQuotedOpenersDoNotWalkTheQuotePerOpener(): void
+    {
+        $build = static function (int $n): string {
+            $out = "> item\n";
+            for ($i = 0; $i < $n; $i++) {
+                $out .= '> ' . str_repeat('%', 3 + $i) . "\n";
+            }
+            $out .= str_repeat("> filler\n", $n * $n);
+            $out .= "\ndedent\n\n";
+            for ($i = 0; $i < $n; $i++) {
+                $out .= '> ' . str_repeat('%', 3 + $i) . "\n\n";
+            }
+
+            return $out;
+        };
+
+        $small = $build(40);
+        $large = $build(80);
+
+        // Warm up so autoloading and JIT are not attributed to the first sample.
+        (new CarveConverter())->convert($small);
+
+        $perByte = static function (string $src): float {
+            $best = INF;
+            for ($run = 0; $run < 3; $run++) {
+                $start = hrtime(true);
+                (new CarveConverter())->convert($src);
+                $best = min($best, (float)(hrtime(true) - $start));
+            }
+
+            return $best / strlen($src);
+        };
+
+        $ratio = $perByte($large) / max($perByte($small), 1e-9);
+
+        $this->assertLessThan(
+            1.2,
+            $ratio,
+            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
+        );
     }
 }
