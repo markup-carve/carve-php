@@ -7264,9 +7264,18 @@ class BlockParser
      * own (carve-php#1371).
      *
      * The column is what separates them. A line the list owns either carries a
-     * marker of its own - a `::` term or a `:` description - or is indented
-     * into the description it continues. A flush-left line that is neither has
-     * left the list, whatever the parse did with it afterwards.
+     * marker of its own - a `::` term, a `:` description, or the §17 L3
+     * continuation marker - or is indented into the description it continues.
+     * A flush-left line that is none of those has left the list, whatever the
+     * parse did with it afterwards.
+     *
+     * The continuation marker is FLUSH-LEFT and still the list's. A list
+     * written as a term, a description and then a lone `+` ends on a marker it
+     * consumed, so reading that as an unrelated column-0 line walked back past
+     * a line the list owns and shortened the extent by it. Asked through the one predicate that spells
+     * the marker {@see self::isContinuationMarker()} rather than a second copy
+     * of `/^\+[ \t]*$/`, which is the spelling carve-php#929 unified across
+     * seven sites.
      *
      * @param array<string> $lines
      * @param int $start
@@ -7282,6 +7291,7 @@ class BlockParser
                 || ($line[0] ?? '') === "\t"
                 || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line) === 1
                 || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line) === 1
+                || $this->isContinuationMarker($line)
             ) {
                 break;
             }
