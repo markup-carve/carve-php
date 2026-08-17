@@ -9549,7 +9549,16 @@ class BlockParser
             $textOffset += strlen($text) + 1;
         }
 
-        return $any ? $map->withSource($this->positionSource(), $this->positionIndex) : null;
+        // JOINED FROM CHUNKS, so a span across a join is refused rather than
+        // published: the spaces between chunks are parser-consumed, and the
+        // markup they stand for - the row's closing `|`, the continuation
+        // marker - belongs to no node here (carve-php#1361). Marked on the map
+        // rather than tested by geometry, because a gap alone does not mean
+        // reassembly: a stripped indent leaves one too, and reading that as
+        // reassembly dropped honest fence extents (carve-php#1369).
+        return $any
+            ? $map->withSource($this->positionSource(), $this->positionIndex)->joinedFromChunks()
+            : null;
     }
 
     /**
