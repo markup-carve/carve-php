@@ -443,6 +443,42 @@ class FencedCommentFenceTest extends TestCase
         $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
     }
 
+    /**
+     * A quoted comment CLOSES, per kind.
+     *
+     * The deferral rows above cannot see this: their documents hold nothing
+     * below the comment, so a region that never closed would render the same
+     * page. It is the failure a widened closer invites - matching the closer at
+     * the wrong depth leaves the region open, and every definition in the rest
+     * of the document then stops being collected while the block parser goes on
+     * rendering the page normally.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function quotedCommentClosesProvider(): array
+    {
+        return [
+            'link reference' => [
+                "> %%%\n> hidden\n> %%%\n\n[r]: /url\n\nSee [r][].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See <a href=\"/url\">r</a>.</p>\n",
+            ],
+            'footnote' => [
+                "> %%%\n> hidden\n> %%%\n\n[^f]: note\n\nSee [^f].\n",
+                "<blockquote>\n\n</blockquote>\n<p>See " . self::FOOTNOTE_CALL . ".</p>\n" . self::FOOTNOTE_SECTION,
+            ],
+            'abbreviation' => [
+                "> %%%\n> hidden\n> %%%\n\n*[AB]: abbrev\n\nThe AB here.\n",
+                "<blockquote>\n\n</blockquote>\n<p>The <abbr title=\"abbrev\">AB</abbr> here.</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('quotedCommentClosesProvider')]
+    public function testQuotedCommentCloses(string $input, string $expected): void
+    {
+        $this->assertSame($expected, (new CarveConverter())->convert($input));
+    }
+
     public function testANestedQuotesFenceDoesNotCloseTheOuterOne(): void
     {
         // The `> > %%%` is comment body; the `> %%%` below it closes, so the
