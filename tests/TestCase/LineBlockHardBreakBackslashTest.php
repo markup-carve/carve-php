@@ -97,6 +97,26 @@ class LineBlockHardBreakBackslashTest extends TestCase
                 "::: |\na\nb\n:::\n",
                 "::: |\na\nb\n:::\n",
             ],
+            // A LINE WHOSE LAST NODE IS A COMMENT IS EXEMPT. The marker runs to
+            // the END of its line, so a backslash written after it is comment
+            // CONTENT and the note comes back holding one. An EMPTY comment is
+            // where this bites, because the separator space would otherwise
+            // trip the lone-space case - so the writer spells it bare.
+            'an empty comment line takes no backslash' => [
+                "::: |\na\n%%\nb\n:::\n",
+                "::: |\na\n%%\nb\n:::\n",
+            ],
+            'a comment whose body ends in a space takes none either' => [
+                "::: |\na\n%% x \nb\n:::\n",
+                "::: |\na\n%% x \nb\n:::\n",
+            ],
+            // WHICH LINE IS LAST IS DECIDED BY THE BREAKS, HOWEVER SPELLED. The
+            // last body line here is the COMMENT, so the backslash on `a ` is
+            // there under the lone-space case and not under the last-line one.
+            'a boundary the author spelled with a backslash is still a boundary' => [
+                "::: |\na \\\n%% c\n:::\n",
+                "::: |\na \\\n%% c\n:::\n",
+            ],
         ];
     }
 

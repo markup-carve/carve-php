@@ -402,14 +402,18 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * REMOVED FROM THE RENDER, NOT FROM THE TREE - and at the right place in
-     * it. A run that swallowed the comment's line boundary holds it inside its
-     * own content, so the node belongs directly AFTER the run and before
-     * whatever the run's closing line goes on. The writer cannot see the
-     * difference, because it puts the comment back on the empty line either
-     * way; the AST can, and PART 12 is what reads it.
+     * IT DOES NOT SURVIVE A RUN THAT ATE ITS LINE -- NORMATIVE (PART 9 §23).
+     *
+     * What an unclosed run carries across an emptied line is the NEWLINE, the
+     * same thing it carries across every boundary it swallows, so there is no
+     * boundary left in the tree for a `comment` node to sit on: the run's value
+     * holds an EMPTY LINE instead. Appending the node anyway puts its span
+     * before the run that contains it and after the node that follows it,
+     * which PART 12 containment refuses.
+     *
+     * The writer's answer for that empty line is PART 11 §7c, pinned below.
      */
-    public function testTheCommentNodeSitsWhereTheRunLeftItsLine(): void
+    public function testACommentTheRunAteIsNotInTheTree(): void
     {
         $source = <<<'CARVE'
         ::: |
@@ -427,7 +431,28 @@ class LineBlockCommentOnlyLineTest extends TestCase
             $paragraph->getChildren(),
         );
 
-        $this->assertSame(['text', 'code', 'comment', 'text', 'hard_break', 'text'], $types);
+        $this->assertSame(['text', 'code', 'text', 'hard_break', 'text'], $types);
+    }
+
+    /**
+     * THE BOUNDARY HAS TO BE IN THE TREE, not merely counted to.
+     *
+     * A run that swallowed the LAST of several boundaries lands the walk on the
+     * right number by a different route, and the line it opens is inside the
+     * run's value rather than between two nodes. Both comments here are the
+     * run's; neither is a node.
+     */
+    public function testTheLastSwallowedCommentIsNotKeptByArithmetic(): void
+    {
+        $converter = new CarveConverter();
+
+        $this->assertSame([], self::commentContents($converter->parse("::: |\na `x\n%% c\n%% d\n:::\n")));
+        // The control: one boundary further out, where the second comment's own
+        // line boundary survives the run and the node with it.
+        $this->assertSame(
+            ['d'],
+            self::commentContents($converter->parse("::: |\na `x\n%% c\ny` z\n%% d\ne\n:::\n")),
+        );
     }
 
     /**
@@ -450,23 +475,35 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * AND GIVES IT UP WHERE A RUN HOLDS ITS LINE. The node then lands after the
-     * run rather than at a boundary, so its span would START INSIDE its own
-     * previous sibling's - an order no reader can walk. PART 12 §4 rates no
-     * span well above a wrong one.
+     * AND THE RUN THAT SWALLOWED A COMMENT GIVES UP ITS OWN POSITION.
+     *
+     * Taking the comment out of the middle of the run leaves the run's value
+     * discontiguous in the source, which is PART 12 §4's reassembled-node case:
+     * no offset pair equals that value, so the run omits `pos` rather than
+     * publish one its value is not a slice of.
      */
-    public function testASwallowedCommentGivesUpItsPositionRatherThanReportAWrongOne(): void
+    public function testTheRunThatSwallowedACommentGivesUpItsPosition(): void
     {
         $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
         $paragraph = $converter->parse("::: |\na `b\n%% c\nd` e\nf\n:::\n")->getChildren()[0]->getChildren()[0];
         $children = $paragraph->getChildren();
 
-        $this->assertInstanceOf(Comment::class, $children[2]);
-        $this->assertNull(
-            $children[2]->getPos(),
-            'the comment reports a span that starts inside the run before it',
-        );
-        $this->assertNotNull($children[1]->getPos(), 'the run itself must keep its span');
+        $this->assertNull($children[1]->getPos(), 'the run reports a span its value is not a slice of');
+        $this->assertNotNull($children[0]->getPos(), 'the text before it must keep its span');
+
+        // And no two placed siblings overlap, which is what the omission buys.
+        $placed = [];
+        foreach ($children as $child) {
+            if ($child->getPos() !== null) {
+                $placed[] = [$child->getPos()->startOffset, $child->getPos()->endOffset];
+            }
+        }
+        $sorted = $placed;
+        usort($sorted, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $this->assertSame($placed, $sorted, 'placed siblings are out of document order');
+        for ($i = 1, $last = count($placed); $i < $last; $i++) {
+            $this->assertGreaterThanOrEqual($placed[$i - 1][1], $placed[$i][0], 'two placed siblings overlap');
+        }
     }
 
     /**
@@ -509,32 +546,68 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * THE COMMENT SURVIVES WHERE ITS EMPTY LINE DOES, AND NO FURTHER.
+     * AN UNCLOSED RUN'S REMAINDER IS VERBATIM, TRAILING WHITESPACE INCLUDED.
      *
-     * A code span keeps the boundaries it swallowed as newlines in its own
-     * value, so the writer has a line to put the comment back on. Math strips
-     * them, so it has none - and a comment written anywhere else on a line runs
-     * to the end of it and eats whatever follows, which is how two comments
-     * came back as one holding the other's marker. A node the writer cannot
-     * spell is a PART 11 §1 failure no rendering can see, so it is not built.
+     * A run with no closer reaches the end of the BLOCK (PART 2) and what it
+     * reaches is verbatim, so the boundary it swallowed is content like the
+     * rest of it. Math used to rtrim the remainder where the code span it
+     * shares its span rule with takes it raw - the one construct that parted
+     * from the others, and only visible where a container leaves a boundary at
+     * the end of a run.
+     *
+     * Asserted on the VALUE rather than through the writer, because the writer
+     * has nothing to spell once the trailing line is gone: `fmt` closes the run
+     * at the end of the content it was handed either way, so the round trip is
+     * green on both readings and only the node says which one happened.
      */
-    public function testACommentWhoseEmptyLineDidNotSurviveIsNotBuilt(): void
+    public function testAnUnclosedRunKeepsTheBoundaryItSwallowed(): void
     {
         $converter = new CarveConverter();
-        $kept = $converter->parse("::: |\na `b\n%% c\n%% d\ne\n:::\n");
-        $dropped = $converter->parse("::: |\na \$`x\n%% c\n%% c\n:::\n");
 
-        $this->assertSame(['c', 'd'], self::commentContents($kept));
-        $this->assertSame([], self::commentContents($dropped));
+        foreach (['`x', '$`x', '!`x', '$$`x'] as $opener) {
+            $paragraph = $converter->parse("::: |\na " . $opener . "\n%% c\n:::\n")
+                ->getChildren()[0]
+                ->getChildren()[0];
+            $run = $paragraph->getChildren()[1];
 
-        foreach (["::: |\na `b\n%% c\n%% d\ne\n:::\n", "::: |\na \$`x\n%% c\n%% c\n:::\n"] as $source) {
-            $formatted = CarveConverter::toCarve($source);
             $this->assertSame(
-                self::commentContents($converter->parse($source)),
-                self::commentContents($converter->parse($formatted)),
-                'the writer changed a comment for: ' . $source,
+                "x\n",
+                $run->getContent(),
+                'the run dropped the boundary it swallowed after: ' . $opener,
+            );
+        }
+    }
+
+    /**
+     * THE RUN CARRIES THE LINE EVEN THOUGH IT DOES NOT CARRY THE NODE.
+     *
+     * The empty line the removal leaves survives inside the run's value as a
+     * NEWLINE, and PART 11 §7c spells it `%%` - the one spelling of an empty
+     * verse line that does not end the stanza. Math used to rtrim those
+     * newlines away where a code span keeps them, so the line was gone too and
+     * the writer produced a BLANK line, which returns one stanza as two.
+     *
+     * Every verbatim kind is checked, because the strip is per-construct and
+     * the divergence was in exactly one of them.
+     */
+    public function testEveryVerbatimRunKeepsTheLineItSwallowed(): void
+    {
+        $converter = new CarveConverter();
+
+        foreach (['`x', '$`x', '!`x', '$$`x'] as $opener) {
+            $source = "::: |\na " . $opener . "\n%% c\n%% d\n:::\n";
+            $formatted = CarveConverter::toCarve($source);
+
+            $this->assertStringNotContainsString(
+                "\n\n",
+                $formatted,
+                'the writer left a blank line, which ends the stanza, after: ' . $opener,
             );
             $this->assertSame($converter->convert($source), $converter->convert($formatted));
+            $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+            // The author's own comment TEXT is not recoverable here and PART 11
+            // §7c says it is not required to be: the run consumed it.
+            $this->assertSame([], self::commentContents($converter->parse($formatted)));
         }
     }
 
