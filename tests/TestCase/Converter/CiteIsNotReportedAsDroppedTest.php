@@ -574,11 +574,20 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
      * 495 tag/attribute pairs these four - `open` and `hidden` on `<input>` and
      * on `<math>` - are the only rows removed whose attribute is absent from
      * the emitted document, and none of them is valid HTML for its element.
+     *
+     * THE ATTRIBUTE ROW STAYS GONE and the ELEMENT now says so instead. The
+     * `<input>` is discarded here, and reporting that covers every attribute
+     * on it without anything having to know which ones were representable
+     * (carve-php#1377). That is the row this test was really missing: the
+     * silence it recorded was the whole element leaving without a word.
      */
     public function testABooleanAttributeOnAnElementThatDiscardsItIsSilent(): void
     {
         $this->assertSame('- t', $this->carve('<ul><li><input open> t</li></ul>'));
-        $this->assertSame([], $this->diagnostics('<ul><li><input open> t</li></ul>'));
+        $this->assertSame(
+            [['element-dropped', 'warning', 'Dropped unsupported <input> element']],
+            $this->diagnostics('<ul><li><input open> t</li></ul>'),
+        );
     }
 
     /**

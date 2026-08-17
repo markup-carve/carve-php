@@ -262,8 +262,9 @@ class HtmlToCarve
     protected function inspectImportLoss(string $html): array
     {
         // Built on first demand, from the output of THIS conversion, and only
-        // if the walk actually reaches a represented attribute.
+        // if the walk actually reaches a question that needs it.
         $this->survivingImportAttributes = null;
+        $this->emittedImportValues = [];
 
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
@@ -286,8 +287,10 @@ class HtmlToCarve
             // reusable and long-lived by design, so a tally left standing would
             // answer for the PREVIOUS document if a later call somehow reached
             // the pool before rebuilding it. `finally`, so a throwing walk
-            // cannot leave one behind.
+            // cannot leave one behind. The observation read off the same
+            // render goes with it, for the same reason.
             $this->survivingImportAttributes = null;
+            $this->emittedImportValues = [];
         }
 
         return $diagnostics;
@@ -428,13 +431,7 @@ class HtmlToCarve
         }
 
         if (!$this->isKnownImportElement($tag)) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-unwrapped',
-                'Replaced unsupported <' . $tag . '> element with Carve span metadata',
-                'info',
-                $path,
-            );
+            $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
         }
 
         if ($tag === 'table') {
@@ -470,6 +467,151 @@ class HtmlToCarve
         }
 
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
+    }
+
+    /**
+     * Name what became of an element the importer has no mapping for.
+     *
+     * THE CODE IS DECIDED BY THE OUTCOME, not by which arm of the walk ran.
+     * `element-unwrapped` used to be written for every unsupported element,
+     * and it says something specific: the wrapper went and the children
+     * stayed. That is true of a `<button>`, whose label comes through, and
+     * false of a `<canvas>`, an `<object>` or an `<iframe>`, whose emitted
+     * Carve is empty - nothing was unwrapped there, the subtree was dropped,
+     * and `element-dropped` is what `<math>` and `<colgroup>` already say
+     * (carve-php#1377).
+     *
+     * WHAT SEPARATES THEM IS CONTENT TO UNWRAP. An element that has any is
+     * unwrapped, because that is what this importer does with one - measured
+     * over every unsupported tag, the content came through in all of them. An
+     * element that has none cannot have been unwrapped whatever else is true:
+     * there was nothing to put in its place.
+     *
+     * THE THIRD ANSWER IS SILENCE, and it is why the childless case cannot be
+     * settled from the tag either. An `<input type="checkbox">` at the head of
+     * a list item is not lost: it comes back as the task marker `- [ ]`. Its
+     * own attributes are in the emitted document, so it survived as an element
+     * and there is nothing to report. The same `<input>` anywhere else leaves
+     * nothing, and it is that difference - not a table of types - that decides.
+     *
+     * ONLY THE CHILDLESS CASE IS ASKED OF THE DOCUMENT, deliberately. Asking it
+     * of content too means searching the emitted document for an element's
+     * words, and a document-wide search answers yes for words that belong to
+     * somebody else. The direction of the error matters: a missed
+     * `element-dropped` leaves the report where it already was, while a
+     * `element-dropped` on an element whose content is right there in the
+     * output is a new false statement. A `<button>...</button>` whose content
+     * is all punctuation, and a `<button><hr></button>` whose child carries
+     * neither words nor attributes, are both unwrapped and both would have been
+     * called dropped by a search of that kind.
+     *
+     * SO THIS DOES NOT REACH an element whose content its CONTEXT discards - a
+     * `<button>` inside a `<table>`, whose label never reaches the output. It
+     * is still reported as unwrapped. Telling that apart needs the trace to be
+     * correlated with the element it came from, which is the same correlation
+     * `importAttributeSurvived()` does not have.
+     *
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function reportImportElementOutcome(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+    {
+        if ($this->hasImportContentToUnwrap($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Replaced unsupported <' . $tag . '> element with Carve span metadata',
+                'info',
+                $path,
+            );
+
+            return;
+        }
+
+        if ($this->importElementSurvivedItself($node)) {
+            return;
+        }
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'element-dropped',
+            'Dropped unsupported <' . $tag . '> element',
+            'warning',
+            $path,
+        );
+    }
+
+    /**
+     * Is there anything here for an unwrapping to leave behind?
+     *
+     * Whitespace is not content: a `<canvas>` written across two lines holds a
+     * text node and still has nothing to put in its own place. Neither is a
+     * subtree the importer drops whole, which never reaches the output at all.
+     *
+     * Reads this element's OWN children rather than its whole subtree, so a
+     * nesting of unsupported wrappers costs one pass over each level rather
+     * than one pass over everything below it.
+     *
+     * @param \DOMElement $node
+     *
+     * @return bool
+     */
+    protected function hasImportContentToUnwrap(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                if (!in_array(strtolower($child->tagName), self::ACTIVE_ELEMENTS, true)) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (trim($child->textContent) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Did a childless element come back as an element of its own?
+     *
+     * ASKED OF THE OUTPUT: does the emitted document carry one of this
+     * element's attribute values, in an ATTRIBUTE position? A task-list
+     * checkbox does - its `type="checkbox"` is right there on the marker the
+     * renderer wrote - and a discarded `<input>` does not.
+     *
+     * SPENT FROM A BUDGET, not read from a set, so one surviving element
+     * answers for exactly one input element. Two `<input type="checkbox">`
+     * where only the first becomes a marker would otherwise both point at the
+     * one checkbox in the output, and the second's loss would go unreported.
+     *
+     * The budget is its OWN, separate from the one the attribute rows spend:
+     * an element asking whether it survived must not consume the survivor an
+     * attribute row is about to ask for.
+     *
+     * @param \DOMElement $node
+     *
+     * @return bool
+     */
+    protected function importElementSurvivedItself(DOMElement $node): bool
+    {
+        $this->importEmittedDocument();
+        foreach ($node->attributes as $attribute) {
+            $value = trim($attribute->value);
+            if ($value === '' || ($this->emittedImportValues[$value] ?? 0) < 1) {
+                continue;
+            }
+            $this->emittedImportValues[$value]--;
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -1237,11 +1379,7 @@ class HtmlToCarve
             return true;
         }
 
-        if ($this->survivingImportAttributes === null) {
-            $this->survivingImportAttributes = $this->tallySurvivingAttributes(
-                $this->inspectedCarve ?? '',
-            );
-        }
+        $this->importEmittedDocument();
 
         if ($name === 'class') {
             return $this->classTokensSurvived($value);
@@ -1355,6 +1493,10 @@ class HtmlToCarve
      */
     protected function tallySurvivingAttributes(string $carve): array
     {
+        // Reset FIRST, so every early return below leaves the element
+        // questions looking at an empty document rather than the last one.
+        $this->emittedImportValues = [];
+
         if (trim($carve) === '') {
             return [];
         }
@@ -1379,6 +1521,7 @@ class HtmlToCarve
         libxml_clear_errors();
 
         $counts = [];
+        $values = [];
         /** @var \DOMNodeList<\DOMElement> $elements */
         $elements = $doc->getElementsByTagName('*');
         foreach ($elements as $element) {
@@ -1394,6 +1537,13 @@ class HtmlToCarve
                 if ($value === '') {
                     continue;
                 }
+
+                // HOW MANY elements carry this value, for the element
+                // questions. Its own budget, separate from the attribute one
+                // below: asking whether an element survived must not spend a
+                // credit an attribute row is about to ask for.
+                $values[$value] = ($values[$value] ?? 0) + 1;
+
                 // A class is a token LIST, so each token is tallied on its own -
                 // `class="details x"` answers for an authored `x` without the
                 // extension's own `details` having to be predicted.
@@ -1420,7 +1570,23 @@ class HtmlToCarve
             }
         }
 
+        $this->emittedImportValues = $values;
+
         return $counts;
+    }
+
+    /**
+     * Build the observation of the emitted document, once per conversion.
+     */
+    protected function importEmittedDocument(): void
+    {
+        if ($this->survivingImportAttributes !== null) {
+            return;
+        }
+
+        $this->survivingImportAttributes = $this->tallySurvivingAttributes(
+            $this->inspectedCarve ?? '',
+        );
     }
 
     protected function isKnownImportElement(string $tag): bool
@@ -1451,7 +1617,16 @@ class HtmlToCarve
             'span', 'ul', 'ol',
             'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th',
             'td', 'caption',
-            'figure', 'figcaption', 'blockquote', 'cite', 'abbr', 'input',
+            'figure', 'figcaption', 'blockquote', 'cite', 'abbr',
+            // `input` IS NOT HERE, though it was. It is representable in one
+            // position only - a checkbox at the head of a list item, which
+            // comes back as the task marker `- [ ]` - and listing it as known
+            // silenced every other one. An `<input>` in a paragraph took its
+            // content out of the document and produced no row at all, the one
+            // discarded element in this importer that exited clean
+            // (carve-php#1377). It reaches the outcome question with
+            // everything else now, and the task-list checkbox answers that
+            // question by leaving a trace rather than by being named here.
         ], true);
     }
 
@@ -4183,6 +4358,18 @@ class HtmlToCarve
      * @var array<string, int>|null
      */
     protected ?array $survivingImportAttributes = null;
+
+    /**
+     * How many elements of the emitted document carry each attribute value.
+     *
+     * Read off the same render as the budget above and spent the same way, so
+     * one surviving element answers for exactly one input element. Kept apart
+     * from that budget on purpose: the element questions must not consume a
+     * survivor an attribute row is about to ask for.
+     *
+     * @var array<string, int>
+     */
+    protected array $emittedImportValues = [];
 
     /**
      * The element whose attributes are being inspected.
