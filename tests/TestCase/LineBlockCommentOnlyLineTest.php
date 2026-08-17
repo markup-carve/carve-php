@@ -5,24 +5,37 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
  * A comment-only body line in a line block leaves an EMPTY verse line, on
  * EVERY line and not only the first (PART 9 §23; carve-php#1393).
  *
- * §23 spells the rule out: a comment is not a block construct, so `%%` runs to
- * end of line wherever it appears, including inside verse, and "a comment-only
- * body line leaves an EMPTY verse line rather than disappearing - the line was
- * written, so the stanza keeps its shape".
+ * §23 spells the rule out: a comment-only body line "leaves an EMPTY verse line
+ * rather than disappearing - the line was written, so the stanza keeps its
+ * shape".
  *
- * The defect was the inline layer's, not the block layer's. A stanza is parsed
- * as ONE inline run, so every body line but the first reaches the `%%` test
- * with a NEWLINE before it; the test admitted a space and a tab and nothing
- * else, so the comment fell through as ordinary text and the verse published
- * it. That is the same defect carve-js carried, under the same clause, and
- * fixed the same way, by widening the same class (markup-carve/carve-js#581) -
- * §23's own table still records it there.
+ * IT IS DECIDED AT THE BLOCK LAYER (carve#1333). `comment_line` is a BLOCK -
+ * PART 1 lists it among the invisible ones and §10 I5 rules it - so §23 removes
+ * the line WITH the other block-layer decisions, before any inline content
+ * exists. Deciding it during the stanza's one inline pass let an unclosed
+ * verbatim run opened on an EARLIER line claim the line under §21's verbatim
+ * exclusion and publish the comment, on a document whose only defect is a stray
+ * backtick above it.
+ *
+ * The reach was the earlier half (carve-php#1393): a stanza is parsed as ONE
+ * inline run, so every body line but the first reached the `%%` test with a
+ * NEWLINE before it, matched neither arm, and fell through as ordinary text.
+ * That is fixed and unchanged here; what moves is WHEN the line is decided.
+ *
+ * The TRAILING comment is a different construct and does not move with it.
+ * `x %% secret` is `inline_comment` (PART 3, §21), and §21's third bullet
+ * leaves it standing inside a verbatim run: an engine may leave a `%%` in a run
+ * and may never delete author bytes out of one.
  *
  * Two things have to hold together and are asserted apart below: the comment
  * TEXT is gone, and the LINE is still there. Dropping the row would keep a
@@ -329,11 +342,16 @@ class LineBlockCommentOnlyLineTest extends TestCase
         $this->assertSame($expected, $this->convert($source));
     }
 
-    public function testACodeSpanReachingTheLineStaysOpaque(): void
+    public function testACodeSpanReachingTheLineCannotClaimIt(): void
     {
-        // §21: `%%` is NEVER recognized inside a code span. The span is unclosed
-        // on its own line and reaches the end of the BLOCK, so it swallows the
-        // marker along with the line ending.
+        // THE BLOCK LAYER DECIDES FIRST (§23, carve#1333). The span is unclosed
+        // on the line above and reaches the end of the BLOCK, but the comment
+        // line is gone before the span exists, so there is nothing on that line
+        // for the run to swallow but the line ending.
+        //
+        // The closing backtick is INSIDE the comment, which is what makes this
+        // discriminating: it never closes the span, so the span still runs to
+        // the end of the block and still holds the empty line the comment left.
         $source = <<<'CARVE'
         ::: |
         a `x
@@ -343,10 +361,159 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         CARVE;
 
-        $html = $this->convert($source);
+        $expected = <<<'HTML'
+        <div class="line-block">
+          <p>a <code>x
 
-        $this->assertStringContainsString('%% c', $html);
-        $this->assertStringContainsString('<code>', $html);
+        b</code></p>
+        </div>
+
+        HTML;
+
+        $this->assertSame($expected, $this->convert($source));
+    }
+
+    /**
+     * The reported document, and the one the ruling turns on: one stray
+     * backtick above a comment used to PUBLISH it (carve#1333).
+     */
+    public function testAStrayBacktickAboveACommentDoesNotPublishIt(): void
+    {
+        $source = <<<'CARVE'
+        ::: |
+        a `b
+        %% secret
+        c
+        :::
+
+        CARVE;
+
+        $expected = <<<'HTML'
+        <div class="line-block">
+          <p>a <code>b
+
+        c</code></p>
+        </div>
+
+        HTML;
+
+        $this->assertSame($expected, $this->convert($source));
+        $this->assertStringNotContainsString('secret', $this->convert($source));
+    }
+
+    /**
+     * REMOVED FROM THE RENDER, NOT FROM THE TREE - and at the right place in
+     * it. A run that swallowed the comment's line boundary holds it inside its
+     * own content, so the node belongs directly AFTER the run and before
+     * whatever the run's closing line goes on. The writer cannot see the
+     * difference, because it puts the comment back on the empty line either
+     * way; the AST can, and PART 12 is what reads it.
+     */
+    public function testTheCommentNodeSitsWhereTheRunLeftItsLine(): void
+    {
+        $source = <<<'CARVE'
+        ::: |
+        a `b
+        %% c
+        d` e
+        f
+        :::
+
+        CARVE;
+
+        $paragraph = (new CarveConverter())->parse($source)->getChildren()[0]->getChildren()[0];
+        $types = array_map(
+            static fn ($node): string => $node->getType(),
+            $paragraph->getChildren(),
+        );
+
+        $this->assertSame(['text', 'code', 'comment', 'text', 'hard_break', 'text'], $types);
+    }
+
+    /**
+     * The comment keeps the SPAN the inline reader used to give it (PART 12
+     * §4). The text and the breaks around it still carry theirs, so a node
+     * that lost its position when the deciding layer moved would show up
+     * nowhere else.
+     */
+    public function testTheCommentNodeKeepsItsPosition(): void
+    {
+        $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
+        $paragraph = $converter->parse("::: |\na\n%% c\nb\n:::\n")->getChildren()[0]->getChildren()[0];
+        $comment = $paragraph->getChildren()[2];
+        $position = $comment->getPos();
+
+        $this->assertNotNull($position, 'the verse comment lost its position');
+        $this->assertSame(3, $position->startLine);
+        $this->assertSame(8, $position->startOffset);
+        $this->assertSame(12, $position->endOffset);
+    }
+
+    /**
+     * A COMMENT LINE TAKES NO BACKSLASH. `%%` consumes the rest of its line, so
+     * a backslash written after it is comment TEXT, not break syntax, and the
+     * comment comes back holding a character the author never wrote.
+     *
+     * No rendering can see this - a comment renders nothing either way - so the
+     * assertion is on the tree.
+     */
+    public function testAnEmptyOrSpaceEndingCommentSurvivesTheWriter(): void
+    {
+        foreach (["::: |\n%%\nb\n:::\n", "::: |\na\n%% x \nb\n:::\n"] as $source) {
+            $converter = new CarveConverter();
+            $before = $converter->parse($source);
+            $after = $converter->parse(CarveConverter::toCarve($source));
+
+            $this->assertSame(
+                self::commentContents($before),
+                self::commentContents($after),
+                'the writer changed a comment for: ' . $source,
+            );
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function commentContents(Node $node): array
+    {
+        $found = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Comment) {
+                $found[] = $child->getContent();
+            }
+            $found = array_merge($found, self::commentContents($child));
+        }
+
+        return $found;
+    }
+
+    /**
+     * The INLINE half is untouched, and the asymmetry is deliberate: an engine
+     * may leave a `%%` standing inside a verbatim run, and may never delete
+     * author bytes out of one (§21's third bullet).
+     */
+    public function testATrailingCommentInsideARunIsStillContent(): void
+    {
+        $source = <<<'CARVE'
+        ::: |
+        a `b
+        x %% secret
+        c
+        :::
+
+        CARVE;
+
+        $expected = <<<'HTML'
+        <div class="line-block">
+          <p>a <code>b
+        x %% secret
+        c</code></p>
+        </div>
+
+        HTML;
+
+        $this->assertSame($expected, $this->convert($source));
     }
 
     public function testTheRuleHoldsInsideAQuote(): void
@@ -405,6 +572,14 @@ class LineBlockCommentOnlyLineTest extends TestCase
                 "::: |\na\n%% c\nb\n:::\n",
                 "::: |\na\n%% c\n:::\n",
                 "::: |\na\nx %% c\nb\n:::\n",
+                // The run shapes. A comment whose line an unclosed run reaches
+                // has no boundary of its own to sit at, so the writer has to
+                // put it back on the empty line the removal left - otherwise
+                // that line is BLANK on the way in, ends the stanza, and the
+                // comment is published besides.
+                "::: |\na `b\n%% c\nd\n:::\n",
+                "::: |\na `b\n%% c\n%% d\ne\n:::\n",
+                "::: |\na `b\n%% c\nd\n\ne `f\n%% g\nh\n:::\n",
             ] as $source
         ) {
             $formatted = CarveConverter::toCarve($source);

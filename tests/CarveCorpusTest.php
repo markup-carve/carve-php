@@ -462,6 +462,20 @@ class CarveCorpusTest extends TestCase
         // same pair and still holds: `> C\# is a language` and `- \#tag rest`
         // drop their escapes exactly as they do outside a container.
         'an-escaped-hash-keeps-its-escape-at-a-container-s-content-position',
+        // PART 9 §23 (carve#1333): a comment-only body line is removed at the
+        // BLOCK layer. Four documents; one failed - the shape with an unclosed
+        // verbatim run above the comment, which is the whole ruling - and was
+        // fixed rather than deferred. The other three are its controls.
+        //
+        // PART 11 §7c (carve#1334): a line block's hard break keeps its
+        // backslash where a bare newline would be re-read. Three documents,
+        // all of which the engine already RENDERED correctly and all of which
+        // it WROTE wrongly, so the corpus test never saw them - the `.fmt`
+        // fixtures in CarveFmtCorpusTest are what these three pin.
+        //
+        // So KNOWN_GAPS stays empty.
+        'a-comment-only-line-in-a-line-block-is-removed-before-any-inline-run',
+        'a-line-block-s-hard-break-keeps-its-backslash',
     ];
 
     /**

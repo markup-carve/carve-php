@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -7349,6 +7350,31 @@ class BlockParser
         // parser produces for the newlines it did not swallow are promoted to
         // hard ones afterwards - the same order the `::: \` hard-break block
         // already uses, and the reason that sibling never had this defect.
+        // A COMMENT-ONLY BODY LINE IS DECIDED HERE, at the block layer, and
+        // that is the whole of markup-carve/carve#1333. `comment_line` is a
+        // BLOCK (PART 1's invisible blocks, PART 9 §10 I5), so PART 9 §23
+        // removes it WITH the other block-layer decisions - before any inline
+        // content exists. Deciding it inside the one inline pass below instead
+        // let an unclosed verbatim run opened on an EARLIER line claim the
+        // line under §21's verbatim exclusion and PUBLISH the comment's own
+        // text, on a document whose only defect is a stray backtick above it.
+        //
+        // What is left behind is an EMPTY VERSE LINE, not a blank line: the
+        // stanza split has already happened above, so emptying the line keeps
+        // the stanza's shape rather than ending it. The line boundary survives
+        // and the run carries it as a newline like any other it swallows.
+        //
+        // ONLY A LINE WHOSE FIRST CHARACTER IS `%` qualifies. Leading
+        // whitespace is CONTENT in verse (§23), so `comment_line`'s optional
+        // `[whitespace]` prefix has nothing to consume and an INDENTED `%%`
+        // line stays ordinary verse text.
+        //
+        // The trailing comment is a different construct and is not touched:
+        // `x %% secret` is `inline_comment` (PART 3, §21), which §21's third
+        // bullet leaves standing inside a verbatim run - an engine may leave a
+        // `%%` in a run and may never delete author bytes out of one.
+        $verseComments = $this->verseCommentLines($lines);
+
         $texts = [];
         $segments = [];
         $endingSegments = [];
@@ -7356,6 +7382,10 @@ class BlockParser
         $offsetInStanza = 0;
         foreach ($lines as $index => [$line, $lineNumber]) {
             [$expanded, $runs, $kept] = $this->expandLineBlockLine($line, $lineNumber);
+            if (isset($verseComments[$index])) {
+                $expanded = '';
+                $runs = [];
+            }
             foreach ($runs as [$offsetInLine, $sourceColumn, $length, $sourceLength]) {
                 $segments[] = [$offsetInStanza + $offsetInLine, $sourceColumn, $length, $lineNumber, false, $sourceLength];
             }
@@ -7402,8 +7432,116 @@ class BlockParser
             sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments)),
         );
         $this->convertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
+        $this->placeVerseComments($paragraph, $verseComments);
 
         $lineBlock->appendChild($paragraph);
+    }
+
+    /**
+     * The stanza's comment-only body lines, as `comment` nodes keyed by their
+     * index in the stanza.
+     *
+     * @param list<array{0: string, 1: int}> $lines
+     *
+     * @return array<int, \MarkupCarve\Carve\Node\Block\Comment>
+     */
+    private function verseCommentLines(array $lines): array
+    {
+        $comments = [];
+        foreach ($lines as $index => [$line, $lineNumber]) {
+            if (!str_starts_with($line, '%%')) {
+                continue;
+            }
+
+            // The same content the inline reader takes: everything after the
+            // marker, less exactly one separating space or tab. Any further
+            // spacing is the comment's own.
+            $content = substr($line, 2);
+            if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+                $content = substr($content, 1);
+            }
+            $comment = new Comment($content);
+            // The node keeps the SPAN the inline reader used to give it: its
+            // own line, from the container's content column to the end. A node
+            // that loses its position when the layer deciding it moves is a
+            // silent PART 12 §4 regression - the surrounding text and breaks
+            // still carry theirs, so nothing else would have shown it.
+            $sourceLine = $this->sourceLineFor($lineNumber);
+            $this->stampBlockSpan($comment, $sourceLine, $sourceLine);
+            $comments[$index] = $comment;
+        }
+
+        return $comments;
+    }
+
+    /**
+     * Put each removed comment back into the stanza, in document order.
+     *
+     * REMOVED FROM THE RENDER, NOT FROM THE TREE (PART 9 §23): the line is a
+     * `comment` node like any other, so the canonical writer can emit it back
+     * unchanged and at the same column. Every other target drops it, which is
+     * the point of removing it.
+     *
+     * A comment sits after the line boundaries that precede it, which is what
+     * {@see self::verseLineBoundaries()} counts. Where a verbatim run SWALLOWED
+     * those boundaries the count runs past the comment's line in one step, and
+     * the node lands directly after the run - the nearest position document
+     * order admits, since the line itself is inside the run's content.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
+     * @param array<int, \MarkupCarve\Carve\Node\Block\Comment> $comments
+     */
+    private function placeVerseComments(Paragraph $paragraph, array $comments): void
+    {
+        if ($comments === []) {
+            return;
+        }
+
+        ksort($comments);
+        $children = $paragraph->getChildren();
+        $count = count($children);
+        $placed = [];
+        $cursor = 0;
+        $line = 0;
+        foreach ($comments as $index => $comment) {
+            while ($cursor < $count && $line < $index) {
+                $line += self::verseLineBoundaries($children[$cursor]);
+                $placed[] = $children[$cursor];
+                $cursor++;
+            }
+            $placed[] = $comment;
+        }
+        for (; $cursor < $count; $cursor++) {
+            $placed[] = $children[$cursor];
+        }
+
+        $paragraph->setChildren($placed);
+    }
+
+    /**
+     * How many of the stanza's line boundaries a node accounts for.
+     *
+     * A break IS a boundary; a verbatim run holds the ones it swallowed inside
+     * its own content, where they are newlines rather than nodes. Both are
+     * counted so a comment can be placed by line without the parser having to
+     * carry a second index alongside the tree.
+     */
+    private static function verseLineBoundaries(Node $node): int
+    {
+        if ($node instanceof SoftBreak || $node instanceof HardBreak) {
+            return 1;
+        }
+
+        if ($node->hasChildren()) {
+            $total = 0;
+            foreach ($node->getChildren() as $child) {
+                $total += self::verseLineBoundaries($child);
+            }
+
+            return $total;
+        }
+
+        return $node instanceof ContentNodeInterface ? substr_count($node->getContent(), "\n") : 0;
     }
 
     /**
