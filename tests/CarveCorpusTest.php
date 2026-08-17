@@ -490,6 +490,20 @@ class CarveCorpusTest extends TestCase
         // the property rather than from the bullets - which is what the clause
         // now says to do. KNOWN_GAPS stays empty.
         'a-line-block-s-last-body-line-keeps-its-backslash',
+        // Arrived with the bump to carve 6af110c, which pins PART 9 §28 at the
+        // one column the corpus had never reached: a definition inside a
+        // comment fence written THROUGH A QUOTE. §28 names no column and no
+        // container, and the column-0 and list-item spellings were already
+        // pinned, so all three engines leaked through the only spelling nobody
+        // had written down (carve#1341).
+        //
+        // Three documents, all three rendered through CarveConverter and diffed
+        // against their `.html` before this line was added. All three already
+        // matched: carve-php#1402 closed the leak a day before the corpus
+        // arrived, and these are what keep it closed. KNOWN_GAPS stays empty.
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either',
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either-2',
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either-3',
     ];
 
     /**
