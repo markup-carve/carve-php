@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -20,6 +21,26 @@ use MarkupCarve\Carve\Util\StringUtil;
  * stripped and the closer after the item's content column is removed. Missing
  * that left the footnote prepass reading a fenced sample's body as document
  * content (carve-php#761).
+ *
+ * WHAT AN OPENER IS is asked of the block parser and not spelled again here.
+ * This tracker matched the fence RUN alone, so it opened a region on lines the
+ * block parser reads as prose - and a region it opens has no closer ahead,
+ * because the block parser never opened one to close. Every definition below
+ * such a line then stopped being collected while still being consumed, so the
+ * author's line rendered nowhere and defined nothing (carve-php#1348).
+ *
+ * The line PART 7's separator rule divides is the one that showed it:
+ *
+ * ```
+ * ```<TAB>php
+ * [r]: /u
+ *
+ * see [t][r]
+ * ```
+ *
+ * A tab before content is a SEPARATOR, and the slot is a literal space it
+ * cannot satisfy (markup-carve/carve#1295), so the fence does not open in any
+ * engine - but this tracker opened one and swallowed `[r]: /u`.
  */
 class PrepassFenceTracker
 {
@@ -45,6 +66,13 @@ class PrepassFenceTracker
     protected int $contentColumn = 0;
 
     protected int $quoteDepth = 0;
+
+    protected FencedBlockParser $fencedBlockParser;
+
+    public function __construct(?FencedBlockParser $fencedBlockParser = null)
+    {
+        $this->fencedBlockParser = $fencedBlockParser ?? new FencedBlockParser();
+    }
 
     public function isOpen(): bool
     {
@@ -131,12 +159,25 @@ class PrepassFenceTracker
     {
         $view = $this->fenceView($line, $contentColumn);
         $first = $view['line'][0] ?? '';
-        if (($first !== '`' && $first !== '~') || preg_match('/^([`~]{3,})/', $view['line'], $openMatch) !== 1) {
+        if ($first !== '`' && $first !== '~') {
             return false;
         }
 
-        $this->char = $openMatch[1][0];
-        $this->length = strlen($openMatch[1]);
+        // THE BLOCK PARSER DECIDES. A raw block hides its body the same way a
+        // code block does, so both openers count - and nothing else does. The
+        // fence RUN alone used to be the whole test, which admitted every line
+        // the info-string rules refuse: ```` ```<TAB>php ````, ```` ```<SP><SP>php ````,
+        // ```` ```=html<TAB>x ````. Each opened a region here that the block
+        // parser never opened, and a region with no closer ahead runs to the end
+        // of the document.
+        $opener = $this->fencedBlockParser->parseCodeFenceOpener($view['line'])
+            ?? $this->fencedBlockParser->parseRawBlockOpener($view['line']);
+        if ($opener === null) {
+            return false;
+        }
+
+        $this->char = $opener['fence'][0];
+        $this->length = $opener['length'];
         $this->contentColumn = $contentColumn;
         $this->quoteDepth = $view['quoteDepth'];
 
