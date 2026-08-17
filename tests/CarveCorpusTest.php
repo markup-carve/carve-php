@@ -440,25 +440,13 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * The five below arrived with the bump to carve b6917ab and are TWO parser
-     * rules, not five bugs. Each rule is a container-boundary decision this
-     * engine makes one block too late, so the documents group by rule rather
-     * than by symptom.
+     * The one below arrived with the bump to carve b6917ab. It is a
+     * container-boundary decision this engine makes one block too late, like
+     * the three that came with it and have since been closed.
      *
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        // RULE 3 (carve corpus 329). A floating attribute is scoped to the
-        // container that holds it and does not reach a block outside it. This
-        // engine lets it escape and attribute the following block.
-        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it'
-            => 'A floating attribute inside a blockquote attributes the paragraph after the quote instead of expiring with it.',
-        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-2'
-            => 'Same rule without the blank line: the following line is also pulled into the quote.',
-        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-5'
-            => 'Same rule inside a definition description.',
-        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-6'
-            => 'Same rule with a two-line floating attribute in a description, which is additionally not recognized as one.',
         // RULE 4 (carve corpus 333). An open verbatim run in a table row spans
         // the continuation row. This engine closes it at the row boundary, so
         // the escaped closing pipe splits the cell.
