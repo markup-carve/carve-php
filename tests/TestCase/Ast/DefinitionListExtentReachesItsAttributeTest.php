@@ -102,6 +102,18 @@ class DefinitionListExtentReachesItsAttributeTest extends TestCase
         $this->assertSame(16, $list['pos']['endOffset']);
     }
 
+    public function testAFormBContinuationMarkerIsOwned(): void
+    {
+        // The marker is FLUSH-LEFT and still the list's: the parse consumes it,
+        // so reading it as an unrelated column-0 line walks back past a line
+        // the list owns. No corpus document has this shape - codex review found
+        // it - and carve-rs covers it, ending on line 3 at offset 16.
+        $list = $this->definitionList(":: term\n:  def\n+\n");
+
+        $this->assertSame(3, $list['pos']['endLine']);
+        $this->assertSame(16, $list['pos']['endOffset']);
+    }
+
     public function testTheDefinitionBelowStillResolves(): void
     {
         // And it is still a definition: the span moved, the document did not.
