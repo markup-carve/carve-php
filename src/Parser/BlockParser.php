@@ -7072,13 +7072,37 @@ class BlockParser
             $first = $entries[0]->getPos();
             $last = $entries[count($entries) - 1]->getPos();
             if ($first !== null && $last !== null) {
+                // THE LIST OWNS EVERY LINE IT CONSUMED, and its children do
+                // not all show. A floating attribute is scoped to the
+                // container that holds it (markup-carve/carve#1298), so the
+                // attribute line is INSIDE the list - and no child covers it,
+                // because it became attributes on the list itself rather than
+                // a block. An extent derived from the children alone therefore
+                // stopped one line short of the line it now scopes
+                // (carve-php#1362); under §4 a span covers the markup its node
+                // owns, and this list owns that line.
+                //
+                // The lines are the answer OUTRIGHT, not a widening applied
+                // where they happen to reach further. A `> $last->endOffset`
+                // guard stood here first and it never fired: across 432
+                // generated shapes - one and two-line attribute blocks, a
+                // comment, a fence, a nested quote and list, a second entry, a
+                // trailing-whitespace description, each at top level, in a
+                // quote and in an item - the consumed lines and the last child
+                // ended at the same offset every time except on the attribute
+                // line this fixes. A check that cannot fail tells the next
+                // reader the children still decide something here.
+                //
+                // The START still comes from the children, because a list
+                // inside an item does not begin at column 1 of its line.
+                $end = $this->wholeLinesSpan($start, $i - 1) ?? $last;
                 $dl->setPos(new SourceSpan(
                     startLine: $first->startLine,
-                    endLine: $last->endLine,
+                    endLine: $end->endLine,
                     startColumn: $first->startColumn,
-                    endColumn: $last->endColumn,
+                    endColumn: $end->endColumn,
                     startOffset: $first->startOffset,
-                    endOffset: $last->endOffset,
+                    endOffset: $end->endOffset,
                 ));
             }
         }
