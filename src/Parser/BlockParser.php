@@ -7731,8 +7731,15 @@ class BlockParser
 
             // Check for continuation rows (lines starting with +)
             while ($i < $count && $this->tableParser->isContinuationRow($lines[$i])) {
-                $continuationCells = $this->tableParser->parseContinuationCells($lines[$i]);
-                foreach ($this->continuationCellSourceChunks($i, $lines[$i]) as $idx => $chunks) {
+                // THE ROW ABOVE DECIDES WHERE THIS ROW'S CELLS ARE. A verbatim
+                // run left open in cell k reaches ACROSS the row boundary
+                // (PART 9 §19 - the run ends at its closing delimiter, and a
+                // row boundary is not one), so a `|` inside it is content and
+                // not a cell delimiter. Split without that state, `| a `b |`
+                // followed by `+ c | d` |` broke one cell into two.
+                $openRuns = $this->openVerbatimRunsByCell($mergedCells);
+                $continuationCells = $this->tableParser->parseContinuationCells($lines[$i], $openRuns);
+                foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
                     }
@@ -8179,7 +8186,21 @@ class BlockParser
 
         // Look for continuation rows
         while ($i < $count && $this->tableParser->isContinuationRow($lines[$i])) {
-            $continuationCells = $this->tableParser->parseContinuationCells($lines[$i]);
+            // THE LOOKAHEAD SPLITS THE SAME WAY THE COLLECTOR DOES. Measured,
+            // this argument changes no output today: the validity check below
+            // asks whether the MERGED content is balanced, and
+            // `mergeCellContents()` joins the cells with a space, so the total
+            // text is the same however the row was divided. Removing it fails
+            // nothing - a diagnosis rather than a gap, recorded here because
+            // the next reader will notice.
+            //
+            // It stays because the alternative is the failure this file keeps
+            // recording: one rule with two spellings, where the second is only
+            // wrong once something starts depending on it.
+            $continuationCells = $this->tableParser->parseContinuationCells(
+                $lines[$i],
+                $this->openVerbatimRunsByCell($mergedCells),
+            );
             $mergedCells = $this->tableParser->mergeCellContents($mergedCells, $continuationCells);
             $i++;
         }
@@ -9292,6 +9313,31 @@ class BlockParser
     }
 
     /**
+     * Which cells of the row so far leave a verbatim run OPEN, and how wide.
+     *
+     * Keyed by cell index because the run belongs to the cell it was written
+     * in: `| x | a `b |` reopens at cell 1, and cell 0 of the continuation row
+     * splits as usual. The width matters because only a run of the SAME length
+     * closes it.
+     *
+     * @param array<int, string> $cells Merged content of the row so far.
+     *
+     * @return array<int, int> Cell index => open delimiter width.
+     */
+    private function openVerbatimRunsByCell(array $cells): array
+    {
+        $open = [];
+        foreach ($cells as $index => $content) {
+            $width = $this->tableParser->openCodeSpanDelimiter($content);
+            if ($width > 0) {
+                $open[$index] = $width;
+            }
+        }
+
+        return $open;
+    }
+
+    /**
      * Source chunks for a table cell before continuation rows rebuild it.
      *
      * @param int $index
@@ -9320,16 +9366,27 @@ class BlockParser
     }
 
     /**
+     * @param int $index
+     * @param string $line
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
+     *
      * @return array<int, list<array{int, int, string}>>
      */
-    private function continuationCellSourceChunks(int $index, string $line): array
+    private function continuationCellSourceChunks(int $index, string $line, array $openDelimiters = []): array
     {
         $trimmed = ltrim($line, " \t");
         $prefix = strlen($line) - strlen($trimmed);
         $normalizedLine = '|' . substr($trimmed, 1);
         $chunks = [];
 
-        foreach ($this->tableParser->splitCells($normalizedLine) as $idx => $cell) {
+        // SPLIT THE SAME WAY THE CONTENT WAS. This walk exists to say WHERE
+        // each cell's text came from, so a division that differs from the one
+        // that produced the text describes a row that was never built: with the
+        // inherited run dropped here, a pipe inside it split a chunk onto a
+        // cell index that does not exist, `rebuiltCellSourceMap()`'s
+        // joined-content check then failed, and the nodes came back with no
+        // position at all. Raised by codex review.
+        foreach ($this->tableParser->splitCells($normalizedLine, $openDelimiters) as $idx => $cell) {
             $content = trim($cell['content'], ' ');
             if ($content === '') {
                 continue;
