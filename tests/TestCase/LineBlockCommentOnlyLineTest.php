@@ -418,6 +418,29 @@ class LineBlockCommentOnlyLineTest extends TestCase
         }
     }
 
+    public function testFormattingKeepsALiteralMarkerEscaped(): void
+    {
+        // The dangerous direction of the same change. Recognizing `%%` at the
+        // start of a later verse line makes that position MEANINGFUL, so a
+        // verse line whose text merely begins with `%%` has to keep its escape
+        // through the formatter - writing it bare would hand the next parse a
+        // comment and delete the author's line. `%` is in the escapable set at
+        // column 0 for exactly this reason.
+        $source = <<<'CARVE'
+        ::: |
+        a
+        \%% c
+        b
+        :::
+
+        CARVE;
+
+        $formatted = CarveConverter::toCarve($source);
+
+        $this->assertStringContainsString('\\%% c', $formatted);
+        $this->assertSame($this->convert($source), $this->convert($formatted));
+    }
+
     public function testFormattingIsIdempotentOnAVerseComment(): void
     {
         $once = CarveConverter::toCarve("::: |\na\n%% c\nb\n:::\n");
