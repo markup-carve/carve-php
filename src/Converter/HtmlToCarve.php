@@ -58,6 +58,16 @@ class HtmlToCarve
     protected const SEMANTIC_SPAN_ELEMENTS = ['abbr', 'time', 'kbd', 'samp', 'var', 'cite', 'dfn'];
 
     /**
+     * Elements dropped whole, with everything under them.
+     *
+     * Named once so the walk that reports the drop and the content key that
+     * must not count the dropped text read the same list.
+     *
+     * @var list<string>
+     */
+    protected const ACTIVE_ELEMENTS = ['script', 'style', 'template', 'noscript'];
+
+    /**
      * The HTML attribute each semantic span name carries its value in.
      *
      * A name absent here has no value to carry and is always the bare boolean.
@@ -371,7 +381,7 @@ class HtmlToCarve
             return;
         }
         $tag = strtolower($node->tagName);
-        if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
+        if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
 
             return;
@@ -474,6 +484,91 @@ class HtmlToCarve
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      */
     protected function inspectImportAttributes(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+    {
+        $outerElement = $this->inspectedElement;
+        $outerContent = $this->inspectedElementContent;
+        $this->inspectedElement = $node;
+        $this->inspectedElementContent = null;
+
+        try {
+            $this->inspectImportAttributeList($node, $tag, $path, $diagnostics);
+        } finally {
+            $this->inspectedElement = $outerElement;
+            $this->inspectedElementContent = $outerContent;
+        }
+    }
+
+    /**
+     * The element's own content, reduced to what a round trip cannot change.
+     *
+     * COMPUTED ON DEMAND, because only a value that repeats its own name is
+     * keyed by it. Reading `textContent` walks the whole subtree, and the
+     * inspection descends, so doing it for every element would read the same
+     * text once per ancestor - quadratic in nesting depth on a document whose
+     * report never asks the question.
+     *
+     * ONLY LETTERS AND DIGITS ARE KEPT, because the two sides are not written
+     * by the same hand and the difference is never in the words.
+     *
+     * The layout differs: the input is the author's HTML and the emitted
+     * document is the renderer's, which indents block children onto lines of
+     * their own, so a `<div><p>a</p><p>b</p></div>` carries `ab` on the way in
+     * and comes back with each of them on an indented line of its own.
+     *
+     * And the punctuation differs, because a mapping is allowed to spell marks
+     * of its own around the content it keeps: a `<q cite="u">quoted</q>` comes
+     * back as `<span cite="u">"quoted"</span>` with the quote characters the
+     * mapping exists to add.
+     *
+     * THE TEXT OF A DROPPED SUBTREE IS NOT COUNTED, because the emitted
+     * document cannot carry it and the two keys would never meet. A
+     * `<blockquote disabled><script>bad</script><p>good</p></blockquote>` keeps
+     * its `disabled`, and counting the script's text called the surviving
+     * blockquote a different element and reported a loss that did not happen.
+     * The same list the walk drops those elements by is the one read here.
+     *
+     * @param \DOMElement $node
+     *
+     * @return string
+     */
+    protected function importElementContentKey(DOMElement $node): string
+    {
+        $text = [];
+        $this->collectImportContentText($node, $text);
+
+        return (string)preg_replace('/[^\p{L}\p{N}]+/u', '', implode('', $text));
+    }
+
+    /**
+     * Gather an element's carried text, skipping the subtrees that are dropped.
+     *
+     * Collected into a list and joined once by the caller, so the reduction
+     * runs on the whole string a single time rather than once per level.
+     *
+     * @param \DOMElement $node
+     * @param list<string> $text
+     */
+    protected function collectImportContentText(DOMElement $node, array &$text): void
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                if (!in_array(strtolower($child->tagName), self::ACTIVE_ELEMENTS, true)) {
+                    $this->collectImportContentText($child, $text);
+                }
+
+                continue;
+            }
+            $text[] = $child->textContent;
+        }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectImportAttributeList(DOMElement $node, string $tag, string $path, array &$diagnostics): void
     {
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
@@ -1091,6 +1186,42 @@ class HtmlToCarve
      * `cite="col"` and report nothing, which is the false negative this whole
      * rule exists to prevent - a coincidence of values is not survival.
      *
+     * A VALUE THAT REPEATS ITS NAME IS SCOPED BY THE ELEMENT'S CONTENT TOO,
+     * which is the same sentence one level in: a coincidence of name AND value
+     * across two DIFFERENT elements is not survival either.
+     *
+     * That pair collides by construction rather than by accident. libxml
+     * normalizes an HTML boolean attribute to `name="name"`, so every authored
+     * `disabled`, `checked`, `readonly`, `multiple`, `hidden` and `open`
+     * arrives here spelled identically, and so does every one the RENDERER
+     * writes of its own accord. A task list renders a generated
+     * `disabled="disabled"` onto its checkbox, and with the budget tallied over
+     * the whole document that stood in for the authored `disabled` on a
+     * `<button>` elsewhere, so the button's real loss went unreported
+     * (carve-php#1379).
+     *
+     * The element's content tells those two apart: the checkbox carries none
+     * and the button carries its label. It is asked instead of the tag because
+     * this importer re-tags, and asked only of this class because a round trip
+     * may legitimately REWRITE content - a footnote's `<a href="#fnref1">back</a>`
+     * comes back as the renderer's own `↩` marker, and its `href` survived on
+     * an element whose words did not.
+     *
+     * Every other name/value pair keeps the document-wide budget it had. Two
+     * elements carrying the same non-boolean value are still pooled, and the
+     * COUNT of reported losses stays exact there, because both occurrences were
+     * authored - the boolean case is the one where an occurrence NOBODY
+     * authored joins the budget.
+     *
+     * WHAT THIS STILL DOES NOT SEPARATE: two CONTENTLESS elements. A
+     * `<button disabled></button>` and a generated checkbox both key on the
+     * empty string, so the checkbox can still answer for the button when the
+     * button carries no label. Content is a witness to an element's identity,
+     * not a name for it, and an element with no content leaves none. Closing
+     * that corner needs the writer to record which input node produced which
+     * output node, which is a correlation this report - which asks the emitted
+     * document rather than the conversion - does not have.
+     *
      * `class` IS COMPARED BY TOKEN, because it is a token list and the round
      * trip legitimately rewrites the string around the tokens: `{.a .b}` renders
      * `class="a b"`, so an authored class whose tokens are separated by a run
@@ -1116,7 +1247,7 @@ class HtmlToCarve
             return $this->classTokensSurvived($value);
         }
 
-        if ($this->consumeSurvivingAttribute($name . "\0" . $value)) {
+        if ($this->consumeSurvivingAttribute($this->importSurvivorKey($name, $value))) {
             return true;
         }
 
@@ -1130,6 +1261,46 @@ class HtmlToCarve
     }
 
     /**
+     * The budget key an attribute occurrence spends from.
+     *
+     * A value that repeats its own name is the shape libxml gives every HTML
+     * boolean attribute, authored or generated alike, so that key carries the
+     * content of the element it sits on and answers only for that element. See
+     * `importAttributeSurvived()` for why the rest stay document-wide.
+     *
+     * @param string $name
+     * @param string $value
+     * @param string|null $content Content of the element, when tallying the output.
+     *
+     * @return string
+     */
+    protected function importSurvivorKey(string $name, string $value, ?string $content = null): string
+    {
+        $key = $name . "\0" . $value;
+        if ($value !== $name) {
+            return $key;
+        }
+
+        return $key . "\0" . ($content ?? $this->inspectedContentKey());
+    }
+
+    /**
+     * This element's content key, computed once it is actually needed.
+     *
+     * @return string
+     */
+    protected function inspectedContentKey(): string
+    {
+        if ($this->inspectedElementContent === null) {
+            $this->inspectedElementContent = $this->inspectedElement === null
+                ? ''
+                : $this->importElementContentKey($this->inspectedElement);
+        }
+
+        return $this->inspectedElementContent;
+    }
+
+    /**
      * Every authored class token came back, so the class did.
      *
      * All of them, not any: a `class="a b"` whose `b` is gone lost something,
@@ -1140,7 +1311,7 @@ class HtmlToCarve
         $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $survived = true;
         foreach ($tokens as $token) {
-            if (!$this->consumeSurvivingAttribute("class\0" . $token)) {
+            if (!$this->consumeSurvivingAttribute($this->importSurvivorKey('class', $token))) {
                 $survived = false;
             }
         }
@@ -1211,27 +1382,41 @@ class HtmlToCarve
         /** @var \DOMNodeList<\DOMElement> $elements */
         $elements = $doc->getElementsByTagName('*');
         foreach ($elements as $element) {
+            // Tallied WITH the content of the element it came back on, so the
+            // credit is attributable to an element rather than to the document.
+            // See `importAttributeSurvived()` for what a document-wide budget
+            // let a generated attribute vouch for. Read on first demand, like
+            // the input side: only a value that repeats its name needs it.
+            $content = null;
             foreach ($element->attributes as $attribute) {
                 $name = strtolower($attribute->name);
                 $value = trim($attribute->value);
                 if ($value === '') {
                     continue;
                 }
-
                 // A class is a token LIST, so each token is tallied on its own -
                 // `class="details x"` answers for an authored `x` without the
                 // extension's own `details` having to be predicted.
                 if ($name === 'class') {
                     foreach (preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
-                        $counts["class\0" . $token] = ($counts["class\0" . $token] ?? 0) + 1;
+                        if ($token === 'class') {
+                            $content ??= $this->importElementContentKey($element);
+                        }
+                        $key = $this->importSurvivorKey('class', $token, $content ?? '');
+                        $counts[$key] = ($counts[$key] ?? 0) + 1;
                     }
                 } else {
-                    $counts[$name . "\0" . $value] = ($counts[$name . "\0" . $value] ?? 0) + 1;
+                    if ($value === $name) {
+                        $content ??= $this->importElementContentKey($element);
+                    }
+                    $key = $this->importSurvivorKey($name, $value, $content ?? '');
+                    $counts[$key] = ($counts[$key] ?? 0) + 1;
                 }
 
                 // The name-blind tally, consulted only for `title` - see
                 // `importAttributeSurvived()`.
-                $counts["\0any\0" . $value] = ($counts["\0any\0" . $value] ?? 0) + 1;
+                $key = "\0any\0" . $value;
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
             }
         }
 
@@ -3987,17 +4172,37 @@ class HtmlToCarve
     protected ?string $inspectedCarve = null;
 
     /**
-     * How many of each `tag`/`attribute` pair the emitted document still has.
+     * How many of each `name`/`value`/`content` triple the emitted document has.
      *
-     * Keyed `tag . "\0" . name` and DECREMENTED as the walk credits survivors
-     * to input occurrences, so it is a budget rather than a lookup. Built once
-     * per conversion, on first demand, and only if the walk reaches a
-     * represented attribute at all - a document without one never pays for the
-     * render.
+     * Keyed `name . "\0" . value . "\0" . content` and DECREMENTED as the walk
+     * credits survivors to input occurrences, so it is a budget rather than a
+     * lookup. Built once per conversion, on first demand, and only if the walk
+     * reaches a represented attribute at all - a document without one never
+     * pays for the render.
      *
      * @var array<string, int>|null
      */
     protected ?array $survivingImportAttributes = null;
+
+    /**
+     * The element whose attributes are being inspected.
+     *
+     * Handed over through a property rather than an argument for the reason
+     * `$inspectedCarve` is: `importAttributeSurvived()` is protected on a
+     * non-final class, and widening its signature would make an existing
+     * override a fatal incompatible-declaration error at class-declaration
+     * time, which no test of behavior catches.
+     */
+    protected ?DOMElement $inspectedElement = null;
+
+    /**
+     * That element's content key, once something has asked for it.
+     *
+     * Null until the first attribute that is keyed by content, and reset for
+     * every element - see `importElementContentKey()` for why it is not
+     * computed up front.
+     */
+    protected ?string $inspectedElementContent = null;
 
     /**
      * Degrade a wrapper to its own content, keeping the boundary it carried.
