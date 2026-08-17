@@ -129,6 +129,34 @@ class MarkdownRenderer implements RendererInterface
     private const NARROWED_CHARACTERS = ['_', '#', '['];
 
     /**
+     * PART 11 §8b M2a: characters this target's readers never read as markup,
+     * at ANY position on the line.
+     *
+     * An `escaped_text` node holding one of these is emitted BARE. They are
+     * Carve's own delimiters and Markdown has no reading for them, so the
+     * escape protects nothing and lands inside an identifier, which is the cost
+     * §2 calls a defect rather than a safe default.
+     *
+     * `~` is NOT here: GFM reads `~x~` as strikethrough. Nor are the
+     * smart-punctuation triggers `"`, `'`, `-` and `.`, which §8b keeps
+     * whatever their position, because a processor with substitution on
+     * rewrites the TEXT rather than reading markup.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_INERT = ['{', '}', '^', ',', '%', ':', '/', '@'];
+
+    /**
+     * PART 11 §8b M2b: read as markup only at a line's CONTENT POSITION.
+     *
+     * `#` opens an ATX heading there and is inert everywhere else, so the
+     * decision is a property of the line and takes a sentinel like M1b's.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_POSITIONAL = ['#'];
+
+    /**
      * The first code point of the run picked for the narrowed-escape sentinels.
      *
      * @var int
@@ -160,6 +188,21 @@ class MarkdownRenderer implements RendererInterface
         '_' => "\u{E004}",
         '#' => "\u{E005}",
         '[' => "\u{E006}",
+    ];
+
+    /**
+     * Sentinels standing in for the AUTHORED escapes PART 11 §8b M2b decides on
+     * the line, one per positional character, replaced per document alongside
+     * the M1b run above.
+     *
+     * A separate map rather than a wider one, because the two families are
+     * decided by DIFFERENT tests: M1b asks about an adjacent delimiter of the
+     * same character, M2b asks where on the line the character stands.
+     *
+     * @var array<string, string>
+     */
+    protected array $authoredSentinels = [
+        '#' => "\u{E007}",
     ];
 
     /**
@@ -397,7 +440,23 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function renderEscapedText(EscapedText $node): string
     {
-        return '\\' . $this->stripControls($node->getContent());
+        $content = $this->stripControls($node->getContent());
+
+        // PART 11 §8b narrows M2 on the same finding §8a narrowed M1 on. The
+        // character still decides, but now it decides whether the escape
+        // protects anything ON THIS TARGET rather than whether the author wrote
+        // it. Everything not named by §8b keeps M2 as written, including the
+        // `[` the §8a rationale rests on and the smart-punctuation triggers §8
+        // states M2 for.
+        if (in_array($content, self::AUTHORED_INERT, true)) {
+            return $content;
+        }
+
+        if (isset($this->authoredSentinels[$content])) {
+            return $this->authoredSentinels[$content];
+        }
+
+        return '\\' . $content;
     }
 
     /**
@@ -410,13 +469,24 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function pickNarrowedSentinels(Document $document): void
     {
+        $narrowed = count(self::NARROWED_CHARACTERS);
         $run = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($document),
-            count(self::NARROWED_CHARACTERS),
+            $narrowed + count(self::AUTHORED_POSITIONAL),
             self::NARROWED_SENTINEL_FIRST,
         );
 
-        $this->narrowedSentinels = array_combine(self::NARROWED_CHARACTERS, $run);
+        // ONE RUN, TWO FAMILIES. Picked together so the collision search runs
+        // once and the two families are guaranteed contiguous, which is what
+        // lets a single character class find every candidate in one pass.
+        $this->narrowedSentinels = array_combine(
+            self::NARROWED_CHARACTERS,
+            array_slice($run, 0, $narrowed),
+        );
+        $this->authoredSentinels = array_combine(
+            self::AUTHORED_POSITIONAL,
+            array_slice($run, $narrowed),
+        );
         $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
     }
 
@@ -459,6 +529,8 @@ class MarkdownRenderer implements RendererInterface
         }
 
         $character = array_flip($this->narrowedSentinels);
+        $authored = array_flip($this->authoredSentinels);
+        $character += $authored;
 
         // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
         // resolved to its BARE character first, so a neighbour that is itself a
@@ -484,14 +556,55 @@ class MarkdownRenderer implements RendererInterface
             $offset = (int)$offset;
             $char = $character[$sentinel];
 
+            $at = $offset - 2 * $index;
+            $keep = isset($authored[$sentinel])
+                ? $this->opensAnAtxHeading($line, $at)
+                : $this->adjacentToLiveDelimiter($line, $at, $char);
+
             $out .= substr($markdown, $read, $offset - $read);
-            $out .= $this->adjacentToLiveDelimiter($line, $offset - 2 * $index, $char)
-                ? '\\' . $char
-                : $char;
+            $out .= $keep ? '\\' . $char : $char;
             $read = $offset + strlen($sentinel);
         }
 
         return $out . substr($markdown, $read);
+    }
+
+    /**
+     * Whether the `#` at `$offset` would open an ATX heading (§8b M2b).
+     *
+     * `$line` is the assembled output with every candidate resolved to its BARE
+     * character, the same view M1b decides on.
+     *
+     * Three conditions, all of them CommonMark's: the character stands at the
+     * line's content position, which admits up to three leading spaces; the run
+     * of hashes starting there is one to six long; and the run is closed by a
+     * space, a tab or the end of the line. `#tag`, `#123` and `#64748b` fail the
+     * third even at a line's start, which is why the test is spelled on the run
+     * rather than on the position alone.
+     *
+     * A block prefix the writer emitted - a quote marker, a list marker - is not
+     * treated as a content position here. Such a line's `#` would need the
+     * escape, and the writer never routes one through this sentinel: the
+     * character reaches it only from an `escaped_text` node, which is inline
+     * content the prefix already precedes.
+     */
+    protected function opensAnAtxHeading(string $line, int $offset): bool
+    {
+        $start = strrpos(substr($line, 0, $offset), "\n");
+        $start = $start === false ? 0 : $start + 1;
+
+        if (preg_match('/^ {0,3}$/', substr($line, $start, $offset - $start)) !== 1) {
+            return false;
+        }
+
+        $run = strspn($line, '#', $offset);
+        if ($run > 6) {
+            return false;
+        }
+
+        $after = $line[$offset + $run] ?? "\n";
+
+        return $after === ' ' || $after === "\t" || $after === "\n";
     }
 
     /**
