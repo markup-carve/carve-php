@@ -1703,18 +1703,27 @@ class CarveRenderer implements RendererInterface
             return '%% ' . $content;
         }
 
-        // A fence must be WIDER than any run of `%` inside it, whatever width
-        // the author used - a nested `%%%` inside a `%%%` block closes it early.
-        // The recorded width is a floor, not the answer, so it is widened here
-        // rather than trusted: a document decoded from a serialized AST carries
-        // no width at all (PART 12 §3 - the wire says `block`, which is what a
-        // consumer asks; the width is a writer's concern).
+        // A fence must be WIDER than any run of `%` inside it - a nested `%%%`
+        // inside a `%%%` block closes it early - and that is the ONLY thing
+        // that widens it. The author's own width is not reproduced: PART 12 §3
+        // records no run length for any delimiter, so `%%%` and `%%%%` are one
+        // spelling exactly as `***` and `*****` are one thematic break, and
+        // this writer already normalizes the colon, backtick and tilde fences
+        // the same way.
+        //
+        // The recorded width used to be a floor here. That made a `%%%%` around
+        // a body needing no width the one construct whose authored delimiter
+        // this writer reproduced - and since the wire carries blockness rather
+        // than a width (§3, carve#1000), the same document written from a
+        // decoded tree came back at `%%%`. Corpus 339 is where the two answers
+        // met: one document, two spellings, depending on whether it had been
+        // through JSON.
         preg_match_all('/%+/', $content, $matches);
         $longest = 0;
         foreach ($matches[0] as $match) {
             $longest = max($longest, strlen($match));
         }
-        $fence = str_repeat('%', max(3, $recorded ?? 0, $longest + 1));
+        $fence = str_repeat('%', max(3, $longest + 1));
 
         return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }

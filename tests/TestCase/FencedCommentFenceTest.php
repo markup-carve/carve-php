@@ -168,6 +168,64 @@ class FencedCommentFenceTest extends TestCase
         );
     }
 
+    /**
+     * An INDENTED opener asks a second question the column-0 one never does:
+     * does its closer arrive before its container ends? The answer is a walk
+     * down the tail, and the naive version walks it once per opener.
+     *
+     * This is the shape that makes that cubic: every opener is a distinct width
+     * at ONE item's content column, so no opener closes another and none of
+     * them can share a per-width answer; the filler between them and the dedent
+     * grows quadratically; and every closer sits PAST the dedent, so each walk
+     * runs to the end of the container rather than stopping early.
+     *
+     * The bound is memoized per column instead - once the first dedent below a
+     * column is known it is still the answer for every opener above it - so the
+     * cost stays flat per byte. Measured on this input: ~1.54 with a walk per
+     * opener, ~0.99 with the memo.
+     */
+    public function testContainerScopedOpenersDoNotWalkTheTailPerOpener(): void
+    {
+        $build = static function (int $n): string {
+            $out = "- item\n";
+            for ($i = 0; $i < $n; $i++) {
+                $out .= '  ' . str_repeat('%', 3 + $i) . "\n";
+            }
+            $out .= str_repeat("  filler\n", $n * $n);
+            $out .= "\ndedent\n\n";
+            for ($i = 0; $i < $n; $i++) {
+                $out .= str_repeat('%', 3 + $i) . "\n\n";
+            }
+
+            return $out;
+        };
+
+        $small = $build(40);
+        $large = $build(80);
+
+        // Warm up so autoloading and JIT are not attributed to the first sample.
+        (new CarveConverter())->convert($small);
+
+        $perByte = static function (string $src): float {
+            $best = INF;
+            for ($run = 0; $run < 3; $run++) {
+                $start = hrtime(true);
+                (new CarveConverter())->convert($src);
+                $best = min($best, (float)(hrtime(true) - $start));
+            }
+
+            return $best / strlen($src);
+        };
+
+        $ratio = $perByte($large) / max($perByte($small), 1e-9);
+
+        $this->assertLessThan(
+            1.2,
+            $ratio,
+            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
+        );
+    }
+
     public function testFencedCommentInsideABlockQuoteHidesItsBody(): void
     {
         $input = "> %%% x\n> hidden\n> %%%\n\nafter\n";

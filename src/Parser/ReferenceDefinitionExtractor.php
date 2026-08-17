@@ -52,22 +52,23 @@ class ReferenceDefinitionExtractor
         // place in the language where a construct did both (carve#557).
         // Tracked like a code fence, closing on its own width.
         $verseFence = 0;
+        // The item content column the open line block was opened at, so its
+        // closer is read at that column instead of after arbitrary indentation.
+        // Trimming both ends read an INDENTED `:::` inside a TOP-LEVEL line
+        // block as its closer, and the definition written under it - still
+        // verse to the block parser - both rendered and resolved.
+        $verseColumn = 0;
         // A comment's body is OPAQUE, and this pass did not know it: a
         // `[r]: /u` written inside `%%%` registered, so a reference elsewhere
         // resolved against text the author commented out - invisible in the
         // output and active in the link table (carve-php#778). The footnote
         // pass beside this one already tracked it; this one did not.
         $commentFenceLen = 0;
-        // Only a fence that CLOSES opens the opaque region. An unterminated
-        // `%%%` degrades to a single-line comment, and treating it as open
-        // would suppress every definition in the rest of the document. Same
-        // pre-scan the footnote pass runs, for the same reason.
-        $commentCloseAt = [];
-        for ($j = 0; $j < $count; $j++) {
-            if (preg_match('/^(%{3,})/', $lines[$j], $cj) === 1) {
-                $commentCloseAt[strlen($cj[1])] = $j;
-            }
-        }
+        // WHERE the fence sits, when it opens and when it closes: one spelling,
+        // shared with the footnote and abbreviation prepasses. It reads the
+        // opener past an indent and past a list marker, and bounds an indented
+        // one by its container (markup-carve/carve#1311, corpus 335-341).
+        $commentFence = new PrepassCommentFence($lines);
         $contentColumns = new ListContentColumns();
         // A FOOTNOTE BODY is a container like any other: a definition written
         // in one is collected, and the note keeps only its own text. Without
@@ -104,41 +105,10 @@ class ReferenceDefinitionExtractor
                 strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
             );
 
-            // A comment fence's closer is a leading `%` run of the SAME length;
-            // trailing text is allowed, so `%%% end` closes a `%%%` fence.
-            if ($commentFenceLen > 0) {
-                if (preg_match('/^(%{3,})/', $line, $cm) === 1 && strlen($cm[1]) === $commentFenceLen) {
-                    $commentFenceLen = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(%{3,})/', $line, $cm) === 1) {
-                $openLen = strlen($cm[1]);
-                if (($commentCloseAt[$openLen] ?? -1) > $i) {
-                    $commentFenceLen = $openLen;
-                    $i++;
-
-                    continue;
-                }
-            }
-
-            if ($verseFence > 0) {
-                if (preg_match('/^(:{3,})\s*$/', trim($line), $vm) && strlen($vm[1]) >= $verseFence) {
-                    $verseFence = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', trim($line), $vo) === 1) {
-                $verseFence = strlen($vo[1]);
-                $i++;
-
-                continue;
-            }
-
+            // A `%%%` inside a code SAMPLE is code, so the code fence is asked
+            // first - as the footnote prepass beside this one already asks it.
+            // Reading the comment first opened an opaque region on the sample's
+            // text and left the real code closer to be read as comment body.
             if ($fence->isOpen()) {
                 // LEFT means the line dropped out of the blockquote the fence
                 // was opened in, so the region ended without a closer and this
@@ -148,6 +118,79 @@ class ReferenceDefinitionExtractor
 
                     continue;
                 }
+            }
+
+            // A LINE BLOCK's body is verse, so a `%%%` written in one is text
+            // and opens nothing. The open-region tests therefore all run before
+            // any opener test: whichever region the line is already in owns it.
+            if ($verseFence > 0) {
+                $verseView = $line;
+                if ($verseColumn > 0) {
+                    $verseView = ContainerPrefix::atContentColumn($line, $verseColumn);
+                    // A blank line is inside the block, not out of its
+                    // container: it reaches no column and ends nothing.
+                    if ($verseView === null && IndentationHelper::isBlankLine($line)) {
+                        $verseView = '';
+                    }
+                }
+                if ($verseView === null) {
+                    // Dedented past the column the block was opened at: the
+                    // container ended and took the unclosed line block with it.
+                    $verseFence = 0;
+                } else {
+                    if (
+                        preg_match('/^(:{3,})[ \t]*$/', $verseView, $vm) === 1
+                        && strlen($vm[1]) >= $verseFence
+                    ) {
+                        $verseFence = 0;
+                    }
+                    $i++;
+
+                    continue;
+                }
+            }
+
+            // A comment fence's closer is a leading `%` run of the SAME length;
+            // trailing text is allowed, so `%%% end` closes a `%%%` fence.
+            if ($commentFenceLen > 0) {
+                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
+                    $commentFenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+
+            // The comment opener comes BEFORE the line-block opener, because a
+            // `::: |` inside a comment is comment text and opens no verse
+            // (carve-php#698) - and after the open-region tests above, because
+            // a `%%%` inside verse is verse text and opens no comment.
+            $openedComment = $commentFence->opensAt($line, $i, $contentCol);
+            if ($openedComment !== null) {
+                $commentFenceLen = $openedComment;
+                $i++;
+
+                continue;
+            }
+
+            // An INDENTED `::: |` opens a line block when the indent is an
+            // item's CONTENT COLUMN, and only then: `   ::: |` at top level is
+            // prose, and admitting it skipped the definition under it as verse.
+            $verseOpenerView = $line;
+            $verseOpenerColumn = 0;
+            if ($contentCol > 0) {
+                $dedented = ContainerPrefix::atContentColumn($line, $contentCol);
+                if ($dedented !== null) {
+                    $verseOpenerView = $dedented;
+                    $verseOpenerColumn = $contentCol;
+                }
+            }
+            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $verseOpenerView, $vo) === 1) {
+                $verseFence = strlen($vo[1]);
+                $verseColumn = $verseOpenerColumn;
+                $i++;
+
+                continue;
             }
 
             // A FOOTNOTE BODY has a content column too, and it is not a list

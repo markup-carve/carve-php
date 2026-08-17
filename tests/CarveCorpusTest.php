@@ -433,6 +433,19 @@ class CarveCorpusTest extends TestCase
         'a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent',
         'a-floating-attribute-is-scoped-to-the-container-that-holds-it',
         'a-continuation-row-s-open-run-and-an-escaped-closing-pipe',
+        // Arrived with the bump to carve 8b80822: PART 9 §24 S2 and §28 make a
+        // comment's body verbatim and invisible WHEREVER the fence sits, which
+        // the corpus had only ever pinned at column 0. Every one of the seven
+        // was rendered through CarveConverter and diffed against its `.html`
+        // before it was listed; six of them failed and were fixed rather than
+        // deferred, so KNOWN_GAPS stays empty.
+        'a-comment-fence-at-an-item-s-content-column-registers-nothing-either',
+        'a-footnote-definition-inside-an-item-s-comment-registers-nothing',
+        'a-comment-fence-opened-on-an-item-s-marker-line-hides-its-body-too',
+        'a-comment-fence-one-item-deeper-registers-nothing-either',
+        'a-wider-comment-fence-inside-an-item-hides-its-body-the-same-way',
+        'an-abbreviation-inside-a-comment-defines-nothing',
+        'a-comment-fence-inside-a-colon-container-registers-nothing',
     ];
 
     /**
