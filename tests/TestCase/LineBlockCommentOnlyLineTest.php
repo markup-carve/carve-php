@@ -398,6 +398,35 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
+     * REMOVED FROM THE RENDER, NOT FROM THE TREE - and at the right place in
+     * it. A run that swallowed the comment's line boundary holds it inside its
+     * own content, so the node belongs directly AFTER the run and before
+     * whatever the run's closing line goes on. The writer cannot see the
+     * difference, because it puts the comment back on the empty line either
+     * way; the AST can, and PART 12 is what reads it.
+     */
+    public function testTheCommentNodeSitsWhereTheRunLeftItsLine(): void
+    {
+        $source = <<<'CARVE'
+        ::: |
+        a `b
+        %% c
+        d` e
+        f
+        :::
+
+        CARVE;
+
+        $paragraph = (new CarveConverter())->parse($source)->getChildren()[0]->getChildren()[0];
+        $types = array_map(
+            static fn ($node): string => $node->getType(),
+            $paragraph->getChildren(),
+        );
+
+        $this->assertSame(['text', 'code', 'comment', 'text', 'hard_break', 'text'], $types);
+    }
+
+    /**
      * The INLINE half is untouched, and the asymmetry is deliberate: an engine
      * may leave a `%%` standing inside a verbatim run, and may never delete
      * author bytes out of one (§21's third bullet).

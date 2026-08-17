@@ -1958,28 +1958,22 @@ class CarveRenderer implements RendererInterface
             return true;
         }
 
-        // A run of TWO OR MORE columns is already NBSP CONTENT (§23 MEDIAL
-        // GAPS): the parser keeps it without help, and a backslash there would
-        // be syntax the author did not write.
-        if (str_ends_with($line, '  ')) {
-            return false;
-        }
-        if (str_ends_with($line, ' ')) {
-            return true;
-        }
-
-        // AN ESCAPED SPACE IS NOT EXEMPT, though it looks like content rather
-        // than line-trailing whitespace. The line block drops a lone trailing
-        // COLUMN before the inline reader ever sees the escape, so `a\ ` comes
-        // back as `a\` - a hard break with the non-breaking space gone. The
-        // backslash is what stops the column being dropped, so the test is on
-        // the column and not on what put it there.
+        // ONE TRAILING COLUMN, IN EITHER OF ITS TWO SPELLINGS.
         //
-        // A run of two or more escaped spaces has already been rewritten to
-        // the writer's own protected-space sentinel by
-        // {@see self::resolveIndentPlaceholder()}, so it does not reach here
-        // and is content for the same reason a medial gap is.
-        return str_ends_with($line, "\u{E000}");
+        // A plain space is the obvious one. An ESCAPED space is the other, and
+        // it is not exempt for looking like content: the line block drops a
+        // lone trailing COLUMN before the inline reader ever sees the escape,
+        // so `a\ ` comes back as `a\` - a hard break with the non-breaking
+        // space gone. The backslash is what stops the column being dropped, so
+        // the test is on the column and not on what put it there.
+        //
+        // A MEDIAL GAP OF TWO OR MORE COLUMNS matches NEITHER, and that is the
+        // whole of its exemption (§23 MEDIAL GAPS). By the time a line reaches
+        // here {@see self::resolveIndentPlaceholder()} has rewritten such a run
+        // to the writer's own protected-space sentinel, which is not a space
+        // and is not the escape placeholder - so it needs no branch of its own,
+        // and a branch spelled against plain spaces would never run.
+        return str_ends_with($line, ' ') || str_ends_with($line, "\u{E000}");
     }
 
     /**
