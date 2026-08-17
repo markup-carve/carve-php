@@ -60,9 +60,21 @@ class LineBlockHardBreakBackslashTest extends TestCase
                 "::: |\na \\\n:::\n",
                 "::: |\na \\\n:::\n",
             ],
+            // A STANZA'S LAST LINE IS NOT COVERED BY THE TWO CASES §7c
+            // ENUMERATES, and the enumeration's own justification is why: a
+            // bare newline is safe where the tree is identical either way, and
+            // at a stanza's END there is no following line to be identical
+            // about. The newline becomes the blank line before the closing
+            // fence, which ends the stanza and takes the break with it. So the
+            // last line keeps its backslash WHATEVER precedes it - these two
+            // rows have no lone trailing space between them.
             'the last body line keeps a break with no space before it' => [
                 "::: |\na\\\n:::\n",
                 "::: |\na\\\n:::\n",
+            ],
+            'the last body line keeps a break after a medial gap' => [
+                "::: |\na  \\\n:::\n",
+                "::: |\na  \\\n:::\n",
             ],
             // TWO OR MORE trailing columns are already NBSP CONTENT (§23 MEDIAL
             // GAPS), so the parser keeps them without help and the writer must

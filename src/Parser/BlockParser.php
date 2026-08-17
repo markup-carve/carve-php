@@ -7509,6 +7509,27 @@ class BlockParser
                 $placed[] = $children[$cursor];
                 $cursor++;
             }
+            if ($line < $index) {
+                // THE EMPTY LINE ITSELF DID NOT SURVIVE, so neither can the
+                // comment that left it. An unclosed run whose own value drops
+                // the boundaries it swallowed - math strips where a code span
+                // keeps - leaves the writer no line to put the comment back on,
+                // and a comment written anywhere else on a line runs to the end
+                // of it and eats whatever follows. A node the writer cannot
+                // spell is a PART 11 §1 failure that no rendering can see, so
+                // it is not built. The two engines beside this one drop the
+                // node for EVERY run; here it goes only where the line does.
+                continue;
+            }
+            if ($line > $index) {
+                // THE WALK OVERSHOT, so a verbatim run holds this comment's
+                // line inside its own value and the node lands after the run
+                // rather than at a boundary. Its span would then START INSIDE
+                // its own previous sibling's, which is not an order any reader
+                // can walk; PART 12 §4 rates no span well above a wrong one, so
+                // the node keeps its content and gives up its position.
+                $comment->setPos(null);
+            }
             $placed[] = $comment;
         }
         for (; $cursor < $count; $cursor++) {
