@@ -291,6 +291,25 @@ trait EscapesCarveConstructs
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $line);
         }
 
+        // A MENTION is the tag's sibling and needs the same rule for the same
+        // reason: it opens on its own, so nothing downstream neutralizes it
+        // (carve-php#1380). None of the source languages here means a mention
+        // by that character, so prose that quotes one came back as a span - a
+        // documentation corpus describing Blade and Alpine turned 22 quoted
+        // directives into mentions across 15 of its 380 documents.
+        //
+        // Mirrors `MentionsExtension`'s opener rather than approximating it: a
+        // mention opens on an `@` NOT preceded by an alphanumeric or `_` and
+        // followed by one of those or `-`. The lookbehind is what leaves an
+        // email address alone, since `foo@bar` has a letter before the `@`.
+        //
+        // No brace guard, unlike the tag: `{@x@}` is not an attribute block and
+        // not a braced pair, so there is nothing above for this rule to
+        // duplicate.
+        if (!str_contains($bareHandled, '@')) {
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])@(?=[A-Za-z0-9_-])/', $line);
+        }
+
         return $line;
     }
 
