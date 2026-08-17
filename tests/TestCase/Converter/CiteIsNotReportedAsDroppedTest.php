@@ -10,7 +10,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
-use SplObjectStorage;
 
 /**
  * The import report does not announce a loss that did not happen.
@@ -295,13 +294,95 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
                     . '</td></tr></table></td></tr></table>',
                 true,
             ],
+            // A FIGURE'S CAPTION is the same inline slot a table's caption is,
+            // reached by a different method. `processFigure()` writes the
+            // caption line, so `{cite=u}` lands as caption TEXT and renders
+            // `<figcaption>{cite=u}</figcaption>` with no attribute on
+            // anything. The old predicate walked for an enclosing `<caption>`
+            // and a `<figcaption>` is not one, so this was a FALSE NEGATIVE on
+            // `main`: a real loss, reported by nobody.
+            //
+            // It is also the row that the withdrawn carve-php#1347 tried to
+            // reach with an element-keyed `figcaption` arm, and could not:
+            // `processFigure()` has two paths, and an arm that fixed this row
+            // broke two others. Nothing here names a figure.
+            'a figure caption loses it' => [
+                '<figure><img src="i.png"><figcaption><blockquote cite="u"><p>q</p></blockquote>'
+                    . '</figcaption></figure>',
+                false,
+            ],
+        ];
+    }
+
+    /**
+     * The three shapes that need a converter option to exist at all.
+     *
+     * Each one is a serializer BYPASS: the node the walk is looking at is not
+     * the node the serializer writes, and no amount of reading the input DOM
+     * can tell. All three were false positives on `main`.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function bypassProvider(): array
+    {
+        $inCell = '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>';
+
+        // A footnote definition inside a cell, in the shape these adapters
+        // emit: a reference and a definition pointing at each other.
+        $footnoteInCell = '<table><tr><td>'
+            . '<a href="#fn1" id="fnref1">1</a>'
+            . '<div id="fn1"><blockquote cite="u"><p>q</p></blockquote><a href="#fnref1">back</a></div>'
+            . '</td></tr></table>';
+
+        return [
+            // The stored source is emitted VERBATIM and its descendants are
+            // never converted - so the cell below never runs, and the `cite`
+            // the prediction watched being dropped by a pipe row comes back
+            // untouched from the stored text.
+            'trusted round-trip emits stored source' => [
+                '<div data-djot-src="{cite=u}&#10;&#10;&gt; q">' . $inCell . '</div>',
+                ['trustedRoundTrip' => true],
+            ],
+            // These adapters MOVE footnote definitions out of their cell before
+            // serialization, so the quote is never written through a pipe row
+            // at all. The input DOM says "inside a td" right up until it isn't.
+            'the word adapter moves the definition out' => [$footnoteInCell, ['importAdapter' => 'word']],
+            'the google-docs adapter moves it out too' => [$footnoteInCell, ['importAdapter' => 'google-docs']],
         ];
     }
 
     #[DataProvider('routeProvider')]
     public function testTheReportAgreesWithTheRoundTrip(string $html, bool $listTable): void
     {
-        $result = (new HtmlToCarve(listTableForBlockCells: $listTable))->convertWithReport($html);
+        $this->assertReportMatchesRoundTrip($html, ['listTableForBlockCells' => $listTable]);
+    }
+
+    /**
+     * @param string $html
+     * @param array<string, mixed> $options
+     */
+    #[DataProvider('bypassProvider')]
+    public function testTheReportAgreesWithTheRoundTripThroughABypass(string $html, array $options): void
+    {
+        $this->assertReportMatchesRoundTrip($html, $options);
+    }
+
+    /**
+     * THE INVARIANT: reported exactly when the round trip loses it.
+     *
+     * RENDERS rather than grepping the Carve, deliberately. Characters can
+     * survive into a slot that cannot hold their meaning - a cited quote in a
+     * caption writes `^ {cite=u}`, where the characters `cite=u` are present
+     * and are caption TEXT. Grepping the source calls that preserved; rendering
+     * it shows `<caption>{cite=u}</caption>` with the attribute gone, which is
+     * the truth. This is the difference the whole redesign turns on.
+     *
+     * @param string $html
+     * @param array<string, mixed> $options
+     */
+    private function assertReportMatchesRoundTrip(string $html, array $options): void
+    {
+        $result = (new HtmlToCarve(...$options))->convertWithReport($html);
         $survived = str_contains((new CarveConverter())->convert($result->value), 'cite="u"');
         $reported = $result->diagnostics !== [];
 
@@ -315,26 +396,34 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * The same blind spot for `id` and `class`, recorded rather than fixed.
+     * The same blind spot for `id` and `class` - CLOSED, and not one at a time.
      *
      * These are represented unconditionally and have been since long before
-     * `cite` joined them, so a blockquote's `id`/`class` inside a cell is
-     * dropped SILENTLY today. That is the same context-blindness this class
-     * fixes for `cite`, and it is older and wider - every unconditionally
-     * represented name has it.
+     * `cite` joined them, so a blockquote's `id`/`class` inside a cell used to
+     * be dropped SILENTLY. That was recorded here as a known gap, deliberately
+     * left alone, because closing it under the old predicate meant teaching
+     * that predicate about `id` and `class` in a cell - a third and fourth arm
+     * on a list that already had to be maintained by hand.
      *
-     * It is left alone here because widening the fix would add diagnostics to
-     * documents that never had them, which is a separate change with its own
-     * blast radius. Pinned so it is a known gap with a red test attached rather
-     * than a silent one.
+     * The redesign closes it without naming them (carve-php#1346). Nothing in
+     * the diagnostic mentions `id`, `class`, or a cell: the rule asks the
+     * emitted document whether the value came back in an attribute position,
+     * and here it did not. Every represented name gets the same answer for
+     * free, which is the difference between a fix and an enumeration.
      */
-    public function testTheSameGapForIdAndClassIsRecordedNotFixed(): void
+    public function testTheSameGapForIdAndClassIsClosedByTheSameRule(): void
     {
         $html = '<table><tr><td><blockquote id="i" class="x"><p>q</p></blockquote></td></tr></table>';
 
         $this->assertStringNotContainsString('#i', $this->carve($html));
         $this->assertStringNotContainsString('.x', $this->carve($html));
-        $this->assertSame([], $this->diagnostics($html));
+        $this->assertSame(
+            [
+                ['attribute-dropped', 'info', 'Dropped unsupported attribute id on <blockquote>'],
+                ['attribute-dropped', 'info', 'Dropped unsupported attribute class on <blockquote>'],
+            ],
+            $this->diagnostics($html),
+        );
     }
 
     /**
@@ -366,20 +455,21 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * The route answer is memoized per table, so the walk stays linear.
+     * The emitted document is rendered ONCE, so the walk stays linear.
      *
-     * `tableHasBlockContentCell()` rebuilds and rescans a table's rows on every
-     * call, and the inspection walk asks once per cited quote - so without a
-     * memo a table with one cited quote per row costs O(quotes x rows). Nothing
-     * else bounds it: these attributes are represented, so they emit no
-     * diagnostics and `maxDiagnostics` never trips.
+     * The observational rule renders the emitted Carve back to HTML to see what
+     * survived. Doing that per attribute would cost O(attributes x document) -
+     * far worse than the per-table rescan it replaced - so the tally is built
+     * once per conversion and consumed as a budget. Nothing else bounds it:
+     * these attributes are represented, so they emit no diagnostics and
+     * `maxDiagnostics` never trips.
      *
      * Asserted as a RATIO against the engine's own smaller run rather than a
      * wall-clock threshold, so a slow or loaded machine cannot fail it. Doubling
-     * the rows roughly doubles the work when the memo is present; without it the
-     * same step measured over 3x.
+     * the rows roughly doubles the work when the tally is built once; rendering
+     * per attribute makes the same step superlinear.
      */
-    public function testTheRouteAnswerIsMemoizedPerTable(): void
+    public function testTheEmittedDocumentIsRenderedOncePerConversion(): void
     {
         $time = static function (int $rows): float {
             $body = str_repeat('<tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr>', $rows);
@@ -404,26 +494,28 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * The route memo is RELEASED when inspection ends, not merely reset later.
+     * The observed output does not OUTLIVE the inspection that read it.
      *
-     * Its keys are `<table>` elements, `SplObjectStorage` holds them strongly,
-     * and a DOM element keeps its owner document alive - so a populated memo
-     * pins the entire inspected document for as long as the converter lives.
-     * Converters are reusable and long-lived by design, which is exactly when
-     * that matters, so the memo is cleared in a `finally` rather than on the
-     * next call.
+     * Both the emitted Carve and the tally built from it describe ONE
+     * conversion. A converter is reusable and long-lived by design, so a value
+     * left standing would let a later walk answer from the previous document -
+     * the worst kind of wrong report, because it is right often enough not to
+     * be noticed. Both are cleared in a `finally`, so a throwing walk cannot
+     * leave one behind either.
      */
-    public function testTheRouteMemoDoesNotOutliveTheInspection(): void
+    public function testTheObservedOutputDoesNotOutliveTheInspection(): void
     {
         $converter = new HtmlToCarve();
         $converter->convertWithReport(
             '<table><tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr></table>',
         );
 
-        $cache = (new ReflectionProperty(HtmlToCarve::class, 'tableRouteCache'))->getValue($converter);
-
-        $this->assertInstanceOf(SplObjectStorage::class, $cache);
-        $this->assertCount(0, $cache, 'the memo must not pin the inspected DOM after the walk returns');
+        foreach (['inspectedCarve', 'survivingImportAttributes'] as $name) {
+            $this->assertNull(
+                (new ReflectionProperty(HtmlToCarve::class, $name))->getValue($converter),
+                $name . ' must not survive the walk that populated it',
+            );
+        }
     }
 
     /**

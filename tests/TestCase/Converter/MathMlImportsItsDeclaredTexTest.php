@@ -59,8 +59,27 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
             '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`$$',
             trim($result->value),
         );
+        // `id` and `class` JOINED THE REPORT when the diagnostic started
+        // reading the emitted document instead of predicting it
+        // (carve-php#1346). Both are declared representable for every element,
+        // and a mapped `<math>` emits `$$`…`$$` - a bare math block with no
+        // attribute block on it - so this fixture's `id` and `class` really are
+        // gone. They were dropped just as silently before; the drop is not new,
+        // only the row saying so is.
         $this->assertSame(
             [
+                [
+                    'code' => 'attribute-dropped',
+                    'message' => 'Dropped unsupported attribute id on <math>',
+                    'severity' => 'info',
+                    'path' => '/math[1]',
+                ],
+                [
+                    'code' => 'attribute-dropped',
+                    'message' => 'Dropped unsupported attribute class on <math>',
+                    'severity' => 'info',
+                    'path' => '/math[1]',
+                ],
                 [
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute intent on <math>',

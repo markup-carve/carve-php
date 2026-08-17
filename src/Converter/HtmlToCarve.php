@@ -11,11 +11,12 @@ use DOMNode;
 use DOMText;
 use DOMXPath;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
-use SplObjectStorage;
+use Throwable;
 
 /**
  * Converts HTML to Djot markup
@@ -203,13 +204,43 @@ class HtmlToCarve
 
     /**
      * Convert HTML and return an ordered report of lossy import decisions.
+     *
+     * THE CONVERSION RUNS FIRST, and the report is read off what it EMITTED.
+     * The report used to be produced from the input DOM alone, by predicting
+     * what the serializer would do with each node - and a prediction of an
+     * open-ended serializer is a second, hand-maintained copy of it. Ten
+     * distinct contexts were found where the two disagreed, five of them
+     * patched one at a time before the next one appeared: a pipe row versus a
+     * list-table item, a caption, a `<td>` with no owning table, a table nested
+     * in a cell, the stored source `trustedRoundTrip` emits without converting
+     * its descendants, and the footnote definitions the `word` and
+     * `google-docs` adapters move out of a cell before serialization
+     * (carve-php#1346).
+     *
+     * None of those is knowable from the input. All of them are obvious in the
+     * output. So the order is inverted here: convert, then ask the result.
      */
     public function convertWithReport(string $html): HtmlImportResult
     {
-        $diagnostics = $this->inspectImportLoss($html);
+        $carve = $this->convert($html);
+
+        // Handed to the walk through a property rather than an argument:
+        // `inspectImportLoss()` is protected on a non-final class, so a
+        // subclass may override it, and adding a parameter would make such an
+        // override a fatal incompatible-signature error at class-declaration
+        // time - which no test of behavior catches, because the class never
+        // loads. The same reasoning keeps `isRepresentedImportAttribute()` a
+        // two-argument predicate.
+        $this->inspectedCarve = $carve;
+
+        try {
+            $diagnostics = $this->inspectImportLoss($html);
+        } finally {
+            $this->inspectedCarve = null;
+        }
 
         return new HtmlImportResult(
-            $this->convert($html),
+            $carve,
             $this->importMode,
             $this->importAdapter,
             $diagnostics,
@@ -221,9 +252,9 @@ class HtmlToCarve
      */
     protected function inspectImportLoss(string $html): array
     {
-        // A fresh document means fresh elements, so the route memo starts empty
-        // and cannot answer for a table from a previous conversion.
-        $this->tableRouteCache = new SplObjectStorage();
+        // Built on first demand, from the output of THIS conversion, and only
+        // if the walk actually reaches a represented attribute.
+        $this->survivingImportAttributes = null;
 
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
@@ -242,14 +273,12 @@ class HtmlToCarve
             }
             $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
         } finally {
-            // RELEASED HERE, not merely reset on the next call. The memo keys
-            // are `<table>` ELEMENTS and `SplObjectStorage` holds them
-            // strongly, and a DOM element keeps its owner document alive - so
-            // leaving the memo populated pins the whole inspected document for
-            // as long as the converter lives. A converter is reusable and
-            // long-lived by design, which is exactly the case where that
-            // matters. `finally`, so a throwing walk cannot leave it pinned.
-            $this->tableRouteCache = new SplObjectStorage();
+            // RELEASED HERE, not merely reset on the next call. A converter is
+            // reusable and long-lived by design, so a tally left standing would
+            // answer for the PREVIOUS document if a later call somehow reached
+            // the pool before rebuilding it. `finally`, so a throwing walk
+            // cannot leave one behind.
+            $this->survivingImportAttributes = null;
         }
 
         return $diagnostics;
@@ -451,6 +480,11 @@ class HtmlToCarve
             $name = strtolower($attribute->name);
             if (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
+            } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
+                // Read as instruction or as content, never written back as an
+                // attribute - so asking the output for it is the wrong
+                // question. See the predicate for why each family qualifies.
+                continue;
             } elseif ($name === 'style') {
                 $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
             } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
@@ -462,7 +496,7 @@ class HtmlToCarve
                 continue;
             } elseif (
                 !$this->isRepresentedImportAttribute($tag, $name)
-                || $this->isRepresentedAttributeLostHere($node, $tag, $name)
+                || !$this->importAttributeSurvived($tag, $name, $attribute->value)
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
@@ -953,13 +987,16 @@ class HtmlToCarve
     /**
      * Is this attribute represented in Carve at all, as a tag/name question?
      *
-     * Deliberately still a pure two-argument predicate. Whether a REPRESENTED
-     * attribute survives at a particular POSITION is a second, separate
-     * question, asked by {@see self::isRepresentedAttributeLostHere()} at the
-     * call site - and it is kept separate rather than folded in here, because
-     * this method is protected on a non-final class and adding a parameter to
-     * it is a fatal incompatible-signature error for any subclass that
-     * overrides it.
+     * Deliberately still a pure two-argument predicate. Whether a represented
+     * attribute then survives a particular POSITION is a second, separate
+     * question, and it is not asked here or anywhere else on the input side:
+     * {@see self::importAttributeSurvived()} reads it off the emitted document
+     * instead. This one stays a tag/name question, which is the half that
+     * really is answerable without running the serializer.
+     *
+     * Kept at two arguments on purpose - this method is protected on a
+     * non-final class, so adding a parameter is a fatal
+     * incompatible-signature error for any subclass that overrides it.
      */
     protected function isRepresentedImportAttribute(string $tag, string $name): bool
     {
@@ -982,11 +1019,9 @@ class HtmlToCarve
             // surviving attribute as dropped costs more than silence, because
             // it teaches the reader to discount the `attribute-dropped` rows
             // that ARE real (carve-php#1337). carve-js stopped reporting it for
-            // the same reason once it kept the value (carve-js#1125).
-            // The quote's source URL, kept on import by the ruling on
-            // markup-carve/carve#1286 and round-tripped as `{cite=…}`. Whether
-            // a given POSITION then drops it is asked separately - see
-            // `isRepresentedAttributeLostHere()`.
+            // the same reason once it kept the value (carve-js#1125). Whether a
+            // given POSITION then drops it is not asked here - the emitted
+            // document is, by `importAttributeSurvived()`.
             'blockquote' => $name === 'cite',
             'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
             'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
@@ -1007,112 +1042,238 @@ class HtmlToCarve
     }
 
     /**
-     * A represented attribute that this POSITION nonetheless loses.
+     * Is this attribute READ by the conversion rather than written by it?
      *
-     * Representation is a tag/name question; survival is a ROUTE question, and
-     * the two disagree in exactly one place today. Only a PIPE row drops block
-     * attributes: `formatBlockAttributes()` returns an empty string while
-     * `tableCellDepth > 0`, because a pipe cell has no line for a block
-     * attribute block to sit on (carve-php#1164). The same cell written as a
-     * LIST TABLE keeps it - `processTable()` hands a table with block-content
-     * cells to `processTableAsListTable()` when `listTableForBlockCells` is on,
-     * and a list-table item is real block context, so `{cite=u}` is written and
-     * reads back as `<blockquote cite="u">`.
+     * A tag/name question, on the axis that stays one: it asks HOW an attribute
+     * is represented, never WHERE the serializer happens to be. Both families
+     * below are consumed by the conversion that reads them - their meaning
+     * enters the document as content or as a decision, not as an attribute - so
+     * looking for them in an attribute position asks something that was never
+     * true, of an import that lost nothing.
      *
-     * An ancestry test alone ("is there a `<td>` above me") was right about the
-     * default table and wrong about every document that enables the opt-in, so
-     * this reads the route off the ancestor `<table>` with the converter's own
-     * condition rather than a second one of its own.
+     * `data-djot-*` IS THE IMPORTER'S OWN PROTOCOL, not the author's content.
+     * Eighteen names carry instructions to this converter: `data-djot-src`
+     * re-emits stored source, `data-djot-raw` restores a raw block,
+     * `data-djot-footnote-label` names a footnote. None is ever written to the
+     * output, so a rule that asked the output would report all eighteen as
+     * dropped on every round-tripped document. They were not dropped; they were
+     * obeyed.
+     *
+     * `<math>`'s THREE ATTRIBUTES ARE THE EQUATION. `alttext` is the TeX the
+     * tier-2 conversion emits as the math content, `display` picks the
+     * delimiter that content is wrapped in, and `xmlns` declares the namespace
+     * the element already is. The value of `alttext="x^2"` comes back as the
+     * math `$`x^2`$` - fully preserved, and nowhere near an attribute position.
+     * Reading it is what the separate `encoding-assumed` diagnostic already
+     * describes.
+     *
+     * The generated `scope` on a `<th>` is skipped below for the same reason
+     * from the other direction: an attribute the importer itself puts there and
+     * takes back is not a loss the author suffered.
      */
-    protected function isRepresentedAttributeLostHere(DOMElement $node, string $tag, string $name): bool
+    protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
-        if ($tag !== 'blockquote' || $name !== 'cite') {
-            return false;
-        }
-
-        return $this->tableRouteDropsBlockAttributes($node);
+        return str_starts_with($name, 'data-djot-')
+            || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 
     /**
-     * Will the table that SERIALIZES this node write it into a pipe row?
+     * Did this attribute actually survive into the emitted document?
      *
-     * Two steps, and the order is the whole rule: find the nearest enclosing
-     * CELL, then find the table that OWNS that cell. Walking to the nearest
-     * `<table>` ancestor instead is wrong whenever the two differ - a
-     * `<blockquote>` in the CAPTION of a table nested inside an outer cell has
-     * the inner table as its nearest table, but the inner table is not what
-     * serializes it. `processTable()` writes a caption before descending into
-     * any cell, so `tableCellDepth` is still zero there and the attribute
-     * survives; the cell that governs it is the OUTER one, whose own table may
-     * well take the list-table route.
+     * THE ONE RULE that replaced the position predicate. It asks the OUTPUT,
+     * so it is right about every route without naming any of them - including
+     * the routes that did not exist when it was written.
      *
-     * NO OWNING TABLE MEANS NO LOSS. A `<td>` in an accepted fragment with no
-     * `<table>` around it is never reached by `processTable()` at all, so
-     * `tableCellDepth` is never raised and the attribute block is written
-     * normally. Reporting a drop there was a false positive - and the earlier
-     * "conservative" default of reporting was conservative in the wrong
-     * direction, since the failure it produced was the very kind of untrue row
-     * this whole predicate exists to remove.
+     * The tally is consumed as it is read: each surviving `<tag name=…>` in
+     * the output answers for exactly one occurrence in the input, so a document
+     * with two cited quotes of which the serializer keeps one reports exactly
+     * one loss. The walk runs in document order, so the occurrence a given
+     * survivor is credited to may differ from the one a human would pair it
+     * with when the values differ; the COUNT of reported losses is exact
+     * either way, which is what the invariant is about.
      *
-     * MEMOIZED PER TABLE. `tableHasBlockContentCell()` rebuilds and rescans a
-     * table's rows on every call and the walk asks once per cited quote, so an
-     * unmemoized lookup cost O(quotes x rows) - an 800-row table measured 5x
-     * slower and still climbing. Nothing bounded it either: these attributes
-     * are represented, so they emit no diagnostics and `maxDiagnostics` never
-     * trips. The cache is keyed by the table ELEMENT, so it holds a reference
-     * and an object id cannot be recycled beneath it, and it is cleared per
-     * conversion by `inspectImportLoss()`.
+     * MATCHED ON THE VALUE, in an ATTRIBUTE position - not on the element it
+     * landed on, and not on the name it landed under.
+     *
+     * Not on the TAG, because this importer re-tags constantly and correctly. A
+     * `word` document's footnote definition is a `<div id="fn1">` on the way in
+     * and an `<li id="fn1">` on the way out; the `id` plainly survived, and a
+     * tag-keyed lookup would call it dropped purely because the element around
+     * it did its job.
+     *
+     * Not on the NAME, because Carve spells several imported attributes under a
+     * name of its own: `<dfn title="…">` is `{dfn="…"}` and reads back as a
+     * `dfn` attribute, so the author's `title` survives under another name. What
+     * the author wrote is the VALUE, and the value is what is looked for.
+     *
+     * IN AN ATTRIBUTE POSITION, which is the whole point. Characters can
+     * survive into a slot that cannot hold their meaning: a cited quote in a
+     * table caption is written through the caption-line slot, which carries
+     * inline content only, so the rendered document reads
+     * `<caption>{cite=u}</caption>` - the value `u` is right there in the text,
+     * and it means nothing. Searching the output for the characters calls that
+     * preserved; asking whether any element carries them AS AN ATTRIBUTE calls
+     * it lost, which is the truth.
+     *
+     * AN EMPTY VALUE HAS NOTHING TO LOSE, so it is never a drop. `<abbr
+     * title="">` and `<time datetime="">` come back as a bare `[E]{abbr}` and
+     * `[T]{time}`, which render as `<abbr>` and `<time>` with no attribute at
+     * all - and the shared cross-engine contract fixture
+     * `html-import/semantic-span-attributes` reports neither, because an empty
+     * value carried no information for the round trip to drop. Reporting them
+     * would put this engine's report at odds with carve-js and carve-rs over a
+     * pair of attributes that say nothing.
+     *
+     * SCOPED BY NAME, so an unrelated attribute cannot vouch for this one. A
+     * pooled by-value lookup let a generated `scope="col"` answer for a dropped
+     * `cite="col"` and report nothing, which is the false negative this whole
+     * rule exists to prevent - a coincidence of values is not survival.
+     *
+     * `class` IS COMPARED BY TOKEN, because it is a token list and the round
+     * trip legitimately rewrites the string around the tokens: `{.a .b}` renders
+     * `class="a b"`, so an authored class whose tokens are separated by a run
+     * of spaces never matches whole, and a
+     * `<details class="x">` comes back as `class="details x"` with the
+     * extension's own token added. The author's tokens are what survived, and
+     * asking for the string instead reported an everyday paragraph as lossy.
      */
-    protected function tableRouteDropsBlockAttributes(DOMElement $node): bool
+    protected function importAttributeSurvived(string $tag, string $name, string $value): bool
     {
-        // A CAPTION LOSES IT WHEREVER THE TABLE SITS. `processTable()` writes a
-        // caption through the caption-line slot, which carries inline content
-        // only - the attribute block is emitted as caption TEXT, so the source
-        // reads `^ {cite=u}` and renders `<caption>{cite=u}</caption>` with the
-        // quote's attribute gone. That is a real loss and is reported, and it
-        // is checked before the cell walk because it does not depend on the
-        // route: a top-level table's caption loses it exactly as a nested one
-        // does. (The mangling itself long predates this predicate and is not
-        // fixed here.)
-        if ($this->enclosingImportElement($node, ['caption']) !== null) {
+        $value = trim($value);
+        if ($value === '') {
             return true;
         }
 
-        $cell = $this->enclosingImportElement($node, ['td', 'th']);
-        if ($cell === null) {
-            return false;
+        if ($this->survivingImportAttributes === null) {
+            $this->survivingImportAttributes = $this->tallySurvivingAttributes(
+                $this->inspectedCarve ?? '',
+            );
         }
 
-        $table = $this->enclosingImportElement($cell, ['table']);
-        if ($table === null) {
-            return false;
+        if ($name === 'class') {
+            return $this->classTokensSurvived($value);
         }
 
-        // `offsetExists()` rather than `contains()`, which PHP 8.5 deprecates
-        // and this package's CI matrix runs.
-        if (!$this->tableRouteCache->offsetExists($table)) {
-            $this->tableRouteCache[$table] = !($this->listTableForBlockCells
-                && $this->tableHasBlockContentCell($table));
+        if ($this->consumeSurvivingAttribute($name . "\0" . $value)) {
+            return true;
         }
 
-        return (bool)$this->tableRouteCache[$table];
+        // `title` IS THE ONE AUTHORED NAME CARVE RESPELLS. An element's title
+        // is written under that element's own semantic-span key, so
+        // `<dfn title="…">` becomes `{dfn="…"}` and reads back as a `dfn`
+        // attribute carrying the author's words. Every other represented name
+        // was measured coming back under its own spelling, so only this one
+        // needs to look past the name.
+        return $name === 'title' && $this->consumeSurvivingAttribute("\0any\0" . $value);
     }
 
     /**
-     * The nearest ancestor of `$node` whose tag is one of `$tags`, or null.
+     * Every authored class token came back, so the class did.
      *
-     * @param \DOMElement $node
-     * @param array<int, string> $tags lowercase tag names
+     * All of them, not any: a `class="a b"` whose `b` is gone lost something,
+     * and the report should say so.
      */
-    protected function enclosingImportElement(DOMElement $node, array $tags): ?DOMElement
+    protected function classTokensSurvived(string $value): bool
     {
-        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower($parent->tagName), $tags, true)) {
-                return $parent;
+        $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $survived = true;
+        foreach ($tokens as $token) {
+            if (!$this->consumeSurvivingAttribute("class\0" . $token)) {
+                $survived = false;
             }
         }
 
-        return null;
+        return $survived;
+    }
+
+    /**
+     * Spend one of this key's budget, reporting whether there was any.
+     */
+    protected function consumeSurvivingAttribute(string $key): bool
+    {
+        if (($this->survivingImportAttributes[$key] ?? 0) < 1) {
+            return false;
+        }
+
+        $this->survivingImportAttributes[$key]--;
+
+        return true;
+    }
+
+    /**
+     * Count every attribute NAME the emitted Carve renders back to.
+     *
+     * RENDERING IS THE ORACLE, not a search of the Carve source. Characters
+     * can survive into a slot that cannot hold their meaning: a `<blockquote
+     * cite="u">` in a table caption is written through the caption-line slot,
+     * which carries inline content only, so the source reads `^ {cite=u}` and
+     * the characters `cite=u` are present - as caption TEXT. Grepping the
+     * source calls that preserved. Rendering it shows `<caption>{cite=u}
+     * </caption>` with no attribute anywhere, which is the truth.
+     *
+     * A rendering failure yields an EMPTY tally rather than propagating: the
+     * report is a diagnostic aid, and making `convertWithReport()` throw where
+     * `convert()` succeeds would be a worse failure than an imprecise report.
+     * An empty tally reports represented attributes as dropped, which is the
+     * direction that says "the importer could not confirm this survived"
+     * rather than silently vouching for it.
+     *
+     * @return array<string, int>
+     */
+    protected function tallySurvivingAttributes(string $carve): array
+    {
+        if (trim($carve) === '') {
+            return [];
+        }
+
+        try {
+            $html = (new CarveConverter())->convert($carve);
+        } catch (Throwable) {
+            return [];
+        }
+
+        if (trim($html) === '') {
+            return [];
+        }
+
+        $doc = new DOMDocument();
+        $doc->encoding = 'UTF-8';
+        libxml_use_internal_errors(true);
+        $doc->loadHTML(
+            '<?xml encoding="UTF-8"><div>' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
+        );
+        libxml_clear_errors();
+
+        $counts = [];
+        /** @var \DOMNodeList<\DOMElement> $elements */
+        $elements = $doc->getElementsByTagName('*');
+        foreach ($elements as $element) {
+            foreach ($element->attributes as $attribute) {
+                $name = strtolower($attribute->name);
+                $value = trim($attribute->value);
+                if ($value === '') {
+                    continue;
+                }
+
+                // A class is a token LIST, so each token is tallied on its own -
+                // `class="details x"` answers for an authored `x` without the
+                // extension's own `details` having to be predicted.
+                if ($name === 'class') {
+                    foreach (preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
+                        $counts["class\0" . $token] = ($counts["class\0" . $token] ?? 0) + 1;
+                    }
+                } else {
+                    $counts[$name . "\0" . $value] = ($counts[$name . "\0" . $value] ?? 0) + 1;
+                }
+
+                // The name-blind tally, consulted only for `title` - see
+                // `importAttributeSurvived()`.
+                $counts["\0any\0" . $value] = ($counts["\0any\0" . $value] ?? 0) + 1;
+            }
+        }
+
+        return $counts;
     }
 
     protected function isKnownImportElement(string $tag): bool
@@ -3741,17 +3902,26 @@ class HtmlToCarve
     protected int $tableCellDepth = 0;
 
     /**
-     * Per-table memo of "does this table write PIPE rows", for the inspection
-     * walk.
+     * The Carve this conversion emitted, for the inspection walk to observe.
      *
-     * Keyed by the `<table>` ELEMENT rather than by an object id, so the
-     * storage holds a reference and an id cannot be recycled beneath it. Reset
-     * at the top of every `inspectImportLoss()`, which builds a fresh
-     * DOMDocument, so nothing is carried between documents.
-     *
-     * @var \SplObjectStorage<\DOMElement, bool>
+     * Set by `convertWithReport()` around the walk and cleared in its `finally`
+     * - the report is a statement about THIS conversion, and a value left
+     * standing would let a later walk read the previous document's output.
      */
-    protected SplObjectStorage $tableRouteCache;
+    protected ?string $inspectedCarve = null;
+
+    /**
+     * How many of each `tag`/`attribute` pair the emitted document still has.
+     *
+     * Keyed `tag . "\0" . name` and DECREMENTED as the walk credits survivors
+     * to input occurrences, so it is a budget rather than a lookup. Built once
+     * per conversion, on first demand, and only if the walk reaches a
+     * represented attribute at all - a document without one never pays for the
+     * render.
+     *
+     * @var array<string, int>|null
+     */
+    protected ?array $survivingImportAttributes = null;
 
     /**
      * Degrade a wrapper to its own content, keeping the boundary it carried.
