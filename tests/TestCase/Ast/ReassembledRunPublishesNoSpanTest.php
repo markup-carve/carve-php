@@ -40,6 +40,7 @@ class ReassembledRunPublishesNoSpanTest extends TestCase
 
     /**
      * @param array<string, mixed> $node
+     * @param string $type
      *
      * @return array<int, array<string, mixed>>
      */
