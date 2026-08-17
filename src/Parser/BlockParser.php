@@ -60,6 +60,28 @@ class BlockParser
     private const INITIAL_BRACE_STATE = ['depth' => 0, 'inQuote' => false, 'quoteChar' => '', 'pendingEscape' => false];
 
     /**
+     * The attached run holds nothing visible yet {@see self::attachedBlockKind()}.
+     *
+     * @var string
+     */
+    protected const ATTACHED_PENDING = 'pending';
+
+    /**
+     * The attached block is a paragraph; PART 9 §10 ends it.
+     *
+     * @var string
+     */
+    protected const ATTACHED_PARAGRAPH = 'paragraph';
+
+    /**
+     * The attached block has a multi-line extent of its own - a quote, a list,
+     * a table, a fenced body - which the collectors' own boundaries end.
+     *
+     * @var string
+     */
+    protected const ATTACHED_SPANNING = 'spanning';
+
+    /**
      * Initial trailing-block tracker state for list-item lazy continuation.
      *
      * `openParagraph` starts FALSE: a container that has collected no line yet
@@ -3162,6 +3184,85 @@ class BlockParser
     }
 
     /**
+     * Does a WRAPPED block-attribute block open on this line?
+     *
+     * `{.a` on its own is not a block-attribute line - it becomes one only
+     * once a later line closes it - so `isBlockAttributeLine()`, which reads a
+     * SINGLE line, answers no for the opener and yes for nothing in the run.
+     * Anything that has to classify the line before the block is parsed needs
+     * this instead.
+     *
+     * ASKED BY RUNNING THE REAL MATCHER AND ROLLING BACK, deliberately. The
+     * accept condition is a walk with a quoted-value rule, a blank-line rule, a
+     * per-line validity rule and a linearity bound, and a predicate that
+     * re-spelled any of them would be the second spelling that disagrees - the
+     * failure this file keeps recording. {@see self::tryParseBlockAttributes()}
+     * writes only the pending-attribute pair, which is saved and restored here,
+     * so the probe leaves no trace.
+     *
+     * Returns how many LINES it spans, so a caller can stay undecided across
+     * all of them - the opener alone is not enough. `{.a` / `.b}` / `# H` put
+     * the second line back in play, where it read as a paragraph and the
+     * heading under it ended the run, dropping the attributes and the block
+     * they belonged to.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function wrappedBlockAttributeLength(array $lines, int $start): ?int
+    {
+        if (!str_starts_with($lines[$start] ?? '', '{')) {
+            return null;
+        }
+        if ($this->isBlockAttributeLine($lines[$start])) {
+            return null;
+        }
+
+        $savedAttributes = $this->pendingAttributes;
+        $savedOrder = $this->pendingAttributeOrder;
+        try {
+            return $this->tryParseBlockAttributes($lines, $start);
+        } finally {
+            $this->pendingAttributes = $savedAttributes;
+            $this->pendingAttributeOrder = $savedOrder;
+        }
+    }
+
+    /**
+     * Settle the attached run's kind for this line, or stay undecided.
+     *
+     * Shared by the two collectors so the "still pending" bookkeeping - which
+     * spans the whole wrapped attribute block, not just its first line - has
+     * one spelling.
+     *
+     * @param string $kind
+     * @param int $pendingThrough Last line index still inside a wrapped block, by reference.
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function advanceAttachedKind(
+        string $kind,
+        int &$pendingThrough,
+        string $line,
+        array $lines,
+        int $index,
+    ): string {
+        if ($kind !== self::ATTACHED_PENDING || $index <= $pendingThrough) {
+            return $kind;
+        }
+
+        $wrapped = $this->wrappedBlockAttributeLength($lines, $index);
+        if ($wrapped !== null) {
+            $pendingThrough = $index + $wrapped - 1;
+
+            return self::ATTACHED_PENDING;
+        }
+
+        return $this->attachedBlockKind($line, $lines, $index);
+    }
+
+    /**
      * The quote character an attribute payload ends inside, or null.
      *
      * Follows the executable spec's brace scanner - a backslash escapes the
@@ -4134,13 +4235,35 @@ class BlockParser
             // instead of folding into the preceding quoted paragraph.
             if ($this->isContinuationMarker($currentLine)) {
                 $i++; // consume the `+` marker
+                // ONE BLOCK, AND ITS EXTENT IS THE BOUNDARY (§17 L3). The three
+                // tests below end the run at the next CONTAINER marker, which is
+                // not the same thing: a heading written under the attached
+                // paragraph was attached too. {@see self::attachedBlockHasEnded()}
+                // is the rule, shared with the list-item spelling so the two
+                // cannot drift - they were already one rule with two answers.
+                $attachedKind = self::ATTACHED_PENDING;
+                $pendingThrough = -1;
+                $attachedState = self::INITIAL_TRAILING_BLOCK_STATE;
                 [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
                     $lines,
                     $i,
                     $count,
-                    fn (string $line): bool => IndentationHelper::isBlankLine($line)
-                        || $this->blockQuoteLineContent($line) !== null
-                        || $this->isContinuationMarker($line),
+                    function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines): bool {
+                        if (
+                            IndentationHelper::isBlankLine($line)
+                            || $this->blockQuoteLineContent($line) !== null
+                            || $this->isContinuationMarker($line)
+                        ) {
+                            return true;
+                        }
+                        if ($this->attachedBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
+                            return true;
+                        }
+                        $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
+                        $attachedState = $this->advanceTrailingBlockState($attachedState, $line);
+
+                        return false;
+                    },
                 );
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
@@ -5599,6 +5722,213 @@ class BlockParser
     }
 
     /**
+     * The attached run's block KIND, once its first visible line is known.
+     *
+     * Three answers, because §17 L3's boundary needs exactly three and not a
+     * per-construct table:
+     *
+     *  - `self::ATTACHED_PENDING` - nothing visible yet. An ATTRIBUTE LINE, a
+     *    comment or a definition leaves the run here: none of them is a block
+     *    §17 L3 could be counting, and an attribute is the leading edge of the
+     *    block still to come (corpus 325, `+` / `{.x}` / `> q` attaches the
+     *    quote WITH its attribute).
+     *  - `self::ATTACHED_PARAGRAPH` - anything that opens no block. Its extent
+     *    is §10's: it runs until an INTERRUPTING line.
+     *  - `self::ATTACHED_SPANNING` - a quote, a list, a table, a fenced body.
+     *    Each has a multi-line extent of its own, and the collectors' existing
+     *    boundary tests already end it (a dedent, a sibling marker, another
+     *    `+`, a blank). Asking anything more of it cut a table between its rows
+     *    (corpus 88-3) and a quote between its lines (corpus 327-4).
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function attachedBlockKind(string $line, array $lines, int $index): string
+    {
+        if ($this->isInvisibleOrAttributeLine($line)) {
+            return self::ATTACHED_PENDING;
+        }
+        // A REGISTERED MATCHER'S BLOCK IS SPANNING, whatever it looks like.
+        // `isBlockElementStart()` knows the BUILT-IN openers only, so a block
+        // added through `addBlockPattern()` / `addBlockMatcher()` classified as
+        // a paragraph and the run then ended on the first block-shaped line in
+        // its body - the matcher was handed its opener alone and never fired.
+        // An extension's block has an extent this file cannot compute, so it is
+        // left to the collectors' own container boundaries, exactly as it was
+        // before there was an extent test at all.
+        if ($this->blockMatchers !== [] && $this->matchesRegisteredBlockOpener($lines, $index)) {
+            return self::ATTACHED_SPANNING . ':extension';
+        }
+
+        if (!$this->isBlockElementStart($line, $lines, $index)) {
+            return self::ATTACHED_PARAGRAPH;
+        }
+
+        return self::ATTACHED_SPANNING . ':' . $this->spanningConstruct($line);
+    }
+
+    /**
+     * Which multi-line construct a block-opening line belongs to.
+     *
+     * The tag exists to answer ONE question - "is this line more of the block
+     * already attached, or the start of a different one?" - so it is as coarse
+     * as that question needs and no finer. A quote's second `>` line, a table's
+     * second row and a list's second marker are all block-opening lines by
+     * every predicate this file has, and all three CONTINUE the block above
+     * them rather than beginning a second one.
+     *
+     * The empty string is "not one of these", which is what a heading, a
+     * thematic break or ordinary prose gets - none of them can continue
+     * anything, so none of them ever matches an attached construct.
+     *
+     * @param string $line
+     */
+    protected function spanningConstruct(string $line): string
+    {
+        if ($this->blockQuoteLineContent($line) !== null) {
+            return 'quote';
+        }
+        if ($this->listParser->parseListItemMarker($line) !== null) {
+            return 'list';
+        }
+        // A CONTINUATION ROW IS MORE TABLE, not a new one. `isTableRow()` reads
+        // only the ordinary `|`-led form, so `+ c | d |` returned no construct
+        // at all - and the row above it leaves no open paragraph, so the run
+        // ended between a table and the row that merges into it and the
+        // continuation came back as literal text.
+        if ($this->tableParser->isTableRow($line) || $this->tableParser->isContinuationRow($line)) {
+            return 'table';
+        }
+        if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
+            return 'definition';
+        }
+
+        return '';
+    }
+
+    /**
+     * Would a REGISTERED matcher claim a block starting on this line?
+     *
+     * Asked with a SCRATCH parent, the pattern `indexHeadingsFromStructure()`
+     * already uses one level up: a matcher is a black box that reports how many
+     * lines it consumes, so there is no way to ask about its extent except to
+     * run it, and running it into a throwaway node keeps the real tree
+     * untouched. `addBlockPattern()` callbacks append to the parent they are
+     * handed, so they append to the scratch; `addBlockMatcher()` returns its
+     * node to the dispatcher, which appends it here and nowhere else.
+     *
+     * The pending-attribute pair is saved and restored for the same reason it
+     * is around {@see self::wrappedBlockAttributeLength()} - a matcher that
+     * consumed an attribute line must not leave the run's state changed.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function matchesRegisteredBlockOpener(array $lines, int $start): bool
+    {
+        $savedAttributes = $this->pendingAttributes;
+        $savedOrder = $this->pendingAttributeOrder;
+        try {
+            return $this->tryBlockMatchers(new Document(), $lines, $start) !== null;
+        } finally {
+            $this->pendingAttributes = $savedAttributes;
+            $this->pendingAttributeOrder = $savedOrder;
+        }
+    }
+
+    /**
+     * Is this line PAST the one block a continuation marker attached?
+     *
+     * PART 9 §17 L3: the marker attaches ONE block, and the boundary is that
+     * block's extent. Both collectors ran instead to the next CONTAINER marker -
+     * a blank line, a dedent, a sibling marker, another `+` - so whatever was
+     * written under the attached block came along with it and the marker
+     * attached two blocks.
+     *
+     * THE EXTENT IS §10's FOR A PARAGRAPH, which is the only kind that needed a
+     * test added. Asked with `isBlockElementStart()` it would also end on a LIST
+     * MARKER, and a list marker deliberately does not interrupt a paragraph
+     * (`startsInterruptingBlock()` says so in as many words), so `+` / `para` /
+     * `- item` would have split a paragraph that folds.
+     *
+     * AN ATTRIBUTE LINE INTERRUPTS BUT DOES NOT OPEN, so it needs its own arm:
+     * it ends an open paragraph and belongs to the block BELOW it, which
+     * `startsNewBlock()` does not report because that predicate answers "does a
+     * block start here".
+     *
+     * @param string $kind
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $trailingState
+     */
+    protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
+    {
+        if ($kind === self::ATTACHED_PENDING) {
+            return false;
+        }
+
+        // A CAPTION IS THE OTHER DIRECTION, AND IT IS ASKED FIRST. It ends the
+        // block above it by ATTACHING to it, so it extends the attached block
+        // whatever kind that block is: an image and its `^ cap` are one FIGURE,
+        // a table and its `^ cap` are one table with a `<caption>`. Asked after
+        // the spanning arms below, the table row's "nothing left open" answered
+        // first and the caption came back as literal text.
+        if ($this->isCaptionLine($line)) {
+            return false;
+        }
+        // AN EXTENSION'S BLOCK IS LEFT ALONE ENTIRELY. Its extent is its
+        // matcher's business, and nothing here can compute it, so the run ends
+        // only where the collectors' own container boundaries end it - the
+        // behavior every attached block had before this predicate existed.
+        // Falling through to the interruption test below cut a registered
+        // block at the first block-shaped line in its BODY.
+        if ($kind === self::ATTACHED_SPANNING . ':extension') {
+            return false;
+        }
+
+        if ($kind !== self::ATTACHED_PARAGRAPH) {
+            // MORE OF THE SAME BLOCK IS NOT A SECOND BLOCK. A quote's next `>`
+            // line, a table's next row and a list's next marker all read as
+            // block openers, and ending the run on them cut a table between its
+            // rows (corpus 88-3) and a quote between its lines (corpus 327-4).
+            //
+            // The construct must be NAMED. `spanningConstruct()` returns the
+            // empty string for everything it does not name, so comparing
+            // without this guard made a heading's tag match any unnamed line
+            // and the run never ended.
+            $construct = $this->spanningConstruct($line);
+            if ($construct !== '' && $kind === self::ATTACHED_SPANNING . ':' . $construct) {
+                return false;
+            }
+            // AN OPEN FENCE OR DIV IS STILL THE SAME BLOCK. Its body holds no
+            // paragraph, so without this the arm below would end the run on the
+            // attached block's own first body line.
+            if ($trailingState['inFence'] || $trailingState['inDiv']) {
+                return false;
+            }
+            // PAST IT WHEN IT LEFT NOTHING OPEN. A completed table, a heading
+            // and a thematic break leave no paragraph, so whatever is under
+            // them is a block of its own; a quote and a list DO hold one, so
+            // prose lazily continues them and only an interrupting line ends
+            // the run (PART 1 S4 again, one level in).
+            //
+            // THIS IS WHY THERE IS NO "ONE-LINE BLOCK" KIND. A heading and a
+            // thematic break were tracked as one for a while and the branch
+            // could be deleted with every test still green: S4 had already
+            // answered for them, because a one-line block is exactly a block
+            // that leaves nothing open.
+            if (!$trailingState['openParagraph']) {
+                return true;
+            }
+        }
+
+        return $this->startsNewBlock($line, $lines, $index)
+            || $this->isBlockAttributeLine($line);
+    }
+
+    /**
      * Collect the flush-left block attached by a list continuation marker.
      *
      * @param array<string> $lines All lines being parsed.
@@ -5620,11 +5950,13 @@ class BlockParser
         // The state is local because the attached block starts fresh at column
         // 0 below the marker: nothing the item collected above it is open.
         $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+        $attachedKind = self::ATTACHED_PENDING;
+        $pendingThrough = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line) use (&$trailingState, $baseIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, $lines, $baseIndent): bool {
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
                 if (
@@ -5636,7 +5968,11 @@ class BlockParser
                 ) {
                     return true;
                 }
+                if ($this->attachedBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)) {
+                    return true;
+                }
                 $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+                $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $trimmed, $lines, $index);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, $content);
 
                 return false;
@@ -10021,6 +10357,21 @@ class BlockParser
         $length = $opener['length'];
         $count = count($lines);
 
+        // REFUTE FROM THE INDEX FIRST. The scan below is O(remaining lines) and
+        // this predicate is asked once per fence-shaped line, so a document of
+        // UNCLOSABLE fences pays it once per fence - which is quadratic, and is
+        // what `AttachedFenceLookaheadScaleTest` measures. The index is built
+        // once per line set and is a SUPERSET of what the matcher below can
+        // accept, so a negative answer here is final and a positive one still
+        // goes to the real scan (the invariant `fenceCloserIndex()` documents).
+        //
+        // The other three callers of that index already refute this way; this
+        // one scanned because nothing asked it often enough to matter until the
+        // §17 L3 boundary started classifying every attached run's first line.
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $length, $index)) {
+            return false;
+        }
+
         // Reuse the collector's closer matcher so the interruption lookahead can
         // never accept a closer the fence collector would reject (no drift).
         for ($i = $index + 1; $i < $count; $i++) {
@@ -10206,7 +10557,23 @@ class BlockParser
 
                 return $state;
             }
-            if ($this->fencedBlockParser->parseCodeFenceOpener($line) !== null) {
+            // A CODE FENCE INSIDE A DIV OPENS A VERBATIM BODY, so its lines
+            // are content and not structure. Recorded as `inFence` here, the
+            // fence branch at the top of this function skips the body and the
+            // div is not closed by a `:::` written INSIDE it - which is exactly
+            // the shape `BoundaryLineInsideAnOpenFenceTest` pins for the walk
+            // that collects an attached block. Left untracked, the opener only
+            // said "no open paragraph" and the very next `:::` read as the
+            // div's closer.
+            $divCodeFence = $this->fencedBlockParser->parseCodeFenceOpener($line);
+            if ($divCodeFence !== null) {
+                /** @var string $divFenceChar */
+                $divFenceChar = $divCodeFence['char'];
+                /** @var int $divCodeFenceLength */
+                $divCodeFenceLength = $divCodeFence['length'];
+                $state['inFence'] = true;
+                $state['fenceChar'] = $divFenceChar;
+                $state['fenceLength'] = $divCodeFenceLength;
                 $state['openParagraph'] = false;
 
                 return $state;
