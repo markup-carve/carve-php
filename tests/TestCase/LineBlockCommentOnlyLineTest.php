@@ -450,6 +450,26 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
+     * AND GIVES IT UP WHERE A RUN HOLDS ITS LINE. The node then lands after the
+     * run rather than at a boundary, so its span would START INSIDE its own
+     * previous sibling's - an order no reader can walk. PART 12 §4 rates no
+     * span well above a wrong one.
+     */
+    public function testASwallowedCommentGivesUpItsPositionRatherThanReportAWrongOne(): void
+    {
+        $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
+        $paragraph = $converter->parse("::: |\na `b\n%% c\nd` e\nf\n:::\n")->getChildren()[0]->getChildren()[0];
+        $children = $paragraph->getChildren();
+
+        $this->assertInstanceOf(Comment::class, $children[2]);
+        $this->assertNull(
+            $children[2]->getPos(),
+            'the comment reports a span that starts inside the run before it',
+        );
+        $this->assertNotNull($children[1]->getPos(), 'the run itself must keep its span');
+    }
+
+    /**
      * A COMMENT LINE TAKES NO BACKSLASH. `%%` consumes the rest of its line, so
      * a backslash written after it is comment TEXT, not break syntax, and the
      * comment comes back holding a character the author never wrote.
@@ -486,6 +506,36 @@ class LineBlockCommentOnlyLineTest extends TestCase
         }
 
         return $found;
+    }
+
+    /**
+     * THE COMMENT SURVIVES WHERE ITS EMPTY LINE DOES, AND NO FURTHER.
+     *
+     * A code span keeps the boundaries it swallowed as newlines in its own
+     * value, so the writer has a line to put the comment back on. Math strips
+     * them, so it has none - and a comment written anywhere else on a line runs
+     * to the end of it and eats whatever follows, which is how two comments
+     * came back as one holding the other's marker. A node the writer cannot
+     * spell is a PART 11 §1 failure no rendering can see, so it is not built.
+     */
+    public function testACommentWhoseEmptyLineDidNotSurviveIsNotBuilt(): void
+    {
+        $converter = new CarveConverter();
+        $kept = $converter->parse("::: |\na `b\n%% c\n%% d\ne\n:::\n");
+        $dropped = $converter->parse("::: |\na \$`x\n%% c\n%% c\n:::\n");
+
+        $this->assertSame(['c', 'd'], self::commentContents($kept));
+        $this->assertSame([], self::commentContents($dropped));
+
+        foreach (["::: |\na `b\n%% c\n%% d\ne\n:::\n", "::: |\na \$`x\n%% c\n%% c\n:::\n"] as $source) {
+            $formatted = CarveConverter::toCarve($source);
+            $this->assertSame(
+                self::commentContents($converter->parse($source)),
+                self::commentContents($converter->parse($formatted)),
+                'the writer changed a comment for: ' . $source,
+            );
+            $this->assertSame($converter->convert($source), $converter->convert($formatted));
+        }
     }
 
     /**
