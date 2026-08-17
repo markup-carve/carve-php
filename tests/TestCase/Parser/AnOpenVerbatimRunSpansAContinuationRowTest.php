@@ -110,8 +110,17 @@ class AnOpenVerbatimRunSpansAContinuationRowTest extends TestCase
      * NO POSITION - six nodes of nine, and the whole suite still green, because
      * positions are off by default. Raised by codex review.
      *
-     * The merged CELL itself declines a position, which is deliberate: its
-     * content is no longer a run of any one line.
+     * TWO NODES DECLINE, and both for the same reason: their content is no
+     * longer a run of any one line. The merged CELL always did. The CODE node
+     * joined it with carve-php#1361 - the run itself is assembled from two
+     * authored chunks with the row's closing `|` and the continuation marker
+     * between them, so a span across it covers markup the value does not
+     * contain, and carve-js and carve-rs publish nothing there either.
+     *
+     * The guard is unchanged in what it is FOR: the emphasis after the run and
+     * every text node in the row sit on one authored chunk each and are still
+     * placed. The defect this caught was six nodes of nine losing their
+     * positions at once.
      */
     public function testTheRebuiltCellKeepsInlinePositions(): void
     {
@@ -128,6 +137,6 @@ class AnOpenVerbatimRunSpansAContinuationRowTest extends TestCase
         };
         $walk($document);
 
-        $this->assertSame(['TableCell'], $missing, implode(', ', $missing));
+        $this->assertSame(['TableCell', 'Code'], $missing, implode(', ', $missing));
     }
 }
