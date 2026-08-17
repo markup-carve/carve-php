@@ -228,12 +228,13 @@ class TableParser
      * Parse table cells from a row, respecting code spans and escaped pipes.
      *
      * @param string $line The table row line
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
      *
      * @return array<string> Array of cell contents
      */
-    public function parseTableCells(string $line): array
+    public function parseTableCells(string $line, array $openDelimiters = []): array
     {
-        return array_column($this->splitCells($line), 'content');
+        return array_column($this->splitCells($line, $openDelimiters), 'content');
     }
 
     /**
@@ -252,9 +253,12 @@ class TableParser
      * offsets inside it no longer line up. Those cells decline a position
      * rather than carry a drifting one.
      *
+     * @param string $line
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
+     *
      * @return list<array{content: string, offset: int, verbatim: bool, rawLength: int, raw: string}>
      */
-    public function splitCells(string $line): array
+    public function splitCells(string $line, array $openDelimiters = []): array
     {
         // Row attributes and trailing whitespace are stripped from the END, and
         // the leading `|` is one byte, so every offset below shifts by exactly
@@ -295,7 +299,9 @@ class TableParser
 
         // Fast path: with no code spans (backticks) and no escaped pipes, every
         // `|` is a delimiter, so a plain split is identical to the scan below.
-        if (!str_contains($line, '`') && !str_contains($line, '\\|')) {
+        // A run left OPEN by the row above disqualifies it: there is a verbatim
+        // span here even though this line carries no backtick of its own.
+        if ($openDelimiters === [] && !str_contains($line, '`') && !str_contains($line, '\\|')) {
             $result = [];
             $at = 0;
             foreach (explode('|', $line) as $content) {
@@ -320,8 +326,21 @@ class TableParser
         $offsets = [];
         $verbatims = [];
         $rawLengths = [];
-        $inCode = false;
-        $codeDelimLength = 0;
+        // A VERBATIM RUN LEFT OPEN BY THE ROW ABOVE REOPENS HERE, at the cell
+        // index that opened it. PART 9 §19 ends a run at its closing delimiter,
+        // and a row boundary is not one, so a `|` inside it is CONTENT and not
+        // a cell delimiter. This splitter started every row from a closed
+        // state, so `| a `b |` followed by `+ c | d` |` split the continuation
+        // at the pipe INSIDE the still-open span and one cell came back as two,
+        // the second holding an empty code element (corpus 333-4).
+        //
+        // Indexed by CELL rather than carried from the row's start, because the
+        // run belongs to the cell it was written in: `| x | a `b |` reopens at
+        // cell 1 and cell 0 of the continuation splits as usual (corpus 333-5).
+        // The WIDTH is carried too - only a run of the same length closes it.
+        $cellIndex = 0;
+        $codeDelimLength = $openDelimiters[0] ?? 0;
+        $inCode = $codeDelimLength > 0;
         $length = strlen($line);
 
         for ($i = 0; $i < $length; $i++) {
@@ -381,6 +400,11 @@ class TableParser
                 $currentCell = '';
                 $cellStart = $i + 1;
                 $cellVerbatim = true;
+                // The next cell inherits ITS OWN open run, not the one that
+                // ended here.
+                $cellIndex++;
+                $codeDelimLength = $openDelimiters[$cellIndex] ?? 0;
+                $inCode = $codeDelimLength > 0;
 
                 continue;
             }
@@ -634,9 +658,24 @@ class TableParser
      */
     public function hasUnclosedCodeSpan(string $line): bool
     {
+        return $this->openCodeSpanDelimiter($line) > 0;
+    }
+
+    /**
+     * The delimiter WIDTH of a verbatim run this line leaves open, or 0.
+     *
+     * The same walk `hasUnclosedCodeSpan()` used to make on its own, reporting
+     * the width instead of a boolean, because a continuation row has to REOPEN
+     * the run at the width that opened it: only a matching run of backticks
+     * closes it, and a `|` inside it is content rather than a cell delimiter.
+     *
+     * @param string $line
+     */
+    public function openCodeSpanDelimiter(string $line): int
+    {
         // Fast path: no backticks means no code spans at all
         if (!str_contains($line, '`')) {
-            return false;
+            return 0;
         }
 
         $length = strlen($line);
@@ -672,7 +711,7 @@ class TableParser
             }
         }
 
-        return $inCode;
+        return $inCode ? $codeDelimLength : 0;
     }
 
     /**
@@ -710,7 +749,6 @@ class TableParser
         $cells = [];
         $currentCell = '';
         $length = strlen($line);
-
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
 
@@ -893,17 +931,18 @@ class TableParser
      * Continuation rows start with + instead of |.
      *
      * @param string $line The continuation row line (starting with +)
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
      *
      * @return array<string> Array of cell contents
      */
-    public function parseContinuationCells(string $line): array
+    public function parseContinuationCells(string $line, array $openDelimiters = []): array
     {
         $trimmed = ltrim($line, " \t");
 
         // Replace leading + with | for parsing
         $normalizedLine = '|' . substr($trimmed, 1);
 
-        return $this->parseTableCells($normalizedLine);
+        return $this->parseTableCells($normalizedLine, $openDelimiters);
     }
 
     /**

@@ -440,19 +440,15 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * The one below arrived with the bump to carve b6917ab. It is a
-     * container-boundary decision this engine makes one block too late, like
-     * the three that came with it and have since been closed.
+     * EMPTY, AND THAT IS THE POINT. An entry here is an EXCLUSION: the document
+     * is named, its assertion is skipped, and the suite goes green around it.
+     * Nothing in the pins may be excluded, so a new gap is closed rather than
+     * listed. The eighteen that arrived with the bump to carve b6917ab were
+     * four container-boundary rules and are all closed.
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // RULE 4 (carve corpus 333). An open verbatim run in a table row spans
-        // the continuation row. This engine closes it at the row boundary, so
-        // the escaped closing pipe splits the cell.
-        '333-a-continuation-row-s-open-run-and-an-escaped-closing-pipe-4'
-            => 'A code span left open across a continuation row is closed at the row end, splitting one cell into two.',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
