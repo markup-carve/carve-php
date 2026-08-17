@@ -4406,8 +4406,18 @@ class InlineParser
                 return null;
             }
 
+            // THE REMAINDER, WHOLE. An unclosed run reaches the end of the
+            // BLOCK (PART 2) and what it reaches is verbatim, so the trailing
+            // whitespace is content like the rest of it. This used to rtrim -
+            // the one place math parted from the code span it shares its span
+            // rule with, which takes the remainder raw a few hundred lines
+            // above. Invisible until a container put a blank line at the end of
+            // a run: a line block whose comment-only lines are removed at the
+            // block layer (PART 9 §23) does exactly that, and the stripped
+            // newlines took the removed lines' own positions with them, so the
+            // writer had no line left to put the comments back on.
             return [
-                'node' => new Math(rtrim($content, " \t\r\n"), $display),
+                'node' => new Math($content, $display),
                 'pos' => $length,
             ];
         }

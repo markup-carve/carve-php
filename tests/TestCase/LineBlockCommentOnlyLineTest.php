@@ -450,23 +450,40 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * AND GIVES IT UP WHERE A RUN HOLDS ITS LINE. The node then lands after the
-     * run rather than at a boundary, so its span would START INSIDE its own
-     * previous sibling's - an order no reader can walk. PART 12 §4 rates no
-     * span well above a wrong one.
+     * AND THE RUN THAT SWALLOWED ITS LINE GIVES UP ITS OWN.
+     *
+     * Taking the comment out of the middle of the run leaves the run's value
+     * discontiguous in the source, which is PART 12 §4's reassembled-node case:
+     * no offset pair equals that value, so the RUN omits `pos`. The comment
+     * keeps the span it measured, because it is one contiguous line and §4 says
+     * an existing span is not optional.
+     *
+     * The other way round is the tempting answer and the wrong one - it drops
+     * the span that exists and publishes the one that does not.
      */
-    public function testASwallowedCommentGivesUpItsPositionRatherThanReportAWrongOne(): void
+    public function testTheRunThatSwallowedACommentGivesUpItsPosition(): void
     {
         $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
         $paragraph = $converter->parse("::: |\na `b\n%% c\nd` e\nf\n:::\n")->getChildren()[0]->getChildren()[0];
         $children = $paragraph->getChildren();
 
         $this->assertInstanceOf(Comment::class, $children[2]);
-        $this->assertNull(
-            $children[2]->getPos(),
-            'the comment reports a span that starts inside the run before it',
-        );
-        $this->assertNotNull($children[1]->getPos(), 'the run itself must keep its span');
+        $this->assertNull($children[1]->getPos(), 'the run reports a span its value is not a slice of');
+        $this->assertNotNull($children[2]->getPos(), 'the comment lost the span it has');
+
+        // And no two placed siblings overlap, which is what the pair buys.
+        $placed = [];
+        foreach ($children as $child) {
+            if ($child->getPos() !== null) {
+                $placed[] = [$child->getPos()->startOffset, $child->getPos()->endOffset];
+            }
+        }
+        $sorted = $placed;
+        usort($sorted, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $this->assertSame($placed, $sorted, 'placed siblings are out of document order');
+        for ($i = 1, $last = count($placed); $i < $last; $i++) {
+            $this->assertGreaterThanOrEqual($placed[$i - 1][1], $placed[$i][0], 'two placed siblings overlap');
+        }
     }
 
     /**
@@ -509,32 +526,39 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * THE COMMENT SURVIVES WHERE ITS EMPTY LINE DOES, AND NO FURTHER.
+     * A RUN THAT SWALLOWS THE LINE STILL CARRIES THE LINE.
      *
-     * A code span keeps the boundaries it swallowed as newlines in its own
-     * value, so the writer has a line to put the comment back on. Math strips
-     * them, so it has none - and a comment written anywhere else on a line runs
-     * to the end of it and eats whatever follows, which is how two comments
-     * came back as one holding the other's marker. A node the writer cannot
-     * spell is a PART 11 §1 failure no rendering can see, so it is not built.
+     * The empty line the removal leaves is what the writer puts the comment
+     * back on, and inside an unclosed run it survives as a NEWLINE in the run's
+     * own value. Math used to rtrim those newlines away where a code span keeps
+     * them, so the writer had no line left, wrote the comment at the end of
+     * another one, and `%%` ran to the end of it and ate the next comment's
+     * marker - two comments came back as one whose body was `c %% c`.
+     *
+     * Every verbatim kind is checked, because the strip is per-construct and
+     * the divergence was in exactly one of them.
      */
-    public function testACommentWhoseEmptyLineDidNotSurviveIsNotBuilt(): void
+    public function testEveryVerbatimRunKeepsTheLineItSwallowed(): void
     {
         $converter = new CarveConverter();
-        $kept = $converter->parse("::: |\na `b\n%% c\n%% d\ne\n:::\n");
-        $dropped = $converter->parse("::: |\na \$`x\n%% c\n%% c\n:::\n");
 
-        $this->assertSame(['c', 'd'], self::commentContents($kept));
-        $this->assertSame([], self::commentContents($dropped));
+        foreach (['`x', '$`x', '!`x', '$$`x'] as $opener) {
+            $source = "::: |\na " . $opener . "\n%% c\n%% d\n:::\n";
 
-        foreach (["::: |\na `b\n%% c\n%% d\ne\n:::\n", "::: |\na \$`x\n%% c\n%% c\n:::\n"] as $source) {
+            $this->assertSame(
+                ['c', 'd'],
+                self::commentContents($converter->parse($source)),
+                'a comment was lost after: ' . $opener,
+            );
+
             $formatted = CarveConverter::toCarve($source);
             $this->assertSame(
-                self::commentContents($converter->parse($source)),
+                ['c', 'd'],
                 self::commentContents($converter->parse($formatted)),
-                'the writer changed a comment for: ' . $source,
+                'the writer changed a comment after: ' . $opener,
             );
             $this->assertSame($converter->convert($source), $converter->convert($formatted));
+            $this->assertSame($formatted, CarveConverter::toCarve($formatted));
         }
     }
 
