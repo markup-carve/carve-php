@@ -10357,6 +10357,21 @@ class BlockParser
         $length = $opener['length'];
         $count = count($lines);
 
+        // REFUTE FROM THE INDEX FIRST. The scan below is O(remaining lines) and
+        // this predicate is asked once per fence-shaped line, so a document of
+        // UNCLOSABLE fences pays it once per fence - which is quadratic, and is
+        // what `AttachedFenceLookaheadScaleTest` measures. The index is built
+        // once per line set and is a SUPERSET of what the matcher below can
+        // accept, so a negative answer here is final and a positive one still
+        // goes to the real scan (the invariant `fenceCloserIndex()` documents).
+        //
+        // The other three callers of that index already refute this way; this
+        // one scanned because nothing asked it often enough to matter until the
+        // §17 L3 boundary started classifying every attached run's first line.
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $length, $index)) {
+            return false;
+        }
+
         // Reuse the collector's closer matcher so the interruption lookahead can
         // never accept a closer the fence collector would reject (no drift).
         for ($i = $index + 1; $i < $count; $i++) {
