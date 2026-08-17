@@ -179,19 +179,25 @@ class LineBlockHardBreakBackslashTest extends TestCase
         $document = (new AstCodec())->decode([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [[
-                'type' => 'line_block',
-                'children' => [[
-                    'type' => 'paragraph',
-                    'children' => [[
-                        'type' => 'emphasis',
-                        'children' => [
-                            ['type' => 'text', 'value' => 'a'],
-                            ['type' => 'hard_break'],
+            'children' => [
+                [
+                    'type' => 'line_block',
+                    'children' => [
+                        [
+                            'type' => 'paragraph',
+                            'children' => [
+                                [
+                                    'type' => 'emphasis',
+                                    'children' => [
+                                        ['type' => 'text', 'value' => 'a'],
+                                        ['type' => 'hard_break'],
+                                    ],
+                                ],
+                            ],
                         ],
-                    ]],
-                ]],
-            ]],
+                    ],
+                ],
+            ],
         ]);
 
         $converter = CarveConverter::carve();
@@ -209,6 +215,6 @@ class LineBlockHardBreakBackslashTest extends TestCase
         $formatted = CarveConverter::toCarve($source);
 
         $this->assertSame($this->convert($source), $this->convert($formatted));
-        $this->assertStringContainsString("a \\", $formatted);
+        $this->assertStringContainsString('a \\', $formatted);
     }
 }
