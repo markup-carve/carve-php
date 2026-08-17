@@ -452,6 +452,16 @@ class CarveCorpusTest extends TestCase
         // their `.html` before this line was added; seven of them failed and
         // were fixed rather than deferred, so KNOWN_GAPS stays empty.
         'url-list-attributes-are-probed-token-wise',
+        // Arrived with the bump to carve 5866bd0: PART 11 §8b M2b measures a
+        // line's content position AFTER its container prefix, so `> \# heading`
+        // keeps the escape the author wrote instead of coming back through an
+        // importer as a heading. Both documents were rendered through
+        // CarveConverter and diffed against their `.html` and their `.md`
+        // before this line was added; both failed and were fixed rather than
+        // deferred, so KNOWN_GAPS stays empty. The narrowing is pinned in the
+        // same pair and still holds: `> C\# is a language` and `- \#tag rest`
+        // drop their escapes exactly as they do outside a container.
+        'an-escaped-hash-keeps-its-escape-at-a-container-s-content-position',
     ];
 
     /**
