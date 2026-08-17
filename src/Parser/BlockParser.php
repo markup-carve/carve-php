@@ -7082,20 +7082,18 @@ class BlockParser
                 // (carve-php#1362); under §4 a span covers the markup its node
                 // owns, and this list owns that line.
                 //
-                // The lines are the answer OUTRIGHT, not a widening applied
-                // where they happen to reach further. A `> $last->endOffset`
-                // guard stood here first and it never fired: across 432
-                // generated shapes - one and two-line attribute blocks, a
-                // comment, a fence, a nested quote and list, a second entry, a
-                // trailing-whitespace description, each at top level, in a
-                // quote and in an item - the consumed lines and the last child
-                // ended at the same offset every time except on the attribute
-                // line this fixes. A check that cannot fail tells the next
-                // reader the children still decide something here.
+                // The lines are the answer, but only the ones the list OWNS.
+                // Every line it consumed was too many: the parse walks past a
+                // reference definition written under the description, and that
+                // line belongs to the definition node it becomes, not to the
+                // list - so the extent covered markup the node does not own,
+                // which is the mirror of the gap it was fixing
+                // (carve-php#1362 ended one line short, carve-php#1371 ran one
+                // line long).
                 //
                 // The START still comes from the children, because a list
                 // inside an item does not begin at column 1 of its line.
-                $end = $this->wholeLinesSpan($start, $i - 1) ?? $last;
+                $end = $this->wholeLinesSpan($start, $this->lastDefinitionListLine($lines, $start, $i - 1)) ?? $last;
                 $dl->setPos(new SourceSpan(
                     startLine: $first->startLine,
                     endLine: $end->endLine,
@@ -7251,6 +7249,46 @@ class BlockParser
         $parent->appendChild($lineBlock);
 
         return $i - $start;
+    }
+
+    /**
+     * The last line of `$start .. $lastIndex` a definition list OWNS.
+     *
+     * The parse walks past lines the list does not hold. A floating attribute
+     * written at the description's column IS the list's - it is scoped to the
+     * container that holds it (markup-carve/carve#1298) and becomes attributes
+     * on the list, so no child covers it and the extent has to reach it
+     * (carve-php#1362). A reference definition written at COLUMN 0 under the
+     * same description is not: it becomes a definition node of its own, with
+     * its own span, and an extent covering it claims markup the list does not
+     * own (carve-php#1371).
+     *
+     * The column is what separates them. A line the list owns either carries a
+     * marker of its own - a `::` term or a `:` description - or is indented
+     * into the description it continues. A flush-left line that is neither has
+     * left the list, whatever the parse did with it afterwards.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $lastIndex
+     */
+    private function lastDefinitionListLine(array $lines, int $start, int $lastIndex): int
+    {
+        while ($lastIndex > $start) {
+            $line = $lines[$lastIndex] ?? '';
+            if (
+                IndentationHelper::isBlankLine($line)
+                || ($line[0] ?? '') === ' '
+                || ($line[0] ?? '') === "\t"
+                || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line) === 1
+                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line) === 1
+            ) {
+                break;
+            }
+            $lastIndex--;
+        }
+
+        return $lastIndex;
     }
 
     /**
