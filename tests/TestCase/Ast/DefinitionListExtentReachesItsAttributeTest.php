@@ -73,6 +73,43 @@ class DefinitionListExtentReachesItsAttributeTest extends TestCase
         $this->assertSame(9, $list['pos']['endOffset']);
     }
 
+    public function testTheExtentStopsAtALineTheListDoesNotOwn(): void
+    {
+        // The mirror of the gap above, and the regression fixing it caused.
+        // The parse walks past a reference definition written at COLUMN 0 under
+        // the description, but that line becomes a definition node of its own
+        // with its own span - so an extent covering it claims markup the list
+        // does not own (carve-php#1371). carve-js and carve-rs both end at 14.
+        $list = $this->definitionList(":: term\n:  def\n[a]: /u {.c}\n\n[a][]\n");
+
+        $this->assertSame(2, $list['pos']['endLine']);
+        $this->assertSame(14, $list['pos']['endOffset']);
+    }
+
+    public function testADescriptionCarryingATrailingSpaceIsOwned(): void
+    {
+        // The ownership walk is entered ON the description here - it is the
+        // last consumed line, and it carries a marker rather than being blank
+        // or indented. Without the marker branch the walk steps off it and the
+        // extent ends a column short. Corpus
+        // `268-trailing-whitespace-on-a-content-line-is-dropped-5`, where
+        // carve-js and carve-rs both end at 16; the trailing spaces are what
+        // put the walk on this line rather than on a blank one.
+        $list = $this->definitionList(":: term \n:  def ");
+
+        $this->assertSame(2, $list['pos']['endLine']);
+        $this->assertSame(8, $list['pos']['endColumn']);
+        $this->assertSame(16, $list['pos']['endOffset']);
+    }
+
+    public function testTheDefinitionBelowStillResolves(): void
+    {
+        // And it is still a definition: the span moved, the document did not.
+        $html = (new CarveConverter())->convert(":: term\n:  def\n[a]: /u {.c}\n\n[a][]\n");
+
+        $this->assertStringContainsString('<a href="/u" class="c">a</a>', $html);
+    }
+
     public function testTheRenderedHtmlIsUnchanged(): void
     {
         // The extent moved; nothing the reader sees did. The attribute is
