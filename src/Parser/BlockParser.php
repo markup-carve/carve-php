@@ -1265,6 +1265,9 @@ class BlockParser
         // The blockquote depth the open line block was opened at, so its closer
         // is read at that depth instead of after every marker is stripped.
         $lineBlockDepth = 0;
+        // The item content column the open line block was opened at, so its
+        // closer is read at that column instead of after arbitrary indentation.
+        $lineBlockColumn = 0;
         // A `%%%` COMMENT FENCE is opaque, so a literal `::: |` inside one is
         // not a line-block opener. Entering that state there left it open past
         // the comment's own closer -- which is not a colon fence -- and every
@@ -1275,21 +1278,13 @@ class BlockParser
         // comment renders nothing, and carve-js has never registered from
         // inside one.
         $commentFenceLen = 0;
-        // The LAST line index at which a comment fence of each length closes,
-        // computed ONCE. Scanning forward per opener is what
+        // WHERE the fence sits, when it opens and when it closes, spelled once
+        // for all three definition prepasses {@see PrepassCommentFence}. It
+        // indexes the closers in a single pass and memoizes the container bound
+        // per column, so no opener rescans the tail -- which is what
         // testDistinctWidthFenceOpenersDoNotRescanPerOpener forbids, and
-        // `%%% x`, `%%%% x`, ... is all openers and no closers -- every one of
-        // them would scan to the end of the document.
-        //
-        // Keyed by EXACT length: a `%%%%` line does not close a `%%%` fence.
-        // Any leading `%` run counts, not only a bare line, because `%%% end`
-        // closes a `%%%` fence.
-        $commentCloseAt = [];
-        for ($j = 0; $j < $count; $j++) {
-            if (preg_match('/^(%{3,})/', $lines[$j], $cj) === 1) {
-                $commentCloseAt[strlen($cj[1])] = $j;
-            }
-        }
+        // `%%% x`, `%%%% x`, ... is all openers and no closers.
+        $commentFence = new PrepassCommentFence($lines);
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
@@ -1333,33 +1328,9 @@ class BlockParser
                     continue;
                 }
             }
-            // A comment fence's closer is a leading `%` run of the SAME length --
-            // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
-            // only a bare fence missed real closers and left the state open.
-            if ($commentFenceLen > 0) {
-                if (preg_match('/^(%{3,})/', $line, $cm) === 1 && strlen($cm[1]) === $commentFenceLen) {
-                    $commentFenceLen = 0;
-                }
-                // The body is opaque: a code fence opener in there is comment
-                // TEXT, and letting it reach the fence scanner below opened a
-                // code block that swallowed the real comment closer.
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(%{3,})/', $line, $cm) === 1) {
-                // Only a fence that CLOSES. An unterminated `%%%` is not a fenced
-                // comment -- the block parser degrades it to a single-line comment
-                // -- and treating it as open here stayed open for the rest of the
-                // document, suppressing every later line block.
-                $openLen = strlen($cm[1]);
-                if (($commentCloseAt[$openLen] ?? -1) > $i) {
-                    $commentFenceLen = $openLen;
-                    $i++;
-
-                    continue;
-                }
-            }
+            // A LINE BLOCK's body is verse, so a `%%%` written in one is text
+            // and opens nothing. The open-region tests therefore all run before
+            // any opener test: whichever region the line is already in owns it.
             if ($lineBlockLen > 0) {
                 // The closer has to be read at the DEPTH the line block opened
                 // at: inside `> ::: |` a nested `> > :::` is a quoted `> :::`,
@@ -1368,10 +1339,28 @@ class BlockParser
                 // the lines after it register again. A line that no longer
                 // reaches that depth has left the blockquote, so the line block
                 // ended with it.
+                //
+                // And at the COLUMN it opened at, for the same reason. Exactly
+                // that column comes off and never arbitrary indentation: an
+                // indented `:::` inside a TOP-LEVEL line block is verse text,
+                // and trimming it closed the block there, so the lines after it
+                // registered while the real parser still had them as verse.
                 $closerLine = $quoteStages[$lineBlockDepth] ?? null;
-                if ($closerLine === null) {
+                $closerView = $closerLine;
+                if ($closerLine !== null && $lineBlockColumn > 0) {
+                    $closerView = ContainerPrefix::atContentColumn($closerLine, $lineBlockColumn);
+                    // A blank line is inside the block, not out of its
+                    // container: it reaches no column and ends nothing.
+                    if ($closerView === null && IndentationHelper::isBlankLine($closerLine)) {
+                        $closerView = '';
+                    }
+                }
+                if ($closerLine === null || $closerView === null) {
+                    // Out of the blockquote, or dedented past the column the
+                    // block was opened at: the container ended and took the
+                    // unclosed line block with it.
                     $lineBlockLen = 0;
-                } elseif ($this->fencedBlockParser->isDivFenceCloser($closerLine, $lineBlockLen)) {
+                } elseif ($this->fencedBlockParser->isDivFenceCloser($closerView, $lineBlockLen)) {
                     $lineBlockLen = 0;
                     $i++;
 
@@ -1382,17 +1371,65 @@ class BlockParser
                     continue;
                 }
             }
+            // A comment fence's closer is a leading `%` run of the SAME length --
+            // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
+            // only a bare fence missed real closers and left the state open.
+            if ($commentFenceLen > 0) {
+                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
+                    $commentFenceLen = 0;
+                }
+                // The body is opaque: a code fence opener in there is comment
+                // TEXT, and letting it reach the fence scanner below opened a
+                // code block that swallowed the real comment closer.
+                $i++;
+
+                continue;
+            }
+            // Only a fence that CLOSES, and an indented one only when its
+            // closer arrives before its container ends. An unterminated `%%%`
+            // is not a fenced comment -- the block parser degrades it to a
+            // single-line comment -- and treating it as open here stayed open
+            // for the rest of the document, suppressing every later line block.
+            //
+            // Still BEFORE the line-block opener below: a `::: |` inside a
+            // comment is comment text and opens no verse (carve-php#698).
+            $openedComment = $commentFence->opensAt($line, $i, $contentCol);
+            if ($openedComment !== null) {
+                $commentFenceLen = $openedComment;
+                $i++;
+
+                continue;
+            }
             if ($fence->opensOn($line, $contentCol)) {
                 $i++;
 
                 continue;
             }
-            $fc0 = $fenceLine[0] ?? '';
+            // An INDENTED `::: |` opens a line block too, when the indent is an
+            // item's CONTENT COLUMN. This read the raw line, so a line block
+            // inside a list item went untracked and a `%%%` written in its
+            // verse was read as a comment opener rather than the text it
+            // renders.
+            //
+            // Exactly the content column comes off and never arbitrary
+            // indentation: `   ::: |` at top level is prose, and admitting it
+            // skipped the definition under it as verse.
+            $openerView = $fenceLine;
+            $openerColumn = 0;
+            if ($contentCol > 0) {
+                $dedented = ContainerPrefix::atContentColumn($fenceLine, $contentCol);
+                if ($dedented !== null) {
+                    $openerView = $dedented;
+                    $openerColumn = $contentCol;
+                }
+            }
+            $fc0 = $openerView[0] ?? '';
             if ($fc0 === ':') {
-                $lineBlockOpener = $this->parseLineBlockOpener($fenceLine);
+                $lineBlockOpener = $this->parseLineBlockOpener($openerView);
                 if ($lineBlockOpener !== null) {
                     $lineBlockLen = $lineBlockOpener['length'];
                     $lineBlockDepth = count($quoteStages) - 1;
+                    $lineBlockColumn = $openerColumn;
                     $i++;
 
                     continue;
@@ -1810,6 +1847,19 @@ class BlockParser
         $fenceChar = null;
         $fenceLen = 0;
         $verseFence = 0;
+        // A COMMENT's body is opaque too, and this pass alone did not know it:
+        // the link-reference and footnote prepasses each tracked `%%%`, so a
+        // `*[HTML]: ...` written inside one defined an abbreviation for the
+        // whole document while the comment rendered nothing - an <abbr> the
+        // reader never wrote, expanded from a line nobody can see (corpus 340).
+        // The abbreviation collector reaches its lines by a different path than
+        // the other two, which is why widening those left this one behind.
+        //
+        // Read at column 0 only: PART 12 §7 recognizes the definition at
+        // document level, so a line an indented comment could hide has already
+        // been disqualified by `$divs` or `$inListItem` below.
+        $commentFence = new PrepassCommentFence($lines);
+        $commentFenceLen = 0;
         // PART 12 §7 recognizes an abbreviation definition only at document
         // level. The pattern is anchored, so a block quote or list marker
         // prefix already disqualifies a line. Two containers add no prefix of
@@ -1844,6 +1894,21 @@ class BlockParser
                 if (preg_match('/^(:{3,})[ \t]*$/', $line, $vm) && strlen($vm[1]) >= $verseFence) {
                     $verseFence = 0;
                 }
+                $i++;
+
+                continue;
+            }
+            if ($commentFenceLen > 0) {
+                if (PrepassCommentFence::closes($line, $commentFenceLen)) {
+                    $commentFenceLen = 0;
+                }
+                $i++;
+
+                continue;
+            }
+            $openedComment = $commentFence->opensAt($line, $i, 0);
+            if ($openedComment !== null) {
+                $commentFenceLen = $openedComment;
                 $i++;
 
                 continue;
