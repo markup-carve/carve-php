@@ -2513,6 +2513,48 @@ class HtmlRenderer implements RendererInterface
     ];
 
     /**
+     * ASCII whitespace, as the HTML Standard defines it: TAB, LF, FF, CR and
+     * SPACE. The separator classes below are built from this and no wider,
+     * because that is where both URL-list grammars put their boundaries.
+     *
+     * @var string
+     */
+    private const ASCII_WHITESPACE = "\t\n\f\r ";
+
+    /**
+     * PART 9 §25: the four attributes whose value is a LIST of URLs that a
+     * consumer resolves or fetches, mapped to the separator class the
+     * attribute's OWN grammar uses. Probing only the value's head vouches for
+     * the whole value where the whole value is one URL, which these are not,
+     * so `srcset="safe.png 1x, javascript:alert(1) 2x"` rendered verbatim
+     * while the payload-first spelling of the same value blanked
+     * (markup-carve/carve#1320).
+     *
+     * THE SEPARATORS DIFFER DELIBERATELY AND MUST NOT BE UNIFIED. `ping` and
+     * `attributionsrc` are space-separated sets whose grammar holds no comma,
+     * so splitting them on commas would blank a single legitimate URL that
+     * merely carries one in its path - a false positive, and false positives
+     * are the binding constraint here. `srcset` and `imagesrcset` split on
+     * commas as well, because there a comma really does end a candidate and a
+     * whitespace-only split misses `safe.png 1x,javascript:alert(1) 2x`
+     * outright: with the space after the comma absent, the second candidate
+     * hides inside the first one's descriptor.
+     *
+     * The keys are lower-case and looked up against a lower-cased name, like
+     * the `on` prefix above: an attribute block may spell the name in any
+     * case and the element still carries the author's spelling, so matching
+     * the exact bytes would leave `SRCSET` unprobed.
+     *
+     * @var array<string, string>
+     */
+    private const URL_LIST_ATTRIBUTE_SEPARATORS = [
+        'srcset' => ',' . self::ASCII_WHITESPACE,
+        'imagesrcset' => ',' . self::ASCII_WHITESPACE,
+        'ping' => self::ASCII_WHITESPACE,
+        'attributionsrc' => self::ASCII_WHITESPACE,
+    ];
+
+    /**
      * Always-on attribute hardening, applied regardless of safe mode.
      *
      * Drops event-handler names (`on*`) and the injection sinks `srcdoc` /
@@ -2545,9 +2587,27 @@ class HtmlRenderer implements RendererInterface
      * Blank an attribute value that carries a dangerous URL scheme or a CSS
      * `expression(...)`. The scheme is normalized (C0 controls + spaces removed)
      * before comparison to defeat `java\tscript:` style evasion.
+     *
+     * A URL-LIST ATTRIBUTE IS PROBED AT EVERY CANDIDATE, NOT AT ITS HEAD. For
+     * the four names in `URL_LIST_ATTRIBUTE_SEPARATORS` the value is split into
+     * tokens and every non-empty token gets THE SAME PROBE this method applies
+     * to a whole value, and any hit blanks the ENTIRE value. That changes WHERE
+     * the probe runs, not WHAT it denies. Every other attribute - `title`,
+     * `alt`, `aria-label` and the rest of prose, which carry colons routinely -
+     * keeps the leading-scheme rule and MUST NOT be tokenized.
+     *
+     * Blanking the whole value rather than excising the offending candidate is
+     * the clause's own choice: rewriting would make the rendered attribute
+     * differ from the author's bytes, which this defense already declined to do
+     * for the `Cf` case, and it would give one value a third outcome when the
+     * defect being fixed is that one value already had two.
      */
     private function sanitizeAttributeValue(string $name, string $value): string
     {
+        $separators = self::URL_LIST_ATTRIBUTE_SEPARATORS[$name] ?? null;
+        if ($separators !== null) {
+            return self::urlListIsClean($separators, $value) ? $value : '';
+        }
         $colon = strpos($value, ':');
         if ($colon !== false) {
             $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
@@ -2560,6 +2620,47 @@ class HtmlRenderer implements RendererInterface
         }
 
         return $value;
+    }
+
+    /**
+     * True when no candidate in a URL-list value carries a denylisted scheme.
+     *
+     * The per-token probe is `blankDangerousScheme()`, the same one `href` and
+     * `src` get, so THE STRIP RUNS PER TOKEN rather than once at the front of
+     * the value and the surrounding reasoning composes instead of being
+     * bypassed: a `\u{202F}javascript:` candidate blanks wherever it sits, and
+     * a `\u{200B}javascript:` one is left alone at every position for the
+     * reason already recorded on that method (it fails WHATWG URL parsing and
+     * lands inert).
+     *
+     * Note that the whitespace the STRIP removes is wider than the whitespace
+     * the SPLIT breaks on, and deliberately so: `a\u{202F}javascript:x` is ONE
+     * token to a consumer, because both grammars put their boundaries at ASCII
+     * whitespace, and it resolves as a relative URL rather than a navigation.
+     *
+     * Empty tokens are skipped, so a run of separators or a leading/trailing
+     * one cannot blank a value on its own.
+     *
+     * @param string $separators Characters of the attribute's separator class.
+     * @param string $value
+     *
+     * @return bool
+     */
+    private static function urlListIsClean(string $separators, string $value): bool
+    {
+        $tokens = preg_split('/[' . preg_quote($separators, '/') . ']+/', $value);
+        if ($tokens === false) {
+            // PCRE refused the split; treat the value as one token so it is
+            // still probed rather than waved through unread.
+            $tokens = [$value];
+        }
+        foreach ($tokens as $token) {
+            if ($token !== '' && self::blankDangerousScheme($token) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

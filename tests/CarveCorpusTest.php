@@ -446,6 +446,12 @@ class CarveCorpusTest extends TestCase
         'a-wider-comment-fence-inside-an-item-hides-its-body-the-same-way',
         'an-abbreviation-inside-a-comment-defines-nothing',
         'a-comment-fence-inside-a-colon-container-registers-nothing',
+        // Arrived with the bump to carve 483bcea: PART 9 §25 probes a URL-list
+        // attribute at every candidate rather than at its head. All TEN
+        // documents were rendered through CarveConverter and diffed against
+        // their `.html` before this line was added; seven of them failed and
+        // were fixed rather than deferred, so KNOWN_GAPS stays empty.
+        'url-list-attributes-are-probed-token-wise',
     ];
 
     /**
