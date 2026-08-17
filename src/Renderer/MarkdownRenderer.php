@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use Closure;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
@@ -157,6 +158,40 @@ class MarkdownRenderer implements RendererInterface
     private const AUTHORED_POSITIONAL = ['#'];
 
     /**
+     * The same characters once §8b M2b HAS decided to keep the escape.
+     *
+     * A second STATE rather than a second character, and the state is what
+     * makes the decision survive its containers. M2b measures on the EMITTED
+     * LINE and a line's content position is after its container prefix
+     * (markup-carve/carve#1330), so the question is answered where the writer
+     * prefixes the container's lines - and an outer container that adds a hash
+     * of its own runs that pass again, over content that already carries the
+     * inner marker. An undecided sentinel would be re-read there and the outer
+     * marker would take the escape straight back off.
+     *
+     * Recorded as a sentinel rather than as the `\#` it resolves to, because
+     * every sentinel is the same width: the passes address candidates by offset
+     * and spelling one answer as two characters would move every later
+     * candidate on the line, changing M1b's answers with it.
+     *
+     * IT WIDENS THE PICKED RUN FROM FOUR TO FIVE, and that is a real cost
+     * rather than none. `DocumentSentinels::pick()` walks the private-use area
+     * for a gap of the requested width and, finding none, returns the preferred
+     * run WHETHER OR NOT it collides - so a document that leaves a gap of four
+     * and no gap of five is now rendered with sentinels it contains, and an
+     * authored U+E004 comes back as an underscore. The condition is adversarial
+     * (about four fifths of the 6,396 private-use code points written, with no
+     * five-wide gap anywhere) and it is not created here: the colliding
+     * fallback is what corrupts, and §8b's own fourth sentinel moved the same
+     * boundary. It is recorded rather than worked around because no
+     * implementation of M2b's ruling can carry the decided state in fewer
+     * states, and a picker that cannot fail is the fix for the class.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_DECIDED = ['#'];
+
+    /**
      * The first code point of the run picked for the narrowed-escape sentinels.
      *
      * @var int
@@ -206,6 +241,16 @@ class MarkdownRenderer implements RendererInterface
     ];
 
     /**
+     * Sentinels standing in for an authored escape §8b M2b has decided to KEEP,
+     * one per positional character, picked in the same run as the two above.
+     *
+     * @var array<string, string>
+     */
+    protected array $authoredKeptSentinels = [
+        '#' => "\u{E008}",
+    ];
+
+    /**
      * The picked run as a PCRE class, for the final resolve.
      *
      * The run is contiguous by construction, so the class is its two ends. Built
@@ -214,9 +259,16 @@ class MarkdownRenderer implements RendererInterface
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E006}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E008}]';
 
     protected int $listDepth = 0;
+
+    /**
+     * Authored hashes emitted since the enclosing container started, so a
+     * container that emitted none skips the M2b pass instead of re-scanning its
+     * subtree once per enclosing level - the shape carve-php#1142 fixed.
+     */
+    protected int $authoredHashes = 0;
 
     protected bool $inBlockQuote = false;
 
@@ -453,6 +505,8 @@ class MarkdownRenderer implements RendererInterface
         }
 
         if (isset($this->authoredSentinels[$content])) {
+            $this->authoredHashes++;
+
             return $this->authoredSentinels[$content];
         }
 
@@ -470,9 +524,10 @@ class MarkdownRenderer implements RendererInterface
     protected function pickNarrowedSentinels(Document $document): void
     {
         $narrowed = count(self::NARROWED_CHARACTERS);
+        $positional = count(self::AUTHORED_POSITIONAL);
         $run = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($document),
-            $narrowed + count(self::AUTHORED_POSITIONAL),
+            $narrowed + $positional + count(self::AUTHORED_DECIDED),
             self::NARROWED_SENTINEL_FIRST,
         );
 
@@ -485,8 +540,13 @@ class MarkdownRenderer implements RendererInterface
         );
         $this->authoredSentinels = array_combine(
             self::AUTHORED_POSITIONAL,
-            array_slice($run, $narrowed),
+            array_slice($run, $narrowed, $positional),
         );
+        $this->authoredKeptSentinels = array_combine(
+            self::AUTHORED_DECIDED,
+            array_slice($run, $narrowed + $positional),
+        );
+        $this->authoredHashes = 0;
         $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
     }
 
@@ -530,7 +590,8 @@ class MarkdownRenderer implements RendererInterface
 
         $character = array_flip($this->narrowedSentinels);
         $authored = array_flip($this->authoredSentinels);
-        $character += $authored;
+        $kept = array_flip($this->authoredKeptSentinels);
+        $character += $authored + $kept;
 
         // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
         // resolved to its BARE character first, so a neighbour that is itself a
@@ -557,9 +618,19 @@ class MarkdownRenderer implements RendererInterface
             $char = $character[$sentinel];
 
             $at = $offset - 2 * $index;
-            $keep = isset($authored[$sentinel])
-                ? $this->opensAnAtxHeading($line, $at)
-                : $this->adjacentToLiveDelimiter($line, $at, $char);
+            // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
+            // asks whether a delimiter of the same character stands beside the
+            // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
+            // this is the finished document, so the answer it gets here is the
+            // answer for a line NO CONTAINER ENCLOSES - the only kind that
+            // reaches it undecided. A line inside a container had its position
+            // settled where the writer prefixed it, while the prefix was still
+            // separable from the content (markup-carve/carve#1330), and arrives
+            // carrying that answer.
+            $keep = isset($kept[$sentinel])
+                || (isset($authored[$sentinel])
+                    ? $this->opensAnAtxHeading($line, $at)
+                    : $this->adjacentToLiveDelimiter($line, $at, $char));
 
             $out .= substr($markdown, $read, $offset - $read);
             $out .= $keep ? '\\' . $char : $char;
@@ -567,6 +638,121 @@ class MarkdownRenderer implements RendererInterface
         }
 
         return $out . substr($markdown, $read);
+    }
+
+    /**
+     * The finished content of a container, trimmed and with PART 11 §8b M2b
+     * ANSWERED ON IT, ready for the caller to put its prefix in front.
+     *
+     * Every call site is a place the writer prefixes a container's lines, and
+     * that is the whole of the list: the block quote marker, the list and task
+     * marker with the alignment §10 gives the lines under it, the footnote
+     * definition marker, the definition marker. M2b measures on the EMITTED
+     * LINE and a line's content position is after its container prefix
+     * (markup-carve/carve#1330), so the question has to be settled here - after
+     * the trim, which is part of the shape of the line, and before the prefix,
+     * which is what the position is measured past.
+     *
+     * A HEADING IS NOT A CONTAINER and does not call this. Its `## ` belongs to
+     * the block's own line, so the hash behind it stays mid-line and loses the
+     * escape, which is the reading CommonMark gives it. Neither is a table
+     * cell. Both are left to the resolve pass at the end, which measures on the
+     * finished document - the right answer for a line no container encloses,
+     * and the wrong one for a line inside one, which is why these sites exist.
+     *
+     * DECIDING EARLIER DOES NOT WORK, and the trim is why. A block does not
+     * know whether the whitespace it wrote at the start of its first line
+     * survives: a paragraph opening with four spaces keeps them mid-document
+     * and loses them as the first block of a container. Answering M2b before
+     * that trim scores the hash as over-indented and emits it bare, and the
+     * trim then puts a bare hash at column 0 - a heading where the author wrote
+     * text.
+     *
+     * The counter is what keeps this from costing anything. A nested container
+     * decides on its own way out and leaves the count where it found it, so an
+     * outer one that added no hash of its own never touches the text.
+     *
+     * @param \Closure $render Renders the container's children.
+     *
+     * @return string
+     */
+    protected function containerContent(Closure $render): string
+    {
+        $before = $this->authoredHashes;
+        $content = trim($render(), StringUtil::TRIMMABLE_WHITESPACE);
+        if ($this->authoredHashes === $before) {
+            return $content;
+        }
+        $this->authoredHashes = $before;
+
+        return $this->decideAuthoredHashes($content);
+    }
+
+    /**
+     * Answer §8b M2b for every authored hash in one container's content, on the
+     * lines that container writes.
+     *
+     * Deriving the position from the finished document would mean parsing the
+     * prefixes back off it, and the §10 alignment case cannot be recovered that
+     * way at all: a continuation line under `10. ` carries four spaces of pad,
+     * which reads as an over-indent to anything that does not already know the
+     * marker's width. §10 refuses to reason about the content alone for that
+     * exact reason. So it is not derived - it is answered where the writer has
+     * it, and everything a container adds afterwards is a prefix by
+     * construction, without any of them being named.
+     *
+     * THE NARROWING IS UNTOUCHED, which is the half a correction like this
+     * loses first. Standing behind a prefix is not enough on its own: a hash
+     * mid-line still drops its escape inside a container, and one at the
+     * content position whose run is closed by a letter drops it too.
+     *
+     * @param string $text One container's rendered content.
+     *
+     * @return string
+     */
+    protected function decideAuthoredHashes(string $text): string
+    {
+        $pattern = '/' . $this->narrowedSentinelClass . '/u';
+
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $text;
+        }
+
+        $undecided = array_flip($this->authoredSentinels);
+        $character = array_flip($this->narrowedSentinels)
+            + $undecided
+            + array_flip($this->authoredKeptSentinels);
+
+        $line = (string)preg_replace_callback(
+            $pattern,
+            static fn (array $m): string => $character[$m[0]],
+            $text,
+        );
+
+        // OFFSETS DO NOT CARRY ACROSS, the same trap resolveNarrowedEscapes
+        // spells out: every sentinel is a three-byte code point standing for a
+        // one-byte character, so each one before a candidate shifts it two
+        // bytes left in `$line`. The index counts EVERY sentinel, decided or
+        // not, because every one of them is three bytes wide.
+        $out = '';
+        $read = 0;
+        foreach ($matches[0] as $index => [$sentinel, $offset]) {
+            if (!isset($undecided[$sentinel])) {
+                continue;
+            }
+
+            $offset = (int)$offset;
+            $char = $undecided[$sentinel];
+            $at = $offset - 2 * $index;
+
+            $out .= substr($text, $read, $offset - $read);
+            $out .= $this->opensAnAtxHeading($line, $at)
+                ? $this->authoredKeptSentinels[$char]
+                : $char;
+            $read = $offset + strlen($sentinel);
+        }
+
+        return $out . substr($text, $read);
     }
 
     /**
@@ -582,22 +768,53 @@ class MarkdownRenderer implements RendererInterface
      * third even at a line's start, which is why the test is spelled on the run
      * rather than on the position alone.
      *
-     * A block prefix the writer emitted - a quote marker, a list marker - is not
-     * treated as a content position here. Such a line's `#` would need the
-     * escape, and the writer never routes one through this sentinel: the
-     * character reaches it only from an `escaped_text` node, which is inline
-     * content the prefix already precedes.
+     * `$line` IS ONE CONTAINER'S CONTENT where a container encloses it, and the
+     * whole document where none does. A line's content position is after its
+     * container prefix, and the prefix is separable from the content only
+     * before the writer joins them (markup-carve/carve#1330), so the caller
+     * chooses the string and this decides on whatever it is handed.
+     *
+     * BOTH CONDITIONS ARE ANSWERED WITHOUT READING THE LINE (carve#1331). The
+     * first spelling searched backward for the line's newline and counted the
+     * whole run of hashes, so a candidate cost O(line) - and in this engine
+     * that search does not merely read the prefix, `substr` ALLOCATES AND
+     * COPIES it. A line of adjacent authored hashes is all candidates, so
+     * 400,000 of them copied 240GB. Neither answer needs the line, because both
+     * conditions are bounded:
+     *
+     * - At most three spaces may precede the character, so the walk back stops
+     *   after four steps and the fourth decides. Anything else standing there
+     *   means the content position is elsewhere on the line, whatever the rest
+     *   of it holds.
+     * - The run has to be six or shorter, so counting stops at seven. The
+     *   seventh hash settles the question and the eight-thousandth cannot
+     *   change it.
+     *
+     * BYTES THROUGHOUT, like the spelling it replaces. Every character it
+     * compares is ASCII, and a UTF-8 continuation byte is never equal to one.
      */
     protected function opensAnAtxHeading(string $line, int $offset): bool
     {
-        $start = strrpos(substr($line, 0, $offset), "\n");
-        $start = $start === false ? 0 : $start + 1;
+        // The walk back over the indent, bounded at the four positions that can
+        // decide it. `$i` lands on the first character of the run of spaces, so
+        // the line must either start there or carry its newline just before it.
+        $i = $offset;
+        while ($i > 0 && $line[$i - 1] === ' ') {
+            if ($offset - $i >= 3) {
+                return false;
+            }
+            $i--;
+        }
 
-        if (preg_match('/^ {0,3}$/', substr($line, $start, $offset - $start)) !== 1) {
+        if ($i > 0 && $line[$i - 1] !== "\n") {
             return false;
         }
 
-        $run = strspn($line, '#', $offset);
+        $run = 0;
+        while ($run <= 6 && ($line[$offset + $run] ?? '') === '#') {
+            $run++;
+        }
+
         if ($run > 6) {
             return false;
         }
@@ -1021,11 +1238,13 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
-        $this->inBlockQuote = true;
-        $content = $this->renderChildren($node);
-        $this->inBlockQuote = false;
+        $body = $this->containerContent(function () use ($node): string {
+            $this->inBlockQuote = true;
+            $content = $this->renderChildren($node);
+            $this->inBlockQuote = false;
 
-        $body = trim($content, StringUtil::TRIMMABLE_WHITESPACE);
+            return $content;
+        });
 
         // Prefix each line with >, and a blank line with a bare marker.
         $lines = explode("\n", $body);
@@ -1060,7 +1279,7 @@ class MarkdownRenderer implements RendererInterface
                     $prefix = $marker . ' ';
                 }
 
-                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
+                $content = $this->containerContent(fn (): string => $this->renderChildren($child));
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
@@ -1116,7 +1335,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
+        $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
         return ':' . ($content === '' ? '' : ' ' . $content) . "\n";
     }
@@ -1295,7 +1514,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
+        $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
