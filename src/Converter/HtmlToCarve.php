@@ -1332,10 +1332,51 @@ class HtmlToCarve
      */
     protected array $skipAttributes = [
         'style', // CSS doesn't map to Djot
-        'onclick', 'onload', 'onmouseover', 'onmouseout', 'onsubmit', // JS events
         'xmlns', // XML namespace
         'role', // ARIA (could be kept, but often noise)
     ];
+
+    /**
+     * The importer's strip policy, asked as ONE question.
+     *
+     * WHAT IT REFUSES is a rule, not a roster. `on*` is unbounded and browsers
+     * keep extending it, so an enumeration of handler names cannot be complete
+     * - and this list held exactly five of them (`onclick`, `onload`,
+     * `onmouseover`, `onmouseout`, `onsubmit`) while four separate writers each
+     * had to remember to pair it with the prefix rule. Three of them did not,
+     * so `<aside class="admonition note" onfocus="steal()">` imported to Carve
+     * source reading `{onfocus=steal()}` - the exact laundering the fourth
+     * writer's comment says the prefix exists to prevent (carve-php#1375).
+     *
+     * Four call sites that must agree with nothing making them agree is the
+     * defect carve-php#1346 and carve-php#1337 both came back to. So the
+     * question is asked here and only here, and the five names are gone: they
+     * were redundant wherever the prefix ran and the only defense where it did
+     * not, which is the worst of both readings.
+     *
+     * `srcdoc` and `formaction` join it. PART 9 §25 has the HTML renderer blank
+     * both, so keeping them on import produced Carve source carrying an
+     * attribute every target has to remember to refuse - a defense that holds
+     * only at the last stage is one target away from not holding. Nothing the
+     * reader sees changes: the renderer already blanked them, and the import
+     * report already said they were dropped, because it asks the rendered
+     * document (carve-php#1337).
+     *
+     * PER-SITE skips - `id`, `class`, an admonition's own `data-djot-*` keys -
+     * stay at their call sites. They are that writer's business; this is the
+     * policy.
+     */
+    protected function isStrippedImportAttribute(string $name): bool
+    {
+        $lower = strtolower($name);
+
+        return str_starts_with($lower, 'on')
+            || $lower === 'srcdoc'
+            || $lower === 'formaction'
+            || str_starts_with($lower, 'data-djot-')
+            || in_array($name, $this->skipAttributes, true)
+            || in_array($lower, $this->skipAttributes, true);
+    }
 
     /**
      * Convert HTML to Djot markup
@@ -1836,7 +1877,7 @@ class HtmlToCarve
             $hasExtraAttrs = false;
             /** @var \DOMAttr $attr */
             foreach ($node->attributes as $attr) {
-                if ($attr->name !== 'class' && !in_array($attr->name, $this->skipAttributes, true) && !str_starts_with($attr->name, 'data-djot-')) {
+                if ($attr->name !== 'class' && !$this->isStrippedImportAttribute($attr->name)) {
                     $hasExtraAttrs = true;
 
                     break;
@@ -1862,7 +1903,7 @@ class HtmlToCarve
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
-            if ($name === 'id' || $name === 'class' || in_array($name, $this->skipAttributes, true) || str_starts_with($name, 'data-djot-')) {
+            if ($name === 'id' || $name === 'class' || $this->isStrippedImportAttribute($name)) {
                 continue;
             }
             $value = $attr->value;
@@ -1910,11 +1951,11 @@ class HtmlToCarve
             }
         }
 
-        $skipAttrs = ['id', 'class', ...$this->skipAttributes];
+        $skipAttrs = ['id', 'class'];
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || str_starts_with($name, 'data-djot-')) {
+            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
                 continue;
             }
             $value = $attr->value;
@@ -1959,11 +2000,11 @@ class HtmlToCarve
         }
 
         // Add other attributes (excluding special ones)
-        $skipAttrs = ['id', 'class', 'data-djot-admonition-type', 'data-djot-admonition-title', ...$this->skipAttributes];
+        $skipAttrs = ['id', 'class', 'data-djot-admonition-type', 'data-djot-admonition-title'];
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || str_starts_with($name, 'data-djot-')) {
+            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
                 continue;
             }
             $value = $attr->value;
@@ -2147,11 +2188,11 @@ class HtmlToCarve
         }
 
         // Add other attributes (excluding special ones)
-        $skipAttrs = ['id', 'class', ...$this->skipAttributes];
+        $skipAttrs = ['id', 'class'];
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || str_starts_with($name, 'data-djot-')) {
+            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
                 continue;
             }
             $value = $attr->value;
@@ -4668,7 +4709,7 @@ class HtmlToCarve
     protected function getElementAttributes(DOMElement $node, array $skipAttrs = []): string
     {
         $parts = [];
-        $allSkip = array_merge($this->skipAttributes, $skipAttrs);
+        $allSkip = $skipAttrs;
 
         // Process id first
         $id = $node->getAttribute('id');
@@ -4701,20 +4742,12 @@ class HtmlToCarve
         foreach ($node->attributes as $attr) {
             $name = $attr->name;
 
-            // Skip already processed and skip-list attributes
+            // Skip already processed and this call's own skips; the POLICY is
+            // one question, asked the same way by every writer.
             if ($name === 'id' || $name === 'class') {
                 continue;
             }
-            if (in_array($name, $allSkip, true)) {
-                continue;
-            }
-            // Drop ALL event-handler attributes (onerror, onfocus, …), not just
-            // the few named in the skip list, so imported HTML cannot launder an
-            // XSS handler into Carve attributes.
-            if (str_starts_with(strtolower($name), 'on')) {
-                continue;
-            }
-            if (str_starts_with($name, 'data-djot-')) {
+            if (in_array($name, $allSkip, true) || $this->isStrippedImportAttribute($name)) {
                 continue;
             }
 
