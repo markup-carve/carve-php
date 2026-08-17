@@ -87,7 +87,10 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     {
         $html = '<blockquote cite="u"><p>q</p></blockquote>';
 
-        $this->assertSame("{cite=u}\n\n> q", $this->carve($html));
+        // GLUED to the quote, with no blank line between: the shared
+        // cross-engine fixture `html-import/blockquote-cite` arrived with the
+        // corpus bump to carve b6917ab and pins that spelling.
+        $this->assertSame("{cite=u}\n> q", $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
     }
 
@@ -150,7 +153,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     {
         $html = '<blockquote foo="bar"><p>q</p></blockquote>';
 
-        $this->assertSame("{foo=bar}\n\n> q", $this->carve($html));
+        $this->assertSame("{foo=bar}\n> q", $this->carve($html));
         $this->assertSame(
             [['attribute-dropped', 'info', 'Dropped unsupported attribute foo on <blockquote>']],
             $this->diagnostics($html),

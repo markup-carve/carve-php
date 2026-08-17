@@ -409,6 +409,30 @@ class CarveCorpusTest extends TestCase
         'an-attribute-block-reaches-the-nested-list-it-precedes',
         'a-block-attached-after-an-invisible-line-leaves-the-item-tight',
         'an-abbreviation-definition-in-an-item-body-is-paragraph-text',
+        // Arrived with the bump to carve b6917ab. TEN categories came in; each
+        // of their 69 documents was rendered through CarveConverter and diffed
+        // against its pinned `.html` before anything was listed here, because an
+        // entry asserts this engine implements the category - an unverified one
+        // converts a real divergence into a green run, which is the only thing
+        // this list exists to prevent.
+        //
+        // SIX are byte-identical throughout and are listed. The other four -
+        // 326, 327, 329 and 333 - are not: they carry 18 documents this engine
+        // renders differently, and every one of those is named individually in
+        // KNOWN_GAPS below with the rule it is waiting on. The categories are
+        // listed so their PASSING documents keep asserting; the failing ones are
+        // deferred by name rather than by silence.
+        'an-attribute-line-after-a-continuation-marker-attributes-the-attached-block',
+        'an-unclosed-verbatim-run-in-a-row-stops-at-the-closing-pipe',
+        'a-tab-after-a-fence-or-a-frontmatter-opener-depends-on-where-it-sits',
+        'an-unclosed-inline-run-in-a-line-block-reaches-the-end-of-the-block',
+        'which-inline-content-a-heading-id-is-derived-from',
+        'a-label-beginning-with-an-at-sign-is-not-a-reference-label',
+        // The four with per-document gaps. Listed for their passing documents.
+        'a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open',
+        'a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent',
+        'a-floating-attribute-is-scoped-to-the-container-that-holds-it',
+        'a-continuation-row-s-open-run-and-an-escaped-closing-pipe',
     ];
 
     /**
@@ -416,9 +440,65 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
+     * The eighteen below arrived with the bump to carve b6917ab and are FOUR
+     * parser rules, not eighteen bugs. Each rule is a container-boundary
+     * decision this engine makes one block too late, so the documents group by
+     * rule rather than by symptom.
+     *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // RULE 1 (carve corpus 326). A column-0 line after a container's last
+        // block, when that block left no paragraph open, ends the container.
+        // This engine continues it lazily instead, so `tail` joins the item
+        // that a heading, table, break, comment or definition had already
+        // finished.
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open'
+            => 'A column-0 line after an item whose last block left no paragraph open is lazily continued into the item instead of ending the list.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-3'
+            => 'Same rule, after a pipe table in an item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-4'
+            => 'Same rule, after a thematic break in an item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-5'
+            => 'Same rule, after a line comment in an item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-6'
+            => 'Same rule, after a delimited comment in an item; the comment body also stays inside the item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-7'
+            => 'Same rule, after a link reference definition in an item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-8'
+            => 'Same rule, after a footnote definition in an item.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-9'
+            => 'Same rule, after a floating attribute in an item; the attribute then lands on the continued paragraph.',
+        '326-a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open-11'
+            => 'Same rule, after a heading inside a blockquote inside an item.',
+        // RULE 2 (carve corpus 327). A continuation marker attaches exactly ONE
+        // block, and the attached block's extent is the boundary. This engine
+        // keeps the container open past it, so the NEXT block is attached too.
+        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent'
+            => 'A blockquote after the one block a continuation marker attached is pulled into the item instead of ending it.',
+        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-3'
+            => 'Same rule, where the attached block is a two-line paragraph.',
+        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-6'
+            => 'Same rule, where the marker opens the item body.',
+        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-8'
+            => 'Same rule inside a blockquote: the following heading stays in the quote instead of ending it.',
+        // RULE 3 (carve corpus 329). A floating attribute is scoped to the
+        // container that holds it and does not reach a block outside it. This
+        // engine lets it escape and attribute the following block.
+        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it'
+            => 'A floating attribute inside a blockquote attributes the paragraph after the quote instead of expiring with it.',
+        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-2'
+            => 'Same rule without the blank line: the following line is also pulled into the quote.',
+        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-5'
+            => 'Same rule inside a definition description.',
+        '329-a-floating-attribute-is-scoped-to-the-container-that-holds-it-6'
+            => 'Same rule with a two-line floating attribute in a description, which is additionally not recognized as one.',
+        // RULE 4 (carve corpus 333). An open verbatim run in a table row spans
+        // the continuation row. This engine closes it at the row boundary, so
+        // the escaped closing pipe splits the cell.
+        '333-a-continuation-row-s-open-run-and-an-escaped-closing-pipe-4'
+            => 'A code span left open across a continuation row is closed at the row end, splitting one cell into two.',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
