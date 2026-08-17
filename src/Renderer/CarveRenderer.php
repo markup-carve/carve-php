@@ -1819,8 +1819,18 @@ class CarveRenderer implements RendererInterface
             $isFirstInlineLine = true;
             $lineNodeCount = 0;
             $lineHostsCaption = false;
+            $verseCommentLine = 0;
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
+                if ($node instanceof HardBreak && $this->inLineBlock > 0) {
+                    $out .= $this->verseLineBreak($out, $i === $count - 1);
+                    $captionCanOpen = false;
+                    $isFirstInlineLine = false;
+                    $lineNodeCount = 0;
+                    $lineHostsCaption = false;
+
+                    continue;
+                }
                 if ($node instanceof InlineNode) {
                     $out .= $this->renderInline(
                         $node,
@@ -1855,6 +1865,30 @@ class CarveRenderer implements RendererInterface
                     // own `toHtml(fmt(x)) == toHtml(x)` invariant and PUBLISHES
                     // the comment text the author hid. carve-rs emits no space
                     // here and round-trips; carve-js emits one and does not.
+                    //
+                    // IN VERSE THE COMMENT GOES BACK ON THE LINE IT EMPTIED.
+                    // PART 9 §23 removes a comment-only body line at the BLOCK
+                    // layer, so what the tree carries is an empty verse line
+                    // plus a `comment` node - and where a verbatim run
+                    // swallowed that line, the node sits after the run rather
+                    // than at the boundary, because the line is inside the
+                    // run's content. Writing it where the walk happens to be
+                    // would leave the empty line standing, and an empty body
+                    // line is a BLANK line: it ends the stanza, so one stanza
+                    // comes back as two and the comment is published besides.
+                    // Filling the empty lines in order restores the author's
+                    // own bytes at the author's own column.
+                    $filled = $this->inLineBlock > 0 && !$node->isDelimited()
+                        ? $this->fillVerseCommentLine($out, '%% ' . $node->getContent(), $verseCommentLine)
+                        : null;
+                    if ($filled !== null) {
+                        [$out, $verseCommentLine] = $filled;
+                        $lineNodeCount++;
+                        $lineHostsCaption = false;
+                        $captionCanOpen = false;
+
+                        continue;
+                    }
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
@@ -1869,6 +1903,89 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->inlineDepth--;
         }
+    }
+
+    /**
+     * How a line block spells a `hard_break` (PART 11 §7c).
+     *
+     * A line block hardens every line boundary of its own accord (PART 9 §23),
+     * so the break is a BARE NEWLINE - right for most lines and wrong for the
+     * two where §7's precondition fails. §7 may strip a line's trailing
+     * whitespace only because the parser discards it too, and the parser does
+     * NOT discard it when a backslash follows: PART 7 makes that run INTERIOR.
+     *
+     * So the backslash is written where a bare newline would be RE-READ:
+     *
+     *  - the line's content is EMPTY. A blank body line ends the stanza, so one
+     *    stanza is written back as two.
+     *  - the line's content ends in a LONE space, which PART 2 then drops. A
+     *    run of two or more columns is already NBSP content (§23 MEDIAL GAPS)
+     *    and needs no backslash, and neither does an ESCAPED space: `a\ ` is
+     *    one non-breaking space, not line-trailing whitespace.
+     *
+     * A break that ENDS the paragraph writes the backslash and no newline at
+     * all: {@see self::renderLineBlock()} adds the line ending before the
+     * closing fence, and a second one would be the blank line this exists to
+     * avoid - which is how a block's last line lost its `<br>` and the space
+     * in front of it (markup-carve/carve#1334).
+     */
+    protected function verseLineBreak(string $out, bool $endsTheParagraph): string
+    {
+        $lineStart = strrpos($out, "\n");
+        $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
+
+        if ($endsTheParagraph) {
+            return '\\';
+        }
+
+        return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+    }
+
+    /**
+     * Whether a bare newline after this line's bytes would be read back as
+     * something else.
+     */
+    private static function verseLineNeedsBackslash(string $line): bool
+    {
+        if ($line === '') {
+            return true;
+        }
+        if (!str_ends_with($line, ' ') || str_ends_with($line, '  ')) {
+            return false;
+        }
+
+        // An ODD run of backslashes before the space escapes it, and an escaped
+        // space is content the parser keeps whatever follows.
+        $backslashes = 0;
+        for ($i = strlen($line) - 2; $i >= 0 && $line[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 0;
+    }
+
+    /**
+     * Write a verse comment onto the first empty line it can still claim.
+     *
+     * Returns the rewritten buffer and the next line the following comment may
+     * claim, or null when no empty line is left - which is the ordinary
+     * TRAILING comment, `x %% secret`, whose line has content on it.
+     *
+     * @return array{0: string, 1: int}|null
+     */
+    protected function fillVerseCommentLine(string $out, string $comment, int $from): ?array
+    {
+        $lines = explode("\n", $out);
+        for ($index = $from, $last = count($lines); $index < $last; $index++) {
+            if ($lines[$index] !== '') {
+                continue;
+            }
+            $lines[$index] = $comment;
+
+            return [implode("\n", $lines), $index + 1];
+        }
+
+        return null;
     }
 
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = '', bool $captionCanOpen = false): string
@@ -1919,9 +2036,10 @@ class CarveRenderer implements RendererInterface
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
             $node instanceof SoftBreak => "\n",
-            $node instanceof HardBreak => $this->inLineBlock > 0
-                ? "\n"
-                : "\\\n",
+            // A line block's own spelling is decided in renderInlines(), which
+            // is the only place that can see the line the break ends
+            // (PART 11 §7c) - see verseLineBreak().
+            $node instanceof HardBreak => "\\\n",
             $node instanceof Insert => $withAttrs('{+' . $this->renderInlines($node->getChildren()) . '+}'),
             $node instanceof Delete => $withAttrs('{-' . $this->renderInlines($node->getChildren()) . '-}'),
             $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
