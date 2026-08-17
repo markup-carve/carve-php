@@ -697,13 +697,16 @@ class InlineParser
      * The span of a run whose text the parser rewrote, when the source it
      * covers demonstrably produces that text.
      *
-     * Only one rewrite can survive into a buffered run: `\ `, Carve's
-     * non-breaking-space form, which becomes a sentinel. A backslash before
-     * ASCII punctuation produces an EscapedText NODE instead, so it flushes the
-     * buffer and never reaches here. Applying the rewrite to the source slice
-     * and comparing is a real check - the span is rejected when the slice does
-     * not produce the text, exactly as the equality check rejects a verbatim
-     * span that selects the wrong bytes.
+     * Only one rewrite of THIS layer's can survive into a buffered run: `\ `,
+     * Carve's non-breaking-space form, which becomes a sentinel. A backslash
+     * before ASCII punctuation produces an EscapedText NODE instead, so it
+     * flushes the buffer and never reaches here. Applying the rewrite to the
+     * source and comparing is a real check - the span is rejected when the
+     * source does not produce the text, exactly as the equality check rejects a
+     * verbatim span that selects the wrong bytes.
+     *
+     * The BLOCK layer may have rewritten the same run first, though, which is
+     * why the source is taken from the map rather than sliced raw - see below.
      */
     private function rewrittenSpan(?int $start, ?int $end, string $text): ?SourceSpan
     {
@@ -716,7 +719,14 @@ class InlineParser
             return null;
         }
 
-        $slice = $this->sourceMap->slice($start, $end);
+        // THE MAP'S OWN REWRITE COMES OFF FIRST. A line block turns a preserved
+        // run of spaces into sentinels before the inline layer ever sees the
+        // string, so on `  a\ b` the raw source satisfies neither check: it has
+        // spaces where the text has block sentinels. Asking the map to replay
+        // its rewrite leaves exactly the one this layer applied, and the escape
+        // check below finishes it (carve-php#1351). For a map that rewrote
+        // nothing this is the raw slice, unchanged.
+        $slice = $this->sourceMap->produced($start, $end);
         if ($slice === null || self::applyEscapes($slice) !== $text) {
             return null;
         }
