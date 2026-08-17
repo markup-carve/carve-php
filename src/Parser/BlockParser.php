@@ -7509,20 +7509,40 @@ class BlockParser
                 $placed[] = $children[$cursor];
                 $cursor++;
             }
-            if ($line > $index && $cursor > 0) {
-                // THE WALK OVERSHOT, so the node it stopped on is a verbatim
-                // run holding this comment's line inside its own value - and
-                // that value is therefore NOT a contiguous slice of the source,
-                // because the comment's own text was taken out of the middle of
-                // it. PART 12 §4's reassembled-node clause is exactly that
-                // case: no offset pair equals the run's value, so the RUN gives
-                // up its position and the comment keeps the one it measured.
+            // THE BOUNDARY THAT OPENS THE COMMENT'S LINE HAS TO BE IN THE TREE.
+            // Counting to the right line is not enough: a run that swallowed
+            // the LAST of several boundaries lands the walk on the same number
+            // by a different route, and the line it opens is inside the run's
+            // value rather than between two nodes. A comment on the stanza's
+            // FIRST line needs no boundary at all - the stanza opens it.
+            $previous = $cursor > 0 ? $children[$cursor - 1] : null;
+            $atBoundary = ($index === 0 && $cursor === 0)
+                || ($line === $index && ($previous instanceof SoftBreak || $previous instanceof HardBreak));
+
+            if (!$atBoundary) {
+                // IT DOES NOT SURVIVE A RUN THAT ATE ITS LINE -- NORMATIVE
+                // (§23). What an unclosed verbatim run carries across an
+                // emptied line is the NEWLINE, the same thing it carries
+                // across every boundary it swallows, so there is no boundary
+                // left in the tree for a `comment` node to sit on: the run's
+                // value holds an EMPTY LINE instead. Appending the node anyway
+                // puts its span before the run that contains it and after the
+                // node that follows it, which PART 12 containment refuses.
                 //
-                // The other way round is the tempting answer and the wrong one.
-                // The comment IS a contiguous line of the source, so a true
-                // span exists for it and §4 says an existing span is not
-                // optional; it is the run that has none to publish.
-                $children[$cursor - 1]->setPos(null);
+                // The writer's answer for that empty line is PART 11 §7c: an
+                // empty line inside a verbatim run is spelled `%%`, the one
+                // spelling that empties to nothing. The author's own comment
+                // TEXT is not recoverable there and is not required to be -
+                // the run consumed it, and §1 is about the tree.
+                //
+                // The run's own value is a reassembled one either way, since
+                // the comment's text came out of the middle of it, so it gives
+                // up the position no offset pair could describe (PART 12 §4).
+                if ($cursor > 0) {
+                    $children[$cursor - 1]->setPos(null);
+                }
+
+                continue;
             }
             $placed[] = $comment;
         }

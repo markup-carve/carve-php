@@ -737,10 +737,43 @@ class CarveRenderer implements RendererInterface
         $previous = $this->paragraphStartsAfterCaptionHost;
         $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
         try {
-            return $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+            $body = $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+
+            return $this->inLineBlock > 0 ? self::spellEmptyVerseLines($body) : $body;
         } finally {
             $this->paragraphStartsAfterCaptionHost = $previous;
         }
+    }
+
+    /**
+     * AN EMPTY LINE INSIDE A VERBATIM RUN IS SPELLED `%%` (PART 11 §7c).
+     *
+     * A run left unclosed on an earlier line swallows an emptied verse line as
+     * a NEWLINE in its value (PART 9 §23), so the tree holds no `hard_break`
+     * for §7c to spell and no `comment` node to put back: what the writer has
+     * is a value containing an empty line, and a blank body line would END THE
+     * STANZA. An empty verse line has exactly ONE spelling that does not - a
+     * comment line, which the block layer removes before the run exists, so
+     * `%%` re-reads to the empty line it was written for and to nothing else.
+     *
+     * There is no other source of an empty line here. A `hard_break` over an
+     * empty line is written `\` by §7c, and the blank line BETWEEN stanzas is
+     * the container's, added after this runs.
+     */
+    private static function spellEmptyVerseLines(string $body): string
+    {
+        if (!str_contains($body, "\n")) {
+            return $body;
+        }
+
+        $lines = explode("\n", $body);
+        foreach ($lines as $index => $line) {
+            if ($line === '') {
+                $lines[$index] = '%%';
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -1820,6 +1853,7 @@ class CarveRenderer implements RendererInterface
             $lineNodeCount = 0;
             $lineHostsCaption = false;
             $verseCommentLine = 0;
+            $lineEndsInComment = false;
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if ($node instanceof HardBreak && $this->inLineBlock > 0) {
@@ -1830,11 +1864,16 @@ class CarveRenderer implements RendererInterface
                     // never builds that tree - the promotion in
                     // BlockParser::convertParagraphSoftBreaksToHardBreaks()
                     // reaches direct children only - but an imported AST can.
-                    $out .= $this->verseLineBreak($out, $i === $count - 1 && $this->inlineDepth === 1);
+                    $out .= $this->verseLineBreak(
+                        $out,
+                        $i === $count - 1 && $this->inlineDepth === 1,
+                        $lineEndsInComment,
+                    );
                     $captionCanOpen = false;
                     $isFirstInlineLine = false;
                     $lineNodeCount = 0;
                     $lineHostsCaption = false;
+                    $lineEndsInComment = false;
 
                     continue;
                 }
@@ -1856,6 +1895,7 @@ class CarveRenderer implements RendererInterface
                     $lineNodeCount++;
                     $lineHostsCaption = $lineNodeCount === 1 && self::inlineHostsACaption($node);
                     $captionCanOpen = false;
+                    $lineEndsInComment = false;
                 } elseif ($node instanceof Comment) {
                     // THE SEPARATOR SPACE IS ONLY A SEPARATOR. §21 recognizes
                     // `%%` after whitespace OR at the start of its line, so a
@@ -1873,33 +1913,38 @@ class CarveRenderer implements RendererInterface
                     // the comment text the author hid. carve-rs emits no space
                     // here and round-trips; carve-js emits one and does not.
                     //
+                    // NO SEPARATOR WITHOUT SOMETHING TO SEPARATE FROM, and an
+                    // EMPTY comment is the marker alone. The trailing space was
+                    // cosmetic everywhere but a line block, where PART 11 §7c
+                    // protects a line's last column with a backslash - and a
+                    // backslash after the marker is comment CONTENT, so the
+                    // note came back holding one (corpus 346-3).
+                    $body = $node->getContent() === '' ? '%%' : '%% ' . $node->getContent();
+
                     // IN VERSE THE COMMENT GOES BACK ON THE LINE IT EMPTIED.
                     // PART 9 §23 removes a comment-only body line at the BLOCK
                     // layer, so what the tree carries is an empty verse line
-                    // plus a `comment` node - and where a verbatim run
-                    // swallowed that line, the node sits after the run rather
-                    // than at the boundary, because the line is inside the
-                    // run's content. Writing it where the walk happens to be
-                    // would leave the empty line standing, and an empty body
+                    // plus a `comment` node. Writing it where the walk happens
+                    // to be would leave that line standing, and an empty body
                     // line is a BLANK line: it ends the stanza, so one stanza
                     // comes back as two and the comment is published besides.
-                    // Filling the empty lines in order restores the author's
-                    // own bytes at the author's own column.
                     $filled = $this->inLineBlock > 0 && !$node->isDelimited()
-                        ? $this->fillVerseCommentLine($out, '%% ' . $node->getContent(), $verseCommentLine)
+                        ? $this->fillVerseCommentLine($out, $body, $verseCommentLine)
                         : null;
                     if ($filled !== null) {
                         [$out, $verseCommentLine] = $filled;
                         $lineNodeCount++;
                         $lineHostsCaption = false;
                         $captionCanOpen = false;
+                        $lineEndsInComment = true;
 
                         continue;
                     }
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
-                        : $separator . '%% ' . $node->getContent();
+                        : $separator . $body;
+                    $lineEndsInComment = !$node->isDelimited();
                     $lineNodeCount++;
                     $lineHostsCaption = false;
                     $captionCanOpen = false;
@@ -1936,24 +1981,29 @@ class CarveRenderer implements RendererInterface
      * avoid - which is how a block's last line lost its `<br>` and the space
      * in front of it (markup-carve/carve#1334).
      */
-    protected function verseLineBreak(string $out, bool $endsTheParagraph): string
+    protected function verseLineBreak(string $out, bool $endsTheParagraph, bool $lineEndsInComment): string
     {
+        // A LINE WHOSE LAST NODE IS A COMMENT IS EXEMPT -- and the rule is
+        // keyed on the NODE, not on where the line sits. `%%` runs to the END
+        // OF ITS LINE, so a trailing space there is INSIDE the note rather
+        // than content PART 2 is about to take: stripping it leaves the same
+        // node, and protecting it does not, because the block layer claims the
+        // whole line before the inline parser sees it and the backslash lands
+        // in the comment's own content. An EMPTY comment line is where this
+        // bites, since the writer used to spell one as the marker plus a
+        // separator space (corpus 346-3).
+        if ($lineEndsInComment) {
+            return $endsTheParagraph ? '' : "\n";
+        }
+
+        if ($endsTheParagraph) {
+            return '\\';
+        }
+
         $lineStart = strrpos($out, "\n");
         $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
 
-        // A COMMENT LINE TAKES NO BACKSLASH AT ALL. `%%` consumes the rest of
-        // its line, so a backslash written after it is comment TEXT rather
-        // than break syntax - it would change the comment's own content on the
-        // way back in, which no rendering can see. Nothing needs to be written
-        // there either: the parser reads a comment line back exactly as it
-        // stands, trailing column and all.
-        $isComment = str_starts_with($line, '%%');
-
-        if ($endsTheParagraph) {
-            return $isComment ? '' : '\\';
-        }
-
-        return (!$isComment && self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+        return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
     }
 
     /**

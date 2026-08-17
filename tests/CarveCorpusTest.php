@@ -476,6 +476,20 @@ class CarveCorpusTest extends TestCase
         // So KNOWN_GAPS stays empty.
         'a-comment-only-line-in-a-line-block-is-removed-before-any-inline-run',
         'a-line-block-s-hard-break-keeps-its-backslash',
+        // Arrived with the bump to carve 9015c3b, which restates PART 11 §7c as
+        // a PROPERTY rather than a list of the cases where the bare newline is
+        // unsafe: the writer spells a `hard_break` inside a line block bare
+        // where, and only where, re-reading that newline yields the same tree.
+        // The list did not reach a stanza's LAST line, whose boundary §23 never
+        // hardens, so `a\` and `a  \` lost the break outright with no space
+        // involved in either (carve#1340).
+        //
+        // Four documents, all four rendered through CarveConverter and diffed
+        // against their `.html` AND their `.fmt` before this line was added.
+        // All four already matched, because this engine derived the rule from
+        // the property rather than from the bullets - which is what the clause
+        // now says to do. KNOWN_GAPS stays empty.
+        'a-line-block-s-last-body-line-keeps-its-backslash',
     ];
 
     /**
