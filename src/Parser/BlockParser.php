@@ -4318,6 +4318,14 @@ class BlockParser
 
         $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteOpeningColumn));
         $this->parseBlocks($blockQuote, $innerLines, 0, $innerLineMap);
+        // A DANGLING ATTRIBUTE LINE BELONGS TO THIS CONTAINER AND DIES AT ITS
+        // BOUNDARY (§15 A4: a pending run that reaches the end with no block
+        // element to attach to is dropped). The state is parser-global, so
+        // without this a `{...}` written inside the quote with nothing after it
+        // reached the next block OUTSIDE and attributed that - the same defect
+        // carve#1028 fixed for a div and carve-php#757 for a list item, in the
+        // one container that never got the line.
+        $this->endContainerAttributeScope();
 
         // Apply the saved attributes to the blockquote
         if ($quoteAttributes !== []) {
@@ -4540,11 +4548,24 @@ class BlockParser
         $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
 
+        // A FLOATING ATTRIBUTE ATTACHES FORWARD, so it is not a paragraph the
+        // line behind it could join, and it is the one invisible line this list
+        // was missing. The list-item spelling of the tracker gained it with the
+        // S4 sweep; leaving it out here made `> q` / `> {.k}` / `tail` fold
+        // `tail` into the quote - where the attribute then landed ON it.
+        // AT THE CONTENT COLUMN, like the three rows above it.
+        // `tryParseBlockAttributes()` requires the line to BEGIN with `{`, so
+        // `>  {.k}` - a space of indentation inside the quote - is ordinary
+        // paragraph text and a flush-left line lazily continues it. Read
+        // ltrimmed, this closed a paragraph the parser had built.
+        $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
+
         $leavesNoParagraph = $isHeading
             || $isThematicBreak
             || $isTableRow
             || $isDefinitionTerm
-            || $isDefinitionLine;
+            || $isDefinitionLine
+            || $isAttributeLine;
 
         // An absorption already under way survives PROSE, because that is the
         // same paragraph - but not a heading or a thematic break, which end it.
@@ -5051,7 +5072,7 @@ class BlockParser
 
             // The previous item ends HERE, so its pending-attribute run ends
             // here too (§15 A4).
-            $this->endListItemAttributeScope();
+            $this->endContainerAttributeScope();
 
             /** @var string|null $taskMarker */
             $taskMarker = $itemInfo['taskMarker'] ?? null;
@@ -5279,7 +5300,7 @@ class BlockParser
         // The last item ends with the list, so a run still pending here found
         // no block inside it and attaches to nothing - it must not reach the
         // block that follows the list at document level (§15 A4).
-        $this->endListItemAttributeScope();
+        $this->endContainerAttributeScope();
 
         // Apply the saved attributes to the list
         if ($listAttributes !== []) {
@@ -5297,7 +5318,7 @@ class BlockParser
      * stops at a nested marker reaching the item's content column so the list
      * parser can own the sub-list, which splits the same item across two calls
      * here. So a chunk end is NOT an item end, and the pending-attribute run
-     * survives it - see endListItemAttributeScope() for where the run really
+     * survives it - see endContainerAttributeScope() for where the run really
      * ends.
      *
      * @param \MarkupCarve\Carve\Node\Node $item
@@ -5313,7 +5334,7 @@ class BlockParser
     }
 
     /**
-     * End the pending-attribute run that a list item scopes.
+     * End the pending-attribute run that a CONTAINER scopes.
      *
      * §15 A2a floats a pending attribute to the next VISIBLE block and A4
      * drops a run that reaches the end with nothing to attach to. The ITEM
@@ -5331,7 +5352,7 @@ class BlockParser
      * while the same line before a paragraph, quote or fence - none of which
      * break the chunk - attached normally (markup-carve/carve#1238).
      */
-    private function endListItemAttributeScope(): void
+    private function endContainerAttributeScope(): void
     {
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
@@ -6674,6 +6695,8 @@ class BlockParser
                 // stays correct when the last entry is appended to in place.
                 $bodyState = self::INITIAL_TRAILING_BLOCK_STATE;
                 $bodyStateCursor = 0;
+                $bodyAttributeThrough = -1;
+                $bodyEndsWithAttribute = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -6833,12 +6856,36 @@ class BlockParser
                     // byte for byte the guard `collectPlainListItemContinuation()`
                     // carries for the list spelling (carve-php#1003).
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
-                        $bodyState = $this->advanceTrailingBlockState(
-                            $bodyState,
-                            explode("\n", $body[$bodyStateCursor], 2)[0],
-                        );
+                        $bodyLine = explode("\n", $body[$bodyStateCursor], 2)[0];
+                        $bodyState = $this->advanceTrailingBlockState($bodyState, $bodyLine);
+                        // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
+                        // and the tracker above cannot say so: it reads one line,
+                        // and `{.k` is a block-attribute line only once a later
+                        // line closes it. Carried INCREMENTALLY, on the same
+                        // cursor the tracker walks - rescanning the whole body
+                        // per collected line made a description of N lazy lines
+                        // quadratic (raised by codex review).
+                        if ($bodyStateCursor <= $bodyAttributeThrough) {
+                            continue;
+                        }
+                        if (IndentationHelper::isBlankLine($bodyLine)) {
+                            continue;
+                        }
+                        $wrapped = $this->wrappedBlockAttributeLength($body, $bodyStateCursor);
+                        if ($wrapped !== null) {
+                            $bodyAttributeThrough = $bodyStateCursor + $wrapped - 1;
+                            $bodyEndsWithAttribute = true;
+
+                            continue;
+                        }
+                        $bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine);
                     }
-                    if (!$bodyState['openParagraph']) {
+                    // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
+                    // the tracker above cannot say so: it reads one line, and
+                    // `{.k` is a block-attribute line only once a later line
+                    // closes it. The single-line form is already answered there;
+                    // this is the same rule for the form that spans lines.
+                    if (!$bodyState['openParagraph'] || $bodyEndsWithAttribute) {
                         break;
                     }
                     // Lazy continuation: a FLUSH-LEFT line with no blank before
@@ -6889,6 +6936,9 @@ class BlockParser
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);
+                // The description is a container too, and its boundary ends the
+                // pending run for the same reason a quote's does.
+                $this->endContainerAttributeScope();
                 $definitionSource = $this->sourceLineFor($definitionStart);
                 $ddPos = $this->wholeLinesSpan(
                     $definitionStart,
@@ -9429,6 +9479,28 @@ class BlockParser
         }
 
         if ($this->startsNewBlock($line, $lines, $i)) {
+            return true;
+        }
+
+        // A WRAPPED ATTRIBUTE BLOCK INTERRUPTS TOO. §15 does not distinguish an
+        // attribute block written on one line from one broken across several -
+        // `attr_separator` admits a line break between attributes - so `{.k` +
+        // `#x}` floats forward exactly as `{.k #x}` does. The predicate below
+        // reads ONE line, and `{.k` is not a block-attribute line on its own,
+        // so the whole wrapped form folded into the paragraph as literal text
+        // and rendered its own source (`{.k` and `#x}` both visible, the second
+        // as an id-shaped inline). It is the same question the attached-run
+        // classifier asks, so it is asked through the same helper.
+        // NOT GATED ON `$topLevel`, and that is a deliberate divergence from
+        // carve-rs on a shape the corpus does not pin. §15 carves out no
+        // container: a wrapped attribute block is one wherever it is written,
+        // and this engine now reads it that way at the top level, inside a
+        // quote and inside a definition description - the last of which corpus
+        // 329-6 pins. carve-rs agrees on all three and then keeps
+        // `- q` / `  {.k` / `  #x}` as LITERAL TEXT inside a list item, where
+        // it reads the SINGLE-line form as an attribute in the same position.
+        // That is the inconsistent answer of the four, so it is not copied.
+        if ($this->wrappedBlockAttributeLength($lines, $i) !== null) {
             return true;
         }
 
