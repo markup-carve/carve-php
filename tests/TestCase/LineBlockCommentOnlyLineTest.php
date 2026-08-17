@@ -546,6 +546,39 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
+     * AN UNCLOSED RUN'S REMAINDER IS VERBATIM, TRAILING WHITESPACE INCLUDED.
+     *
+     * A run with no closer reaches the end of the BLOCK (PART 2) and what it
+     * reaches is verbatim, so the boundary it swallowed is content like the
+     * rest of it. Math used to rtrim the remainder where the code span it
+     * shares its span rule with takes it raw - the one construct that parted
+     * from the others, and only visible where a container leaves a boundary at
+     * the end of a run.
+     *
+     * Asserted on the VALUE rather than through the writer, because the writer
+     * has nothing to spell once the trailing line is gone: `fmt` closes the run
+     * at the end of the content it was handed either way, so the round trip is
+     * green on both readings and only the node says which one happened.
+     */
+    public function testAnUnclosedRunKeepsTheBoundaryItSwallowed(): void
+    {
+        $converter = new CarveConverter();
+
+        foreach (['`x', '$`x', '!`x', '$$`x'] as $opener) {
+            $paragraph = $converter->parse("::: |\na " . $opener . "\n%% c\n:::\n")
+                ->getChildren()[0]
+                ->getChildren()[0];
+            $run = $paragraph->getChildren()[1];
+
+            $this->assertSame(
+                "x\n",
+                $run->getContent(),
+                'the run dropped the boundary it swallowed after: ' . $opener,
+            );
+        }
+    }
+
+    /**
      * THE RUN CARRIES THE LINE EVEN THOUGH IT DOES NOT CARRY THE NODE.
      *
      * The empty line the removal leaves survives inside the run's value as a

@@ -1852,7 +1852,6 @@ class CarveRenderer implements RendererInterface
             $isFirstInlineLine = true;
             $lineNodeCount = 0;
             $lineHostsCaption = false;
-            $verseCommentLine = 0;
             $lineEndsInComment = false;
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
@@ -1921,25 +1920,13 @@ class CarveRenderer implements RendererInterface
                     // note came back holding one (corpus 346-3).
                     $body = $node->getContent() === '' ? '%%' : '%% ' . $node->getContent();
 
-                    // IN VERSE THE COMMENT GOES BACK ON THE LINE IT EMPTIED.
-                    // PART 9 §23 removes a comment-only body line at the BLOCK
-                    // layer, so what the tree carries is an empty verse line
-                    // plus a `comment` node. Writing it where the walk happens
-                    // to be would leave that line standing, and an empty body
-                    // line is a BLANK line: it ends the stanza, so one stanza
-                    // comes back as two and the comment is published besides.
-                    $filled = $this->inLineBlock > 0 && !$node->isDelimited()
-                        ? $this->fillVerseCommentLine($out, $body, $verseCommentLine)
-                        : null;
-                    if ($filled !== null) {
-                        [$out, $verseCommentLine] = $filled;
-                        $lineNodeCount++;
-                        $lineHostsCaption = false;
-                        $captionCanOpen = false;
-                        $lineEndsInComment = true;
-
-                        continue;
-                    }
+                    // IN VERSE THAT IS WHAT PUTS THE COMMENT BACK ON THE LINE
+                    // IT EMPTIED. PART 9 §23 removes a comment-only body line
+                    // at the BLOCK layer, and a `comment` node survives only
+                    // where the boundary that OPENS its line survives - so the
+                    // walk is standing at the start of that line when it gets
+                    // here, `$out` ends with the boundary's newline, and no
+                    // separator is what writes the marker at column 0.
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
@@ -2032,30 +2019,6 @@ class CarveRenderer implements RendererInterface
         // and is not the escape placeholder - so it needs no branch of its own,
         // and a branch spelled against plain spaces would never run.
         return str_ends_with($line, ' ') || str_ends_with($line, "\u{E000}");
-    }
-
-    /**
-     * Write a verse comment onto the first empty line it can still claim.
-     *
-     * Returns the rewritten buffer and the next line the following comment may
-     * claim, or null when no empty line is left - which is the ordinary
-     * TRAILING comment, `x %% secret`, whose line has content on it.
-     *
-     * @return array{0: string, 1: int}|null
-     */
-    protected function fillVerseCommentLine(string $out, string $comment, int $from): ?array
-    {
-        $lines = explode("\n", $out);
-        for ($index = $from, $last = count($lines); $index < $last; $index++) {
-            if ($lines[$index] !== '') {
-                continue;
-            }
-            $lines[$index] = $comment;
-
-            return [implode("\n", $lines), $index + 1];
-        }
-
-        return null;
     }
 
     protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = '', bool $captionCanOpen = false): string
