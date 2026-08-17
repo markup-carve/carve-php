@@ -114,6 +114,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
   source reached the parser as text; it never rewrites the source.
 
+  The ProseMirror bridge carries the spelling in both directions - the
+  `delimited` flag PART 12 publishes on the wire rides on the payload too, for
+  the inline and the block form - so an editor round trip writes a delimited
+  comment back as one rather than respelling it as the line comment `%%`, which
+  runs to the end of the line. A comment inside a table cell crosses the bridge
+  as well: a comment's node class is filed under blocks whichever way it was
+  written, so the cell path needs the inline atom taken as an atom rather than
+  recursed into.
+
 - **An HTML import diagnostic's `path` follows one convention shared with
   carve-js and carve-rs** (markup-carve/carve#1257). The field is a
   human-readable locator: it borrows XPath's notation but is not an XPath
@@ -364,19 +373,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   list now flattens to its text.
 
 - **The import report describes the document it produced**
-  (markup-carve/carve-php#1337, markup-carve/carve-php#1346). The report
-  predicted what the serializer would do from a list of attribute names rather
-  than asking the finished document, so it announced a `cite` it had in fact
-  kept, stayed silent about one genuinely dropped inside a table cell, and
-  could disagree with the output on any attribute the list had not anticipated.
-  It now reads the output. Nothing that was kept becomes unkept; only the
-  report's rows change.
-
-- **A display math block with a caption survives the round trip.** Unwrapping a
-  figure's paragraph wrapper for every panel flattened the math to an inline the
-  figure could not hold, and the whole panel was dropped; only an image panel is
-  unwrapped now.
-
+  (markup-carve/carve-php#1337, markup-carve/carve-php#1346). Every row is read
+  off the finished document rather than predicted from a list of attribute
+  names, so the report cannot disagree with the output it describes: an
+  attribute the serializer kept is never announced as dropped, one dropped
+  inside a table cell is never passed over in silence, and an attribute nobody
+  wrote a case for is answered for like any other.
 
 - **`Lint\FigureGroupLinter`, the five composite-figure rules** (PART 9 §4c;
   markup-carve/carve-php#1308). A tree-walking pass fed from the parsed
@@ -433,11 +435,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The ProseMirror bridge carries every authored construct** (PART 12
   vocabulary, the schema map's former `unmapped` list). Figures with their
-  captions - a captioned quote, image or code block used to vanish from the
-  editor document whole - plus line blocks, comments, front matter, raw blocks
-  and raw inlines, inline literals, symbols, critic substitutions, inline
-  footnotes, crossrefs, citation groups and link reference definitions all
-  cross the bridge now, in both directions. A figure's short caption rides as
+  captions - a captioned quote, image, code block or display math block used to
+  vanish from the editor document whole - plus line blocks, comments, front
+  matter, raw blocks and raw inlines, inline literals, symbols, critic
+  substitutions, inline footnotes, crossrefs, citation groups and link
+  reference definitions all cross the bridge now, in both directions. Only an
+  image panel has its paragraph wrapper unwrapped, so a display math block
+  keeps the block shape the figure can hold. A figure's short caption rides as
   a second `carveCaption` child flagged `short`; a citation item's prefix,
   locator and suffix ride as ProseMirror inline arrays the converter rebuilds
   with its normal inline path.
@@ -578,37 +582,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   IMAGE keeps the marker, because its attributes are written inline
   (`![a](i.png){.c}`) and no attribute line interrupts.
 
-- **A delimited `{% x %}` comment no longer deletes the rest of the paragraph
-  across a ProseMirror round trip** (PART 9 §21a). Both halves of this land in
-  the same release as the spelling itself, so no released version ever behaved
-  this way; it is recorded because the loss was silent and a reader of the two
-  entries above would otherwise assume the bridge covered the new spelling.
-  The bridge carried a comment's text but not which of the two spellings
-  produced it, so an editor round trip respelled every delimited comment as a
-  line comment - and `%%` runs to the end of the line, so it swallowed
-  everything after it. Written:
-
-  ```
-  foo {% bar %} baz
-  ```
-
-  came back as:
-
-  ```
-  foo  %% bar baz
-  ```
-
-  which renders `<p>foo</p>` instead of `<p>foo  baz</p>`. With the comment
-  first in the paragraph the whole paragraph was lost. Nothing reported it:
-  the renderer's `dropped` and `degraded` lists were both empty, because the
-  loss happened on the way back, in the spelling. The `delimited` flag PART 12
-  publishes on the wire now rides on the payload too, in both directions and
-  in both the inline and block spellings.
-
-  A comment inside a **table cell** was dropped outright, in both spellings.
-  A comment's node class is filed under blocks whichever way it was written, so
-  the cell path took the inline atom for a block and recursed into children it
-  does not have. That rendered identically, which is why nothing caught it.
 - **An abbreviation line in a list item is the paragraph it renders**
   (markup-carve/carve#1267). PART 12 §7 says `*[A]: a` is a definition only as
   a direct child of the document; inside a container "the line is not a
@@ -696,18 +669,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tight/loose is untouched, and the marker-abutting form `-{.x} item`, which
   attributes the `<li>`, is a separate mechanism and unchanged.
 
-- **HTML import names the `<colgroup>` it drops.** A table's column
-  description left the document whole, while the report called it
-  `element-unwrapped` at `info` and promised Carve span metadata that is never
-  written, plus a second row under each `<col>` inside it saying the same.
-  Carve has no column model - a table's columns are only the cells its rows
-  carry - and whether it should get one is a language question
-  (`markup-carve/carve#1092`), so the drop stands; what it gets is
+- **HTML import names the `<colgroup>` it drops.** Carve has no column model -
+  a table's columns are only the cells its rows carry - and whether it should
+  get one is a language question (`markup-carve/carve#1092`), so a table's
+  column description does not reach the output. The report says so once, as
   `element-dropped` at `warning` under the `<colgroup>`'s own path, covering
-  the columns and attributes it takes with it. The wording is verbatim from
+  the columns and the attributes it takes with it. The wording is verbatim from
   carve-rs and carve-js, so the three engines report the drop in the same
   words. A `<colgroup>` that is not a table's child is a different case and
-  keeps `element-unwrapped`: this importer's parser leaves such an element
+  reports `element-unwrapped`: this importer's parser leaves such an element
   where the markup put it and its content does reach the output.
 
 - **The Markdown importer keeps the constructs Carve spells like the source
@@ -831,17 +801,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   quoted title, so the round trip came back wearing the extension's default
   `<summary>Details</summary>` with the real label demoted to the first
   paragraph of the body. It is now written as that title, markup included, and
-  `open` is no longer reported as dropped - the attribute block carries it onto
-  the rendered element. A summary the opener line cannot hold (one containing
-  the `"` delimiter, or several blocks) keeps its text as block content and
-  says so with a diagnostic instead of passing in silence. A disclosure inside
-  a table cell, which degrades to its text because a pipe-table cell cannot
-  hold a colon fence, reports that too.
-
-- **`<q>` no longer reports an unwrapping that does not happen.** Its content
-  comes back wrapped in quote characters, which is the representation Carve has
-  for a quoted phrase, so nothing is replaced by span metadata and nothing is
-  lost.
+  the attribute block carries `open` onto the rendered element. A summary the
+  opener line cannot hold (one containing the `"` delimiter, or several blocks)
+  keeps its text as block content, and the report names both that and a
+  disclosure inside a table cell, which degrades to its text because a
+  pipe-table cell cannot hold a colon fence.
 
 - **A table's header cells survive HTML import individually.** Header was read
   off the ROW: the first row holding any `<th>` became the header row, every
@@ -853,20 +817,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the cell, written `|= R | 1 |` wherever it stands, and only a first row whose
   cells are all headers is promoted to the head.
 
-- **A table structure Carve source cannot spell now says so.** A Carve pipe
-  table is a flat row list whose head is the leading run of header rows, and
-  Carve 0.1 source has no spelling for the explicit `rowGroups` partition the
-  AST can hold. A `<tfoot>`, a second `<tbody>`, a `<thead>` that does not match
-  that leading run, a second `<caption>`, and a header cell below the head that
-  also carries attributes each flattened in silence; each now emits a
-  `table-degraded` diagnostic naming what changed. The flattening itself is
-  unchanged and deliberate - a spelling for it would be a language change - and
-  an ordinary head/body table still reports nothing.
-
-- **A `<th>`'s generated `scope` is no longer reported as dropped.** The value
-  the renderer reproduces from the cell's position is skipped on the way in so a
-  round trip does not write the renderer's own output back as authored - it is
-  reproduced, not lost, and the report said otherwise.
+- **A table structure Carve source cannot spell says so.** A Carve pipe table
+  is a flat row list whose head is the leading run of header rows, and Carve
+  0.1 source has no spelling for the explicit `rowGroups` partition the AST can
+  hold. A `<tfoot>`, a second `<tbody>`, a `<thead>` that does not match that
+  leading run, a second `<caption>`, and a header cell below the head that also
+  carries attributes each emit a `table-degraded` diagnostic naming what
+  changed. The flattening itself is unchanged from 0.1.4 and deliberate - a
+  spelling for it would be a language change - and an ordinary head/body table
+  reports nothing.
 
 - **`<ol type="a">` imports as a numbering style, not a raw attribute.** The
   importer wrote a `{type=a}` attribute block above a decimal list. That
@@ -886,11 +845,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The importer's cleanup pass recognized only `\d+.` as an ordered marker, so
   an item written `a.` or `iv.` fell through to the branch that strips leading
   whitespace, and a list nested under it dedented out of its parent.
-
-- **`<ins>` no longer reports an unwrapping that does not happen.** It has its
-  own `{+ +}` marker, like the `<del>` twin, but was missing from the elements
-  the importer knows - so every import of one carried a spurious
-  `element-unwrapped` diagnostic.
 
 - **A `div`-grouped definition list survives HTML import.** HTML5 gives `dl`
   two content models - `dt`/`dd` as direct children, or one `div` per group
