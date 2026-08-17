@@ -167,10 +167,12 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     }
 
     /**
-     * M2, untouched by §8a. An `escaped_text` node is emitted AS AN ESCAPE
-     * whatever the character: M1 governs a character that reached the writer
-     * inside a TEXT node, one the author did NOT mark, and this is the other
-     * case. The line test never sees it.
+     * M2 as §8b leaves it. An `escaped_text` node whose character COULD be read
+     * as markup keeps its escape, whether or not the line test would have kept
+     * it: `_` and `[` can pair or open a link anywhere, so neither narrows.
+     *
+     * The hash moved to §8b M2b and is covered below, since its reading is
+     * positional rather than a property of the character.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -178,8 +180,9 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     {
         return [
             'authored underscore' => ['a\_b', 'a\_b'],
-            'authored hash' => ['\#h', '\#h'],
             'authored bracket' => ['\[x', '\[x'],
+            'authored asterisk' => ['a\*b', 'a\*b'],
+            'authored smart-punctuation trigger' => ['a\-\- b', 'a\-\- b'],
         ];
     }
 
@@ -206,6 +209,100 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     {
         $this->assertSame('a\_b', $this->md('a\_b'));
         $this->assertSame('a_b', $this->md('a_b'));
+    }
+
+    /**
+     * §8b M2a. An authored escape of a character this target's readers never
+     * read as markup is emitted BARE, at any position.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function authoredInertProvider(): array
+    {
+        return [
+            'a mention opener' => ['hi \@user ok', 'hi @user ok'],
+            'a brace' => ['a \{x b', 'a {x b'],
+            'a caret' => ['a \^x b', 'a ^x b'],
+            'a percent' => ['a \%x b', 'a %x b'],
+            'a colon' => ['a \:x b', 'a :x b'],
+            'a slash' => ['a \/x b', 'a /x b'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $expected
+     *
+     * @return void
+     */
+    #[DataProvider('authoredInertProvider')]
+    public function testAnAuthoredEscapeOfAnInertCharacterIsEmittedBare(string $source, string $expected): void
+    {
+        $this->assertSame($expected, $this->md($source));
+    }
+
+    /**
+     * §8b M2b. The hash is read as markup only where it would OPEN AN ATX
+     * HEADING, which is the line's content position plus a run of one to six
+     * closed by a space, a tab or the end of the line.
+     *
+     * `\#tag` at a line's start is the case that separates the position test
+     * from the run test: it stands at the content position and still opens
+     * nothing, because no space closes the run.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function authoredHashProvider(): array
+    {
+        return [
+            'mid-line' => ['a \#y b', 'a #y b'],
+            'an issue reference' => ['issue \#123 fixed', 'issue #123 fixed'],
+            'a language name' => ['C\# is a language', 'C# is a language'],
+            'a hex colour' => ['Bau \#64748b', 'Bau #64748b'],
+            'at a line start, no space closing the run' => ['\#tag rest', '#tag rest'],
+            'at a line start with a space' => ['\# heading', '\# heading'],
+            // ESCAPING THE FIRST HASH ALONE IS SUFFICIENT, which is M1e's
+            // argument about `<` one character out: a heading that cannot open
+            // needs nothing done to the rest of its run. The second and third
+            // hashes are not at the content position, so M2b emits them bare
+            // and the line still reads as text.
+            'at a line start, a run of three' => ['\#\#\# heading', '\### heading'],
+            'after a parenthesis' => ['see (\#tag) there', 'see (#tag) there'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $expected
+     *
+     * @return void
+     */
+    #[DataProvider('authoredHashProvider')]
+    public function testAnAuthoredHashIsDecidedByItsPosition(string $source, string $expected): void
+    {
+        $this->assertSame($expected, $this->md($source));
+    }
+
+    /**
+     * BOUND: a run of SEVEN hashes is not an ATX heading in any flavour, so the
+     * escape protects nothing and the run is emitted bare.
+     *
+     * @return void
+     */
+    public function testARunOfSevenHashesIsNotAHeading(): void
+    {
+        $this->assertSame('####### x', $this->md('\#\#\#\#\#\#\# x'));
+    }
+
+    /**
+     * BOUND: narrowing M2 does not reach a code span, where a backslash is
+     * content the writer must reproduce byte-exact.
+     *
+     * @return void
+     */
+    public function testACodeSpanKeepsItsOwnBackslash(): void
+    {
+        $this->assertSame('`a \# b`', $this->md('`a \# b`'));
     }
 
     /**
