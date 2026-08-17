@@ -229,8 +229,7 @@ class HtmlToCarve
         // subclass may override it, and adding a parameter would make such an
         // override a fatal incompatible-signature error at class-declaration
         // time - which no test of behavior catches, because the class never
-        // loads. The same reasoning keeps `isRepresentedImportAttribute()` a
-        // two-argument predicate.
+        // loads.
         $this->inspectedCarve = $carve;
 
         try {
@@ -494,10 +493,30 @@ class HtmlToCarve
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
                 continue;
-            } elseif (
-                !$this->isRepresentedImportAttribute($tag, $name)
-                || !$this->importAttributeSurvived($tag, $name, $attribute->value)
-            ) {
+            } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
+                // THE DOCUMENT DECIDES, and nothing here knows the attribute's
+                // name. A `!isRepresentedImportAttribute($tag, $name)` disjunct
+                // stood in front of this and short-circuited on any name that
+                // was not on its list - so `aria-label` and `foo`, which this
+                // importer KEEPS, were reported as dropped while surviving into
+                // the emitted Carve as `{aria-label=note}` and `{foo=bar}`
+                // (carve-php#1337).
+                //
+                // That list was a second copy of the strip policy, which lives
+                // in `$skipAttributes` plus the `on*` and `data-djot-*` prefixes
+                // at the write site - and a second copy drifts, which is how the
+                // first copy came to disagree with the first about `cite`
+                // (carve-php#1346 deleted four predicates for the same reason).
+                //
+                // Measured over 495 tag/attribute pairs: removing it deleted 293
+                // rows and added NONE, and every deleted row named an attribute
+                // present in the emitted document. `role`, `xmlns`, `style` and
+                // every `on*` handler still report, because the oracle asks
+                // whether the attribute came BACK rather than whether anyone
+                // listed it. That includes the ones only the RENDERER strips -
+                // `srcdoc` and `formaction` are kept by this importer and blanked
+                // on the way out (PART 9 §25), and asking the rendered document
+                // reports them without either side having to know.
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
@@ -982,63 +1001,6 @@ class HtmlToCarve
         }
 
         return 'row';
-    }
-
-    /**
-     * Is this attribute represented in Carve at all, as a tag/name question?
-     *
-     * Deliberately still a pure two-argument predicate. Whether a represented
-     * attribute then survives a particular POSITION is a second, separate
-     * question, and it is not asked here or anywhere else on the input side:
-     * {@see self::importAttributeSurvived()} reads it off the emitted document
-     * instead. This one stays a tag/name question, which is the half that
-     * really is answerable without running the serializer.
-     *
-     * Kept at two arguments on purpose - this method is protected on a
-     * non-final class, so adding a parameter is a fatal
-     * incompatible-signature error for any subclass that overrides it.
-     */
-    protected function isRepresentedImportAttribute(string $tag, string $name): bool
-    {
-        if ($name === 'title') {
-            return true;
-        }
-        if ($name === 'id' || $name === 'class' || str_starts_with($name, 'data-')) {
-            return true;
-        }
-
-        return match ($tag) {
-            // `datetime` is where <time> carries the value the span attribute
-            // takes, so it is represented rather than dropped.
-            'time' => $name === 'datetime',
-            // The quote's source URL, kept on import by the ruling on
-            // markup-carve/carve#1286 and round-tripped as `{cite=…}`. It was
-            // absent from this list while the converter kept it, so every
-            // imported `<blockquote cite>` produced a diagnostic announcing a
-            // loss that did not happen - and a report that describes a
-            // surviving attribute as dropped costs more than silence, because
-            // it teaches the reader to discount the `attribute-dropped` rows
-            // that ARE real (carve-php#1337). carve-js stopped reporting it for
-            // the same reason once it kept the value (carve-js#1125). Whether a
-            // given POSITION then drops it is not asked here - the emitted
-            // document is, by `importAttributeSurvived()`.
-            'blockquote' => $name === 'cite',
-            'a' => in_array($name, ['href', 'title', 'target', 'rel'], true),
-            'img' => in_array($name, ['src', 'alt', 'title', 'width', 'height'], true),
-            'ol' => in_array($name, ['start', 'type'], true),
-            // The block attribute block carries it onto the rendered element,
-            // so the disclosure starts open again.
-            'details' => $name === 'open',
-            'input' => in_array($name, ['type', 'checked', 'disabled'], true),
-            // `display` picks the math delimiter and `alttext` is the tier-2
-            // content, so both are read rather than dropped. `xmlns` declares
-            // the namespace the element already is - it carries no authored
-            // meaning, and it is on every `<math>` in the wild, so reporting
-            // it would put a row under every equation on a Wikipedia page.
-            'math' => in_array($name, ['display', 'alttext', 'xmlns'], true),
-            'td', 'th' => in_array($name, ['rowspan', 'colspan', 'align'], true),
-            default => false,
-        };
     }
 
     /**

@@ -8,7 +8,6 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 use ReflectionProperty;
 
 /**
@@ -135,29 +134,39 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * THE OPEN QUESTION, pinned unchanged on purpose.
+     * THE QUESTION IS RULED, and only the report moved.
      *
-     * carve-php keeps every unknown attribute, so `foo` survives as `{foo=bar}`
-     * AND is reported as dropped - the same contradiction this PR fixes for
-     * `cite`, one the ticket splits off as unruled because the fix could go
-     * either way: narrow the keeping to the attributes the spec names, or widen
-     * the spec and stop reporting. carve-js deliberately did not copy the
-     * blanket keep.
+     * This test used to record the contradiction: `foo` survived as `{foo=bar}`
+     * AND was reported as dropped. The ruling on markup-carve/carve-php#1337
+     * keeps the retention exactly as it is - the ticket's premise that this
+     * engine is a blanket passthrough is wrong, since a handler is stripped
+     * from the same element - and fixes only the row.
      *
-     * This test does not endorse the behavior. It records it, so that whichever
-     * way markup-carve/carve-php#1337's second half is ruled, the change lands
-     * on a red test instead of passing unnoticed - and so a reader does not
-     * mistake the surviving contradiction for one this PR missed.
+     * The `carve` assertion is deliberately unchanged from the version that
+     * recorded the contradiction, so this test proves the retention did not
+     * move while the row went away.
      */
-    public function testAnUnruledUnknownAttributeIsLeftExactlyAsItWas(): void
+    public function testAKeptUnknownAttributeIsNoLongerReportedAsDropped(): void
     {
         $html = '<blockquote foo="bar"><p>q</p></blockquote>';
 
         $this->assertSame("{foo=bar}\n> q", $this->carve($html));
-        $this->assertSame(
-            [['attribute-dropped', 'info', 'Dropped unsupported attribute foo on <blockquote>']],
-            $this->diagnostics($html),
-        );
+        $this->assertSame([], $this->diagnostics($html));
+    }
+
+    /**
+     * The same for `aria-*`, which is the other half of the real divergence.
+     *
+     * carve-js and carve-rs drop both of these; this engine keeps both. That
+     * loss is filed against the siblings as markup-carve/carve-js#1156 and
+     * markup-carve/carve-rs#1060 and is not what this changes - the row is.
+     */
+    public function testAKeptAriaAttributeIsNoLongerReportedAsDropped(): void
+    {
+        $html = '<blockquote aria-label="note"><p>q</p></blockquote>';
+
+        $this->assertSame("{aria-label=note}\n> q", $this->carve($html));
+        $this->assertSame([], $this->diagnostics($html));
     }
 
     /**
@@ -430,34 +439,6 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * The represented predicate stays a TWO-ARGUMENT protected method.
-     *
-     * `HtmlToCarve` is not final and this method is not internal, so a
-     * downstream subclass may override it. Adding a parameter - even an
-     * optional one - makes such a subclass a fatal incompatible-signature
-     * error at class-declaration time, which no test of behavior would catch
-     * because the class never loads.
-     *
-     * The position question therefore lives in a separate helper rather than
-     * as a third argument here. This test declares the override the old way and
-     * fails to even load if that is undone.
-     */
-    public function testTheRepresentedPredicateKeepsItsOverridableSignature(): void
-    {
-        $subclass = new class extends HtmlToCarve {
-            protected function isRepresentedImportAttribute(string $tag, string $name): bool
-            {
-                return parent::isRepresentedImportAttribute($tag, $name);
-            }
-        };
-
-        $this->assertStringContainsString('cite=u', $subclass->convert('<blockquote cite="u"><p>q</p></blockquote>'));
-
-        $method = new ReflectionMethod(HtmlToCarve::class, 'isRepresentedImportAttribute');
-        $this->assertSame(2, $method->getNumberOfParameters());
-    }
-
-    /**
      * The emitted document is rendered ONCE, so the walk stays linear.
      *
      * The observational rule renders the emitted Carve back to HTML to see what
@@ -534,15 +515,83 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * `cite` elsewhere is untouched: the represented pair is tag AND name.
+     * `cite` on another element is decided the same way: by asking.
      *
-     * `<q cite="u">` is a different element with a different conversion, so
-     * adding the blockquote pair must not silence it. Without this, the fix
-     * could have been written against the attribute name alone.
+     * This used to assert the opposite - that `<q cite="u">` keeps reporting,
+     * because the represented pair was tag AND name and only `blockquote`
+     * carried `cite`. It was asserting a FALSE row: the attribute round-trips
+     * as `["x"]{cite="u"}` and comes back on the rendered `<span cite="u">`,
+     * so nothing was lost. The tag/name pair was the enumeration talking.
+     *
+     * The claim it was really protecting - that the fix must not be written
+     * against the attribute name alone - now holds structurally, because no
+     * name is consulted at all.
      */
-    public function testCiteOnAnotherElementIsUnaffected(): void
+    public function testCiteOnAnotherElementIsDecidedByTheDocumentToo(): void
     {
-        $codes = array_column($this->diagnostics('<p><q cite="u">x</q></p>'), 0);
+        $carve = $this->carve('<p><q cite="u">x</q></p>');
+
+        $this->assertStringContainsString('cite="u"', $carve);
+        $this->assertStringContainsString(
+            'cite="u"',
+            (new CarveConverter())->convert($carve),
+            'the attribute comes back on the rendered element, so nothing was dropped',
+        );
+        $this->assertSame([], $this->diagnostics('<p><q cite="u">x</q></p>'));
+    }
+
+    /**
+     * THE CHECKABLE CLAIM: no attribute NAME decides the report.
+     *
+     * The enumeration this replaced is gone from the class entirely, so a
+     * future reader cannot edit a name list believing it still steers the
+     * diagnostic. `importAttributeIsReadNotWritten()` remains and is a name
+     * question by design - it asks HOW an attribute is represented, for the
+     * families whose meaning never enters an attribute position at all, which
+     * is the one question the output cannot answer.
+     */
+    public function testNoNameEnumerationDecidesTheReport(): void
+    {
+        $this->assertFalse(
+            method_exists(HtmlToCarve::class, 'isRepresentedImportAttribute'),
+            'the represented-name enumeration is a second copy of the strip policy',
+        );
+    }
+
+    /**
+     * THE ONE ROW THIS ALSO REMOVED, recorded rather than discovered later.
+     *
+     * A boolean attribute carries an EMPTY value, and `importAttributeSurvived()`
+     * has always vouched for an empty value outright - "an empty value carried
+     * no information for the round trip to drop", the rule the shared fixture
+     * `html-import/semantic-span-attributes` pins across the three engines.
+     * Where the conversion discards the whole attribute block, as an `<input>`
+     * becoming a task marker does, that rule now decides alone: the row used to
+     * come from the name enumeration in front of it.
+     *
+     * Restoring the row would mean knowing that `open` is represented on
+     * `<details>` and not on `<input>` - which is the enumeration again. Over
+     * 495 tag/attribute pairs these four - `open` and `hidden` on `<input>` and
+     * on `<math>` - are the only rows removed whose attribute is absent from
+     * the emitted document, and none of them is valid HTML for its element.
+     */
+    public function testABooleanAttributeOnAnElementThatDiscardsItIsSilent(): void
+    {
+        $this->assertSame('- t', $this->carve('<ul><li><input open> t</li></ul>'));
+        $this->assertSame([], $this->diagnostics('<ul><li><input open> t</li></ul>'));
+    }
+
+    /**
+     * An attribute only the RENDERER strips is still reported.
+     *
+     * `srcdoc` and `formaction` are kept by this importer and blanked on the
+     * way out by PART 9 §25's defenses, so the two sides disagree about them -
+     * and asking the rendered document gets it right without either side
+     * having to know, which is the property a name list cannot have.
+     */
+    public function testAnAttributeTheRendererStripsIsReported(): void
+    {
+        $codes = array_column($this->diagnostics('<p srcdoc="&lt;script&gt;">t</p>'), 0);
 
         $this->assertContains('attribute-dropped', $codes);
     }
