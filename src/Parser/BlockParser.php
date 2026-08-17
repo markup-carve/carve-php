@@ -11321,12 +11321,17 @@ class BlockParser
         // fact seen from the other end: one level of the walk was missing, not
         // the rule.
         //
-        // A LOOP AND NOT A RECURSIVE CALL PER MARKER. The answer is the same
-        // either way - each step only takes a marker off - but `- - - ... x`
-        // is a line, so its marker count is bounded by the line length rather
-        // than by the document, and a stack frame per marker turns one long
-        // line into a stack overflow. The single recursive step below is on the
-        // CONTENT, which is where a quote or a comment one level in is decided.
+        // A LOOP AND NOT A RECURSIVE CALL PER MARKER. The two are EQUIVALENT -
+        // the recursive step below would take the next marker off by itself -
+        // so no output test can tell them apart, and one written as a mutant
+        // survives the whole file. What separates them is cost: `- - - ... x`
+        // is one LINE, so its marker count is bounded by the line rather than
+        // by the document, and a frame per marker measured ~2.4x slower on a
+        // 5000-marker line (16.1s against 6.3s). It did NOT overflow the stack
+        // at that size, which is the claim this comment used to make.
+        //
+        // The single recursive step is on the CONTENT, which is where a quote
+        // or a comment one level in is decided.
         //
         // AFTER the thematic break above, which a spaced `- - -` would
         // otherwise take from it, and after the heading, which decides by the
