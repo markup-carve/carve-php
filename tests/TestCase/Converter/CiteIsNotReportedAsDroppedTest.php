@@ -486,12 +486,24 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
         // one that pays for them.
         $time(50);
 
-        $small = $time(200);
-        $large = $time(400);
+        // THE BEST OF THREE ROUNDS, not one sample of each size. A single pair
+        // is a coin flip on a shared runner: a `small` that gets descheduled or
+        // a `large` that does inflates the ratio on its own, and this guard
+        // failed twice at 2.8 and 3.5 on unrelated pull requests while the same
+        // code measured 1.7 to 2.1 locally under the same coverage extension.
+        // Every other ratio guard in this suite already takes the best of
+        // several runs; a flaky guard costs a CI round trip each time and
+        // teaches the next reader to re-run it rather than read it.
+        $ratio = INF;
+        for ($round = 0; $round < 3; $round++) {
+            $small = $time(200);
+            $large = $time(400);
+            $ratio = min($ratio, $large / max($small, 1.0e-6));
+        }
 
         $this->assertLessThan(
             2.6,
-            $large / max($small, 1.0e-6),
+            $ratio,
             'doubling the rows should roughly double the work; a super-linear ratio means the per-table route memo is gone',
         );
     }
