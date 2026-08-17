@@ -876,9 +876,30 @@ class InlineParser
             // soft break, so the next line survives). Code spans parse before
             // this on a backtick and consume opaquely; `\%%` is handled by the
             // escape branch above.
+            //
+            // A NEWLINE COUNTS AS THE WHITESPACE BEFORE IT, so `%%` starting a
+            // LATER line is a comment exactly as it is on the first. A
+            // paragraph never showed the difference - a comment-only line is
+            // blanked at the block layer there - but a line block's stanza is
+            // ONE inline run, so a later body line reached this test with a
+            // newline before it and fell through as ordinary text. That
+            // published `%% c` as verse on every line but the first, which is
+            // what PART 9 §23 forbids: `%%` runs to end of line WHEREVER it
+            // appears, and a comment-only body line leaves an EMPTY verse line
+            // rather than its own source (markup-carve/carve-php#1393). The
+            // newline itself is left unconsumed, so it still becomes the soft
+            // break the stanza promotes to a `<br>` - which is how the empty
+            // line survives instead of the verse losing a row. carve-js
+            // corrected the identical defect by widening the same class
+            // (markup-carve/carve-js#581).
             if (
                 $char === '%' && $nextChar === '%'
-                && ($pos === 0 || $text[$pos - 1] === ' ' || $text[$pos - 1] === "\t")
+                && (
+                    $pos === 0
+                    || $text[$pos - 1] === ' '
+                    || $text[$pos - 1] === "\t"
+                    || $text[$pos - 1] === "\n"
+                )
             ) {
                 $nl = strpos($text, "\n", $pos);
                 $end = $nl === false ? $length : $nl;
