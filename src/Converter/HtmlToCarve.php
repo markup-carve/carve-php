@@ -1525,13 +1525,20 @@ class HtmlToCarve
 
         $tagName = strtolower($node->tagName);
 
-        $djotSrc = $this->extractRoundTripSource($node, $tagName);
+        $djotSrc = $this->captionDepth > 0 ? null : $this->extractRoundTripSource($node, $tagName);
         if ($djotSrc !== null) {
             return $djotSrc;
         }
 
         if ($tagName === 'section' && $this->isInlineOnlyEndnotesSection($node)) {
             return '';
+        }
+
+        if ($this->captionDepth > 0 && $this->isFlattenedInACaption($tagName)) {
+            // Inside a caption line, a block is its content. See
+            // processCaptionChildren() for why this is a depth and not a rule
+            // about the caption's direct children.
+            return $this->processChildren($node);
         }
 
         return match ($tagName) {
@@ -1595,6 +1602,65 @@ class HtmlToCarve
         }
 
         return $output;
+    }
+
+    /**
+     * A caption's content, with block descendants UNWRAPPED to their inline run.
+     *
+     * A caption line is an INLINE slot - `^ ` followed by one line of inline
+     * content - so a block cannot live in it. Converting a caption's children
+     * the ordinary way wrote their Carve SOURCE into that slot, where it
+     * re-parses as prose: a `<ul><li>a</li><li>b</li></ul>` came back as the
+     * literal characters `- a` and `- b`, so the document gained text the
+     * author never wrote AND lost the list they did write (carve-php#1345).
+     *
+     * Carrying the source into a slot that cannot hold its meaning reads as
+     * preservation and is really loss - the same shape as the `{cite=u}` that
+     * landed as caption text. The honest degradation is to take the content and
+     * drop the structure, which is what carve-js and carve-rs both already do:
+     * each renders `^ ab` here, and each reports an `element-unwrapped` row per
+     * block it unwrapped. This engine was the outlier on both halves.
+     *
+     * A DEPTH rather than a walk of the caption's own children, because the
+     * block need not be one: `<figcaption><a><ul>…</ul></a></figcaption>` is
+     * valid - `<a>` is transparent - and a child-only rule left that list
+     * serializing as `- a` inside the link, which is the original defect
+     * surviving under a wrapper. The depth reaches every descendant while
+     * still letting inline elements convert normally, so the link is kept and
+     * only the list inside it is flattened.
+     */
+    protected function processCaptionChildren(DOMNode $node): string
+    {
+        $this->captionDepth++;
+        try {
+            return $this->processChildren($node);
+        } finally {
+            $this->captionDepth--;
+        }
+    }
+
+    /**
+     * How many caption slots deep the serializer is.
+     *
+     * Zero everywhere else, so nothing outside a caption changes: a list in an
+     * ordinary table cell is a different question (carve-php#1164) and must not
+     * start flattening because a caption does.
+     */
+    protected int $captionDepth = 0;
+
+    /**
+     * Does a caption slot dissolve this element into its content?
+     *
+     * Every block, plus a NESTED caption. A `<figcaption>` normally returns
+     * nothing because `processFigure()` is expected to consume it, so once the
+     * figure around it has been unwrapped that early return silently dropped
+     * the author's caption text.
+     */
+    protected function isFlattenedInACaption(string $tagName): bool
+    {
+        return in_array($tagName, $this->blockElements, true)
+            || $tagName === 'caption'
+            || $tagName === 'figcaption';
     }
 
     /**
@@ -3380,7 +3446,7 @@ class HtmlToCarve
         // Find caption element if present
         $captionElement = $this->findFirstDirectChildByTagName($node, 'caption');
         if ($captionElement instanceof DOMElement) {
-            $captionText = trim($this->processChildren($captionElement));
+            $captionText = trim($this->processCaptionChildren($captionElement));
         }
 
         // Find all rows
@@ -3640,7 +3706,7 @@ class HtmlToCarve
     {
         $captionElement = $this->findFirstDirectChildByTagName($node, 'caption');
         $caption = $captionElement instanceof DOMElement
-            ? trim($this->processChildren($captionElement))
+            ? trim($this->processCaptionChildren($captionElement))
             : '';
 
         $rows = [];
@@ -4433,7 +4499,7 @@ class HtmlToCarve
         }
 
         if ($caption instanceof DOMElement) {
-            $output .= $this->formatCaptionText(trim($this->processChildren($caption)));
+            $output .= $this->formatCaptionText(trim($this->processCaptionChildren($caption)));
         }
 
         return $output . "\n\n";
@@ -4480,7 +4546,7 @@ class HtmlToCarve
 
         $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
         if ($caption instanceof DOMElement) {
-            $captionText = rtrim($this->formatCaptionText(trim($this->processChildren($caption))), "\n");
+            $captionText = rtrim($this->formatCaptionText(trim($this->processCaptionChildren($caption))), "\n");
             if ($captionText !== '') {
                 $output .= "\n" . $captionText;
             }
@@ -4503,7 +4569,7 @@ class HtmlToCarve
         $captionText = '';
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
-                $captionText = $this->formatCaptionText(trim($this->processChildren($child)));
+                $captionText = $this->formatCaptionText(trim($this->processCaptionChildren($child)));
 
                 continue;
             }
@@ -4565,6 +4631,10 @@ class HtmlToCarve
 
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+                // NOT a caption slot. This fallback writes the caption's
+                // content as ORDINARY BLOCKS rather than through a `^` line, so
+                // a list here is representable and must be kept - flattening it
+                // would destroy structure the output can hold.
                 $captionText = trim($this->processChildren($child));
                 if ($captionText !== '') {
                     $output .= $captionText . "\n\n";
