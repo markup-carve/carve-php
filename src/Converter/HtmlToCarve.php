@@ -2432,7 +2432,8 @@ class HtmlToCarve
         // holds in the direction the grammar names.
         $opener = $backticks . $language;
 
-        return $attrs . "\n" . $opener . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
+        // Glued, not separated - see processBlockquote() for why.
+        return $attrs . $opener . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
     }
 
     protected function extractRoundTripSource(DOMElement $node, string $tagName): ?string
@@ -2710,7 +2711,13 @@ class HtmlToCarve
 
         $attrs = $this->formatBlockAttributes($node);
 
-        return $attrs . "\n" . implode("\n", $quoted) . "\n\n";
+        // NO SEPARATOR between the attribute block and the block it attributes:
+        // `formatBlockAttributes()` already ends its line, and adding a second
+        // newline put a blank line between them. The shared cross-engine
+        // fixture `html-import/blockquote-cite` pins the glued form, and this
+        // engine's own paragraph path always wrote it that way - only the quote
+        // and the code fence doubled it.
+        return $attrs . implode("\n", $quoted) . "\n\n";
     }
 
     /**
