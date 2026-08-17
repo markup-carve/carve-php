@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -424,6 +428,64 @@ class LineBlockCommentOnlyLineTest extends TestCase
         );
 
         $this->assertSame(['text', 'code', 'comment', 'text', 'hard_break', 'text'], $types);
+    }
+
+    /**
+     * The comment keeps the SPAN the inline reader used to give it (PART 12
+     * §4). The text and the breaks around it still carry theirs, so a node
+     * that lost its position when the deciding layer moved would show up
+     * nowhere else.
+     */
+    public function testTheCommentNodeKeepsItsPosition(): void
+    {
+        $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
+        $paragraph = $converter->parse("::: |\na\n%% c\nb\n:::\n")->getChildren()[0]->getChildren()[0];
+        $comment = $paragraph->getChildren()[2];
+        $position = $comment->getPos();
+
+        $this->assertNotNull($position, 'the verse comment lost its position');
+        $this->assertSame(3, $position->startLine);
+        $this->assertSame(8, $position->startOffset);
+        $this->assertSame(12, $position->endOffset);
+    }
+
+    /**
+     * A COMMENT LINE TAKES NO BACKSLASH. `%%` consumes the rest of its line, so
+     * a backslash written after it is comment TEXT, not break syntax, and the
+     * comment comes back holding a character the author never wrote.
+     *
+     * No rendering can see this - a comment renders nothing either way - so the
+     * assertion is on the tree.
+     */
+    public function testAnEmptyOrSpaceEndingCommentSurvivesTheWriter(): void
+    {
+        foreach (["::: |\n%%\nb\n:::\n", "::: |\na\n%% x \nb\n:::\n"] as $source) {
+            $converter = new CarveConverter();
+            $before = $converter->parse($source);
+            $after = $converter->parse(CarveConverter::toCarve($source));
+
+            $this->assertSame(
+                self::commentContents($before),
+                self::commentContents($after),
+                'the writer changed a comment for: ' . $source,
+            );
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function commentContents(Node $node): array
+    {
+        $found = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Comment) {
+                $found[] = $child->getContent();
+            }
+            $found = array_merge($found, self::commentContents($child));
+        }
+
+        return $found;
     }
 
     /**

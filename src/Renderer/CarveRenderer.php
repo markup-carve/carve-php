@@ -1941,11 +1941,19 @@ class CarveRenderer implements RendererInterface
         $lineStart = strrpos($out, "\n");
         $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
 
+        // A COMMENT LINE TAKES NO BACKSLASH AT ALL. `%%` consumes the rest of
+        // its line, so a backslash written after it is comment TEXT rather
+        // than break syntax - it would change the comment's own content on the
+        // way back in, which no rendering can see. Nothing needs to be written
+        // there either: the parser reads a comment line back exactly as it
+        // stands, trailing column and all.
+        $isComment = str_starts_with($line, '%%');
+
         if ($endsTheParagraph) {
-            return '\\';
+            return $isComment ? '' : '\\';
         }
 
-        return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+        return (!$isComment && self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
     }
 
     /**

@@ -7448,7 +7448,7 @@ class BlockParser
     private function verseCommentLines(array $lines): array
     {
         $comments = [];
-        foreach ($lines as $index => [$line]) {
+        foreach ($lines as $index => [$line, $lineNumber]) {
             if (!str_starts_with($line, '%%')) {
                 continue;
             }
@@ -7460,7 +7460,15 @@ class BlockParser
             if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
                 $content = substr($content, 1);
             }
-            $comments[$index] = new Comment($content);
+            $comment = new Comment($content);
+            // The node keeps the SPAN the inline reader used to give it: its
+            // own line, from the container's content column to the end. A node
+            // that loses its position when the layer deciding it moves is a
+            // silent PART 12 §4 regression - the surrounding text and breaks
+            // still carry theirs, so nothing else would have shown it.
+            $sourceLine = $this->sourceLineFor($lineNumber);
+            $this->stampBlockSpan($comment, $sourceLine, $sourceLine);
+            $comments[$index] = $comment;
         }
 
         return $comments;
