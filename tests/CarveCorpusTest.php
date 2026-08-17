@@ -440,25 +440,14 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
-     * The nine below arrived with the bump to carve b6917ab and are THREE
-     * parser rules, not nine bugs. Each rule is a container-boundary decision
-     * this engine makes one block too late, so the documents group by rule
-     * rather than by symptom.
+     * The five below arrived with the bump to carve b6917ab and are TWO parser
+     * rules, not five bugs. Each rule is a container-boundary decision this
+     * engine makes one block too late, so the documents group by rule rather
+     * than by symptom.
      *
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        // RULE 2 (carve corpus 327). A continuation marker attaches exactly ONE
-        // block, and the attached block's extent is the boundary. This engine
-        // keeps the container open past it, so the NEXT block is attached too.
-        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent'
-            => 'A blockquote after the one block a continuation marker attached is pulled into the item instead of ending it.',
-        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-3'
-            => 'Same rule, where the attached block is a two-line paragraph.',
-        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-6'
-            => 'Same rule, where the marker opens the item body.',
-        '327-a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent-8'
-            => 'Same rule inside a blockquote: the following heading stays in the quote instead of ending it.',
         // RULE 3 (carve corpus 329). A floating attribute is scoped to the
         // container that holds it and does not reach a block outside it. This
         // engine lets it escape and attribute the following block.
