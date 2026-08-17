@@ -2588,13 +2588,23 @@ class HtmlRenderer implements RendererInterface
      * `expression(...)`. The scheme is normalized (C0 controls + spaces removed)
      * before comparison to defeat `java\tscript:` style evasion.
      *
-     * A URL-LIST ATTRIBUTE IS PROBED AT EVERY CANDIDATE, NOT AT ITS HEAD. For
-     * the four names in `URL_LIST_ATTRIBUTE_SEPARATORS` the value is split into
-     * tokens and every non-empty token gets THE SAME PROBE this method applies
-     * to a whole value, and any hit blanks the ENTIRE value. That changes WHERE
-     * the probe runs, not WHAT it denies. Every other attribute - `title`,
-     * `alt`, `aria-label` and the rest of prose, which carry colons routinely -
-     * keeps the leading-scheme rule and MUST NOT be tokenized.
+     * A URL-LIST ATTRIBUTE IS PROBED AT EVERY CANDIDATE AS WELL AS AT ITS HEAD.
+     * For the four names in `URL_LIST_ATTRIBUTE_SEPARATORS` the value is split
+     * into tokens and every non-empty token gets the same probe this method
+     * applies to a whole value, and any hit blanks the ENTIRE value. Every
+     * other attribute - `title`, `alt`, `aria-label` and the rest of prose,
+     * which carry colons routinely - gets the value-wide probe alone and MUST
+     * NOT be tokenized.
+     *
+     * THE TOKEN PASS IS ADDED TO THE VALUE-WIDE PROBE, NOT SUBSTITUTED FOR IT.
+     * The clause says the rule changes WHERE the probe runs, not WHAT it
+     * denies, and a token-only reading denies strictly LESS than this engine
+     * denied before it. `ping="java script:alert(1)"` splits into `java` and
+     * `script:alert(1)`, neither of which is a dangerous scheme, while the
+     * value-wide probe blanks it because its strip removes the very space the
+     * whitespace split just treated as a boundary. Dropping the value-wide
+     * probe here would ship a security regression as a security fix
+     * (markup-carve/carve-js#1164).
      *
      * Blanking the whole value rather than excising the offending candidate is
      * the clause's own choice: rewriting would make the rendered attribute
@@ -2604,22 +2614,41 @@ class HtmlRenderer implements RendererInterface
      */
     private function sanitizeAttributeValue(string $name, string $value): string
     {
-        $separators = self::URL_LIST_ATTRIBUTE_SEPARATORS[$name] ?? null;
-        if ($separators !== null) {
-            return self::urlListIsClean($separators, $value) ? $value : '';
+        if (self::hasLeadingDangerousScheme($value)) {
+            return '';
         }
-        $colon = strpos($value, ':');
-        if ($colon !== false) {
-            $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
-            if (in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true)) {
-                return '';
-            }
+        $separators = self::URL_LIST_ATTRIBUTE_SEPARATORS[$name] ?? null;
+        if ($separators !== null && !self::urlListIsClean($separators, $value)) {
+            return '';
         }
         if ($name === 'style' && $this->hasDangerousCss($value)) {
             return '';
         }
 
         return $value;
+    }
+
+    /**
+     * The value-wide leading-scheme probe, unchanged in what it denies.
+     *
+     * Named rather than inlined because the URL-list rule adds a second pass
+     * beside it, and the two must stay visibly separate: this one closes
+     * `java script:` by stripping the space, the token pass closes
+     * `safe.png 1x, javascript:` by splitting on it. Neither subsumes the
+     * other, which is why both run.
+     *
+     * The scheme is normalized (C0 controls + spaces removed) before comparison
+     * to defeat `java\tscript:` style evasion.
+     */
+    private static function hasLeadingDangerousScheme(string $value): bool
+    {
+        $colon = strpos($value, ':');
+        if ($colon === false) {
+            return false;
+        }
+        $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
+
+        return in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true);
     }
 
     /**
