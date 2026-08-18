@@ -476,6 +476,27 @@ class SourcePositionTest extends TestCase
         $this->assertSame(1, $pos->endColumn);
     }
 
+    public function testAVerseBreakBeforeARemovedCommentStillEndsOnTheNextSourceLine(): void
+    {
+        $source = "::: |\na \\\n%% c\n:::\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+
+        foreach (self::walk($document) as $node) {
+            if (!$node instanceof HardBreak) {
+                continue;
+            }
+
+            $pos = $node->getPos();
+            $this->assertNotNull($pos);
+            $this->assertSame('\\' . "\n", substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset));
+            $this->assertSame([2, 3, 3, 1], [$pos->startLine, $pos->endLine, $pos->startColumn, $pos->endColumn]);
+
+            return;
+        }
+
+        $this->fail('no break was found');
+    }
+
     /**
      * The break lands on the NEWLINE even when a dropped space sits before it.
      *

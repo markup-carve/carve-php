@@ -244,6 +244,12 @@ class HtmlToCarve
 
         try {
             $diagnostics = $this->inspectImportLoss($html);
+            foreach ($this->captionFlattenDiagnostics as $diagnostic) {
+                if (count($diagnostics) >= $this->maxDiagnostics) {
+                    break;
+                }
+                $diagnostics[] = $diagnostic;
+            }
         } finally {
             $this->inspectedCarve = null;
         }
@@ -1852,6 +1858,7 @@ class HtmlToCarve
         $this->footnoteDefinitions = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
+        $this->captionFlattenDiagnostics = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -1971,6 +1978,10 @@ class HtmlToCarve
                 $text = preg_replace('/\s+/', ' ', $text) ?? $text;
             }
 
+            if ($this->captionDepth > 0 && trim($text) !== '') {
+                $this->captionPendingBoundary = false;
+            }
+
             // A backslash in HTML text is a character, not an escape, so it
             // is doubled before the delimiter escaping runs. Inside `pre` the
             // text is verbatim and nothing is escaped at all.
@@ -2015,9 +2026,27 @@ class HtmlToCarve
             // nothing on this side of the boundary to keep apart (corpus
             // convert case 32). The trailing one is removed by
             // processCaptionChildren(), so a lone block reads exactly as before.
+            $hadPending = $this->captionPendingBoundary;
+            $needsSeparator = $this->captionPendingNeedsSeparator;
+            $this->captionPendingBoundary = false;
             $flattened = rtrim($this->processChildren($node));
+            if ($flattened === '') {
+                $this->captionPendingBoundary = $hadPending;
+                $this->captionPendingNeedsSeparator = $needsSeparator;
 
-            return $flattened === '' ? '' : $flattened . ' ';
+                return '';
+            }
+
+            $this->captionPendingBoundary = true;
+            $this->captionPendingNeedsSeparator = preg_match('/\s$/u', $flattened) !== 1;
+            $this->captionFlattenDiagnostics[] = new HtmlImportDiagnostic(
+                'element-unwrapped',
+                'Unwrapped unsupported <' . $tagName . '> element',
+                'info',
+                $this->conversionNodePath($node),
+            );
+
+            return ($hadPending && $needsSeparator ? ' ' : '') . $flattened;
         }
 
         return match ($tagName) {
@@ -2110,14 +2139,17 @@ class HtmlToCarve
      */
     protected function processCaptionChildren(DOMNode $node): string
     {
+        $previousPending = $this->captionPendingBoundary;
+        $previousNeedsSeparator = $this->captionPendingNeedsSeparator;
+        $this->captionPendingBoundary = false;
+        $this->captionPendingNeedsSeparator = false;
         $this->captionDepth++;
         try {
-            // RTRIM, because each flattened block inside leaves the separator
-            // PART 11 §1b asks for and the last one has nothing to separate
-            // from.
             return rtrim($this->processChildren($node));
         } finally {
             $this->captionDepth--;
+            $this->captionPendingBoundary = $previousPending;
+            $this->captionPendingNeedsSeparator = $previousNeedsSeparator;
         }
     }
 
@@ -2130,6 +2162,44 @@ class HtmlToCarve
      */
     protected int $captionDepth = 0;
 
+    protected bool $captionPendingBoundary = false;
+
+    protected bool $captionPendingNeedsSeparator = false;
+
+    /**
+     * @var list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
+     */
+    protected array $captionFlattenDiagnostics = [];
+
+    private function conversionNodePath(DOMElement $node): string
+    {
+        $parts = [];
+        for ($current = $node; $current instanceof DOMElement; $current = $current->parentNode) {
+            $parent = $current->parentNode;
+            if (!$parent instanceof DOMElement) {
+                break;
+            }
+            $index = 0;
+            foreach ($parent->childNodes as $sibling) {
+                $index++;
+                if ($sibling === $current) {
+                    break;
+                }
+            }
+            $tag = strtolower($current->tagName);
+            if (!in_array($tag, ['html', 'head', 'body'], true)) {
+                $parts[] = $tag . '[' . $index . ']';
+            }
+
+            // A fragment's synthetic wrapper is never part of a public path.
+            if ($parent->parentNode instanceof DOMDocument && strtolower($parent->tagName) === 'div') {
+                break;
+            }
+        }
+
+        return '/' . implode('/', array_reverse($parts));
+    }
+
     /**
      * Does a caption slot dissolve this element into its content?
      *
@@ -2141,6 +2211,7 @@ class HtmlToCarve
     protected function isFlattenedInACaption(string $tagName): bool
     {
         return in_array($tagName, $this->blockElements, true)
+            || in_array($tagName, ['td', 'th', 'dt', 'dd'], true)
             || $tagName === 'caption'
             || $tagName === 'figcaption';
     }

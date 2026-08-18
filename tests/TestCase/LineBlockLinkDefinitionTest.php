@@ -72,6 +72,10 @@ class LineBlockLinkDefinitionTest extends TestCase
             // Inside the item it IS the content column, so the block opens and
             // the closer at that column ends it - the definition is below.
             'an opener at an item content column opens' => ["- item\n  ::: |\n  verse\n  :::\n\nDEF\n\nUSE\n", true],
+            // The marker establishes the same content column on its own line;
+            // both definition prepasses must strip it before probing the
+            // line-block opener.
+            'an opener on an item marker line opens' => ["- ::: |\n  DEF\n  :::\n\nUSE\n", false],
             // An indented `:::` inside a TOP-LEVEL line block is verse text and
             // closes nothing, so the definition under it is verse too.
             'an indented closer inside a top-level block is verse' => ["::: |\nline\n   :::\nDEF\n:::\n\nUSE\n", false],

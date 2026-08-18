@@ -1417,9 +1417,8 @@ class BlockParser
             // dedenting the quote-stripped tail by the whole column looked two
             // columns short and left the verse untracked - and a definition
             // written in it registered (markup-carve/carve-php#1431).
-            $openerWalk = $contentCol > 0 ? ContainerPrefix::innermostAtColumn($line, $contentCol) : null;
-            $openerColumn = $openerWalk !== null ? $contentCol : 0;
-            $openerWalk ??= ContainerPrefix::pastQuoteMarkers($line);
+            $openerWalk = $fence->containerOpenerView($line, $contentCol);
+            $openerColumn = $contentCol;
             $openerView = $openerWalk['line'];
             $openerDepth = $openerWalk['quoteDepth'];
             $fc0 = $openerView[0] ?? '';
@@ -6570,7 +6569,11 @@ class BlockParser
                 // paragraph (markup-carve/carve#1350, corpus 357-2). The lazy
                 // branch below leaves the flag off, which is what keeps corpus
                 // 183 and 214-2 folding a comment written BELOW the column.
-                $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine, true);
+                $trailingState = $this->advanceTrailingBlockState(
+                    $trailingState,
+                    $contentLine,
+                    $nextIndent === $contentIndent,
+                );
                 $i++;
 
                 continue;
@@ -8259,7 +8262,7 @@ class BlockParser
     {
         $count = count($lineEndings);
         foreach ($parent->getChildren() as $index => $inline) {
-            if (!$inline instanceof SoftBreak) {
+            if (!$inline instanceof SoftBreak && !$inline instanceof HardBreak) {
                 if ($inline->hasChildren()) {
                     $this->hardenSoftBreaksIn($inline, $lineEndings, $next);
                 }
@@ -8274,9 +8277,17 @@ class BlockParser
                     $next++;
                 }
                 if ($next < $count) {
-                    $span = $this->endOfLineSpan($lineEndings[$next][1]);
+                    $span = $inline instanceof HardBreak
+                        ? $this->lineEndingCoordinates($pos, $lineEndings[$next][1])
+                        : $this->endOfLineSpan($lineEndings[$next][1]);
                     $next++;
                 }
+            }
+
+            if ($inline instanceof HardBreak) {
+                $inline->setPos($span);
+
+                continue;
             }
 
             $hardBreak = new HardBreak();
@@ -9912,6 +9923,27 @@ class BlockParser
             $sourceLine + 2,
             $start,
             $next,
+        );
+    }
+
+    /**
+     * Keep an inline parser break's exact source extent, but place its end on
+     * the physical line after the verse line. The extent may include an
+     * authored hard-break marker (for example `\\\n`), so rebuilding it from
+     * the block layer's rewritten line would discard part of the spelling.
+     */
+    private function lineEndingCoordinates(SourceSpan $span, int $sourceLine): SourceSpan
+    {
+        $start = $this->lineStartOffsets[$sourceLine] ?? 0;
+        $next = $this->lineStartOffsets[$sourceLine + 1] ?? $start;
+
+        return new SourceSpan(
+            startLine: $sourceLine + 1,
+            endLine: $sourceLine + 2,
+            startColumn: $span->startOffset - ($this->positionIndex?->codepointAt($start) ?? $start) + 1,
+            endColumn: $span->endOffset - ($this->positionIndex?->codepointAt($next) ?? $next) + 1,
+            startOffset: $span->startOffset,
+            endOffset: $span->endOffset,
         );
     }
 
@@ -11831,6 +11863,7 @@ class BlockParser
         // which are two questions one flag used to answer
         // (markup-carve/carve-php#1421). Cleared here and re-armed only by the
         // branches that write an invisible block, like the two above it.
+        $wasAfterInvisible = $state['afterInvisible'];
         $state['afterInvisible'] = false;
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
@@ -12172,6 +12205,10 @@ class BlockParser
                 // happen is a FLUSH-LEFT line folding in, which is what the
                 // closed paragraph refuses (corpus 357-2, 357-3).
                 $state['afterInvisible'] = true;
+            } else {
+                // A lazily collected comment adds no new trailing block, so it
+                // cannot erase the fact that the preceding block was invisible.
+                $state['afterInvisible'] = $wasAfterInvisible;
             }
 
             return $state;
@@ -12282,6 +12319,17 @@ class BlockParser
             return $state;
         }
 
+        // The parser degrades container openers beyond the normative nesting
+        // cap to paragraph text.  Mirror that decision before the trailing
+        // block tracker descends: an alternating `> - > - ...` prefix defeats
+        // both of the per-kind marker collapses below and otherwise consumes
+        // one PHP call frame per pair before the parser can refuse the depth.
+        if ($this->containerPrefixDepthExceedsCap($line, $at, $trimmedEnd)) {
+            $state['openParagraph'] = true;
+
+            return $state;
+        }
+
         // A LIST ITEM IS DECIDED BY THE BLOCK INSIDE IT, exactly as the quote
         // above is, and for the same clause: PART 1 S4 asks whether an open
         // paragraph is on the STACK, and an item is a container, so the answer
@@ -12385,6 +12433,29 @@ class BlockParser
         $state['openParagraph'] = true;
 
         return $state;
+    }
+
+    private function containerPrefixDepthExceedsCap(string $line, int $at, int $end): bool
+    {
+        $depth = 0;
+        while ($at < $end) {
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at, $end);
+            if ($quoteWidth !== null) {
+                $at += $quoteWidth;
+            } else {
+                $next = $this->listParser->markerContentOffset($line, $at);
+                if ($next === null || $next <= $at || $next > $end) {
+                    return false;
+                }
+                $at = $next;
+            }
+
+            if (++$depth > self::MAX_NESTING_DEPTH) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
