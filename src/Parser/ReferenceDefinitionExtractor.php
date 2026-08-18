@@ -58,6 +58,10 @@ class ReferenceDefinitionExtractor
         // block as its closer, and the definition written under it - still
         // verse to the block parser - both rendered and resolved.
         $verseColumn = 0;
+        // The block-quote depth the open line block was opened at, so its
+        // closer is read at that depth rather than at any composition summing
+        // to the same column.
+        $verseDepth = 0;
         // A comment's body is OPAQUE, and this pass did not know it: a
         // `[r]: /u` written inside `%%%` registered, so a reference elsewhere
         // resolved against text the author commented out - invisible in the
@@ -93,9 +97,8 @@ class ReferenceDefinitionExtractor
             // inside something - `- a` / `  > [r]: /u` puts the quote at the
             // item's content column - and eating that indentation here loses
             // the very column the definition has to reach (carve-php#788).
-            $unquoted = ContainerPrefix::stripQuoteMarkers($line);
             // Inside a code fence a `- x` line is sample text, not a marker.
-            $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
+            $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
             // 4), and a definition belongs to whichever open item's column it
             // lands on - not necessarily the innermost. Reading only the
@@ -103,9 +106,11 @@ class ReferenceDefinitionExtractor
             // the item and registered by nobody: the author's line vanished and
             // a reference to it stayed literal. The footnote prepass already
             // asks this way (carve-php#764, carve-php#783).
-            $reachedCol = $contentColumns->reachedBy(
-                strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
-            );
+            // COMPOSED, not the leading whitespace: a quote marker in the
+            // prefix is columns the line supplies, and a definition behind
+            // an alternating prefix sits past them
+            // (markup-carve/carve-php#1431).
+            $reachedCol = $contentColumns->reachedByLine($line);
 
             // A `%%%` inside a code SAMPLE is code, so the code fence is asked
             // first - as the footnote prepass beside this one already asks it.
@@ -126,14 +131,17 @@ class ReferenceDefinitionExtractor
             // and opens nothing. The open-region tests therefore all run before
             // any opener test: whichever region the line is already in owns it.
             if ($verseFence > 0) {
-                $verseView = $line;
-                if ($verseColumn > 0) {
-                    $verseView = ContainerPrefix::atContentColumn($line, $verseColumn);
-                    // A blank line is inside the block, not out of its
-                    // container: it reaches no column and ends nothing.
-                    if ($verseView === null && IndentationHelper::isBlankLine($line)) {
-                        $verseView = '';
-                    }
+                // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, and the
+                // closer is read by the same walk that reached the opener. A
+                // closer at a different DEPTH is quoted content inside the
+                // block rather than its closer (markup-carve/carve-php#1431).
+                $verseView = ContainerPrefix::atColumnAndDepth($line, $verseColumn, $verseDepth);
+                // A blank line is inside the block, not out of its container:
+                // it reaches no column and ends nothing. Out of the QUOTE the
+                // block sits in it does end, which is why this is asked only of
+                // a block that has a column of its own.
+                if ($verseView === null && $verseColumn > 0 && IndentationHelper::isBlankLine($line)) {
+                    $verseView = '';
                 }
                 if ($verseView === null) {
                     // Dedented past the column the block was opened at: the
@@ -174,18 +182,26 @@ class ReferenceDefinitionExtractor
             // An INDENTED `::: |` opens a line block when the indent is an
             // item's CONTENT COLUMN, and only then: `   ::: |` at top level is
             // prose, and admitting it skipped the definition under it as verse.
-            $verseOpenerView = $line;
-            $verseOpenerColumn = 0;
-            if ($contentCol > 0) {
-                $dedented = ContainerPrefix::atContentColumn($line, $contentCol);
-                if ($dedented !== null) {
-                    $verseOpenerView = $dedented;
-                    $verseOpenerColumn = $contentCol;
-                }
-            }
+            // WHERE THE OPENER SITS, ANSWERED THE SAME WAY BY BOTH PREPASSES.
+            // This one read the RAW line, so a `> ::: |` was prose to it and
+            // verse to the footnote pass beside it, and a link definition
+            // inside a quoted line block registered while the footnote kind did
+            // not (tests/TestCase/LineBlockLinkDefinitionTest states the rule).
+            //
+            // Composed, so a `::: |` written at the content column of an item
+            // inside a quote is found: dedenting the raw line by the whole
+            // column asked for the quote marker's columns as indentation,
+            // matched nothing, and left the verse untracked - so a definition
+            // written in it registered (markup-carve/carve-php#1431).
+            $openerWalk = $contentCol > 0 ? ContainerPrefix::innermostAtColumn($line, $contentCol) : null;
+            $verseOpenerColumn = $openerWalk !== null ? $contentCol : 0;
+            $openerWalk ??= ContainerPrefix::pastQuoteMarkers($line);
+            $verseOpenerView = $openerWalk['line'];
+            $verseOpenerDepth = $openerWalk['quoteDepth'];
             if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $verseOpenerView, $vo) === 1) {
                 $verseFence = strlen($vo[1]);
                 $verseColumn = $verseOpenerColumn;
+                $verseDepth = $verseOpenerDepth;
                 $i++;
 
                 continue;
@@ -296,41 +312,57 @@ class ReferenceDefinitionExtractor
         $bare = $line;
         $inQuote = false;
         $inList = false;
+        // THE COLUMN IS A BUDGET, SPENT ACROSS THE WHOLE PREFIX. Asking for the
+        // full content column on every turn of the loop only worked while the
+        // prefix was one kind: `- > - - x` puts its innermost content at 8, and
+        // the continuation under it spends 2 on indent, 2 on the quote marker
+        // and 4 on indent again. Re-asking for 8 after the quote found only 4
+        // and matched nothing, so the definition was consumed by the block
+        // parser and registered by nobody (markup-carve/carve-php#1431).
+        //
+        // The BOUND is what carries markup-carve/carve-php#788 through: at top
+        // level the budget is 0, so no indentation is eaten and a `    > [r]: /u`
+        // is indented text rather than a quote. Exactly the column, never
+        // arbitrary indentation - now counted across the composition rather
+        // than at one step of it.
+        $budget = $contentCol;
         do {
             $previousBare = $bare;
+            $whitespace = strlen($bare) - strlen(ltrim($bare, " \t"));
+            $spend = min($whitespace, $budget);
+            if ($spend > 0) {
+                $bare = substr($bare, $spend);
+                $budget -= $spend;
+            }
             // The `>` may sit at an ITEM'S CONTENT COLUMN (`- a` /
             // `  > [r]: /u`). Strip exactly that column first - never arbitrary
             // indentation, since a top-level `    > [r]: /u` is indented text
             // rather than a quote (tests/BlockquoteRefDefTest) - and then read
             // the marker (carve-php#788).
-            $atColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
-            // The dedent is taken only when a MARKER sits at that column, and
-            // whether one does is {@see ContainerPrefix}'s question, not a byte
-            // test's. This was the third open-coded marker test outside that
-            // class - markup-carve/carve-php#969 named two. It has to be the
-            // SAME rule the strip below applies, or a shape one admits and the
-            // other refuses gets dedented and then not stripped; there is now
-            // only one rule to ask.
-            if ($atColumn !== null && ContainerPrefix::quoteContent($atColumn) !== null) {
-                $bare = $atColumn;
-            }
             $quoteContent = ContainerPrefix::quoteContent($bare);
             if ($quoteContent !== null) {
                 $inQuote = true;
+                $budget = max(0, $budget - (strlen($bare) - strlen($quoteContent)));
                 $bare = $quoteContent;
             }
             $afterMarker = $this->stripReferenceListMarker($bare, $previousLine);
             if ($afterMarker !== $bare) {
                 $inList = true;
+                $budget = max(0, $budget - (strlen($bare) - strlen($afterMarker)));
                 $bare = $afterMarker;
             }
         } while ($bare !== $previousBare);
 
-        $atItemColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
-        if (!$inList && $atItemColumn !== null) {
-            // Measured on the quote-stripped view, not the raw line: inside
-            // `> - a` the column counts from after the `> ` (carve#658).
-            $bare = $atItemColumn;
+        // A COLUMN IS SPENT ONCE. The dedent used to happen here, after a loop
+        // that did not spend the column itself; now the loop spends it, and
+        // asking again took a SECOND helping - under `- x` a four-space
+        // `    [r]: /u` kept two residual columns and is the paragraph text
+        // §24 C3 says it is, but the two dedents together put the `[` at
+        // position 0 and registered it (markup-carve/carve-php#1431).
+        //
+        // What the second dedent also did was record that the line reached an
+        // item, which the budget being fully spent says just as well.
+        if (!$inList && $contentCol > 0 && $budget === 0) {
             $inList = true;
         }
 
