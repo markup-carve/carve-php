@@ -53,6 +53,7 @@ class CarveCorpusTest extends TestCase
         'table-columns-carry-alignment-vertical-alignment-and-widths',
         'a-table-alignment-run-carries-two-independent-axes',
         'a-vertical-table-marker-needs-a-horizontal-partner',
+        'a-table-cell-can-inherit-horizontal-alignment',
         'an-all-blank-raw-payload-still-emits-its-line',
         'the-semantic-registry-holds-no-element-carve-already-spells',
         'a-language-attribute-is-exact-sugar-for-lang',

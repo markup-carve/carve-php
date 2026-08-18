@@ -8667,10 +8667,20 @@ class BlockParser
         // index 0 is not `=`, so it is left untouched here.
         $header = str_starts_with($prefix, '=');
         $markers = substr($prefix, $header ? 1 : 0);
+        $inheritedHorizontal = str_starts_with($markers, '?');
         $align = null;
         $valign = null;
         foreach (str_split($markers) as $i => $marker) {
             if ($marker === '?') {
+                continue;
+            }
+            if ($inheritedHorizontal && $i === 1) {
+                $valign = match ($marker) {
+                    '^' => TableCell::VALIGN_TOP,
+                    '~' => TableCell::VALIGN_MIDDLE,
+                    default => TableCell::VALIGN_BOTTOM,
+                };
+
                 continue;
             }
             if ($marker === '~' && $align === null && $valign === null && isset($markers[$i + 1]) && str_contains('<>', $markers[$i + 1])) {
