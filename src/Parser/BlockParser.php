@@ -11841,12 +11841,8 @@ class BlockParser
         // the later fence opens a real div (carve#891).
         $wasAbsorbing = $state['absorbingFence'];
         $state['absorbingFence'] = false;
-        // `isLead` is true for exactly the FIRST line handed to this tracker -
-        // the container's LEAD, which for a list item is its marker-line
-        // content and for the recursive quote step below is the quote's first
-        // line. Only the heading branch reads it. Cleared here so every branch
-        // sees one consistent answer for the line after.
-        $wasLead = $state['isLead'];
+        // `isLead` is retained in the state shape for callers that seed it, but
+        // headings now answer from their block kind rather than their position.
         $state['isLead'] = false;
         // A CONTINUATION ROW IS MORE TABLE, and only where a table is above it
         // (markup-carve/carve#1349). Cleared here and re-armed only by the two
@@ -12214,34 +12210,11 @@ class BlockParser
             return $state;
         }
 
-        // A HEADING CLOSES THE CONTAINER ONLY WHEN IT IS THE LEAD, and unlike
-        // the comment above that is MEASURED from the corpus rather than read
-        // off a clause. Two pinned documents put the same heading on either
-        // side of the answer:
-        //
-        //   - # H        `tail` is a NEW TOP-LEVEL BLOCK (corpus 326)
-        //   tail
-        //
-        //   - b          `lazy` FOLDS INTO THE ITEM (corpus 75-4, nested)
-        //     # N
-        //   lazy
-        //
-        // The heading is the container's own last block in both, so neither
-        // "always closes" nor "never closes" fits. What separates them is
-        // whether the container OPENS with it: an item whose lead is a heading
-        // never held a paragraph, while an item that leads with text still is
-        // one and a heading written under it does not end the item.
-        //
-        // NOT "whatever the state already was" - that reading passes this pair
-        // and then loses `- text` / blank / `  # N` / `lazy`, where the blank
-        // has cleared the flag and the heading has to put it back. The lead is
-        // the fact; the running flag is not.
-        //
-        // It is also why the branches that DO close unconditionally - a table
-        // and a fence above, a thematic break and a definition below - are not
-        // joined by a heading here.
+        // A heading at the item's content column is its own bounded block. It
+        // leaves no paragraph open for a flush-left line to continue (PART 1
+        // S4, markup-carve/carve#1377), regardless of earlier item prose.
         if (preg_match('/#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/A', $line, $ignored, 0, $at) === 1) {
-            $state['openParagraph'] = !$wasLead;
+            $state['openParagraph'] = false;
 
             return $state;
         }
