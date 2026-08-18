@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -7557,7 +7558,8 @@ class BlockParser
         // `x %% secret` is `inline_comment` (PART 3, §21), which §21's third
         // bullet leaves standing inside a verbatim run - an engine may leave a
         // `%%` in a run and may never delete author bytes out of one.
-        $verseComments = $this->verseCommentLines($lines);
+        $verseCommentSources = [];
+        $verseComments = $this->verseCommentLines($lines, $verseCommentSources);
 
         $texts = [];
         $segments = [];
@@ -7616,7 +7618,7 @@ class BlockParser
             sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments)),
         );
         $this->convertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
-        $this->placeVerseComments($paragraph, $verseComments);
+        $this->placeVerseComments($paragraph, $verseComments, $verseCommentSources);
 
         $lineBlock->appendChild($paragraph);
     }
@@ -7626,12 +7628,14 @@ class BlockParser
      * index in the stanza.
      *
      * @param list<array{0: string, 1: int}> $lines
+     * @param array<int, string> $sources Set to each comment's AUTHORED line.
      *
      * @return array<int, \MarkupCarve\Carve\Node\Block\Comment>
      */
-    private function verseCommentLines(array $lines): array
+    private function verseCommentLines(array $lines, array &$sources = []): array
     {
         $comments = [];
+        $sources = [];
         foreach ($lines as $index => [$line, $lineNumber]) {
             if (!str_starts_with($line, '%%')) {
                 continue;
@@ -7653,6 +7657,10 @@ class BlockParser
             $sourceLine = $this->sourceLineFor($lineNumber);
             $this->stampBlockSpan($comment, $sourceLine, $sourceLine);
             $comments[$index] = $comment;
+            // The line AS AUTHORED, kept so a reference's stored source can be
+            // repaired with the bytes the author wrote rather than with a form
+            // rebuilt from the content.
+            $sources[$index] = $line;
         }
 
         return $comments;
@@ -7699,8 +7707,9 @@ class BlockParser
      *
      * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param array<int, \MarkupCarve\Carve\Node\Block\Comment> $comments
+     * @param array<int, string> $sources Each comment's AUTHORED line, by the same index.
      */
-    private function placeVerseComments(Paragraph $paragraph, array $comments): void
+    private function placeVerseComments(Paragraph $paragraph, array $comments, array $sources = []): void
     {
         if ($comments === []) {
             return;
@@ -7715,7 +7724,7 @@ class BlockParser
         // quadratic - a regression on an input this fix has no other effect on.
         $pending = [];
         foreach ($comments as $index => $comment) {
-            $pending[] = [$index, $comment];
+            $pending[] = [$index, $comment, $sources[$index] ?? ''];
         }
 
         $cursor = 0;
@@ -7723,17 +7732,18 @@ class BlockParser
         // A comment on the stanza's FIRST line needs no boundary at all - the
         // stanza opens it - and that opening is the PARAGRAPH's, so it is drawn
         // here rather than inside whatever container the first line begins.
-        $this->placeVerseCommentsIn($paragraph, $pending, $cursor, $line, true);
+        $this->placeVerseCommentsIn($paragraph, $pending, $cursor, $line, true, []);
     }
 
     /**
      * Walk one node's children in document order, placing comments by line.
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
-     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending Line index and node, ascending.
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment, 2: string}> $pending Line index, node and authored line, ascending.
      * @param int $cursor The first entry of `$pending` neither placed nor dropped.
      * @param int $line Boundaries seen so far, carried across the whole stanza.
      * @param bool $atStanzaStart Whether this call opens the stanza itself.
+     * @param array<\MarkupCarve\Carve\Node\Node> $rawReferenceHosts Every enclosing reference, outermost first.
      */
     private function placeVerseCommentsIn(
         Node $parent,
@@ -7741,11 +7751,12 @@ class BlockParser
         int &$cursor,
         int &$line,
         bool $atStanzaStart,
+        array $rawReferenceHosts,
     ): void {
         $placed = [];
         $inserted = false;
         if ($atStanzaStart) {
-            $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line);
+            $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line, $rawReferenceHosts);
         }
 
         foreach ($parent->getChildren() as $child) {
@@ -7764,14 +7775,30 @@ class BlockParser
             if ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $placed[] = $child;
                 $line++;
-                $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line) || $inserted;
+                $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line, $rawReferenceHosts) || $inserted;
 
                 continue;
             }
 
             $placed[] = $child;
             if ($child->hasChildren()) {
-                $this->placeVerseCommentsIn($child, $pending, $cursor, $line, false);
+                // EVERY ENCLOSING REFERENCE, carried down rather than
+                // searched for. A comment inside `[a /b` / `%% c` / `d/][r]`
+                // sits under the emphasis while the snapshot that has to hear
+                // about it is the LINK's - and a reference nested in another
+                // reference's LABEL, `[x [y` / `%% c` / `z][inner] w][outer]`,
+                // gives two snapshots that both contain the emptied line.
+                // Repairing only the nearest left the outer one stale, and the
+                // writer emits the outer as a whole (raised by codex review).
+                $host = $this->referenceSnapshotHost($child);
+                $this->placeVerseCommentsIn(
+                    $child,
+                    $pending,
+                    $cursor,
+                    $line,
+                    false,
+                    $host === null ? $rawReferenceHosts : [...$rawReferenceHosts, $host],
+                );
 
                 continue;
             }
@@ -7797,20 +7824,90 @@ class BlockParser
      * Take the comment opened by the boundary just passed, if there is one.
      *
      * @param array<int, \MarkupCarve\Carve\Node\Node> $placed
-     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment, 2: string}> $pending
      * @param int $cursor
      * @param int $line The stanza line the boundary opens.
+     * @param array<\MarkupCarve\Carve\Node\Node> $rawReferenceHosts Every enclosing reference.
      */
-    private function takeVerseCommentAt(array &$placed, array &$pending, int &$cursor, int $line): bool
-    {
+    private function takeVerseCommentAt(
+        array &$placed,
+        array &$pending,
+        int &$cursor,
+        int $line,
+        array $rawReferenceHosts,
+    ): bool {
         if (!isset($pending[$cursor]) || $pending[$cursor][0] !== $line) {
             return false;
         }
 
         $placed[] = $pending[$cursor][1];
+        foreach ($rawReferenceHosts as $host) {
+            $this->restoreCommentInReferenceSnapshot($host, $pending[$cursor][2]);
+        }
         $cursor++;
 
         return true;
+    }
+
+    /**
+     * This node's stored reference source, if it is the kind that keeps one.
+     */
+    private function referenceSnapshotHost(Node $node): ?Node
+    {
+        if (!$node instanceof Link && !$node instanceof Image) {
+            return null;
+        }
+
+        return $node->getRawReferenceLabel() === null ? null : $node;
+    }
+
+    /**
+     * Put a comment's authored LINE back into a reference's stored source.
+     *
+     * `rawRef` is documented as the authored source VERBATIM (PART 12 §3a) and
+     * the canonical writer emits it unchanged, so the collapsed `[a][]` is not
+     * rewritten to `[a][a]` and an attribute block written at the reference is
+     * not emitted twice. But the snapshot is taken by the INLINE parse, which
+     * reads a stanza whose comment lines this class has already emptied - so
+     * the reference alone stored a source one layer stale, and `carve fmt`
+     * wrote a bare `%%` where the author had written `%% secret`
+     * (carve-php#1417).
+     *
+     * The emptied line is still THERE, as an empty line, so the repair is to
+     * put the author's bytes back in it. The comment is placed in document
+     * order and each one emptied exactly one line, so the FIRST empty line
+     * still in the snapshot is this comment's own.
+     *
+     * A BLANK LINE CANNOT BE MISTAKEN FOR ONE. A blank line ends the stanza, so
+     * no stanza's joined text - and therefore no snapshot taken from it - holds
+     * an empty line that a comment did not put there.
+     *
+     * The other consumers are unaffected because they do not write this string
+     * through: every renderer that emits it empties the comment lines out again
+     * (§23), which is the same split carve-js makes.
+     */
+    private function restoreCommentInReferenceSnapshot(Node $host, string $authoredLine): void
+    {
+        if (!$host instanceof Link && !$host instanceof Image) {
+            return;
+        }
+
+        $raw = $host->getRawReferenceLabel();
+        if ($raw === null || $authoredLine === '') {
+            return;
+        }
+
+        $lines = explode("\n", $raw);
+        foreach ($lines as $index => $lineText) {
+            if ($lineText !== '') {
+                continue;
+            }
+
+            $lines[$index] = $authoredLine;
+            $host->setRawReferenceLabel(implode("\n", $lines));
+
+            return;
+        }
     }
 
     /**
@@ -7834,7 +7931,7 @@ class BlockParser
      * pair could describe (PART 12 §4).
      *
      * @param \MarkupCarve\Carve\Node\Node $run
-     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment, 2: string}> $pending
      * @param int $cursor
      * @param int $line The stanza line the run's content reaches.
      */

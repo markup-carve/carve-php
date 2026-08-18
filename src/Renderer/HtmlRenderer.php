@@ -1964,7 +1964,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        $rawRef = UnresolvedReference::sourceOf($node);
+        // PART 9 §23: a comment LINE publishes nothing, so the stored source
+        // is emptied of them HERE rather than in the stored value - `rawRef`
+        // stays the authored source verbatim for the canonical writer
+        // (PART 12 §3a, carve-php#1417).
+        $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
             return $this->escape($rawRef);
         }
@@ -2029,7 +2033,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $rawRef = UnresolvedReference::sourceOf($node);
+        // PART 9 §23: a comment LINE publishes nothing, so the stored source
+        // is emptied of them HERE rather than in the stored value - `rawRef`
+        // stays the authored source verbatim for the canonical writer
+        // (PART 12 §3a, carve-php#1417).
+        $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
             return $this->escape($rawRef);
         }
