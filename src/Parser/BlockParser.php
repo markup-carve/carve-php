@@ -1788,6 +1788,70 @@ class BlockParser
         int $contentCol = 0,
         string $previousLine = '',
     ): array {
+        $length = strlen($line);
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== $length - 1) {
+            return $this->footnoteContainerPrefixFromCopies($line, $contentCol, $previousLine);
+        }
+
+        $at = 0;
+        $stripped = false;
+        $budget = $contentCol;
+        do {
+            $previousAt = $at;
+            $whitespaceAt = IndentationHelper::pastLeadingWhitespace($line, $at);
+            $spend = min($whitespaceAt - $at, $budget);
+            $at += $spend;
+            $budget -= $spend;
+
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($quoteWidth !== null) {
+                $budget = max(0, $budget - $quoteWidth);
+                $at += $quoteWidth;
+                $stripped = true;
+
+                continue;
+            }
+
+            $head = $this->listParser->markerHeadAt($line, IndentationHelper::pastLeadingWhitespace($line, $at));
+            if ($head !== null && $head['name'] !== 'task') {
+                $budget = max(0, $budget - ($head['content'] - $at));
+                $at = $head['content'];
+                $stripped = true;
+
+                continue;
+            }
+
+            if (ReferenceDefinitionExtractor::opensDefinitionEntry($previousLine)) {
+                $pattern = '/[ \t]*:[ \t][ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+                if (preg_match($pattern, $line, $match, 0, $at) === 1) {
+                    $at += strlen($match[0]);
+                    $stripped = true;
+                }
+            }
+        } while ($at !== $previousAt);
+
+        if ($stripped && preg_match('/\G\[\^[^\]]+\]:/', $line, $match, 0, $at) === 1) {
+            if (LayoutWork::$on) {
+                LayoutWork::$footnotePrescan += $length;
+            }
+
+            return ['kind' => 'container', 'prefix' => substr($line, 0, $at)];
+        }
+
+        return ['kind' => 'none', 'prefix' => ''];
+    }
+
+    /**
+     * Exact capturing fallback for a subject containing an interior newline.
+     *
+     * @return array{kind: string, prefix: string}
+     */
+    private function footnoteContainerPrefixFromCopies(
+        string $line,
+        int $contentCol = 0,
+        string $previousLine = '',
+    ): array {
         $rest = $line;
         $stripped = false;
         // THE COLUMN IS A BUDGET, SPENT ACROSS THE WHOLE PREFIX - the same one
