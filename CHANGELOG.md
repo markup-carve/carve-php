@@ -14,6 +14,35 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rest of the line, so a line of N prefix elements cost N times the line - a
   128 KB line of `> - ` repeated copied 4.1 GB.
 
+- **An alternating quote-and-bullet prefix is bounded before it can exhaust the
+  stack** (PART 9 §25, markup-carve/carve-php#1456). A long enough `> - `
+  repeated on one line spent a call frame per pair and crashed the process; past
+  the nesting cap the prefix now degrades to paragraph text, which is what
+  carve-js and carve-rs already produced for it.
+
+### Fixed
+
+- **A hard break ends at column 1 of the following physical line**, including
+  where the line after it is a comment-only line the block layer removes
+  (markup-carve/carve-php#1457).
+- **A line block opened on a container's opener line is seen by both definition
+  prepasses** (markup-carve/carve-php#1444).
+- **A verse comment inside an image's ALT has one spelling**, a bare `%%` line,
+  for inline and reference images alike (markup-carve/carve-php#1443).
+- **An abutting attribute block attaches to a plus bullet** where the extension
+  is enabled, as it does to every other marker (markup-carve/carve-php#1438).
+- **The flatten separator and the content-column family follow their rulings**:
+  the separator is decided per token, an existing NBSP is kept, and table-cell
+  and definition-part boundaries survive (PART 11 §1b,
+  markup-carve/carve-php#1435).
+- **The caption slot reports the blocks it flattens**, against the DOM nodes it
+  actually consumed (markup-carve/carve-php#1353).
+- **A lazily collected or over-indented comment no longer closes a list item**,
+  and no longer erases the fact that the block above it was invisible - the
+  follow-on to markup-carve/carve-php#1421 (markup-carve/carve-php#1458).
+- **A heading written at a container's content column leaves no paragraph open**
+  (markup-carve/carve-php#1464).
+
 ## [0.1.5] - 2026-08-18
 
 ### Security
