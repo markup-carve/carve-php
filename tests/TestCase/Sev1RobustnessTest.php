@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -137,6 +138,10 @@ class Sev1RobustnessTest extends TestCase
      * the run is linear in input size; this asserts a large input completes well
      * under a wall-clock bound.
      */
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testDeeplyNestedBalancedLinksAreNearLinear(): void
     {
         $n = 8000;

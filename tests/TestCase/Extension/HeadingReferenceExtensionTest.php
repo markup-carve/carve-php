@@ -9,6 +9,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
 use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
 use MarkupCarve\Carve\Extension\WikilinksExtension;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class HeadingReferenceExtensionTest extends TestCase
@@ -283,6 +284,10 @@ DJOT);
         $this->assertStringContainsString('href="#Test"', $html);
     }
 
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testManyReferencesResolveFast(): void
     {
         $converter = new CarveConverter();

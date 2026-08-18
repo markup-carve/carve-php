@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class CitationsExtensionTest extends TestCase
@@ -192,6 +193,10 @@ class CitationsExtensionTest extends TestCase
         $this->assertMatchesRegularExpression('/<div class="references">[\s\S]*<ol class="references">/', $html);
     }
 
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testUnmatchedBracketRunParsesFast(): void
     {
         $source = str_repeat('[', 8000);
