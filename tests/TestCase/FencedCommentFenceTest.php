@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class FencedCommentFenceTest extends TestCase
@@ -148,6 +149,15 @@ class FencedCommentFenceTest extends TestCase
      * linear parse. Measured on this input: ~1.4 with a per-opener scan to the
      * end of the line set, ~0.5 with the width index.
      */
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testDistinctWidthFenceOpenersDoNotRescanPerOpener(): void
     {
         $build = static function (int $n): string {
@@ -201,6 +211,15 @@ class FencedCommentFenceTest extends TestCase
      * cost stays flat per byte. Measured on this input: ~1.54 with a walk per
      * opener, ~0.99 with the memo.
      */
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testContainerScopedOpenersDoNotWalkTheTailPerOpener(): void
     {
         $build = static function (int $n): string {
@@ -633,6 +652,15 @@ class FencedCommentFenceTest extends TestCase
      * top-level opener's bound, so the key carries both and this input is what
      * keeps the memo reachable at depth.
      */
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testQuotedOpenersDoNotWalkTheQuotePerOpener(): void
     {
         $build = static function (int $n): string {
