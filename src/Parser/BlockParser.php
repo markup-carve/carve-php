@@ -8669,12 +8669,7 @@ class BlockParser
         $markers = substr($prefix, $header ? 1 : 0);
         $align = null;
         $valign = null;
-        foreach (str_split($markers) as $i => $marker) {
-            if ($marker === '~' && $align === null && $valign === null && isset($markers[$i + 1]) && str_contains('<>', $markers[$i + 1])) {
-                $valign = TableCell::VALIGN_MIDDLE;
-
-                continue;
-            }
+        foreach (str_split($markers) as $marker) {
             if (isset(self::TABLE_ALIGNMENT_MARKERS[$marker])) {
                 if ($align === null) {
                     $align = self::TABLE_ALIGNMENT_MARKERS[$marker];

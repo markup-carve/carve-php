@@ -582,12 +582,12 @@ class TableParser
 
         $horizontal = false;
         $vertical = false;
-        $valid = true;
+        $valid = !isset($cell[$start])
+            || (!str_contains('^v', $cell[$start])
+                && !($cell[$start] === '~' && isset($cell[$start + 1]) && str_contains('<>', $cell[$start + 1])));
         for ($i = $start; $i < $length; $i++) {
             $marker = $cell[$i];
-            if ($marker === '~' && !$horizontal && !$vertical && isset($cell[$i + 1]) && str_contains('<>', $cell[$i + 1])) {
-                $vertical = true;
-            } elseif (str_contains('<>~', $marker)) {
+            if (str_contains('<>~', $marker)) {
                 if (!$horizontal) {
                     $horizontal = true;
                 } elseif ($marker === '~' && !$vertical) {
