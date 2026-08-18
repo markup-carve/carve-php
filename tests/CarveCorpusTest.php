@@ -52,6 +52,8 @@ class CarveCorpusTest extends TestCase
         'a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one',
         'table-columns-carry-alignment-vertical-alignment-and-widths',
         'a-table-alignment-run-carries-two-independent-axes',
+        'a-vertical-table-marker-needs-a-horizontal-partner',
+        'an-all-blank-raw-payload-still-emits-its-line',
         'the-semantic-registry-holds-no-element-carve-already-spells',
         'a-language-attribute-is-exact-sugar-for-lang',
         'a-malformed-language-tag-leaves-the-whole-block-literal',
