@@ -331,9 +331,9 @@ class ListTableExtension implements ExtensionInterface
         if ($footGrid !== []) {
             $tfoot = '';
             foreach ($footGrid as $offset => $gridRow) {
-                $tfoot .= $renderRow($gridRow, $footerStart + $offset);
+                $tfoot .= '    ' . $renderRow($gridRow, $footerStart + $offset) . "\n";
             }
-            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
+            $lines[] = "  <tfoot>\n" . rtrim($tfoot, "\n") . "\n  </tfoot>";
         }
 
         $attrs = $this->renderTableAttributes($node, $renderer);
