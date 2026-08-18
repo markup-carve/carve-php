@@ -79,7 +79,7 @@ class ListContentColumns
         while (true) {
             if (
                 preg_match(
-                    '/^([ \t]*)(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +/',
+                    '/^([ \t]*)(?:[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +/',
                     $rest,
                     $markerMatch,
                 ) === 1
