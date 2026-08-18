@@ -574,6 +574,35 @@ class CarveCorpusTest extends TestCase
         // open a body run. That difference is the whole rule, and it is what
         // catches a fix written one construct too wide.
         'a-footnote-definition-s-block-runs-to-the-end-of-its-body',
+        // markup-carve/carve#1372, four documents. The ruled link case and its
+        // FOOTNOTE kind, plus two controls this engine already answered before
+        // the fix - the heading at the same column, and the peeled spelling the
+        // ruling argues from. All four render byte-identically to their pinned
+        // HTML here, verified per document through CarveConverter and again
+        // through `bin/carve`, because an unverified entry in this list turns a
+        // real divergence into a green run.
+        'a-definition-behind-an-alternating-container-prefix-registers-at-the-innermost-content-column',
+        // markup-carve/carve#1375, five documents, and markup-carve/carve#1379,
+        // three. Both arrived with the bump to carve 275d99d and both were
+        // already answered here: the first by
+        // markup-carve/carve-php#1439's continuation-row fix, the second by a
+        // reading this engine had before the ruling named it - the spec run
+        // that filed it records carve-php as a fourth agreeing reader it had
+        // not measured. Every document was rendered and compared before being
+        // listed.
+        'a-paragraph-opened-after-a-block-in-an-item-is-still-open-for-a-lazy-line',
+        'an-unterminated-container-does-not-extend-the-item-past-a-blank-line',
+        // markup-carve/carve#1385. A task item's checkbox is not decided by its
+        // first block, and the document pins its PLACEMENT rather than merely
+        // that it is emitted - the divergence an engine carries unnoticed
+        // because it reads as whitespace. Rendered and compared before being
+        // listed: this engine writes the checkbox on the `li` opener whether
+        // the first block is a quote, a heading or a thematic break.
+        'a-task-item-s-checkbox-is-not-decided-by-its-first-block',
+        // markup-carve/carve#1386, two documents. Only lazy folding demotes a
+        // marker-line colon opener - a blank below it does not. Both render
+        // byte-identically here already; rendered and compared before listing.
+        'only-lazy-folding-demotes-a-marker-line-colon-opener',
     ];
 
     /**

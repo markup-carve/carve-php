@@ -1302,23 +1302,16 @@ class BlockParser
             // see the same strip in ReferenceDefinitionExtractor. Only a
             // COLUMN-0 marker is stripped: an indented one sits at an item's
             // content column, and eating that indentation loses it.
-            $unquotedForColumns = ContainerPrefix::stripQuoteMarkers($line);
-            $contentCol = $contentColumns->observe($unquotedForColumns, $fence->isOpen());
+            $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
             // item's column it lands on - not necessarily the innermost
             // (carve-php#764).
-            $reachedCol = $contentColumns->reachedBy(
-                strlen($unquotedForColumns) - strlen(ltrim($unquotedForColumns, " \t")),
-            );
-            // Strip any leading blockquote markers before the fence test so a
-            // code fence nested at any blockquote depth (`> ``` `, `> > ``` `)
-            // is tracked and its quoted footnote-looking lines stay literal.
-            // Each entry is the line with THAT many leading markers removed, so
-            // a consumer can ask for the content at its own quote depth rather
-            // than the fully stripped tail (the line block below needs that).
-            $quoteStages = ContainerPrefix::quoteStages($line);
-            $fenceLine = $quoteStages[count($quoteStages) - 1];
+            // COMPOSED, not the leading whitespace: a quote marker in the
+            // prefix is columns the line supplies, and a definition behind
+            // an alternating prefix sits past them
+            // (markup-carve/carve-php#1431).
+            $reachedCol = $contentColumns->reachedByLine($line);
 
             if ($fence->isOpen()) {
                 // LEFT means the line dropped out of the blockquote the fence
@@ -1347,17 +1340,23 @@ class BlockParser
                 // indented `:::` inside a TOP-LEVEL line block is verse text,
                 // and trimming it closed the block there, so the lines after it
                 // registered while the real parser still had them as verse.
-                $closerLine = $quoteStages[$lineBlockDepth] ?? null;
-                $closerView = $closerLine;
-                if ($closerLine !== null && $lineBlockColumn > 0) {
-                    $closerView = ContainerPrefix::atContentColumn($closerLine, $lineBlockColumn);
-                    // A blank line is inside the block, not out of its
-                    // container: it reaches no column and ends nothing.
-                    if ($closerView === null && IndentationHelper::isBlankLine($closerLine)) {
-                        $closerView = '';
-                    }
+                // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, so the
+                // closer is read by the walk that reached the opener rather
+                // than by peeling a leading quote run and then dedenting: a
+                // block opened inside `> - a` writes `>   :::`, where two of
+                // its four columns are the quote marker. The walk reports the
+                // DEPTH it spent them at, and a closer at a different depth is
+                // quoted content rather than the closer
+                // (markup-carve/carve-php#1431).
+                $closerView = ContainerPrefix::atColumnAndDepth($line, $lineBlockColumn, $lineBlockDepth);
+                // A blank line is inside the block, not out of its container:
+                // it reaches no column and ends nothing. Out of the QUOTE the
+                // block sits in it does end, which is why this is asked only of
+                // a block that has a column of its own.
+                if ($closerView === null && $lineBlockColumn > 0 && IndentationHelper::isBlankLine($line)) {
+                    $closerView = '';
                 }
-                if ($closerLine === null || $closerView === null) {
+                if ($closerView === null) {
                     // Out of the blockquote, or dedented past the column the
                     // block was opened at: the container ended and took the
                     // unclosed line block with it.
@@ -1412,21 +1411,23 @@ class BlockParser
             // Exactly the content column comes off and never arbitrary
             // indentation: `   ::: |` at top level is prose, and admitting it
             // skipped the definition under it as verse.
-            $openerView = $fenceLine;
-            $openerColumn = 0;
-            if ($contentCol > 0) {
-                $dedented = ContainerPrefix::atContentColumn($fenceLine, $contentCol);
-                if ($dedented !== null) {
-                    $openerView = $dedented;
-                    $openerColumn = $contentCol;
-                }
-            }
+            // Composed, on the RAW line: the column is reached by spending it
+            // across indentation and quote markers alike, so a `::: |` written
+            // at an item's content column inside a quote is found where
+            // dedenting the quote-stripped tail by the whole column looked two
+            // columns short and left the verse untracked - and a definition
+            // written in it registered (markup-carve/carve-php#1431).
+            $openerWalk = $contentCol > 0 ? ContainerPrefix::innermostAtColumn($line, $contentCol) : null;
+            $openerColumn = $openerWalk !== null ? $contentCol : 0;
+            $openerWalk ??= ContainerPrefix::pastQuoteMarkers($line);
+            $openerView = $openerWalk['line'];
+            $openerDepth = $openerWalk['quoteDepth'];
             $fc0 = $openerView[0] ?? '';
             if ($fc0 === ':') {
                 $lineBlockOpener = $this->parseLineBlockOpener($openerView);
                 if ($lineBlockOpener !== null) {
                     $lineBlockLen = $lineBlockOpener['length'];
-                    $lineBlockDepth = count($quoteStages) - 1;
+                    $lineBlockDepth = $openerDepth;
                     $lineBlockColumn = $openerColumn;
                     $i++;
 
@@ -1481,13 +1482,12 @@ class BlockParser
             // cut into the quote marker and the definition was missed
             // (carve#658).
             $columnBare = $container['kind'] === 'none'
-                ? ContainerPrefix::atContentColumn($unquotedForColumns, $reachedCol)
+                ? ContainerPrefix::atComposedColumn($line, $reachedCol)
                 : null;
             if ($columnBare !== null && preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
-                $quotePrefixLength = strlen($line) - strlen($unquotedForColumns);
                 $container = [
                     'kind' => 'columnContainer',
-                    'prefix' => substr($line, 0, $quotePrefixLength + $reachedCol),
+                    'prefix' => substr($line, 0, $reachedCol),
                 ];
                 $bare = $columnBare;
             }
@@ -1790,8 +1790,35 @@ class BlockParser
     ): array {
         $rest = $line;
         $stripped = false;
+        // THE COLUMN IS A BUDGET, SPENT ACROSS THE WHOLE PREFIX - the same one
+        // the link prepass spends in referenceLineView(), because the two
+        // prepasses answer one question. Asking for the FULL content column on
+        // every turn of the loop only worked while the prefix was one kind:
+        // `- > - > x` puts its innermost quote past column 4, and the
+        // continuation under it spends 2 on indent, 2 on the quote marker and 2
+        // on indent again before the last marker. Re-asking for 4 after the
+        // first quote found 2 columns of indentation and matched nothing, so
+        // the definition was consumed by the block parser and registered by
+        // nobody (markup-carve/carve-php#1431).
+        //
+        // The BOUND is what carries markup-carve/carve-php#788 through: at top
+        // level the budget is 0, so no indentation is eaten and a
+        // `    > [^f]: x` is indented text rather than a quote. Exactly the
+        // column, never arbitrary indentation - now counted across the
+        // composition rather than at one step of it.
+        $budget = $contentCol;
         do {
             $previous = $rest;
+
+            // Indentation is one of the strips the column composes, so it is
+            // spent here rather than admitted wholesale: whatever the budget
+            // still holds, and never more.
+            $whitespace = strlen($rest) - strlen(ltrim($rest, " \t"));
+            $spend = min($whitespace, $budget);
+            if ($spend > 0) {
+                $rest = substr($rest, $spend);
+                $budget -= $spend;
+            }
 
             // Blockquote marker `>` alone or `>` then a literal space. The
             // marker may be INDENTED: inside a list item the quote sits at the
@@ -1801,16 +1828,8 @@ class BlockParser
             // and the author's line rendered nothing AND defined nothing
             // (carve-php#788). The list-marker arm below already ltrims.
             $quoteContent = $this->blockQuoteLineContent($rest);
-            if ($quoteContent === null) {
-                // EXACTLY the item's content column, never arbitrary
-                // indentation: a top-level `    > [r]: /u` is indented text,
-                // not a quote (tests/BlockquoteRefDefTest).
-                $atColumn = ContainerPrefix::atContentColumn($rest, $contentCol);
-                if ($atColumn !== null) {
-                    $quoteContent = $this->blockQuoteLineContent($atColumn);
-                }
-            }
             if ($quoteContent !== null) {
+                $budget = max(0, $budget - (strlen($rest) - strlen($quoteContent)));
                 $rest = $quoteContent;
                 $stripped = true;
 
@@ -1825,6 +1844,7 @@ class BlockParser
             $info = $this->listParser->parseListItemMarker($trimmed);
             if ($info !== null && $info['type'] !== 'task') {
                 $markerWidth = strlen($rest) - strlen((string)$info['content']);
+                $budget = max(0, $budget - $markerWidth);
                 $rest = substr($rest, $markerWidth);
                 $stripped = true;
 

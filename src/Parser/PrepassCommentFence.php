@@ -185,7 +185,7 @@ class PrepassCommentFence
         if ($opener === null) {
             return false;
         }
-        [$quotes, $column, $length] = $opener;
+        [$quotes, $column, $length, $composedColumn] = $opener;
 
         // An indented fence is the CONTAINER's, and only the container's. Below
         // the item's content column it is §24 C3 residual indent rather than
@@ -193,13 +193,20 @@ class PrepassCommentFence
         // may hold its own body below its fence - reading either as a
         // container-scoped fence mispairs the delimiters.
         //
-        // The column tested is the one INSIDE the innermost quote, which is
-        // where the callers measure the content column they hand in
-        // (markup-carve/carve#658). A prefix ending in a quote marker leaves no
-        // indent to test and skips this; what bounds THAT shape is the
-        // container test below, which walks the quote indents against every
-        // line under the fence.
-        if ($column > 0 && ($contentColumn === 0 || $column < $contentColumn)) {
+        // The column tested is the COMPOSED one - every column the prefix walk
+        // consumed, quote markers and list markers included - because that is
+        // the frame the callers measure the content column in
+        // (markup-carve/carve-php#1431; THE COLUMN IS REACHED BY COMPOSING THE
+        // STRIPS, grammar PART 1 S4). Testing only the indent INSIDE the
+        // innermost quote compared four columns of `>   %%%` against the two it
+        // leads with, so a fence inside a quoted item was refused and the
+        // definition in its body registered as a real one.
+        //
+        // A prefix ending in a quote marker leaves no indent of its own to
+        // test and skips this; what bounds THAT shape is the container test
+        // below, which walks the quote indents against every line under the
+        // fence.
+        if ($column > 0 && ($contentColumn === 0 || $composedColumn < $contentColumn)) {
             return false;
         }
 
@@ -259,14 +266,19 @@ class PrepassCommentFence
      * column and no container: `- %%%` opens at the item's content column
      * rather than at 0 (corpus 337), and `- - %%%` at 4.
      *
-     * @return array{0: array<int>, 1: int, 2: int}|null [quote indents, column, width]
+     * @return array{0: array<int>, 1: int, 2: int, 3: int}|null [quote indents, column, width, composed column]
      */
     protected static function openerOn(string $line): ?array
     {
         [$quotes, $rest, $column] = self::prefixOn($line, true);
         $run = strspn($rest, '%');
 
-        return $run >= 3 ? [$quotes, $column, $run] : null;
+        // The COMPOSED column, in the bytes {@see ListContentColumns} counts:
+        // everything the prefix walk consumed, whichever order the line spells
+        // it in. `$column` above is the residue inside the innermost quote and
+        // answers a different question - which line has left the container -
+        // so both are returned rather than one standing in for the other.
+        return $run >= 3 ? [$quotes, $column, $run, strlen($line) - strlen($rest)] : null;
     }
 
     /**

@@ -91,14 +91,18 @@ class PrepassFenceTracker
      */
     public function advance(string $line): string
     {
-        $closeLine = $this->atQuoteDepth($line);
-        if ($closeLine === null) {
+        $closer = $this->atQuoteDepth($line);
+        if ($closer === null) {
             $this->reset();
 
             return self::LEFT;
         }
 
-        $deIndentedCloseLine = ContainerPrefix::atContentColumn($closeLine, $this->contentColumn) ?? $closeLine;
+        // Whatever the prefix walk did NOT spend is the closer's own
+        // indentation inside the innermost quote. Asking for the whole content
+        // column again here would ask a second time for the columns the quote
+        // markers already paid (markup-carve/carve-php#1431).
+        $deIndentedCloseLine = ContainerPrefix::atContentColumn($closer['line'], $closer['budget']) ?? $closer['line'];
 
         if (
             // The closer INDEX and the closer TESTS spell the same class, so the
@@ -119,26 +123,41 @@ class PrepassFenceTracker
     }
 
     /**
-     * The line with exactly the fence's own blockquote markers removed, or null
-     * when it never reaches that depth.
+     * The line with exactly the fence's own blockquote markers removed, and the
+     * part of the content column those markers did not spend - or null when the
+     * line never reaches that depth.
      *
      * Reading the closer at the depth the fence OPENED at is what keeps a
      * nested `> > ``` ` as quoted code content rather than the closer of
      * `> ``` `: stripping every marker ended the region there and let the
      * definitions under it register (carve-php#685).
+     *
+     * THE COLUMN IS A BUDGET, SPENT ACROSS THE WHOLE PREFIX. A marker inside a
+     * list item sits at the item's content column rather than at position 0
+     * (a quoted fence written at an item's content column), so the indentation
+     * in front of it is spent from the column here instead of ending the walk - exactly the column, never
+     * arbitrary indentation (markup-carve/carve-php#1431).
+     *
+     * @return array{line: string, budget: int}|null
      */
-    protected function atQuoteDepth(string $line): ?string
+    protected function atQuoteDepth(string $line): ?array
     {
         $rest = $line;
+        $budget = $this->contentColumn;
         for ($depth = 0; $depth < $this->quoteDepth; $depth++) {
+            $trimmed = ltrim($rest, " \t");
+            $spend = min(strlen($rest) - strlen($trimmed), $budget);
+            $rest = substr($rest, $spend);
+            $budget -= $spend;
             $content = ContainerPrefix::quoteContent($rest);
             if ($content === null) {
                 return null;
             }
+            $budget = max(0, $budget - (strlen($rest) - strlen($content)));
             $rest = $content;
         }
 
-        return $rest;
+        return ['line' => $rest, 'budget' => $budget];
     }
 
     protected function reset(): void
@@ -194,20 +213,46 @@ class PrepassFenceTracker
     {
         $fenceLine = $line;
         $quoteDepth = 0;
+        // THE COLUMN IS A BUDGET here too, and for the same reason the closer
+        // spends one {@see self::atQuoteDepth()}: inside `> - a` the fence's
+        // own line writes `>   ``` `, where two of the four columns are the
+        // quote marker. Dedenting by the whole column AFTER the markers came
+        // off asked for those two a second time, found two columns of
+        // indentation and left the residual `  ``` ` - which opens no fence, so
+        // a definition inside the SAMPLE was collected as a real one
+        // (markup-carve/carve-php#1431).
+        $budget = $contentColumn;
         do {
             $previousFenceLine = $fenceLine;
+
+            $trimmed = ltrim($fenceLine, " \t");
+            $spend = min(strlen($fenceLine) - strlen($trimmed), $budget);
+            if ($spend > 0) {
+                $fenceLine = substr($fenceLine, $spend);
+                $budget -= $spend;
+            }
+
             $quoteContent = ContainerPrefix::quoteContent($fenceLine);
             if ($quoteContent !== null) {
+                $budget = max(0, $budget - (strlen($fenceLine) - strlen($quoteContent)));
                 $fenceLine = $quoteContent;
                 $quoteDepth++;
             }
-            $fenceLine = $this->stripListMarker($fenceLine);
+
+            $afterMarker = $this->stripListMarker($fenceLine);
+            if ($afterMarker !== $fenceLine) {
+                $budget = max(0, $budget - (strlen($fenceLine) - strlen($afterMarker)));
+                $fenceLine = $afterMarker;
+            }
         } while ($fenceLine !== $previousFenceLine);
 
-        return [
-            'line' => ContainerPrefix::atContentColumn($fenceLine, $contentColumn) ?? $fenceLine,
-            'quoteDepth' => $quoteDepth,
-        ];
+        // No trailing dedent: the loop exits only when the budget is spent or
+        // the line has no indentation left, so there is nothing a dedent here
+        // could still remove. One that asked for the whole column again was
+        // what broke a quoted item's fence in the first place, and one that
+        // asks for the REMAINDER cannot fire at all - a check that cannot fail
+        // is worse than none (markup-carve/carve#755).
+        return ['line' => $fenceLine, 'quoteDepth' => $quoteDepth];
     }
 
     protected function stripListMarker(string $line): string

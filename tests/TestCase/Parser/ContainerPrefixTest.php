@@ -138,22 +138,39 @@ class ContainerPrefixTest extends TestCase
     }
 
     /**
-     * There is exactly ONE marker rule to ask. A second public spelling on this
-     * class is what let the prepasses and the block parser answer differently
-     * in the first place, so its absence is asserted rather than assumed.
+     * There is exactly ONE marker rule to ask. A second spelling on this class
+     * is what let the prepasses and the block parser answer differently in the
+     * first place, so its absence is asserted rather than assumed.
+     *
+     * A NAME LIST CANNOT SAY THAT. It said it while the class had four methods
+     * and one of them held the rule, but every reading added since is a
+     * READING - a column, a depth, a walk - and a list only asks whether the
+     * roster changed. So the assertion is on the rule itself: exactly one
+     * method may test for the marker character, and it is
+     * {@see \MarkupCarve\Carve\Parser\ContainerPrefix::quoteMarkerWidth()}.
+     * Adding a reading passes; open-coding `>` in one does not
+     * (markup-carve/carve-php#1431).
      */
     public function testTheClassSpellsTheMarkerRuleOnce(): void
     {
-        $methods = array_map(
-            static fn (ReflectionMethod $m): string => $m->getName(),
-            (new ReflectionClass(ContainerPrefix::class))->getMethods(ReflectionMethod::IS_PUBLIC),
-        );
-        sort($methods);
+        $source = (string)file_get_contents((string)(new ReflectionClass(ContainerPrefix::class))->getFileName());
+        $lines = explode("\n", $source);
 
-        $this->assertSame(
-            ['atContentColumn', 'quoteContent', 'quoteStages', 'stripQuoteMarkers'],
-            $methods,
-        );
+        $spellsIt = [];
+        foreach ((new ReflectionClass(ContainerPrefix::class))->getMethods() as $method) {
+            $start = (int)$method->getStartLine();
+            $end = (int)$method->getEndLine();
+            $body = implode("\n", array_slice($lines, $start - 1, $end - $start + 1));
+            // Strip line comments so the PROSE about the rule does not read as
+            // a second spelling of it.
+            $body = (string)preg_replace('#^\s*(?://|\*|/\*).*$#m', '', $body);
+            if (str_contains($body, "'>'")) {
+                $spellsIt[] = $method->getName();
+            }
+        }
+        sort($spellsIt);
+
+        $this->assertSame(['quoteMarkerWidth'], $spellsIt);
     }
 
     public function testTheContentColumnViewIsMeasuredInBytes(): void
