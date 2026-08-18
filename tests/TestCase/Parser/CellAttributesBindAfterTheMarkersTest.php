@@ -187,11 +187,13 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
 
     public function testQuestionMarkInheritsOnlyHorizontalAlignment(): void
     {
-        $source = "|=>^ H |\n|?v x |\n";
+        $source = "|=> H |=> H |=> H |\n|?^ top |?~ middle |?v bottom |\n";
         $html = $this->html($source);
 
-        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">x</td>', $html);
-        $this->assertStringContainsString('|?v x |', $this->fmt($source));
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: top;">top</td>', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: middle;">middle</td>', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">bottom</td>', $html);
+        $this->assertStringContainsString('|?^ top |?~ middle |?v bottom |', $this->fmt($source));
 
         foreach (
             [
