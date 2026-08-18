@@ -523,6 +523,7 @@ if (($options['command'] ?? null) === 'lint') {
     $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
     $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
     $retiredLinter = new MarkupCarve\Carve\Lint\RetiredSpellingLinter();
+    $tableColumnLinter = new MarkupCarve\Carve\Lint\TableColumnLinter();
     $templateSourceLinter = new MarkupCarve\Carve\Lint\TemplateSourceLinter();
     $figureGroupLinter = new MarkupCarve\Carve\Lint\FigureGroupLinter();
     $sources = [];
@@ -554,6 +555,7 @@ if (($options['command'] ?? null) === 'lint') {
             $linter->lint($source, ['platforms' => $options['platforms']]),
             $semanticLinter->lint($source),
             $retiredLinter->lint($source),
+            $tableColumnLinter->lint($source),
             $templateSourceLinter->lint($source),
             $figureGroupLinter->lint($source),
         );

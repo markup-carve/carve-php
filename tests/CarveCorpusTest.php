@@ -46,6 +46,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'table-columns-carry-alignment-vertical-alignment-and-widths',
+        'a-table-alignment-run-carries-two-independent-axes',
         'the-semantic-registry-holds-no-element-carve-already-spells',
         'a-language-attribute-is-exact-sugar-for-lang',
         'a-malformed-language-tag-leaves-the-whole-block-literal',
@@ -634,8 +636,15 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '366-table-columns-carry-alignment-vertical-alignment-and-widths' => 'carve#1391: positional table metadata is not implemented yet',
-        '367-a-table-alignment-run-carries-two-independent-axes' => 'carve#1391: vertical cell alignment is not implemented yet',
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-2' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-3' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-2' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-3' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-4' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-5' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-6' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
     ];
 
     /**

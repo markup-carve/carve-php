@@ -30,6 +30,30 @@ class TableCell extends BlockNode
     public const ALIGN_RIGHT = 'right';
 
     /**
+     * @var string
+     */
+    public const VALIGN_DEFAULT = 'default';
+
+    /**
+     * @var string
+     */
+    public const VALIGN_TOP = 'top';
+
+    /**
+     * @var string
+     */
+    public const VALIGN_MIDDLE = 'middle';
+
+    /**
+     * @var string
+     */
+    public const VALIGN_BOTTOM = 'bottom';
+
+    protected string $verticalAlignment = self::VALIGN_DEFAULT;
+
+    protected bool $hasExplicitVerticalAlignment = false;
+
+    /**
      * Whether the alignment is the CELL's own rather than the column's.
      *
      * Null infers it from the alignment argument, which is what a caller
@@ -68,6 +92,22 @@ class TableCell extends BlockNode
     public function setExplicitAlignment(bool $explicit): void
     {
         $this->hasExplicitAlignment = $explicit;
+    }
+
+    public function getVerticalAlignment(): string
+    {
+        return $this->verticalAlignment;
+    }
+
+    public function setVerticalAlignment(string $alignment, bool $explicit = true): void
+    {
+        $this->verticalAlignment = $alignment;
+        $this->hasExplicitVerticalAlignment = $explicit;
+    }
+
+    public function hasExplicitVerticalAlignment(): bool
+    {
+        return $this->hasExplicitVerticalAlignment;
     }
 
     public function getRowspan(): int

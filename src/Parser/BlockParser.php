@@ -3492,6 +3492,45 @@ class BlockParser
         }
     }
 
+    private function applyTableColumns(Table $table): void
+    {
+        $widest = 0;
+        foreach ($table->getChildren() as $row) {
+            if ($row instanceof TableRow) {
+                $widest = max($widest, count($row->getChildren()));
+            }
+        }
+        $columns = array_fill(0, $widest, []);
+        $fields = [
+            'aligns' => ['field' => 'align', 'allowed' => ['left', 'right', 'center']],
+            'valigns' => ['field' => 'valign', 'allowed' => ['top', 'middle', 'bottom']],
+        ];
+        foreach ($fields as $key => $definition) {
+            $raw = $table->getAttribute($key);
+            if (!is_string($raw)) {
+                continue;
+            }
+            foreach (explode(',', $raw) as $index => $value) {
+                $value = trim($value);
+                if ($index < $widest && in_array($value, $definition['allowed'], true)) {
+                    $columns[$index][$definition['field']] = $value;
+                }
+            }
+        }
+        $rawWidths = $table->getAttribute('widths');
+        if (is_string($rawWidths)) {
+            foreach (explode(',', $rawWidths) as $index => $value) {
+                $width = is_numeric(trim($value)) ? (float)trim($value) : 0.0;
+                if ($index < $widest && $width > 0.0 && $width <= 100.0) {
+                    $columns[$index]['width'] = $width / 100.0;
+                }
+            }
+        }
+        if (array_filter($columns) !== []) {
+            $table->setColumns($columns);
+        }
+    }
+
     /**
      * Consume and return pending block attributes
      *
@@ -8531,15 +8570,15 @@ class BlockParser
      * markers, not alignment — their leading space means index 0 is not a
      * marker char, so they are left untouched here.
      *
-     * @return array{header: bool, align: string|null, content: string}
+     * @return array{header: bool, align: string|null, valign: string|null, content: string}
      */
-    protected function parseTableCellMarker(string $raw): array
+    protected function parseTableCellMarker(string $raw, bool $markerOnly = false): array
     {
         // The run's WIDTH is measured once, in the table parser, because
         // `parseTableCellsWithAttributes()` needs the same measurement to find
         // the attribute block that binds after it (PART 9 §5 T10). Only the
         // meaning is read here.
-        $run = $this->tableParser->cellMarkerRunLength($raw);
+        $run = $markerOnly ? strlen($raw) : $this->tableParser->cellMarkerRunLength($raw);
         $prefix = substr($raw, 0, $run);
         // A leading `=` glued to the pipe marks a header cell and is stripped;
         // the remaining content is parsed inline. This holds even when the next
@@ -8548,9 +8587,22 @@ class BlockParser
         // A SPACED `| ==x== |` is not a header cell: the leading space means
         // index 0 is not `=`, so it is left untouched here.
         $header = str_starts_with($prefix, '=');
-        $align = self::TABLE_ALIGNMENT_MARKERS[substr($prefix, $header ? 1 : 0)] ?? null;
+        $markers = substr($prefix, $header ? 1 : 0);
+        $align = null;
+        $valign = null;
+        foreach (str_split($markers) as $marker) {
+            if (isset(self::TABLE_ALIGNMENT_MARKERS[$marker])) {
+                if ($align === null) {
+                    $align = self::TABLE_ALIGNMENT_MARKERS[$marker];
+                } elseif ($marker === '~' && $valign === null) {
+                    $valign = TableCell::VALIGN_MIDDLE;
+                }
+            } elseif ($valign === null) {
+                $valign = $marker === '^' ? TableCell::VALIGN_TOP : TableCell::VALIGN_BOTTOM;
+            }
+        }
 
-        return ['header' => $header, 'align' => $align, 'content' => substr($raw, $run)];
+        return ['header' => $header, 'align' => $align, 'valign' => $valign, 'content' => substr($raw, $run)];
     }
 
     /**
@@ -8583,6 +8635,7 @@ class BlockParser
         // Per-column alignment from Carve header markers (|=>, |=~, |=<),
         // keyed by column position; propagates to the column's body cells.
         $columnAligns = [];
+        $columnValigns = [];
         $headerFound = false;
         // Whether the most recently added data row's own line was shaped like
         // a separator ( |:-:| ): such a row must not be promoted to a header
@@ -8886,7 +8939,7 @@ class BlockParser
                 // after the block is content, which is what keeps the `<` in
                 // `|{#x}< content |` literal and the `=` in `|{#x}=R|` text.
                 $attributed = $cellData['attributes'] !== '';
-                $marker = $this->parseTableCellMarker($attributed ? $cellData['marker'] : $cellData['content']);
+                $marker = $this->parseTableCellMarker($attributed ? $cellData['marker'] : $cellData['content'], $attributed);
                 if ($attributed) {
                     $marker['content'] = $cellData['content'];
                 }
@@ -8916,6 +8969,14 @@ class BlockParser
                     null,
                     $explicitAlign,
                 );
+                if ($marker['valign'] !== null) {
+                    $cell->setVerticalAlignment($marker['valign']);
+                    if ($isHeaderRow) {
+                        $columnValigns[$col] = $marker['valign'];
+                    }
+                } elseif (isset($columnValigns[$col])) {
+                    $cell->setVerticalAlignment($columnValigns[$col], false);
+                }
                 if ($cellData['attributes'] !== '') {
                     // Apply in source order (matching inline attributes and
                     // carve-js), not via setAttributes() which reorders.
@@ -8989,6 +9050,7 @@ class BlockParser
         }
 
         $this->applyPendingAttributes($table);
+        $this->applyTableColumns($table);
         $rows = $table->getChildren();
         if ($rows !== []) {
             $first = $this->tableLineSpan($start);

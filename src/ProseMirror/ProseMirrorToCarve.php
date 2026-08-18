@@ -1460,6 +1460,10 @@ class ProseMirrorToCarve
                     true,
                 ) => $this->setState($node, 'alignment', self::asString($value))
                     && $this->setState($node, 'hasExplicitAlignment', true),
+                $node instanceof TableCell && in_array($key, ['verticalAlign', 'verticalAlignment'], true)
+                    && in_array(self::asString($value), [TableCell::VALIGN_TOP, TableCell::VALIGN_MIDDLE, TableCell::VALIGN_BOTTOM], true)
+                    => $this->setState($node, 'verticalAlignment', self::asString($value))
+                    && $this->setState($node, 'hasExplicitVerticalAlignment', true),
                 $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
                 $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(

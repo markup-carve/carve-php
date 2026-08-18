@@ -1551,11 +1551,14 @@ class CarveRenderer implements RendererInterface
         // two engines byte for byte, and re-parsing it here restores the same
         // resolved alignment.
         $headerAligns = [];
+        $headerValigns = [];
         if ($headerRow) {
             $headerColumn = 0;
             foreach ($tableRows[0]->getChildren() as $cell) {
                 if ($cell instanceof TableCell) {
-                    $headerAligns[$headerColumn++] = $cell->getAlignment();
+                    $headerAligns[$headerColumn] = $cell->getAlignment();
+                    $headerValigns[$headerColumn] = $cell->getVerticalAlignment();
+                    $headerColumn++;
                 }
             }
         }
@@ -1586,7 +1589,11 @@ class CarveRenderer implements RendererInterface
                     && $rowIndex > 0
                     && !$cell->hasExplicitAlignment()
                     && ($headerAligns[$column] ?? null) === $cell->getAlignment();
-                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
+                $inheritedVertical = $headerRow
+                    && $rowIndex > 0
+                    && !$cell->hasExplicitVerticalAlignment()
+                    && ($headerValigns[$column] ?? null) === $cell->getVerticalAlignment();
+                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
                 $column++;
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
@@ -1640,8 +1647,12 @@ class CarveRenderer implements RendererInterface
         return $prefix . ' ' . $content . ' ';
     }
 
-    protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): string
-    {
+    protected function renderTableCell(
+        TableCell $cell,
+        bool $markHeader = true,
+        bool $inheritedAlign = false,
+        bool $inheritedValign = false,
+    ): string {
         $attrs = $this->renderAttrs($cell);
         // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
         // `<` is also the left-alignment sigil, and the two readings differ: the
@@ -1660,13 +1671,19 @@ class CarveRenderer implements RendererInterface
             return $this->padCell($attrs, $cell->getSpanMarker());
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
+        $valign = $inheritedValign ? '' : match ($cell->getVerticalAlignment()) {
+            TableCell::VALIGN_TOP => '^',
+            TableCell::VALIGN_MIDDLE => '~',
+            TableCell::VALIGN_BOTTOM => 'v',
+            default => '',
+        };
         // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
         // of the `=` produced `|{#x}=R|`, which every reader takes as a DATA
         // cell whose content starts with `=`, so a `<th id="x">R</th>` came back
         // as `<td id="x">=R</td>` and PART 11 §1 failed on it. This order is
         // meaning-preserving instead: `|={#x} R |` parses back to the node that
         // was written.
-        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $attrs;
+        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $valign . $attrs;
 
         $this->tableCellDepth++;
         try {

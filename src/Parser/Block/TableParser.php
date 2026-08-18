@@ -576,18 +576,33 @@ class TableParser
     {
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
         $start = $length;
-        while (str_contains('<>~^v', $cell[$length] ?? '')) {
+        $horizontal = false;
+        $vertical = false;
+        while (isset($cell[$length]) && str_contains('<>~^v', $cell[$length])) {
+            $marker = $cell[$length];
+            if (str_contains('<>~', $marker)) {
+                if (!$horizontal) {
+                    $horizontal = true;
+                } elseif ($marker === '~' && !$vertical) {
+                    $vertical = true;
+                } else {
+                    break;
+                }
+            } elseif (!$vertical) {
+                $vertical = true;
+            } else {
+                break;
+            }
             $length++;
         }
 
         if ($length === $start) {
             return $length;
         }
-        $run = substr($cell, $start, $length - $start);
-        $horizontal = preg_match_all('/[<>~]/', $run);
-        $vertical = preg_match_all('/[\^v]/', $run) + max(0, substr_count($run, '~') - 1);
-        $terminated = preg_match('/[ \t\r\n\f]/', $cell[$length] ?? '') === 1 || ($cell[$length] ?? '') === '{';
-        if (!$terminated || $horizontal > 1 && $run !== '~~' || $vertical > 1) {
+        $next = $cell[$length] ?? null;
+        $terminated = $next !== null
+            && (preg_match('/[ \t\r\n\f]/', $next) === 1 || $next === '{' || str_contains('<>~^v', $next));
+        if (!$terminated) {
             return $start;
         }
 

@@ -1757,6 +1757,14 @@ class AstCodec
             ) {
                 continue;
             }
+            if (
+                $field === 'valign'
+                && $node instanceof TableCell
+                && !$node->isHeader()
+                && !$node->hasExplicitVerticalAlignment()
+            ) {
+                continue;
+            }
 
             $encoded[$field] = $this->encodeValue($value);
         }
@@ -2170,6 +2178,7 @@ class AstCodec
         if ($node instanceof TableCell && array_key_exists('header', $data)) {
             self::writeProperty($node, 'isHeader', $data['header'] === true);
             $node->setExplicitAlignment(array_key_exists('align', $data));
+            self::writeProperty($node, 'hasExplicitVerticalAlignment', array_key_exists('valign', $data));
 
             return;
         }
@@ -2210,6 +2219,7 @@ class AstCodec
             // recomputation a consumer performs, rather than a field the
             // reference does not have.
             $columns = [];
+            $verticalColumns = [];
             foreach ($node->getChildren() as $row) {
                 if (!$row instanceof TableRow || !$row->isHeader()) {
                     continue;
@@ -2218,6 +2228,7 @@ class AstCodec
                 foreach ($row->getChildren() as $cell) {
                     if ($cell instanceof TableCell) {
                         $columns[$index] = $cell->getAlignment();
+                        $verticalColumns[$index] = $cell->getVerticalAlignment();
                         $index++;
                     }
                 }
@@ -2236,6 +2247,9 @@ class AstCodec
                         }
                         if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
                             self::writeProperty($cell, 'alignment', $columns[$index]);
+                        }
+                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
+                            $cell->setVerticalAlignment($verticalColumns[$index], false);
                         }
                         $index++;
                     }
