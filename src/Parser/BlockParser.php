@@ -4497,56 +4497,60 @@ class BlockParser
         // reset whenever that changes. Checked before the mode branches, since
         // those return early - and only on the outermost call, because the
         // recursion is one line's walk rather than a new line.
-        if (!$nested) {
-            $depth = 0;
-            for ($rest = $content; ($deeper = ContainerPrefix::quoteContent(rtrim($rest, " \t"))) !== null; $rest = $deeper) {
-                $depth++;
+        while (true) {
+            if (!$nested) {
+                // COUNTED IN ONE SCAN. Peeling with quoteContent() copies the rest
+                // of the line per marker, so a line of 50000 quote markers cost
+                // 50000 substrings of ~100000 bytes and the parse never returned
+                // (tests/TestCase/DeepNestingTest). The marker rule is spelled once
+                // in ContainerPrefix and this counts the same shape without
+                // materializing the tail.
+                $depth = self::countLeadingQuoteMarkers($content);
+                if ($state['innerDepth'] !== $depth) {
+                    $paragraphOpen = $state['paragraphOpen'];
+                    $state = self::initialBlockQuoteLazyState();
+                    $state['innerDepth'] = $depth;
+                    // The PARAGRAPH survives a change of depth: it is the outer
+                    // quote's own last block, and what ends is the nested run.
+                    $state['paragraphOpen'] = $paragraphOpen;
+                }
             }
-            if ($state['innerDepth'] !== $depth) {
-                $paragraphOpen = $state['paragraphOpen'];
-                $state = self::initialBlockQuoteLazyState();
-                $state['innerDepth'] = $depth;
-                // The PARAGRAPH survives a change of depth: it is the outer
-                // quote's own last block, and what ends is the nested run.
-                $state['paragraphOpen'] = $paragraphOpen;
-            }
-        }
 
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Cleared here and re-armed only in the
         // branches that continue the same paragraph, exactly as the list-item
         // tracker does it.
-        $wasAbsorbing = $state['absorbingFence'];
-        $state['absorbingFence'] = false;
+            $wasAbsorbing = $state['absorbingFence'];
+            $state['absorbingFence'] = false;
         // A CONTINUATION ROW IS MORE TABLE, and only where a table is above it
         // (markup-carve/carve#1349). Carried the same way the absorption is,
         // and for the same reason: every other block ends the table.
-        $wasInTable = $state['inTable'];
-        $state['inTable'] = false;
+            $wasInTable = $state['inTable'];
+            $state['inTable'] = false;
 
-        if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
-            if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
-                $state['mode'] = BlockQuoteLazyMode::Content;
+            if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
+                if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
+                    $state['mode'] = BlockQuoteLazyMode::Content;
+                }
+                $state['paragraphOpen'] = false;
+
+                return;
             }
-            $state['paragraphOpen'] = false;
 
-            return;
-        }
+            if ($state['mode'] === BlockQuoteLazyMode::CodeFence) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($content, $state['fenceChar'], $state['fenceLength'])) {
+                    $state['mode'] = BlockQuoteLazyMode::Content;
+                }
+                $state['paragraphOpen'] = false;
 
-        if ($state['mode'] === BlockQuoteLazyMode::CodeFence) {
-            if ($this->fencedBlockParser->isCodeFenceCloser($content, $state['fenceChar'], $state['fenceLength'])) {
-                $state['mode'] = BlockQuoteLazyMode::Content;
+                return;
             }
-            $state['paragraphOpen'] = false;
 
-            return;
-        }
+            if (IndentationHelper::isBlankLine($content)) {
+                $state['paragraphOpen'] = false;
 
-        if (IndentationHelper::isBlankLine($content)) {
-            $state['paragraphOpen'] = false;
-
-            return;
-        }
+                return;
+            }
 
         // This only tracks LAZY-CONTINUATION state (which non-">" lines extend the
         // quote), not how the collected content is block-parsed -- §10 paragraph
@@ -4555,26 +4559,26 @@ class BlockParser
         // only when no paragraph is open (the opener is the first content, or
         // follows a blank line); a marker mid-paragraph leaves the paragraph open
         // so a following unquoted line still lazily continues it.
-        if (!$state['paragraphOpen']) {
-            $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($content);
-            if ($fenceInfo !== null) {
-                $state['mode'] = BlockQuoteLazyMode::CodeFence;
-                $state['fenceChar'] = $fenceInfo['char'];
-                $state['fenceLength'] = $fenceInfo['length'];
-                $state['paragraphOpen'] = false;
+            if (!$state['paragraphOpen']) {
+                $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($content);
+                if ($fenceInfo !== null) {
+                    $state['mode'] = BlockQuoteLazyMode::CodeFence;
+                    $state['fenceChar'] = $fenceInfo['char'];
+                    $state['fenceLength'] = $fenceInfo['length'];
+                    $state['paragraphOpen'] = false;
 
-                return;
+                    return;
+                }
+
+                $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($content);
+                if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
+                    $state['mode'] = BlockQuoteLazyMode::CommentFence;
+                    $state['commentLength'] = $commentInfo['length'];
+                    $state['paragraphOpen'] = false;
+
+                    return;
+                }
             }
-
-            $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($content);
-            if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
-                $state['mode'] = BlockQuoteLazyMode::CommentFence;
-                $state['commentLength'] = $commentInfo['length'];
-                $state['paragraphOpen'] = false;
-
-                return;
-            }
-        }
 
         // A DIV IS A CONTAINER ON THE OPEN STACK, and S4 asks what that stack
         // holds - not which container kind is on it. This branch used to sit
@@ -4584,97 +4588,97 @@ class BlockParser
         // list item already answered correctly, and one construct answering S4
         // two ways is a bug in one of the two paths
         // (markup-carve/carve#920, corpus 271).
-        if ($state['mode'] === BlockQuoteLazyMode::Div) {
-            if ($this->fencedBlockParser->isDivFenceCloser($content, $state['divFenceLength'])) {
-                // A CLOSED container holds no open paragraph either.
-                $state['divDepth']--;
-                $state['mode'] = $state['divDepth'] > 0 ? BlockQuoteLazyMode::Div : BlockQuoteLazyMode::Content;
-                $state['paragraphOpen'] = false;
+            if ($state['mode'] === BlockQuoteLazyMode::Div) {
+                if ($this->fencedBlockParser->isDivFenceCloser($content, $state['divFenceLength'])) {
+                    // A CLOSED container holds no open paragraph either.
+                    $state['divDepth']--;
+                    $state['mode'] = $state['divDepth'] > 0 ? BlockQuoteLazyMode::Div : BlockQuoteLazyMode::Content;
+                    $state['paragraphOpen'] = false;
 
-                return;
-            }
+                    return;
+                }
 
-            // A NESTED OPENER IS STILL AN OPENER. S4 asks about the INNERMOST
-            // open container, so a `:::: tip` as the last line inside a `:::
-            // note` leaves an EMPTY container on the stack and no paragraph -
-            // the same answer the outer opener gets one level up. A code fence
-            // opener leaves none either.
-            if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
-                $state['divDepth']++;
-                $state['paragraphOpen'] = false;
+                // A NESTED OPENER IS STILL AN OPENER. S4 asks about the INNERMOST
+                // open container, so a `:::: tip` as the last line inside a `:::
+                // note` leaves an EMPTY container on the stack and no paragraph -
+                // the same answer the outer opener gets one level up. A code fence
+                // opener leaves none either.
+                if ($this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
+                    $state['divDepth']++;
+                    $state['paragraphOpen'] = false;
 
-                return;
-            }
-            if ($this->fencedBlockParser->parseCodeFenceOpener($content) !== null) {
-                $state['paragraphOpen'] = false;
+                    return;
+                }
+                if ($this->fencedBlockParser->parseCodeFenceOpener($content) !== null) {
+                    $state['paragraphOpen'] = false;
 
-                return;
-            }
+                    return;
+                }
 
-            // A BOUNDED BLOCK inside the div leaves no open paragraph either,
-            // for the same reason it does not outside one: a heading, a
-            // thematic break and a table row all end at their own boundary.
-            // Measured against the executable spec rather than assumed - the
-            // list-item path answers the HEADING row the other way, and both
-            // are reproduced as measured rather than made consistent.
-            $trimmedInDiv = ltrim($content, " \t");
-            if (
-                preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
-                || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
-                || $this->tableParser->isTableRow($trimmedInDiv)
-            ) {
-                $state['paragraphOpen'] = false;
+                // A BOUNDED BLOCK inside the div leaves no open paragraph either,
+                // for the same reason it does not outside one: a heading, a
+                // thematic break and a table row all end at their own boundary.
+                // Measured against the executable spec rather than assumed - the
+                // list-item path answers the HEADING row the other way, and both
+                // are reproduced as measured rather than made consistent.
+                $trimmedInDiv = ltrim($content, " \t");
+                if (
+                    preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
+                    || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                    || $this->tableParser->isTableRow($trimmedInDiv)
+                ) {
+                    $state['paragraphOpen'] = false;
 
-                return;
-            }
+                    return;
+                }
 
-            // An UNTERMINATED div's own trailing block decides: a line of body
-            // text in it IS an open paragraph, which is what folds the
-            // flush-left line into a real div rather than ending the quote. A
-            // BLANK line never reaches here - the branch above it returns first
-            // and leaves `inDiv` standing - so every line that does is body.
-            $state['paragraphOpen'] = true;
-
-            return;
-        }
-
-        $bareFence = preg_match('/^:{3,}[ \t]*$/', ltrim($content, " \t")) === 1;
-        $divOpener = $this->fencedBlockParser->parseDivFenceOpener($content);
-        if ($divOpener !== null) {
-            // ...unless the paragraph above already absorbed a MALFORMED fence
-            // and this is a BARE run, in which case §12 takes it as text too and
-            // the paragraph stays open (corpus 260). Not width-tagged: after a
-            // malformed `:::note` a following `::::` is absorbed as readily as a
-            // `:::`.
-            if ($wasAbsorbing && $bareFence) {
-                $state['absorbingFence'] = true;
+                // An UNTERMINATED div's own trailing block decides: a line of body
+                // text in it IS an open paragraph, which is what folds the
+                // flush-left line into a real div rather than ending the quote. A
+                // BLANK line never reaches here - the branch above it returns first
+                // and leaves `inDiv` standing - so every line that does is body.
                 $state['paragraphOpen'] = true;
 
                 return;
             }
-            // A container a quoted line has just opened is EMPTY and holds no
-            // open paragraph, so a flush-left line after it closes the quote
-            // instead of folding in.
-            /** @var int $divFenceLength */
-            $divFenceLength = $divOpener['length'];
-            $state['mode'] = BlockQuoteLazyMode::Div;
-            $state['divFenceLength'] = $divFenceLength;
-            $state['divDepth'] = 1;
-            $state['paragraphOpen'] = false;
 
-            return;
-        }
+            $bareFence = preg_match('/^:{3,}[ \t]*$/', ltrim($content, " \t")) === 1;
+            $divOpener = $this->fencedBlockParser->parseDivFenceOpener($content);
+            if ($divOpener !== null) {
+                // ...unless the paragraph above already absorbed a MALFORMED fence
+                // and this is a BARE run, in which case §12 takes it as text too and
+                // the paragraph stays open (corpus 260). Not width-tagged: after a
+                // malformed `:::note` a following `::::` is absorbed as readily as a
+                // `:::`.
+                if ($wasAbsorbing && $bareFence) {
+                    $state['absorbingFence'] = true;
+                    $state['paragraphOpen'] = true;
+
+                    return;
+                }
+                // A container a quoted line has just opened is EMPTY and holds no
+                // open paragraph, so a flush-left line after it closes the quote
+                // instead of folding in.
+                /** @var int $divFenceLength */
+                $divFenceLength = $divOpener['length'];
+                $state['mode'] = BlockQuoteLazyMode::Div;
+                $state['divFenceLength'] = $divFenceLength;
+                $state['divDepth'] = 1;
+                $state['paragraphOpen'] = false;
+
+                return;
+            }
 
         // A fence-shaped line that is NOT a valid opener is ordinary paragraph
         // text, and from here the paragraph absorbs the next fence-shaped line
         // as well. `:::note` fails §12's opener test because a type word must be
         // separated from the fence by a space.
-        if (preg_match('/^:{3,}/', ltrim($content, " \t")) === 1) {
-            $state['absorbingFence'] = true;
-            $state['paragraphOpen'] = true;
+            if (preg_match('/^:{3,}/', ltrim($content, " \t")) === 1) {
+                $state['absorbingFence'] = true;
+                $state['paragraphOpen'] = true;
 
-            return;
-        }
+                return;
+            }
 
         // Any other non-blank line is paragraph-ish content (plain text, an open
         // paragraph's continuation, or a block that opens with text on the same line:
@@ -4712,38 +4716,58 @@ class BlockParser
         // whatever markers they carry, and this step is only reached by a plain
         // nested-quote line. Recursing on the CONTENT is also what makes three
         // levels work without counting them (corpus 356-6, 356-9).
-        $innerContent = ContainerPrefix::quoteContent(rtrim($content, " \t"));
-        if ($innerContent !== null) {
-            // A NEW INNER QUOTE STARTS WITH NOTHING OPEN. The shared state is
-            // right ACROSS the lines of one nested run and wrong between two of
-            // them: an unterminated code fence inside `> >`, a `> ` line that
-            // ends that quote, and a later `> >` would have read the new
-            // quote's first line as more fence content. So the run is keyed by
-            // its depth and the mode is reset when the depth changes, which is
-            // the least state that still lets one run carry its own history.
-            $state['absorbingFence'] = $wasAbsorbing;
-            $state['inTable'] = $wasInTable;
-            $this->trackBlockQuoteLazyState($innerContent, $state, $sourceLines, $sourceIndex, true);
+            $innerContent = ContainerPrefix::quoteContent(rtrim($content, " \t"));
+            if ($innerContent !== null) {
+                // A NEW INNER QUOTE STARTS WITH NOTHING OPEN. The shared state is
+                // right ACROSS the lines of one nested run and wrong between two of
+                // them: an unterminated code fence inside `> >`, a `> ` line that
+                // ends that quote, and a later `> >` would have read the new
+                // quote's first line as more fence content. So the run is keyed by
+                // its depth and the mode is reset when the depth changes, which is
+                // the least state that still lets one run carry its own history.
+                $state['absorbingFence'] = $wasAbsorbing;
+                $state['inTable'] = $wasInTable;
+                // A LOOP AND NOT A FRAME PER MARKER. The step is tail recursion, so
+                // it is the same walk either way - but the marker count on
+                // `> > > ... x` is bounded by the LINE and not by the document, and
+                // a frame per marker turns one long line into a stack the runtime
+                // cannot hold. markup-carve/carve-php#1407 settled this for the
+                // list-marker walk in the other tracker; this is the same fact one
+                // container over.
+                // AND EVERY MARKER AT ONCE, not one per turn. Peeling singly makes
+                // the loop copy the tail per marker, which is the quadratic the
+                // frames were hiding: `> > > ... x` at 50000 markers copied 50000
+                // tails of ~100000 bytes.
+                //
+                // Equivalent because NO MODE BRANCH CAN FIRE IN BETWEEN. The
+                // branches above test either the state's mode - which is checked
+                // before the content and returns without reaching here - or the
+                // content against a `%%%` closer, a backtick or tilde fence, or a
+                // `:::` run. At every intermediate level the content still begins
+                // with `> `, so none of them matches, and only the innermost
+                // content reaches a branch that does.
+                $content = self::afterLeadingQuoteMarkers($content);
+                $nested = true;
 
-            return;
-        }
+                continue;
+            }
 
-        $trimmed = ltrim($content, " \t");
-        $atContentColumn = $trimmed === $content;
-        $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
-        $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
-        $isTableRow = $atContentColumn && $this->tableParser->isTableRow($trimmed);
+            $trimmed = ltrim($content, " \t");
+            $atContentColumn = $trimmed === $content;
+            $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
+            $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
+            $isTableRow = $atContentColumn && $this->tableParser->isTableRow($trimmed);
         // A TABLE IS A TABLE HOWEVER ITS LAST ROW IS SPELLED. A continuation
         // row carries no leading pipe, so the row test above does not see it,
         // and `> | a |` / `> + b |` / `tail` kept `tail` inside the quote where
         // the standard-row spelling of the same table sends it out
         // (markup-carve/carve#1348, corpus 349-3).
-        $isContinuationRow = $atContentColumn
+            $isContinuationRow = $atContentColumn
             && $wasInTable
             && $this->tableParser->isContinuationRow($trimmed);
         // A definition TERM is bounded like a heading: it holds inline content,
         // not a paragraph. `:::` is a div fence and is handled above.
-        $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
+            $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
         // An invisible definition leaves no paragraph at all - there is nothing
         // on the page for a lazy line to continue.
         // PART 12 §7 recognizes an abbreviation definition only at document
@@ -4752,9 +4776,9 @@ class BlockParser
         // paragraph text and a lazy line continues it; written flush-left after
         // the quote it is a real definition, which is invisible and so ends the
         // quote. A reference definition is a definition at either level.
-        $rawLine = $sourceLines[$sourceIndex] ?? '';
-        $isFlushLeftCandidate = !str_starts_with(ltrim($rawLine, " \t"), '>');
-        $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
+            $rawLine = $sourceLines[$sourceIndex] ?? '';
+            $isFlushLeftCandidate = !str_starts_with(ltrim($rawLine, " \t"), '>');
+            $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
 
         // A FLOATING ATTRIBUTE ATTACHES FORWARD, so it is not a paragraph the
@@ -4767,14 +4791,14 @@ class BlockParser
         // `>  {.k}` - a space of indentation inside the quote - is ordinary
         // paragraph text and a flush-left line lazily continues it. Read
         // ltrimmed, this closed a paragraph the parser had built.
-        $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
+            $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
         // AN INVISIBLE LINE AT THE CONTENT COLUMN IS A BLOCK, and ends the
         // paragraph exactly as a definition does (markup-carve/carve#1350).
         // BELOW the column the same line is a lazy continuation and adds no
         // block, which is what keeps `> a` / `%% c` / `b` folding.
-        $isCommentLine = $atContentColumn && $this->isCommentLineOrFence($trimmed);
+            $isCommentLine = $atContentColumn && $this->isCommentLineOrFence($trimmed);
 
-        $leavesNoParagraph = $isHeading
+            $leavesNoParagraph = $isHeading
             || $isThematicBreak
             || $isTableRow
             || $isContinuationRow
@@ -4785,9 +4809,79 @@ class BlockParser
 
         // An absorption already under way survives PROSE, because that is the
         // same paragraph - but not a heading or a thematic break, which end it.
-        $state['absorbingFence'] = $wasAbsorbing && !$leavesNoParagraph;
-        $state['inTable'] = $isTableRow || $isContinuationRow;
-        $state['paragraphOpen'] = !$leavesNoParagraph;
+            $state['absorbingFence'] = $wasAbsorbing && !$leavesNoParagraph;
+            $state['inTable'] = $isTableRow || $isContinuationRow;
+            $state['paragraphOpen'] = !$leavesNoParagraph;
+
+            return;
+        }
+    }
+
+    /**
+     * How many leading block-quote markers a line carries.
+     *
+     * ONE SCAN, no tail copied. The rule is ContainerPrefix::quoteContent()'s -
+     * `>` then a literal space, or a lone `>` ending the line - counted rather
+     * than applied, because applying it materializes the remainder once per
+     * marker and a line's marker count is bounded only by the line.
+     *
+     * @param string $line
+     */
+    private static function afterLeadingQuoteMarkers(string $line): string
+    {
+        $scan = rtrim($line, " \t");
+
+        return substr($scan, self::leadingQuoteMarkerWidth($scan));
+    }
+
+    /**
+     * How many leading block-quote markers a line carries.
+     *
+     * @param string $line
+     */
+    private static function countLeadingQuoteMarkers(string $line): int
+    {
+        $scan = rtrim($line, " \t");
+        $depth = 0;
+        $length = strlen($scan);
+        for ($at = 0; $at < $length && $scan[$at] === '>'; $at += 2) {
+            if ($at + 1 === $length) {
+                $depth++;
+
+                break;
+            }
+            if ($scan[$at + 1] !== ' ') {
+                break;
+            }
+            $depth++;
+        }
+
+        return $depth;
+    }
+
+    /**
+     * The byte width of the leading block-quote markers on an rtrimmed line.
+     *
+     * The same scan {@see self::countLeadingQuoteMarkers()} walks, reported as
+     * an offset so the tail is materialized once rather than per marker.
+     *
+     * @param string $scan A line with trailing whitespace already removed.
+     */
+    private static function leadingQuoteMarkerWidth(string $scan): int
+    {
+        $length = strlen($scan);
+        $at = 0;
+        while ($at < $length && $scan[$at] === '>') {
+            if ($at + 1 === $length) {
+                return $length;
+            }
+            if ($scan[$at + 1] !== ' ') {
+                return $at;
+            }
+            $at += 2;
+        }
+
+        return $at;
     }
 
     /**
