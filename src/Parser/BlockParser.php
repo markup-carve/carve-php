@@ -2384,42 +2384,51 @@ class BlockParser
         $baseColumn = $listContentColumns === []
             ? 0
             : $listContentColumns[array_key_last($listContentColumns)];
+        // One initial projection to the active list column is enough. From
+        // here the whole prefix is walked by OFFSET: replacing `$content` with
+        // each marker's tail copied the remaining line once per element, so N
+        // alternating `> - ` elements copied O(N²) bytes (carve-php#1463).
         $content = $baseColumn === 0 ? $line : IndentationHelper::stripLeadingColumns($line, $baseColumn);
+        $contentAt = 0;
         $quoted = false;
         $openedList = false;
 
-        while ($content !== '') {
-            $stripped = ltrim($content, " \t");
-            $leadingColumns = IndentationHelper::getLeadingColumns($content);
+        $contentLength = strlen($content);
+        while ($contentAt < $contentLength) {
+            $leading = IndentationHelper::getLeadingColumnsAt($content, $contentAt);
+            $leadingColumns = $leading['columns'];
+            $strippedAt = $leading['end'];
 
-            $quoteContent = $this->blockQuoteLineContent($stripped);
-            if ($quoteContent !== null) {
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($content, $strippedAt);
+            if ($quoteWidth !== null) {
                 $quoted = true;
-                $content = $quoteContent;
+                $contentAt = $strippedAt + $quoteWidth;
 
                 continue;
             }
 
-            $itemInfo = $this->listParser->parseListItemMarker($stripped);
-            if ($itemInfo === null) {
+            $itemContentAt = $this->listParser->markerContentOffset($content, $strippedAt);
+            if ($itemContentAt === null) {
                 break;
             }
 
             $openedList = true;
-            /** @var string $itemContent */
-            $itemContent = $itemInfo['content'];
             // The measured width, which is now what the list parser itself
             // uses (carve-php#580). While a bullet was pinned at 2 here, this
             // scan deliberately hardcoded 2 as well so it could not index a
             // heading the renderer never emitted; both sides measure now, so
             // the pre-scan and the parse agree by construction.
-            $markerWidth = $this->listMarkerWidth($stripped, $itemInfo);
+            $markerWidth = $itemContentAt - $strippedAt;
             $baseColumn += $leadingColumns + $markerWidth;
             $listContentColumns[] = $baseColumn;
-            $content = $itemContent;
+            $contentAt = $itemContentAt;
         }
 
-        return ['content' => $content, 'quoted' => $quoted, 'openedList' => $openedList];
+        return [
+            'content' => $contentAt === 0 ? $content : substr($content, $contentAt),
+            'quoted' => $quoted,
+            'openedList' => $openedList,
+        ];
     }
 
     /**

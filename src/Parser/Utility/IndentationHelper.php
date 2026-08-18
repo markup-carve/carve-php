@@ -57,9 +57,28 @@ class IndentationHelper
      */
     public static function getLeadingColumns(string $line, ?int $cap = null): int
     {
+        return self::getLeadingColumnsAt($line, 0, $cap)['columns'];
+    }
+
+    /**
+     * The visual width of whitespace beginning at a byte offset.
+     *
+     * `end` is the first byte after that run. This is the offset form of
+     * {@see self::getLeadingColumns()}: a caller walking one line can advance
+     * through successive prefixes without copying the remaining tail at every
+     * step (markup-carve/carve-php#1463).
+     *
+     * Columns are relative to the start of this run, exactly as if the caller
+     * had passed `substr($line, $at)` to `getLeadingColumns()`.
+     *
+     * @return array{columns: int, end: int}
+     */
+    public static function getLeadingColumnsAt(string $line, int $at, ?int $cap = null): array
+    {
         $col = 0;
         $len = strlen($line);
-        $i = 0;
+        $i = max(0, $at);
+        $start = $i;
 
         while ($i < $len && ($cap === null || $col < $cap)) {
             if ($line[$i] === ' ') {
@@ -73,10 +92,13 @@ class IndentationHelper
         }
 
         if (LayoutWork::$on) {
-            LayoutWork::$gate += $i;
+            LayoutWork::$gate += $i - $start;
         }
 
-        return $cap !== null && $col > $cap ? $cap : $col;
+        return [
+            'columns' => $cap !== null && $col > $cap ? $cap : $col,
+            'end' => $i,
+        ];
     }
 
     /**
