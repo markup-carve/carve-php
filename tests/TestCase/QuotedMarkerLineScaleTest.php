@@ -42,6 +42,11 @@ use PHPUnit\Framework\TestCase;
  * Wall-clock, so it lives in the excluded `scaling` group with the other
  * guards. The offset walk's CORRECTNESS is pinned load-independently by
  * `OffsetHeadsAgreeWithTheirParsersTest`; this asserts only its cost.
+ *
+ * The prefix's DEPTH is a separate question and reads no clock, so it is not
+ * asserted here: `AnAlternatingContainerPrefixDoesNotCrashTest` runs in the
+ * default suite, where an ordinary `phpunit` run can see it
+ * (markup-carve/carve-php#1456).
  */
 #[Group('scaling')]
 class QuotedMarkerLineScaleTest extends TestCase
@@ -78,21 +83,5 @@ class QuotedMarkerLineScaleTest extends TestCase
             self::PAIRS * self::MULTIPLE,
             self::MAX_SECONDS,
         );
-    }
-
-    public function testAnAlternatingPrefixPastTheNativeStackLimitDoesNotCrash(): void
-    {
-        $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
-        $script = 'require ' . var_export($autoload, true) . ';'
-            . '(new MarkupCarve\\Carve\\Parser\\BlockParser())->parse(str_repeat("> - ", 18000) . "x\\n");';
-        $pipes = [];
-        $process = proc_open([PHP_BINARY, '-d', 'memory_limit=1G', '-r', $script], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-        $this->assertIsResource($process);
-        stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $this->assertSame(0, proc_close($process), $error ?: 'the parser process crashed');
     }
 }
