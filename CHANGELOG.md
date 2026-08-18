@@ -250,10 +250,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **An element's code says what became of it, and a discarded input says so**
   in the HTML import report (markup-carve/carve-php#1377).
 
-- **A line of N list markers is walked by offset rather than by copy**
-  (markup-carve/carve-php#1426), and **the quote tracker peels its markers once
-  rather than once per marker** (markup-carve/carve-php#1407). Both walks were
-  superlinear in the marker count.
+- **Three superlinear container walks are linear** (PART 9 §25). A line of N
+  list markers is walked by offset rather than by copy
+  (markup-carve/carve-php#1426); the quote tracker peels its markers once
+  rather than once per marker (markup-carve/carve-php#1407); and the
+  trailing-block tracker peels its container prefix by offset, which is what a
+  line alternating a quote marker with a bullet costs
+  (markup-carve/carve-php#1437).
 
 - **An at-sign in source text is not a Carve mention**
   (markup-carve/carve-php#1380). Importing `hi @user ok` no longer produces a
