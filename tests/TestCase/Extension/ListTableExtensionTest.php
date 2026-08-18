@@ -207,7 +207,7 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($expected, $this->render($djot));
     }
 
-    public function testFooterRowsRenderOnePerLine(): void
+    public function testFooterRowsUseTheCanonicalCompactWrapper(): void
     {
         $djot = implode("\n", [
             '{footer-rows=2}',
@@ -230,10 +230,7 @@ class ListTableExtensionTest extends TestCase
             '    <tr><th scope="row">Region</th><td>Q1</td></tr>',
             '    <tr><th scope="row">EMEA</th><td>10</td></tr>',
             '  </tbody>',
-            '  <tfoot>',
-            '    <tr><th scope="row">Region</th><td>Q1</td></tr>',
-            '    <tr><th scope="row">EMEA</th><td>10</td></tr>',
-            '  </tfoot>',
+            '  <tfoot><tr><th scope="row">Region</th><td>Q1</td></tr><tr><th scope="row">EMEA</th><td>10</td></tr></tfoot>',
             '</table>',
         ]);
         $this->assertSame($expected, $this->render($djot));
@@ -1007,7 +1004,7 @@ class ListTableExtensionTest extends TestCase
         ]));
 
         $this->assertStringContainsString('<colgroup>', $html);
-        $this->assertStringContainsString("<tfoot>\n    <tr>", $html);
+        $this->assertStringContainsString('<tfoot><tr>', $html);
         $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
         $this->assertStringNotContainsString('aligns=', $html);
     }
@@ -1040,5 +1037,14 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringContainsString('<col>', $html);
         $this->assertStringContainsString('<col style="width: 50%;">', $html);
         $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;"></td>', $html);
+    }
+
+    public function testLocalRowAndCellHeaders(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../spec/tests/corpus-optional/45-list-table-local-headers.crv');
+        $expected = file_get_contents(__DIR__ . '/../../spec/tests/corpus-optional/45-list-table-local-headers.html');
+        self::assertIsString($source);
+        self::assertIsString($expected);
+        $this->assertSame(trim($expected), trim($this->render($source)));
     }
 }
