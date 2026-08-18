@@ -650,6 +650,18 @@ class BlockParser
      */
     protected array $currentContentColumns = [];
 
+    /**
+     * Source lines admitted into a block quote only by lazy continuation.
+     *
+     * They carry no quote marker, so a column inside the quoted content cannot
+     * claim them. A nested list may still fold one into its deepest open
+     * paragraph, but must not re-read a definition-shaped line as a block at
+     * the list's content column (markup-carve/carve#1384).
+     *
+     * @var array<int, true>
+     */
+    protected array $blockQuoteLazySourceLines = [];
+
     public function __construct(
         bool $collectWarnings = false,
         bool $strictMode = false,
@@ -2261,6 +2273,7 @@ class BlockParser
         $this->anchorLinks = [];
         $this->headingIds = [];
         $this->lineOffset = 0;
+        $this->blockQuoteLazySourceLines = [];
     }
 
     /**
@@ -4482,7 +4495,6 @@ class BlockParser
 
         while ($i < $count) {
             $currentLine = $lines[$i];
-
             if (IndentationHelper::isBlankLine($currentLine)) {
                 break;
             }
@@ -4570,7 +4582,9 @@ class BlockParser
                 // into, so the list marker ENDS the quote and starts a sibling
                 // list (endsBlockQuote() handles this via paragraphOpen).
                 $innerLines[] = $currentLine;
-                $innerLineMap[] = $this->sourceLineFor($i);
+                $lazySourceLine = $this->sourceLineFor($i);
+                $innerLineMap[] = $lazySourceLine;
+                $this->blockQuoteLazySourceLines[$lazySourceLine] = true;
                 $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i);
                 $i++;
             } else {
@@ -6637,6 +6651,7 @@ class BlockParser
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            $isBlockQuoteLazyLine = isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
 
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
@@ -6659,7 +6674,7 @@ class BlockParser
             // `advanceTrailingBlockState` below already answers that question
             // for every other block kind.
 
-            if ($nextIndent >= $contentIndent) {
+            if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
                 // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT, not a marker.
                 // §24 S1 matches the item, so the innermost MATCHED container
                 // is the FENCED BODY and S2 makes the line code text. This

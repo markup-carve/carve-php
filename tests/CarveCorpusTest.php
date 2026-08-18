@@ -46,6 +46,10 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // carve#1384. All four quote-reachability documents already render
+        // byte-identically here; listing the category makes the final spec pin
+        // assert that behavior instead of treating a new category as unknown.
+        'a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one',
         'table-columns-carry-alignment-vertical-alignment-and-widths',
         'a-table-alignment-run-carries-two-independent-axes',
         'the-semantic-registry-holds-no-element-carve-already-spells',
