@@ -78,6 +78,7 @@ final class AstSchema
         'if',
         'then',
         'minimum',
+        'exclusiveMinimum',
         'maximum',
     ];
 
@@ -190,6 +191,7 @@ final class AstSchema
                 'const' => 'checkConst',
                 'enum' => 'checkEnum',
                 'minimum' => 'checkMinimum',
+                'exclusiveMinimum' => 'checkExclusiveMinimum',
                 'maximum' => 'checkMaximum',
                 'required' => 'checkRequired',
             ] as $keyword => $method
@@ -439,11 +441,8 @@ final class AstSchema
 
     private static function isOfType(mixed $value, string $name): bool
     {
-        // THE FIVE NAMES THIS SCHEMA USES, and no more, for the reason
-        // `checkType` gives: `number` and `null` are legal JSON Schema and do
-        // not appear here, so supporting them would add two branches nothing
-        // exercises. `default => false` is what an unsupported name gets, and
-        // a test says the schema contains none.
+        // The names this schema uses, and no more; `default => false` is what an
+        // unsupported name gets, and a test says the schema contains none.
         return match ($name) {
             // An empty PHP array is both an empty object and an empty list;
             // `properties`/`items` decide which one was meant.
@@ -453,6 +452,7 @@ final class AstSchema
             // `true` and `false` are not integers here, though PHP will happily
             // compare them as such.
             'integer' => is_int($value),
+            'number' => is_int($value) || is_float($value),
             'boolean' => is_bool($value),
             default => false,
         };
@@ -521,6 +521,13 @@ final class AstSchema
         return $value <= $bound
             ? null
             : sprintf('%s is %s, above the schema maximum %s', $path, self::number($value), self::number($bound));
+    }
+
+    private static function checkExclusiveMinimum(mixed $value, mixed $bound, string $path): ?string
+    {
+        return $value > $bound
+            ? null
+            : sprintf('%s is %s, not above the schema exclusive minimum %s', $path, self::number($value), self::number($bound));
     }
 
     /**

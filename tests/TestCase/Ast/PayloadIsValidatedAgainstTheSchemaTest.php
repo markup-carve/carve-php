@@ -528,7 +528,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
      */
     public function testTheSchemaSpellsEveryTypeAsOneSupportedName(): void
     {
-        $supported = ['object', 'array', 'string', 'integer', 'boolean'];
+        $supported = ['object', 'array', 'string', 'integer', 'number', 'boolean'];
         $wrong = [];
         self::walk(AstSchema::schema(), static function (array $node) use ($supported, &$wrong): void {
             if (!array_key_exists('type', $node) || is_array($node['type'])) {
@@ -574,9 +574,9 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
     {
         $wrong = [];
         self::walk(AstSchema::schema(), static function (array $node) use (&$wrong): void {
-            foreach (['minimum', 'maximum'] as $keyword) {
-                if (array_key_exists($keyword, $node) && ($node['type'] ?? null) !== 'integer') {
-                    $wrong[] = $keyword . ' without an integer type';
+            foreach (['minimum', 'exclusiveMinimum', 'maximum'] as $keyword) {
+                if (array_key_exists($keyword, $node) && !in_array($node['type'] ?? null, ['integer', 'number'], true)) {
+                    $wrong[] = $keyword . ' without a numeric type';
                 }
             }
         });
@@ -585,7 +585,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         // And the walk found some, or this proves nothing.
         $bounded = 0;
         self::walk(AstSchema::schema(), static function (array $node) use (&$bounded): void {
-            if (array_key_exists('minimum', $node) || array_key_exists('maximum', $node)) {
+            if (array_key_exists('minimum', $node) || array_key_exists('exclusiveMinimum', $node) || array_key_exists('maximum', $node)) {
                 $bounded++;
             }
         });

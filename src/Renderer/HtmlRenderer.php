@@ -1769,7 +1769,9 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderTable(Table $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $tableAttrs = $this->getRenderableAttributes($node);
+        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
+        $attrs = $this->renderAttributeArray($tableAttrs);
 
         // Add round-trip separator widths attribute if available and in round-trip mode
         if ($this->roundTripMode && $node->getSeparatorWidths() !== null) {
@@ -1783,6 +1785,15 @@ class HtmlRenderer implements RendererInterface
             /** @var \MarkupCarve\Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
             $lines[] = '  <caption>' . $this->renderChildren($caption) . '</caption>';
+        }
+        $columns = $node->getColumns();
+        if (array_filter($columns, static fn (array $column): bool => isset($column['width'])) !== []) {
+            $cols = [];
+            foreach ($columns as $column) {
+                $style = isset($column['width']) ? ' style="width: ' . ($column['width'] * 100) . '%;"' : '';
+                $cols[] = '    <col' . $style . '>';
+            }
+            $lines[] = "  <colgroup>\n" . implode("\n", $cols) . "\n  </colgroup>";
         }
 
         // Every row has a grid entry for every column, including a placeholder
@@ -1812,14 +1823,14 @@ class HtmlRenderer implements RendererInterface
             }
         }
 
-        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false): string {
+        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false) use ($columns): string {
             $cells = '';
-            foreach ($gridRow as $entry) {
+            foreach ($gridRow as $column => $entry) {
                 if ($entry['skip']) {
                     continue;
                 }
                 $cells .= rtrim(
-                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun),
+                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? []),
                     "\n",
                 );
             }
@@ -1869,12 +1880,19 @@ class HtmlRenderer implements RendererInterface
      * by `TableSpanGrid` rather than read off the cell - a cell's own stored
      * rowspan/colspan is internal bookkeeping for other consumers (carve#527)
      * and is not what this renderer emits.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $node
+     * @param int $rowspan
+     * @param int $colspan
+     * @param bool $inHeaderRun
+     * @param array{align?: string, valign?: string, width?: float} $column
      */
     protected function renderResolvedTableCell(
         TableCell $node,
         int $rowspan,
         int $colspan,
         bool $inHeaderRun = false,
+        array $column = [],
     ): string {
         $tag = $node->isHeader() ? 'th' : 'td';
         $attrs = $this->getRenderableAttributes($node);
@@ -1922,8 +1940,18 @@ class HtmlRenderer implements RendererInterface
         }
 
         $alignment = $node->getAlignment();
+        if ($alignment === TableCell::ALIGN_DEFAULT && isset($column['align'])) {
+            $alignment = $column['align'];
+        }
         if ($alignment !== TableCell::ALIGN_DEFAULT) {
             $attrs = $this->mergeAttribute($attrs, 'style', 'text-align: ' . $alignment . ';');
+        }
+        $verticalAlignment = $node->getVerticalAlignment();
+        if ($verticalAlignment === TableCell::VALIGN_DEFAULT && isset($column['valign'])) {
+            $verticalAlignment = $column['valign'];
+        }
+        if ($verticalAlignment !== TableCell::VALIGN_DEFAULT) {
+            $attrs = $this->mergeAttribute($attrs, 'style', 'vertical-align: ' . $verticalAlignment . ';');
         }
 
         return '<' . $tag . $this->renderAttributeArray($attrs) . '>' . $this->renderChildren($node) . '</' . $tag . ">\n";

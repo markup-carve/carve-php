@@ -9,6 +9,27 @@ namespace MarkupCarve\Carve\Node\Block;
  */
 class Table extends BlockNode
 {
+    /**
+     * @var list<array{align?: string, valign?: string, width?: float}>
+     */
+    protected array $columns = [];
+
+    /**
+     * @param list<array{align?: string, valign?: string, width?: float}> $columns
+     */
+    public function setColumns(array $columns): void
+    {
+        $this->columns = $columns;
+    }
+
+    /**
+     * @return list<array{align?: string, valign?: string, width?: float}>
+     */
+    public function getColumns(): array
+    {
+        return $this->columns;
+    }
+
     protected ?Caption $caption = null;
 
     /**

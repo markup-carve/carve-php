@@ -385,6 +385,9 @@ class ProseMirrorRenderer
         if ($cell->hasExplicitAlignment() && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
             $attrs['textAlign'] = $cell->getAlignment();
         }
+        if ($cell->hasExplicitVerticalAlignment() && $cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
+            $attrs['verticalAlign'] = $cell->getVerticalAlignment();
+        }
         $marker = $cell->getSpanMarker();
         if ($marker !== null && $marker !== '') {
             $attrs['carveSpanMarker'] = $marker;
@@ -736,6 +739,9 @@ class ProseMirrorRenderer
             // author never wrote.
             if ($node->hasExplicitAlignment() && $node->getAlignment() !== TableCell::ALIGN_DEFAULT) {
                 $attrs['alignment'] = $node->getAlignment();
+            }
+            if ($node->hasExplicitVerticalAlignment() && $node->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
+                $attrs['verticalAlignment'] = $node->getVerticalAlignment();
             }
         } elseif ($node instanceof Image) {
             $attrs['src'] = $node->getSource();

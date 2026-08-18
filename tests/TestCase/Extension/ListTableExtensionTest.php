@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ListTableExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -957,5 +958,55 @@ class ListTableExtensionTest extends TestCase
         $out = $this->render("::: list-table\n{$rows}:::");
         $this->assertStringStartsWith('<div class="list-table">', $out);
         $this->assertStringNotContainsString('<table>', $out);
+    }
+
+    public function testColumnMetadataAndFooterRenderTogether(): void
+    {
+        $html = $this->render(implode("\n", [
+            '{header-rows=1 footer-rows=1 aligns="left,right" valigns="top,bottom" widths="30,70"}',
+            '::: list-table',
+            '- - H',
+            '  - N',
+            '- - A',
+            '  - 1',
+            '- - F',
+            '  - 2',
+            ':::',
+        ]));
+
+        $this->assertStringContainsString('<colgroup>', $html);
+        $this->assertStringContainsString('<tfoot><tr>', $html);
+        $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
+        $this->assertStringNotContainsString('aligns=', $html);
+    }
+
+    #[DataProvider('invalidColumnMetadata')]
+    public function testInvalidColumnMetadataDefersWithoutDroppingContent(string $attrs): void
+    {
+        $html = $this->render("{{$attrs}}\n::: list-table\n- - A\n  - B\n:::");
+        $this->assertStringStartsWith('<div class="list-table"', $html);
+        $this->assertStringContainsString('<li>A</li>', $html);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidColumnMetadata(): iterable
+    {
+        yield 'too many entries' => ['aligns="left,right,center"'];
+        yield 'bad horizontal value' => ['aligns="diagonal"'];
+        yield 'bad vertical value' => ['valigns="baseline"'];
+        yield 'non numeric width' => ['widths="wide"'];
+        yield 'zero width' => ['widths="0"'];
+        yield 'oversized width' => ['widths="101"'];
+        yield 'overlapping row groups' => ['header-rows=2 footer-rows=1'];
+    }
+
+    public function testEmptyColumnSlotsAndStyledPaddingAreHandled(): void
+    {
+        $html = $this->render("{aligns=\",right\" valigns=\",bottom\" widths=\",50\"}\n::: list-table\n- - A\n  - B\n- - C\n:::");
+        $this->assertStringContainsString('<col>', $html);
+        $this->assertStringContainsString('<col style="width: 50%;">', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;"></td>', $html);
     }
 }

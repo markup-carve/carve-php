@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Block;
 
 use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -576,8 +575,35 @@ class TableParser
     public function cellMarkerRunLength(string $cell): int
     {
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
-        if (isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$cell[$length] ?? ''])) {
+        $start = $length;
+        $horizontal = false;
+        $vertical = false;
+        while (isset($cell[$length]) && str_contains('<>~^v', $cell[$length])) {
+            $marker = $cell[$length];
+            if (str_contains('<>~', $marker)) {
+                if (!$horizontal) {
+                    $horizontal = true;
+                } elseif ($marker === '~' && !$vertical) {
+                    $vertical = true;
+                } else {
+                    break;
+                }
+            } elseif (!$vertical) {
+                $vertical = true;
+            } else {
+                break;
+            }
             $length++;
+        }
+
+        if ($length === $start) {
+            return $length;
+        }
+        $next = $cell[$length] ?? null;
+        $terminated = $next !== null
+            && (preg_match('/[ \t\r\n\f]/', $next) === 1 || $next === '{' || str_contains('<>~^v', $next));
+        if (!$terminated) {
+            return $start;
         }
 
         return $length;
