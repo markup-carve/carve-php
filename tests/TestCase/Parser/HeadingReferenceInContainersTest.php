@@ -41,6 +41,10 @@ class HeadingReferenceInContainersTest extends TestCase
         return [
             'a list item, heading on the marker line' => ["- # H\n\n  See [H][]."],
             'a list item, heading on a later line' => ["- item\n\n  # H\n\n  See [H][]."],
+            // A task checkbox belongs to the item's content; it does not widen
+            // the block marker. Later blocks therefore still begin at column
+            // two, exactly as they do for a plain bullet.
+            'a task item' => ["- [ ] item\n\n  # H\n\n  See [H][]."],
             'an ordered list item' => ["1. # H\n\n   See [H][]."],
             'a nested list item' => ["- - # H\n\n    See [H][]."],
             'a definition' => [":: T\n\n:  # H\n\n   See [H][]."],
