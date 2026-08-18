@@ -353,6 +353,29 @@ class ListParser
      */
     public function markerContentOffset(string $line, int $from = 0): ?int
     {
+        return $this->markerHeadAt($line, $from)['content'] ?? null;
+    }
+
+    /**
+     * The marker head at `$from`: WHICH head matched, and where its content
+     * begins.
+     *
+     * {@see self::markerContentOffset()} is this without the name, and every
+     * rule below is that method's - the two were one method until a caller
+     * needed to tell a task's head from a bullet's without re-deriving it
+     * (markup-carve/carve-php#1463). A task's content column is its BULLET's
+     * rather than its checkbox's, so the name is the only way to answer the
+     * width from offsets, and asking the task pattern a second time would be a
+     * second spelling of the rule this class exists to keep single.
+     *
+     * @param string $line A single line, read under the same interior-newline
+     *   condition {@see self::markerContentOffset()} states.
+     * @param int $from Byte offset to match at, anchored.
+     *
+     * @return array{name: string, content: int}|null
+     */
+    public function markerHeadAt(string $line, int $from = 0): ?array
+    {
         foreach ($this->offsetPatterns() as $name => $pattern) {
             if (preg_match($pattern, $line, $m, 0, $from) !== 1) {
                 continue;
@@ -373,7 +396,7 @@ class ListParser
                 continue;
             }
 
-            return $from + strlen($m[0]);
+            return ['name' => $name, 'content' => $from + strlen($m[0])];
         }
 
         // AN ABUTTING ATTRIBUTE BLOCK, tried second because the two spellings
@@ -396,7 +419,7 @@ class ListParser
                 continue;
             }
 
-            return $from + strlen($m[0]);
+            return ['name' => $name, 'content' => $from + strlen($m[0])];
         }
 
         return null;

@@ -50,35 +50,23 @@ class IndentationHelper
      * saturates a value the comparison had already decided. Leave `$cap` null
      * where the NUMBER itself is used rather than compared.
      *
+     * FROM AN OFFSET, and counting from column zero there. A walk that peels a
+     * container prefix has to ask this of the rest of the line once per level,
+     * and cutting the rest out to ask costs the line per level - the quadratic
+     * shape markup-carve/carve-php#1463 measured in the heading-reference
+     * prescan. `$at` asks the same question of the same bytes.
+     *
      * @param string $line The line to examine
      * @param int|null $cap Stop the walk once this column is reached
+     * @param int $at Byte offset the run starts at; column zero sits there.
      *
      * @return int The visual column where the first non-whitespace character sits
      */
-    public static function getLeadingColumns(string $line, ?int $cap = null): int
-    {
-        return self::getLeadingColumnsAt($line, 0, $cap)['columns'];
-    }
-
-    /**
-     * The visual width of whitespace beginning at a byte offset.
-     *
-     * `end` is the first byte after that run. This is the offset form of
-     * {@see self::getLeadingColumns()}: a caller walking one line can advance
-     * through successive prefixes without copying the remaining tail at every
-     * step (markup-carve/carve-php#1463).
-     *
-     * Columns are relative to the start of this run, exactly as if the caller
-     * had passed `substr($line, $at)` to `getLeadingColumns()`.
-     *
-     * @return array{columns: int, end: int}
-     */
-    public static function getLeadingColumnsAt(string $line, int $at, ?int $cap = null): array
+    public static function getLeadingColumns(string $line, ?int $cap = null, int $at = 0): int
     {
         $col = 0;
         $len = strlen($line);
-        $i = max(0, $at);
-        $start = $i;
+        $i = $at;
 
         while ($i < $len && ($cap === null || $col < $cap)) {
             if ($line[$i] === ' ') {
@@ -92,13 +80,32 @@ class IndentationHelper
         }
 
         if (LayoutWork::$on) {
-            LayoutWork::$gate += $i - $start;
+            LayoutWork::$gate += $i - $at;
         }
 
-        return [
-            'columns' => $cap !== null && $col > $cap ? $cap : $col,
-            'end' => $i,
-        ];
+        return $cap !== null && $col > $cap ? $cap : $col;
+    }
+
+    /**
+     * The offset where the whitespace run starting at `$at` ends.
+     *
+     * `ltrim($line, " \t")` spelled as a number, for a walk that would
+     * otherwise cut the tail out of the line once per container level
+     * (markup-carve/carve-php#1463). Same characters, same rule.
+     *
+     * @param string $line The line to examine
+     * @param int $at Byte offset the run starts at
+     *
+     * @return int Offset of the first byte that is neither a space nor a tab
+     */
+    public static function pastLeadingWhitespace(string $line, int $at = 0): int
+    {
+        $len = strlen($line);
+        while ($at < $len && ($line[$at] === ' ' || $line[$at] === "\t")) {
+            $at++;
+        }
+
+        return $at;
     }
 
     /**
