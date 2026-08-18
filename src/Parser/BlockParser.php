@@ -95,9 +95,9 @@ class BlockParser
      * is exactly that shape, and the old default made the empty item swallow
      * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -4278,6 +4278,7 @@ class BlockParser
             'divFenceLength' => 0,
             'divDepth' => 0,
             'absorbingFence' => false,
+            'inTable' => false,
         ];
 
         $innerLines[] = $content;
@@ -4415,7 +4416,7 @@ class BlockParser
      * terminate the quote - otherwise it is wrongly swallowed into the fence/div.
      *
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool} $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
@@ -4428,6 +4429,11 @@ class BlockParser
         // tracker does it.
         $wasAbsorbing = $state['absorbingFence'];
         $state['absorbingFence'] = false;
+        // A CONTINUATION ROW IS MORE TABLE, and only where a table is above it
+        // (markup-carve/carve#1349). Carried the same way the absorption is,
+        // and for the same reason: every other block ends the table.
+        $wasInTable = $state['inTable'];
+        $state['inTable'] = false;
 
         if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
             if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
@@ -4601,6 +4607,14 @@ class BlockParser
         $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
         $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
         $isTableRow = $atContentColumn && $this->tableParser->isTableRow($trimmed);
+        // A TABLE IS A TABLE HOWEVER ITS LAST ROW IS SPELLED. A continuation
+        // row carries no leading pipe, so the row test above does not see it,
+        // and `> | a |` / `> + b |` / `tail` kept `tail` inside the quote where
+        // the standard-row spelling of the same table sends it out
+        // (markup-carve/carve#1348, corpus 349-3).
+        $isContinuationRow = $atContentColumn
+            && $wasInTable
+            && $this->tableParser->isContinuationRow($trimmed);
         // A definition TERM is bounded like a heading: it holds inline content,
         // not a paragraph. `:::` is a div fence and is handled above.
         $isDefinitionTerm = preg_match(self::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
@@ -4628,10 +4642,17 @@ class BlockParser
         // paragraph text and a flush-left line lazily continues it. Read
         // ltrimmed, this closed a paragraph the parser had built.
         $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
+        // AN INVISIBLE LINE AT THE CONTENT COLUMN IS A BLOCK, and ends the
+        // paragraph exactly as a definition does (markup-carve/carve#1350).
+        // BELOW the column the same line is a lazy continuation and adds no
+        // block, which is what keeps `> a` / `%% c` / `b` folding.
+        $isCommentLine = $atContentColumn && $this->isCommentLineOrFence($trimmed);
 
         $leavesNoParagraph = $isHeading
             || $isThematicBreak
             || $isTableRow
+            || $isContinuationRow
+            || $isCommentLine
             || $isDefinitionTerm
             || $isDefinitionLine
             || $isAttributeLine;
@@ -4639,6 +4660,7 @@ class BlockParser
         // An absorption already under way survives PROSE, because that is the
         // same paragraph - but not a heading or a thematic break, which end it.
         $state['absorbingFence'] = $wasAbsorbing && !$leavesNoParagraph;
+        $state['inTable'] = $isTableRow || $isContinuationRow;
         $state['paragraphOpen'] = !$leavesNoParagraph;
     }
 
@@ -5951,7 +5973,7 @@ class BlockParser
      * @param string $line
      * @param array<string> $lines
      * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $trailingState
      */
     protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
     {
@@ -6084,9 +6106,9 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $trailingState
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -6764,6 +6786,8 @@ class BlockParser
                 // stays correct when the last entry is appended to in place.
                 $bodyState = self::INITIAL_TRAILING_BLOCK_STATE;
                 $bodyStateCursor = 0;
+                /** @var array<int, true> $bodyLazy Body indexes collected BELOW the content column. */
+                $bodyLazy = [];
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
                 while ($i < $count) {
@@ -6926,7 +6950,11 @@ class BlockParser
                     // carries for the list spelling (carve-php#1003).
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
                         $bodyLine = explode("\n", $body[$bodyStateCursor], 2)[0];
-                        $bodyState = $this->advanceTrailingBlockState($bodyState, $bodyLine);
+                        $bodyState = $this->advanceTrailingBlockState(
+                            $bodyState,
+                            $bodyLine,
+                            !isset($bodyLazy[$bodyStateCursor]),
+                        );
                         // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
                         // and the tracker above cannot say so: it reads one line,
                         // and `{.k` is a block-attribute line only once a later
@@ -6993,6 +7021,11 @@ class BlockParser
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->startsInterruptingBlock($contLine, $lines, $i)
                     ) {
+                        // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
+                        // block: the tracker must read it as the lazy line it
+                        // is rather than as content at the column
+                        // {@see self::advanceTrailingBlockState()}.
+                        $bodyLazy[count($body)] = true;
                         $body[] = $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
@@ -7742,21 +7775,22 @@ class BlockParser
     }
 
     /**
-     * Promote a paragraph's own soft breaks to hard ones.
+     * Promote a stanza's soft breaks to hard ones, AT EVERY DEPTH.
      *
-     * Only DIRECT children, which is the whole point: a soft break the inline
-     * parser buried inside a verbatim span, a footnote body or an emphasis run
-     * is content belonging to that construct, and a `<br>` there would be the
-     * old per-line split reintroduced one level down.
-     */
-
-    /**
-     * Promote a paragraph's own soft breaks to hard ones.
+     * ONE LINE BOUNDARY PRODUCES ONE `<br>`, HOWEVER THE BOUNDARY IS SPELLED
+     * (PART 9 §23, markup-carve/carve#1351). The promotion used to reach DIRECT
+     * children only, on the reasoning that a break inside an emphasis run is
+     * content belonging to that construct. That reading made the engine
+     * contradict itself: `*a\` over `b*` put a `<br>` inside the `<strong>` and
+     * `*a` over `b*` put none, so the same boundary produced a different
+     * document for the backslash spelling than for the plain one.
      *
-     * Only DIRECT children, which is the whole point: a soft break the inline
-     * parser buried inside a verbatim span, a footnote body or an emphasis run
-     * is content belonging to that construct, and a `<br>` there would be the
-     * old per-line split reintroduced one level down.
+     * THE EXEMPTION IS NODE-PRESENCE, NOT DEPTH - a difference in KIND. A
+     * backslash break and an unclosed verbatim run are exempt because they
+     * leave NO soft break behind: the backslash already produced a hard break,
+     * and the run swallowed the boundary into its own content as a newline. So
+     * the rule is driven by node kind and applies wherever the node is, which
+     * is what this walk now does.
      *
      * THE BREAK IS PLACED FROM ITS LINE, NOT FROM THE MAP. Resolving it through
      * the map is what IDENTIFIES which line ending survived - breaks and line
@@ -7778,10 +7812,31 @@ class BlockParser
      */
     protected function convertParagraphSoftBreaksToHardBreaks(Paragraph $paragraph, array $lineEndings = []): void
     {
-        $count = count($lineEndings);
         $next = 0;
-        foreach ($paragraph->getChildren() as $index => $inline) {
+        $this->hardenSoftBreaksIn($paragraph, $lineEndings, $next);
+    }
+
+    /**
+     * Walk one node's children in document order, hardening the breaks.
+     *
+     * The line-ending cursor is carried ACROSS the whole stanza rather than per
+     * node, because the breaks and the line endings are both in document order
+     * and this walk visits them in it - a descent that restarted the cursor at
+     * each container would hand the second container the first one's spans.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param list<array{0: int, 1: int}> $lineEndings Text offset and line number, ascending.
+     * @param int $next The first line ending no break has claimed.
+     */
+    private function hardenSoftBreaksIn(Node $parent, array $lineEndings, int &$next): void
+    {
+        $count = count($lineEndings);
+        foreach ($parent->getChildren() as $index => $inline) {
             if (!$inline instanceof SoftBreak) {
+                if ($inline->hasChildren()) {
+                    $this->hardenSoftBreaksIn($inline, $lineEndings, $next);
+                }
+
                 continue;
             }
 
@@ -7799,7 +7854,7 @@ class BlockParser
 
             $hardBreak = new HardBreak();
             $hardBreak->setPos($span);
-            $paragraph->replaceChild($index, $hardBreak);
+            $parent->replaceChild($index, $hardBreak);
         }
     }
 
@@ -11073,13 +11128,20 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
+     * @param bool $atContentColumn Whether the line sits AT the container's
+     *   content column rather than below it. Only the comment branch reads it:
+     *   an invisible block at the column ends the paragraph, while the same
+     *   line collected lazily adds no block at all.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}
      */
-    protected function advanceTrailingBlockState(array $state, string $line): array
-    {
+    protected function advanceTrailingBlockState(
+        array $state,
+        string $line,
+        bool $atContentColumn = false,
+    ): array {
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
         // in the two branches that continue the same paragraph is what keeps a
@@ -11095,6 +11157,13 @@ class BlockParser
         // sees one consistent answer for the line after.
         $wasLead = $state['isLead'];
         $state['isLead'] = false;
+        // A CONTINUATION ROW IS MORE TABLE, and only where a table is above it
+        // (markup-carve/carve#1349). Cleared here and re-armed only by the two
+        // row branches, for the same reason `absorbingFence` is: every other
+        // block ENDS the table, so a `+ b |` under a blank line, a heading or a
+        // fence is the ordinary prose it looks like.
+        $wasInTable = $state['inTable'];
+        $state['inTable'] = false;
 
         if ($state['inFence']) {
             // Inside a fenced code block: stay code (no open paragraph) until
@@ -11274,6 +11343,24 @@ class BlockParser
         if ($this->tableParser->isTableRow($line)) {
             // A table has no open paragraph for a dedented line to continue.
             $state['openParagraph'] = false;
+            $state['inTable'] = true;
+
+            return $state;
+        }
+
+        // A TABLE IS A TABLE HOWEVER ITS LAST ROW IS SPELLED. A continuation
+        // row carries no leading pipe, so the row test above does not see it,
+        // and the container reported an open paragraph its table did not have:
+        // `> | a |` / `> + b |` / `tail` kept `tail` inside the quote where the
+        // standard-row spelling of the same table sends it out
+        // (markup-carve/carve#1348, corpus 349).
+        //
+        // ONLY WHERE A TABLE IS ABOVE IT, which is the whole of #1349. With no
+        // row above, `- a` / `  + b |` is a paragraph and its `+ b |` is prose,
+        // so the paragraph stays open and a dedented line still folds into it.
+        if ($wasInTable && $this->tableParser->isContinuationRow($line)) {
+            $state['openParagraph'] = false;
+            $state['inTable'] = true;
 
             return $state;
         }
@@ -11303,8 +11390,18 @@ class BlockParser
         //    disagree (carve-php#967 is the same class one level up).
         $quoteContent = ContainerPrefix::quoteContent(rtrim($line, " \t"));
         if ($quoteContent !== null) {
-            $inner = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $quoteContent);
+            // The recursive step starts from the INITIAL state on every line,
+            // so a quote's table would forget itself between its own rows: the
+            // row arrives one recursion in and the continuation row arrives at
+            // a state that never saw it. Seeding the step with the table flag -
+            // and reading it back out - is what lets `> | a |` / `> + b |` be
+            // ONE table, exactly as the unquoted spelling is. Nothing else in
+            // the inner state crosses lines, because nothing else has to.
+            $seed = self::INITIAL_TRAILING_BLOCK_STATE;
+            $seed['inTable'] = $wasInTable;
+            $inner = $this->advanceTrailingBlockState($seed, $quoteContent);
             $state['openParagraph'] = $inner['openParagraph'];
+            $state['inTable'] = $inner['inTable'];
 
             return $state;
         }
@@ -11339,6 +11436,21 @@ class BlockParser
         // reason INITIAL_TRAILING_BLOCK_STATE now starts CLOSED - an item whose
         // first line is a comment has to inherit "nothing open" from somewhere.
         if ($this->isCommentLineOrFence($line)) {
+            // AT THE CONTENT COLUMN IT IS A BLOCK, and an invisible block ends
+            // the paragraph exactly as a definition does - which is the rule
+            // markup-carve/carve#1350 states and corpus 350-6 pins:
+            //
+            //     :: t
+            //     :  a
+            //        %% c
+            //     tail
+            //
+            // leaves `tail` OUTSIDE. Below the column it is a LAZY line and
+            // adds no block at all, so the state is the caller's to keep.
+            if ($atContentColumn) {
+                $state['openParagraph'] = false;
+            }
+
             return $state;
         }
 
