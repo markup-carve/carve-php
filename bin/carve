@@ -49,6 +49,7 @@ if (!$autoloaderFound) {
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
+use MarkupCarve\Carve\Exception\ContainerPrefixDepthExceededException;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
@@ -781,10 +782,15 @@ try {
             ? $converter->getRenderer()->render($converter->parse($input))
             : $converter->convert($input);
     }
-} catch (RenderDepthExceededException $exception) {
+} catch (RenderDepthExceededException | ContainerPrefixDepthExceededException $exception) {
     // A renderer that reaches its ceiling REFUSES (PART 9 §25). The CLI reports
     // the refusal and exits non-zero rather than printing a partial document -
     // or a PHP stack trace, which tells the caller as little as truncation did.
+    //
+    // The parser's container-prefix bound reports through the same arm for the
+    // same reason, and it is the arm that answers the defect: before the bound
+    // existed the runtime took the process down with a SIGSEGV, so the caller
+    // got exit 139 and no message at all (carve-php#1456).
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
 
     exit(1);

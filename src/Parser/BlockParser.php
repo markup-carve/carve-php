@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Exception\ContainerPrefixDepthExceededException;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
@@ -218,6 +219,44 @@ class BlockParser
      * @var int
      */
     public const MAX_NESTING_DEPTH = 200;
+
+    /**
+     * Depth bound for the container-prefix walk one line spells.
+     *
+     * DERIVED FROM THIS ENGINE'S OWN PER-LEVEL COST, as PART 9 §25 requires,
+     * and not adopted from another engine: carve-js and carve-rs read the same
+     * prefix without a frame per element, so neither needs a bound here at all.
+     * On this engine {@see self::advanceTrailingBlockStateAt()} spends a PHP
+     * stack frame per prefix element, and `zend.max_allowed_stack_size` is `0`
+     * on a default build, so the runtime answers an overflow with a SIGSEGV
+     * rather than a catchable `Error` - no document, no exception, no
+     * interpretable exit code (markup-carve/carve-php#1456).
+     *
+     * The number is bounded on both sides:
+     *
+     *  - ABOVE what any document reaches. A prefix element is a quote marker or
+     *    a list marker, and the parser stops BUILDING containers at
+     *    MAX_NESTING_DEPTH (200); a list level spends two of these walk steps,
+     *    so the deepest structure the parser will build is read in about 400
+     *    steps. 1024 leaves more than twice that, the same margin
+     *    MAX_HEADING_WALK_DEPTH takes over the same cap for the same reason.
+     *  - FAR BELOW where the stack runs out. Measured on PHP 8.5.9 with the
+     *    default 8 MB stack, a line of 16000 `> - ` pairs (about 32000 steps)
+     *    parses and 18000 pairs does not. 1024 is some thirty times under that
+     *    floor, so a build whose frames are much fatter - Xdebug loaded, a deep
+     *    host stack under the call - refuses at the same place rather than
+     *    crashing at a different one.
+     *
+     * Past the bound the walk REFUSES, which is not what the document-depth cap
+     * one axis over does: that one degrades an over-cap opener to paragraph
+     * text, because there is a document to keep parsing. Here there is not - the
+     * walk is a lookahead that has to answer for the whole line before the line
+     * is placed, so there is no partial answer to degrade to, and §25 forbids
+     * inventing one.
+     *
+     * @var int
+     */
+    public const MAX_LINE_PREFIX_DEPTH = 1024;
 
     /**
      * Depth bound for the heading-index walk.
@@ -11767,6 +11806,7 @@ class BlockParser
             IndentationHelper::trimmedEnd($line),
             self::lastInteriorNewline($line),
             $atContentColumn,
+            0,
         );
     }
 
@@ -11789,8 +11829,12 @@ class BlockParser
      * @param int $trimmedEnd Where `rtrim($line, " \t")` ends, for the quote rule.
      * @param int $lastInteriorNewline {@see self::lastInteriorNewline()}.
      * @param bool $atContentColumn {@see self::advanceTrailingBlockState()}.
+     * @param int $depth How many container prefix elements the walk has peeled
+     *   to reach this offset. Bounded by MAX_LINE_PREFIX_DEPTH.
      *
      * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @throws \MarkupCarve\Carve\Exception\ContainerPrefixDepthExceededException
+     *   When the line spells more prefix elements than MAX_LINE_PREFIX_DEPTH.
      */
     private function advanceTrailingBlockStateAt(
         array $state,
@@ -11800,7 +11844,20 @@ class BlockParser
         int $trimmedEnd,
         int $lastInteriorNewline,
         bool $atContentColumn,
+        int $depth,
     ): array {
+        // THE WALK IS BOUNDED BY THE LINE, NOT BY THE DOCUMENT, so nothing
+        // above it bounds this. MAX_NESTING_DEPTH counts containers the parser
+        // has OPENED and degrades past them; the two branches below peel
+        // markers a single line spells, and a line may spell any number of
+        // them whatever the document does with them. Each peel is a frame, and
+        // a default PHP build answers a blown stack with a SIGSEGV rather than
+        // a catchable Error - so past the bound this refuses, in the typed,
+        // bound-naming shape PART 9 §25 requires (carve-php#1456).
+        if ($depth > self::MAX_LINE_PREFIX_DEPTH) {
+            throw new ContainerPrefixDepthExceededException(self::MAX_LINE_PREFIX_DEPTH);
+        }
+
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
         // in the two branches that continue the same paragraph is what keeps a
@@ -12103,6 +12160,7 @@ class BlockParser
                 $trimmedEnd,
                 $lastInteriorNewline,
                 false,
+                $depth + 1,
             );
             $state['openParagraph'] = $inner['openParagraph'];
             // THE ROW ABOVE IS THE ONE IN THE SAME CONTAINER (PART 9 §5 T6,
@@ -12343,6 +12401,7 @@ class BlockParser
                 $trimmedEnd,
                 $lastInteriorNewline,
                 false,
+                $depth + 1,
             );
             // ONLY A BLOCK THAT FINISHES ON THE LEAD LINE ANSWERS HERE. A code
             // fence or a `:::` opener CONTINUES onto lines this step never
