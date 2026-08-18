@@ -165,4 +165,12 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $this->assertStringContainsString('<th scope="colgroup">a</th>', $html);
         $this->assertStringNotContainsString('scope="col"', $html);
     }
+
+    public function testADuplicateVerticalAxisFallsBackAsOneLiteralRun(): void
+    {
+        $html = $this->html("|=^^ Note |= Plain |\n| a | b |\n");
+
+        $this->assertStringContainsString('<th scope="col">^^ Note</th>', $html);
+        $this->assertStringNotContainsString('vertical-align', $html);
+    }
 }

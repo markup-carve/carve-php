@@ -576,33 +576,40 @@ class TableParser
     {
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
         $start = $length;
+        while (isset($cell[$length]) && str_contains('<>~^v', $cell[$length])) {
+            $length++;
+        }
+
         $horizontal = false;
         $vertical = false;
-        while (isset($cell[$length]) && str_contains('<>~^v', $cell[$length])) {
-            $marker = $cell[$length];
+        $valid = true;
+        for ($i = $start; $i < $length; $i++) {
+            $marker = $cell[$i];
             if (str_contains('<>~', $marker)) {
                 if (!$horizontal) {
                     $horizontal = true;
                 } elseif ($marker === '~' && !$vertical) {
                     $vertical = true;
                 } else {
+                    $valid = false;
+
                     break;
                 }
             } elseif (!$vertical) {
                 $vertical = true;
             } else {
+                $valid = false;
+
                 break;
             }
-            $length++;
         }
 
         if ($length === $start) {
             return $length;
         }
         $next = $cell[$length] ?? null;
-        $terminated = $next !== null
-            && (preg_match('/[ \t\r\n\f]/', $next) === 1 || $next === '{' || str_contains('<>~^v', $next));
-        if (!$terminated) {
+        $terminated = $next === ' ' || $next === '{';
+        if (!$valid || !$terminated) {
             return $start;
         }
 
