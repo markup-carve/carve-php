@@ -2002,7 +2002,22 @@ class HtmlToCarve
             // Inside a caption line, a block is its content. See
             // processCaptionChildren() for why this is a depth and not a rule
             // about the caption's direct children.
-            return $this->processChildren($node);
+            //
+            // A FLATTEN PRESERVES THE BOUNDARY IT DISSOLVES (PART 11 §1b,
+            // markup-carve/carve#1325). Returning the content bare ran two
+            // blocks together: `<p>one</p><p>two</p>` became `onetwo`, and
+            // `<p><strong>a</strong></p><p><strong>b</strong></p>` became
+            // `*a**b*`, which re-parses as literal asterisks rather than two
+            // runs. The block boundary is gone either way - a caption is one
+            // line - but what it SEPARATED has to survive it.
+            //
+            // An EMPTY block contributes no separator, because there was
+            // nothing on this side of the boundary to keep apart (corpus
+            // convert case 32). The trailing one is removed by
+            // processCaptionChildren(), so a lone block reads exactly as before.
+            $flattened = rtrim($this->processChildren($node));
+
+            return $flattened === '' ? '' : $flattened . ' ';
         }
 
         return match ($tagName) {
@@ -2097,7 +2112,10 @@ class HtmlToCarve
     {
         $this->captionDepth++;
         try {
-            return $this->processChildren($node);
+            // RTRIM, because each flattened block inside leaves the separator
+            // PART 11 §1b asks for and the last one has nothing to separate
+            // from.
+            return rtrim($this->processChildren($node));
         } finally {
             $this->captionDepth--;
         }

@@ -783,17 +783,19 @@ HTML;
      * line holds inline content, so the blocks are unwrapped into a single run
      * (carve-php#1345), and carve-js and carve-rs both emit exactly this.
      *
-     * The join is EMPTY, not a space, because that is what both sibling engines
-     * do; it merges the two words into `cap onecap two`. Whether an inline join
-     * should insert a separator is a question for all three engines rather than
-     * this one, so the spelling is matched here rather than improved alone.
+     * THE JOIN IS A SPACE. It used to be empty - `cap onecap two` - matched
+     * from the sibling engines while the question of whether an inline join
+     * should separate at all was open for all three. PART 11 §1b answered it:
+     * A FLATTEN PRESERVES THE BOUNDARY IT DISSOLVES (markup-carve/carve#1325,
+     * converter cases 29 to 32). The block boundary is gone either way, because
+     * a caption is one line, but what it SEPARATED survives it.
      */
     public function testFigureWithMultilineCaptionKeepsAllCaptionTextInsideCaption(): void
     {
         $html = '<figure><img src="photo.jpg" alt="Photo"><figcaption><p>cap one</p><p>cap two</p></figcaption></figure>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame("![Photo](photo.jpg)\n^ cap onecap two", $result);
+        $this->assertSame("![Photo](photo.jpg)\n^ cap one cap two", $result);
     }
 
     public function testFigureWithACodeBlockKeepsItsCaption(): void
@@ -914,7 +916,7 @@ HTML;
 
         // One inline run, as carve-js and carve-rs also emit - see the figure
         // case above for why the join is empty.
-        $this->assertSame("| x |\n^ cap onecap two", $result);
+        $this->assertSame("| x |\n^ cap one cap two", $result);
     }
 
     public function testCaptionRoundtrip(): void
