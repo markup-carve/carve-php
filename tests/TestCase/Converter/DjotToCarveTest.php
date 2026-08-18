@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class DjotToCarveTest extends TestCase
@@ -373,6 +374,14 @@ class DjotToCarveTest extends TestCase
      * generous (the quadratic version took ~14s for this input); it only fails
      * on a regression back to super-linear behavior.
      */
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement, and this
+     * one was missed when the other seven were moved: the sweep grepped
+     * `hrtime` and this file times with `microtime`. It failed on the COVERAGE
+     * runner, where instrumentation multiplies every duration and an absolute
+     * bound of 1.5s measures the profiler rather than the parser.
+     */
+    #[Group('scaling')]
     public function testLargeInputCompletesQuicklyWithCorrectOutput(): void
     {
         $input = str_repeat("_text_\n", 10000);
