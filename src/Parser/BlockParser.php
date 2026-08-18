@@ -46,6 +46,7 @@ use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -2384,31 +2385,53 @@ class BlockParser
         $baseColumn = $listContentColumns === []
             ? 0
             : $listContentColumns[array_key_last($listContentColumns)];
-        // One initial projection to the active list column is enough. From
-        // here the whole prefix is walked by OFFSET: replacing `$content` with
-        // each marker's tail copied the remaining line once per element, so N
-        // alternating `> - ` elements copied O(N²) bytes (carve-php#1463).
         $content = $baseColumn === 0 ? $line : IndentationHelper::stripLeadingColumns($line, $baseColumn);
-        $contentAt = 0;
         $quoted = false;
         $openedList = false;
 
-        $contentLength = strlen($content);
-        while ($contentAt < $contentLength) {
-            $leading = IndentationHelper::getLeadingColumnsAt($content, $contentAt);
-            $leadingColumns = $leading['columns'];
-            $strippedAt = $leading['end'];
+        // THE WALK CARRIES AN OFFSET, NOT A SUFFIX. Every step used to cut the
+        // rest of the line out to ask its question - an `ltrim`, a quote
+        // content, a marker's content - so a line of N prefix elements cost N
+        // times the line and a 128 KB line copied 4 GB
+        // (markup-carve/carve-php#1463). PART 9 §25 is normative about refusing
+        // rather than degrading, which makes that a defect and not a slow path,
+        // and it is the fourth place this same walk had to stop copying:
+        // markup-carve/carve-php#1407, markup-carve/carve-php#1426,
+        // markup-carve/carve-php#1437 and markup-carve/carve-php#1442 settled
+        // it one container over each time. One `substr` at the end replaces N
+        // of them.
+        //
+        // The initial `stripLeadingColumns()` above stays a copy: a tab that
+        // straddles the column boundary comes back as spaces, so what the walk
+        // reads is not always a suffix of `$line`. That is ONE copy per line,
+        // not one per element.
+        //
+        // THE SCREEN IS ANSWERED ONCE FOR THE LINE. `markerHeadAt()` drops the
+        // `.*$` its capturing twin ends with, which is exact only where the
+        // subject holds no INTERIOR newline; where one does, the capturing form
+        // answers instead and pays a copy on a line that cannot be long enough
+        // for it to matter.
+        $length = strlen($content);
+        $newline = strpos($content, "\n");
+        $screened = $newline !== false && $newline !== $length - 1;
+        $at = 0;
+
+        while ($at < $length) {
+            $strippedAt = IndentationHelper::pastLeadingWhitespace($content, $at);
+            $leadingColumns = IndentationHelper::getLeadingColumns($content, null, $at);
 
             $quoteWidth = ContainerPrefix::quoteMarkerWidth($content, $strippedAt);
             if ($quoteWidth !== null) {
                 $quoted = true;
-                $contentAt = $strippedAt + $quoteWidth;
+                $at = $strippedAt + $quoteWidth;
 
                 continue;
             }
 
-            $itemContentAt = $this->listParser->markerContentOffset($content, $strippedAt);
-            if ($itemContentAt === null) {
+            $head = $screened
+                ? $this->markerHeadFromCopy($content, $strippedAt, $length)
+                : $this->listParser->markerHeadAt($content, $strippedAt);
+            if ($head === null) {
                 break;
             }
 
@@ -2418,17 +2441,21 @@ class BlockParser
             // scan deliberately hardcoded 2 as well so it could not index a
             // heading the renderer never emitted; both sides measure now, so
             // the pre-scan and the parse agree by construction.
-            $markerWidth = $itemContentAt - $strippedAt;
+            $markerWidth = $this->listMarkerWidthFor($head['name'], $head['content'] - $strippedAt);
             $baseColumn += $leadingColumns + $markerWidth;
             $listContentColumns[] = $baseColumn;
-            $contentAt = $itemContentAt;
+            $at = $head['content'];
         }
 
-        return [
-            'content' => $contentAt === 0 ? $content : substr($content, $contentAt),
-            'quoted' => $quoted,
-            'openedList' => $openedList,
-        ];
+        if ($at === 0) {
+            return ['content' => $content, 'quoted' => $quoted, 'openedList' => $openedList];
+        }
+
+        if (LayoutWork::$on) {
+            LayoutWork::$prescan += $length - $at;
+        }
+
+        return ['content' => substr($content, $at), 'quoted' => $quoted, 'openedList' => $openedList];
     }
 
     /**
@@ -12535,11 +12562,51 @@ class BlockParser
      */
     protected function listMarkerWidth(string $stripped, array $info): int
     {
-        if ($info['type'] === ListBlock::TYPE_TASK) {
-            return 2;
+        return $this->listMarkerWidthFor(
+            $info['type'],
+            strlen($stripped) - strlen($info['content']),
+        );
+    }
+
+    /**
+     * The content-column width of a marker whose head spans `$span` bytes.
+     *
+     * A TASK'S COLUMN IS ITS BULLET'S. Its head runs past the checkbox, because
+     * that is where its CONTENT starts, but the column a continuation line has
+     * to reach is the bullet's - which is why the two numbers are different
+     * here and only here. Spelled once so the offset walk in
+     * {@see self::headingReferenceScanLine()} and the copying one above cannot
+     * drift (markup-carve/carve-php#1463).
+     *
+     * @param string $type The marker head that matched.
+     * @param int $span Bytes from the marker's first byte to its content.
+     */
+    protected function listMarkerWidthFor(string $type, int $span): int
+    {
+        return $type === ListBlock::TYPE_TASK ? 2 : $span;
+    }
+
+    /**
+     * {@see \MarkupCarve\Carve\Parser\Block\ListParser::markerHeadAt()} asked
+     * of a copy, for a subject the offset form is not exact on.
+     *
+     * @return array{name: string, content: int}|null
+     */
+    protected function markerHeadFromCopy(string $line, int $at, int $length): ?array
+    {
+        if (LayoutWork::$on) {
+            LayoutWork::$prescan += $length - $at;
+        }
+        $stripped = substr($line, $at);
+        $info = $this->listParser->parseListItemMarker($stripped);
+        if ($info === null) {
+            return null;
         }
 
-        return strlen($stripped) - strlen($info['content']);
+        return [
+            'name' => $info['type'],
+            'content' => $at + strlen($stripped) - strlen($info['content']),
+        ];
     }
 
     /**
