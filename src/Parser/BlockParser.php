@@ -11790,13 +11790,20 @@ class BlockParser
         // AFTER the thematic break above, which a spaced `- - -` would
         // otherwise take from it, and after the heading, which decides by the
         // LEAD and would lose that fact one level down.
-        $markerInfo = $this->listParser->parseListItemMarker($line);
-        if ($markerInfo !== null) {
-            $markerContent = $line;
-            while ($markerInfo !== null) {
-                $markerContent = $markerInfo['content'];
-                $markerInfo = $this->listParser->parseListItemMarker($markerContent);
-            }
+        //
+        // WALKED AS OFFSETS, NOT AS STRINGS. Asking `parseListItemMarker()` for
+        // each nested marker copies the whole remaining line every time it
+        // matches, so the walk cost markers TIMES line length per entry and the
+        // entries are capped rather than bounded - 8 KB of markers took about
+        // three seconds with the ratio per doubling still climbing
+        // (carve-php#1426). PART 9 section 25 is normative about refusing
+        // rather than degrading, so that shape is a defect and not a slow path.
+        // `markerContentOffset()` answers the same question from the SAME
+        // spelling of the grammar with a zero-width lookahead, so one `substr`
+        // at the end replaces N of them.
+        $contentOffset = $this->listParser->innermostMarkerContentOffset($line);
+        if ($contentOffset !== null) {
+            $markerContent = substr($line, $contentOffset);
             $inner = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $markerContent);
             // ONLY A BLOCK THAT FINISHES ON THE LEAD LINE ANSWERS HERE. A code
             // fence or a `:::` opener CONTINUES onto lines this step never
