@@ -237,6 +237,25 @@ class OffsetHeadsAgreeWithTheirParsersTest extends TestCase
         $this->assertGreaterThan(7000, $seen);
     }
 
+    public function testLeadingColumnsAtMatchesTheCopiedTail(): void
+    {
+        $seen = 0;
+        foreach (self::lines() as $line) {
+            $length = strlen($line);
+            for ($at = 0; $at <= $length; $at++) {
+                $actual = IndentationHelper::getLeadingColumnsAt($line, $at);
+                $tail = substr($line, $at);
+                $run = strspn($tail, " \t");
+
+                $this->assertSame(IndentationHelper::getLeadingColumns($tail), $actual['columns']);
+                $this->assertSame($at + $run, $actual['end']);
+                $seen++;
+            }
+        }
+
+        $this->assertGreaterThan(7000, $seen);
+    }
+
     private static function probe(): object
     {
         return new class extends BlockParser {
