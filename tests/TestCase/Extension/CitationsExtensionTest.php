@@ -8,8 +8,8 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class CitationsExtensionTest extends TestCase
