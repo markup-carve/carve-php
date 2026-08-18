@@ -598,15 +598,18 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * The break spelling at a nested boundary is NOT decided here.
+     * The comment sits at the boundary, and the boundary is a HARD break.
      *
-     * Whether a line block's break hardens at a nested boundary is a separate
-     * and contested question (markup-carve/carve#1351). The comment belongs at
-     * the boundary whichever way the boundary is spelled, so the placement
-     * descends while the soft-to-hard conversion deliberately does not - and
-     * this pins that the two stayed apart.
+     * The placement and the break spelling are two questions, and they were
+     * settled apart: the placement descends because the comment belongs at its
+     * boundary however that boundary is spelled, and markup-carve/carve#1351
+     * then ruled that a line block hardens a soft break at EVERY depth. So the
+     * node lands between two `hard_break`s here rather than two soft ones, and
+     * this pins the pair together because the placement walk counts BOTH kinds
+     * - a walk that counted only one would put the comment in the wrong place
+     * the moment the other spelling arrived.
      */
-    public function testTheNestedBreakSpellingIsUnchanged(): void
+    public function testTheCommentSitsBetweenTheHardenedBreaks(): void
     {
         $paragraph = (new CarveConverter())
             ->parse("::: |\n*a\n%% secret\nc*\n:::\n")
@@ -617,7 +620,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
             $paragraph->getChildren()[0]->getChildren(),
         );
 
-        $this->assertSame(['text', 'soft_break', 'comment', 'soft_break', 'text'], $types);
+        $this->assertSame(['text', 'hard_break', 'comment', 'hard_break', 'text'], $types);
     }
 
     /**

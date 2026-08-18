@@ -89,9 +89,16 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
 
         $this->assertStringContainsString('role="doc-noteref"', $html);
         $this->assertStringNotContainsString('^[note', $html);
-        // The body keeps the newline as content: the break belongs to the
-        // footnote text, so it is not promoted to a `<br>`.
-        $this->assertStringContainsString("<p>note\nmore<a href=", $html);
+        // THE BODY'S OWN BOUNDARY HARDENS TOO. It used to keep the newline as
+        // content, on the reading that a break inside a container belongs to
+        // that container's text. markup-carve/carve#1351 replaced that reading:
+        // ONE line boundary produces ONE `<br>`, however the boundary is
+        // spelled, and the exemption is NODE-PRESENCE rather than depth. A
+        // backslash break and a verbatim run are exempt because they leave no
+        // soft break behind; a note body leaves one, so it hardens like any
+        // other. The row below is the exempt kind, and the two together are
+        // what make this a rule about kinds rather than about depth.
+        $this->assertStringContainsString("<p>note<br>\nmore<a href=", $html);
     }
 
     /**

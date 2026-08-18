@@ -504,6 +504,27 @@ class CarveCorpusTest extends TestCase
         'a-comment-fence-reached-through-a-quote-registers-nothing-either',
         'a-comment-fence-reached-through-a-quote-registers-nothing-either-2',
         'a-comment-fence-reached-through-a-quote-registers-nothing-either-3',
+        // Eighteen documents from three rulings, all rendered through
+        // CarveConverter and diffed byte for byte against their `.html` before
+        // these lines were added. All three needed engine work, none is
+        // deferred, so KNOWN_GAPS stays empty.
+        //
+        // 348 is markup-carve/carve#1351: a line block hardens a soft break at
+        // EVERY depth, so `*a` over `b*` puts the `<br>` inside the `<strong>`.
+        // The engine contradicted itself here - the backslash spelling of the
+        // same boundary already hardened at depth - and the exemption turns out
+        // to be node-presence rather than depth.
+        'a-closed-inline-construct-spanning-a-verse-boundary',
+        // 349 is markup-carve/carve#1348: a table is a table however its last
+        // row is spelled, so a container whose table ends on a CONTINUATION row
+        // leaves no open paragraph for a column-0 line to continue - the same
+        // answer the standard-row spelling already gave.
+        'a-container-whose-table-ends-on-a-continuation-row',
+        // 350 is markup-carve/carve#1350: an invisible line AT a container's
+        // content column ends the paragraph rather than the container. Below
+        // that column it is a lazy line and still folds, which is what keeps
+        // corpus 183 and 214-2 pointing the other way.
+        'a-definition-at-a-container-s-content-column',
     ];
 
     /**

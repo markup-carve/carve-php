@@ -3045,8 +3045,25 @@ class HtmlRenderer implements RendererInterface
 
         // A single-paragraph definition renders inline (<dd>text</dd>); any
         // richer block content keeps its block structure.
-        if (count($children) === 1 && $children[0] instanceof Paragraph) {
-            return '  <dd' . $attrs . '>' . $this->renderChildren($children[0]) . "</dd>\n";
+        //
+        // A COMMENT IS NOT RICHER CONTENT. §24 C3 keeps it invisible, so it
+        // emits nothing here - but it was still COUNTED, and a description
+        // holding one paragraph and one comment took the block shape whose
+        // only extra child renders the empty string:
+        //
+        //     :: t
+        //     :  a
+        //        %% c
+        //
+        // gave `<dd>` on its own line around `<p>a</p>` where the same
+        // description without the comment gives `<dd>a</dd>`
+        // (markup-carve/carve#1350, corpus 350-6).
+        $visible = array_values(array_filter(
+            $children,
+            static fn (Node $child): bool => !$child instanceof Comment,
+        ));
+        if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
+            return '  <dd' . $attrs . '>' . $this->renderChildren($visible[0]) . "</dd>\n";
         }
 
         $content = rtrim($this->renderChildren($node));
