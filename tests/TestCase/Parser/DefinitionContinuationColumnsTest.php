@@ -7,7 +7,9 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
-/** The definition-continuation matrix from markup-carve/carve#1376. */
+/**
+ * The definition-continuation matrix from markup-carve/carve#1376.
+ */
 class DefinitionContinuationColumnsTest extends TestCase
 {
     protected CarveConverter $converter;
