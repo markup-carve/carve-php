@@ -56,6 +56,41 @@ class ListParser
     protected string $bulletMarkerClass = '-*';
 
     /**
+     * Memoized marker heads, invalidated when the bullet class changes.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $markerHeads = null;
+
+    /**
+     * Memoized head split points, invalidated with the heads.
+     *
+     * @var array<string, array{0: string, 1: string}>|null
+     */
+    protected ?array $markerTokens = null;
+
+    /**
+     * Memoized content-capturing patterns, invalidated with the heads.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $capturePatterns = null;
+
+    /**
+     * Memoized offset-only patterns, invalidated with the heads.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $offsetPatterns = null;
+
+    /**
+     * Memoized offset-only patterns for the abutting-attribute spelling.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $attributedOffsetPatterns = null;
+
+    /**
      * Allow (or disallow) `+` as a bullet marker alongside `-` and `*`.
      *
      * A `+` is only ever a bullet when followed by a space and non-empty
@@ -69,6 +104,288 @@ class ListParser
     public function allowPlusBullet(bool $enable = true): void
     {
         $this->bulletMarkerClass = $enable ? '-*+' : '-*';
+        $this->markerHeads = null;
+        $this->markerTokens = null;
+        $this->capturePatterns = null;
+        $this->offsetPatterns = null;
+        $this->attributedOffsetPatterns = null;
+    }
+
+    /**
+     * The marker grammar, spelled ONCE, as the regex up to the item's CONTENT.
+     *
+     * Appending a CAPTURE of the tail gives the patterns
+     * `parseListItemMarkerBase()` matches; appending the same tail as a
+     * LOOKAHEAD gives the ones `markerContentOffset()` matches. Two renderings
+     * of one spelling, because a second spelling of this grammar in a hot path
+     * is how a wrong content offset would silently change the way ordinary
+     * documents parse - and this repo already carries two spellings of the
+     * marker prefix that do not agree with each other.
+     *
+     * Ordered as PART 9 tries them, roman before alpha, because a roman
+     * numeral that fails `romanToInt()` falls THROUGH to the alpha branch.
+     *
+     * @return array<string, string>
+     */
+    protected function markerHeads(): array
+    {
+        if ($this->markerHeads !== null) {
+            return $this->markerHeads;
+        }
+
+        $heads = [];
+        foreach ($this->markerTokens() as $name => [$token, $rest]) {
+            $heads[$name] = $token . $rest;
+        }
+
+        return $this->markerHeads = $heads;
+    }
+
+    /**
+     * Each head SPLIT at the point an abutting attribute block sits.
+     *
+     * `-{.k} x` is the marker, then the block, then the ordinary gap and
+     * content - so the block goes between the marker TOKEN and whatever else
+     * the head needs. For a task marker that is the bullet and then
+     * ` [x] `, which is why the split is a pair rather than a prefix length:
+     * `-{.k} [x] y` is the attributed spelling and `- [x]{.k} y` is not.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    protected function markerTokens(?string $bulletClass = null): array
+    {
+        if ($bulletClass === null && $this->markerTokens !== null) {
+            return $this->markerTokens;
+        }
+
+        $gap = ' +[ \t]*';
+        $bullet = '[' . ($bulletClass ?? $this->bulletMarkerClass) . ']';
+
+        $tokens = [
+            'task' => ['(' . $bullet . ')', ' +\[([ xX_>?-])\]' . $gap],
+            'bullet' => ['(' . $bullet . ')', $gap],
+            'ordered' => ['(\d+)([.)])', $gap],
+            'bare' => ['\.', $gap],
+            'roman' => ['(?P<roman>[ivxlcdmIVXLCDM]+)([.)])', $gap],
+            'alpha' => ['([a-zA-Z])([.)])', $gap],
+        ];
+
+        if ($bulletClass !== null) {
+            return $tokens;
+        }
+
+        return $this->markerTokens = $tokens;
+    }
+
+    /**
+     * Where the INNERMOST marker's content begins on a line of nested markers.
+     *
+     * The question `BlockParser::advanceTrailingBlockState()` asks of every
+     * marker line: `- - - x` has its content at the `x`. Walked as offsets, so
+     * a line of N markers copies nothing rather than N times.
+     *
+     * @param string $line A single collected line.
+     */
+    public function innermostMarkerContentOffset(string $line): ?int
+    {
+        // AN INTERIOR NEWLINE IS THE ONE SHAPE THE FAST FORM MISREADS, and it
+        // is screened ONCE for the whole walk instead of once per marker - the
+        // per-call spelling is exactly the O(rest) scan this walk exists to
+        // remove. `parseListItemMarker()` answers null for such a subject,
+        // because its `(NON_WHITESPACE.*)$` tail cannot cross a newline, so
+        // null is the agreeing answer and not a refusal.
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== strlen($line) - 1) {
+            return null;
+        }
+
+        $offset = $this->markerContentOffset($line);
+        if ($offset === null) {
+            return null;
+        }
+
+        while (($next = $this->markerContentOffset($line, $offset)) !== null) {
+            $offset = $next;
+        }
+
+        return $offset;
+    }
+
+    /**
+     * One marker head, rendered as the pattern that CAPTURES the content.
+     *
+     * Memoized whole rather than composed per call: this is the hottest
+     * function in the parser on a marker-heavy line, and building six pattern
+     * strings per call cost more than the copy the offset walk removes.
+     */
+    protected function markerPattern(string $name): string
+    {
+        return $this->capturePatterns()[$name];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function capturePatterns(): array
+    {
+        if ($this->capturePatterns !== null) {
+            return $this->capturePatterns;
+        }
+
+        $patterns = [];
+        foreach ($this->markerHeads() as $name => $head) {
+            $patterns[$name] = '/^' . $head . '(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/';
+        }
+
+        return $this->capturePatterns = $patterns;
+    }
+
+    /**
+     * The offset patterns for the ABUTTING-ATTRIBUTE spelling, `-{.k} x`.
+     *
+     * The block goes between the marker token and the rest of its head, which
+     * is exactly where `parseListItemMarker()` strips it from before handing
+     * the line to the base parser. Built from the SAME split, so the two forms
+     * cannot drift apart - and the payload is still validated by
+     * `AttributeParser`, so `-{bad ..}` is no more a marker here than it is
+     * there.
+     *
+     * Without these, this spelling kept the string path and stayed quadratic:
+     * 2000 abutting markers cost 6.7s where every other spelling had gone
+     * linear, and it was the most expensive shape measured.
+     *
+     * @return array<string, string>
+     */
+    protected function attributedOffsetPatterns(): array
+    {
+        if ($this->attributedOffsetPatterns !== null) {
+            return $this->attributedOffsetPatterns;
+        }
+
+        $block = '(?P<attrs>\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})';
+        // THE STRIP'S OWN TAIL, asserted where it sits. `parseListItemMarker()`
+        // only strips a block that is followed by ` +NON_WHITESPACE`, and then
+        // hands the base parser the marker spliced onto that tail - so a TAB
+        // after the spaces means no strip at all, where the head's own
+        // ` +[ \t]*` gap would have accepted one. Without this the two forms
+        // disagreed on `-{.k} <tab>x`, which a 44,100-document sweep caught and
+        // the single-marker matrix did not.
+        $strippable = '(?= +' . StringUtil::NON_WHITESPACE_CLASS . ')';
+        // THE STRIP'S OWN BULLET CLASS, WHICH IS NARROWER. The attribute
+        // pre-step in `parseListItemMarker()` spells its markers as
+        // `[-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)]` - a literal `[-*]`, which the
+        // PlusBulletExtension does not widen. So `+{.k} x` is not a marker
+        // there even with the extension on, and building these from the live
+        // bullet class made the two forms disagree exactly there (raised by
+        // codex review). Mirrored rather than corrected: whether the strip
+        // SHOULD accept a plus bullet is a behavior question, and this change
+        // is required to alter nothing.
+        $patterns = [];
+        foreach ($this->markerTokens('-*') as $name => [$token, $rest]) {
+            $patterns[$name] = '/' . $token . $block . $strippable . $rest
+                . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+        }
+
+        return $this->attributedOffsetPatterns = $patterns;
+    }
+
+    /**
+     * The same heads with the tail as a zero-width LOOKAHEAD, anchored.
+     *
+     * @return array<string, string>
+     */
+    protected function offsetPatterns(): array
+    {
+        if ($this->offsetPatterns !== null) {
+            return $this->offsetPatterns;
+        }
+
+        $patterns = [];
+        foreach ($this->markerHeads() as $name => $head) {
+            $patterns[$name] = '/' . $head . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+        }
+
+        return $this->offsetPatterns = $patterns;
+    }
+
+    /**
+     * Where the CONTENT of the marker at `$from` begins, or null for no marker.
+     *
+     * The answer `parseListItemMarker()` gives, minus the copy. Every pattern
+     * there ends by CAPTURING the rest of the line, so asking the same question
+     * N times down a line of N markers copies the tail N times - the walk in
+     * `BlockParser::advanceTrailingBlockState()` did exactly that, and 8 KB of
+     * markers cost about three seconds with the ratio per doubling still
+     * climbing (carve-php#1426, and PART 9 section 25 is normative about
+     * refusing rather than degrading).
+     *
+     * The tail is asserted with a zero-width LOOKAHEAD written from the same
+     * heads, and the only substring this returns is bounded by the MARKER
+     * rather than by the line.
+     *
+     * THE LOOKAHEAD DELIBERATELY DROPS THE `.*$`. The capturing form ends
+     * `(NON_WHITESPACE.*)$`, and asserting that tail again per call is what
+     * made the first version of this SLOWER than the copy it replaced: the
+     * scan to end-of-line is O(rest) whether or not anything is copied, so
+     * the walk stayed quadratic with a bigger constant. Dropping it is exact
+     * for a line with no INTERIOR newline, which is the whole difference the
+     * `$` makes, and `innermostMarkerContentOffset()` checks that once for the
+     * whole walk rather than once per marker.
+     *
+     * @param string $line A single line. A newline anywhere but the last byte
+     *   makes this DISAGREE with `parseListItemMarker()`, which is why the walk
+     *   below screens for one.
+     * @param int $from Byte offset to match at, anchored.
+     */
+    public function markerContentOffset(string $line, int $from = 0): ?int
+    {
+        foreach ($this->offsetPatterns() as $name => $pattern) {
+            if (preg_match($pattern, $line, $m, 0, $from) !== 1) {
+                continue;
+            }
+
+            if ($name === 'roman' && $this->romanToInt(strtoupper($m[1])) <= 0) {
+                // Not a roman numeral after all, so the alpha head gets its
+                // turn - the same fall-through the base parser makes.
+                //
+                // CURRENTLY UNREACHABLE, and kept for the coupling rather than
+                // for the case. `romanToInt()` returns 0 only for a character
+                // outside `ROMAN_VALUES`, and the roman head's class is exactly
+                // that table's keys in both cases, so nothing the head matches
+                // can fail it. It is the base parser's own guard mirrored, and
+                // it is what keeps the two tables coupled if either is widened
+                // - deleting it would leave a widened class producing a list
+                // that starts at zero.
+                continue;
+            }
+
+            return $from + strlen($m[0]);
+        }
+
+        // AN ABUTTING ATTRIBUTE BLOCK, tried second because the two spellings
+        // are disjoint: a plain head needs whitespace where this one has a
+        // brace, so neither can match what the other does.
+        foreach ($this->attributedOffsetPatterns() as $name => $pattern) {
+            if (preg_match($pattern, $line, $m, 0, $from) !== 1) {
+                continue;
+            }
+
+            if ($name === 'roman' && $this->romanToInt(strtoupper($m['roman'])) <= 0) {
+                continue;
+            }
+
+            $body = substr($m['attrs'], 1, -1);
+            // The WHOLE payload has to be valid, exactly as it does in
+            // `parseListItemMarker()`: a block mixing a good class with an
+            // unrecognized name is not a marker at all.
+            if ($body !== '' && (AttributeParser::parseOrdered($body) === [] || !AttributeParser::isValidInlinePayload($body))) {
+                continue;
+            }
+
+            return $from + strlen($m[0]);
+        }
+
+        return null;
     }
 
     /**
@@ -139,7 +456,7 @@ class ListParser
         // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
         // checkbox nobody wrote (carve-php#657). Two characters were already
         // rejected; it was only the one-character case that was open.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +\[([ xX_>?-])\] +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('task'), $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [
@@ -158,7 +475,7 @@ class ListParser
         // A marker is a list item only with non-empty content: a content-less
         // marker (bare or trailing whitespace only) is paragraph text, not a
         // list. Avoids a trailing space being load-bearing. See PART 9.
-        if (preg_match('/^([' . $this->bulletMarkerClass . ']) +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('bullet'), $line, $matches)) {
             $marker = $matches[1];
             $content = $matches[2];
 
@@ -170,7 +487,7 @@ class ListParser
         }
 
         // Ordered list: 1. or 1)
-        if (preg_match('/^(\d+)([.)]) +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('ordered'), $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => $matches[2],
@@ -182,7 +499,7 @@ class ListParser
         // Bare-dot ordered list: `. text` is shorthand for decimal-dot ordered
         // items starting at 1. Only the dot delimiter has this shorthand, and
         // it still requires a space and non-empty content.
-        if (preg_match('/^\. +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('bare'), $line, $matches)) {
             return [
                 'type' => ListBlock::TYPE_ORDERED,
                 'marker' => '.',
@@ -197,7 +514,7 @@ class ListParser
         // literal paragraph text. Carve uses the . and ) delimiters only.
 
         // Roman numeral ordered list
-        if (preg_match('/^([ivxlcdmIVXLCDM]+)([.)]) +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('roman'), $line, $matches)) {
             $roman = $matches[1];
             $isLower = ctype_lower($roman[0]);
             $start = $this->romanToInt(strtoupper($roman));
@@ -221,7 +538,7 @@ class ListParser
         }
 
         // Alpha ordered list: a. or A. or a) or A)
-        if (preg_match('/^([a-zA-Z])([.)]) +[ \t]*(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (preg_match($this->markerPattern('alpha'), $line, $matches)) {
             $letter = $matches[1];
             $isLower = ctype_lower($letter);
             $start = ord(strtolower($letter)) - ord('a') + 1;
