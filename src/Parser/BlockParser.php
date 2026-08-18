@@ -11832,9 +11832,10 @@ class BlockParser
      * @param int $depth How many container prefix elements the walk has peeled
      *   to reach this offset. Bounded by MAX_LINE_PREFIX_DEPTH.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
      * @throws \MarkupCarve\Carve\Exception\ContainerPrefixDepthExceededException
      *   When the line spells more prefix elements than MAX_LINE_PREFIX_DEPTH.
+     *
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
      */
     private function advanceTrailingBlockStateAt(
         array $state,

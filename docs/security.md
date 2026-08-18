@@ -69,6 +69,36 @@ and a `javascript:` link destination is emptied in every mode - those two are
 handled without opting in. Raw passthrough is not. If you take input from
 anywhere untrusted and do not set a safe mode, you have an XSS hole.
 
+## Resource limits
+
+Pathologically nested input is bounded rather than allowed to exhaust the host.
+Two bounds are worth knowing about because a caller can observe them:
+
+- **Container nesting in the document** stops at
+  `BlockParser::MAX_NESTING_DEPTH` (200). Past it an opener degrades to ordinary
+  paragraph text, so the document still parses.
+- **Container markers on ONE line** stop at
+  `BlockParser::MAX_LINE_PREFIX_DEPTH`. A line spelling more of them than that -
+  `> - ` repeated thousands of times - is REFUSED with
+  `ContainerPrefixDepthExceededException`, which names the bound it hit. This
+  reads the line's markers rather than the containers the document opens, so the
+  cap above never bounded it; before the bound existed such a line overflowed the
+  stack, and PHP does not turn that into a catchable error.
+
+Catch it wherever you catch a malformed document:
+
+```php
+use MarkupCarve\Carve\Exception\ContainerPrefixDepthExceededException;
+
+try {
+    $html = $converter->convert($source);
+} catch (ContainerPrefixDepthExceededException $exception) {
+    // $exception->limit is the bound
+}
+```
+
+`bin/carve` already does this: it prints the message on stderr and exits 1.
+
 ## SafeMode
 
 ```php

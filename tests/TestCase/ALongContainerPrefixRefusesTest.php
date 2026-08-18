@@ -27,10 +27,18 @@ use PHPUnit\Framework\TestCase;
  * Asserting the refusal in-process would prove nothing, because the process
  * that had to survive to make the assertion is the one that died.
  *
- * The bound is not a scale guard and reads no clock: `QuotedMarkerLineScaleTest`
- * beside this one measures what the walk COSTS below the bound, and cannot see
- * this at all - the crash is depth, and its larger sample sat just under the
- * threshold on the machine it was calibrated on.
+ * THIS REPLACES `QuotedMarkerLineScaleTest`, and reads no clock. That guard
+ * measured the walk's per-byte cost across an 8x range of prefix elements, and
+ * the bound removes the axis it measured: the walk now costs at most
+ * MAX_LINE_PREFIX_DEPTH steps per line, so the shape is linear in the line with
+ * a bounded constant rather than superlinear in the prefix. Below the bound it
+ * also cannot discriminate, which was measured rather than assumed - with a
+ * copy-per-level mutation standing in for the spelling carve-php#1437 removed,
+ * 128 against 512 pairs reads 1.58 where the healthy walk reads 1.65, both
+ * under that guard's own 2.0 threshold. Its own docblock said as much: the
+ * per-byte cost is still rising until roughly 2000 prefix elements, and 512 is
+ * the most the bound now allows. Keeping it would have been a check that cannot
+ * fail (markup-carve/carve#755).
  */
 class ALongContainerPrefixRefusesTest extends TestCase
 {
