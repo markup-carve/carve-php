@@ -255,6 +255,18 @@ class PrepassFenceTracker
         return ['line' => $fenceLine, 'quoteDepth' => $quoteDepth];
     }
 
+    /**
+     * Present a block opener after composed quote/list prefixes and the current
+     * content-column budget are spent. Line blocks and code fences share this
+     * view because either may open on a list item's own marker line.
+     *
+     * @return array{line: string, quoteDepth: int}
+     */
+    public function containerOpenerView(string $line, int $contentColumn): array
+    {
+        return $this->fenceView($line, $contentColumn);
+    }
+
     protected function stripListMarker(string $line): string
     {
         $first = $line[0] ?? '';

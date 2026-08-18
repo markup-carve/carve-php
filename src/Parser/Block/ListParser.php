@@ -289,17 +289,13 @@ class ListParser
         // disagreed on `-{.k} <tab>x`, which a 44,100-document sweep caught and
         // the single-marker matrix did not.
         $strippable = '(?= +' . StringUtil::NON_WHITESPACE_CLASS . ')';
-        // THE STRIP'S OWN BULLET CLASS, WHICH IS NARROWER. The attribute
-        // pre-step in `parseListItemMarker()` spells its markers as
-        // `[-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)]` - a literal `[-*]`, which the
-        // PlusBulletExtension does not widen. So `+{.k} x` is not a marker
-        // there even with the extension on, and building these from the live
-        // bullet class made the two forms disagree exactly there (raised by
-        // codex review). Mirrored rather than corrected: whether the strip
-        // SHOULD accept a plus bullet is a behavior question, and this change
-        // is required to alter nothing.
+        // The parser's abutting-attribute pre-step reads the live bullet class,
+        // so this offset-only spelling must do the same. Otherwise the parser
+        // accepts `+{.k} x` with PlusBulletExtension while the marker walk
+        // stops before it and the trailing-block tracker answers a different
+        // container shape.
         $patterns = [];
-        foreach ($this->markerTokens('-*') as $name => [$token, $rest]) {
+        foreach ($this->markerTokens() as $name => [$token, $rest]) {
             $patterns[$name] = '/' . $token . $block . $strippable . $rest
                 . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
         }
@@ -421,9 +417,10 @@ class ListParser
         // match, and attach the parsed attributes to the returned info. A space
         // before the brace does NOT match here -- it stays ordinary content.
         $itemAttributes = [];
+        $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
             preg_match(
-                '/^([-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
+                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
             )

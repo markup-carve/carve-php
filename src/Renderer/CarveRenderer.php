@@ -3345,6 +3345,20 @@ class CarveRenderer implements RendererInterface
      */
     protected function escapeImageAlt(string $text): string
     {
+        // A comment-only verse line is removed before an image's scalar ALT is
+        // built, leaving an empty line with no comment node to carry it.  Spell
+        // that loss the same way §7c spells an emptied verbatim line, and the
+        // same way the reference-image snapshot already does.
+        if (str_contains($text, "\n")) {
+            $lines = explode("\n", $text);
+            foreach ($lines as $index => $line) {
+                if ($line === '') {
+                    $lines[$index] = '%%';
+                }
+            }
+            $text = implode("\n", $lines);
+        }
+
         if (BracketScanner::rawRunCloses($text)) {
             return $text;
         }

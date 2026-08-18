@@ -193,9 +193,8 @@ class ReferenceDefinitionExtractor
             // column asked for the quote marker's columns as indentation,
             // matched nothing, and left the verse untracked - so a definition
             // written in it registered (markup-carve/carve-php#1431).
-            $openerWalk = $contentCol > 0 ? ContainerPrefix::innermostAtColumn($line, $contentCol) : null;
-            $verseOpenerColumn = $openerWalk !== null ? $contentCol : 0;
-            $openerWalk ??= ContainerPrefix::pastQuoteMarkers($line);
+            $openerWalk = $fence->containerOpenerView($line, $contentCol);
+            $verseOpenerColumn = $contentCol;
             $verseOpenerView = $openerWalk['line'];
             $verseOpenerDepth = $openerWalk['quoteDepth'];
             if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $verseOpenerView, $vo) === 1) {
