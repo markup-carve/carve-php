@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -2069,7 +2070,9 @@ class CarveRenderer implements RendererInterface
             $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->renderMath($node)),
-            $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof RawInline => $node->getContent() === ''
+                ? throw new SourceUnspellableException('raw_inline', 'an empty raw inline has no Carve source spelling')
+                : $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
             $node instanceof LiteralInline => $this->renderLiteralInline($node),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
