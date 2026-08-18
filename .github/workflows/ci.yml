@@ -29,8 +29,12 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      # PARALLEL. PHPUnit runs one process and 512 test files one after
+      # another; paratest schedules them across the runner's cores. The
+      # sequential `composer test` stays the local default - a single process
+      # gives a clearer failure, and this is a CI trade, not a repo-wide one.
       - name: Run tests
-        run: composer test
+        run: composer test-parallel
 
   scaling:
     runs-on: ubuntu-latest
@@ -74,8 +78,11 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      # This job sets the whole run's wall clock (5m20s of a 5m44s run), so it
+      # is the leg the parallel run has to reach to be worth anything. pcov
+      # collects per process and paratest merges the reports.
       - name: Run tests with coverage
-        run: composer test-coverage
+        run: composer test-coverage-parallel
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
