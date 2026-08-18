@@ -31,6 +31,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Definitions collected at a list item's content column close its paragraph**
+  (markup-carve/carve#1376). A following line below that column no longer uses
+  the comment-only continuation path; bare-dot items use the bullet column.
+
 - **A hard break ends at column 1 of the following physical line**, including
   where the line after it is a comment-only line the block layer removes
   (markup-carve/carve-php#1457).
