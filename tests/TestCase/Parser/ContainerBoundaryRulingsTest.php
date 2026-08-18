@@ -129,11 +129,21 @@ class ContainerBoundaryRulingsTest extends TestCase
             'footnote definition in an item' => ["- a\n  [^f]: t\ntail\n", $item],
             'reference definition in a description' => [":: t\n:  a\n   [r]: /u\ntail\n", $description],
             'comment in a description' => [":: t\n:  a\n   %% c\ntail\n", $description],
+            // THE LIST SPELLING ANSWERS ALIKE, which is the whole point of
+            // stating the rule about containers: if the description and the
+            // item answered differently, two container-specific rules would be
+            // doing the work rather than PART 1 S4 (markup-carve/carve#1350's
+            // fourth shape, carve-php#1421). An attribute block at the same
+            // column has always ended the item, so nothing here is a new kind
+            // of effect for an invisible line.
+            'comment in an item' => ["- a\n  %% c\ntail\n", $item],
+            // The fence spelling travels with its opener (§24 C3), so it lands
+            // at the same column and answers the same.
+            'comment fence in an item' => ["- a\n  %%%\n  c\n  %%%\ntail\n", $item],
+            'comment fence in a description' => [":: t\n:  a\n   %%%\n   c\n   %%%\ntail\n", $description],
             // Not pinned by the corpus: #1350 is stated about a container's
             // content column rather than about descriptions, and nothing points
-            // the other way. The LIST spelling of this one still folds and is
-            // filed as markup-carve/carve-php#1421 - its tracker answers "is a
-            // paragraph open" and "is the item still collecting" with one flag.
+            // the other way.
             'comment in a quote' => [
                 "> a\n> %% c\ntail\n",
                 "<blockquote><p>a</p></blockquote>\n<p>tail</p>\n",
@@ -182,5 +192,120 @@ class ContainerBoundaryRulingsTest extends TestCase
     public function testAnInvisibleLineBelowTheColumnStillFolds(string $source, string $expected): void
     {
         $this->assertStringContainsString($expected, $this->html($source));
+    }
+
+    /**
+     * ENDING THE PARAGRAPH AND ENDING THE ITEM ARE TWO QUESTIONS.
+     *
+     * The comment at the content column ends the paragraph above it. What
+     * happens next depends on the column the FOLLOWING line arrives at, and the
+     * item's tracker used to answer both with one flag - which is why the list
+     * spelling was left alone when the description and quote spellings landed
+     * (carve-php#1421).
+     *
+     * At DOCUMENT column 0 there is no open paragraph anywhere in the stack, so
+     * the item ends - that is the row in the provider above. At a NONZERO column
+     * below the content column the line reaches the item only through the lazy
+     * fold, and §24 C3's comment exception keeps that path open, so the item
+     * goes on collecting and the line is its own second block. Both of these
+     * are pinned by the corpus (197 and 277) and neither may move.
+     */
+    public function testABelowColumnLineAfterAContentColumnCommentStillCollects(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\n    b\n  </li>\n</ul>\n",
+            $this->html("- a\n  %% x\n b\n"),
+        );
+    }
+
+    /**
+     * The corpus-277 half of the same question: a below-column MARKER after a
+     * comment fence at the content column still opens a nested list INSIDE the
+     * item, rather than ending it.
+     */
+    public function testABelowColumnMarkerAfterACommentFenceStillOpensANestedList(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <ul>\n      <li>n</li>\n    </ul>\n  </li>\n</ul>\n",
+            $this->html("- a\n  %%%\n  c\n  %%%\n - n\n"),
+        );
+    }
+
+    /**
+     * AT THE COLUMN, NOT AT-OR-PAST IT.
+     *
+     * A comment ONE COLUMN PAST the item's content column keeps the answer it
+     * had: `tail` folds in. The clause is worded about a line AT the content
+     * column, the quote spelling reads it that way already (its indented-comment
+     * row above), and the three containers plus the top level do not currently
+     * agree on the past-the-column shape - so it is left where it was rather
+     * than moved by a ruling that did not reach it.
+     */
+    public function testACommentPastTheContentColumnIsNotTheRuledShape(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n",
+            $this->html("- a\n   %% c\ntail\n"),
+        );
+    }
+
+    /**
+     * A VISIBLE BLOCK AFTER THE COMMENT TAKES THE ANSWER BACK.
+     *
+     * The reason a paragraph closed describes the LAST block, not any block.
+     * A code fence at the content column after the comment leaves nothing a
+     * below-column line could reach, so the item ends there exactly as it does
+     * with no comment in the document at all - which is the control on the row
+     * below it.
+     */
+    public function testAVisibleBlockAfterTheCommentEndsTheItemAgain(): void
+    {
+        $withTheComment = $this->html("- a\n  %% c\n  ```\n  x\n  ```\n tail\n");
+
+        $this->assertStringContainsString("</ul>\n<p>tail</p>", $withTheComment);
+        $this->assertSame($this->html("- a\n  ```\n  x\n  ```\n tail\n"), $withTheComment);
+    }
+
+    /**
+     * A SECOND COMMENT BELOW THE COLUMN CHANGES NOTHING.
+     *
+     * Below the content column a comment adds no block, so it neither closes a
+     * paragraph nor un-closes one - and it cannot be what decides where a later
+     * line lands. Writing one between the content-column comment and the
+     * below-column line used to take that line out of the item, which is an
+     * invisible construct with a visible effect.
+     */
+    public function testASecondCommentBelowTheColumnDoesNotMoveTheLine(): void
+    {
+        $this->assertSame(
+            $this->html("- a\n  %% c\n b\n"),
+            $this->html("- a\n  %% c\n %% d\n b\n"),
+        );
+    }
+
+    /**
+     * THE CONTROL THAT KEEPS THE COLUMN LOAD-BEARING: with the comment gone,
+     * the same document folds `tail` into the item. Without this, "an item ends
+     * at a column-0 line" would pass every row above and be a different rule.
+     */
+    public function testWithoutTheCommentTheFlushLeftLineStillFolds(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\ntail</li>\n</ul>\n",
+            $this->html("- a\ntail\n"),
+        );
+    }
+
+    /**
+     * THE SECOND CONTROL: a VISIBLE block at the content column ends the item
+     * as it always has, so the new flag cannot be what ends it. A code fence
+     * there leaves no open paragraph and nothing invisible about it.
+     */
+    public function testAVisibleBlockAtTheContentColumnStillEndsTheItem(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>\n",
+            $this->html("- a\n  ```\n  c\n  ```\ntail\n"),
+        );
     }
 }

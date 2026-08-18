@@ -95,9 +95,9 @@ class BlockParser
      * is exactly that shape, and the old default made the empty item swallow
      * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'closedByAnInvisibleBlock' => false];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -5973,7 +5973,7 @@ class BlockParser
      * @param string $line
      * @param array<string> $lines
      * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool} $trailingState
      */
     protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
     {
@@ -6106,9 +6106,9 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool} $trailingState
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -6251,7 +6251,22 @@ class BlockParser
                 }
                 $itemLines[] = $contentLine;
                 $itemLineMap[] = $this->sourceLineFor($i);
-                $trailingState = $this->advanceTrailingBlockState($trailingState, $contentLine);
+                // AT THE CONTENT COLUMN, so an invisible line here is a BLOCK
+                // and ends the paragraph above it (markup-carve/carve#1350).
+                // The description and the quote spellings already said so; the
+                // list said the opposite because this call did not tell the
+                // tracker which column the line arrived at (carve-php#1421).
+                //
+                // AT, NOT AT-OR-PAST, which is the spelling the quote uses and
+                // the clause is worded in. A line one column PAST the content
+                // column is a different question - the three containers and the
+                // top level do not agree on it today, and this ruling did not
+                // reach it - so it keeps the answer it had.
+                $trailingState = $this->advanceTrailingBlockState(
+                    $trailingState,
+                    $contentLine,
+                    $contentLine === ltrim($contentLine, " \t"),
+                );
                 $i++;
 
                 continue;
@@ -6281,7 +6296,23 @@ class BlockParser
             // extended by what its innermost block happens to be, and the BLOCK
             // QUOTE spelling of this very shape already ends at the same line in
             // every engine.
-            if (!$trailingState['openParagraph']) {
+            //
+            // AN INVISIBLE BLOCK IS THE ONE EXCEPTION, and only at DOCUMENT
+            // column 0 does it end the item. §24 C3 keeps a comment invisible
+            // at any column: at the content column it is a BLOCK and ends the
+            // paragraph, and the item then ends because the FOLLOWING line is
+            // at column 0 with no open paragraph anywhere in the stack. Below
+            // the content column at a NONZERO column the same line reaches the
+            // item only through the lazy fold, which §24 C3's comment exception
+            // keeps open - `- a` / `  %% x` / ` b` still collects `b` as the
+            // item's own second block (corpus 197), and a below-column marker
+            // after a comment fence still opens a nested list inside it
+            // (corpus 277). Asking `openParagraph` alone answered both with the
+            // same value and could only be right about one.
+            if (
+                !$trailingState['openParagraph']
+                && ($nextIndent === 0 || !$trailingState['closedByAnInvisibleBlock'])
+            ) {
                 break;
             }
 
@@ -11128,14 +11159,14 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      * @param bool $atContentColumn Whether the line sits AT the container's
      *   content column rather than below it. Only the comment branch reads it:
      *   an invisible block at the column ends the paragraph, while the same
      *   line collected lazily adds no block at all.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, closedByAnInvisibleBlock: bool}
      */
     protected function advanceTrailingBlockState(
         array $state,
@@ -11164,6 +11195,17 @@ class BlockParser
         // fence is the ordinary prose it looks like.
         $wasInTable = $state['inTable'];
         $state['inTable'] = false;
+        // WHY THE PARAGRAPH CLOSED IS A SECOND QUESTION, and a list item is the
+        // container that has to ask it. An INVISIBLE block at the content
+        // column ends the paragraph (PART 1 S4 through §24 C3,
+        // markup-carve/carve#1350) and leaves the container collecting, where a
+        // fence or a table ends the paragraph and leaves nothing a below-column
+        // line could reach at all. One flag answered both questions and could
+        // only ever get one of them right (carve-php#1421). Cleared here, like
+        // `absorbingFence` above, so it describes the LAST line and not any
+        // line.
+        $wasClosedByAnInvisibleBlock = $state['closedByAnInvisibleBlock'];
+        $state['closedByAnInvisibleBlock'] = false;
 
         if ($state['inFence']) {
             // Inside a fenced code block: stay code (no open paragraph) until
@@ -11449,6 +11491,16 @@ class BlockParser
             // adds no block at all, so the state is the caller's to keep.
             if ($atContentColumn) {
                 $state['openParagraph'] = false;
+                $state['closedByAnInvisibleBlock'] = true;
+            } else {
+                // TRANSPARENT MEANS TRANSPARENT FOR BOTH FLAGS. Below the
+                // column the comment adds no block, so it neither closes a
+                // paragraph nor un-closes one, and it cannot be what makes a
+                // later line land differently. Clearing the reason here let an
+                // invisible line have a visible effect: `- a` / `  %% c` /
+                // ` b` keeps `b` in the item, and writing a second comment
+                // between them took `b` out of it.
+                $state['closedByAnInvisibleBlock'] = $wasClosedByAnInvisibleBlock;
             }
 
             return $state;
