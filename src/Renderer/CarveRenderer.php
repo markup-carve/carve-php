@@ -1677,13 +1677,14 @@ class CarveRenderer implements RendererInterface
             TableCell::VALIGN_BOTTOM => 'v',
             default => '',
         };
+        $inheritHorizontal = $align === '' && $valign !== '' ? '?' : '';
         // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
         // of the `=` produced `|{#x}=R|`, which every reader takes as a DATA
         // cell whose content starts with `=`, so a `<th id="x">R</th>` came back
         // as `<td id="x">=R</td>` and PART 11 §1 failed on it. This order is
         // meaning-preserving instead: `|={#x} R |` parses back to the node that
         // was written.
-        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $valign . $attrs;
+        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
         $this->tableCellDepth++;
         try {

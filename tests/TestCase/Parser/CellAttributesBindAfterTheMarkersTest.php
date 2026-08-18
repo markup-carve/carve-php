@@ -181,7 +181,27 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $this->assertStringContainsString('<th scope="col">^ Top</th>', $html);
         $this->assertStringContainsString('<th scope="col">v Bottom</th>', $html);
         $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
-        $this->assertStringContainsString('text-align: right; vertical-align: bottom;', $html);
-        $this->assertStringContainsString('text-align: right; vertical-align: middle;', $html);
+        $this->assertStringContainsString('<th scope="col">v&gt; Reverse</th>', $html);
+        $this->assertStringContainsString('<th scope="col">~&gt; Middle</th>', $html);
+    }
+
+    public function testQuestionMarkInheritsOnlyHorizontalAlignment(): void
+    {
+        $source = "|=>^ H |\n|?v x |\n";
+        $html = $this->html($source);
+
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">x</td>', $html);
+        $this->assertStringContainsString('|?v x |', $this->fmt($source));
+
+        foreach (
+            [
+                '| ? |' => '<td>?</td>',
+                '|v? x |' => '<td>v? x</td>',
+                '|?< x |' => '<td>?&lt; x</td>',
+                '|^< x |' => '<td>^&lt; x</td>',
+            ] as $input => $expected
+        ) {
+            $this->assertStringContainsString($expected, $this->html($input));
+        }
     }
 }
