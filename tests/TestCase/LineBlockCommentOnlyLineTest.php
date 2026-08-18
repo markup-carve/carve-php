@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -527,6 +528,135 @@ class LineBlockCommentOnlyLineTest extends TestCase
                 'the writer changed a comment for: ' . $source,
             );
         }
+    }
+
+    /**
+     * A COMMENT UNDER AN INLINE CONTAINER IS KEPT, at the boundary it opens.
+     *
+     * The placement walked the stanza's TOP-LEVEL nodes only, so a container
+     * spanning the emptied line held the boundary among its own children, the
+     * walk stepped over the container in one move, and the author's text was
+     * dropped entirely (markup-carve/carve-php#1411).
+     *
+     * NEITHER GATE COULD SEE IT. The comment publishes nothing, so an HTML
+     * comparison agrees before and after; and the writer's bare `%%` re-parses
+     * to the tree the loss produced, so `parse(fmt(x)) == parse(x)` holds while
+     * the text is gone - the limit named on markup-carve/carve#1340. So the
+     * assertions are on the TREE and on the written BYTES.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function nestedVerseCommentProvider(): array
+    {
+        return [
+            'strong' => ["::: |\n*a\n%% secret\nc*\n:::\n", 'strong'],
+            'emphasis' => ["::: |\n/a\n%% secret\nc/\n:::\n", 'emphasis'],
+            // Two containers deep: the walk has to recurse rather than look one
+            // level down, which a fix written for the reported shape alone
+            // would pass without doing.
+            'emphasis inside strong' => ["::: |\n*/a\n%% secret\nc/*\n:::\n", 'emphasis'],
+            // Not an emphasis run at all, so the descent cannot be keyed to the
+            // constructs that happen to close at a line ending.
+            'link label' => ["::: |\n[a\n%% secret\nc](/u)\n:::\n", 'link'],
+        ];
+    }
+
+    #[DataProvider('nestedVerseCommentProvider')]
+    public function testACommentUnderAnInlineContainerIsKept(string $source, string $container): void
+    {
+        $converter = new CarveConverter();
+        $paragraph = $converter->parse($source)->getChildren()[0]->getChildren()[0];
+
+        // THE TREE: the node sits inside the container, not beside it.
+        $this->assertSame(['secret'], self::commentContents($paragraph));
+        $held = self::commentHolder($paragraph);
+        $this->assertNotNull($held, 'the comment is not under any container');
+        $this->assertSame($container, $held->getType());
+
+        // THE BYTES: the author's own text comes back, which is the whole of
+        // what was lost. A bare `%%` re-parses to the same tree the loss
+        // produced, so only the written bytes can tell the two apart.
+        $this->assertSame($source, CarveConverter::toCarve($source));
+    }
+
+    /**
+     * A comment on the stanza's FIRST line keeps its text too.
+     *
+     * It is the one line no boundary opens - the stanza's own opening does -
+     * so it is drawn before the walk starts rather than after a break, and
+     * that is a second arm which the rest of this file could not see: every
+     * other case here asserts on HTML, and a comment renders nothing whether
+     * it is in the tree or gone. Only the text can tell.
+     */
+    public function testAFirstLineCommentKeepsItsText(): void
+    {
+        $source = "::: |\n%% secret\nb\n:::\n";
+        $paragraph = (new CarveConverter())->parse($source)->getChildren()[0]->getChildren()[0];
+
+        $this->assertSame(['secret'], self::commentContents($paragraph));
+        $this->assertSame($source, CarveConverter::toCarve($source));
+    }
+
+    /**
+     * The break spelling at a nested boundary is NOT decided here.
+     *
+     * Whether a line block's break hardens at a nested boundary is a separate
+     * and contested question (markup-carve/carve#1351). The comment belongs at
+     * the boundary whichever way the boundary is spelled, so the placement
+     * descends while the soft-to-hard conversion deliberately does not - and
+     * this pins that the two stayed apart.
+     */
+    public function testTheNestedBreakSpellingIsUnchanged(): void
+    {
+        $paragraph = (new CarveConverter())
+            ->parse("::: |\n*a\n%% secret\nc*\n:::\n")
+            ->getChildren()[0]->getChildren()[0];
+
+        $types = array_map(
+            static fn (Node $node): string => $node->getType(),
+            $paragraph->getChildren()[0]->getChildren(),
+        );
+
+        $this->assertSame(['text', 'soft_break', 'comment', 'soft_break', 'text'], $types);
+    }
+
+    /**
+     * A run that ate the line still takes the comment with it, at DEPTH.
+     *
+     * The descent must not turn the normative §23 refusal above into a
+     * placement: the boundary is inside the run's value wherever the run sits,
+     * so a run nested in a container drops its comment exactly as a top-level
+     * one does, and gives up its own position for the same reason.
+     */
+    public function testANestedRunThatAteTheLineStillDropsTheComment(): void
+    {
+        $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
+        $paragraph = $converter->parse("::: |\n*a `b\n%% c\nd` e*\nf\n:::\n")->getChildren()[0]->getChildren()[0];
+        $strong = $paragraph->getChildren()[0];
+
+        $this->assertSame([], self::commentContents($paragraph));
+        $this->assertNull(
+            $strong->getChildren()[1]->getPos(),
+            'the run reports a span its value is not a slice of',
+        );
+    }
+
+    /**
+     * The innermost container holding a `comment` child, or null.
+     */
+    private static function commentHolder(Node $node): ?Node
+    {
+        foreach ($node->getChildren() as $child) {
+            $deeper = self::commentHolder($child);
+            if ($deeper !== null) {
+                return $deeper;
+            }
+            if ($child instanceof Comment) {
+                return $node;
+            }
+        }
+
+        return null;
     }
 
     /**

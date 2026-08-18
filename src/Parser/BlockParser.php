@@ -7479,11 +7479,36 @@ class BlockParser
      * unchanged and at the same column. Every other target drops it, which is
      * the point of removing it.
      *
-     * A comment sits after the line boundaries that precede it, which is what
-     * {@see self::verseLineBoundaries()} counts. Where a verbatim run SWALLOWED
-     * those boundaries the count runs past the comment's line in one step, and
-     * the node lands directly after the run - the nearest position document
-     * order admits, since the line itself is inside the run's content.
+     * A comment sits after the line boundary that opens its line, and THE
+     * BOUNDARY IS WHEREVER THE INLINE PARSE PUT IT. Counting only the
+     * paragraph's own children found it for a stanza of plain verse and nowhere
+     * else: an inline container spanning the emptied line holds the boundary
+     * among its OWN children, so the walk stepped over the container in one
+     * move, landed on a node that is not a break, and dropped the comment.
+     *
+     * ```
+     * ::: |
+     * *a
+     * %% secret
+     * c*
+     * :::
+     * ```
+     *
+     * lost the author's text entirely. Neither gate could see it: the comment
+     * publishes nothing, so the HTML agrees before and after, and the writer's
+     * bare `%%` re-parses to the tree the loss produced, so `parse(fmt(x))`
+     * still equals `parse(x)` while the text is gone
+     * (markup-carve/carve-php#1411, markup-carve/carve#1340).
+     *
+     * So the placement DESCENDS. The soft-to-hard break conversion deliberately
+     * does not {@see self::convertParagraphSoftBreaksToHardBreaks()} - whether a
+     * break at a nested boundary hardens is a separate and contested question
+     * (markup-carve/carve#1351), and the comment belongs at the boundary
+     * whichever way the boundary is spelled.
+     *
+     * Where a verbatim run SWALLOWED the boundaries the count runs past the
+     * comment's line in one step, and the comment does not survive - the line it
+     * opens is inside the run's content rather than between two nodes.
      *
      * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param array<int, \MarkupCarve\Carve\Node\Block\Comment> $comments
@@ -7495,85 +7520,148 @@ class BlockParser
         }
 
         ksort($comments);
-        $children = $paragraph->getChildren();
-        $count = count($children);
-        $placed = [];
+        // A SORTED LIST WITH A CURSOR, not an array consumed by key. Both
+        // consumers take the lowest pending index, so a cursor answers in
+        // constant time where a lookup has to walk: unsetting from the front of
+        // a PHP array leaves tombstones that `array_key_first()` re-skips on
+        // every call, which turned a stanza alternating runs with comment lines
+        // quadratic - a regression on an input this fix has no other effect on.
+        $pending = [];
+        foreach ($comments as $index => $comment) {
+            $pending[] = [$index, $comment];
+        }
+
         $cursor = 0;
         $line = 0;
-        foreach ($comments as $index => $comment) {
-            while ($cursor < $count && $line < $index) {
-                $line += self::verseLineBoundaries($children[$cursor]);
-                $placed[] = $children[$cursor];
-                $cursor++;
-            }
-            // THE BOUNDARY THAT OPENS THE COMMENT'S LINE HAS TO BE IN THE TREE.
-            // Counting to the right line is not enough: a run that swallowed
-            // the LAST of several boundaries lands the walk on the same number
-            // by a different route, and the line it opens is inside the run's
-            // value rather than between two nodes. A comment on the stanza's
-            // FIRST line needs no boundary at all - the stanza opens it.
-            $previous = $cursor > 0 ? $children[$cursor - 1] : null;
-            $atBoundary = ($index === 0 && $cursor === 0)
-                || ($line === $index && ($previous instanceof SoftBreak || $previous instanceof HardBreak));
-
-            if (!$atBoundary) {
-                // IT DOES NOT SURVIVE A RUN THAT ATE ITS LINE -- NORMATIVE
-                // (§23). What an unclosed verbatim run carries across an
-                // emptied line is the NEWLINE, the same thing it carries
-                // across every boundary it swallows, so there is no boundary
-                // left in the tree for a `comment` node to sit on: the run's
-                // value holds an EMPTY LINE instead. Appending the node anyway
-                // puts its span before the run that contains it and after the
-                // node that follows it, which PART 12 containment refuses.
-                //
-                // The writer's answer for that empty line is PART 11 §7c: an
-                // empty line inside a verbatim run is spelled `%%`, the one
-                // spelling that empties to nothing. The author's own comment
-                // TEXT is not recoverable there and is not required to be -
-                // the run consumed it, and §1 is about the tree.
-                //
-                // The run's own value is a reassembled one either way, since
-                // the comment's text came out of the middle of it, so it gives
-                // up the position no offset pair could describe (PART 12 §4).
-                if ($cursor > 0) {
-                    $children[$cursor - 1]->setPos(null);
-                }
-
-                continue;
-            }
-            $placed[] = $comment;
-        }
-        for (; $cursor < $count; $cursor++) {
-            $placed[] = $children[$cursor];
-        }
-
-        $paragraph->setChildren($placed);
+        // A comment on the stanza's FIRST line needs no boundary at all - the
+        // stanza opens it - and that opening is the PARAGRAPH's, so it is drawn
+        // here rather than inside whatever container the first line begins.
+        $this->placeVerseCommentsIn($paragraph, $pending, $cursor, $line, true);
     }
 
     /**
-     * How many of the stanza's line boundaries a node accounts for.
+     * Walk one node's children in document order, placing comments by line.
      *
-     * A break IS a boundary; a verbatim run holds the ones it swallowed inside
-     * its own content, where they are newlines rather than nodes. Both are
-     * counted so a comment can be placed by line without the parser having to
-     * carry a second index alongside the tree.
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending Line index and node, ascending.
+     * @param int $cursor The first entry of `$pending` neither placed nor dropped.
+     * @param int $line Boundaries seen so far, carried across the whole stanza.
+     * @param bool $atStanzaStart Whether this call opens the stanza itself.
      */
-    private static function verseLineBoundaries(Node $node): int
-    {
-        if ($node instanceof SoftBreak || $node instanceof HardBreak) {
-            return 1;
+    private function placeVerseCommentsIn(
+        Node $parent,
+        array &$pending,
+        int &$cursor,
+        int &$line,
+        bool $atStanzaStart,
+    ): void {
+        $placed = [];
+        $inserted = false;
+        if ($atStanzaStart) {
+            $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line);
         }
 
-        if ($node->hasChildren()) {
-            $total = 0;
-            foreach ($node->getChildren() as $child) {
-                $total += self::verseLineBoundaries($child);
+        foreach ($parent->getChildren() as $child) {
+            // NOTHING LEFT TO PLACE ends the walk of this node. The boundary
+            // count only matters while a comment is pending, and a node this
+            // pass does not touch must not have its child list rebuilt.
+            if (!isset($pending[$cursor])) {
+                if (!$inserted) {
+                    return;
+                }
+                $placed[] = $child;
+
+                continue;
             }
 
-            return $total;
+            if ($child instanceof SoftBreak || $child instanceof HardBreak) {
+                $placed[] = $child;
+                $line++;
+                $inserted = $this->takeVerseCommentAt($placed, $pending, $cursor, $line) || $inserted;
+
+                continue;
+            }
+
+            $placed[] = $child;
+            if ($child->hasChildren()) {
+                $this->placeVerseCommentsIn($child, $pending, $cursor, $line, false);
+
+                continue;
+            }
+
+            // A verbatim run holds the boundaries it swallowed inside its own
+            // content, where they are newlines rather than nodes.
+            $swallowed = $child instanceof ContentNodeInterface
+                ? substr_count($child->getContent(), "\n")
+                : 0;
+            if ($swallowed === 0) {
+                continue;
+            }
+            $line += $swallowed;
+            $this->dropVerseCommentsThrough($child, $pending, $cursor, $line);
         }
 
-        return $node instanceof ContentNodeInterface ? substr_count($node->getContent(), "\n") : 0;
+        if ($inserted) {
+            $parent->setChildren($placed);
+        }
+    }
+
+    /**
+     * Take the comment opened by the boundary just passed, if there is one.
+     *
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $placed
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending
+     * @param int $cursor
+     * @param int $line The stanza line the boundary opens.
+     */
+    private function takeVerseCommentAt(array &$placed, array &$pending, int &$cursor, int $line): bool
+    {
+        if (!isset($pending[$cursor]) || $pending[$cursor][0] !== $line) {
+            return false;
+        }
+
+        $placed[] = $pending[$cursor][1];
+        $cursor++;
+
+        return true;
+    }
+
+    /**
+     * Drop every comment a run's swallowed newlines carried away.
+     *
+     * IT DOES NOT SURVIVE A RUN THAT ATE ITS LINE -- NORMATIVE (§23). What an
+     * unclosed verbatim run carries across an emptied line is the NEWLINE, the
+     * same thing it carries across every boundary it swallows, so there is no
+     * boundary left in the tree for a `comment` node to sit on: the run's value
+     * holds an EMPTY LINE instead. Appending the node anyway puts its span
+     * before the run that contains it and after the node that follows it, which
+     * PART 12 containment refuses.
+     *
+     * The writer's answer for that empty line is PART 11 §7c: an empty line
+     * inside a verbatim run is spelled `%%`, the one spelling that empties to
+     * nothing. The author's own comment TEXT is not recoverable there and is
+     * not required to be - the run consumed it, and §1 is about the tree.
+     *
+     * The run's own value is a reassembled one either way, since the comment's
+     * text came out of the middle of it, so it gives up the position no offset
+     * pair could describe (PART 12 §4).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $run
+     * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment}> $pending
+     * @param int $cursor
+     * @param int $line The stanza line the run's content reaches.
+     */
+    private function dropVerseCommentsThrough(Node $run, array &$pending, int &$cursor, int $line): void
+    {
+        $dropped = false;
+        while (isset($pending[$cursor]) && $pending[$cursor][0] <= $line) {
+            $cursor++;
+            $dropped = true;
+        }
+
+        if ($dropped) {
+            $run->setPos(null);
+        }
     }
 
     /**
