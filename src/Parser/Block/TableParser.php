@@ -576,18 +576,30 @@ class TableParser
     {
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
         $start = $length;
-        while (isset($cell[$length]) && str_contains('<>~^v', $cell[$length])) {
+        while (isset($cell[$length]) && str_contains('<>~^v?', $cell[$length])) {
             $length++;
         }
 
+        $inheritedHorizontal = $length - $start === 2
+            && ($cell[$start] ?? '') === '?'
+            && str_contains('^~v', $cell[$start + 1] ?? '');
         $horizontal = false;
         $vertical = false;
-        $valid = !isset($cell[$start])
-            || (!str_contains('^v', $cell[$start])
-                && !($cell[$start] === '~' && isset($cell[$start + 1]) && str_contains('<>', $cell[$start + 1])));
+        $valid = !str_contains('^v', $cell[$start] ?? '')
+            && !(($cell[$start] ?? '') === '~' && str_contains('<>', $cell[$start + 1] ?? ''));
         for ($i = $start; $i < $length; $i++) {
             $marker = $cell[$i];
-            if (str_contains('<>~', $marker)) {
+            if ($marker === '?') {
+                if ($inheritedHorizontal && $i === $start) {
+                    continue;
+                }
+                $valid = false;
+
+                break;
+            }
+            if ($marker === '~' && !$horizontal && !$vertical && isset($cell[$i + 1]) && str_contains('<>', $cell[$i + 1])) {
+                $vertical = true;
+            } elseif (str_contains('<>~', $marker)) {
                 if (!$horizontal) {
                     $horizontal = true;
                 } elseif ($marker === '~' && !$vertical) {
@@ -611,7 +623,7 @@ class TableParser
         }
         $next = $cell[$length] ?? null;
         $terminated = $next === ' ' || $next === '{';
-        if (!$valid || !$horizontal || !$terminated) {
+        if (!$valid || (!$horizontal && !$inheritedHorizontal) || !$terminated) {
             return $start;
         }
 

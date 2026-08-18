@@ -15,7 +15,7 @@ class TableColumnLinter
         $lines = preg_split('/\R/', $source) ?: [];
         foreach ($lines as $lineIndex => $line) {
             if (str_starts_with(ltrim($line), '|')) {
-                if (preg_match_all('/(?:\||\|=)([<>~^v]{1,2})(?![<>~^v{\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
+                if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?{\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
                     foreach ($matches[1] as [$run, $offset]) {
                         $warnings[] = $this->warning($source, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run to make it alignment.', $run));
                     }
