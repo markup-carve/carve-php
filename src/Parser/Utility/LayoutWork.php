@@ -64,6 +64,26 @@ final class LayoutWork
     public static int $prescan = 0;
 
     /**
+     * Characters copied by the code/line-fence prepass prefix walk.
+     */
+    public static int $fencePrescan = 0;
+
+    /**
+     * Characters copied by the comment-fence prepass prefix walk.
+     */
+    public static int $commentPrescan = 0;
+
+    /**
+     * Characters copied by the reference-definition prefix walk.
+     */
+    public static int $referencePrescan = 0;
+
+    /**
+     * Characters copied by the footnote-definition prefix walk.
+     */
+    public static int $footnotePrescan = 0;
+
+    /**
      * Reset every counter.
      *
      * @return void
@@ -73,6 +93,10 @@ final class LayoutWork
         self::$gate = 0;
         self::$strip = 0;
         self::$prescan = 0;
+        self::$fencePrescan = 0;
+        self::$commentPrescan = 0;
+        self::$referencePrescan = 0;
+        self::$footnotePrescan = 0;
     }
 
     /**

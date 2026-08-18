@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
-use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Parser\Block\ListParser;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 
 /**
  * Whether a line-based prepass is inside a fenced code block.
@@ -69,9 +71,12 @@ class PrepassFenceTracker
 
     protected FencedBlockParser $fencedBlockParser;
 
+    protected ListParser $listParser;
+
     public function __construct(?FencedBlockParser $fencedBlockParser = null)
     {
         $this->fencedBlockParser = $fencedBlockParser ?? new FencedBlockParser();
+        $this->listParser = new ListParser();
     }
 
     public function isOpen(): bool
@@ -211,7 +216,12 @@ class PrepassFenceTracker
      */
     protected function fenceView(string $line, int $contentColumn): array
     {
-        $fenceLine = $line;
+        $length = strlen($line);
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== $length - 1) {
+            return $this->fenceViewFromCopies($line, $contentColumn);
+        }
+
         $quoteDepth = 0;
         // THE COLUMN IS A BUDGET here too, and for the same reason the closer
         // spends one {@see self::atQuoteDepth()}: inside `> - a` the fence's
@@ -222,29 +232,33 @@ class PrepassFenceTracker
         // a definition inside the SAMPLE was collected as a real one
         // (markup-carve/carve-php#1431).
         $budget = $contentColumn;
+        $at = 0;
         do {
-            $previousFenceLine = $fenceLine;
+            $previousAt = $at;
 
-            $trimmed = ltrim($fenceLine, " \t");
-            $spend = min(strlen($fenceLine) - strlen($trimmed), $budget);
+            $whitespaceAt = IndentationHelper::pastLeadingWhitespace($line, $at);
+            $spend = min($whitespaceAt - $at, $budget);
             if ($spend > 0) {
-                $fenceLine = substr($fenceLine, $spend);
+                $at += $spend;
                 $budget -= $spend;
             }
 
-            $quoteContent = ContainerPrefix::quoteContent($fenceLine);
-            if ($quoteContent !== null) {
-                $budget = max(0, $budget - (strlen($fenceLine) - strlen($quoteContent)));
-                $fenceLine = $quoteContent;
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($quoteWidth !== null) {
+                $budget = max(0, $budget - $quoteWidth);
+                $at += $quoteWidth;
                 $quoteDepth++;
             }
 
-            $afterMarker = $this->stripListMarker($fenceLine);
-            if ($afterMarker !== $fenceLine) {
-                $budget = max(0, $budget - (strlen($fenceLine) - strlen($afterMarker)));
-                $fenceLine = $afterMarker;
+            $head = $this->listParser->markerHeadAt(
+                $line,
+                IndentationHelper::pastLeadingWhitespace($line, $at),
+            );
+            if ($head !== null) {
+                $budget = max(0, $budget - ($head['content'] - $at));
+                $at = $head['content'];
             }
-        } while ($fenceLine !== $previousFenceLine);
+        } while ($at !== $previousAt);
 
         // No trailing dedent: the loop exits only when the budget is spent or
         // the line has no indentation left, so there is nothing a dedent here
@@ -252,6 +266,45 @@ class PrepassFenceTracker
         // what broke a quoted item's fence in the first place, and one that
         // asks for the REMAINDER cannot fire at all - a check that cannot fail
         // is worse than none (markup-carve/carve#755).
+        if (LayoutWork::$on) {
+            LayoutWork::$fencePrescan += $length - $at;
+        }
+
+        return ['line' => substr($line, $at), 'quoteDepth' => $quoteDepth];
+    }
+
+    /**
+     * The exact capturing-parser fallback for a subject with an interior newline.
+     *
+     * @return array{line: string, quoteDepth: int}
+     */
+    private function fenceViewFromCopies(string $line, int $contentColumn): array
+    {
+        $fenceLine = $line;
+        $quoteDepth = 0;
+        $budget = $contentColumn;
+        do {
+            $previousFenceLine = $fenceLine;
+            $trimmed = ltrim($fenceLine, " \t");
+            $spend = min(strlen($fenceLine) - strlen($trimmed), $budget);
+            if ($spend > 0) {
+                $fenceLine = substr($fenceLine, $spend);
+                $budget -= $spend;
+            }
+            $quoteContent = ContainerPrefix::quoteContent($fenceLine);
+            if ($quoteContent !== null) {
+                $budget = max(0, $budget - (strlen($fenceLine) - strlen($quoteContent)));
+                $fenceLine = $quoteContent;
+                $quoteDepth++;
+            }
+            $marker = $this->listParser->parseListItemMarker($fenceLine);
+            if ($marker !== null) {
+                $content = (string)$marker['content'];
+                $budget = max(0, $budget - (strlen($fenceLine) - strlen($content)));
+                $fenceLine = $content;
+            }
+        } while ($fenceLine !== $previousFenceLine);
+
         return ['line' => $fenceLine, 'quoteDepth' => $quoteDepth];
     }
 
@@ -265,27 +318,5 @@ class PrepassFenceTracker
     public function containerOpenerView(string $line, int $contentColumn): array
     {
         return $this->fenceView($line, $contentColumn);
-    }
-
-    protected function stripListMarker(string $line): string
-    {
-        $first = $line[0] ?? '';
-        if (
-            $first !== ' '
-            && $first !== "\t"
-            && $first !== '-'
-            && $first !== '*'
-            && ($first < '0' || $first > '9')
-            && ($first < 'a' || $first > 'z')
-            && ($first < 'A' || $first > 'Z')
-        ) {
-            return $line;
-        }
-
-        return preg_replace(
-            '/^[ \t]*(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/',
-            '',
-            $line,
-        ) ?? $line;
     }
 }

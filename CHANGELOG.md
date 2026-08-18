@@ -9,6 +9,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **All definition and fence prepasses walk container prefixes by offset**
+  (PART 9 §25, markup-carve/carve-php#1467). The remaining three scanners
+  copied the rest of a line at every quote/list element, retaining the
+  quadratic half of the prefix climb after the heading-reference fix.
+
 - **The heading-reference prescan reads a line's container prefix at an offset**
   (PART 9 §25, markup-carve/carve-php#1463). It handed each step a copy of the
   rest of the line, so a line of N prefix elements cost N times the line - a
