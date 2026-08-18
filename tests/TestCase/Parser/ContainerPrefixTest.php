@@ -8,8 +8,6 @@ use MarkupCarve\Carve\Parser\ContainerPrefix;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
-use ReflectionMethod;
-use function array_map;
 use function in_array;
 use function preg_match;
 use function preg_replace;
