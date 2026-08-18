@@ -438,7 +438,7 @@ class AnsiRenderer implements RendererInterface
     /**
      * Every abbreviation definition the author wrote, dimmed.
      *
-     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * PART 11 §10a: a definition NOTHING references is still emitted by this
      * target - see the note in MarkdownRenderer. They live on the document
      * rather than in `children` here, so this renderer places them itself.
      *
@@ -1170,7 +1170,7 @@ class AnsiRenderer implements RendererInterface
     {
         $label = $this->stripControls($node->getLabel());
         $content = trim($this->renderChildren($node));
-        // The marker as written (PART 10 §10a): the caret is the construct.
+        // The marker as written (PART 11 §10a): the caret is the construct.
         $marker = $this->style('[^' . $label . ']', self::FG_CYAN . self::DIM);
 
         return $marker . ' ' . $content . "\n";

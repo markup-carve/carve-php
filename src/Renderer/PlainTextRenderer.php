@@ -165,7 +165,7 @@ class PlainTextRenderer implements RendererInterface
     /**
      * Every abbreviation definition the author wrote, as source lines.
      *
-     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * PART 11 §10a: a definition NOTHING references is still emitted by this
      * target. HTML drops it because it has nowhere to put one; Markdown, plain
      * text and the terminal do not get to drop content the author wrote, and
      * dropping it made the output depend on whether a reference exists
@@ -890,7 +890,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        // The MARKER AS WRITTEN (PART 10 §10a): `[n]: …` is a LINK reference
+        // The MARKER AS WRITTEN (PART 11 §10a): `[n]: …` is a LINK reference
         // definition, so emitting one where the author wrote a footnote
         // definition turns it into a different construct on the way back.
         return '[^' . $this->stripControls($node->getLabel()) . ']: '

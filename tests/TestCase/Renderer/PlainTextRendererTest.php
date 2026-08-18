@@ -259,7 +259,7 @@ class PlainTextRendererTest extends TestCase
 
         $result = $this->renderer->render($document);
         $this->assertStringContainsString('Text[1]', $result);
-        // The DEFINITION keeps its marker as written (PART 10 §10a): `[1]: …`
+        // The DEFINITION keeps its marker as written (PART 11 §10a): `[1]: …`
         // is a link reference definition, not this construct. Whether the
         // REFERENCE above should keep its caret is carve#550, still open.
         $this->assertStringContainsString('[^1]: Footnote content', $result);

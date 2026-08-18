@@ -1284,11 +1284,23 @@ class HtmlRenderer implements RendererInterface
         $pad = str_repeat(' ', $spaces);
         $lines = explode("\n", $html);
         $inPre = false;
+        // AN UNFINISHED TAG IS NOT A LINE TO INDENT. A newline inside an
+        // ATTRIBUTE VALUE is content, and padding the line after it wrote the
+        // figure's own indentation into the value: `![a` over `b](/i)` under a
+        // caption came back as `alt="a` over `  b"`, two spaces the author
+        // never wrote, inside the text an alternative rendering IS
+        // (markup-carve/carve-php#1422, corpus 351-5).
+        //
+        // Tracked as "did this line end inside a tag", which needs only the
+        // unclosed `<`: every angle bracket outside a tag is escaped, so the
+        // first `>` inside one really is its closer.
+        $inTag = false;
         foreach ($lines as $i => $line) {
             if (!$inPre) {
-                if ($line !== '') {
+                if ($line !== '' && !$inTag) {
                     $lines[$i] = $pad . $line;
                 }
+                $inTag = self::endsInsideTag($line, $inTag);
                 if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
                     $inPre = true;
                 }
@@ -1298,6 +1310,41 @@ class HtmlRenderer implements RendererInterface
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Did this line end with a tag still open?
+     *
+     * A single left-to-right scan for an unclosed `<`. QUOTES ARE NOT
+     * CONSULTED, and that is measured rather than assumed: every `<` and `>`
+     * outside a tag is escaped by the paths that write text, an attribute value
+     * and a verbatim span alike, so within a tag the first `>` really is the
+     * one that closes it. Tracking the attribute quotes as well was written
+     * first and could not fail - no input reaches the branch, because no raw
+     * `>` survives inside a value to need protecting from.
+     *
+     * @param string $line
+     * @param bool $inTag Whether the PREVIOUS line ended inside a tag.
+     */
+    private static function endsInsideTag(string $line, bool $inTag): bool
+    {
+        $length = strlen($line);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $line[$i];
+            if ($inTag) {
+                if ($char === '>') {
+                    $inTag = false;
+                }
+
+                continue;
+            }
+            // `<` opens a tag only before a name or a closing slash.
+            if ($char === '<' && preg_match('/[A-Za-z\/]/', $line[$i + 1] ?? '') === 1) {
+                $inTag = true;
+            }
+        }
+
+        return $inTag;
     }
 
     /**

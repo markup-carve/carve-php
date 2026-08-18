@@ -380,7 +380,7 @@ class MarkdownRenderer implements RendererInterface
     /**
      * Every abbreviation definition the author wrote, as source lines.
      *
-     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * PART 11 §10a: a definition NOTHING references is still emitted by this
      * target. HTML drops it because it has nowhere to put one; Markdown, plain
      * text and the terminal do not get to drop content the author wrote, and
      * dropping it made the output depend on whether a reference exists
@@ -1484,8 +1484,14 @@ class MarkdownRenderer implements RendererInterface
         // under the last row, a GFM reader takes the caption as ANOTHER ROW and
         // returns it as `<td>Fruit prices</td>` - the words survive as a
         // fabricated data cell no reader can tell from an authored one, which is
-        // worse than losing them. So this half accepts an attachment weaker than
-        // §10d's: the floor is being met, not a relationship preserved.
+        // worse than losing them. So this half accepts an attachment weaker
+        // than §10c's continuation marker, which keeps the relationship rather
+        // than only the words: the floor is being met, not a relationship
+        // preserved.
+        //
+        // Cited as §10c because §10d is RETIRED - withdrawn by
+        // markup-carve/carve#1213, and its number is not reused, so PART 11
+        // runs 10c, 10e (markup-carve/carve#1365).
         $caption = $node->getCaption();
         if ($caption !== null) {
             $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);

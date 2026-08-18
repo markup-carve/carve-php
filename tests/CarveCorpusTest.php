@@ -525,6 +525,55 @@ class CarveCorpusTest extends TestCase
         // that column it is a lazy line and still folds, which is what keeps
         // corpus 183 and 214-2 pointing the other way.
         'a-definition-at-a-container-s-content-column',
+        // The freeze at carve 287b4b8 (corpus 1239) added twenty-nine
+        // documents; these are the eight categories among them. Every one was
+        // rendered through CarveConverter and diffed byte for byte against its
+        // `.html` before these lines were added, and the fifty `.fmt` fixtures
+        // still match. None is deferred, so KNOWN_GAPS stays empty.
+        //
+        // carve#1352: a bracketed construct spans a line boundary like any
+        // other inline content. 351 needed one engine change - a captioned
+        // host was writing the FIGURE's indentation into the `alt` value, so
+        // `![a` over `b](/i)` came back holding two spaces the author never
+        // wrote (markup-carve/carve-php#1422). 352 and 353 already answered.
+        'a-bracketed-construct-spanning-a-line-boundary',
+        'a-bracketed-construct-s-identifiers-stay-on-one-line',
+        'a-bracketed-construct-spanning-a-verse-boundary',
+        // carve#1354: a continuation row joins the row above it whatever that
+        // row's cells hold. Already answered - the reader half was never the
+        // divergence.
+        'a-continuation-row-joins-the-row-above-it-whatever-its-cells-hold',
+        // carve#1348 reaching the joined-header spelling. Already answered by
+        // the container half landed for corpus 349.
+        'a-container-whose-table-ends-on-a-joined-header-row',
+        // carve#1355: a quote is asked its own body, and that body may be a
+        // QUOTE. The lazy tracker read an inner `> # H` as prose - it starts
+        // with `>` and not `#` - so the outer quote reported an open paragraph
+        // the flush-left line folded into, while the same heading one level up
+        // already ended it.
+        'a-quote-inside-a-quote-is-asked-what-it-ends-on',
+        // carve#1364 and carve#1357: at a container's content column a block
+        // ends the paragraph it sits under, and WHAT IT RENDERS IS NOT A
+        // PARAMETER. This is the family markup-carve/carve-php#1421 was filed
+        // for: one flag answered both "is a paragraph open" and "is the
+        // container still collecting", so closing the paragraph for an
+        // invisible block also ended the item, which corpus 197 and 277 refuse.
+        // The two questions are separate now.
+        'a-block-at-a-container-s-content-column-ends-the-paragraph-whatever-it-renders',
+        'what-a-content-column-block-does-not-reach',
+        // carve#1363: THE BLOCK'S EXTENT IS THE DEFINITION'S, BLANK LINES AND
+        // ALL. A blank inside a footnote body separates the NOTE's own blocks
+        // rather than ending it, so the item ends and the flush-left line is
+        // top-level. Three passes had to agree: the prepass that collects the
+        // note, the item's own line collection, and the trailing-block tracker
+        // - the prepass stopping at the blank while the block parser skipped
+        // past it is what made the second block leave the document entirely.
+        //
+        // The second document is the LINK-REFERENCE CONTROL and is required
+        // rather than incidental: a link definition has NO body, so it must not
+        // open a body run. That difference is the whole rule, and it is what
+        // catches a fix written one construct too wide.
+        'a-footnote-definition-s-block-runs-to-the-end-of-its-body',
     ];
 
     /**

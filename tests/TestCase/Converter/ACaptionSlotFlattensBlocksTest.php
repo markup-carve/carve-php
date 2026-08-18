@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
  *
  * Of the two honest outcomes the ticket names - flatten it, or refuse the
  * caption and keep the blocks elsewhere - this takes the first, because
- * carve-js and carve-rs both already do: each renders `^ ab` for the list
+ * carve-js and carve-rs both already do: each renders `^ a b` for the list
  * above. carve-php was the outlier, so this is a convergence rather than a new
  * rule, and no ruling was needed to pick.
  *
@@ -65,7 +65,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
         );
         $rendered = (new CarveConverter())->convert($carve);
 
-        $this->assertStringContainsString('<caption>ab</caption>', $rendered);
+        $this->assertStringContainsString('<caption>a b</caption>', $rendered);
         $this->assertStringNotContainsString('- a', $rendered);
     }
 
@@ -83,7 +83,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
         return [
             'a list in a table caption' => [
                 '<table><caption><ul><li>a</li><li>b</li></ul></caption><tr><td>x</td></tr></table>',
-                "| x |\n^ ab",
+                "| x |\n^ a b",
             ],
             'a quote in a table caption' => [
                 '<table><caption><blockquote><p>q</p></blockquote></caption><tr><td>x</td></tr></table>',
@@ -91,11 +91,11 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
             ],
             'two paragraphs in a table caption' => [
                 '<table><caption><p>one</p><p>two</p></caption><tr><td>x</td></tr></table>',
-                "| x |\n^ onetwo",
+                "| x |\n^ one two",
             ],
             'a list in a figure caption' => [
                 '<figure><img src="i.png"><figcaption><ul><li>a</li><li>b</li></ul></figcaption></figure>',
-                "![](i.png)\n^ ab",
+                "![](i.png)\n^ a b",
             ],
             'a quote in a figure caption' => [
                 '<figure><img src="i.png"><figcaption><blockquote><p>q</p></blockquote></figcaption></figure>',
@@ -169,7 +169,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
         );
         $rendered = (new CarveConverter())->convert($result->value);
 
-        $this->assertStringContainsString('::: list-table "ab"', $result->value);
+        $this->assertStringContainsString('::: list-table "a b"', $result->value);
         $this->assertStringContainsString('<blockquote><p>q</p></blockquote>', $rendered);
     }
 

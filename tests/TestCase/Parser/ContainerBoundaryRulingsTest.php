@@ -183,4 +183,141 @@ class ContainerBoundaryRulingsTest extends TestCase
     {
         $this->assertStringContainsString($expected, $this->html($source));
     }
+
+    /**
+     * AN INVISIBLE BLOCK ENDS THE PARAGRAPH WITHOUT ENDING THE CONTAINER.
+     *
+     * Two questions, and one flag used to answer both
+     * (markup-carve/carve-php#1421). A FLUSH-LEFT line still needs an open
+     * paragraph, so it goes out; an INDENTED one does not, because it reaches
+     * no content column but §24 C3 still reads it as the item's own block.
+     * Closing the paragraph for both is what corpus 197 and 277 refuse.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function invisibleKeepsTheItemCollectingProvider(): array
+    {
+        return [
+            // corpus 197: the line after the comment is the item's SECOND
+            // paragraph, not a continuation of the first.
+            'comment then an indented line' => [
+                "- a\n  %% x\n b\n\n- c\n",
+                "<li><p>a</p>\n    <p>b</p>\n  </li>",
+            ],
+            // corpus 277: a below-column MARKER opens a nested list inside the
+            // item, after a comment FENCE at the content column.
+            'comment fence then a below-column marker' => [
+                "- a\n  %%%\n  x\n  %%%\n - s\n",
+                "<li>a\n    <ul>\n      <li>s</li>\n    </ul>\n  </li>",
+            ],
+        ];
+    }
+
+    #[DataProvider('invisibleKeepsTheItemCollectingProvider')]
+    public function testAnInvisibleBlockDoesNotEndTheItem(string $source, string $expected): void
+    {
+        $this->assertStringContainsString($expected, $this->html($source));
+    }
+
+    /**
+     * AND THE QUOTE IT IS ASKED OF MAY ITSELF BE A QUOTE (PART 1 S4,
+     * markup-carve/carve#1355).
+     *
+     * A quote's answer is its own last block's, and when that block is a QUOTE
+     * the question moves in one. Asked only of the outer quote's own content,
+     * `> > # H` read the inner `> # H` as prose - it starts with `>` and not
+     * `#` - so the outer quote reported an open paragraph the flush-left line
+     * folded into, while the same heading one level up already ended it.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function nestedQuoteProvider(): array
+    {
+        return [
+            'heading' => ["> > # H\ntail\n"],
+            'table' => ["> > | a |\n> > | b |\ntail\n"],
+            'thematic break' => ["> > ---\ntail\n"],
+            // Three levels, which the rule does not count.
+            'three levels' => ["> > > # H\ntail\n"],
+            // An earlier paragraph in the OUTER quote does not change the
+            // answer: the question is about the LAST block.
+            'after a paragraph in the outer quote' => ["> p\n> > # H\ntail\n"],
+            // The inner quote's table ends on a CONTINUATION row, which is only
+            // visible with that quote's own line history.
+            'inner table on a continuation row' => ["> > | a |\n> > + b |\ntail\n"],
+        ];
+    }
+
+    #[DataProvider('nestedQuoteProvider')]
+    public function testAQuoteIsAskedItsOwnBody(string $source): void
+    {
+        $this->assertStringEndsWith("<p>tail</p>\n", $this->html($source));
+    }
+
+    /**
+     * The CONTROL one level up, which already answered.
+     *
+     * Without it the rows above pass on an engine that ends a quote on
+     * anything, and the recursion would be doing no work.
+     */
+    public function testAOneLevelQuoteStillFoldsWhenItsLastBlockIsProse(): void
+    {
+        $this->assertSame(
+            "<blockquote><p>p\ntail</p></blockquote>\n",
+            $this->html("> p\ntail\n"),
+        );
+    }
+
+    /**
+     * THE BLOCK'S EXTENT IS THE DEFINITION'S, BLANK LINES AND ALL (PART 1 S4,
+     * markup-carve/carve#1363).
+     *
+     * A blank inside a footnote body separates the NOTE's own blocks rather
+     * than ending it. Three passes had to agree: the prepass that collects the
+     * note, the item's own line collection, and the trailing-block tracker -
+     * the prepass stopping at the blank while the block parser skipped past it
+     * is what made the second block leave the document entirely.
+     *
+     * Settled by an internal contradiction rather than a count: this engine
+     * ended the item on the contiguous spelling and folded the flush-left line
+     * as soon as a blank sat between the note's blocks, so one definition
+     * answered differently by how its own body was laid out.
+     */
+    public function testAFootnoteBodyRunsPastItsOwnBlankLines(): void
+    {
+        $html = $this->html("- a\n  [^f]: t\n\n    more\ntail\n\nx[^f]\n");
+
+        // The item ends, so the flush-left line is top-level.
+        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", $html);
+        // And the note keeps BOTH blocks - the second one is the half that used
+        // to leave the document entirely.
+        $this->assertStringContainsString('<p>t</p>', $html);
+        $this->assertStringContainsString('<p>more<a href="#fnref1"', $html);
+    }
+
+    /**
+     * A LINK REFERENCE DEFINITION HAS NO BODY, and that difference is the whole
+     * rule. Required rather than incidental: it is the control that catches a
+     * fix written one construct too wide.
+     */
+    public function testALinkDefinitionOpensNoBodyRun(): void
+    {
+        $html = $this->html("- a\n  [r]: /u\n\n    more\ntail\n\n[r][]\n");
+
+        // `more` and `tail` are the ITEM's, because the definition ended with
+        // its own line.
+        $this->assertStringContainsString('<p>more' . "\n" . 'tail</p>', $html);
+        $this->assertStringContainsString('<a href="/u">r</a>', $html);
+    }
+
+    /**
+     * The CONTIGUOUS spelling answers the same way, which is what makes the
+     * pair one rule rather than two.
+     */
+    public function testAContiguousFootnoteBodyEndsTheItemToo(): void
+    {
+        $html = $this->html("- a\n  [^f]: t\n    more\ntail\n\nx[^f]\n");
+
+        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", $html);
+    }
 }
