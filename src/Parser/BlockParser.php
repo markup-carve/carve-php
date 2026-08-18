@@ -5395,6 +5395,62 @@ class BlockParser
                 if ($itemInfo === null || !$this->listParser->itemMatchesList($listInfo, $itemInfo)) {
                     break;
                 }
+
+                // §17 L1c: THE BLANK IS READ AT THE LIST'S LEVEL, NOT THE
+                // ITEM'S. L1's first disjunct asks what stands BETWEEN one item
+                // and the next sibling marker, and the line right before this
+                // marker answers it - however the previous item's interior
+                // accounted for that line. So both of
+                //
+                //     - ```           - ::: d
+                //       b               b
+                //
+                //     - s             - s
+                //
+                // are LOOSE, and so are the same documents with the closer
+                // written.
+                //
+                // Only the loop's own blank-skip above used to answer this, and
+                // that skip sees a blank only when the item's collector LEFT IT
+                // BEHIND. A div, an admonition, a raw block and a comment fence
+                // all stop their collector at the blank, so the skip saw it and
+                // those four already loosened. A code or a tilde fence with no
+                // closer absorbs the blank as its own payload line, so the
+                // collector returned past it and the list stayed tight - which
+                // let the CLOSER decide a rule that is not about closers, since
+                // the same document with the closer written loosened
+                // (markup-carve/carve-php#1445, carve#1383).
+                //
+                // NOT "did the container consume the blank". That reading was
+                // rejected upstream: it makes a structural answer depend on a
+                // detail the readers already spell differently - this engine
+                // drops the trailing blank from a raw block and keeps it in a
+                // code block - and it cannot be asked of a div at all, where
+                // nothing in the output shows which block took the line.
+                //
+                // carve#326 C's INTERIOR blank is untouched, by that clause's
+                // own stated reason: a sibling after such a fence "stays tight
+                // because no blank line actually separates the two items".
+                // Content follows an interior blank before the marker, so the
+                // line tested here is that content and not a blank, and
+                //
+                //     - ```
+                //       a
+                //
+                //       b
+                //       ```
+                //     - c
+                //
+                // stays tight.
+                //
+                // THE AXES ARE ALREADY DECIDED. This sits after the marker match
+                // on purpose: a `*` after a `-` list, or an ordered marker after
+                // a bullet one, opens a DIFFERENT list under §11, so nothing of
+                // the first list is followed by a blank before one of its own
+                // siblings and it stays tight.
+                if ($i > $start && IndentationHelper::isBlankLine($lines[$i - 1])) {
+                    $lastItemHadBlankAfter = true;
+                }
             }
 
             // If there was a blank line before this item, list is loose
@@ -5532,13 +5588,6 @@ class BlockParser
                 $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
 
-                // A blank line directly before the next sibling marker still
-                // loosens the list; mirror the plain-item rule by remembering
-                // any trailing blank consumed inside the combined stream.
-                if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
-                    $lastItemHadBlankAfter = true;
-                }
-
                 continue;
             }
 
@@ -5565,10 +5614,6 @@ class BlockParser
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
-
-                if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
-                    $lastItemHadBlankAfter = true;
-                }
 
                 continue;
             }
