@@ -2060,12 +2060,120 @@ class HtmlToCarve
 
     protected function processChildren(DOMNode $node): string
     {
+        if ($this->captionDepth > 0) {
+            return $this->processFlattenedChildren($node);
+        }
+
         $output = '';
         foreach ($node->childNodes as $child) {
             $output .= $this->processNode($child);
         }
 
         return $output;
+    }
+
+    /**
+     * The children of a node inside an inline-only slot, with the boundary
+     * between two flattened blocks kept as bytes.
+     *
+     * PART 11 SECTION 1b. A slot that takes inline content only has nowhere to
+     * put a node for a block boundary, so the boundary survives the flatten in
+     * the BYTES or not at all - and the bytes are read by a tokenizer. Where two
+     * former sibling blocks each contribute at least one TOKEN to the slot, a
+     * separator is required between them, and the canonical one is a single
+     * space.
+     *
+     * THE UNIT IS THE TOKEN, NOT THE NODE. A node test passes `onetwo` and
+     * `one two` alike - both are one `text` node - and the difference between
+     * them is the whole defect. Joined, `onetwo` is one word, `*a**b*` is one
+     * strong run holding a literal asterisk, and two code spans become one span
+     * holding the delimiters that used to end and begin them. Nothing is
+     * DROPPED in any of them, so no diagnostic fires either.
+     *
+     * A BLOCK THAT CONTRIBUTES NO TOKEN IS NOT A SIDE:
+     * `<p>a</p><p></p><p>b</p>` holds three blocks and ONE join, so the caption
+     * is `a b`, with ONE space and not two. A block that emitted NOTHING is
+     * skipped before the join is considered; a block that emitted only
+     * WHITESPACE needs no arm of its own, because bytes that are already a
+     * separator satisfy the test below. A `contributes a token` flag was
+     * written first and then removed: no mutation of it could be made to fail,
+     * since a non-empty token-less piece begins with whitespace by definition.
+     *
+     * WHITESPACE ALREADY AT THE JOIN IS THE SEPARATOR. `<p>one </p><p>two</p>`
+     * emits `one two` with the source's own space and no second one - the
+     * clause asks that re-reading the slot draw no token from both sides, and a
+     * space already there answers it.
+     * This is not the neighbouring-character conditioning the clause refuses;
+     * that would be emitting the separator only where a collision looks likely,
+     * and this walk emits it at every join.
+     *
+     * ONLY BETWEEN TWO BLOCKS. The clause is written over former sibling
+     * BLOCKS, so a bare text node between two of them (`<p>a</p>x<p>b</p>`)
+     * takes no separator here and the shape is filed rather than decided
+     * (markup-carve/carve#1325 ruled the block-block case only).
+     */
+    protected function processFlattenedChildren(DOMNode $node): string
+    {
+        $output = '';
+        $afterABlock = false;
+
+        foreach ($node->childNodes as $child) {
+            $piece = $this->processNode($child);
+            if ($piece === '') {
+                // A block that emitted nothing is not a side. This is the
+                // whole of the empty-block rule that needs stating: a block
+                // that emitted only WHITESPACE is answered by the separator
+                // test below, since bytes that are already a separator are
+                // one.
+                continue;
+            }
+
+            $isBlock = $child instanceof DOMElement
+                && $this->isFormerBlockInAFlattenedSlot(strtolower($child->tagName));
+
+            if ($isBlock && $afterABlock && !$this->joinAlreadyHasASeparator($output, $piece)) {
+                $output .= ' ';
+            }
+
+            $output .= $piece;
+            $afterABlock = $isBlock;
+        }
+
+        return $output;
+    }
+
+    /**
+     * Do the bytes on either side of a join already separate the two sides?
+     *
+     * UNICODE-AWARE, because the parser is. A NO-BREAK SPACE ends a word and
+     * ends a delimiter run exactly as an ordinary space does - `a<nbsp>*b* c`
+     * opens a strong run and `one<nbsp>two` is two words - so an `&nbsp;` at
+     * the join already answers the clause's test. Matching bytes only added a
+     * breakable ASCII space beside a character the author chose for not
+     * breaking, which is a wrapping change no block asked for.
+     */
+    protected function joinAlreadyHasASeparator(string $left, string $right): bool
+    {
+        // A subject that is not valid UTF-8 makes both of these return false,
+        // which emits the separator - the safe direction, since a join with no
+        // separator is the defect and a second space is not.
+        return preg_match('/\s$/u', $left) === 1 || preg_match('/^\s/u', $right) === 1;
+    }
+
+    /**
+     * Was this element a BLOCK before the slot flattened it?
+     *
+     * The flatten set plus the parts a table and a definition list are built
+     * from. `isFlattenedInACaption()` answers a different question - which
+     * elements dissolve into their content - and a `<td>` does not need to be
+     * in it to have been a block: it reaches `processChildren()` through the
+     * table arm instead. Two cells still meet at a block boundary, so
+     * `<table><tr><td>a</td><td>b</td></tr></table>` is `a b`.
+     */
+    protected function isFormerBlockInAFlattenedSlot(string $tagName): bool
+    {
+        return $this->isFlattenedInACaption($tagName)
+            || in_array($tagName, ['thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'dt', 'dd'], true);
     }
 
     /**
