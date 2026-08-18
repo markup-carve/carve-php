@@ -434,6 +434,28 @@ class HtmlToCarve
             $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
         }
 
+        if ($this->isOrphanImportCaption($node, $tag) && !$this->importContentSurvived($node)) {
+            // A CAPTION WITH NOTHING TO CAPTION. Both tags are mapped, and
+            // correctly so - inside their own container they come through - so
+            // the outcome above is never asked of them and the walk went on to
+            // their children. The writer has no slot for this one, so its text
+            // left the document and the report had no arm that fired
+            // (carve-php#1386).
+            //
+            // Reported and then STOPPED, like the other drops above it: the
+            // element went and everything under it went with it, so a row per
+            // descendant would name losses inside a loss already reported.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-dropped',
+                'Dropped <' . $tag . '>: a caption outside its own container has nothing to caption',
+                'warning',
+                $path,
+            );
+
+            return;
+        }
+
         if ($tag === 'table') {
             $this->inspectTableStructure($node, $path, $diagnostics);
         }
@@ -541,6 +563,85 @@ class HtmlToCarve
             'warning',
             $path,
         );
+    }
+
+    /**
+     * A `<figcaption>` or `<caption>` written outside the container it captions.
+     *
+     * NOT A PREDICATE FOR WHICH CAPTION THE SERIALIZER CONSUMED. That question
+     * has three routes through this importer and reading the input to answer it
+     * is what withdrew carve-php#1347. This one asks whether the element is in a
+     * position where ANY route could take it, and outside `<figure>` or
+     * `<table>` none can: there is no caption slot to compete for.
+     *
+     * The HTML content model is what makes it decidable. `<figcaption>` belongs
+     * to `<figure>` and `<caption>` to `<table>`, so an orphan is degenerate
+     * input whose text this importer has nowhere to put.
+     *
+     * IT CANNOT CURRENTLY CHANGE THE OUTCOME, and is kept for the MESSAGE. Every
+     * caption this writer places emits its text, so the survival test beside it
+     * suppresses the row for a placed one whatever this answers - dropping this
+     * test moves no document today. What it buys is that the row cannot LIE: if
+     * a placed caption ever stopped emitting, calling it "outside its own
+     * container" would be a false statement about a real loss, where staying
+     * silent is a known gap. A wrong reason is worse than a missing row.
+     *
+     * A DIRECT CHILD, for both, because that is what the content model says and
+     * what the writer reads. An ancestor WALK was written first and was too
+     * lenient in exactly the way that matters: `<figure><div><figcaption>` has
+     * a figure above it, is not a direct child of one, and its text leaves the
+     * document - so the walk called it placed and said nothing, which is the
+     * silence this whole change is about.
+     *
+     * @param \DOMElement $node
+     * @param string $tag
+     */
+    protected function isOrphanImportCaption(DOMElement $node, string $tag): bool
+    {
+        $container = match ($tag) {
+            'caption' => 'table',
+            'figcaption' => 'figure',
+            default => null,
+        };
+        if ($container === null) {
+            return false;
+        }
+
+        $parent = $node->parentNode;
+
+        return !$parent instanceof DOMElement || strtolower($parent->tagName) !== $container;
+    }
+
+    /**
+     * Did this element's own text reach the emitted document?
+     *
+     * ASKED OF THE OUTPUT, so a row is never written about text that is right
+     * there - the direction carve-php#1377 rates as a new false statement. The
+     * cost of asking it this way is a false NEGATIVE where the words happen to
+     * appear elsewhere in the document, which leaves the report where it
+     * already was.
+     *
+     * Both sides are reduced to letters and digits, the same reduction
+     * {@see self::importElementContentKey()} uses for the attribute survivors:
+     * the two are not written by the same hand, and a caption comes back behind
+     * a `^` marker with the renderer's own spacing around it.
+     *
+     * An element carrying no letters or digits at all is treated as surviving,
+     * because an empty key is contained in every string and asking the question
+     * of one answers yes for nothing.
+     *
+     * @param \DOMElement $node
+     */
+    protected function importContentSurvived(DOMElement $node): bool
+    {
+        $key = $this->importElementContentKey($node);
+        if ($key === '') {
+            return true;
+        }
+
+        $emitted = (string)preg_replace('/[^\p{L}\p{N}]+/u', '', $this->inspectedCarve ?? '');
+
+        return str_contains($emitted, $key);
     }
 
     /**
