@@ -576,8 +576,20 @@ class TableParser
     public function cellMarkerRunLength(string $cell): int
     {
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
-        if (isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$cell[$length] ?? ''])) {
+        $start = $length;
+        while (str_contains('<>~^v', $cell[$length] ?? '')) {
             $length++;
+        }
+
+        if ($length === $start) {
+            return $length;
+        }
+        $run = substr($cell, $start, $length - $start);
+        $horizontal = preg_match_all('/[<>~]/', $run);
+        $vertical = preg_match_all('/[\^v]/', $run) + max(0, substr_count($run, '~') - 1);
+        $terminated = preg_match('/[ \t\r\n\f]/', $cell[$length] ?? '') === 1 || ($cell[$length] ?? '') === '{';
+        if (!$terminated || $horizontal > 1 && $run !== '~~' || $vertical > 1) {
+            return $start;
         }
 
         return $length;

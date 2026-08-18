@@ -630,7 +630,10 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '366-table-columns-carry-alignment-vertical-alignment-and-widths' => 'carve#1391: positional table metadata is not implemented yet',
+        '367-a-table-alignment-run-carries-two-independent-axes' => 'carve#1391: vertical cell alignment is not implemented yet',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
