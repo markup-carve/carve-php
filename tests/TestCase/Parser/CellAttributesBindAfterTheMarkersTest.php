@@ -181,7 +181,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $this->assertStringContainsString('<th scope="col">^ Top</th>', $html);
         $this->assertStringContainsString('<th scope="col">v Bottom</th>', $html);
         $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
-        $this->assertStringContainsString('text-align: right; vertical-align: bottom;', $html);
-        $this->assertStringContainsString('text-align: right; vertical-align: middle;', $html);
+        $this->assertStringContainsString('<th scope="col">v&gt; Reverse</th>', $html);
+        $this->assertStringContainsString('<th scope="col">~&gt; Middle</th>', $html);
     }
 }
