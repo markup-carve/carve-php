@@ -884,7 +884,11 @@ class MarkdownRenderer implements RendererInterface
 
             // An unresolved reference renders as the source the author
             // wrote, never as a link (PART 12 section 3a).
-            $rawReference = UnresolvedReference::sourceOf($node);
+            // PART 9 §23: a comment LINE publishes nothing, so the stored
+            // source is emptied of them here rather than in the stored value -
+            // `rawRef` stays the authored source verbatim for the canonical
+            // writer (PART 12 §3a, carve-php#1417).
+            $rawReference = UnresolvedReference::renderedSourceOf($node);
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
