@@ -603,6 +603,18 @@ class CarveCorpusTest extends TestCase
         // marker-line colon opener - a blank below it does not. Both render
         // byte-identically here already; rendered and compared before listing.
         'only-lazy-folding-demotes-a-marker-line-colon-opener',
+        // markup-carve/carve#1388, three documents, and the one category of the
+        // bump to carve 22f7f47 that needed engine work here. §17 L1's first
+        // disjunct is read at the LIST's level: a blank line with nothing of the
+        // item after it separates the items however the item's interior
+        // accounted for it. The category arrived with an OPEN engine window
+        // naming this engine, closed by markup-carve/carve-php#1448 - a code or
+        // a tilde fence with no closer absorbed the blank as a payload line, so
+        // the list stayed tight where a div, an admonition, a raw block and a
+        // comment fence all loosened. The third document is the §11 axis
+        // control: a `*` after a `-` list opens a different list, so nothing is
+        // followed by a blank before one of its OWN siblings and it stays tight.
+        'a-blank-line-before-a-sibling-marker-separates-the-items-whatever-consumed-it',
     ];
 
     /**
