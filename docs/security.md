@@ -69,6 +69,26 @@ and a `javascript:` link destination is emptied in every mode - those two are
 handled without opting in. Raw passthrough is not. If you take input from
 anywhere untrusted and do not set a safe mode, you have an XSS hole.
 
+## Resource limits
+
+Pathologically nested input is bounded rather than allowed to exhaust the host,
+and both bounds DEGRADE rather than refuse - the document still parses.
+
+- **Container nesting in the document** stops at
+  `BlockParser::MAX_NESTING_DEPTH` (200). Past it an opener becomes ordinary
+  paragraph text.
+- **One line's container prefix** is measured against the same cap before the
+  parser descends it. This is a different axis: a line may spell far more
+  markers than the document will ever open containers for, so an alternating
+  `> - ` repeated thousands of times used to spend a call frame per pair and
+  overflow the stack (markup-carve/carve-php#1456). Past the cap the rest of the
+  prefix degrades to paragraph text, which is what carve-js and carve-rs already
+  produced for the same line.
+
+Neither bound is configurable, and neither raises. If you need a hard ceiling on
+what you accept, set `setMaxLength()` on a `Profile` and reject oversized input
+before parsing.
+
 ## SafeMode
 
 ```php
