@@ -97,9 +97,9 @@ class BlockParser
      * is exactly that shape, and the old default made the empty item swallow
      * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'inFootnoteBody' => false, 'quotedTable' => false];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -6427,7 +6427,7 @@ class BlockParser
      * @param string $line
      * @param array<string> $lines
      * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
      */
     protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
     {
@@ -6560,9 +6560,9 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -6765,10 +6765,10 @@ class BlockParser
             //
             // A FLUSH-LEFT line still needs an open paragraph: it is a lazy
             // continuation and there is nothing to continue (corpus 357-2,
-            // 357-3). An INDENTED one does not - it reaches no content column,
-            // but §24 C3 reads it as the item's own block, and after a comment
-            // that block is simply the item's next one.
-            if (!$trailingState['openParagraph'] && ($nextIndent === 0 || !$trailingState['afterInvisible'])) {
+            // 357-3). The nonzero below-column exception is specifically the
+            // COMMENT rule. A collected definition ended the paragraph and
+            // keeps no such path open (markup-carve/carve#1376).
+            if (!$trailingState['openParagraph'] && ($nextIndent === 0 || !$trailingState['afterComment'])) {
                 break;
             }
 
@@ -11944,14 +11944,14 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      * @param bool $atContentColumn Whether the line sits AT the container's
      *   content column rather than below it. Only the comment branch reads it:
      *   an invisible block at the column ends the paragraph, while the same
      *   line collected lazily adds no block at all.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
      */
     protected function advanceTrailingBlockState(
         array $state,
@@ -11994,7 +11994,7 @@ class BlockParser
      * twice ({@see \MarkupCarve\Carve\Parser\ContainerPrefix} states why that
      * matters here).
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
      * @param string $line The whole line the walk is reading.
      * @param int $at Byte offset the walk has reached.
      * @param int $end One past the last byte of the SUBJECT - `strlen($line)`
@@ -12004,7 +12004,7 @@ class BlockParser
      * @param int $lastInteriorNewline {@see self::lastInteriorNewline()}.
      * @param bool $atContentColumn {@see self::advanceTrailingBlockState()}.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
      */
     private function advanceTrailingBlockStateAt(
         array $state,
@@ -12043,6 +12043,8 @@ class BlockParser
         // branches that write an invisible block, like the two above it.
         $wasAfterInvisible = $state['afterInvisible'];
         $state['afterInvisible'] = false;
+        $wasAfterComment = $state['afterComment'];
+        $state['afterComment'] = false;
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
         // being the container's own prose.
@@ -12383,10 +12385,12 @@ class BlockParser
                 // happen is a FLUSH-LEFT line folding in, which is what the
                 // closed paragraph refuses (corpus 357-2, 357-3).
                 $state['afterInvisible'] = true;
+                $state['afterComment'] = true;
             } else {
                 // A lazily collected comment adds no new trailing block, so it
                 // cannot erase the fact that the preceding block was invisible.
                 $state['afterInvisible'] = $wasAfterInvisible;
+                $state['afterComment'] = $wasAfterComment;
             }
 
             return $state;
@@ -12426,6 +12430,7 @@ class BlockParser
             // collecting either, so the flag is set for the branch rather than
             // split three ways for a difference nothing reads.
             $state['afterInvisible'] = true;
+            $state['afterComment'] = false;
             // ONLY A FOOTNOTE DEFINITION HAS A BODY. A reference definition is
             // one line, and the indented line under it is the container's own
             // prose that a flush-left line still folds into (corpus 357-6) -
