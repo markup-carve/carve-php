@@ -11,6 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 class FencedCommentFenceTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     /**
      * @var string
      */
@@ -150,12 +152,18 @@ class FencedCommentFenceTest extends TestCase
      * end of the line set, ~0.5 with the width index.
      */
     /**
-     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
-     * default suite runs under paratest, one process per core, so a timing test
-     * there measures a machine every one of its siblings is loading - and it
-     * turned `main` red on a commit touching no engine code (ratio 1.38 against
-     * a 1.2 bound). The group has a runner of its own where nothing else is
-     * running, which is the condition the measurement needs.
+     * IN THE `scaling` GROUP and ON THE SHARED CALIBRATION, because both were
+     * needed. Moving it to the group gave it a runner with nothing else on it;
+     * it still failed there, at a ratio of 1.30 against a hand-rolled bound of
+     * 1.2 - which is BELOW the 1.21 the trait records as the noisiest healthy
+     * shape it has measured. A bound under the noise floor is not a tight
+     * guard, it is a coin flip.
+     *
+     * {@see ScalingGuardTrait} interleaves the two sizes, alternates which is
+     * timed first, takes the median of five rounds and bounds the per-byte
+     * ratio at 2.0 - and the size multiple widens from 2x to the 4x that
+     * calibration assumes, so a quadratic scan measures ~4.0 where a healthy
+     * one measures ~1.0 and the bound sits midway rather than at the edge.
      */
     #[Group('scaling')]
     public function testDistinctWidthFenceOpenersDoNotRescanPerOpener(): void
@@ -169,29 +177,15 @@ class FencedCommentFenceTest extends TestCase
             return $out;
         };
 
-        $small = $build(300);
-        $large = $build(600);
-
-        // Warm up so autoloading and JIT are not attributed to the first sample.
-        (new CarveConverter())->convert($small);
-
-        $perByte = static function (string $src): float {
-            $best = INF;
-            for ($run = 0; $run < 3; $run++) {
-                $start = hrtime(true);
-                (new CarveConverter())->convert($src);
-                $best = min($best, (float)(hrtime(true) - $start));
-            }
-
-            return $best / strlen($src);
-        };
-
-        $ratio = $perByte($large) / max($perByte($small), 1e-9);
-
-        $this->assertLessThan(
-            1.1,
-            $ratio,
-            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
+        $this->assertConversionScalesLinearly(
+            static function (string $input): void {
+                (new CarveConverter())->convert($input);
+            },
+            $build(300),
+            $build(1200),
+            'distinct fence widths',
+            300,
+            1200,
         );
     }
 
@@ -212,12 +206,18 @@ class FencedCommentFenceTest extends TestCase
      * opener, ~0.99 with the memo.
      */
     /**
-     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
-     * default suite runs under paratest, one process per core, so a timing test
-     * there measures a machine every one of its siblings is loading - and it
-     * turned `main` red on a commit touching no engine code (ratio 1.38 against
-     * a 1.2 bound). The group has a runner of its own where nothing else is
-     * running, which is the condition the measurement needs.
+     * IN THE `scaling` GROUP and ON THE SHARED CALIBRATION, because both were
+     * needed. Moving it to the group gave it a runner with nothing else on it;
+     * it still failed there, at a ratio of 1.30 against a hand-rolled bound of
+     * 1.2 - which is BELOW the 1.21 the trait records as the noisiest healthy
+     * shape it has measured. A bound under the noise floor is not a tight
+     * guard, it is a coin flip.
+     *
+     * {@see ScalingGuardTrait} interleaves the two sizes, alternates which is
+     * timed first, takes the median of five rounds and bounds the per-byte
+     * ratio at 2.0 - and the size multiple widens from 2x to the 4x that
+     * calibration assumes, so a quadratic scan measures ~4.0 where a healthy
+     * one measures ~1.0 and the bound sits midway rather than at the edge.
      */
     #[Group('scaling')]
     public function testContainerScopedOpenersDoNotWalkTheTailPerOpener(): void
@@ -236,29 +236,15 @@ class FencedCommentFenceTest extends TestCase
             return $out;
         };
 
-        $small = $build(40);
-        $large = $build(80);
-
-        // Warm up so autoloading and JIT are not attributed to the first sample.
-        (new CarveConverter())->convert($small);
-
-        $perByte = static function (string $src): float {
-            $best = INF;
-            for ($run = 0; $run < 3; $run++) {
-                $start = hrtime(true);
-                (new CarveConverter())->convert($src);
-                $best = min($best, (float)(hrtime(true) - $start));
-            }
-
-            return $best / strlen($src);
-        };
-
-        $ratio = $perByte($large) / max($perByte($small), 1e-9);
-
-        $this->assertLessThan(
-            1.2,
-            $ratio,
-            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
+        $this->assertConversionScalesLinearly(
+            static function (string $input): void {
+                (new CarveConverter())->convert($input);
+            },
+            $build(40),
+            $build(160),
+            'container-scoped openers',
+            40,
+            160,
         );
     }
 
@@ -653,12 +639,18 @@ class FencedCommentFenceTest extends TestCase
      * keeps the memo reachable at depth.
      */
     /**
-     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
-     * default suite runs under paratest, one process per core, so a timing test
-     * there measures a machine every one of its siblings is loading - and it
-     * turned `main` red on a commit touching no engine code (ratio 1.38 against
-     * a 1.2 bound). The group has a runner of its own where nothing else is
-     * running, which is the condition the measurement needs.
+     * IN THE `scaling` GROUP and ON THE SHARED CALIBRATION, because both were
+     * needed. Moving it to the group gave it a runner with nothing else on it;
+     * it still failed there, at a ratio of 1.30 against a hand-rolled bound of
+     * 1.2 - which is BELOW the 1.21 the trait records as the noisiest healthy
+     * shape it has measured. A bound under the noise floor is not a tight
+     * guard, it is a coin flip.
+     *
+     * {@see ScalingGuardTrait} interleaves the two sizes, alternates which is
+     * timed first, takes the median of five rounds and bounds the per-byte
+     * ratio at 2.0 - and the size multiple widens from 2x to the 4x that
+     * calibration assumes, so a quadratic scan measures ~4.0 where a healthy
+     * one measures ~1.0 and the bound sits midway rather than at the edge.
      */
     #[Group('scaling')]
     public function testQuotedOpenersDoNotWalkTheQuotePerOpener(): void
@@ -677,29 +669,15 @@ class FencedCommentFenceTest extends TestCase
             return $out;
         };
 
-        $small = $build(40);
-        $large = $build(80);
-
-        // Warm up so autoloading and JIT are not attributed to the first sample.
-        (new CarveConverter())->convert($small);
-
-        $perByte = static function (string $src): float {
-            $best = INF;
-            for ($run = 0; $run < 3; $run++) {
-                $start = hrtime(true);
-                (new CarveConverter())->convert($src);
-                $best = min($best, (float)(hrtime(true) - $start));
-            }
-
-            return $best / strlen($src);
-        };
-
-        $ratio = $perByte($large) / max($perByte($small), 1e-9);
-
-        $this->assertLessThan(
-            1.2,
-            $ratio,
-            sprintf('Expected flat cost per byte; ratio was %.2f.', $ratio),
+        $this->assertConversionScalesLinearly(
+            static function (string $input): void {
+                (new CarveConverter())->convert($input);
+            },
+            $build(40),
+            $build(160),
+            'quoted openers',
+            40,
+            160,
         );
     }
 }
