@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceDefinitionExtractor
@@ -307,6 +308,67 @@ class ReferenceDefinitionExtractor
      * @return array{line: string, inQuote: bool, inList: bool}
      */
     private function referenceLineView(string $line, int $contentCol, string $previousLine = ''): array
+    {
+        $length = strlen($line);
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== $length - 1) {
+            return $this->referenceLineViewFromCopies($line, $contentCol, $previousLine);
+        }
+
+        $inQuote = false;
+        $inList = false;
+        $budget = $contentCol;
+        $at = 0;
+        do {
+            $previousAt = $at;
+            $whitespaceAt = IndentationHelper::pastLeadingWhitespace($line, $at);
+            $spend = min($whitespaceAt - $at, $budget);
+            $at += $spend;
+            $budget -= $spend;
+
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($quoteWidth !== null) {
+                $inQuote = true;
+                $budget = max(0, $budget - $quoteWidth);
+                $at += $quoteWidth;
+            }
+
+            $markerAt = $this->referenceListMarkerEndAt($line, $at, $previousLine);
+            if ($markerAt !== null) {
+                $inList = true;
+                $budget = max(0, $budget - ($markerAt - $at));
+                $at = $markerAt;
+            }
+        } while ($at !== $previousAt);
+
+        if (!$inList && $contentCol > 0 && $budget === 0) {
+            $inList = true;
+        }
+        if (LayoutWork::$on) {
+            LayoutWork::$referencePrescan += $length - $at;
+        }
+
+        return ['line' => substr($line, $at), 'inQuote' => $inQuote, 'inList' => $inList];
+    }
+
+    private function referenceListMarkerEndAt(string $line, int $at, string $previousLine): ?int
+    {
+        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+        $pattern = '/[ \t]*(?:' . $descriptionMarker
+            . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?='
+            . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+
+        return preg_match($pattern, $line, $match, 0, $at) === 1
+            ? $at + strlen($match[0])
+            : null;
+    }
+
+    /**
+     * Exact capturing fallback for a subject containing an interior newline.
+     *
+     * @return array{line: string, inQuote: bool, inList: bool}
+     */
+    private function referenceLineViewFromCopies(string $line, int $contentCol, string $previousLine = ''): array
     {
         $bare = $line;
         $inQuote = false;

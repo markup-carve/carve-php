@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
-use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 
 /**
  * Where a `%%%` COMMENT FENCE opens and closes, for the line-based prepasses.
@@ -309,18 +310,24 @@ class PrepassCommentFence
      */
     protected static function prefixOn(string $line, bool $markers): array
     {
-        $quotes = [];
-        $rest = $line;
-        $column = 0;
-        while (true) {
-            $trimmed = ltrim($rest, " \t");
-            $column = self::advanceColumns(substr($rest, 0, strlen($rest) - strlen($trimmed)), $column);
-            $rest = $trimmed;
+        $length = strlen($line);
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== $length - 1) {
+            return self::prefixOnFromCopies($line, $markers);
+        }
 
-            $content = ContainerPrefix::quoteContent($rest);
-            if ($content !== null) {
+        $quotes = [];
+        $column = 0;
+        $at = 0;
+        while (true) {
+            $whitespaceAt = IndentationHelper::pastLeadingWhitespace($line, $at);
+            $column = self::advanceColumns($line, $at, $whitespaceAt, $column);
+            $at = $whitespaceAt;
+
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($quoteWidth !== null) {
                 $quotes[] = $column;
-                $rest = $content;
+                $at += $quoteWidth;
                 $column = 0;
 
                 continue;
@@ -330,25 +337,28 @@ class PrepassCommentFence
                 break;
             }
 
-            $stripped = self::stripListMarker($rest);
-            if ($stripped === $rest) {
+            $head = self::listParser()->markerHeadAt($line, $at);
+            if ($head === null) {
                 break;
             }
-            $column = self::advanceColumns(substr($rest, 0, strlen($rest) - strlen($stripped)), $column);
-            $rest = $stripped;
+            $column = self::advanceColumns($line, $at, $head['content'], $column);
+            $at = $head['content'];
         }
 
-        return [$quotes, $rest, $column];
+        if (LayoutWork::$on) {
+            LayoutWork::$commentPrescan += $length - $at;
+        }
+
+        return [$quotes, substr($line, $at), $column];
     }
 
     /**
      * The column a prefix ends at, counting a tab to its next stop.
      */
-    protected static function advanceColumns(string $prefix, int $column): int
+    protected static function advanceColumns(string $line, int $from, int $to, int $column): int
     {
-        $length = strlen($prefix);
-        for ($i = 0; $i < $length; $i++) {
-            if ($prefix[$i] === "\t") {
+        for ($i = $from; $i < $to; $i++) {
+            if ($line[$i] === "\t") {
                 $column += IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP);
 
                 continue;
@@ -362,14 +372,55 @@ class PrepassCommentFence
     /**
      * The line with one leading list marker removed, or unchanged.
      */
-    protected static function stripListMarker(string $line): string
+    private static function listParser(): ListParser
     {
-        return preg_replace(
-            '/^(?:[-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +(?:\[[ xX\-_>?]\] +)?(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/',
-            '',
-            $line,
-            1,
-        ) ?? $line;
+        static $parser;
+
+        return $parser ??= new ListParser();
+    }
+
+    /**
+     * The exact capturing-parser fallback for an interior-newline subject.
+     *
+     * @return array{0: array<int>, 1: string, 2: int}
+     */
+    private static function prefixOnFromCopies(string $line, bool $markers): array
+    {
+        $quotes = [];
+        $rest = $line;
+        $column = 0;
+        while (true) {
+            $before = $rest;
+            $trimmed = ltrim($rest, " \t");
+            $prefixLength = strlen($rest) - strlen($trimmed);
+            $column = self::advanceColumns($rest, 0, $prefixLength, $column);
+            $rest = $trimmed;
+
+            $content = ContainerPrefix::quoteContent($rest);
+            if ($content !== null) {
+                $quotes[] = $column;
+                $rest = $content;
+                $column = 0;
+
+                continue;
+            }
+            if (!$markers) {
+                break;
+            }
+            $marker = self::listParser()->parseListItemMarker($rest);
+            if ($marker === null) {
+                break;
+            }
+            $content = (string)$marker['content'];
+            $markerLength = strlen($rest) - strlen($content);
+            $column = self::advanceColumns($rest, 0, $markerLength, $column);
+            $rest = $content;
+            if ($rest === $before) {
+                break;
+            }
+        }
+
+        return [$quotes, $rest, $column];
     }
 
     /**
