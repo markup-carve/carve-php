@@ -1046,4 +1046,36 @@ class TableParser
         // The line ends with | outside code span if the last | is at the end
         return $lastPipeOutsideCode === $length - 1;
     }
+
+    /**
+     * Whether a table ROW could start at `$at`, by the row's own first byte.
+     *
+     * A walk crossing a container prefix reads this at an offset rather than
+     * cutting the tail out to hand {@see self::isTableRow()}, which is the copy
+     * per level markup-carve/carve-php#1437 removed. *
+     * The parser's own fast exit spells the same byte test inline, because it
+     * runs on nearly every line the parser reads and one more call for it
+     * measured against an ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which walks EVERY byte value and
+     * asserts the head accepts a line exactly where the parser can, so the pair
+     * cannot drift in silence - which is the failure
+     * markup-carve/carve-php#969 was.
+     */
+    public function isTableRowHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at] ?? '') === '|';
+    }
+
+    /**
+     * Whether a CONTINUATION row could start at `$at`, by its own first byte.
+     *
+     * The continuation spelling tolerates leading whitespace where the standard
+     * one does not, so the head skips a blank run before it reads the `+`. The
+     * offset-side head for {@see self::isContinuationRow()}, pinned by the same
+     * test {@see self::isTableRowHead()} names.
+     */
+    public function isContinuationRowHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at + strspn($line, " \t", $at)] ?? '') === '+';
+    }
 }

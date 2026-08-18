@@ -199,7 +199,25 @@ class ListParser
             return null;
         }
 
-        $offset = $this->markerContentOffset($line);
+        return $this->markerWalkOffset($line, 0);
+    }
+
+    /**
+     * The same walk with the interior-newline screen ALREADY ANSWERED.
+     *
+     * {@see self::innermostMarkerContentOffset()} is this plus the screen, so
+     * the walk itself is spelled once. A caller crossing a container prefix
+     * asks the screen once for the whole line and then walks from an offset:
+     * asked per level, the screen is an O(rest) scan that puts back exactly the
+     * cost the offset walk removes (markup-carve/carve-php#1437).
+     *
+     * @param string $line A single line, already screened for an INTERIOR
+     *   newline at or after `$from`.
+     * @param int $from Byte offset to walk from, anchored.
+     */
+    public function markerWalkOffset(string $line, int $from = 0): ?int
+    {
+        $offset = $this->markerContentOffset($line, $from);
         if ($offset === null) {
             return null;
         }
@@ -271,17 +289,13 @@ class ListParser
         // disagreed on `-{.k} <tab>x`, which a 44,100-document sweep caught and
         // the single-marker matrix did not.
         $strippable = '(?= +' . StringUtil::NON_WHITESPACE_CLASS . ')';
-        // THE STRIP'S OWN BULLET CLASS, WHICH IS NARROWER. The attribute
-        // pre-step in `parseListItemMarker()` spells its markers as
-        // `[-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)]` - a literal `[-*]`, which the
-        // PlusBulletExtension does not widen. So `+{.k} x` is not a marker
-        // there even with the extension on, and building these from the live
-        // bullet class made the two forms disagree exactly there (raised by
-        // codex review). Mirrored rather than corrected: whether the strip
-        // SHOULD accept a plus bullet is a behavior question, and this change
-        // is required to alter nothing.
+        // The parser's abutting-attribute pre-step reads the live bullet class,
+        // so this offset-only spelling must do the same. Otherwise the parser
+        // accepts `+{.k} x` with PlusBulletExtension while the marker walk
+        // stops before it and the trailing-block tracker answers a different
+        // container shape.
         $patterns = [];
-        foreach ($this->markerTokens('-*') as $name => [$token, $rest]) {
+        foreach ($this->markerTokens() as $name => [$token, $rest]) {
             $patterns[$name] = '/' . $token . $block . $strippable . $rest
                 . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
         }
@@ -339,6 +353,29 @@ class ListParser
      */
     public function markerContentOffset(string $line, int $from = 0): ?int
     {
+        return $this->markerHeadAt($line, $from)['content'] ?? null;
+    }
+
+    /**
+     * The marker head at `$from`: WHICH head matched, and where its content
+     * begins.
+     *
+     * {@see self::markerContentOffset()} is this without the name, and every
+     * rule below is that method's - the two were one method until a caller
+     * needed to tell a task's head from a bullet's without re-deriving it
+     * (markup-carve/carve-php#1463). A task's content column is its BULLET's
+     * rather than its checkbox's, so the name is the only way to answer the
+     * width from offsets, and asking the task pattern a second time would be a
+     * second spelling of the rule this class exists to keep single.
+     *
+     * @param string $line A single line, read under the same interior-newline
+     *   condition {@see self::markerContentOffset()} states.
+     * @param int $from Byte offset to match at, anchored.
+     *
+     * @return array{name: string, content: int}|null
+     */
+    public function markerHeadAt(string $line, int $from = 0): ?array
+    {
         foreach ($this->offsetPatterns() as $name => $pattern) {
             if (preg_match($pattern, $line, $m, 0, $from) !== 1) {
                 continue;
@@ -359,7 +396,7 @@ class ListParser
                 continue;
             }
 
-            return $from + strlen($m[0]);
+            return ['name' => $name, 'content' => $from + strlen($m[0])];
         }
 
         // AN ABUTTING ATTRIBUTE BLOCK, tried second because the two spellings
@@ -382,7 +419,7 @@ class ListParser
                 continue;
             }
 
-            return $from + strlen($m[0]);
+            return ['name' => $name, 'content' => $from + strlen($m[0])];
         }
 
         return null;
@@ -403,9 +440,10 @@ class ListParser
         // match, and attach the parsed attributes to the returned info. A space
         // before the brace does NOT match here -- it stays ordinary content.
         $itemAttributes = [];
+        $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
             preg_match(
-                '/^([-*]|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
+                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
             )

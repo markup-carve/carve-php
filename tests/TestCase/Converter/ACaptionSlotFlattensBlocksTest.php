@@ -69,6 +69,23 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
         $this->assertStringNotContainsString('- a', $rendered);
     }
 
+    public function testEveryFlattenedCaptionBlockReportsItsOwnInputPath(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport(
+            '<table><caption><ul><li>a</li><li>b</li></ul></caption><tr><td>x</td></tr></table>',
+        );
+        $rows = array_map(static fn ($diagnostic): array => $diagnostic->toArray(), $result->diagnostics);
+
+        $this->assertSame(
+            [
+                ['/table[1]/caption[1]/ul[1]/li[1]', 'Unwrapped unsupported <li> element'],
+                ['/table[1]/caption[1]/ul[1]/li[2]', 'Unwrapped unsupported <li> element'],
+                ['/table[1]/caption[1]/ul[1]', 'Unwrapped unsupported <ul> element'],
+            ],
+            array_map(static fn (array $row): array => [$row['path'], $row['message']], $rows),
+        );
+    }
+
     /**
      * The shapes the ticket names, and the figure slot beside the table one.
      *
@@ -92,6 +109,22 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
             'two paragraphs in a table caption' => [
                 '<table><caption><p>one</p><p>two</p></caption><tr><td>x</td></tr></table>',
                 "| x |\n^ one two",
+            ],
+            'two table cells keep their boundary' => [
+                '<figure><img src="i.png"><figcaption><table><tr><td>a</td><td>b</td></tr></table></figcaption></figure>',
+                "![](i.png)\n^ a b",
+            ],
+            'a definition term and description keep their boundary' => [
+                '<figure><img src="i.png"><figcaption><dl><dt>t</dt><dd>d</dd></dl></figcaption></figure>',
+                "![](i.png)\n^ t d",
+            ],
+            'a no-break space already preserves the boundary' => [
+                '<figure><img src="i.png"><figcaption><p>a&nbsp;</p><p>b</p></figcaption></figure>',
+                "![](i.png)\n^ a\u{00A0}b",
+            ],
+            'inline text means the former blocks are not adjacent' => [
+                '<figure><img src="i.png"><figcaption><p>a</p>x<p>b</p></figcaption></figure>',
+                "![](i.png)\n^ axb",
             ],
             'a list in a figure caption' => [
                 '<figure><img src="i.png"><figcaption><ul><li>a</li><li>b</li></ul></figcaption></figure>',

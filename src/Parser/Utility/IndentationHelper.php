@@ -50,16 +50,23 @@ class IndentationHelper
      * saturates a value the comparison had already decided. Leave `$cap` null
      * where the NUMBER itself is used rather than compared.
      *
+     * FROM AN OFFSET, and counting from column zero there. A walk that peels a
+     * container prefix has to ask this of the rest of the line once per level,
+     * and cutting the rest out to ask costs the line per level - the quadratic
+     * shape markup-carve/carve-php#1463 measured in the heading-reference
+     * prescan. `$at` asks the same question of the same bytes.
+     *
      * @param string $line The line to examine
      * @param int|null $cap Stop the walk once this column is reached
+     * @param int $at Byte offset the run starts at; column zero sits there.
      *
      * @return int The visual column where the first non-whitespace character sits
      */
-    public static function getLeadingColumns(string $line, ?int $cap = null): int
+    public static function getLeadingColumns(string $line, ?int $cap = null, int $at = 0): int
     {
         $col = 0;
         $len = strlen($line);
-        $i = 0;
+        $i = $at;
 
         while ($i < $len && ($cap === null || $col < $cap)) {
             if ($line[$i] === ' ') {
@@ -73,10 +80,32 @@ class IndentationHelper
         }
 
         if (LayoutWork::$on) {
-            LayoutWork::$gate += $i;
+            LayoutWork::$gate += $i - $at;
         }
 
         return $cap !== null && $col > $cap ? $cap : $col;
+    }
+
+    /**
+     * The offset where the whitespace run starting at `$at` ends.
+     *
+     * `ltrim($line, " \t")` spelled as a number, for a walk that would
+     * otherwise cut the tail out of the line once per container level
+     * (markup-carve/carve-php#1463). Same characters, same rule.
+     *
+     * @param string $line The line to examine
+     * @param int $at Byte offset the run starts at
+     *
+     * @return int Offset of the first byte that is neither a space nor a tab
+     */
+    public static function pastLeadingWhitespace(string $line, int $at = 0): int
+    {
+        $len = strlen($line);
+        while ($at < $len && ($line[$at] === ' ' || $line[$at] === "\t")) {
+            $at++;
+        }
+
+        return $at;
     }
 
     /**
@@ -227,6 +256,47 @@ class IndentationHelper
     public static function isBlankLine(string $line): bool
     {
         return strspn($line, " \t") === strlen($line);
+    }
+
+    /**
+     * The same question asked from a byte OFFSET, without cutting the line.
+     *
+     * A walk that crosses a container prefix has to ask "is the rest of this
+     * line blank" once per level, and cutting the rest out to ask copies the
+     * tail every time - which is what made a line alternating a quote marker
+     * with a bullet cost the line length per level
+     * (markup-carve/carve-php#1437).
+     *
+     * NOT WRITTEN AS THE BODY OF `isBlankLine()`, and that is measured rather
+     * than tidy: `isBlankLine()` is asked on nearly every line the parser
+     * reads, and routing it through one more call cost about 5 percent on an
+     * ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which asserts
+     * `isBlankLine($l) === isBlankFrom($l, 0)` over every byte, so the pair
+     * cannot drift without a test saying so.
+     */
+    public static function isBlankFrom(string $line, int $at): bool
+    {
+        return strspn($line, " \t", $at) === strlen($line) - $at;
+    }
+
+    /**
+     * The offset one past the last byte that `rtrim($line, " \t")` keeps.
+     *
+     * A walk carrying an offset needs the line's trimmed END as a number,
+     * because the end does NOT move as the offset advances: it is a property of
+     * the line and is computed once for a whole walk rather than once per
+     * level. `rtrim($line, " \t") === substr($line, 0, self::trimmedEnd($line))`
+     * is the identity this is written from.
+     */
+    public static function trimmedEnd(string $line): int
+    {
+        $length = strlen($line);
+        while ($length > 0 && ($line[$length - 1] === ' ' || $line[$length - 1] === "\t")) {
+            $length--;
+        }
+
+        return $length;
     }
 
     /**

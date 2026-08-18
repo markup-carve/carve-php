@@ -193,9 +193,8 @@ class ReferenceDefinitionExtractor
             // column asked for the quote marker's columns as indentation,
             // matched nothing, and left the verse untracked - so a definition
             // written in it registered (markup-carve/carve-php#1431).
-            $openerWalk = $contentCol > 0 ? ContainerPrefix::innermostAtColumn($line, $contentCol) : null;
-            $verseOpenerColumn = $openerWalk !== null ? $contentCol : 0;
-            $openerWalk ??= ContainerPrefix::pastQuoteMarkers($line);
+            $openerWalk = $fence->containerOpenerView($line, $contentCol);
+            $verseOpenerColumn = $contentCol;
             $verseOpenerView = $openerWalk['line'];
             $verseOpenerDepth = $openerWalk['quoteDepth'];
             if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $verseOpenerView, $vo) === 1) {
@@ -802,5 +801,26 @@ class ReferenceDefinitionExtractor
         $trimmed = preg_replace('/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+/u', '', $value);
 
         return $trimmed ?? ltrim($value);
+    }
+
+    /**
+     * Whether a reference definition could start at `$at`, by its first byte.
+     *
+     * A walk crossing a container prefix reads this at an offset instead of
+     * cutting the tail out to hand {@see self::matchDefinitionLine()}, which is
+     * the copy per level markup-carve/carve-php#1437 removed. The footnote
+     * spelling `[^label]:` shares the bracket, so one head covers both
+     * definition kinds. *
+     * The parser's own fast exit spells the same byte test inline, because it
+     * runs on nearly every line the parser reads and one more call for it
+     * measured against an ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which walks EVERY byte value and
+     * asserts the head accepts a line exactly where the parser can, so the pair
+     * cannot drift in silence - which is the failure
+     * markup-carve/carve-php#969 was.
+     */
+    public static function isDefinitionHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at] ?? '') === '[';
     }
 }

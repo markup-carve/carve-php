@@ -70,16 +70,23 @@ class ContainerPrefix
      * `>` at end of line is a marker one byte wide whose content is empty; `> `
      * is two. `>text`, and a tab after the marker, are not markers at all.
      */
-    public static function quoteMarkerWidth(string $line, int $at = 0): ?int
+    public static function quoteMarkerWidth(string $line, int $at = 0, ?int $end = null): ?int
     {
-        if (($line[$at] ?? '') !== '>') {
+        // `$end` IS THE rtrim, SPELLED AS A NUMBER. A caller that has to read
+        // the rule on `rtrim($line, " \t")` - the block parser's trailing-block
+        // tracker does, because trailing whitespace is dropped from a content
+        // line - would otherwise copy the line to ask, once per marker it
+        // crosses (markup-carve/carve-php#1437). Passing where the trimmed line
+        // ENDS asks the same question of the same bytes.
+        $end ??= strlen($line);
+        if ($at >= $end || $line[$at] !== '>') {
             return null;
         }
-        if ($at + 1 === strlen($line)) {
+        if ($at + 1 === $end) {
             return 1;
         }
 
-        return ($line[$at + 1] ?? '') === ' ' ? 2 : null;
+        return $line[$at + 1] === ' ' ? 2 : null;
     }
 
     /**

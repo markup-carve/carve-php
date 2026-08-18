@@ -9,249 +9,177 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The heading-reference prescan reads a line's container prefix at an offset**
+  (PART 9 §25, markup-carve/carve-php#1463). It handed each step a copy of the
+  rest of the line, so a line of N prefix elements cost N times the line - a
+  128 KB line of `> - ` repeated copied 4.1 GB.
+
+## [0.1.5] - 2026-08-18
+
+### Security
+
+- **An attribute holding a LIST of URLs is probed at every candidate, not at
+  its head** (PART 9 §25, markup-carve/carve#1320, markup-carve/carve#1326).
+  `srcset` and the three other list-valued attributes vouched for the whole
+  value from its leading scheme, so a dangerous scheme anywhere but first went
+  unread. The value-wide probe is an ADDITION to the leading-scheme one, not a
+  replacement, so a scheme token holding whitespace is still caught (#1388,
+  #1390).
+
 - **The HTML importer's attribute strip policy is a rule, asked in one place**
-  (markup-carve/carve-php#1375). The policy was a list of five handler names
-  plus an `on*` prefix rule that each writer had to remember to apply. Five
-  writers consulted it and only one applied the prefix, so a handler outside
-  those five reached the Carve source: `<aside class="admonition note"
-  onfocus="…">` imported as `{onfocus=…}` above the fence, and a custom div, a
-  line block and the admonition div this engine's own renderer emits on a round
-  trip all did the same. This was not an XSS hole through this engine, whose
-  renderer blanks `on*` on output; the exposure is that the handler was in the
-  SOURCE - what gets stored, diffed, hand-edited, and rendered by other targets
-  that have their own output rules. `isStrippedImportAttribute()` now carries
-  the whole policy and every site asks it, the five-name enumeration is gone
-  because `on*` is unbounded, and `srcdoc` and `formaction` join it for the
-  same reason. The policy refuses strictly more and never less: an unknown
-  attribute is still kept, and an element around a stripped handler is
-  byte-identical to the same element without it.
+  (markup-carve/carve-php#1375). `isStrippedImportAttribute()` carries the whole
+  policy and every writer asks it, so an `on*` handler no longer reaches the
+  Carve source; the five-name enumeration is gone and `srcdoc` and `formaction`
+  join it. An unknown attribute is still kept.
 
 ### Added
 
-- **A bibliography definition line is a node on the wire.** `[@key]: {author=
-  year=} entry` is a `citation_definition` carrying the key without its sigil,
-  the entry as inline `children`, the metadata block as `attrs`, and its
-  position - PART 12 section 18, shaped after the link reference definition
-  rather than after the footnote. The line used to be consumed while the
-  Citations extension collected definitions, so it was not in the tree at all:
-  it had no position, nothing could reproduce it, and an AST round trip deleted
-  it from the document. Rendered output is unchanged on every target, which is
-  why no fixture ever saw the difference: the definition renders nothing where
-  it sits and its entry renders in the references list either way. Tier-2, so
-  only a parse with the Citations extension enabled produces one.
+- **A bibliography definition line is a node on the wire** (PART 12 section 18).
+  `[@key]: {author= year=} entry` is a `citation_definition` carrying the key
+  without its sigil, the entry as inline `children`, the metadata block as
+  `attrs` and its position, so an AST round trip no longer deletes it. Tier-2:
+  only a parse with the Citations extension enabled produces one. Rendered
+  output is unchanged on every target.
 
 - **A `carveDiv` says how its class was written.** `carveTyped` distinguishes
-  `::: sidebar` from `{.sidebar}` above a bare `:::` - one ProseMirror node
-  serves both Carve types, and without it an attributed div came back as a typed
-  one.
+  `::: sidebar` from `{.sidebar}` above a bare `:::`.
 
 - **The renderer reports two losses it always had**: the authored ORDER of an
   attribute run, which the wire splits into `id`, `class` and one
-  `carveKeyValues` bag, and a soft break, whose text survives as a newline while
-  the node does not.
+  `carveKeyValues` bag, and a soft break, whose text survives as a newline
+  while the node does not.
 
 ### Changed
 
-- **The ProseMirror bridge speaks the published wire shape.** The map named the
-  node a Carve type becomes and left the attributes to each implementation, so
-  this bridge and carve-grammars produced different documents for the same
-  source - `tight` against `carveTight`, a flat `data-x` against
-  `carveKeyValues`, table spans present in one and absent from the other - each
-  round-tripping perfectly on its own. A document stored by one and read by the
-  other lost its list tightness, its reference spelling and its cell spans, and
-  90 of the 1025 documents crossing this way were refused outright while another
-  339 came back rendering differently.
+- **A line block's hard break is written by the PART 11 §7c property, not by a
+  list of cases** (markup-carve/carve#1340). A line whose last node is a comment
+  is exempt, an empty comment line no longer gains a separator space, and a
+  stanza's last line keeps its trailing backslash.
 
-  Now: authored key/values travel in one `carveKeyValues` map; a list carries
-  `carveTight`, `carveOlType` and `carveDelim`; a link mark carries
-  `carveReferenceDefinition` rather than the attributes the definition transfers
-  to it; a table cell omits a span of 1, carries its alignment as `textAlign`
-  and holds a paragraph the way the editor's schema requires; an inline
-  extension carries its `name`; a figure's image panel is wrapped in a
-  paragraph; an abbreviation is the `carveAbbreviation` mark; a code fence's
-  metadata is `carveHeader`/`carveLabel`; and a soft break crosses as a NEWLINE
-  rather than a space that joins two authored lines into one.
+- **A line block hardens a soft break at every depth**
+  (markup-carve/carve#1351), so a boundary inside an emphasis run hardens the
+  way its backslash spelling already did.
 
-  `resources/prosemirror-wire-fixtures.json` - a copy of the set carve-grammars
-  publishes - pins all 35 constructs in both directions.
+- **A table is a table however its last row is spelled**
+  (markup-carve/carve#1348), and **an invisible line at a container's content
+  column ends the paragraph rather than the container**
+  (markup-carve/carve#1350).
+
+- **The ProseMirror bridge speaks the published wire shape**, so a document
+  stored by carve-grammars and read here keeps its list tightness, reference
+  spelling and cell spans. Authored key/values travel in one `carveKeyValues`
+  map; a list carries `carveTight`, `carveOlType` and `carveDelim`; a link mark
+  carries `carveReferenceDefinition`; a table cell omits a span of 1, carries
+  its alignment as `textAlign` and holds a paragraph; an inline extension
+  carries its `name`; a figure's image panel is wrapped in a paragraph; an
+  abbreviation is the `carveAbbreviation` mark; a code fence's metadata is
+  `carveHeader`/`carveLabel`; and a soft break crosses as a NEWLINE rather than
+  a space. `resources/prosemirror-wire-fixtures.json` pins all 35 constructs in
+  both directions.
 
 - **The bridge carries the attribute run the author typed, and the marks that
-  hold no text.** Three kinds of state crossed as a report of loss rather than
-  as content, and all three are invisible in rendered HTML, which is why they
-  needed saying:
+  hold no text.**
 
-  - The authored SLOT ORDER of a run. `id`, `class` and one `carveKeyValues`
-    bag are a map, and a map has none, so `[x]{key=c .a #b}` came back regrouped
-    as `[x]{.a #b key=c}`. The order rides beside them in `carveAttrOrder` and
-    the writer replays it: each named slot in sequence, a slot the document no
-    longer has skipped, an attribute the order does not name appended after the
-    ones it does. Two things are genuinely not recoverable and are not faked -
-    value quoting (`k=1` against `k="1"`), and classes interleaved with other
-    slots, which the AST's own order collapses to one position.
-  - An attribute run on inline code. The `code` mark takes `id`, `class`,
+  - The authored SLOT ORDER of a run rides in `carveAttrOrder` and the writer
+    replays it, so `[x]{key=c .a #b}` no longer comes back regrouped. Value
+    quoting and classes interleaved with other slots are not recoverable and
+    are not faked.
+  - An attribute run on inline code: the `code` mark takes `id`, `class`,
     `carveKeyValues` and `carveAttrOrder`, the same four slots as every other
     attributed node.
-  - A mark with no content. A ProseMirror mark cannot span zero characters, so
-    `[](https://example.com)`, `[]{.a}`, `{++}` and `{--}` had nothing to attach
-    to and vanished - a paragraph that was only an empty link came back empty.
-    They cross as the schema's `carveEmptyMark` atom, which names the mark it
-    stands for and holds that mark's own attributes.
+  - A mark with no content - `[](https://example.com)`, `[]{.a}`, `{++}` and
+    `{--}` - crosses as the schema's `carveEmptyMark` atom instead of vanishing.
 
   `SchemaMap` reads the map's `markCarrierNodes` and `preservationNodes`
-  sections alongside `types`, so a wire node that is not a Carve type is
-  recognized from the map rather than from a list restated in code.
+  sections alongside `types`.
 
 - **The preservation atoms another bridge writes are read, not refused.**
-  `carveUnsupported` and `carveUnsupportedInline` carry the exact source of a
-  construct the other side had no editable node for; they are on the wire now
-  (the map's `preservationNodes`), and this bridge writes their source back
-  verbatim instead of rejecting the document.
-
+  `carveUnsupported` and `carveUnsupportedInline` are on the wire (the map's
+  `preservationNodes`) and their source is written back verbatim instead of the
+  document being rejected.
 
 - **Delimited inline comments are now recognized, which is a behavior change.**
   `foo {% bar %} baz` previously rendered its braces and now hides the middle,
   producing `foo  baz`. The new `braced-comment-in-a-template-source` lint rule
-  reports this syntax when template tags suggest that Liquid, Nunjucks, or Twig
-  source reached the parser as text; it never rewrites the source.
-
-  The ProseMirror bridge carries the spelling in both directions - the
-  `delimited` flag PART 12 publishes on the wire rides on the payload too, for
-  the inline and the block form - so an editor round trip writes a delimited
-  comment back as one rather than respelling it as the line comment `%%`, which
-  runs to the end of the line. A comment inside a table cell crosses the bridge
-  as well: a comment's node class is filed under blocks whichever way it was
-  written, so the cell path needs the inline atom taken as an atom rather than
-  recursed into.
+  reports this syntax when Liquid, Nunjucks or Twig source reached the parser
+  as text; it never rewrites the source. The ProseMirror bridge carries the
+  spelling in both directions - the `delimited` flag PART 12 publishes rides on
+  the payload too, for the inline and the block form - and a comment inside a
+  table cell crosses as well.
 
 - **An HTML import diagnostic's `path` follows one convention shared with
-  carve-js and carve-rs** (markup-carve/carve#1257). The field is a
-  human-readable locator: it borrows XPath's notation but is not an XPath
-  expression and must not be resolved as one. Three rules make the string. The
-  path starts at the top level of the fragment the importer was handed, so
-  neither the `<div>` this importer wraps a fragment in nor an authored
-  `<html>`/`<body>` is named. `[n]` is the position among ALL of the parent's
-  child nodes, text included, rather than among its element children. And the
-  path names the traversal the conversion performs, so a table's rows are
-  flattened out of `<thead>`/`<tbody>` and numbered across the whole table, and
-  a list's items are numbered among the items. For this input:
+  carve-js and carve-rs** (markup-carve/carve#1257). It is a human-readable
+  locator that borrows XPath's notation but must not be resolved as one: it
+  starts at the top level of the fragment the importer was handed, so neither
+  the wrapper `<div>` nor an authored `<html>`/`<body>` is named; `[n]` is the
+  position among ALL of the parent's child nodes, text included; and it names
+  the traversal the conversion performs, so a table's rows are flattened out of
+  `<thead>`/`<tbody>` and numbered across the whole table and a list's items are
+  numbered among the items. The shared contract fixtures now check `path`
+  alongside `code`, `message` and `severity`. An `<html>`, `<head>` or `<body>`
+  still reports its own attribute losses under its own name.
 
-  ```html
-  <table><thead><tr><th>h</th></tr></thead><tbody><tr><td onclick="x()">c</td></tr></tbody></table>
-  ```
-
-  the dropped handler is reported at:
-
-  ```
-  /table[1]/tr[2]/td[1]
-  ```
-
-  where this engine spelled it:
-
-  ```
-  /div[1]/table[1]/tbody[2]/tr[1]/td[1]
-  ```
-
-  One node had three names across the three engines and nothing compared them.
-  The shared contract fixtures now check `path` alongside `code`, `message` and
-  `severity`. A `<html>`, `<head>` or `<body>` element still reports its own
-  attribute losses under its own name - that is the one thing a path names
-  outside the fragment, because a diagnostic about the `<body>` has to say so.
-
-- **Every table cell pads its content in the canonical form** (PART 11 §6e). A
-  cell carrying a prefix - the kind marker `=`, an alignment marker, an
-  attribute block - was written with its content glued to it, except when the
-  cell carried attributes, which this engine padded: `|=Heading|` beside
-  `|={.total} Total |`. One rule now covers every cell - `|= Heading |`,
-  `|={.total} Total |= 99 |` - with the prefix still glued to the opening pipe,
-  because a space in front of it makes it literal content. An empty cell takes
-  a single space. This also removes the guard that inserted a space only for
-  content beginning with `<`, `>` or `~`: those are read glued off the
-  untrimmed cell, and padding every cell covers the class without listing it.
+- **Every table cell pads its content in the canonical form** (PART 11 §6e).
+  One rule covers every cell - `|= Heading |`, `|={.total} Total |= 99 |` -
+  with the prefix still glued to the opening pipe and an empty cell taking a
+  single space. This also removes the guard that inserted a space only for
+  content beginning with `<`, `>` or `~`.
 
 - **The HTML importer reads `<math>` through a three-tier lookup**
   (markup-carve/carve#1210 D6). The TeX comes from an `<annotation>` whose
   `encoding` is exactly `application/x-tex`, `text/x-tex` or `LaTeX`
   (case-insensitive) and which is a direct child of the element's own
-  `<semantics>`; failing that, from `alttext`, which carries an
-  `encoding-assumed` info because MathML never declares what `alttext` holds,
-  so the math node this produces is only correct while that guess is; failing
-  both, the element carries no TeX at all.
-
-  Three changes a reader upgrading needs. The order reversed: `alttext` used to
-  win, and a declared encoding now beats an undeclared attribute where the two
-  disagree. The encoding test is an exact match on the whole value instead of a
-  substring search for `tex`, so `encoding="text/plain"` is no longer read as an
-  equation, and the lookup no longer reaches through the subtree, so an
-  `<annotation>` buried inside an `<annotation-xml>` payload no longer answers
-  for the element. And the last tier drops instead of degrading: an element with
-  no TeX used to import as its children concatenated, so
-  `<math><mfrac><mn>1</mn><mn>2</mn></mfrac></math>` arrived as `12` - one half
-  written back as twelve, a plausible wrong value rather than a visible gap.
-  Documents that imported such an element now lose it and get an
-  `element-dropped` warning naming `<math>` in its place. `roundtrip` is
-  unaffected in substance: it keeps the whole element as a raw-HTML inline.
+  `<semantics>`; failing that from `alttext`, which carries an
+  `encoding-assumed` info; failing both, the element carries no TeX at all.
+  Three changes for upgraders: a declared encoding now beats `alttext` where
+  they disagree; the encoding test is an exact match on the whole value and no
+  longer reaches through the subtree; and the last tier drops the element with
+  an `element-dropped` warning instead of importing it as its children
+  concatenated. `roundtrip` still keeps the whole element as a raw-HTML inline.
 
 - **A cell's attributes bind after its kind and alignment markers** (PART 9 §5
   T10, markup-carve/carve#1226). One order for both cell productions: `=`, then
   the alignment marker, then the `{...}` block, glued to whatever precedes it -
   `|={.x} h |`, `|=~{.x} h |`, `|>{.x} d |`, `|{.x} d |`. An attributed header
-  cell had no spelling before this, and the only shape available, `|{#x}=R|`, is
-  a data cell whose content starts with `=`, so the canonical writer turned
-  `<th id="x">R</th>` into `<td id="x">=R</td>`. The writer now emits the marker
-  run first and the round trip holds. `|={scope="colgroup"} a |` becomes
-  expressible with it, which is how §5 T9 documents reaching `colgroup` and
-  `rowgroup`.
+  cell is expressible for the first time, so `<th id="x">R</th>` no longer round
+  trips as a data cell, and `|={scope="colgroup"} a |` is how §5 T9 documents
+  reaching `colgroup` and `rowgroup`. ONE RELEASED SPELLING REINTERPRETS: in
+  `|{#x}< content |` the `<` is no longer in a marker position, so it is literal
+  content and the cell is not aligned; the new lint rule below reports it. Row
+  attributes still glue to the row's closing pipe.
 
-  ONE RELEASED SPELLING REINTERPRETS. `|{#x}< content |` was attributes then a
-  left-alignment marker; the `<` is no longer in a marker position, so it is
-  literal content and the cell is not aligned. It does not error, so a report
-  ships with it: the new lint rule below. Row attributes do not move - they
-  still glue to the row's closing pipe.
-
-- **An attributed header cell survives HTML import**, and the
-  `table-degraded` diagnostic "N header cell(s) become data cells" is gone with
-  the loss it named. A `th` carrying attributes is written `|={#x} R |` and
-  comes back a header cell; a head row whose cells carry attributes uses the
-  native marker form instead of falling back to a delimiter row, which used to
-  drop each cell's own alignment marker along with the header. The other
-  `table-degraded` cases are unchanged.
+- **An attributed header cell survives HTML import**, and the `table-degraded`
+  diagnostic "N header cell(s) become data cells" is gone with the loss it
+  named. A `th` carrying attributes is written `|={#x} R |` and comes back a
+  header cell; a head row whose cells carry attributes uses the native marker
+  form instead of a delimiter row. The other `table-degraded` cases are
+  unchanged.
 
 - **A referenced abbreviation definition splits by target** (PART 11 §10f,
-  markup-carve/carve#1185). Where a definition's expansion is emitted, the
-  plain-text and terminal writers now drop its `*[TERM]: expansion` line and
-  print `TERM (expansion)` at every occurrence instead; the plain writer had
-  been printing neither, so an author's expansion reached no output at all.
-  Markdown keeps the line and the expansion beside it, because that spelling is
-  content on that target and is what lets the export round-trip, and the
-  canonical writer keeps every line for PART 11 §1. A definition whose expansion
-  reaches no target keeps its line on all four writers: one nothing references
-  (§10a), one an authored `abbr` outranks, and one a later definition of the
-  same term shadowed.
+  markup-carve/carve#1185). The plain-text and terminal writers now drop the
+  `*[TERM]: expansion` line and print `TERM (expansion)` at every occurrence
+  instead; Markdown keeps the line and the expansion beside it, and the
+  canonical writer keeps every line for PART 11 §1. A definition whose
+  expansion reaches no target keeps its line on all four writers: one nothing
+  references (§10a), one an authored `abbr` outranks, and one a later
+  definition of the same term shadowed.
 
 - **Leftover attributes ride the outermost semantic element.**
   `[Ctrl+C]{kbd .shortcut #copy}` is
   `<kbd class="shortcut" id="copy">Ctrl+C</kbd>` where it was a `<span>`
-  carrying those attributes around a bare `<kbd>`. A consumed name renames the
-  element the author wrote rather than wrapping it; a span with no semantic
-  name is unchanged, since hardening removes attributes and never the element.
-  A DERIVED attribute yields to an AUTHORED one of the same name, so
-  `[x]{abbr="gen" title="authored"}` carries `title` once.
+  carrying those attributes around a bare `<kbd>`. A
+  span with no semantic name is unchanged, and a DERIVED attribute yields to an
+  AUTHORED one of the same name.
 
 - **The Markdown target escapes `<` only where it would open markup** (PART 11
-  SS8a M1e, markup-carve/carve#1148). `<` and `>` were rewritten to entities
-  unconditionally, with no clause behind it. A `<` is now escaped with a
-  BACKSLASH when the next character is an ASCII letter, `/`, `!` or `?` - the
-  four things that open raw HTML - and left alone otherwise; `>` takes nothing,
-  since it is inert mid-line and a block quote marker at line start, which M1
-  already covers. So `a < b` survives as itself, and `a <b> c` is written with
-  the opener escaped, which a CommonMark reader gives back as text. A link
-  destination carries its URL better too: the escaped form reads back as the
-  real character, where the entity form put entity text into the href.
+  SS8a M1e, markup-carve/carve#1148). A `<` is escaped with a BACKSLASH when
+  the next character is an ASCII letter, `/`, `!` or `?`, and left alone
+  otherwise; `>` takes nothing, since M1 already covers it at line start. A
+  link destination carries its URL as the real character rather than as entity
+  text.
 
-- **The Markdown target leaves a bare ampersand alone** (#1150). An entity in
-  Markdown text decodes to a character, and a character cannot open a tag, so
-  `&` carried no risk to leave bare; `<` and `>` keep their handling, which is
-  what actually neutralizes embedded HTML.
+- **The Markdown target leaves a bare ampersand alone** (#1150). `<` and `>`
+  keep their handling, which is what neutralizes embedded HTML.
 
 - **Bidi control characters are stripped from presentation targets** (#1152),
   so Trojan-Source reordering cannot survive into plain-text, ANSI or Markdown
@@ -262,68 +190,128 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **An at-sign in source text is not a Carve mention** (markup-carve/carve-php#1380).
-  The converter escaper already mirrored the parser's tag opener so that a hash
-  in a source language's text does not come back as a Carve tag. A mention is
-  the same construct with a different character and had no rule, so importing
-  `hi @user ok` produced a mention span where the source had plain prose.
+- **A colon-fence lead does not decide an item's looseness** (PART 9 §17 L1a,
+  markup-carve/carve-php#1450). A blank-line-separated second paragraph after a
+  `:::` lead rendered bare where every other lead wrapped it.
+
+- **A joined table row's untouched cell keeps its position, and a verbatim run
+  that swallowed a comment keeps its extent** (PART 12 §4,
+  markup-carve/carve-php#1450).
+
+- **A blank line before a sibling marker separates the items** (PART 9 §17 L1c,
+  markup-carve/carve-php#1445). An unterminated code or tilde fence absorbed the
+  blank and left the list tight, so the closer decided a rule that is not about
+  closers.
+
+- **A definition's column is reached by composing the container strips**
+  (markup-carve/carve-php#1431).
+
+- **A reference label keeps its comment for `fmt` and publishes it nowhere**
+  (markup-carve/carve-php#1417).
+
+- **A continuation row belongs to the container it is written in**
+  (markup-carve/carve-php#1436).
+
+- **A captioned host no longer writes its block indentation into an attribute
+  value** (markup-carve/carve#1352, markup-carve/carve-php#1422).
+
+- **A quote is asked its own body, and that body may be a quote**
+  (markup-carve/carve#1355); **at a container's content column a block ends the
+  paragraph it sits under** (markup-carve/carve#1364, markup-carve/carve#1357);
+  **a block's extent is the definition's, blank lines and all**
+  (markup-carve/carve#1363); and **a flatten preserves the boundary it
+  dissolves** (PART 11 §1b, markup-carve/carve#1325), where two former siblings
+  each contributing a token now keep a separator between them.
+
+- **An orphan caption reports that its text left the document**
+  (markup-carve/carve-php#1386).
+
+- **The sentinel picker refuses rather than returning a collision**
+  (markup-carve/carve-php#1398).
+
+- **A sigil before a verbatim run is escaped where it binds**
+  (markup-carve/carve-php#1412), so a `$` the writer emitted no longer reads
+  back as math and `toHtml(fmt(x))` matches `toHtml(x)` again.
+
+- **A verse comment is removed at the block layer, before any inline run**
+  (PART 9 §23, markup-carve/carve#1333), so a stray backtick on the line above
+  no longer publishes it, and **a verse hard break keeps its backslash**.
+
+- **A verse comment is placed at its boundary wherever that boundary is**
+  (markup-carve/carve-php#1411).
+
+- **A comment-only line in a line block is a comment on every line, not only
+  the first** (markup-carve/carve-php#1393).
+
+- **A comment fence reads its container prefix as a sequence**
+  (markup-carve/carve-php#1413), and **a comment fence in a quote defers its
+  definitions too** (PART 9 §28, markup-carve/carve#1309) - a link reference or
+  footnote inside `%%%` in a block quote used to register.
+
+- **No open paragraph binds at every depth, not only the first**
+  (markup-carve/carve-php#1403).
+
+- **A line's content position is measured after its container prefix**
+  (markup-carve/carve#1331), and both scans that measured it are bounded.
+
+- **An element's code says what became of it, and a discarded input says so**
+  in the HTML import report (markup-carve/carve-php#1377).
+
+- **Three superlinear container walks are linear** (PART 9 §25). A line of N
+  list markers is walked by offset rather than by copy
+  (markup-carve/carve-php#1426); the quote tracker peels its markers once
+  rather than once per marker (markup-carve/carve-php#1407); and the
+  trailing-block tracker peels its container prefix by offset, which is what a
+  line alternating a quote marker with a bullet costs
+  (markup-carve/carve-php#1437).
+
+- **An at-sign in source text is not a Carve mention**
+  (markup-carve/carve-php#1380). Importing `hi @user ok` no longer produces a
+  mention span, matching the escape the converter already applied to the tag
+  opener.
 
 - **A line block's spaced content is placeable, so it is placed**
   (markup-carve/carve-php#1351). `SourceMap::add()` records N source bytes as N
-  built bytes, and a line block's preserved whitespace does not build that way,
-  so the content of a spaced line published no position at all. It was the last
-  entry in the spec's owed position-waiver half; carve-rs already placed it.
+  built bytes and a line block's preserved whitespace does not build that way,
+  so the content of a spaced line published no position at all.
 
 - **A definition list's extent covers the lines it owns, and stops there**
-  (markup-carve/carve-php#1362, markup-carve/carve-php#1371). The extent was
-  derived from the children, so a floating attribute line inside the list - a
-  line no child covers, because it became attributes on the list itself - fell
-  outside it. Covering every line the parse CONSUMED was too many: the parse
-  walks past a reference definition written at column 0 under the description,
-  and that line is not the list's. The extent now ends at the last line the
-  list owns, and a flush-left `+` the list consumed is one of them.
+  (markup-carve/carve-php#1362, markup-carve/carve-php#1371). A floating
+  attribute line inside the list is now covered, a reference definition written
+  at column 0 under the description is not, and a flush-left `+` the list
+  consumed is one of the list's own lines.
 
 - **A line block's paragraph ends where its content does**
-  (markup-carve/carve-php#1363). The stanza's extent was pure line geometry -
-  first line start to last line end - which is right wherever the line is taken
-  whole. A line block's content rule does not take it whole, so the paragraph
-  covered a trailing column of whitespace its content does not contain.
+  (markup-carve/carve-php#1363). The stanza's extent no longer covers a
+  trailing column of whitespace its content does not contain.
 
 - **A node assembled from discontiguous source publishes no position, and a
   gap alone is not evidence of one** (markup-carve/carve-php#1361,
-  markup-carve/carve-php#1369). A verbatim run that a table row leaves open
-  reaches into the `+` continuation row, so its value is built from two
-  authored chunks with the row's closing pipe and the continuation marker
-  between them, owned by neither, and neither end resolves to an honest offset.
-  Suppressing the position on every map with a gap was an over-reach: an
-  indented fence folds into a verbatim run whose map has a gap per line and is
-  still one contiguous region, and those nodes kept their positions.
+  markup-carve/carve-php#1369). A verbatim run a table row leaves open reaches
+  into the `+` continuation row and neither end resolves to an honest offset,
+  so it publishes none; an indented fence, whose map has a gap per line but is
+  one contiguous region, keeps its position.
 
 - **The definition prepass opens a region only where the parser opens a block**
-  (markup-carve/carve-php#1348). The prepass matched the fence RUN alone while
-  the block parser applied the info-string slot rules, so a line the parser
-  refuses as a fence still opened an opaque region in the prepass. A region the
-  block parser never opened has no closer ahead of it either, so it ran to the
-  end of the document and every definition after it went uncollected.
+  (markup-carve/carve-php#1348). A line the block parser refuses as a fence no
+  longer opens an opaque region, which had no closer ahead of it and so ran to
+  the end of the document, leaving every definition after it uncollected.
 
 - **A bare-dot item suppresses abbreviation collection like any other marker**
   (markup-carve/carve-php#1328). A column-0 abbreviation definition under a
-  `. x` item was collected and applied to the whole document, while the same
-  line under a numbered marker or a bullet was not.
+  `. x` item is no longer collected and applied to the whole document.
 
 - **A tab after a fence opener is decided by its position**
   (markup-carve/carve#1295, markup-carve/carve-php#1329). A tab between the
-  marker and the info string is the marker-to-content separator, which admits
-  a space and nothing else, so
-  the fence does not open. A trailing tab at end of line was never that slot:
-  it is trailing whitespace on a content line, it is dropped, and the fence
-  opens normally.
+  marker and the info string is the marker-to-content separator, which admits a
+  space and nothing else, so the fence does not open; a trailing tab at end of
+  line is dropped and the fence opens normally.
 
 - **A container's last block decides whether a column-0 line folds into it**
   (markup-carve/carve#1280, corpus category 326). NO OPEN PARAGRAPH, NO LAZY
-  LINE was applied only to an empty quote, so a column-0 line after a
-  container's last block folded into a list item and ended a block quote
-  whenever that block left no paragraph open.
+  LINE was applied only to an empty quote, so a column-0 line folded into a
+  list item and ended a block quote whenever the container's last block left no
+  paragraph open.
 
 - **A continuation marker attaches one block, and that block's extent ends it**
   (markup-carve/carve#1290, corpus category 327). A `+` attaches exactly ONE
@@ -331,9 +319,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   block's extent rather than a count of blocks.
 
 - **A floating attribute is scoped to the container that holds it**
-  (markup-carve/carve#1281, corpus category 329). A pending attribute block
-  escaped its container and attached to the block after the closer; it is now
-  dropped at the container's end.
+  (markup-carve/carve#1281, corpus category 329). A pending attribute block is
+  dropped at the container's end instead of escaping to the block after the
+  closer.
 
 - **An open verbatim run reaches across a table continuation row**
   (markup-carve/carve#1293). A `+` continuation extends the cell, so an
@@ -342,12 +330,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **An escaped closing pipe is cell content, not the row terminator**
   (markup-carve/carve#1293). The row closes on the line's final pipe; an
-  escaped pipe before it is an escape and stays in the cell.
+  escaped pipe before it stays in the cell.
 
 - **An unterminated run does not un-make a header-less row**
-  (markup-carve/carve#1284). An unclosed verbatim run swallowed the row's
-  closing pipe, so the line ended with content dangling past its last pipe and
-  the row failed to split into a table at all.
+  (markup-carve/carve#1284). An unclosed verbatim run no longer swallows the
+  row's closing pipe, which had left content dangling past the last pipe and
+  stopped the row splitting into a table at all.
 
 - **An unclosed inline run reaches the end of a line block**
   (markup-carve/carve#1282). A line block is one block, so its line breaks are
@@ -356,134 +344,95 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Position tracking no longer costs the block twice**
   (markup-carve/carve-php#1339). Two separate scans over a source map turned a
-  linear parse quadratic, and only with position tracking enabled, which is why
-  the default suite never saw either of them. Both were reachable from a plain
-  multi-line paragraph.
+  linear parse quadratic, both reachable from a plain multi-line paragraph and
+  only with position tracking enabled.
 
 - **A definition term drops the trailing whitespace on its folded lines**
-  (markup-carve/carve-php#1330). The trailing-whitespace strip that a paragraph
-  and a definition term share was never called by the term, so a folded
-  continuation line carried its trail into the rendered output.
+  (markup-carve/carve-php#1330). The trailing-whitespace strip a paragraph and
+  a definition term share was never called by the term.
 
 - **A caption slot flattens block content instead of writing its source**
-  (markup-carve/carve-php#1345). A caption line is an INLINE slot - a `^ `
-  marker followed by one line of inline content - so a block cannot live in
-  one, and the importer was writing a block's Carve
-  SOURCE into that slot, where it re-parsed as prose. A `<caption>` holding a
-  list now flattens to its text.
+  (markup-carve/carve-php#1345). A caption line is an INLINE slot, so a
+  `<caption>` holding a list now flattens to its text rather than having a
+  block's Carve source written into the slot, where it re-parsed as prose.
 
 - **The import report describes the document it produced**
   (markup-carve/carve-php#1337, markup-carve/carve-php#1346). Every row is read
   off the finished document rather than predicted from a list of attribute
-  names, so the report cannot disagree with the output it describes: an
-  attribute the serializer kept is never announced as dropped, one dropped
-  inside a table cell is never passed over in silence, and an attribute nobody
-  wrote a case for is answered for like any other.
+  names: an attribute the serializer kept is never announced as dropped, one
+  dropped inside a table cell is never passed over in silence, and an attribute
+  nobody wrote a case for is answered for like any other.
 
 - **`Lint\FigureGroupLinter`, the five composite-figure rules** (PART 9 §4c;
   markup-carve/carve-php#1308). A tree-walking pass fed from the parsed
-  document - panel counts, nesting context and the demoted opener are
-  invisible to a source scan - reporting `figure-group-nested`,
-  `figure-group-opener-metadata`, `figure-group-panel-number`,
-  `figure-group-empty` and `figure-group-single-panel`, each a shape that
-  parses cleanly and renders less than it looks like it does. Wired into
-  `carve lint` beside the existing passes; the panel predicate is the
-  numbering resolver's own, and the message wording mirrors carve-js so a
-  cross-engine report reads the same.
+  document, reporting `figure-group-nested`, `figure-group-opener-metadata`,
+  `figure-group-panel-number`, `figure-group-empty` and
+  `figure-group-single-panel`, wired into `carve lint` beside the existing
+  passes; the panel predicate is the numbering resolver's own and the message
+  wording mirrors carve-js.
 
 - **The ProseMirror bridge carries a composite figure** (PART 9 section 4c). The
-  vendored copy of the published schema map was eleven commits behind
-  carve-grammars and still declared `figure_group` unmapped, so the bridge
-  reported the type dropped and a composite figure crossed as a plain `carveDiv`
-  holding its panels - and a `carveFigureGroup` arriving from an editor was
-  refused outright. The map copy is refreshed, the group renders as
-  `carveFigureGroup` with its caption as the trailing `carveCaption` child the
-  map describes, and the converter builds it back with the caption as state
-  rather than as a stray child block. Corpus round trip: 794 documents lossless
-  (was 782) and 855 surviving (was 843).
+  vendored copy of the published schema map is refreshed, so a group renders as
+  `carveFigureGroup` with its caption as the trailing `carveCaption` child
+  rather than crossing as a plain `carveDiv`, and a `carveFigureGroup` arriving
+  from an editor is no longer refused.
 
 - **The `word` and `google-docs` HTML import adapters read footnote-shaped
-  HTML as footnotes** (markup-carve/carve#1210). Word, Google Docs, LibreOffice
-  and pre-3.x Pandoc each spell a footnote differently and none of them with
-  the DPUB-ARIA roles the importer reads, so their notes arrived as a literal
-  link beside an orphaned list. Passing `--adapter word` or
-  `--adapter google-docs` (or the `importAdapter` constructor argument) now
-  binds each reference to its note and writes real `[^N]` references and
-  definitions. The pair is matched through the fragment each anchor addresses
-  and the back-link the note carries, so nothing depends on a vendor class name
-  or on the `fn1`/`fnref1` id convention; back-links and the marker anchors
-  they sit on are dropped as generated navigation, as is the rule separating
-  the notes from the body. A reference with no target stays the link the HTML
-  spelled, and a definition nothing references stays ordinary visible content.
-  `generic` is unchanged and still reads only what a Carve engine writes.
+  HTML as footnotes** (markup-carve/carve#1210). `--adapter word` or
+  `--adapter google-docs` (or the `importAdapter` constructor argument) binds
+  each reference to its note and writes real `[^N]` references and definitions,
+  matching through the fragment each anchor addresses and the back-link the
+  note carries rather than through vendor class names or the `fn1`/`fnref1` id
+  convention. Back-links, the marker anchors they sit on and the separating
+  rule are dropped as generated navigation; a reference with no target stays
+  the link the HTML spelled and a definition nothing references stays ordinary
+  visible content. `generic` is unchanged.
 
 - **Composite figures: `::: figure` is a captionable host** (PART 9 §4c,
   markup-carve/carve#1122). A bare `::: figure` container parses as the new
-  `figure_group` AST node: one figure holding ordered panels - its direct
-  captionable children (captioned images, quotes, code listings, display math,
-  and tables captioned or not) - with stray content preserved in place. The `^ `
-  line after the closing fence is the GROUP caption; the group draws ONE number
+  `figure_group` AST node - one figure holding ordered panels, its direct
+  captionable children, with stray content preserved in place - and the `^ `
+  line after the closing fence is the GROUP caption. The group draws ONE number
   from its label's sequence and a panel id resolves `</#id>` as the group
   number plus a letter ("Figure 2a"). An opener carrying a quoted title or
   `[label]` stays a generic container, and groups do not nest. HTML renders the
-  corpus-pinned flat `carve-figure-group` / `carve-figure-panel` shape (panels
-  directly inside the group figure, per HTML's figure content model and
-  Pandoc's subfigure output); the Markdown, plain-text and ANSI targets degrade
-  deterministically; `carve fmt` writes the authored form back; the AST wire
-  carries `figure_group` with inline `caption` content; and the HTML importer
-  turns the rendered shape back into `::: figure` source.
+  corpus-pinned flat `carve-figure-group` / `carve-figure-panel` shape; the
+  Markdown, plain-text and ANSI targets degrade deterministically; `carve fmt`
+  writes the authored form back; the AST wire carries `figure_group` with
+  inline `caption` content; and the HTML importer turns the rendered shape back
+  into `::: figure` source.
 
 - **The ProseMirror bridge carries every authored construct** (PART 12
   vocabulary, the schema map's former `unmapped` list). Figures with their
-  captions - a captioned quote, image, code block or display math block used to
-  vanish from the editor document whole - plus line blocks, comments, front
-  matter, raw blocks and raw inlines, inline literals, symbols, critic
-  substitutions, inline footnotes, crossrefs, citation groups and link
-  reference definitions all cross the bridge now, in both directions. Only an
-  image panel has its paragraph wrapper unwrapped, so a display math block
-  keeps the block shape the figure can hold. A figure's short caption rides as
-  a second `carveCaption` child flagged `short`; a citation item's prefix,
-  locator and suffix ride as ProseMirror inline arrays the converter rebuilds
-  with its normal inline path.
-
-  With the definitions carried, a `[text][label]` reference - image
-  references included - keeps its spelling instead of degrading to the inline
-  form, re-confirmed on the way back exactly as heading references are: a
-  reference whose definition is gone or repointed falls back to the inline
-  form rather than becoming prose. An abbreviation definition child is no
-  longer double-reported as dropped while its content rides on the doc node's
-  attrs. On the corpus, lossless round trips rose from 493 documents to 782
-  and surviving round trips from 631 to 843; the still-unmapped remainder is
-  bookkeeping no editor holds (caption numbers, escapes, smart typography,
-  soft breaks).
+  captions, line blocks, comments, front matter, raw blocks and raw inlines,
+  inline literals, symbols, critic substitutions, inline footnotes, crossrefs,
+  citation groups and link reference definitions all cross now, in both
+  directions. Only an image panel has its paragraph wrapper unwrapped; a
+  figure's short caption rides as a second `carveCaption` child flagged
+  `short`; a citation item's prefix, locator and suffix ride as ProseMirror
+  inline arrays. With the definitions carried, a `[text][label]` reference -
+  image references included - keeps its spelling and falls back to the inline
+  form only when its definition is gone or repointed, and an abbreviation
+  definition child is no longer double-reported as dropped.
 
 - **`Lint\RetiredSpellingLinter`**, an AST-walking pass reporting source
   written to a spelling Carve has since redefined, with one rule `carve lint`
-  now reports alongside the others. `table-cell-attribute-before-marker` fires on a table cell whose
-  attribute block is immediately followed by `<`, `>` or `~` - the retired
-  order, where that sigil was the cell's alignment and is now content. The
-  message names both spellings, because only the author knows which was meant.
-
-  It is a REPORT and not a `fmt` rewrite by design: rewriting
-  `|{#x}< content |` to `|<{#x} content |` adds `text-align: left` and removes a
-  literal `<`, so a formatter doing it in the default path would break
-  `toHtml(fmt(x)) == toHtml(x)` on a document that renders correctly today.
+  now reports alongside the others. `table-cell-attribute-before-marker` fires
+  on a table cell whose attribute block is immediately followed by `<`, `>` or
+  `~` - the retired order, where that sigil was the cell's alignment and is now
+  content - and names both spellings. It is a REPORT and not a `fmt` rewrite by
+  design, because rewriting `|{#x}< content |` would change the render.
 
 - **`Lint\SemanticAttributeLinter`, this package's first AST-walking lint pass**
-  (markup-carve/carve#1131, markup-carve/carve#1132), with two rules
-  `carve lint` now reports alongside the Markdown habits.
-  `semantic-attribute-value-ignored` reports a value on a semantic span
-  name that only selects its wrapper, so the value reaches no output
-  (`[x]{kbd="V"}`); `semantic-attribute-outside-span` reports a reserved name on
-  anything other than an ordinary span, where it stays a raw attribute
-  (`` `c`{kbd} ``). Both are tier-aware - pass `extensions` to lint the render
-  you publish - and `cite` on a block quote is never reported, because it is a
-  valid HTML attribute there. The off-span message closes by quoting the
-  attribute the render will contain: the value after the renderer's attribute
-  sanitizer, cut at 120 codepoints when it is longer, escaped the way the
-  renderer escapes it. So `` `c`{kbd="keyboard"} `` is reported as
-  `kbd="keyboard"` and `` `c`{kbd="javascript:alert(1)"} `` as `kbd=""`, each
-  naming what the output actually holds. Rendered output is unchanged.
+  (markup-carve/carve#1131, markup-carve/carve#1132), with two rules reported
+  alongside the Markdown habits. `semantic-attribute-value-ignored` reports a
+  value on a semantic span name that only selects its wrapper (`[x]{kbd="V"}`);
+  `semantic-attribute-outside-span` reports a reserved name on anything other
+  than an ordinary span (`` `c`{kbd} ``). Both are tier-aware - pass
+  `extensions` to lint the render you publish - and `cite` on a block quote is
+  never reported. The off-span message quotes the attribute the render will
+  contain, after the renderer's sanitizer and cut at 120 codepoints. Rendered
+  output is unchanged.
 
 - **Structural AST merge and patch APIs** (#1162). A three-way merge with
   explicit JSON-Pointer conflicts and optional base/ours/theirs/custom
@@ -501,15 +450,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **HTML import spells all seven semantic elements as the compact span
   attribute.** `<cite>C</cite>` and `<time datetime="2026-01-01">today</time>`
   join the five that already mapped, importing as `[C]{cite}` and
-  `[today]{time="2026-01-01"}` rather than as bare text; `datetime` becomes the
-  span attribute's value instead of being dropped ahead of the element. A name
-  whose value attribute is absent gives the bare boolean, leftover `id`, `class`
-  and `data-*` ride the same span, and the import report records no loss for any
-  of the seven, in all three modes. `<mark>` keeps its `=m=` spelling, inline
-  `<code>` keeps its code span, and `<code>` inside `<pre>` keeps going to a
-  code block. `abbr`, `time` and `kbd` render back as the original element;
-  `samp`, `var`, `cite` and `dfn` need `SemanticSpanExtension` registered to do
-  so, and render as `<span samp="">` without it.
+  `[today]{time="2026-01-01"}`. A name whose value attribute is absent gives
+  the bare boolean, leftover `id`, `class` and `data-*` ride the same span, and
+  the import report records no loss for any of the seven, in all three modes.
+  `<mark>` keeps its `=m=` spelling, inline `<code>` keeps its code span, and
+  `<code>` inside `<pre>` keeps going to a code block. `abbr`, `time` and `kbd`
+  render back as the original element; `samp`, `var`, `cite` and `dfn` need
+  `SemanticSpanExtension` registered to do so.
 
 - **Opt-in list-table output for table cells holding block content** (#1168).
   `HtmlToCarve` never writes a construct a table cell cannot parse; a degraded
@@ -529,252 +476,120 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Three semantic span attributes need no extension** (markup-carve/carve#1146).
   `[Tab]{kbd}`, `[HTML]{abbr="…"}` and `[now]{time="2026-01-01"}` render
-  `<kbd>`, `<abbr title="…">` and `<time datetime="…">` in a plain converter:
-  spec PART 9 §9 reserves the two names that carry data the author would
-  otherwise lose, plus the one every comparable system ships. `time` is new
-  as a span attribute; `kbd` and `abbr` previously needed
-  `SemanticSpanExtension`.
+  `<kbd>`, `<abbr title="…">` and `<time datetime="…">` in a plain converter,
+  per spec PART 9 §9. `time` is new as a span attribute; `kbd` and `abbr`
+  previously needed `SemanticSpanExtension`.
 
 - Bumped the pinned spec corpus to carve `df0dbc4`, adding conformance coverage
-  for categories 306-315: a captioned quote over more than one block, the empty
-  inline note, the multi-letter ordered marker, a note's content recognizing no
-  note, footnotes in link and reference-link text, a note body's own references,
-  a reference link's text surviving its own frame, an inline note's content
-  resolving after the note, and PART 9R R2 - a footnote inside an unresolved
-  reference is not a reference (markup-carve/carve#1198). All 37 documents
-  already rendered byte-identically, so rendered output is unchanged; the bump
-  is what lets the corpus gate see it.
+  for categories 306-315, up to and including PART 9R R2 - a footnote inside an
+  unresolved reference is not a reference (markup-carve/carve#1198). All 37
+  documents already rendered byte-identically, so rendered output is unchanged.
 
 - **`SemanticSpanExtension` is specified, and carries `cite`** (spec PART 9 §10,
   docs/extensions.md §11). It is a Tier-2 extension every engine ships rather
   than this package's own, so `[Dune]{cite}` joins `samp`, `var` and `dfn`, and
   the `:name[…]` spelling is accepted for all seven names as a SOFT-DEPRECATED
   compatibility form scheduled for removal in 0.2. Registering it stays one
-  line; what it claims is now declarative, so the nesting order, the value
-  mapping and the riding rule have one implementation in the renderer.
-
+  line; the nesting order, the value mapping and the riding rule now have one
+  implementation in the renderer.
 
 - **The Carve target writes no `+` continuation marker where a block-attributes
-  line already interrupts** (markup-carve/carve#1275). The writer emits the
-  marker so that a paragraph attached to a list item cannot come back folded
-  into the paragraph above it as a lazy continuation. A block carrying
-  attributes is written with a `{…}` line of its own ahead of it, and
-  `block_attributes` is one of PART 9 §10's INVISIBLE CONSTRUCTS - it
-  interrupts an open paragraph - so the fold that rule prevents cannot happen
-  and the marker added a construct the document did not have:
-
-  ```
-  - a
-  +
-  {.x}
-  para
-  ```
-
-  is now written the way its source and carve-rs already wrote it:
-
-  ```
-  - a
-    {.x}
-    para
-  ```
-
-  Both spell the same document; the marker form stays readable. An attributed
-  IMAGE keeps the marker, because its attributes are written inline
-  (`![a](i.png){.c}`) and no attribute line interrupts.
+  line already interrupts** (markup-carve/carve#1275). `block_attributes` is one
+  of PART 9 §10's INVISIBLE CONSTRUCTS - it interrupts an open paragraph - so
+  the lazy fold the marker guarded against cannot happen and the marker added a
+  construct the document did not have. An attributed IMAGE keeps the marker,
+  because its attributes are written inline (`![a](i.png){.c}`) and no
+  attribute line interrupts.
 
 - **An abbreviation line in a list item is the paragraph it renders**
   (markup-carve/carve#1267). PART 12 §7 says `*[A]: a` is a definition only as
-  a direct child of the document; inside a container "the line is not a
-  definition at all: it is ordinary paragraph text". This engine rendered that
-  text and, deciding the item's looseness, counted the same line among the
-  invisible constructs - the bucket holding comments and the two collected
-  definition kinds, all of which really do render nothing. So `- a` + blank +
-  `  *[A]: a` came out tight, where carve-js and carve-rs wrap both paragraphs.
-  A definition at the same column that IS collected - a reference or footnote
-  definition - still keeps the item tight, and the no-blank-line variant still
-  folds as lazy text.
-
-  The classification sat at a second, independent site: §17 L1b asks what
-  stands BEHIND an invisible line, since such a line is neither the second
-  paragraph nor a separator that can stand between the blank and one, so a scan
-  walks past it. That scan counted the abbreviation line invisible too and
-  stepped over it, and with nothing visible left reported the item as holding
-  nothing after the blank. So the item reached through a line that really is
-  invisible stayed tight where the first fix alone did not reach it. Written:
-
-  ```
-  - a
-
-    %% c
-    *[A]: a
-  ```
-
-  rendered as:
-
-  ```html
-  <ul>
-    <li>a
-      *[A]: a
-    </li>
-  </ul>
-  ```
-
-  and now renders as:
-
-  ```html
-  <ul>
-    <li><p>a</p>
-      <p>*[A]: a</p>
-    </li>
-  </ul>
-  ```
-
-  A link reference definition or an attribute line ahead of it reads the same
-  way, and an attribute line attaches to the paragraph the abbreviation line
-  makes. With only genuinely invisible lines after the blank there is still no
-  second paragraph, and the item is still tight.
+  a direct child of the document; inside a container it is ordinary paragraph
+  text. It was counted among the invisible constructs at two independent sites
+  - the item's looseness decision, and the §17 L1b scan for what stands behind
+  an invisible line - so an item holding it came out tight where carve-js and
+  carve-rs wrap both paragraphs. A definition that IS collected still keeps the
+  item tight, and the no-blank-line variant still folds as lazy text.
 
 - **An attribute block reaches a nested list written with no blank line before
   it** (markup-carve/carve#1238). Inside a list item, a `{...}` line directly
-  above a nested list was discarded:
+  above a nested list was discarded; it now attributes the nested list, as the
+  ruling states. The pending run is scoped to the item, so it also survives a
+  chunk whose tail is the attribute line, and where the item genuinely ends it
+  still attaches to nothing. Tight/loose is untouched, and the marker-abutting
+  form `-{.x} item` is a separate mechanism and unchanged.
 
-  ```
-  - a
-    {.x}
-    - b
-  ```
-
-  now attributes the nested list, as the ruling states - an attribute block
-  attaches to the block that follows it, and a nested list is a block:
-
-  ```html
-  <ul>
-    <li>a
-      <ul class="x">
-        <li>b</li>
-      </ul>
-    </li>
-  </ul>
-  ```
-
-  The same line above a paragraph, quote or fence in that position already
-  attached, as did the identical three lines one nesting level up, so this was
-  the only block type that lost them. An item's body is not one stream - the
-  continuation collector stops at a marker reaching the item's content column
-  so the list parser can own the sub-list - and the pending run was dropped at
-  that chunk end as if the item had ended. It is now scoped to the item, so it
-  also survives a chunk whose tail is the attribute line (`- a` / `  para` /
-  `  {.x}` / `  - b`). Where the item genuinely ends the run still attaches to
-  nothing: it does not reach the next item or the block after the list.
-  Tight/loose is untouched, and the marker-abutting form `-{.x} item`, which
-  attributes the `<li>`, is a separate mechanism and unchanged.
-
-- **HTML import names the `<colgroup>` it drops.** Carve has no column model -
-  a table's columns are only the cells its rows carry - and whether it should
-  get one is a language question (`markup-carve/carve#1092`), so a table's
-  column description does not reach the output. The report says so once, as
-  `element-dropped` at `warning` under the `<colgroup>`'s own path, covering
-  the columns and the attributes it takes with it. The wording is verbatim from
-  carve-rs and carve-js, so the three engines report the drop in the same
-  words. A `<colgroup>` that is not a table's child is a different case and
-  reports `element-unwrapped`: this importer's parser leaves such an element
-  where the markup put it and its content does reach the output.
+- **HTML import names the `<colgroup>` it drops.** Carve has no column model and
+  whether it should get one is a language question (`markup-carve/carve#1092`),
+  so a table's column description does not reach the output; the report says so
+  once, as `element-dropped` at `warning` under the `<colgroup>`'s own path, in
+  wording verbatim from carve-rs and carve-js. A `<colgroup>` that is not a
+  table's child reports `element-unwrapped` instead, and its content does reach
+  the output.
 
 - **The Markdown importer keeps the constructs Carve spells like the source
   literal** (markup-carve/carve#1130's dialect ruling: CommonMark plus GFM is
   the contract). `a $`x+y` b`, `a !`x` b` and `a :term[x] b` are no Markdown
-  construct in any flavour and are now escaped unconditionally instead of
-  becoming a math span, a literal span or an extension call. Four more are
-  real syntax in some flavour, so each stays literal unless its new
-  constructor flag opts in: `convertInlineFootnotes` (`a ^[note] b`, Pandoc),
+  construct in any flavour and are now escaped unconditionally. Four more are
+  real syntax in some flavour, so each stays literal unless its new constructor
+  flag opts in: `convertInlineFootnotes` (`a ^[note] b`, Pandoc),
   `convertAbbreviations` (`*[HTML]: HyperText`, PHP Markdown Extra),
-  `convertFencedDivs` (`::: note`, Pandoc/Quarto), and `convertAttributes`
-  (`[t]{.c}` spans and `{.cls}` lines, Pandoc/kramdown). All default off,
-  following the `convertMath`/`convertHighlight` precedent: under-converting
-  leaves readable text, while inventing markup the source did not have makes
-  the migrated document render differently from anything its author saw.
+  `convertFencedDivs` (`::: note`, Pandoc/Quarto) and `convertAttributes`
+  (`[t]{.c}` spans and `{.cls}` lines, Pandoc/kramdown). All default off.
 
-- **The HTML importer keeps a loose list loose.** A source list whose items
-  hold an explicit `<p>` imports with a blank line between the items - Carve's
-  spelling of looseness - so the paragraph-ness of the source survives; a
-  bare-text item stays tight. Decided per list, as CommonMark does: one
-  paragraph item loosens the whole list. Before, every list flattened tight
-  and the item paragraphs were dropped.
+- **The HTML importer keeps a loose list loose.** A source list whose items hold
+  an explicit `<p>` imports with a blank line between the items - Carve's
+  spelling of looseness - while a bare-text item stays tight. Decided per list,
+  as CommonMark does: one paragraph item loosens the whole list.
 
-- **Two adjacent ordered lists import as two lists** (carve-php#1290). With
-  one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
-  imported as `1. a` / `1. b`, which reparses as ONE loose list - the lists
-  merged and the second's numbering was gone. The delimiter now alternates
-  `.`/`)` across adjacent ordered siblings, the same rule bullet lists
-  already follow with `-`/`*`; an explicit `data-marker` still wins.
+- **Two adjacent ordered lists import as two lists** (carve-php#1290). The
+  delimiter now alternates `.`/`)` across adjacent ordered siblings, the same
+  rule bullet lists already follow with `-`/`*`, so the two no longer merge into
+  one loose list; an explicit `data-marker` still wins.
 
-- **The HTML importer reads the engine's own mention and hashtag spans back
-  as the bare sigil** (carve-php#1291).
-  `<span class="mention"><strong>@alice</strong></span>` imported as
-  `[*@alice*]{.mention}`, whose inner `@alice` parsed as a mention again -
-  one more wrapper per HTML round trip. The shortcut requires the whole span
-  text to be a single sigil token, so an authored span that merely carries
-  the class stays a span.
+- **The HTML importer reads the engine's own mention and hashtag spans back as
+  the bare sigil** (carve-php#1291), instead of adding one wrapper per HTML
+  round trip. The shortcut requires the whole span text to be a single sigil
+  token, so an authored span that merely carries the class stays a span.
 
-- **The HTML importer keeps an authored heading id, and adjacent sections
-  stay separate** (carve-php#1289, carve-php#1297). The renderer moves a
-  heading's id onto its `<section>` wrapper, authored and generated alike,
-  and outside round-trip mode the importer dropped every one - so
-  `{#custom}` came back as a text-derived id and its anchors broke after one
-  HTML round trip. An id matching the tracker's slug of the heading text is
-  generation and is left to regeneration; anything else is authored and
-  kept. Two adjacent sections also glued their headings into one line
-  (`## A## B`), because the section handler returned its block content with
-  the trailing separation trimmed off.
+- **The HTML importer keeps an authored heading id, and adjacent sections stay
+  separate** (carve-php#1289, carve-php#1297). An id matching the tracker's slug
+  of the heading text is generation and is left to regeneration; anything else
+  is authored and kept, so `{#custom}` survives an HTML round trip. Two
+  adjacent sections no longer glue their headings into one line (`## A## B`).
 
 - **The HTML importer keeps a captioned code block's figure** (carve-php#1288).
-  `<figure><pre>...<figcaption>` - the engine's own output for a captioned
-  fence - imported as a bare fence plus a plain paragraph, so the `^` caption
-  association was gone and the figure did not survive the engine's own HTML.
   A `pre` is a supported figure target now, beside the image and the block
-  quote that already were.
+  quote, so `<figure><pre>...<figcaption>` no longer imports as a bare fence
+  plus a plain paragraph with the `^` caption association gone.
 
 - **The HTML importer reads the engine's own footnote reference back as a
-  reference** (carve-php#1286). `<a id="fnrefN" href="#fnN"
-  role="doc-noteref"><sup>N</sup></a>` imported as a literal link carrying a
-  superscript span, the definition it pointed at went unused, and the
-  endnotes section vanished on the next render - so the engine's own
-  footnote output did not round-trip. The label is derived from the `#fnN`
-  fragment, the same derivation the definition side applies to the list
-  item's id, and a round-trip-mode inline footnote is untouched: its data
-  attributes are the richer record and keep precedence.
+  reference** (carve-php#1286). The label is derived from the `#fnN` fragment,
+  the same derivation the definition side applies to the list item's id, so the
+  engine's own footnote output round-trips; a round-trip-mode inline footnote is
+  untouched, its data attributes keeping precedence.
 
-- **A typed custom div keeps its quoted title under a class-carrying
-  attribute line** (carve-php#1284). The typed writer required exactly one
-  class, so `{.sidebar}` above `::: widget "Title"` fell through to the
-  untyped writer - which has no title slot - and one fmt pass dropped the
-  title and its `admonition-title` heading from the rendered HTML. Only the
-  OPENER class decides now; the extra classes were always the attribute
-  line's business and are written back there with the opener excluded.
+- **A typed custom div keeps its quoted title under a class-carrying attribute
+  line** (carve-php#1284). Only the OPENER class decides now, so `{.sidebar}`
+  above `::: widget "Title"` no longer falls through to the untyped writer and
+  loses the title and its `admonition-title` heading; the extra classes are
+  written back on the attribute line with the opener excluded.
 
 - **An integral citation group survives its own wire trip** (carve-php#1285).
-  The encoder published the internal boolean `integral`, a field
-  `$defs.citation_group` does not allow, so `decode(encode(x))` threw for
-  every document holding a `[+@...]` group. The wire now carries the shape
-  the schema pins - `mode: "integral"`, absent when parenthetical - and the
-  decoder maps it back to the boolean this engine keeps.
+  The wire carries `mode: "integral"`, absent when parenthetical, instead of the
+  internal boolean `integral` that `$defs.citation_group` does not allow and
+  that made `decode(encode(x))` throw for every `[+@...]` group.
 
-- **A ProseMirror round trip keeps a mixed task list's plain sibling at
-  column zero** (carve-php#1287). The converter folded `taskList` to a
-  `bullet` list type, so a task list and the plain list split off beside it
-  became the same type - and the writer separated the two same-type
-  neighbors with the indented-second-list spelling, which moved the plain
-  list to a different content column on reparse. `task` is its own list
-  type, and with it restored the writer has nothing to separate.
+- **A ProseMirror round trip keeps a mixed task list's plain sibling at column
+  zero** (carve-php#1287). `task` is its own list type again, so a task list and
+  a plain list beside it are no longer folded to the same type and separated
+  with the indented-second-list spelling.
 
 - **A table cell keeps the alignment marker it was written with, and the
   writers spell it the way carve-js and carve-rs do.** Four defects, all of
   them the same cell:
   - The parser folded an explicit `>` into the column's alignment where the two
-    agreed, so `|=<{.h} Name |=>{.c} Score |` over `| Ann |>{.num} 9 |` lost
-    `align` on the body cell that carries the marker. The HTML was unaffected,
-    but the AST is a pinned wire contract and PART 9 section 319 binds the
-    marker to the CELL.
+    agreed, losing `align` on the body cell that carries the marker. The HTML
+    was unaffected, but PART 9 section 319 binds the marker to the CELL.
   - The canonical Carve writer disagreed with the other two on a cell that
     carries a marker or an attribute block. All three now write the padded form
     PART 11 §6e states - see the entry above.
@@ -785,248 +600,164 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     with the separator space still attached, leaving `"- "` and `": "` at the
     end of a line.
 
-- **A `#tag` stays a tag across the ProseMirror bridge.** The schema map gives
-  `mention` two ProseMirror names and says `carveTag` is the `#tag` flavor, but
-  a Mention reports type `mention` whichever flavor it is, so the renderer never
-  narrowed and every tag reached the editor as a `carveMention`. The direction
-  that lost content is the other one: a `carveTag` node - the shape
-  carve-grammars emits for every tag - resolved back to `mention` and the label
-  helper hardcoded the mention sigil, so a tag written in a Tiptap editor came
-  back spelled as a mention. A different sigil, a different concept, and nothing
-  reported dropped or degraded. Both directions now select the flavor by name.
+- **A `#tag` stays a tag across the ProseMirror bridge.** Both directions now
+  select the mention flavor by name, so a tag no longer reaches the editor as a
+  `carveMention` and a `carveTag` written in a Tiptap editor no longer comes
+  back spelled as a mention.
 
-- **A `<summary>` imports as the disclosure's label.** `<details>` already
-  became a `::: details` admonition, but its `<summary>` fell through as
-  ordinary block content. `DetailsExtension` takes the label from the opener's
-  quoted title, so the round trip came back wearing the extension's default
-  `<summary>Details</summary>` with the real label demoted to the first
-  paragraph of the body. It is now written as that title, markup included, and
-  the attribute block carries `open` onto the rendered element. A summary the
-  opener line cannot hold (one containing the `"` delimiter, or several blocks)
-  keeps its text as block content, and the report names both that and a
-  disclosure inside a table cell, which degrades to its text because a
-  pipe-table cell cannot hold a colon fence.
+- **A `<summary>` imports as the disclosure's label.** It is written as the
+  `::: details` opener's quoted title, markup included, with the attribute block
+  carrying `open` onto the rendered element, instead of falling through as
+  ordinary block content and coming back as `DetailsExtension`'s default
+  `<summary>Details</summary>`. A summary the opener line cannot hold (one
+  containing the `"` delimiter, or several blocks) keeps its text as block
+  content, and the report names both that and a disclosure inside a table cell,
+  which degrades to its text.
 
-- **A table's header cells survive HTML import individually.** Header was read
-  off the ROW: the first row holding any `<th>` became the header row, every
-  cell in it was written as a header, and every `<th>` outside it lost its
-  header. So a row-head column (`<th>R</th><td>1</td>`) came back with both
-  cells as headers, a `<th>` in a later row came back as a data cell - and,
-  because the promoted row was also moved to the top, a table whose third row
-  held a `<th>` came back with its rows rearranged. Header is now a property of
-  the cell, written `|= R | 1 |` wherever it stands, and only a first row whose
-  cells are all headers is promoted to the head.
+- **A table's header cells survive HTML import individually.** Header is now a
+  property of the cell, written `|= R | 1 |` wherever it stands, and only a
+  first row whose cells are all headers is promoted to the head - so a row-head
+  column no longer turns both cells into headers, a `<th>` in a later row keeps
+  its header, and a table whose third row held a `<th>` no longer comes back
+  with its rows rearranged.
 
-- **A table structure Carve source cannot spell says so.** A Carve pipe table
-  is a flat row list whose head is the leading run of header rows, and Carve
-  0.1 source has no spelling for the explicit `rowGroups` partition the AST can
-  hold. A `<tfoot>`, a second `<tbody>`, a `<thead>` that does not match that
-  leading run, a second `<caption>`, and a header cell below the head that also
-  carries attributes each emit a `table-degraded` diagnostic naming what
-  changed. The flattening itself is unchanged from 0.1.4 and deliberate - a
-  spelling for it would be a language change - and an ordinary head/body table
-  reports nothing.
+- **A table structure Carve source cannot spell says so.** Carve 0.1 source has
+  no spelling for the explicit `rowGroups` partition the AST can hold, so a
+  `<tfoot>`, a second `<tbody>`, a `<thead>` that does not match the leading
+  run of header rows, a second `<caption>`, and a header cell below the head
+  that also carries attributes each emit a `table-degraded` diagnostic naming
+  what changed. The flattening itself is unchanged from 0.1.4 and deliberate,
+  and an ordinary head/body table reports nothing.
 
-- **`<ol type="a">` imports as a numbering style, not a raw attribute.** The
-  importer wrote a `{type=a}` attribute block above a decimal list. That
-  renders an `<ol type="a">` again, which is why it looked done, but the tree
-  carried `attrs.type` and never the `olType` field the style belongs in, so
-  every consumer reading the AST rather than the HTML saw a decimal list. The
-  attribute block is also only written for a top-level list, so a nested
-  `<ol type="i">` lost its style outright. All four styles are now written in
-  the marker itself - `a.`, `A.`, `i.`, `I.` - at any depth, and `type="1"` is
-  written as the plain decimal it means. Across 180 type/start/length
-  combinations, 142 now reach the tree as `olType` where none did before; the
-  remaining 38 have no marker spelling (an alphabetic sequence running past
-  `z`, or a one-item alphabetic list starting on a letter that reads as a
-  Roman numeral) and keep the attribute, which still renders the right `<ol>`.
+- **`<ol type="a">` imports as a numbering style, not a raw attribute.** All
+  four styles are now written in the marker itself - `a.`, `A.`, `i.`, `I.` -
+  at any depth, so the tree carries the `olType` field rather than
+  `attrs.type`, and `type="1"` is written as the plain decimal it means.
+  Sequences with no marker spelling (an alphabetic run past `z`, or a one-item
+  alphabetic list starting on a letter that reads as a Roman numeral) keep the
+  attribute, which still renders the right `<ol>`.
 
 - **A list nested under an alphabetic or Roman marker keeps its indentation.**
-  The importer's cleanup pass recognized only `\d+.` as an ordered marker, so
-  an item written `a.` or `iv.` fell through to the branch that strips leading
-  whitespace, and a list nested under it dedented out of its parent.
+  The importer's cleanup pass recognized only `\d+.` as an ordered marker, so an
+  item written `a.` or `iv.` fell through to the branch that strips leading
+  whitespace and a list nested under it dedented out of its parent.
 
-- **A `div`-grouped definition list survives HTML import.** HTML5 gives `dl`
-  two content models - `dt`/`dd` as direct children, or one `div` per group
-  wrapping them - and only the first was read. The second converted to an
-  empty document: every term and every definition gone, with no diagnostic
-  saying so. Word, Google Docs and several editors emit the wrapped form
-  because it is the one CSS grid can style. The wrapper is now unwrapped
-  transparently, so both spellings import to the same definition list; its
-  attributes are dropped the way `dt`/`dd` attributes already are, neither
-  having a representation on a `::` line.
+- **A `div`-grouped definition list survives HTML import.** HTML5's second `dl`
+  content model - one `div` per `dt`/`dd` group - is now unwrapped
+  transparently, where it used to convert to an empty document with no
+  diagnostic; the wrapper's attributes are dropped the way `dt`/`dd` attributes
+  already are.
 
 - **An unresolved `</#id>` cross-reference stays readable in Markdown link
   text.** The marker was written `\</#nope>` inside a link and `</#nope>`
-  everywhere else, so one construct had two spellings depending on where it
-  stood. A cross-reference inside a link would render as a nested anchor, so it
-  is flattened to text before any renderer runs, and on that one path the
-  marker missed the treatment `renderHeadingRef()` gives it. The writer's own
-  `</#` and `>` are now literal wherever the marker stands, while the id
-  between them still takes the HTML pass, so `</#a<script>` remains inert. This
-  was the last Markdown-target difference between this engine and carve-js
-  across the 1006-document corpus.
+  everywhere else, because the flattening a cross-reference in link text takes
+  missed the treatment `renderHeadingRef()` gives it. The writer's own `</#`
+  and `>` are now literal wherever the marker stands, while the id between them
+  still takes the HTML pass, so `</#a<script>` remains inert.
 
 - **A footnote inside an unresolved reference no longer publishes a number**
   (#1269). PART 9R R2 rules that such a note is not a reference: the reference
-  degrades to its literal source, so the text it held is discarded and the note
-  gets no number, no endnote and no backlink. The rendered HTML already agreed;
-  the serialized AST did not, so `a [t[^1]][nope] b [^1] c` published
-  `number: 1` on both `footnote_ref` nodes when the page contains exactly one
-  noteref. Both note spellings are covered - `[^label]` and `^[content]` - and
-  a number arriving on the ingest path inside such a reference is cleared
-  rather than carried through. A bracketed run that never had a reference tail
-  (`a [t[^1]] b`) and a reference that resolves are unchanged: their notes are
-  references and keep their numbers.
+  degrades to its literal source, so the note gets no number, no endnote and no
+  backlink. The rendered HTML already agreed; the serialized AST did not. Both
+  note spellings are covered - `[^label]` and `^[content]` - and a number
+  arriving on the ingest path inside such a reference is cleared. A bracketed
+  run that never had a reference tail and a reference that resolves are
+  unchanged.
 
-- **`carve fmt` writes a code fence with no space before its info string.** The
-  canonical writer emitted the Djot spelling, so it rewrote the authored
-  ` ```php ` to ` ``` php `. `fenced_code_block` names the no-space form
-  canonical while leaving the reader lenient, and the leniency is why nothing
-  caught this: both spellings parse to the same tree, so the writer's own
-  invariants held either way. The separators INSIDE the info string are a
-  different slot and are unchanged - a header or label still takes exactly one
-  space, since ` ```php"t" ` is not a fence opener at all. Reading ` ``` php `
-  keeps working, and a raw block was already writing the tight ` ```=html `.
+- **`carve fmt` writes a code fence with no space before its info string.**
+  `fenced_code_block` names the no-space form canonical while leaving the reader
+  lenient, so the authored ` ```php ` is no longer rewritten ` ``` php `. The
+  separators INSIDE the info string are a different slot and are unchanged - a
+  header or label still takes exactly one space.
 
-- **HTML import writes the source the canonical writer writes.** The import
-  pipeline ends at the Carve writer, and that writer is the byte-exact
-  reference a shared conformance fixture is compared against, but this importer
-  builds its source by hand and three spellings had drifted away from it. An
-  imported attribute value is now quoted only where the writer quotes it
-  (`<abbr title="HyperText">` gives `[HTML]{abbr=HyperText}`, and
-  `<span title="a=b">` gives `[x]{title=a=b}`); and a semantic element's
-  leftover `id` and `class` now lead, with the consumed name last
+- **HTML import writes the source the canonical writer writes.** An imported
+  attribute value is now quoted only where the writer quotes it
+  (`<abbr title="HyperText">` gives `[HTML]{abbr=HyperText}`), and a semantic
+  element's leftover `id` and `class` now lead with the consumed name last
   (`[Tab]{#k .c kbd}`, not `[Tab]{kbd #k .c}`). Both brought carve-php in line
-  with carve-js and carve-rs, which already agreed: 31 HTML shapes covering the
-  seven semantic elements, leftover attributes, values that do and do not need
-  quoting, and the `<mark>` / inline `<code>` / `<pre><code>` carve-outs now
-  import byte-identically in all three engines. An imported code block keeps
-  the tight ` ```php ` opener it always wrote, which is now what the writer
-  writes too. Rendered HTML is unchanged - every affected spelling parses to
-  the same document either way.
+  with carve-js and carve-rs. An imported code block keeps the tight ` ```php `
+  opener it always wrote, which is now what the writer writes too. Rendered
+  HTML is unchanged.
 
 - **An ingest refusal at a typed node union names the admitted types instead of
   a field from the first branch.** A payload putting the wrong KIND of node at
-  `figure.target` was refused, correctly, and then described the wrong problem:
-  it reported the required property of whichever branch the validator happened
-  to try first, so a node of an inadmissible type was reported as an `image`
-  missing its `src`. A producer reading that would have added `src` to a
-  heading. The message now names the offending type and the admitted set, which is
-  what carve-js says about the same payload. A node whose type IS admitted and
-  which is missing a required field still names that field, so the change adds a
-  story rather than replacing one, and no payload changes from accepted to
-  refused or back.
+  `figure.target` was reported as an `image` missing its `src`; the message now
+  names the offending type and the admitted set, which is what carve-js says.
+  A node whose type IS admitted and is missing a required field still names
+  that field, and no payload changes from accepted to refused or back.
 
-- **`carve fmt` writes a bare caret where no inline note can open.** `^[` opens
-  a note only where a note can form, and PART 9 §16 rules out three positions:
-  an empty or whitespace-only body, an unclosed run, and anywhere inside a
-  note's own content, where footnote recognition is disabled at every depth. The
-  writer escaped the caret in all of them, so `x ^[]` was rewritten `x \^[]` and
-  `x ^[a ^[b] c]` became `x ^[a \^[b] c]`, adding a backslash the reader has
-  nothing to resolve. A caret in front of a run that does give a note a body
-  keeps its escape.
+- **`carve fmt` writes a bare caret where no inline note can open.** PART 9 §16
+  rules out three positions - an empty or whitespace-only body, an unclosed run,
+  and anywhere inside a note's own content - and the writer escaped the caret in
+  all of them, so `x ^[]` was rewritten `x \^[]`. A caret in front of a run that
+  does give a note a body keeps its escape.
 
-- **An image's alt text closes where a link's text closes.** An image has the
-  same three forms as a link, and only the leading `!` and the `<img src>`
-  output differ, so the bracketed run is the run a link uses. The alt was found
-  by a second scan written beside the link scan, which agreed with it on nesting
-  depth and on `\` but skipped neither of the two runs whose content is literal.
-  An alt holding a code span or an editorial comment - `![t{# ] #}z](/i.png)`,
-  and the same shape with backticks - published an image with the right
-  destination and an alt cut at a `]` the parse had already ruled was content.
+- **An image's alt text closes where a link's text closes.** The alt was found
+  by a second scan beside the link scan that skipped neither of the two runs
+  whose content is literal, so an alt holding a code span or an editorial
+  comment - `![t{# ] #}z](/i.png)`, and the same shape with backticks - was cut
+  at a `]` the parse had already ruled was content.
 
 - **`carve fmt` writes a raw bracketed run as authored.** A run the reader reads
   raw resolves no escape, so a backslash the writer added came back as content.
-  Five writers carried the same escape: an image's alt text, an admonition
+  Five writers carried the same escape - an image's alt text, an admonition
   label, a div label, a code-fence label, and a footnote id in its definition
-  and in every reference to it. `![t[z]](/i.png)` was rewritten `![t\[z\]]` and
-  the alt then read `t\[z\]`; `::: [a\b]` grew one backslash per format pass and
-  never settled, so `fmt(fmt(x)) == fmt(x)` failed from the second pass onward.
-  An abbreviation keeps its escape: its definition is read as `[A-Za-z0-9]+`, so
-  neither character can reach it.
+  and in every reference to it - and `::: [a\b]` grew one backslash per pass,
+  so `fmt(fmt(x)) == fmt(x)` failed from the second pass onward. An
+  abbreviation keeps its escape.
 
 - **The ProseMirror bridge declares the empty span it cannot carry** (#1259).
-  `x ^[]{.c}` came back from the round trip as `x ^` - the span and its class
-  gone, with neither `droppedTypes()` nor `degradedTypes()` reporting it. A mark
-  needs text to attach to, so a span with no content is not represented at all,
-  the way an empty link label already was; it is now declared instead of lost
-  silently. Rendered HTML is unchanged.
+  `x ^[]{.c}` came back as `x ^` with neither `droppedTypes()` nor
+  `degradedTypes()` reporting it; a span with no content is now declared
+  instead of lost silently. Rendered HTML is unchanged.
 
 - **The Markdown importer reads a block-level HTML element as a block inside a
   container** (#1247). CommonMark's HTML block start conditions apply inside a
   block quote or a list item exactly as they do at document level, and
-  conditions 1 to 6 may interrupt an open paragraph. The importer knew none of
-  them, so `> quoted` followed by `> <footer>Socrates</footer>` migrated as one
-  quoted paragraph and the element ended up inside a `<p>`, which takes phrasing
-  content only. Ninety-three shapes change, across nine container positions and
-  every interrupting start condition. A condition 1 to 5 block also ends at its
-  own terminator now, so prose on the line below `<!-- x -->` is a block of its
-  own. An inline `<span>` on a continuation line is condition 7 and still stays
-  inline, which is what keeps the rule from blanket-blocking every line that
-  opens with `<`.
+  conditions 1 to 6 may interrupt an open paragraph; the importer knew none of
+  them. A condition 1 to 5 block also ends at its own terminator now, so prose
+  on the line below `<!-- x -->` is a block of its own, while an inline `<span>`
+  on a continuation line is condition 7 and still stays inline.
 
 - **An item's own content column is no longer read as indented code** (#1247).
-  The four-column test measured from column 0 instead of from the enclosing
-  item's content column, so the content of a nested item was fenced and emitted
-  at column 0 - out of the list entirely, and no longer the kind of thing it
-  was. Genuine indented code inside an item still becomes a fence, at the item's
-  column rather than at 0, and its body is dedented by the container's columns
-  plus the one step CommonMark takes. Indentation is now measured in columns
-  throughout, so a tab advances to the next four-column stop instead of counting
-  as a single byte: one tab under a two-column item is that item's content, two
-  are code. Document-level indented code is unchanged.
+  The four-column test now measures from the enclosing item's content column
+  instead of from column 0, so a nested item's content is no longer fenced and
+  emitted at column 0. Indentation is measured in columns throughout, so a tab
+  advances to the next four-column stop: one tab under a two-column item is that
+  item's content, two are code. Document-level indented code is unchanged.
 
 - **Presentation targets no longer discard authored text** (PART 11 §10e,
-  markup-carve/carve#1179). `docs/graceful-degradation.md` states the floor as
-  a MUST - "losing the click is fine; losing the words is not" - and three kinds
-  of authored text were dropped outright: a table caption vanished on the
-  Markdown target, and a fence title (`"src/app.js"`) and a grouping label
-  (`[Node]`) vanished on the plain-text and terminal targets.
-
-  A table caption now follows the table as body text on the Markdown target,
-  separated by one blank line - the position an image caption and a listing
-  caption already take there. The blank line is load-bearing: written directly
-  under the last row, a GFM reader takes the caption as another row and returns
-  it as a data cell.
-
-  A fence's title and label now render the way a fenced div's already do: a
-  standalone line each in plain text and a bold standalone line each on the
-  terminal, above the block, title before label. The language keeps whatever
-  slot the target already gave it, which on the terminal is the `┌── ` rule
-  line and in plain text is nothing. An uncaptioned table, and a fence carrying
-  neither token, are byte-identical to before.
+  markup-carve/carve#1179), the floor `docs/graceful-degradation.md` states as
+  a MUST. A table caption now follows the table as body text on the Markdown
+  target, separated by one blank line so a GFM reader does not take it as
+  another row; a fence's title (`"src/app.js"`) and grouping label (`[Node]`)
+  now render as a standalone line each in plain text and a bold standalone line
+  each on the terminal, above the block, title before label. An uncaptioned
+  table, and a fence carrying neither token, are byte-identical to before.
 
 - **An authored `abbr` wins on the Markdown and ANSI targets too**
   (markup-carve/carve#1176). markup-carve/carve#1127 ruled that an explicit
   `abbr` outranks automatic expansion, and the HTML renderer honoured it while
-  Markdown and ANSI emitted the DEFINITION's text - so `[HTML]{abbr="Custom"}`
-  under a `*[HTML]: Hyper Text Markup Language` line came out with the wrong
-  title on two of five targets. Both now carry the authored value, using the
-  same suppression flag the HTML renderer already had. The plain-text target
-  carries it too: an authored expansion has no `*[TERM]: …` definition line to
-  state it once, so dropping it lost the text outright, and plain already uses
-  `(…)` for an inline footnote.
+  Markdown and ANSI emitted the DEFINITION's text; both now carry the authored
+  value, using the same suppression flag, as does the plain-text target.
 
 - **A math span's base class keeps the class slot in place** (PART 10 §1,
-  markup-carve/carve#1164). `math inline` / `math display` was written ahead of
-  everything, so an id the author wrote BEFORE any class came out after it -
-  `$`E=mc^2`{#i .c k=v}` gave `<span class="math inline c" id="i" k="v">` where
-  the clause asks for `<span id="i" class="math inline c" k="v">`. A mandatory
-  base class is prepended INSIDE the class slot; the slot stays where the author
-  first wrote a class. With no authored class there is no slot to keep, so the
-  base class leads, unchanged.
+  markup-carve/carve#1164). A mandatory base class is prepended INSIDE the
+  class slot and the slot stays where the author first wrote a class, so
+  `$`E=mc^2`{#i .c k=v}` gives `<span id="i" class="math inline c" k="v">`.
+  With no authored class there is no slot to keep, so the base class leads,
+  unchanged.
 
 - **The `ext-NAME` class no longer moves the author's class slot.**
   `:widget[x]{#i .c k=v}` renders `<span id="i" class="ext-widget c" k="v">`;
   the structural class merges INTO the slot the author wrote and the slot keeps
-  its position, where it used to jump ahead of the id. Spec PART 10 §1, pinned
-  by corpus `45-inline-extensions-12` (markup-carve/carve#1168).
+  its position. Spec PART 10 §1, pinned by corpus `45-inline-extensions-12`
+  (markup-carve/carve#1168).
 
 - **A nested list is indented once on the Markdown target, not twice** (#1142).
   Each level was padded by the list's own depth and again by the enclosing
-  item's marker width, so a third level landed past the content column and
-  became an indented verbatim block for every reader that is not Carve itself.
+  item's marker width, so a third level became an indented verbatim block for
+  every reader that is not Carve itself.
 
 - **Plain HTML and BBCode text no longer becomes Carve markup.** A literal
   asterisk or underscore is not Carve markup (#1141), a hash in source text is
@@ -2584,7 +2315,8 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.4...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.5...HEAD
+[0.1.5]: https://github.com/markup-carve/carve-php/compare/0.1.4...0.1.5
 [0.1.4]: https://github.com/markup-carve/carve-php/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/markup-carve/carve-php/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/markup-carve/carve-php/compare/0.1.1...0.1.2
