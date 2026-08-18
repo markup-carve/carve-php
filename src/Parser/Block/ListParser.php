@@ -199,7 +199,25 @@ class ListParser
             return null;
         }
 
-        $offset = $this->markerContentOffset($line);
+        return $this->markerWalkOffset($line, 0);
+    }
+
+    /**
+     * The same walk with the interior-newline screen ALREADY ANSWERED.
+     *
+     * {@see self::innermostMarkerContentOffset()} is this plus the screen, so
+     * the walk itself is spelled once. A caller crossing a container prefix
+     * asks the screen once for the whole line and then walks from an offset:
+     * asked per level, the screen is an O(rest) scan that puts back exactly the
+     * cost the offset walk removes (markup-carve/carve-php#1437).
+     *
+     * @param string $line A single line, already screened for an INTERIOR
+     *   newline at or after `$from`.
+     * @param int $from Byte offset to walk from, anchored.
+     */
+    public function markerWalkOffset(string $line, int $from = 0): ?int
+    {
+        $offset = $this->markerContentOffset($line, $from);
         if ($offset === null) {
             return null;
         }

@@ -230,6 +230,47 @@ class IndentationHelper
     }
 
     /**
+     * The same question asked from a byte OFFSET, without cutting the line.
+     *
+     * A walk that crosses a container prefix has to ask "is the rest of this
+     * line blank" once per level, and cutting the rest out to ask copies the
+     * tail every time - which is what made a line alternating a quote marker
+     * with a bullet cost the line length per level
+     * (markup-carve/carve-php#1437).
+     *
+     * NOT WRITTEN AS THE BODY OF `isBlankLine()`, and that is measured rather
+     * than tidy: `isBlankLine()` is asked on nearly every line the parser
+     * reads, and routing it through one more call cost about 5 percent on an
+     * ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which asserts
+     * `isBlankLine($l) === isBlankFrom($l, 0)` over every byte, so the pair
+     * cannot drift without a test saying so.
+     */
+    public static function isBlankFrom(string $line, int $at): bool
+    {
+        return strspn($line, " \t", $at) === strlen($line) - $at;
+    }
+
+    /**
+     * The offset one past the last byte that `rtrim($line, " \t")` keeps.
+     *
+     * A walk carrying an offset needs the line's trimmed END as a number,
+     * because the end does NOT move as the offset advances: it is a property of
+     * the line and is computed once for a whole walk rather than once per
+     * level. `rtrim($line, " \t") === substr($line, 0, self::trimmedEnd($line))`
+     * is the identity this is written from.
+     */
+    public static function trimmedEnd(string $line): int
+    {
+        $length = strlen($line);
+        while ($length > 0 && ($line[$length - 1] === ' ' || $line[$length - 1] === "\t")) {
+            $length--;
+        }
+
+        return $length;
+    }
+
+    /**
      * Check if a line has at least the specified indentation level
      *
      * @param string $line The line to check

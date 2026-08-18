@@ -133,6 +133,14 @@ trait ScalingGuardTrait
      * @param string $label Identifies the shape in failure output.
      * @param int $smallRepeats Units in the smaller sample.
      * @param int $largeRepeats Units in the larger sample.
+     * @param float|null $maxSeconds Overrides the catastrophic backstop for
+     *   this shape only. The default sits above every INLINE scan's largest
+     *   sample; a shape whose healthy cost is dominated by a large LINEAR
+     *   constant - a nested-container walk re-entered once per nesting level -
+     *   needs a sample big enough for the quadratic term to separate, and at
+     *   that size a healthy run is already seconds. Raising it is not
+     *   weakening the guard: the RATIO is what discriminates, and the shape
+     *   that needs this states its own measured numbers on both sides.
      *
      * @return void
      */
@@ -143,7 +151,9 @@ trait ScalingGuardTrait
         string $label,
         int $smallRepeats,
         int $largeRepeats,
+        ?float $maxSeconds = null,
     ): void {
+        $maxSeconds ??= self::SCALE_MAX_SECONDS;
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
 
@@ -183,12 +193,12 @@ trait ScalingGuardTrait
         $shape = $label;
 
         $this->assertLessThan(
-            self::SCALE_MAX_SECONDS,
+            $maxSeconds,
             $worstSmall,
             sprintf('%dx %s took %.3fs (quadratic regression?)', $smallRepeats, $shape, $worstSmall),
         );
         $this->assertLessThan(
-            self::SCALE_MAX_SECONDS,
+            $maxSeconds,
             $worstLarge,
             sprintf('%dx %s took %.3fs (quadratic regression?)', $largeRepeats, $shape, $worstLarge),
         );

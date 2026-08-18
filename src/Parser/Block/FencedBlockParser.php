@@ -509,4 +509,37 @@ class FencedBlockParser
 
         return $line;
     }
+
+    /**
+     * Whether a CODE fence could open at `$at`, by the opener's own first byte.
+     *
+     * A caller that has to skip the branch WITHOUT cutting the line out of its
+     * container prefix asks here, rather than building the suffix just to hand
+     * it to {@see self::parseCodeFenceOpener()} - the copy per level that made
+     * markup-carve/carve-php#1437 quadratic. *
+     * The parser's own fast exit spells the same byte test inline, because it
+     * runs on nearly every line the parser reads and one more call for it
+     * measured against an ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which walks EVERY byte value and
+     * asserts the head accepts a line exactly where the parser can, so the pair
+     * cannot drift in silence - which is the failure
+     * markup-carve/carve-php#969 was.
+     */
+    public function isCodeFenceHead(string $line, int $at = 0): bool
+    {
+        $char = $line[$at] ?? '';
+
+        return $char === '`' || $char === '~';
+    }
+
+    /**
+     * Whether a DIV fence could open at `$at`, by the opener's own first byte.
+     *
+     * The offset-side head for {@see self::parseDivFenceOpener()}, for the
+     * reason {@see self::isCodeFenceHead()} gives, and pinned by the same test.
+     */
+    public function isDivFenceHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at] ?? '') === ':';
+    }
 }
