@@ -142,7 +142,7 @@ class OptionalCorpusTest extends TestCase
             'citations-numbered' => $converter->addExtension(new CitationsExtension()),
             'citations-author-date' => $converter->addExtension(new CitationsExtension('author-date')),
             'details' => $converter->addExtension(new DetailsExtension()),
-            'list-table' => $converter->addExtension(new ListTableExtension()),
+            'list-table', 'list-table-columns-1344' => $converter->addExtension(new ListTableExtension()),
             'spoiler' => $converter->addExtension(new SpoilerExtension()),
             'tabs' => $converter->addExtension(new TabsExtension()),
             // The map is consumed by the HTML renderer, so on another target it

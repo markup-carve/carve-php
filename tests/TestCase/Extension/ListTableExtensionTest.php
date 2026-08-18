@@ -207,6 +207,38 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($expected, $this->render($djot));
     }
 
+    public function testFooterRowsRenderOnePerLine(): void
+    {
+        $djot = implode("\n", [
+            '{footer-rows=2}',
+            '{header-cols=1}',
+            '::: list-table',
+            '- - Region',
+            '  - Q1',
+            '- - EMEA',
+            '  - 10',
+            '- - Region',
+            '  - Q1',
+            '- - EMEA',
+            '  - 10',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th scope="row">Region</th><td>Q1</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>10</td></tr>',
+            '  </tbody>',
+            '  <tfoot>',
+            '    <tr><th scope="row">Region</th><td>Q1</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>10</td></tr>',
+            '  </tfoot>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
+    }
+
     public function testRaggedRowsArePadded(): void
     {
         $djot = implode("\n", [
@@ -975,7 +1007,7 @@ class ListTableExtensionTest extends TestCase
         ]));
 
         $this->assertStringContainsString('<colgroup>', $html);
-        $this->assertStringContainsString('<tfoot><tr>', $html);
+        $this->assertStringContainsString("<tfoot>\n    <tr>", $html);
         $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
         $this->assertStringNotContainsString('aligns=', $html);
     }
