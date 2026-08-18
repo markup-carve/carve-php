@@ -320,4 +320,46 @@ class ContainerBoundaryRulingsTest extends TestCase
 
         $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", $html);
     }
+
+    /**
+     * THE ROW ABOVE IS THE ONE IN THE SAME CONTAINER (PART 9 §5 T6), and PROSE
+     * REOPENS A CONTAINER'S PARAGRAPH (PART 1 S4) - which does not ask whether
+     * that paragraph is the container's FIRST block
+     * (markup-carve/carve-php#1436).
+     *
+     * A `+` line written in the ITEM is not the continuation row of a table
+     * written inside a QUOTE the item holds. Handing the quote's table run
+     * outward read it as one, so the item reported no open paragraph and the
+     * flush-left line went out - where the `+` line is prose, it reopens the
+     * item's paragraph, and the line folds in.
+     *
+     * @return array<string, array{string, bool}>
+     */
+    public static function continuationRowContainerProvider(): array
+    {
+        return [
+            // The `+` is in the ITEM, the table in the quote: prose, so `tail`
+            // folds in.
+            'quote head, + written in the item' => ["- > | a |\n  + b |\ntail\n", false],
+            // The same head under a definition description, which the ticket's
+            // own two shapes could not show.
+            'quote head, + written in the description' => [":: t\n:  > | a |\n   + b |\ntail\n", false],
+            // The `+` is in the QUOTE, with the table: a real continuation row,
+            // so nothing is open and `tail` goes out.
+            'quote head, + written in the quote' => ["- > | a |\n  > + b |\ntail\n", true],
+            'quote alone' => ["> | a |\n> + b |\ntail\n", true],
+            // And the same container throughout, which never went through the
+            // recursion at all.
+            'item head, + written in the item' => ["- | a |\n  + b |\ntail\n", true],
+        ];
+    }
+
+    #[DataProvider('continuationRowContainerProvider')]
+    public function testAContinuationRowBelongsToItsOwnContainer(string $source, bool $tailIsOutside): void
+    {
+        $html = $this->html($source);
+        $outside = preg_match('#</(?:ul|dl|blockquote)>\s*<p>tail</p>#s', $html) === 1;
+
+        $this->assertSame($tailIsOutside, $outside, 'for: ' . var_export($source, true));
+    }
 }
