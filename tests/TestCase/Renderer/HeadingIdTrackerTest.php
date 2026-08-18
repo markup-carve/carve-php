@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class HeadingIdTrackerTest extends TestCase
@@ -323,6 +324,10 @@ class HeadingIdTrackerTest extends TestCase
         $this->assertSame('Title', $text);
     }
 
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testManyLowercaseReferencesResolveFast(): void
     {
         for ($i = 0; $i < 3000; $i++) {

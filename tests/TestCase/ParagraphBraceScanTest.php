@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -83,6 +84,10 @@ class ParagraphBraceScanTest extends TestCase
      * behavior took tens of seconds, so a generous absolute bound reliably
      * separates the two without being timing-flaky.
      */
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testLargeSingleParagraphParsesInLinearTime(): void
     {
         $lines = [];
