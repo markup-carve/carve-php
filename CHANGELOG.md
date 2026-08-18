@@ -7,6 +7,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **The heading-reference prescan reads a line's container prefix at an offset**
+  (PART 9 §25, markup-carve/carve-php#1463). It handed each step a copy of the
+  rest of the line, so a line of N prefix elements cost N times the line - a
+  128 KB line of `> - ` repeated copied 4.1 GB.
+
 ## [0.1.5] - 2026-08-18
 
 ### Security
