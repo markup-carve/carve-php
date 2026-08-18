@@ -1882,6 +1882,7 @@ class CarveRenderer implements RendererInterface
                         $this->lastBoundary($nodes[$i - 1] ?? null),
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
+                        self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                     );
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
@@ -2021,8 +2022,13 @@ class CarveRenderer implements RendererInterface
         return str_ends_with($line, ' ') || str_ends_with($line, "\u{E000}");
     }
 
-    protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = '', bool $captionCanOpen = false): string
-    {
+    protected function renderInline(
+        InlineNode $node,
+        string $prevChar = '',
+        string $nextChar = '',
+        bool $captionCanOpen = false,
+        bool $nextOpensVerbatim = false,
+    ): string {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
         // wrote, never as a link (PART 12 section 3a).
@@ -2034,6 +2040,9 @@ class CarveRenderer implements RendererInterface
                 // Does this node's first character sit at the start of a block
                 // line? Only there can `^ ` be read back as a caption marker.
                 $captionCanOpen && $this->tableCellDepth === 0,
+                // Does a trailing `!` abut the next node's backtick run? Only
+                // there does PART 9 §27 bind it to an inline literal.
+                $nextOpensVerbatim,
             ) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -3016,8 +3025,11 @@ class CarveRenderer implements RendererInterface
         return $marker === false ? '' : $marker;
     }
 
-    protected function escapeText(string $text, bool $opensBlockLine = false): string
-    {
+    protected function escapeText(
+        string $text,
+        bool $opensBlockLine = false,
+        bool $nextOpensVerbatim = false,
+    ): string {
         // ONLY WHAT WOULD CHANGE THE RE-PARSE. The class here was every C0
         // control but tab and newline, plus DEL and the whole C1 block - a
         // blanket sanitizer, and the writer was the only artifact applying it.
@@ -3036,19 +3048,42 @@ class CarveRenderer implements RendererInterface
             return $text;
         }
 
-        $pattern = $this->escapeMode === self::ESCAPE_MODE_MINIMAL
-            ? '/([\\\\`"\'^])/'
-            : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/';
+        $minimal = $this->escapeMode === self::ESCAPE_MODE_MINIMAL;
+        // `!` AND `$` JOIN THEIR CLASSES SO THE BINDING CASE CAN BE FORCED.
+        // Both are returned bare below wherever they do not bind, so the only
+        // renders that change are the ones where the escape is structural: `!`
+        // was already in the conservative class and is new to the minimal one,
+        // and `$` was in neither.
+        $pattern = $minimal
+            ? '/([\\\\`"\'^!$])/'
+            : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
 
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use ($text, $opensBlockLine, $insideNote): string {
+            static function (array $match) use (
+                $text,
+                $opensBlockLine,
+                $insideNote,
+                $minimal,
+                $nextOpensVerbatim,
+            ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
                 if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
+                }
+                // `!` stays in the conservative class, which escaped it before
+                // this guard existed and still does; the guard decides the
+                // MINIMAL pass, which is the one that has to be winnable.
+                if ($char === '!' && $minimal && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                    return '!';
+                }
+                // `$` was in NEITHER class, so both passes wrote it bare and
+                // both are unchanged away from the binding case.
+                if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                    return '$';
                 }
                 if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote)) {
                     return '^';
@@ -3110,6 +3145,88 @@ class CarveRenderer implements RendererInterface
      * @param string $text
      * @param int $offset
      */
+
+    /**
+     * Does a `!` or `$` here BIND to the verbatim run that follows it?
+     *
+     * TWO SIGILS PREFIX A VERBATIM RUN and no others: `!` opens an inline
+     * literal (PART 9 §27) and `$` opens inline math, which §27 names as the
+     * shape the literal mirrors. Written bare in front of a backtick run either
+     * one stops being text and becomes the construct's marker.
+     *
+     * §27 names the `!` case outright: "A literal `!` immediately before a
+     * backtick run is therefore written `\!` - the single case this construct
+     * reinterprets."
+     *
+     * FORCED IN THE MINIMAL MODE FOR THE SAME REASON THE CAPTION CARET IS
+     * FORCED IN BOTH {@see self::caretOpensACaption()}. The minimal/conservative
+     * decision is per DOCUMENT. Written bare in the minimal pass the `!` binds,
+     * so the minimal render re-parses with a `literal_inline` where the tree has
+     * a text `!` beside a code span - a difference the text and escaped-text
+     * merge cannot absorb, unlike an ordinary escape - and the WHOLE document
+     * escalates to conservative, which then escapes every candidate in it. A
+     * paragraph of `foo (bar) #baz 50% a-b` that round-trips bare on its own
+     * came back as `foo \(bar\) #baz 50\% a\-b` because of a `!` in an unrelated
+     * paragraph below it (markup-carve/carve-php#1412). That is the
+     * over-escaping PART 11 §4 forbids.
+     *
+     * THE `$` CASE IS NOT REACHABLE FROM A PARSE and is a defect all the same.
+     * `$` sat in neither escape class, so an INGESTED tree (PART 12) holding a
+     * text node that ends in `$` beside a code span was written as `a $` plus a
+     * backtick run and read back as MATH - `toHtml(fmt(x)) == toHtml(x)` broken
+     * outright, not merely over-escaped. The `!` case reaches the same seam from
+     * a parse, because an unclosed run is written back CLOSED and the adjacency
+     * the source did not have appears in the output.
+     *
+     * ONLY THE NODE'S LAST CHARACTER can abut the run. A sigil with more text
+     * after it is followed by that text, and a backtick INSIDE this node is
+     * escaped by this same pass, so no run forms there and the bare sigil is
+     * already correct. A doubled `$$` needs only its last one escaped for the
+     * same reason: the first is then followed by a backslash rather than a run.
+     *
+     * @param string $text
+     * @param int $offset
+     * @param bool $nextOpensVerbatim Whether the next sibling renders as a
+     *   backtick run. A code span is the only inline whose written form opens
+     *   with one; an inline literal opens with its own `!` and math with its
+     *   own `$`.
+     */
+    private static function sigilBindsToAVerbatimRun(string $text, int $offset, bool $nextOpensVerbatim): bool
+    {
+        return $nextOpensVerbatim && $offset === strlen($text) - 1;
+    }
+
+    /**
+     * Does this node's written form OPEN with a backtick run a sigil binds to?
+     *
+     * TWO NODES ARE WRITTEN THROUGH {@see self::renderCode()}, not one: a code
+     * span, and a raw inline, which is the same run with a `{=format}` suffix.
+     * Reading only the code span left an ingested `text("a $")` beside a raw
+     * inline written as `a $` plus a run, which came back as MATH holding the
+     * format block - the `toHtml(fmt(x)) == toHtml(x)` break this guard exists
+     * to close, on the node that is easy to forget because its type name says
+     * nothing about backticks.
+     *
+     * AN EMPTY CODE SPAN IS THE EXCEPTION. It writes as a bare `` `` ``, and a
+     * sigil does not bind to it: `` !`` `` parses as a text `!` beside an empty
+     * code node, so escaping there would add a `\!` that PART 11 §2 forbids -
+     * the same over-escaping this change removes, one shape smaller.
+     *
+     * An empty RAW inline is NOT exempt, and not because it round-trips: it
+     * does not, with or without a sigil beside it. `` ``{=html} `` reads back
+     * as a code span holding the format block, so an empty raw inline has no
+     * source spelling at all - filed as markup-carve/carve-php#1419, and out of
+     * this guard's reach. The escape is kept there because it preserves the
+     * sigil's own text, which is strictly more than the bare form keeps.
+     */
+    private static function opensAVerbatimRun(?Node $node): bool
+    {
+        if ($node instanceof RawInline) {
+            return true;
+        }
+
+        return $node instanceof Code && $node->getContent() !== '';
+    }
 
     /**
      * Is this caret a CAPTION MARKER - `^` plus a space at the start of a block
