@@ -77,13 +77,14 @@ Two bounds are worth knowing about because a caller can observe them:
 - **Container nesting in the document** stops at
   `BlockParser::MAX_NESTING_DEPTH` (200). Past it an opener degrades to ordinary
   paragraph text, so the document still parses.
-- **Container markers on ONE line** stop at
-  `BlockParser::MAX_LINE_PREFIX_DEPTH`. A line spelling more of them than that -
-  `> - ` repeated thousands of times - is REFUSED with
+- **One line's container prefix** is read at most
+  `BlockParser::MAX_LINE_PREFIX_DEPTH` levels deep. A line nesting deeper than
+  that - `> - ` repeated thousands of times - is REFUSED with
   `ContainerPrefixDepthExceededException`, which names the bound it hit. This
-  reads the line's markers rather than the containers the document opens, so the
-  cap above never bounded it; before the bound existed such a line overflowed the
-  stack, and PHP does not turn that into a catchable error.
+  reads one line rather than the containers the document opens, so the cap above
+  never bounded it; before the bound existed such a line overflowed the stack,
+  and PHP does not turn that into a catchable error. A plain RUN of list markers
+  (`- ` repeated) costs one level however long it is, so it is unaffected.
 
 Catch it wherever you catch a malformed document:
 

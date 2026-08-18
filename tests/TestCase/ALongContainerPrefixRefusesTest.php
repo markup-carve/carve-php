@@ -67,7 +67,7 @@ class ALongContainerPrefixRefusesTest extends TestCase
             $result['exit'],
             $result['err'],
         ));
-        $this->assertStringContainsString('container prefix elements', $result['err']);
+        $this->assertStringContainsString('container prefix nests', $result['err']);
         $this->assertStringContainsString(
             (string)BlockParser::MAX_LINE_PREFIX_DEPTH,
             $result['err'],
@@ -143,6 +143,26 @@ class ALongContainerPrefixRefusesTest extends TestCase
 
         $this->assertStringContainsString('deepest', $html);
         $this->assertStringContainsString('<blockquote>', $html);
+    }
+
+    /**
+     * INTENDED SURVIVOR, and the one the bound is most likely to be widened
+     * into by mistake: a RUN of list markers costs ONE level, not one per
+     * marker, so a line of them far past the bound still parses.
+     *
+     * `markerWalkOffset()` peels the whole run in a loop - carve-php#1426 and
+     * carve-php#1442 - so the run spends no stack and needs no bound here.
+     * Counting markers instead of levels would refuse this, which is the shape
+     * a reviewer proposes when reading the constant's name rather than the
+     * walk.
+     */
+    public function testARunOfListMarkersCostsOneLevelAndStillParses(): void
+    {
+        $markers = BlockParser::MAX_LINE_PREFIX_DEPTH * 8;
+
+        $html = (new CarveConverter())->convert(str_repeat('- ', $markers) . "deepest\n");
+
+        $this->assertStringContainsString('deepest', $html);
     }
 
     /**

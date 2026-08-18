@@ -23,10 +23,16 @@ use RuntimeException;
  *
  * The bound is on ONE LINE'S container prefix, which is a different axis from
  * `BlockParser::MAX_NESTING_DEPTH`: that cap counts containers open in the
- * DOCUMENT and degrades past them, while this counts the quote markers and
- * bullets a single line spells before its content. A line can spell far more of
- * them than the document cap will ever build, so the cap never bounded this
- * walk.
+ * DOCUMENT and degrades past them, while this counts how deep a single line's
+ * prefix is read before its content. A line can spell far more prefix than the
+ * document cap will ever build, so the cap never bounded this walk.
+ *
+ * IT COUNTS LEVELS, NOT MARKERS, and the difference is not a rounding error: a
+ * RUN of list markers is peeled by a loop and costs ONE level, because that is
+ * what carve-php#1426 and carve-php#1442 settled for that walk. So `- ` a
+ * hundred thousand times reads one level deep and parses, while `> - ` repeated
+ * alternates and reads two levels per pair. Counting markers instead would
+ * refuse the first, which is safe today and has its own bound already.
  *
  * {@see \MarkupCarve\Carve\Parser\BlockParser::MAX_LINE_PREFIX_DEPTH} carries
  * the derivation of the number.
@@ -39,8 +45,8 @@ class ContainerPrefixDepthExceededException extends RuntimeException
     public function __construct(public readonly int $limit)
     {
         parent::__construct(sprintf(
-            'A single line spells more than %d container prefix elements, past the depth '
-                . 'this parser reads them at. No document nests that far - the parser stops '
+            'One line\'s container prefix nests more than %d levels deep, past the depth '
+                . 'this parser reads it at. No document nests that far - the parser stops '
                 . 'building containers at %d - so shorten the line\'s prefix rather than '
                 . 'raising the bound.',
             $limit,

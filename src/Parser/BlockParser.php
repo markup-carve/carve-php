@@ -223,6 +223,11 @@ class BlockParser
     /**
      * Depth bound for the container-prefix walk one line spells.
      *
+     * LEVELS, NOT MARKERS. A RUN of list markers is peeled by a loop and costs
+     * one level - that is what carve-php#1426 and carve-php#1442 settled for
+     * that walk, and it is why `- ` a hundred thousand times parses today. Only
+     * an ALTERNATION re-enters, so this counts what actually spends a frame.
+     *
      * DERIVED FROM THIS ENGINE'S OWN PER-LEVEL COST, as PART 9 §25 requires,
      * and not adopted from another engine: carve-js and carve-rs read the same
      * prefix without a frame per element, so neither needs a bound here at all.
@@ -234,11 +239,10 @@ class BlockParser
      *
      * The number is bounded on both sides:
      *
-     *  - ABOVE what any document reaches. A prefix element is a quote marker or
-     *    a list marker, and the parser stops BUILDING containers at
-     *    MAX_NESTING_DEPTH (200); a list level spends two of these walk steps,
-     *    so the deepest structure the parser will build is read in about 400
-     *    steps. 1024 leaves more than twice that, the same margin
+     *  - ABOVE what any document reaches. The parser stops BUILDING containers
+     *    at MAX_NESTING_DEPTH (200), and a quoted list spends two of these walk
+     *    levels per container pair, so the deepest structure it will build is
+     *    read in about 400. 1024 leaves more than twice that, the same margin
      *    MAX_HEADING_WALK_DEPTH takes over the same cap for the same reason.
      *  - FAR BELOW where the stack runs out. Measured on PHP 8.5.9 with the
      *    default 8 MB stack, a line of 16000 `> - ` pairs (about 32000 steps)

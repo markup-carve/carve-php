@@ -11,8 +11,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **One line's container prefix is bounded, and past the bound the parser
   refuses** (PART 9 §25, markup-carve/carve-php#1456). A line alternating a
-  quote marker with a bullet spent a stack frame per prefix element, so a long
-  enough one took the process down with a SIGSEGV rather than refusing. Past
+  quote marker with a bullet spent a stack frame per level, so a long enough one
+  took the process down with a SIGSEGV rather than refusing. Past
   `BlockParser::MAX_LINE_PREFIX_DEPTH` the parser now throws
   `ContainerPrefixDepthExceededException`, and `bin/carve` reports it and exits
   1.
