@@ -476,20 +476,31 @@ class LineBlockCommentOnlyLineTest extends TestCase
     }
 
     /**
-     * AND THE RUN THAT SWALLOWED A COMMENT GIVES UP ITS OWN POSITION.
+     * AND THE RUN THAT SWALLOWED A COMMENT KEEPS ITS OWN POSITION.
      *
-     * Taking the comment out of the middle of the run leaves the run's value
-     * discontiguous in the source, which is PART 12 §4's reassembled-node case:
-     * no offset pair equals that value, so the run omits `pos` rather than
-     * publish one its value is not a slice of.
+     * A verbatim run's position is an EXTENT beginning at the markup that
+     * opens the construct (PART 12 §4, markup-carve/carve#913), so it covers
+     * the delimiters and was never equal to the value - the emptied line is
+     * inside the region the run really did consume, and the extent describes
+     * it exactly. This used to omit `pos`, reading a reassembled VALUE as an
+     * undescribable POSITION; that is the over-reach carve-php#1369 already
+     * corrected for an indented fence, and carve-js and carve-rs both publish
+     * the extent here (carve-php#1450).
+     *
+     * What the omission was said to buy - no two placed siblings overlapping -
+     * is asserted below and holds without it, because the comment the run ate
+     * is dropped rather than placed.
      */
-    public function testTheRunThatSwallowedACommentGivesUpItsPosition(): void
+    public function testTheRunThatSwallowedACommentKeepsItsPosition(): void
     {
         $converter = CarveConverter::create(new BlockParser(false, false, false, true), new HtmlRenderer());
         $paragraph = $converter->parse("::: |\na `b\n%% c\nd` e\nf\n:::\n")->getChildren()[0]->getChildren()[0];
         $children = $paragraph->getChildren();
 
-        $this->assertNull($children[1]->getPos(), 'the run reports a span its value is not a slice of');
+        $run = $children[1]->getPos();
+        $this->assertNotNull($run, 'the run gave up an extent it can describe');
+        $this->assertSame(8, $run->startOffset, 'the extent begins at the opening backtick');
+        $this->assertSame(2, $run->startLine);
         $this->assertNotNull($children[0]->getPos(), 'the text before it must keep its span');
 
         // And no two placed siblings overlap, which is what the omission buys.
@@ -629,7 +640,9 @@ class LineBlockCommentOnlyLineTest extends TestCase
      * The descent must not turn the normative §23 refusal above into a
      * placement: the boundary is inside the run's value wherever the run sits,
      * so a run nested in a container drops its comment exactly as a top-level
-     * one does, and gives up its own position for the same reason.
+     * one does - and keeps its own extent for the same reason a top-level one
+     * does, the extent being the region it consumed rather than a slice of its
+     * value.
      */
     public function testANestedRunThatAteTheLineStillDropsTheComment(): void
     {
@@ -638,9 +651,21 @@ class LineBlockCommentOnlyLineTest extends TestCase
         $strong = $paragraph->getChildren()[0];
 
         $this->assertSame([], self::commentContents($paragraph));
-        $this->assertNull(
-            $strong->getChildren()[1]->getPos(),
-            'the run reports a span its value is not a slice of',
+        $run = $strong->getChildren()[1]->getPos();
+        $this->assertNotNull($run, 'the nested run gave up an extent it can describe');
+        $this->assertNotNull(
+            $strong->getPos(),
+            'the container must still reach around the run it holds',
+        );
+        $this->assertLessThanOrEqual(
+            $run->startOffset,
+            $strong->getPos()->startOffset,
+            'a child span fell outside its parent',
+        );
+        $this->assertGreaterThanOrEqual(
+            $run->endOffset,
+            $strong->getPos()->endOffset,
+            'a child span fell outside its parent',
         );
     }
 

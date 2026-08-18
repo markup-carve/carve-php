@@ -5611,6 +5611,22 @@ class BlockParser
                     $itemLines,
                     $itemLineMap,
                 );
+                // §17 L1a: THE ITEM'S FIRST BLOCK DOES NOT MATTER. This branch
+                // keeps the whole item stream together so the colon fence
+                // captures its body, and that skipped the blank-line scan the
+                // plain path runs - so `- ::: d` / `b` / `:::` / blank / `Body.`
+                // stayed tight while `- x` / blank / `Body.` went loose, a rule
+                // changing with the first block's kind for no reason. The same
+                // omission was fixed one branch up for a sub-list lead
+                // (carve-php#681); this is the colon-fence lead.
+                //
+                // The predicate is the shared one, so carve#326 C still holds:
+                // a blank inside an open CODE fence is verbatim payload and
+                // does not loosen, while a blank inside a `:::` container
+                // separates two of the container's blocks and does.
+                if ($this->subContentHasLooseningBlank($itemLines)) {
+                    $list->setTight(false);
+                }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
                 $list->appendChild($listItem);
@@ -8085,9 +8101,16 @@ class BlockParser
      * nothing. The author's own comment TEXT is not recoverable there and is
      * not required to be - the run consumed it, and §1 is about the tree.
      *
-     * The run's own value is a reassembled one either way, since the comment's
-     * text came out of the middle of it, so it gives up the position no offset
-     * pair could describe (PART 12 §4).
+     * THE RUN KEEPS ITS OWN POSITION. This used to drop it, on the reading
+     * that a value reassembled around the emptied line is describable by no
+     * offset pair. It is: a verbatim run's position is an EXTENT that begins
+     * at the markup opening the construct (PART 12 §4, markup-carve/carve#913),
+     * so it covers the run's delimiters and never equalled the value in the
+     * first place - the emptied line is inside the region the run really did
+     * consume. Dropping it is the same over-reach carve-php#1369 already
+     * corrected for an indented fence, whose value drops the stripped indent
+     * for the same reason; carve-js and carve-rs both publish the extent
+     * (carve-php#1450).
      *
      * @param \MarkupCarve\Carve\Node\Node $run
      * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment, 2: string}> $pending
@@ -8096,14 +8119,8 @@ class BlockParser
      */
     private function dropVerseCommentsThrough(Node $run, array &$pending, int &$cursor, int $line): void
     {
-        $dropped = false;
         while (isset($pending[$cursor]) && $pending[$cursor][0] <= $line) {
             $cursor++;
-            $dropped = true;
-        }
-
-        if ($dropped) {
-            $run->setPos(null);
         }
     }
 
@@ -8645,7 +8662,7 @@ class BlockParser
             $cellMarkers = array_map(fn ($c) => $c['marker'], $cellsWithAttrs);
             $cellSourceChunks = [];
             foreach ($cellsWithAttrs as $idx => $cell) {
-                $cellSourceChunks[$idx] = $this->tableCellSourceChunks($i, $cell);
+                $cellSourceChunks[$idx] = $this->tableCellSourceChunks($i, $currentLine, $cell);
             }
             $baseLineForRow = $i;
 
@@ -10263,11 +10280,12 @@ class BlockParser
      * Source chunks for a table cell before continuation rows rebuild it.
      *
      * @param int $index
+     * @param string $line The row as the collector holds it, which may be a strip.
      * @param array{content: string, offset?: int|null} $cellData
      *
      * @return list<array{int, int, string}> source line, source column, text
      */
-    private function tableCellSourceChunks(int $index, array $cellData): array
+    private function tableCellSourceChunks(int $index, string $line, array $cellData): array
     {
         $content = trim($cellData['content'], ' ');
         if ($content === '') {
@@ -10284,7 +10302,42 @@ class BlockParser
             return [];
         }
 
-        return [[$this->sourceLineFor($index), $offset + $within, $content]];
+        return [
+            [
+                $this->sourceLineFor($index),
+                $offset + $within + $this->rowPrefixDelta($index, $line),
+                $content,
+            ],
+        ];
+    }
+
+    /**
+     * How far the row's own start moved when its container prefix was stripped.
+     *
+     * A table inside a list item or a quote reaches the cell splitter already
+     * re-indented, so every column the split reports is short by whatever the
+     * strip removed. The row's OPENING DELIMITER anchors the two copies against
+     * each other: it is the first `|` or `+` on the line in both, and the text
+     * before it is exactly the prefix in question.
+     *
+     * Measured once per row rather than searched for per chunk. A search would
+     * have to accept the first match at or after the copied column, and a
+     * container marker can BE that match - `> - | - |` gave the cell's `-` the
+     * list marker's offset - while two cells holding the same text would both
+     * take the earlier one (carve-php#1450, raised by codex review).
+     *
+     * NO GUARD ON A LINE THAT HAS NO DELIMITER, deliberately. Such a line
+     * yields a delta that puts the chunk outside its own text, and
+     * {@see self::anchoredChunkColumn()} then declines the segment - so the
+     * failure mode is a missing position, never a wrong one, which is what §4
+     * asks for. Guards for it were written first and were dead across the whole
+     * suite, which is what they would have stayed.
+     */
+    private function rowPrefixDelta(int $index, string $line): int
+    {
+        $source = $this->sourceLines[$this->sourceLineFor($index)] ?? '';
+
+        return strcspn($source, '|+') - strcspn($line, '|+');
     }
 
     /**
@@ -10317,7 +10370,13 @@ class BlockParser
             if ($within === false) {
                 continue;
             }
-            $chunks[$idx] = [[$this->sourceLineFor($index), $prefix + $cell['offset'] + $within, $content]];
+            $chunks[$idx] = [
+                [
+                    $this->sourceLineFor($index),
+                    $prefix + $cell['offset'] + $within + $this->rowPrefixDelta($index, $line),
+                    $content,
+                ],
+            ];
         }
 
         return $chunks;
@@ -10346,6 +10405,23 @@ class BlockParser
         }
 
         $joined = implode(' ', array_map(static fn (array $chunk): string => $chunk[2], $chunks));
+        // THE MARKER RUN IS NOT IN THE CONTENT. A chunk is the cell's text as
+        // the split left it, so a header or alignment cell still carries the
+        // `=`, `<`, `>` or `:` that `parseTableCellMarker()` takes off before
+        // the node is built. Comparing the two verbatim therefore failed for
+        // every marked cell in a continued row - including cells the
+        // continuation never touched, which are ordinary slices of their own
+        // line - and they came back with no position at all (carve-php#1450).
+        // Advance the FIRST chunk past the run instead: it is a prefix of that
+        // chunk and of nothing else, so the remaining columns are unchanged.
+        if ($joined !== $content && str_ends_with($joined, $content)) {
+            $drop = strlen($joined) - strlen($content);
+            if ($drop < strlen($chunks[0][2])) {
+                $chunks[0][1] += $drop;
+                $chunks[0][2] = substr($chunks[0][2], $drop);
+                $joined = implode(' ', array_map(static fn (array $chunk): string => $chunk[2], $chunks));
+            }
+        }
         if ($joined !== $content) {
             return null;
         }
@@ -10356,8 +10432,17 @@ class BlockParser
         foreach ($chunks as [$sourceLine, $column, $text]) {
             $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
             if ($lineStart !== null) {
-                $map->add($textOffset, $lineStart + $column, strlen($text), $sourceLine + 1, $column + 1);
-                $any = true;
+                // MEASURED ON THE COPY, PUBLISHED AGAINST THE SOURCE. The
+                // chunk's column already carries the container-prefix
+                // correction the split could not know about
+                // ({@see self::rowPrefixDelta()}); this verifies it landed, and
+                // a chunk the source does not hold is dropped rather than
+                // placed (carve-php#1450).
+                $column = $this->anchoredChunkColumn($lineStart, $column, $text);
+                if ($column !== null) {
+                    $map->add($textOffset, $lineStart + $column, strlen($text), $sourceLine + 1, $column + 1);
+                    $any = true;
+                }
             }
             $textOffset += strlen($text) + 1;
         }
@@ -10371,6 +10456,23 @@ class BlockParser
         // reassembly dropped honest fence extents (carve-php#1369).
         return $any
             ? $map->withSource($this->positionSource(), $this->positionIndex)->joinedFromChunks()
+            : null;
+    }
+
+    /**
+     * The chunk's column, kept only when the source there really holds its text.
+     *
+     * The column is already corrected for the container prefix
+     * {@see self::rowPrefixDelta()}; this is the check that the correction
+     * landed, and a mismatch publishes NO position rather than a searched-for
+     * guess (PART 12 §4).
+     *
+     * @see self::rebuiltCellSourceMap()
+     */
+    private function anchoredChunkColumn(int $lineStart, int $column, string $text): ?int
+    {
+        return $column >= 0 && substr($this->positionSource(), $lineStart + $column, strlen($text)) === $text
+            ? $column
             : null;
     }
 
