@@ -173,4 +173,15 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $this->assertStringContainsString('<th scope="col">^^ Note</th>', $html);
         $this->assertStringNotContainsString('vertical-align', $html);
     }
+
+    public function testAVerticalMarkerNeedsAHorizontalPartner(): void
+    {
+        $html = $this->html("|=^ Top |=v Bottom |=<^ Paired |=v> Reverse |=~> Middle |\n| a | b | c | d | e |\n");
+
+        $this->assertStringContainsString('<th scope="col">^ Top</th>', $html);
+        $this->assertStringContainsString('<th scope="col">v Bottom</th>', $html);
+        $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
+        $this->assertStringContainsString('text-align: right; vertical-align: bottom;', $html);
+        $this->assertStringContainsString('text-align: right; vertical-align: middle;', $html);
+    }
 }
