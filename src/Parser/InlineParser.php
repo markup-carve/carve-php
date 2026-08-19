@@ -4453,9 +4453,7 @@ class InlineParser
      * then HTML-escaped and emitted by every renderer with the `<code>` wrapper
      * dropped -- it is prose, not code. A trailing `{...}` is the ORDINARY
      * attribute block (as a code span carries), NOT the raw `{=format}` form.
-     * Requires a CLOSED span: a bare `!` before an unclosed run stays literal
-     * text and the run becomes an ordinary (unclosed) code span, exactly as a
-     * bare `$` before an unclosed run behaves.
+     * Like code and math, an unclosed span reaches the end of its block.
      *
      * @return array{node: \MarkupCarve\Carve\Node\Inline\LiteralInline, pos: int}|null
      */
@@ -4477,8 +4475,7 @@ class InlineParser
         $contentStart = $startPos + $backtickCount;
 
         // Find a closing run of EXACTLY $backtickCount backticks that is not
-        // part of a LONGER run (mirrors the code span / math). An unclosed run
-        // is NOT a literal -- return null so the `!` stays literal text.
+        // part of a LONGER run (mirrors the code span / math).
         $closingBackticks = str_repeat('`', $backtickCount);
         $searchPos = $contentStart;
         $closePos = false;
@@ -4502,20 +4499,17 @@ class InlineParser
             break;
         }
 
-        if ($closePos === false) {
-            return null;
-        }
-
-        $content = substr($text, $contentStart, $closePos - $contentStart);
-
-        $content = $this->stripVerbatimPadding($content);
+        $closed = $closePos !== false;
+        $content = $closed
+            ? $this->stripVerbatimPadding(substr($text, $contentStart, $closePos - $contentStart))
+            : substr($text, $contentStart);
 
         $node = new LiteralInline($content);
 
         // A trailing `{...}` is the ordinary attribute block, EXCEPT the raw
         // `{=format}` form, which is code-span-only and not inherited here:
         // leave it literal (mirrors math).
-        $endPos = $closePos + $backtickCount;
+        $endPos = $closed ? $closePos + $backtickCount : $length;
         $isRawAttempt = $endPos + 1 < $length && $text[$endPos] === '{' && $text[$endPos + 1] === '=';
         if (!$isRawAttempt && $endPos < $length && $text[$endPos] === '{') {
             $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);

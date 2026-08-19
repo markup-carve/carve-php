@@ -63,7 +63,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
             ],
             'inline literal' => [
                 "::: |\na !`b\nc d\n:::\n",
-                "<div class=\"line-block\">\n  <p>a !<code>b\nc d</code></p>\n</div>\n",
+                "<div class=\"line-block\">\n  <p>a b\nc d</p>\n</div>\n",
             ],
         ];
     }

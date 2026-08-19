@@ -133,12 +133,9 @@ class InlineLiteralTest extends TestCase
         $this->assertSame('<p>!<code>x</code></p>', $this->html('\\!`x`'));
     }
 
-    public function testBangBeforeUnclosedRunStaysLiteral(): void
+    public function testUnclosedLiteralReachesTheEndOfTheBlock(): void
     {
-        // Requires a CLOSED span; a bare `!` before an unclosed run stays
-        // literal and the run is an ordinary (unclosed) code span, mirroring
-        // `$` before an unclosed run.
-        $this->assertSame('<p>!<code>unclosed</code></p>', $this->html('!`unclosed'));
+        $this->assertSame('<p>unclosed</p>', $this->html('!`unclosed'));
     }
 
     public function testBareBraceBangBlockIsLiteralText(): void

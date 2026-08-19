@@ -58,7 +58,7 @@ class UnclosedRunInAHeaderLessRowTest extends TestCase
         return [
             'code span' => ['`', '<td>a <code>b | c d</code></td>'],
             'inline math' => ['$`', '<td>a <span class="math inline">\(b | c d\)</span></td>'],
-            'inline literal' => ['!`', '<td>a !<code>b | c d</code></td>'],
+            'inline literal' => ['!`', '<td>a b | c d</td>'],
         ];
     }
 

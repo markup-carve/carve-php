@@ -579,6 +579,15 @@ class ReferenceDefinitionExtractor
      */
     public function matchDefinitionLine(string $line): ?array
     {
+        // The production ends at its first newline. List lazy-continuation can
+        // store several physical source lines in one parser entry; letting the
+        // `/s` matcher cross that boundary turned `[d]: ` plus the next line
+        // into a definition whose destination came from that next line, and
+        // both lines then disappeared from the item.
+        if (str_contains($line, "\n") || str_contains($line, "\r")) {
+            return null;
+        }
+
         // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
         // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
         // is one-or-more characters, so an empty label never forms a footnote

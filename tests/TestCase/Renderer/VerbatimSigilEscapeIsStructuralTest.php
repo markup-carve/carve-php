@@ -55,8 +55,8 @@ class VerbatimSigilEscapeIsStructuralTest extends TestCase
 
         // The prose keeps the form it has when it stands alone.
         $this->assertStringContainsString(self::PROSE, $formatted);
-        // And the sigil still gets the one escape that IS structural.
-        $this->assertStringContainsString('\\!`l`', $formatted);
+        // The unclosed literal is written in its canonical closed form.
+        $this->assertStringContainsString('!`l`', $formatted);
     }
 
     public function testTheProseRoundTripsBareOnItsOwn(): void
