@@ -890,6 +890,29 @@ class CarveRenderer implements RendererInterface
                 }
 
                 $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));
+                // A definition authored on an item's marker line is collected
+                // into the document, leaving the item empty. Spell it back on
+                // that same marker line. Using `+` for the empty item would
+                // attach the following outer-item block to this inner item on
+                // the next parse (carve-php#1492).
+                if (
+                    $content === ''
+                    && $item->getChildren() === []
+                    // Nested depth ONLY. At the top level the canonical form is
+                    // `- +`, pinned by corpus fixtures 16-reference-link-4 and
+                    // 117-footnote-definition-inside-a-container-is-collected-2, and it
+                    // round-trips there because nothing follows at a shallower column.
+                    && $this->listDepth > 1
+                ) {
+                    $line = $item->getPos()?->startLine;
+                    $collected = $line === null ? null : ($this->definitionsByLine[$line] ?? null);
+                    if ($collected !== null && !isset($this->definitionsWrittenInPlace[spl_object_id($collected)])) {
+                        $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
+                        $content = $collected instanceof Footnote
+                            ? $this->renderFootnote($collected)
+                            : $this->renderLinkReferenceDefinition($collected);
+                    }
+                }
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
