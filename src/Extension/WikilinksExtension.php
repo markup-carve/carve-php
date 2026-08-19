@@ -119,7 +119,6 @@ class WikilinksExtension implements ExtensionInterface
 
                 return $link;
             },
-            requiredSubstring: '[[',
         );
     }
 

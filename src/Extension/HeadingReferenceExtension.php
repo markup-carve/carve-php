@@ -116,7 +116,6 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
 
                 return $link;
             },
-            requiredSubstring: '[[',
         );
 
         $converter->addOutputTransformer(function (string $html): string {
