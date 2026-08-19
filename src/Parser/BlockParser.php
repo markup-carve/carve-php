@@ -3128,6 +3128,31 @@ class BlockParser
                 continue;
             }
 
+            // Two unambiguous hot punctuation families. A pipe can only open
+            // a table among core blocks. A hyphen can open a thematic break or
+            // a list (the initial bare `---` frontmatter ambiguity already had
+            // its extension-first check above). Avoid probing every unrelated
+            // fence/container parser for every row and list item.
+            if ($fc === '|') {
+                $consumed = $this->tryParseTable($parent, $lines, $i)
+                    ?? $this->tryBlockMatchers($parent, $lines, $i)
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                $i += $consumed;
+
+                continue;
+            }
+            if ($fc === '-') {
+                $consumed = $this->tryParseThematicBreak($parent, $line, $i)
+                    ?? $this->tryParseList($parent, $lines, $i)
+                    ?? $this->tryBlockMatchers($parent, $lines, $i)
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                $i += $consumed;
+
+                continue;
+            }
+
             // Try to match block elements in order of precedence
             // Fenced comment must come before thematic break (%%% vs ---)
             // Comment and raw block must come before code block since ``` =format is a special case
