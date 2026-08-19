@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use Closure;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
@@ -27,8 +28,10 @@ class ReferenceDefinitionExtractor
      * a second copy of the predicate would drift from the one every other
      * attribute site uses.
      */
-    public function __construct(private ?InlineParser $inlineParser = null)
-    {
+    public function __construct(
+        private ?InlineParser $inlineParser = null,
+        private ?Closure $opensBlock = null,
+    ) {
     }
 
     /**
@@ -277,6 +280,14 @@ class ReferenceDefinitionExtractor
             $definition = $notAtBodyColumn
                 ? null
                 : $this->parseReferenceDefinition($bare, $pendingAttrs, $pendingAttrsInQuote, $pendingAttrsInList, $referenceLine);
+            if (
+                $definition !== null
+                && $referenceLine['inList']
+                && $this->opensBlock !== null
+                && !($this->opensBlock)($lines, $i, $bare)
+            ) {
+                $definition = null;
+            }
             if ($definition !== null) {
                 $references[$definition['label']] = new ReferenceDefinition(
                     $definition['url'],
