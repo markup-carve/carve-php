@@ -46,6 +46,14 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-marker-line-link-definition-is-collected-where-no-paragraph-is-open',
+        'a-lazy-marker-line-s-definition-defines-nothing-in-any-container',
+        'a-reference-definition-cannot-take-its-destination-from-the-next-line',
+        'a-resumed-lazy-run-belongs-to-the-innermost-marker-line-item',
+        'a-terminal-comment-in-a-quote-leaves-no-paragraph-open',
+        'a-terminal-comment-line-still-leaves-an-empty-verse-line',
+        'an-unclosed-inline-literal-reaches-the-end-of-its-block',
+        'pipe-tables-can-state-head-and-foot-row-counts',
         // carve#1384. All four quote-reachability documents already render
         // byte-identically here; listing the category makes the final spec pin
         // assert that behavior instead of treating a new category as unknown.
