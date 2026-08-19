@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -345,6 +346,16 @@ class BlockParser
     protected ReferenceDefinitionExtractor $referenceDefinitionExtractor;
 
     /**
+     * Remaining source bytes available to the parser-backed definition probe.
+     */
+    private int $definitionProbeBudget = 0;
+
+    /**
+     * A probe's scratch parser fails open instead of recursively probing.
+     */
+    private bool $probingDefinitionMarker = false;
+
+    /**
      * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
     protected array $references = [];
@@ -676,7 +687,14 @@ class BlockParser
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
         $this->fencedBlockParser = new FencedBlockParser();
-        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor($this->inlineParser);
+        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor(
+            $this->inlineParser,
+            fn (array $lines, int $index, string $bare): bool => $this->definitionMarkerOpensBlock(
+                $lines,
+                $index,
+                $bare,
+            ),
+        );
     }
 
     public function enablePositionTracking(): self
@@ -953,6 +971,11 @@ class BlockParser
             $input = str_replace("\0", "\u{FFFD}", $input);
         }
         $lines = $this->splitLines($input);
+
+        // Each physical byte may be inspected a small constant number of times
+        // by the parser-backed marker probe below. Exhaustion deliberately
+        // collects: metadata disappearing is the unsafe failure mode.
+        $this->definitionProbeBudget = max(1024, $sourceLength * 8);
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
         $this->extractReferences($lines);
@@ -1251,6 +1274,87 @@ class BlockParser
     }
 
     /**
+     * Ask the block reader whether a definition-shaped marker line starts a
+     * block or merely folds into the paragraph already at that container.
+     *
+     * The candidate's definition payload is replaced with ordinary prose so
+     * the metadata prepasses cannot answer the question for the block reader.
+     * Comparing child counts down the trailing block chain then has the exact
+     * grammar meaning we need: a lazy line adds no node at any level, while a
+     * list, quote, div or extension block changes a count. Work is bounded by a
+     * source-sized budget; exhaustion fails open and collects the definition.
+     *
+     * @param array<string> $lines
+     * @param int $index Candidate line index.
+     * @param string $bare Candidate line with its container markers removed.
+     */
+    private function definitionMarkerOpensBlock(array $lines, int $index, string $bare): bool
+    {
+        if ($this->probingDefinitionMarker) {
+            return true;
+        }
+
+        $start = $index;
+        while ($start > 0 && !IndentationHelper::isBlankLine($lines[$start - 1])) {
+            $start--;
+        }
+
+        $before = array_slice($lines, $start, $index - $start);
+        $candidate = $lines[$index];
+        $at = strrpos($candidate, $bare);
+        if ($at === false) {
+            return true;
+        }
+        $prefix = substr($candidate, 0, $at);
+        if (
+            preg_match(
+                '/(?:^|>[ \t]*)[ \t]*(?:[-*]|\.|[0-9]+[.)]|[ivxlcdm]+[.)]|[a-z][.)])[ \t]+/i',
+                $prefix,
+            ) !== 1
+        ) {
+            return true;
+        }
+        $candidate = substr($candidate, 0, $at) . 'probe';
+        $cost = strlen(implode("\n", $before)) * 2 + strlen($candidate);
+        if ($cost > $this->definitionProbeBudget) {
+            return true;
+        }
+        $this->definitionProbeBudget -= $cost;
+
+        return $this->definitionProbeChain($before)
+        !== $this->definitionProbeChain([...$before, $candidate]);
+    }
+
+    /**
+     * @param array<string> $lines
+     *
+     * @return list<int>
+     */
+    private function definitionProbeChain(array $lines): array
+    {
+        $probe = new self();
+        $probe->probingDefinitionMarker = true;
+        $probe->customBlockPatterns = $this->customBlockPatterns;
+        $probe->blockMatchers = $this->blockMatchers;
+        $node = $probe->parse(implode("\n", $lines));
+        $chain = [];
+
+        while (true) {
+            $blocks = array_values(array_filter(
+                $node->getChildren(),
+                static fn (Node $child): bool => $child instanceof BlockNode,
+            ));
+            $chain[] = count($blocks);
+            if ($blocks === []) {
+                break;
+            }
+            $node = $blocks[array_key_last($blocks)];
+        }
+
+        return $chain;
+    }
+
+    /**
      * Extract footnote definitions from the document
      *
      * @param array<string> $lines
@@ -1523,12 +1627,11 @@ class BlockParser
                     // FIRST definition of a label wins, so a container def never
                     // overwrites an earlier (top-level or container) def.
                     //
-                    // The def must OPEN a block: collect only when the previous
-                    // line is blank, the document start, or itself a container
-                    // line (so a structurally-nested `> ...` / `- ...` chain is
-                    // still seen). An indented `- [^a]:` that merely lazily
-                    // continues a preceding paragraph is NOT a definition -- the
-                    // real parser leaves it in that paragraph (matches carve-js).
+                    // The def must OPEN a block. When it is written behind a
+                    // list marker, the parser-backed probe above distinguishes
+                    // a real item from a marker lazily folded into an open
+                    // paragraph. Other container forms keep their established
+                    // collecting behavior.
                     // A line that REACHED the item's content column opens a
                     // block there by geometry (§24 C3), so it needs no opener
                     // test: carve-js collects it under an item paragraph, under
@@ -1549,13 +1652,7 @@ class BlockParser
                     // markup-carve/carve#801). The prefix holds only stripped
                     // container markers, so a `:` followed by whitespace in it
                     // is the description marker and nothing else.
-                    $opensBlock = $container['kind'] === 'columnContainer'
-                        || str_contains($container['prefix'], '>')
-                        || preg_match('/:[ \t]/', $container['prefix']) === 1
-                        || $i === 0
-                        || IndentationHelper::isBlankLine($lines[$i - 1])
-                        || $this->footnoteContainerPrefix($lines[$i - 1])['kind'] !== 'none'
-                        || $this->blockQuoteLineContent(ltrim($lines[$i - 1], " \t")) !== null;
+                    $opensBlock = $this->definitionMarkerOpensBlock($lines, $i, $bare);
                     if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$label])) {
                         $footnote = new Footnote($label);
                         if ($this->trackSourceLines) {
