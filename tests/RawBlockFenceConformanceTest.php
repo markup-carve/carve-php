@@ -25,7 +25,8 @@ class RawBlockFenceConformanceTest extends TestCase
             'no trailing blank payload line' => ["```=html\nb\n```\n", 'b'],
             'one trailing blank payload line' => ["```=html\nb\n\n```\n", "b\n"],
             'two trailing blank payload lines' => ["```=html\nb\n\n\n```\n", "b\n\n"],
-            'an all-blank payload still has its line' => ["```=html\n\n```\n", ''],
+            'an all-blank payload still has its line' => ["```=html\n\n```\n", "\n"],
+            'two all-blank payload lines still have both lines' => ["```=html\n\n\n```\n", "\n\n"],
         ];
     }
 

@@ -3881,7 +3881,7 @@ class BlockParser
         // fence. Remove exactly that one, not the whole trailing run: any
         // earlier newline represents an authored blank payload line and is
         // part of raw_block.content (carve#1414, corpus 366).
-        if (str_ends_with($content, "\n")) {
+        if (str_ends_with($content, "\n") && trim($content, "\n") !== '') {
             $content = substr($content, 0, -1);
         }
 

@@ -31,6 +31,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An all-blank raw payload remains distinct from an absent payload.** One
+  blank line between raw fences produces one newline, matching the general
+  payload-preservation rule (markup-carve/carve#1414, corpus 372).
 - **Raw blocks preserve authored leading and trailing blank payload lines**, and
   unterminated fence-shaped text inside an open list/definition paragraph keeps
   that paragraph open. PHP now agrees with the other engines on corpus groups
