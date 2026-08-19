@@ -1741,7 +1741,10 @@ class CarveRenderer implements RendererInterface
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
 
-        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
+        $body = $this->protectVerbatim($content);
+
+        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n"
+            . $body . ($content !== '' && trim($content, "\n") === '' ? '' : "\n") . $fence;
     }
 
     protected function renderComment(Comment $node): string

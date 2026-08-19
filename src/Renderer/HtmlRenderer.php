@@ -3037,11 +3037,14 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->guardInteriorNewlines($this->escape($content)) . "\n";
+                $escaped = $this->guardInteriorNewlines($this->escape($content));
+
+                return $escaped . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
             }
         }
 
-        return $this->guardInteriorNewlines($content) . "\n";
+        return $this->guardInteriorNewlines($content)
+            . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
     }
 
     /**
