@@ -146,7 +146,7 @@ class InlineParser
      * first bytes for a raw-closure matcher (addInlineMatcher) that has no
      * pattern but still only fires on known characters.
      *
-     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, triggerChars: string|null}>
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, triggerChars: string|null, requiredSubstring: string|null}>
      */
     protected array $inlineMatchers = [];
 
@@ -164,7 +164,7 @@ class InlineParser
      * trigger set does not contain the current char without running its
      * (always-failing) preg_match -- the dominant cost on plain prose.
      *
-     * @var array<array{matcher: \Closure, first: array<string, true>|null}>|null
+     * @var array<array{matcher: \Closure, first: array<string, true>|null, requiredSubstring: string|null}>|null
      */
     protected ?array $compiledInlineMatchers = null;
 
@@ -186,6 +186,8 @@ class InlineParser
     protected ?array $inlineSignificantBytes = null;
 
     protected bool $inlineSignificantComputed = false;
+
+    protected bool $hasConditionalInlineMatchers = false;
 
     /**
      * Memo for parseLink: the text last scanned for link triggers, and whether
@@ -359,8 +361,9 @@ class InlineParser
      *
      * @param string $pattern Regex pattern (without anchors)
      * @param callable(string, array<string>, self): ?\MarkupCarve\Carve\Node\Node $callback
+     * @param string|null $requiredSubstring Literal that must occur in the inline input for this pattern to match
      */
-    public function addInlinePattern(string $pattern, callable $callback): void
+    public function addInlinePattern(string $pattern, callable $callback, ?string $requiredSubstring = null): void
     {
         $this->removeInlinePattern($pattern);
         $this->customPatterns[$pattern] = $callback;
@@ -382,6 +385,7 @@ class InlineParser
                 return ['node' => $node, 'end' => $pos + strlen($matches[0])];
             },
             pattern: $pattern,
+            requiredSubstring: $requiredSubstring,
         );
     }
 
@@ -395,6 +399,10 @@ class InlineParser
             $this->inlineMatchers,
             static fn (array $entry): bool => $entry['pattern'] !== $pattern,
         ));
+        $this->hasConditionalInlineMatchers = array_filter(
+            $this->inlineMatchers,
+            static fn (array $entry): bool => $entry['requiredSubstring'] !== null,
+        ) !== [];
         $this->sortedInlineMatchers = null;
         $this->compiledInlineMatchers = null;
         $this->inlineSignificantComputed = false;
@@ -433,12 +441,14 @@ class InlineParser
      * @param int $priority
      * @param string|null $pattern
      * @param string|null $triggerChars
+     * @param string|null $requiredSubstring
      */
     protected function registerInlineMatcher(
         Closure $matcher,
         int $priority = 0,
         ?string $pattern = null,
         ?string $triggerChars = null,
+        ?string $requiredSubstring = null,
     ): void {
         $this->inlineMatchers[] = [
             'matcher' => $matcher,
@@ -446,7 +456,9 @@ class InlineParser
             'seq' => $this->inlineMatcherSeq++,
             'pattern' => $pattern,
             'triggerChars' => $triggerChars,
+            'requiredSubstring' => $requiredSubstring,
         ];
+        $this->hasConditionalInlineMatchers = $this->hasConditionalInlineMatchers || $requiredSubstring !== null;
         $this->sortedInlineMatchers = null;
         $this->compiledInlineMatchers = null;
         $this->inlineSignificantComputed = false;
@@ -804,7 +816,7 @@ class InlineParser
 
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
-        $sig = $this->significantInlineBytes();
+        $sig = $this->significantInlineBytes($this->hasConditionalInlineMatchers ? $text : null);
         // In a caption, `#` is the number-placeholder opener (^ Figure #: …) and
         // must be scanned even when no mentions/tags matcher made it significant.
         if ($sig !== null && $this->captionContextEnabled) {
@@ -1552,6 +1564,9 @@ class InlineParser
         $char = $text[$pos];
         $ctx = $this->inlineMatcherContext ??= new MatcherContext($this->blockParser, $this);
         foreach ($this->compiledInlineMatchers() as $entry) {
+            if ($entry['requiredSubstring'] !== null && !str_contains($text, $entry['requiredSubstring'])) {
+                continue;
+            }
             // Skip a matcher whose trigger set does not contain the current
             // byte: its anchored preg_match would fail here anyway. A null set
             // means "runs everywhere".
@@ -1571,7 +1586,7 @@ class InlineParser
      * Build (once) the priority-ordered matcher list paired with each pattern's
      * required first literal byte, for first-char gating in tryInlineMatchers().
      *
-     * @return array<array{matcher: \Closure, first: array<string, true>|null}>
+     * @return array<array{matcher: \Closure, first: array<string, true>|null, requiredSubstring: string|null}>
      */
     protected function compiledInlineMatchers(): array
     {
@@ -1588,6 +1603,7 @@ class InlineParser
             fn (array $entry): array => [
                 'matcher' => $entry['matcher'],
                 'first' => $this->matcherFirstBytes($entry['pattern'], $entry['triggerChars']),
+                'requiredSubstring' => $entry['requiredSubstring'],
             ],
             $entries,
         );
@@ -2029,12 +2045,14 @@ class InlineParser
      *
      * @return array<string, true>|null
      */
-    protected function significantInlineBytes(): ?array
+    protected function significantInlineBytes(?string $text = null): ?array
     {
-        if ($this->inlineSignificantComputed) {
+        if ($text === null && $this->inlineSignificantComputed) {
             return $this->inlineSignificantBytes;
         }
-        $this->inlineSignificantComputed = true;
+        if ($text === null) {
+            $this->inlineSignificantComputed = true;
+        }
 
         $sig = [];
         // Char handlers in parseInlines + parseSmartSymbol/parseSmartDash heads.
@@ -2049,17 +2067,28 @@ class InlineParser
         }
 
         foreach ($this->compiledInlineMatchers() as $entry) {
+            if ($text !== null && $entry['requiredSubstring'] !== null && !str_contains($text, $entry['requiredSubstring'])) {
+                continue;
+            }
             if ($entry['first'] === null) {
                 // A matcher with no determinable trigger set runs at every
                 // position, so the document-wide fast-skip cannot apply.
-                return $this->inlineSignificantBytes = null;
+                if ($text === null) {
+                    $this->inlineSignificantBytes = null;
+                }
+
+                return null;
             }
             foreach (array_keys($entry['first']) as $b) {
                 $sig[$b] = true;
             }
         }
 
-        return $this->inlineSignificantBytes = $sig;
+        if ($text === null) {
+            $this->inlineSignificantBytes = $sig;
+        }
+
+        return $sig;
     }
 
     /**
