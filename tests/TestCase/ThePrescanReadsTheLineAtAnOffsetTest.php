@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -66,11 +66,20 @@ class ThePrescanReadsTheLineAtAnOffsetTest extends TestCase
     public function testTheWalkCopiesAtMostTheLineItself(int $pairs): void
     {
         $source = str_repeat('> - ', $pairs) . "x\n";
+        $parser = new class extends BlockParser {
+            /** @param array<string> $lines */
+            public function scan(array $lines): void
+            {
+                $this->extractHeadingReferences($lines);
+            }
+        };
 
         LayoutWork::reset();
         LayoutWork::$on = true;
         try {
-            (new CarveConverter())->parse($source);
+            // Exercise the prescan directly. The default parse now skips it
+            // when no warning-producing anchor can consume its index.
+            $parser->scan(explode("\n", $source));
         } finally {
             LayoutWork::$on = false;
         }

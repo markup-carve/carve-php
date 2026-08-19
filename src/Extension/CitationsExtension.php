@@ -199,13 +199,18 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
     public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
-        $renderDocument = clone $document;
         $this->numbers = [];
         $this->order = [];
         $this->uses = [];
         $this->citeIds = [];
         $this->refIds = [];
         $this->idsReserved = false;
+
+        if (!$this->hasCitationGroup($document)) {
+            return $document;
+        }
+
+        $renderDocument = clone $document;
 
         $this->walkCitationGroups($renderDocument, function (CitationGroup $group): void {
             $items = $group->getItems();
@@ -249,6 +254,23 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         }
 
         return $renderDocument;
+    }
+
+    protected function hasCitationGroup(Node $node): bool
+    {
+        if ($node instanceof CitationGroup) {
+            return true;
+        }
+        if ($node instanceof CitationDefinition) {
+            return false;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($this->hasCitationGroup($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

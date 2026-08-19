@@ -650,6 +650,22 @@ class CustomPatternsTest extends TestCase
         $this->assertStringContainsString('TODOLIST', $result);
     }
 
+    public function testInlinePatternRequiredSubstringHintPreservesMatches(): void
+    {
+        $parser = $this->converter->getParser()->getInlineParser();
+        $parser->addInlinePattern(
+            '/[a-z]+@[a-z]+\.[a-z]+/',
+            static function (string $match): Text {
+                return new Text('matched:' . $match);
+            },
+            requiredSubstring: '@',
+        );
+
+        $result = $this->converter->convert('Plain prose and user@example.test.');
+
+        $this->assertStringContainsString('Plain prose and matched:user@example.test.', $result);
+    }
+
     public function testInlinePatternPreservesEscapes(): void
     {
         $parser = $this->converter->getParser()->getInlineParser();

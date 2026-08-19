@@ -149,12 +149,22 @@ class TableParser
      */
     public function isSeparatorRow(string $line): bool
     {
+        return $this->analyzeSeparatorRow($line) !== null;
+    }
+
+    /**
+     * Validate and decode a header separator in one cell split.
+     *
+     * @return array{alignments: list<string>, widths: list<int>}|null
+     */
+    public function analyzeSeparatorRow(string $line): ?array
+    {
         // Trailing whitespace after the closing pipe is insignificant.
         $line = rtrim($line, " \t");
 
         $len = strlen($line);
         if ($len < 2 || $line[0] !== '|' || $line[$len - 1] !== '|') {
-            return false;
+            return null;
         }
 
         // Every cell must be a delimiter cell: optional whitespace, an optional
@@ -163,15 +173,28 @@ class TableParser
         // the row -- it is then an ordinary data row (matches carve-js/carve-rs).
         $cells = $this->parseTableCells($line);
         if ($cells === []) {
-            return false;
+            return null;
         }
+        $alignments = [];
+        $widths = [];
         foreach ($cells as $cell) {
             if (preg_match('/^ *:?-+:? *$/', $cell) !== 1) {
-                return false;
+                return null;
             }
+            $trimmed = trim($cell, ' ');
+            if (str_starts_with($trimmed, ':') && str_ends_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_CENTER;
+            } elseif (str_ends_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_RIGHT;
+            } elseif (str_starts_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_LEFT;
+            } else {
+                $alignments[] = TableCell::ALIGN_DEFAULT;
+            }
+            $widths[] = substr_count($cell, '-');
         }
 
-        return true;
+        return ['alignments' => $alignments, 'widths' => $widths];
     }
 
     /**

@@ -364,8 +364,8 @@ class PlainTextRenderer implements RendererInterface
 
         $this->renderDepth++;
         try {
-            if ($this->hasAnyListeners()) {
-                $eventName = 'render.' . $node->getType();
+            $eventName = 'render.' . $node->getType();
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
                 $this->dispatchEvent($eventName, $event);
                 $this->dispatchEvent('render.*', $event);
