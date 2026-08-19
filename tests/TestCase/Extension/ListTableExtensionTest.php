@@ -12,6 +12,22 @@ use ReflectionMethod;
 
 class ListTableExtensionTest extends TestCase
 {
+    public function testCellAlignmentOverridesColumnDefaults(): void
+    {
+        $html = $this->render(implode("\n", [
+            '{aligns="left,right" valigns="top,bottom"}',
+            '::: list-table',
+            '- -{align=center valign=middle} A',
+            '  - B',
+            ':::',
+        ]));
+
+        $this->assertStringContainsString('<td style="text-align: center; vertical-align: middle;">A</td>', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">B</td>', $html);
+        $this->assertStringNotContainsString(' align=', $html);
+        $this->assertStringNotContainsString(' valign=', $html);
+    }
+
     /**
      * Convert with the list-table extension registered, trimmed for exact compare.
      */

@@ -201,6 +201,11 @@ class ListTableExtension implements ExtensionInterface
                 }
             }
             $totalCells += count($cells);
+            foreach ($cells as $cell) {
+                if (!$this->validCellAlignment($cell)) {
+                    return null;
+                }
+            }
         }
 
         // DoS guard: span resolution rescans prior rows (~O(rows^2)). Cap the
@@ -320,7 +325,7 @@ class ListTableExtension implements ExtensionInterface
                 if ($entry['colspan'] > 1) {
                     $attrHtml .= ' colspan="' . $entry['colspan'] . '"';
                 }
-                $attrHtml .= $this->columnStyle($columns[$col] ?? []);
+                $attrHtml .= $this->cellStyle($entry['cell'], $columns[$col] ?? []);
                 // Carry the cell's own list-item attributes (e.g. `{.x}`) onto
                 // the <td>/<th> so authored cell styling is not dropped. The
                 // structural span attributes above always win on conflict.
@@ -727,7 +732,7 @@ class ListTableExtension implements ExtensionInterface
         // a duplicate, ambiguous attribute alongside the computed one.
         foreach (array_keys($attrs) as $key) {
             $lower = strtolower((string)$key);
-            if ($lower === 'rowspan' || $lower === 'colspan' || $lower === 'header' || $lower === 'header-row') {
+            if ($lower === 'rowspan' || $lower === 'colspan' || $lower === 'header' || $lower === 'header-row' || $lower === 'align' || $lower === 'valign') {
                 unset($attrs[$key]);
             }
         }
@@ -811,6 +816,33 @@ class ListTableExtension implements ExtensionInterface
         }
 
         return $style === '' ? '' : ' style="' . $style . '"';
+    }
+
+    private function validCellAlignment(ListItem $cell): bool
+    {
+        $align = $cell->getAttribute('align');
+        $valign = $cell->getAttribute('valign');
+
+        return ($align === null || in_array($align, ['left', 'right', 'center'], true))
+            && ($valign === null || in_array($valign, ['top', 'middle', 'bottom'], true));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
+@param array{align?: string, valign?: string, width?: float} $column
+     */
+    private function cellStyle(ListItem $cell, array $column): string
+    {
+        $align = $cell->getAttribute('align');
+        $valign = $cell->getAttribute('valign');
+        if (is_string($align)) {
+            $column['align'] = $align;
+        }
+        if (is_string($valign)) {
+            $column['valign'] = $valign;
+        }
+
+        return $this->columnStyle($column);
     }
 
     /**
