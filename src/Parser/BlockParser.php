@@ -8946,8 +8946,10 @@ class BlockParser
             // so avoid splitting and validating all their cells merely to ask
             // whether the row is the one GFM delimiter line. Reuse the answer
             // below instead of parsing the same row twice.
-            $separatorShaped = str_contains($lineWithoutRowAttrs, '-')
-                && $this->tableParser->isSeparatorRow($lineWithoutRowAttrs);
+            $separator = str_contains($lineWithoutRowAttrs, '-')
+                ? $this->tableParser->analyzeSeparatorRow($lineWithoutRowAttrs)
+                : null;
+            $separatorShaped = $separator !== null;
 
             // A GFM header separator is recognized ONLY as the table's second row
             // (exactly one row precedes it and no separator was seen yet): it makes
@@ -8960,11 +8962,11 @@ class BlockParser
                 && !$headerFound
                 && !$lastRowSeparatorShaped
             ) {
-                $alignments = $this->tableParser->parseTableAlignments($lineWithoutRowAttrs);
+                $alignments = $separator['alignments'];
                 $headerFound = true;
 
                 // Store separator widths for round-trip preservation
-                $separatorWidths = $this->tableParser->parseSeparatorWidths($lineWithoutRowAttrs);
+                $separatorWidths = $separator['widths'];
                 $table->setSeparatorWidths($separatorWidths);
 
                 // Mark previous row as header and apply alignments to it

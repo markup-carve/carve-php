@@ -42,6 +42,11 @@ class CitationsExtensionTest extends TestCase
         $this->assertNull($this->firstCitationGroup('[just text]'));
     }
 
+    public function testRenderWithoutCitationGroupsLeavesPlainDocumentUntouched(): void
+    {
+        $this->assertSame('<p>Plain document.</p>', $this->html('Plain document.'));
+    }
+
     public function testRecognizesCitationAfterUnmatchedOpeningBracket(): void
     {
         // An earlier unmatched `[` must not suppress a later balanced citation
