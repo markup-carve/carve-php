@@ -250,6 +250,7 @@ class ReferenceDefinitionExtractor
             }
 
             $previousIndex = $i - 1;
+            $unquoted = ContainerPrefix::stripQuoteMarkers($line);
             if (preg_match('/^[ \t]*:  /', $unquoted) === 1) {
                 while ($previousIndex >= 0 && IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$previousIndex]))) {
                     $previousIndex--;
